@@ -1,6 +1,8 @@
 """ Module contains functions for computations relating to half spaces.
 """
 import numpy as np
+from scipy import optimize
+from scipy.spatial import HalfspaceIntersection
 
 
 def point_inside_half_space_intersection(
@@ -123,3 +125,51 @@ def half_space_interior_point(
         return np.array(res.x[:3]) / res.x[3]
     else:
         raise ValueError("Half space intersection empty")
+
+
+def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Find the vertexes of a convex domain specified as an intersection of half spaces.
+
+    The function assumes the domain is defined by inequalities on the form
+
+        A * x + b <= 0
+
+    For more information, see scipy.spatial functions HalfspaceIntersection.
+
+    The function has been tested for 2d and 3d domains.
+
+    Error messages from HalfspaceIntersection are quite possibly from from qhull.
+    These will often reflect errors in the way the matrix A and b are set up
+    (e.g. sign errors that imply that the inequalities do not form a closed domain).
+
+    Parameters
+    ----------
+    A : np.ndarray, size num_planes x num_dim
+        Matrix of normal vectors (in rows) for the half planes. Should be oriented
+        so that A * x + b < 0
+    b : np.ndarray, size num_planes
+        Constants used to define inequalities of the half spaces. Should be scaled
+        so that A * x + b < 0.
+
+    """
+    b = b.reshape((-1, 1))
+
+    # First, find an interior point of the half space. For this we could have used
+    # the function half_space_interior_point, but that function is heavily geared
+    # towards 3d domains, so we prefer the simpler option below.
+
+    # Find the point that minimizes the distance from all half planes; this should
+    # be a point in the middle (somehow defined) of the domain.
+    fun = lambda x: np.linalg.norm(A.dot(x.reshape((-1, 1))) + b)
+    # Use scipy optimization to find an interior point to the half space.
+    interior_point = optimize.minimize(fun, np.zeros(A.shape[1])).x
+
+    # Set up constraints on the format that scipy.spatial HalfspaceIntersection
+    # expects
+    constraints = np.hstack((A, b))
+
+    # Get hold of domain (this will call qhull)
+    domain = HalfspaceIntersection(constraints, interior_point)
+
+    # Return intersections in the expected format (thus the transpose)
+    return domain.intersections.T

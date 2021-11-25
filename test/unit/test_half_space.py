@@ -1,8 +1,10 @@
 """Tests of functions in pp.geometry.half_space.
 """
+import pytest
 import numpy as np
 
 from porepy.geometry import half_space
+from test import test_utils
 
 
 def test_one_half_space():
@@ -280,3 +282,41 @@ def test_half_space_interior_point_test1():
 
     pt_known = np.array([0.9411337621203867, 0.3417142038105351, 0])
     assert np.allclose(pt, pt_known)
+
+
+@pytest.mark.parametrize(
+    "normals,x,known_vertexes",
+    [
+        (
+            # Unit triangle
+            np.array([[-1, 0, 1], [0, -1, 1]]).T,
+            np.array([0, 0, -1]),
+            np.array([[0, 1, 0], [0, 0, 1]]),
+        ),
+        (
+            # Truncated unit triangle
+            np.array([[-1, 0, 1, 0], [0, -1, 1, 1]]).T,
+            np.array([0, 0, -1, -0.5]),
+            np.array([[0, 1, 0, 0.5], [0, 0, 0.5, 0.5]]),
+        ),
+        (
+            # Unit tetrahedral
+            np.array([[-1, 0, 0, 1], [0, -1, 0, 1], [0, 0, -1, 1]]).T,
+            np.array([0, 0, 0, -1]),
+            np.array([[0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]),
+        ),
+        (
+            # Truncated unit tetrahedral
+            np.array([[-1, 0, 0, 1, 0], [0, -1, 0, 1, 0], [0, 0, -1, 1, 1]]).T,
+            np.array([0, 0, 0, -1, -0.5]),
+            np.array(
+                [[0, 1, 0, 0.5, 0, 0], [0, 0, 1, 0, 0.5, 0], [0, 0, 0, 0.5, 0.5, 0.5]]
+            ),
+        ),
+    ],
+)
+def test_vertexes_convex_domain(normals, x, known_vertexes):
+    # Test of function to get vertexes of convex polygons.
+    # Test cases (parametrized) cover 2d and 3d domains.
+    vertexes = half_space.vertexes_of_convex_domain(normals, x)
+    assert test_utils.compare_arrays(vertexes, known_vertexes)
