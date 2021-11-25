@@ -63,7 +63,7 @@ def half_space_interior_point(
     Find an interior point for the halfspaces.
 
     We use linear programming to find one interior point for the half spaces.
-    Assume, n halfspaces defined by
+    Assume, num_planes halfspaces defined by
 
         aj*x1+bj*x2+cj*x3+dj<=0, j=1..num_planes.
 
@@ -77,6 +77,7 @@ def half_space_interior_point(
 
     and
          (-x5/x4)<0,
+
     and conclude that the point [x1/x4,x2/x4,x3/x4] is in the interior of all
     the halfspaces. Since x5 is optimal, this point is "way in" the interior
     (good for precision errors).
@@ -92,7 +93,8 @@ def half_space_interior_point(
         Point on the boundary of the half-spaces. Half space i is given
         by all points satisfying (x - x0[:, i]) * n[:, i] <= 0
     pts : np.ndarray, size 3 x num_points
-        Points which defines a bounds for the algorithm.
+        Points used to bound the search space for interior point. The optimum
+        solution will be sought within (pts.min(axis=1), pts.max(axis=1)).
     recompute: bool
         If the algorithm fails try again with flipped normals.
 
