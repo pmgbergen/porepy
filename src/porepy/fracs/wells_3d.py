@@ -504,8 +504,10 @@ def compute_well_rock_matrix_intersections(
         for seg_id, (seg_start, seg_end) in enumerate(zip(start.T, end.T)):
             # Create the box for the segment by ordering its start and end
             box = np.sort(np.vstack((seg_start, seg_end)), axis=0).ravel()
-            seg_cells = tree.search(pp.adtree.ADTNode("dummy_node", box))
-
+            # extract the id of the ad nodes
+            seg_adnodes = tree.search(pp.adtree.ADTNode("dummy_node", box))
+            # extract the key of the ad nodes which is the cell id
+            seg_cells = [tree.nodes[n].key for n in seg_adnodes]
             # Loop on all the higher dimensional cells
             for c in seg_cells:
                 # For the current cell retrieve its faces
