@@ -138,7 +138,7 @@ def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
 
     The function has been tested for 2d and 3d domains.
 
-    Error messages from HalfspaceIntersection are quite possibly from from qhull.
+    Error messages from HalfspaceIntersection are quite possibly from qhull.
     These will often reflect errors in the way the matrix A and b are set up
     (e.g. sign errors that imply that the inequalities do not form a closed domain).
 

@@ -58,7 +58,7 @@ def test_half_space_interior_point_star_shaped_2d():
     pts = np.array([[0, 1], [0, 2.0 / 3.0], [0, 0]])
     pt = half_space.half_space_interior_point(n, x0, pts).reshape((-1, 1))
 
-    # Verify that the computed point is on the same side of the all normal
+    # Verify that the computed point is on the same side of all the normal
     # vectors as a point known to be in the interior.
     known_pt = np.array([5.0 / 6.0, 1.0 / 2.0, 0.0]).reshape((-1, 1))
     assert np.all(
@@ -74,7 +74,7 @@ def test_half_space_interior_point_convex_3d():
     pts = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     pt = half_space.half_space_interior_point(n, x0, pts).reshape((-1, 1))
 
-    # Verify that the computed point is on the same side of the all normal
+    # Verify that the computed point is on the same side of all the normal
     # vectors as a point known to be in the interior.
     known_pt = np.array([1.0 / 2.0, 1.0 / 2.0, 1.0 / 2.0]).reshape((-1, 1))
     assert np.all(

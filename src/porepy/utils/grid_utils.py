@@ -257,18 +257,19 @@ def switch_sign_if_inwards_normal(
 def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
     """
     For a given grid compute the star shape center for each cell.
-    The algorithm computes the half space intersections, by using the above method
+    The algorithm computes the half space intersections of the spaces defined
+    by the cell faces and the face normals by using the method half_space_interior_point.
     half_space_pt,
     of the spaces defined by the cell faces and the face normals.
-    This is a wrapper method that operate on a grid.
+    This is a wrapper method that operates on a grid.
 
     Parameters
     ----------
     g: pp.Grid
         the grid
     as_nan: bool, optional
-        Decide whether, in case some cells are not star-shaped return nan as
-        new center. Otherwise an exception is raised (default behaviour).
+        Decide whether to return nan as the new center for cells which are not
+         star-shaped. Otherwise an exception is raised (default behaviour).
 
     Returns
     -------
@@ -285,7 +286,7 @@ def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
     faces, _, sgn = sps.find(g.cell_faces)
     nodes, _, _ = sps.find(g.face_nodes)
 
-    # shift the nodes close to the origin, to avoid numerical problems when coordinates are
+    # Shift the nodes close to the origin to avoid numerical problems when coordinates are
     # too big
     xn = g.nodes.copy()
     xn_shift = np.average(xn, axis=1)
