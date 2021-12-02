@@ -22,7 +22,7 @@ def fetch_polyhedron_file():
                   """
         )
     finally:
-        # Fetches local porepy installation directory (platform-independet via subprocess)
+        # Fetches local porepy installation directory (platform-independent via subprocess)
         command = "pip show porepy"
         raw_ouput = subprocess.getoutput(command)
         # Drops 'Location: '
@@ -33,7 +33,7 @@ def fetch_polyhedron_file():
         site_packages_directory = raw_ouput[begin:end]
         print("Writing robust_point_in_polyhedron.py in :", site_packages_directory)
 
-        # Saves file data to local copy (platform-independet via pathlib)
+        # Saves file data to local copy (platform-independent via pathlib)
         with open(
             Path(site_packages_directory) / Path("robust_point_in_polyhedron.py"), "wb"
         ) as file:
