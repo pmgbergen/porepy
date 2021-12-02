@@ -7,7 +7,7 @@ To get the code fully working requires a few more steps, as described below. Ple
 Instructions are found on the GitHub webpage. Others libraries that should be installed found in the file `pyproject.toml`.
 
 ## Intall on Windows
-Installation on Windows is currently (Spring 2021) rather easy, following thes Linux instructions. The dependencies should be installed  using either `conda` or the Intel python distribution and then `pip install porepy` from source. 
+Installation on Windows is currently (Spring 2021) rather easy, following these Linux instructions. The dependencies should be installed  using either `conda` or the Intel python distribution and then `pip install porepy` from source. 
 
 Please note that running PorePy on Windows is not officially supported, in the sense that we may introduce updates to the code or new dependencies which may break Windows compatibility. 
 
@@ -39,7 +39,7 @@ If the apt install doesn't work, try the followig:
 
 
 ## Point-in-polyhedron test
-Some functionality depends on a point-in-polyhedron test. The PorePy function that provides this is located in pp.geometry.geometry_property_checks.point_in_polyhedron(). The only robust test, with reasonable installation, we are aware of is available [here](https://github.com/mdickinson/polyhedron/blob/master/polyhedron.py). Unfortunately, the file is not available through pip or conda. Instead, download the file (polyhedron.py), and place it somewhere in the PYTHONPATH with the name 'robust_point_in_polyhedron.py'. The PorePy function point_in_polyhedron() then acts as a wrapper around this external package, which provides a `Polyhedron` class.
+Some functionality depends on a point-in-polyhedron test. The PorePy function that provides this is located in pp.geometry.geometry_property_checks.point_in_polyhedron(). The only robust test, with reasonable installation, we are aware of is available [here](https://github.com/mdickinson/polyhedron/blob/master/polyhedron.py). Unfortunately, the file is not available through pip or conda. Instead, run `python fetch_content.py` for downloading and placing the file (polyhedron.py) in python's site-packages directory with name 'robust_point_in_polyhedron.py'. The PorePy function point_in_polyhedron() then acts as a wrapper around this external package, which provides a `Polyhedron` class.
 
 ## Paraview
 The bulk of the visualization in 3D relies on the visualization toolkit [(VTK)](https://github.com/Kitware/VTK) and a visualization client, which [Paraview](https://www.paraview.org/) is likely the most widely used.
