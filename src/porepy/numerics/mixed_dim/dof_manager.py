@@ -428,9 +428,11 @@ class DofManager:
             vals = values[dof_ind]
             if additive:
                 if to_iterate:
-                    data[pp.STATE][pp.ITERATE][var] += vals
+                    data[pp.STATE][pp.ITERATE][var] = (
+                        data[pp.STATE][pp.ITERATE][var] + vals
+                    )
                 else:
-                    data[pp.STATE][var] += vals
+                    data[pp.STATE][var] = data[pp.STATE][var] + vals
             else:
                 if to_iterate:
                     # Make a copy of the array to avoid nasty bugs

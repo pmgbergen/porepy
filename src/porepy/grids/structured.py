@@ -348,7 +348,7 @@ class CartGrid(TensorGrid):
         # TensorGrid constructor
         if len(dims) == 0:
             nodes_x = xmin + np.linspace(0, physdims, nx + 1)
-            super().__init__(nodes_x, name=name)
+            super().__init__(nodes_x.T, name=name)
         elif dims[0] == 1:
             nodes_x = np.linspace(0, physdims, nx[0] + 1).ravel()
             super().__init__(nodes_x, name=name)
