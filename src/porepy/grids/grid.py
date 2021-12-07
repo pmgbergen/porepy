@@ -98,6 +98,8 @@ class Grid:
             by gmsh.
         frac_pairs (np.ndarray): indices of faces that are geometrically coinciding, but
             lay on different side of a lower-dimensional grid.
+        well_num (int): Index of the well associated to the grid. Take value in
+            (0, 1, ..) if the grid corresponds to a well, -1 if not.
 
     """
 
@@ -157,6 +159,7 @@ class Grid:
         self.cartdims: np.ndarray
         self.cell_facetag: int
         self.idx: int
+        self.well_num: int = -1
 
         self.frac_pairs: np.ndarray = np.array([[]], dtype=int)
 

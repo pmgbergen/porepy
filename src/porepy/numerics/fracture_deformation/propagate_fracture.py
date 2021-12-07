@@ -22,7 +22,6 @@ from porepy.grids import mortar_grid
 module_sections = ["grids", "gridding", "numerics"]
 
 
-@pp.time_logger(sections=module_sections)
 def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> None:
     """
     gb - grid bucket with matrix and fracture grids.
@@ -266,7 +265,6 @@ def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> 
         pp.contact_conditions.set_projections(gb, [e])
 
 
-@pp.time_logger(sections=module_sections)
 def _update_mortar_grid(
     g_h: pp.Grid, g_l: pp.Grid, d_e: Dict[str, Any], new_cells, new_faces_h
 ):
@@ -341,7 +339,6 @@ def _update_mortar_grid(
     d_e["mortar_grid"] = mg_new
 
 
-@pp.time_logger(sections=module_sections)
 def _update_geometry(
     g_h: pp.Grid,
     g_l: pp.Grid,
@@ -437,7 +434,6 @@ def _update_geometry(
         g_l.face_normals = face_normals
 
 
-@pp.time_logger(sections=module_sections)
 def _update_connectivity_fracture_grid(
     g_l: pp.Grid,  # higher dimensional grid
     g_h: pp.Grid,  # lower dimensional grid
@@ -676,7 +672,6 @@ def _update_connectivity_fracture_grid(
     return n_new_faces, new_face_centers_l
 
 
-@pp.time_logger(sections=module_sections)
 def _update_cells_fracture_grid(
     g_h: pp.Grid, g_l: pp.Grid, faces_h: np.ndarray
 ) -> np.ndarray:
@@ -693,7 +688,6 @@ def _update_cells_fracture_grid(
     return new_cells
 
 
-@pp.time_logger(sections=module_sections)
 def _update_nodes_fracture_grid(
     g_h: pp.Grid, g_l: pp.Grid, faces_h: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -746,7 +740,6 @@ def _update_nodes_fracture_grid(
     return unique_nodes_l, unique_nodes_h
 
 
-@pp.time_logger(sections=module_sections)
 def _append_face_geometry_fracture_grid(
     g: pp.Grid, n_new_faces: int, new_centers: np.ndarray
 ) -> None:
@@ -760,7 +753,6 @@ def _append_face_geometry_fracture_grid(
     g.num_faces += n_new_faces
 
 
-@pp.time_logger(sections=module_sections)
 def _append_face_tags(g, n_new_faces):
     """
     Initiates default face tags (False) for new faces.
@@ -770,7 +762,6 @@ def _append_face_tags(g, n_new_faces):
     pp.utils.tags.append_tags(g.tags, keys, new_tags)
 
 
-@pp.time_logger(sections=module_sections)
 def _append_node_tags(g, n_new_nodes):
     """
     Initiates default face tags (False) for new faces.
@@ -780,7 +771,6 @@ def _append_node_tags(g, n_new_nodes):
     pp.utils.tags.append_tags(g.tags, keys, new_tags)
 
 
-@pp.time_logger(sections=module_sections)
 def _split_fracture_extension(
     bucket: pp.GridBucket,
     g_h: pp.Grid,
@@ -817,7 +807,13 @@ def _split_fracture_extension(
     is_low_dim_grid = np.where([w.dim < g_h.dim for w in neigh])
     low_dim_neigh = neigh[is_low_dim_grid]
     edges = [(g_h, w) for w in low_dim_neigh]
-    g_l_ind = np.nonzero(low_dim_neigh == g_l)[0]
+    g_l_arr = np.nonzero(low_dim_neigh == g_l)[0]
+
+    # Some work is needed to make mypy happy here
+    assert g_l_arr.size == 1
+    # This converts form numpy int to a standard int.
+    g_l_ind = g_l_arr[0].item()
+
     if len(edges) == 0:
         # No lower dim grid. Nothing to do.
         warnings.warn("Unexpected neighbourless g_h in fracture propagation")
@@ -849,7 +845,6 @@ def _split_fracture_extension(
         g.cell_faces.eliminate_zeros()
 
 
-@pp.time_logger(sections=module_sections)
 def _tag_affected_cells_and_faces(gb):
     """
     Tag the lower-dimensional cells and higher-dimensional faces which have
@@ -879,7 +874,6 @@ def _tag_affected_cells_and_faces(gb):
     g_l.tags["discretize_cells"] = t
 
 
-@pp.time_logger(sections=module_sections)
 def propgation_angle(K):
     """
     Compute the angle of propagation from already computed SIFs. The
