@@ -13,4 +13,4 @@ However, the following may serve as a general suggestion:
 3. [meshing_of_fractures](./meshing_of_fractures.ipynb) describes the construction of grid buckets for mixed-dimensional grids.
 4. [single_phase_flow](./single_phase_flow.ipynb) shows different discretization methods available for the pressure equation.
 5. [ad_framework](./ad_framework.ipynb) describes how to solve a problem using the AD framework. The tutorial includes setup of parameters and discretizations.
-6. [incompressible_flow_model](incompressible_flow_model.ipynb) describes how to use a model class `Incompressible Flow`. The tutorial exposes several extensions and how to solve an mixed-dimensional problem with a few lines of code.
+6. [incompressible_flow_model](incompressible_flow_model.ipynb) describes how to use a model class `Incompressible Flow`. The tutorial exposes several extensions and how to solve a mixed-dimensional problem with a few lines of code.
