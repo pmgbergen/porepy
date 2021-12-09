@@ -109,6 +109,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
            Discretize time-dependent quantities etc.
            Update time-dependent parameters (captured by assembly).
         """
+        super().before_newton_loop()
         self._set_parameters()
 
     @pp.time_logger(sections=module_sections)
