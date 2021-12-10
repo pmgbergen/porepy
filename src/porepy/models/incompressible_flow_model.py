@@ -85,7 +85,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                 kappa * specific_volume * np.ones(g.num_cells)
             )
 
-            gravity = np.zeros((self.gb.dim_max(), g.num_cells))
+            gravity = self._vector_source(g)
 
             pp.initialize_data(
                 g,
@@ -174,6 +174,16 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         Units: kg / m / s = Pa s
         """
         return np.ones(g.num_cells)
+
+    def _vector_source(self, g: pp.Grid) -> np.ndarray:
+        """Zero vector source (gravity).
+
+        To assign a gravity-like vector source, add a non-zero contribution in
+        the last dimension:
+            vals[-1] = - pp.GRAVITY_ACCELERATION * fluid_density
+        """
+        vals = np.zeros((self.gb.dim_max(), g.num_cells))
+        return vals
 
     def _aperture(self, g: pp.Grid) -> np.ndarray:
         """
