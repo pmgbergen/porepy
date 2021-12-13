@@ -21,7 +21,8 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         # Keywords used to store matrix and right hand side in the matrix_dictionary
         self.upwind_matrix_key = "transport"
-        self.bound_transport_matrix_key = "rhs"
+        self.bound_transport_dir_matrix_key = "rhs_dir"
+        self.bound_transport_neu_matrix_key = "rhs_neu"
 
         # Key used to set the advective flux in the parameter dictionary
         self._flux_array_key = "darcy_flux"
@@ -131,8 +132,8 @@ class Upwind(pp.numerics.discretization.Discretization):
         ]
 
         bc_values: np.ndarray = parameter_dictionary["bc_values"]
-        bc: pp.BoundaryCondition = parameter_dictionary["bc"]
-        bc_discr = matrix_dictionary[self.bound_transport_matrix_key]
+        bc_discr_dir = matrix_dictionary[self.bound_transport_dir_matrix_key]
+        bc_discr_neu = matrix_dictionary[self.bound_transport_neu_matrix_key]
 
         # Scaling with the advective flux.
         # This is included to stay compatible with the legacy contract for this
@@ -142,14 +143,15 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         # The sign of the flux field was already accounted for in discretization,
         # see self.discretization().
-        flux_arr = np.abs(param_dictionary[self._flux_array_key])
-        # Neumann fluxes are scaled externally, and should have unit value here
-        flux_arr[bc.is_neu] = 1
+        flux_arr = param_dictionary[self._flux_array_key]
         flux_mat = sps.dia_matrix((flux_arr, 0), shape=(g.num_faces, g.num_faces))
 
         div: sps.spmatrix = pp.fvutils.scalar_divergence(g)
-
-        if div.shape[1] != bc_discr.shape[0] or bc_discr.shape[1] != bc_values.size:
+        assert bc_discr_dir.shape == bc_discr_neu.shape
+        if (
+            div.shape[1] != bc_discr_dir.shape[0]
+            or bc_discr_dir.shape[1] != bc_values.size
+        ):
             # It should not be difficult to fix this, however it requires some thinking
             # on data format for boundary conditions for systems of equations.
             raise ValueError(
@@ -158,8 +160,7 @@ class Upwind(pp.numerics.discretization.Discretization):
                                 supported in Ad mode.
                             """
             )
-
-        return div * bc_discr * flux_mat * bc_values
+        return div * (bc_discr_neu + bc_discr_dir * flux_mat) * bc_values
 
     @pp.time_logger(sections=module_sections)
     def discretize(self, g: pp.Grid, data: Dict) -> None:
@@ -223,7 +224,12 @@ class Upwind(pp.numerics.discretization.Discretization):
         # Shortcut for point grids
         if g.dim == 0:
             matrix_dictionary[self.upwind_matrix_key] = sps.csr_matrix((0, 1))
-            matrix_dictionary[self.bound_transport_matrix_key] = sps.csr_matrix((0, 0))
+            matrix_dictionary[self.bound_transport_dir_matrix_key] = sps.csr_matrix(
+                (0, 0)
+            )
+            matrix_dictionary[self.bound_transport_neu_matrix_key] = sps.csr_matrix(
+                (0, 0)
+            )
             return
 
         # Get the sign of the advective flux
@@ -297,7 +303,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         ## Boundary conditions
         # Since the upwind discretization could be combined with a diffusion discretization
         # in an advection-diffusion equation, treatment of boundary conditions can be a
-        # a bit delicate, and the code should be used with some caution. The below
+        # bit delicate, and the code should be used with some caution. The below
         # implementation follows the following steps:
         #
         # 1) On Neumann boundaries the precribed boundary value should effectively
@@ -315,16 +321,21 @@ class Upwind(pp.numerics.discretization.Discretization):
         col = row
         # Need minus signs on both Neumann and Dirichlet data to ensure that accumulation
         # follows from negative fluxes.
-        # NOTE: The scaling with the sign of fluxes at Dirichlet faces is accounted
-        # for here, and should not be included other places
-        values_bc = np.hstack([-sgn_div[neumann_ind], -darcy_flux[inflow_ind]])
-        bc_discr = sps.coo_matrix(
-            (values_bc, (row, col)), shape=(g.num_faces, g.num_faces)
+        bc_discr_neu = sps.coo_matrix(
+            (-sgn_div[neumann_ind], (neumann_ind, neumann_ind)),
+            shape=(g.num_faces, g.num_faces),
+        ).tocsr()
+        bc_discr_dir = sps.coo_matrix(
+            (-np.ones(inflow_ind.size), (inflow_ind, inflow_ind)),
+            shape=(g.num_faces, g.num_faces),
         ).tocsr()
 
         # Expand matrix to the right number of components, and store it
-        matrix_dictionary[self.bound_transport_matrix_key] = sps.kron(
-            bc_discr, sps.eye(num_components)
+        matrix_dictionary[self.bound_transport_neu_matrix_key] = sps.kron(
+            bc_discr_neu, sps.eye(num_components)
+        ).tocsr()
+        matrix_dictionary[self.bound_transport_dir_matrix_key] = sps.kron(
+            bc_discr_dir, sps.eye(num_components)
         ).tocsr()
 
     @pp.time_logger(sections=module_sections)
