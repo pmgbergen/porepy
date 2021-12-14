@@ -12,9 +12,9 @@ import pytest
 import porepy as pp
 
 
-def compare_lists(l1, l2):
-    l1.sort()
-    l2.sort()
+def compare_keywords(l1, l2):
+    l1 = list(l1).sort()
+    l2 = list(l2).sort()
     assert l1 == l2
 
 
@@ -22,8 +22,8 @@ def compare_dicts(d1, d2):
     """Check that the dictionaries have the same set of keys and that their
     items agree if type is np.ndarray
     """
-    l1, l2 = list(d1.keys()), list(d2.keys())
-    compare_lists(l1, l2)
+    l1, l2 = d1.keys(), d2.keys()
+    compare_keywords(l1, l2)
     for k1, k2 in zip(l1, l2):
         it1 = d1[k1]
         if isinstance(it1, np.ndarray):
@@ -62,8 +62,8 @@ def test_prepare_simulation(model, n_fracs):
     # Loop over dictionaries and assert that the correct sets of variables,
     # parameters, initial values are present
     for g, d in model.gb:
-        var_list = list(d[pp.PRIMARY_VARIABLES].keys())
-        compare_lists(var_list, ["p"])
+        var_list = d[pp.PRIMARY_VARIABLES].keys()
+        compare_keywords(var_list, ["p"])
 
         known_initial = {"p": np.zeros(g.num_cells)}
         state = d[pp.STATE].copy().pop(pp.ITERATE)
@@ -83,13 +83,13 @@ def test_prepare_simulation(model, n_fracs):
                 "active_cells",
                 "active_faces",
             ]
-        compare_lists(list(d[pp.PARAMETERS]["flow"].keys()), param_list)
+        compare_keywords(d[pp.PARAMETERS]["flow"].keys(), param_list)
 
         num_dofs += g.num_cells
 
     for e, d in model.gb.edges():
         var_list = list(d[pp.PRIMARY_VARIABLES].keys())
-        compare_lists(var_list, ["mortar_p"])
+        compare_keywords(var_list, ["mortar_p"])
 
         mg = d["mortar_grid"]
         known_initial = {"mortar_p": np.zeros(mg.num_cells)}
@@ -98,13 +98,13 @@ def test_prepare_simulation(model, n_fracs):
         compare_dicts(d[pp.STATE][pp.ITERATE], known_initial)
 
         param_list = ["vector_source", "normal_diffusivity", "ambient_dimension"]
-        compare_lists(list(d[pp.PARAMETERS]["flow"].keys()), param_list)
+        compare_keywords(d[pp.PARAMETERS]["flow"].keys(), param_list)
 
         num_dofs += mg.num_cells
 
     assert model.dof_manager.num_dofs() == num_dofs
     equations = ["subdomain_flow", "interface_flow"]
-    compare_lists(list(model._eq_manager.equations.keys()), equations)
+    compare_keywords(model._eq_manager.equations.keys(), equations)
 
 
 @pytest.mark.parametrize(
