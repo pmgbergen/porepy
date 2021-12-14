@@ -51,6 +51,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.variable: str = "p"
         self.mortar_variable: str = "mortar_" + self.variable
         self.parameter_key: str = "flow"
+        self._use_ad = True
 
     def prepare_simulation(self) -> None:
         self.create_grid()
@@ -124,9 +125,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
             normal_diffusivity *= v_h
 
             # Vector source/gravity zero by default
-            gravity = np.zeros(
-                (self.gb.dim_max(), mg.num_cells)
-            )  # TODO: introduce function?
+            gravity = self._vector_source(mg)
             data_edge = pp.initialize_data(
                 e,
                 data_edge,
