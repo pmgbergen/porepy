@@ -132,8 +132,12 @@ class Upwind(pp.numerics.discretization.Discretization):
         ]
 
         bc_values: np.ndarray = parameter_dictionary["bc_values"]
-        bc_discr_dir: sps.spmatrix = matrix_dictionary[self.bound_transport_dir_matrix_key]
-        bc_discr_neu: sps.spmatrix = matrix_dictionary[self.bound_transport_neu_matrix_key]
+        bc_discr_dir: sps.spmatrix = matrix_dictionary[
+            self.bound_transport_dir_matrix_key
+        ]
+        bc_discr_neu: sps.spmatrix = matrix_dictionary[
+            self.bound_transport_neu_matrix_key
+        ]
 
         # Scaling with the advective flux.
         # This is included to stay compatible with the legacy contract for this
