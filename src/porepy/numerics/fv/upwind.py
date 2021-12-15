@@ -132,8 +132,8 @@ class Upwind(pp.numerics.discretization.Discretization):
         ]
 
         bc_values: np.ndarray = parameter_dictionary["bc_values"]
-        bc_discr_dir = matrix_dictionary[self.bound_transport_dir_matrix_key]
-        bc_discr_neu = matrix_dictionary[self.bound_transport_neu_matrix_key]
+        bc_discr_dir: sps.spmatrix = matrix_dictionary[self.bound_transport_dir_matrix_key]
+        bc_discr_neu: sps.spmatrix = matrix_dictionary[self.bound_transport_neu_matrix_key]
 
         # Scaling with the advective flux.
         # This is included to stay compatible with the legacy contract for this
@@ -143,7 +143,7 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         # The sign of the flux field was already accounted for in discretization,
         # see self.discretization().
-        flux_arr = param_dictionary[self._flux_array_key]
+        flux_arr: np.ndarray = param_dictionary[self._flux_array_key]
         flux_mat = sps.dia_matrix((flux_arr, 0), shape=(g.num_faces, g.num_faces))
 
         div: sps.spmatrix = pp.fvutils.scalar_divergence(g)
