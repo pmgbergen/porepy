@@ -73,18 +73,6 @@ class ContactMechanics(AbstractModel):
         # Terms of the equations
         self.friction_coupling_term: str = "fracture_force_balance"
 
-    ## Public methods
-    @pp.time_logger(sections=module_sections)
-    def get_state_vector(self, use_iterate: bool = False) -> np.ndarray:
-        """Get a vector of the current state of the variables; with the same ordering
-            as in the assembler.
-
-        Returns:
-            np.array: The current state, as stored in the GridBucket.
-
-        """
-        return self.dof_manager.assemble_variable(from_iterate=use_iterate)
-
     @pp.time_logger(sections=module_sections)
     def before_newton_loop(self):
         """Will be run before entering a Newton loop.

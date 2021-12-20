@@ -21,16 +21,20 @@ def add_data(gb, domain, kf):
     for g, d in gb:
         # Assign aperture
         a_dim = np.power(a, gb.dim_max() - g.dim)
-        aperture = np.ones(g.num_cells) * a_dim
+        specific_volume = np.ones(g.num_cells) * a_dim
 
         # Effective permeability, scaled with aperture.
-        kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max()) * aperture
+        kxx = np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max()) * specific_volume
         if g.dim == 2:
             perm = pp.SecondOrderTensor(kxx=kxx, kyy=kxx, kzz=1)
         else:
             perm = pp.SecondOrderTensor(kxx=kxx, kyy=1, kzz=1)
 
-        specified_parameters = {"second_order_tensor": perm}
+        compressibility = 1e-10 * specific_volume
+        specified_parameters = {
+            "second_order_tensor": perm,
+            "mass_weight": compressibility,
+           }
         # Boundaries
         bound_faces = g.tags["domain_boundary_faces"].nonzero()[0]
         if bound_faces.size != 0:
@@ -61,3 +65,5 @@ def add_data(gb, domain, kf):
         kn = 2 * kf * np.ones(mg.num_cells) / a
         d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{"normal_diffusivity": kn}])
         d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
+
+        
