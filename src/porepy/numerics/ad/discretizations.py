@@ -258,8 +258,8 @@ class UpwindAd(Discretization):
         self.keyword = keyword
 
         self.upwind: MergedOperator
-        self.rhs: MergedOperator
-        self.outflow_neumann: MergedOperator
+        self.bound_transport_dir: MergedOperator
+        self.bound_transport_neu: MergedOperator
         wrap_discretization(self, self._discretization, grids=grids)
 
 

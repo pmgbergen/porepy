@@ -245,10 +245,10 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
     is_converged_as = False
     is_converged_ad = False
 
-    prev_sol_as = model_as.get_state_vector()
+    prev_sol_as = model_as.dof_manager.assemble_variable(from_iterate=False)
     init_sol_as = prev_sol_as
 
-    prev_sol_ad = model_ad.get_state_vector()
+    prev_sol_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     init_sol_ad = prev_sol_ad
 
     tol = 1e-10
@@ -301,8 +301,8 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
             model_as.after_newton_convergence(sol_as, [], iteration_counter)
             model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
 
-    state_as = model_as.get_state_vector()
-    state_ad = model_ad.get_state_vector()
+    state_as = model_as.dof_manager.assemble_variable(from_iterate=False)
+    state_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     # Solutions should be identical.
     assert np.linalg.norm(state_as - state_ad) < tol
 
@@ -391,8 +391,8 @@ def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
             model.time_index += 1
         _stepwise_newton_with_comparison(model_as, model_ad, prepare=False)
 
-    state_as = model_as.get_state_vector()
-    state_ad = model_ad.get_state_vector()
+    state_as = model_as.dof_manager.assemble_variable(from_iterate=False)
+    state_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     # Solutions should be identical.
     assert np.linalg.norm(state_as - state_ad) < tol
 
