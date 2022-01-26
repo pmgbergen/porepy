@@ -9,6 +9,15 @@ import numpy as np
 import porepy as pp
 
 
+def test_contact_mechanics_model_no_modification():
+    """Test that the raw contact mechanics model with no modifications can be run with
+    no error messages. Failure of this test would signify rather fundamental problems
+    in the model.
+    """
+    model = pp.ContactMechanics({"use_ad": True})
+    pp.run_stationary_model(model, {})
+
+
 class TestContactMechanics(unittest.TestCase):
     def _solve(self, setup):
         pp.run_stationary_model(setup, {"convergence_tol": 1e-10})
