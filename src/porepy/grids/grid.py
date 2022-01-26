@@ -41,7 +41,7 @@ class Grid:
         dim (int): dimension. Should be 0 or 1 or 2 or 3
         nodes (np.ndarray): node coordinates. size: dim x num_nodes
         face_nodes (sps.csc-matrix): Face-node relationships. Matrix size:
-            num_faces x num_cells. To use compute_geometry() later, he field
+            num_nodes x num_facess. To use compute_geometry() later, the field
             face_nodes.indices should store the nodes of each face sorted.
             For more information, see information on compute_geometry()
             below.
@@ -58,7 +58,7 @@ class Grid:
         ---
 
         Geometric information, obtained by call to compute_geometry():
-        Assumes the nodes of each face is ordered according to the right
+        Assumes the nodes of each face are ordered according to the right
         hand rule.
         face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]
         are the nodes of face i, which should be ordered counter-clockwise.
