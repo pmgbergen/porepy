@@ -534,17 +534,21 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
             tangential_normal_proj_list = []
             normal_proj_list = []
-            for gf in g_frac:
-                proj = gb.node_props(gf, "tangential_normal_projection")
-                tangential_normal_proj_list.append(
-                    proj.project_tangential_normal(gf.num_cells)
+            if len(g_frac) > 0:
+                for gf in g_frac:
+                    proj = gb.node_props(gf, "tangential_normal_projection")
+                    tangential_normal_proj_list.append(
+                        proj.project_tangential_normal(gf.num_cells)
+                    )
+                    normal_proj_list.append(proj.project_normal(gf.num_cells))
+                tangential_normal_proj = pp.ad.Matrix(
+                    sps.block_diag(tangential_normal_proj_list)
                 )
-                normal_proj_list.append(proj.project_normal(gf.num_cells))
-
-            tangential_normal_proj = pp.ad.Matrix(
-                sps.block_diag(tangential_normal_proj_list)
-            )
-            normal_proj = pp.ad.Matrix(sps.block_diag(normal_proj_list))
+                normal_proj = pp.ad.Matrix(sps.block_diag(normal_proj_list))
+            else:
+                # In the case of no fractures, empty matrices are needed.
+                tangential_normal_proj = pp.ad.Matrix(sps.csr_matrix((0, 0)))
+                normal_proj = pp.ad.Matrix(sps.csr_matrix((0, 0)))
 
             # Ad representation of discretizations
             mpsa_ad = pp.ad.BiotAd(self.mechanics_parameter_key, [g_primary])
@@ -640,7 +644,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             jump_rotate = tangential_normal_proj * jump
 
             # Contact conditions
-            num_frac_cells = np.sum([g.num_cells for g in g_frac])
+            num_frac_cells = int(np.sum([g.num_cells for g in g_frac]))
 
             jump_discr = coloumb_ad.displacement * jump_rotate * u_mortar
             tmp = np.ones(num_frac_cells * self._Nd)
@@ -657,19 +661,29 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
             # Force balance
             mat = None
-            for _, d in gb.edges():
-                mg: pp.MortarGrid = d["mortar_grid"]
-                if mg.dim < self._Nd - 1:
-                    continue
+            if len(g_frac) > 0:
+                for _, d in gb.edges():
+                    mg: pp.MortarGrid = d["mortar_grid"]
+                    if mg.dim < self._Nd - 1:
+                        continue
 
-                faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
-                m = pp.grid_utils.switch_sign_if_inwards_normal(
-                    g_primary, self._Nd, faces_on_fracture_surface
+                    faces_on_fracture_surface = (
+                        mg.primary_to_mortar_int().tocsr().indices
+                    )
+                    m = pp.grid_utils.switch_sign_if_inwards_normal(
+                        g_primary, self._Nd, faces_on_fracture_surface
+                    )
+                    if mat is None:
+                        mat = m
+                    else:
+                        mat += m
+            else:
+                # If no fractures, make the sign switcher into an empty matrix
+                # of the right size (it will be multiplied by zeros at some point
+                # so we might as well kill it off).
+                mat = sps.csr_matrix(
+                    (g_primary.num_faces * self._Nd, g_primary.num_faces * self._Nd)
                 )
-                if mat is None:
-                    mat = m
-                else:
-                    mat += m
 
             sign_switcher = pp.ad.Matrix(mat)
 
@@ -723,6 +737,9 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     # T_contact - n dot I p,
                     # hence the minus.
                     mat.append(n_dot_I * mg.secondary_to_mortar_int(nd=1))
+
+                if len(edge_list_highest) == 0:
+                    mat = [sps.csr_matrix((0, 0))]
                 # May need to do this as for tangential projections, additive that is
                 normal_matrix = pp.ad.Matrix(sps.block_diag(mat))
 
@@ -774,7 +791,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             )
 
             # Accumulation term on the fractures.
-            frac_vol = np.hstack([g.cell_volumes for g in g_frac])
+            if len(g_frac) > 0:
+                frac_vol = np.hstack([g.cell_volumes for g in g_frac])
+            else:
+                frac_vol = np.array([])
             vol_mat = pp.ad.Matrix(
                 sps.dia_matrix((frac_vol, 0), shape=(num_frac_cells, num_frac_cells))
             )
