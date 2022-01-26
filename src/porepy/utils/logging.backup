@@ -1,0 +1,94 @@
+""" Logging functionality for PorePy.
+"""
+import functools
+import logging, logging.handlers
+import time
+import inspect
+import configparser
+
+import porepy as pp
+import numpy as np
+import scipy.sparse as sps
+
+__all__ = ["time_logger"]
+
+
+try:
+    config = dict(pp.config["logging"])
+except KeyError:
+    config = {}
+
+t_logger = logging.getLogger("Timer")
+t_logger.setLevel(logging.INFO)
+
+
+if not t_logger.hasHandlers():
+    time_handler = logging.FileHandler("PorePyTimings.log")
+    time_handler.setLevel(logging.INFO)
+    time_formatter = logging.Formatter("%(message)s")
+    time_handler.setFormatter(time_formatter)
+    t_logger.addHandler(time_handler)
+
+
+path_length = __file__.split("/").index("porepy")
+
+
+# @pp.time_logger
+@pp.time_logger
+def time_logger(func, active=config.get("active", False)):
+    """A decorator that measures ellapsed time for a function."""
+
+    @functools.wraps(func)
+    @pp.time_logger
+    def log_time(*args, **kwargs):
+        if not active:
+            return func(*args, **kwargs)
+
+        fn = "/".join(inspect.getfile(func).split("/")[path_length + 1 :])
+
+        name = f"{func.__name__} in file {fn}."
+
+        t_logger.log(level=logging.INFO, msg=f"Calling {name}")
+
+        #        log.l += name + "\n"
+
+        start_time = time.perf_counter()
+        value = func(*args, **kwargs)
+
+        end_time = time.perf_counter()
+        run_time = end_time - start_time
+
+        t_logger.log(
+            level=logging.INFO,
+            msg=f"Finished {name} Elapsed time: {run_time:.8f} s",
+        )
+
+        return value
+
+    return log_time
+
+
+trace_logger = logging.getLogger("Trace")
+trace_logger.setLevel(logging.INFO)
+
+
+if not trace_logger.hasHandlers():
+    trace_handler = logging.FileHandler("PorePyTraces.log")
+    trace_handler.setLevel(logging.INFO)
+    trace_formatter = logging.Formatter("%(message)s")
+    trace_handler.setFormatter(trace_formatter)
+    trace_logger.addHandler(trace_handler)
+
+
+@pp.time_logger
+def trace(func):
+    @functools.wraps(func)
+    @pp.time_logger
+    def analyze_args(*args, **kwargs):
+        msg = f"Calling function {func.__name__}\n"
+        for a in args:
+            if isinstance(a, np.ndarray):
+                s = f"\t numpy array of shape {a.shape} and type {a.dtype}"
+            elif isinstance(a, sps.spmatrix):
+                s = f"\t sparse matrix of shape {a.shape} with {a.data.size} nonzeros"
+
