@@ -54,11 +54,16 @@ class SubdomainProjections(Operator):
                 quantities.
 
         """
-
+        self._name = "SubdomainProjection"
         self._nd = nd
         self._is_scalar: bool = nd == 1
 
         self._num_grids: int = len(grids)
+
+        # Store total number of faces and cells in the list of grids. This will be
+        # needed to handle projections to and from empty lists (see usage below).
+        self._tot_num_cells: int = sum([g.num_cells for g in grids])
+        self._tot_num_faces: int = sum([g.num_faces for g in grids])
 
         self._cell_projection, self._face_projection = _subgrid_projections(
             grids, self._nd
@@ -79,10 +84,17 @@ class SubdomainProjections(Operator):
         if isinstance(grids, pp.Grid):
             return pp.ad.Matrix(self._cell_projection[grids].T, name="CellRestriction")
         elif isinstance(grids, list):
-            # A key error will be raised if a grid in g is not known to
-            # self._cell_projection
+            if len(grids) > 0:
+                # A key error will be raised if a grid in g is not known to
+                # self._cell_projection
+                mat = sps.bmat([[self._cell_projection[g].T] for g in grids]).tocsr()
+            else:
+                # If the grid list is empty, we project from the full set of cells to
+                # nothing.
+                mat = sps.csr_matrix((0, self._tot_num_cells * self._nd))
+
             return pp.ad.Matrix(
-                sps.bmat([[self._cell_projection[g].T] for g in grids]).tocsr(),
+                mat,
                 name="CellRestriction",
             )
         else:
@@ -103,9 +115,17 @@ class SubdomainProjections(Operator):
         if isinstance(grids, pp.Grid):
             return pp.ad.Matrix(self._cell_projection[grids], name="CellProlongation")
         elif isinstance(grids, list):
-            # A key error will be raised if a grid in g is not known to self._cell_projection
+            if len(grids) > 0:
+                # A key error will be raised if a grid in g is not known to
+                # self._cell_projection
+                mat = sps.bmat([[self._cell_projection[g] for g in grids]]).tocsr()
+            else:
+                # If the grid list is empty, we project from nothing to the full set of
+                # cells
+                mat = sps.csr_matrix((self._tot_num_cells * self._nd, 0))
+
             return pp.ad.Matrix(
-                sps.bmat([[self._cell_projection[g] for g in grids]]).tocsr(),
+                mat,
                 name="CellProlongation",
             )
         else:
@@ -128,10 +148,16 @@ class SubdomainProjections(Operator):
                 raise ValueError("Argument should be a regular grid, not mortar grid")
             return pp.ad.Matrix(self._face_projection[grids].T, name="FaceRestriction")
         elif isinstance(grids, list):
-            # A key error will be raised if a grid in grids is not known to
-            # self._cell_projection
+            if len(grids) > 0:
+                # A key error will be raised if a grid in grids is not known to
+                # self._face_projection
+                mat = sps.bmat([[self._face_projection[g].T] for g in grids]).tocsr()
+            else:
+                # If the grid list is empty, we project from the full set of faces to
+                # nothing.
+                mat = sps.csr_matrix((0, self._tot_num_faces * self._nd))
             return pp.ad.Matrix(
-                sps.bmat([[self._face_projection[g].T] for g in grids]).tocsr(),
+                mat,
                 name="FaceRestriction",
             )
         else:
@@ -152,10 +178,16 @@ class SubdomainProjections(Operator):
         if isinstance(grids, pp.Grid):
             return pp.ad.Matrix(self._face_projection[grids], name="FaceProlongation")
         elif isinstance(grids, list):
-            # A key error will be raised if a grid in grids is not known to
-            # self._cell_projection
+            if len(grids) > 0:
+                # A key error will be raised if a grid in grids is not known to
+                # self._face_projection
+                mat = sps.bmat([[self._face_projection[g] for g in grids]]).tocsr()
+            else:
+                # If the grid list is empty, we project from nothing to the full set of
+                # faces
+                mat = sps.csr_matrix((self._tot_num_faces * self._nd, 0))
             return pp.ad.Matrix(
-                sps.bmat([[self._face_projection[g] for g in grids]]).tocsr(),
+                mat,
                 name="FaceProlongation",
             )
         else:
@@ -228,7 +260,7 @@ class MortarProjections(Operator):
             nd (int, optional): Dimension of the quantities to be projected.
 
         """
-
+        self._name = "MortarProjection"
         self._num_edges: int = len(edges)
         self._nd: int = nd
 
@@ -256,58 +288,88 @@ class MortarProjections(Operator):
         # Projections to the mortar grid are made by first defining projections from
         # global grid numbering to local mortar grids, and then stack the latter.
 
-        for e in edges:
-            g_primary, g_secondary = e
-            mg: pp.MortarGrid = gb.edge_props(e, "mortar_grid")
-            if (g_primary.dim != mg.dim + mg.codim) or g_secondary.dim != mg.dim:
-                # This will correspond to DD of sorts; we could handle this
-                # by using cell_projections for g_primary and/or
-                # face_projection for g_secondary, depending on the exact
-                # configuration
-                raise NotImplementedError("Non-standard interface.")
-            primary_projection = (
-                face_projection[g_primary]
-                if mg.codim < 2
-                else cell_projection[g_primary]
-            )
+        # Special treatment is needed for the case of empty lists - see below
+        if len(edges) > 0:
+            for e in edges:
+                g_primary, g_secondary = e
+                mg: pp.MortarGrid = gb.edge_props(e, "mortar_grid")
+                if (g_primary.dim != mg.dim + mg.codim) or g_secondary.dim != mg.dim:
+                    # This will correspond to DD of sorts; we could handle this
+                    # by using cell_projections for g_primary and/or
+                    # face_projection for g_secondary, depending on the exact
+                    # configuration
+                    raise NotImplementedError("Non-standard interface.")
+                primary_projection = (
+                    face_projection[g_primary]
+                    if mg.codim < 2
+                    else cell_projection[g_primary]
+                )
+                # Projections to primary
+                mortar_to_primary_int.append(
+                    primary_projection * mg.mortar_to_primary_int(nd)
+                )
+                mortar_to_primary_avg.append(
+                    primary_projection * mg.mortar_to_primary_avg(nd)
+                )
+
+                # Projections from primary
+                primary_to_mortar_int.append(
+                    mg.primary_to_mortar_int(nd) * primary_projection.T
+                )
+                primary_to_mortar_avg.append(
+                    mg.primary_to_mortar_avg(nd) * primary_projection.T
+                )
+
+                mortar_to_secondary_int.append(
+                    cell_projection[g_secondary] * mg.mortar_to_secondary_int(nd)
+                )
+                mortar_to_secondary_avg.append(
+                    cell_projection[g_secondary] * mg.mortar_to_secondary_avg(nd)
+                )
+
+                secondary_to_mortar_int.append(
+                    mg.secondary_to_mortar_int(nd) * cell_projection[g_secondary].T
+                )
+                secondary_to_mortar_avg.append(
+                    mg.secondary_to_mortar_avg(nd) * cell_projection[g_secondary].T
+                )
+        else:
+            # FIXME: The assumption here is that a GridBucket with a single grid
+            # (no fractures) have been constructed. In this case, the projection
+            # to primary should have g.num_faces rows, while there are no
+            # secondary grids to project to. If the mortar projection is constructed
+            # for a different case (hard to imagine what, but who knows), it is not
+            # clear what to do, so we'll raise an error.
+            assert len(grids) == 1
+
+            num_cells_lower_dimension = sum([g.num_cells for g in grids]) * nd
+            num_faces_higher_dimension = sum([g.num_faces for g in grids]) * nd
+
+            # Projections to and from the grid
+            to_face = sps.csr_matrix((num_faces_higher_dimension, 0))
+            from_face = sps.csr_matrix((0, num_faces_higher_dimension))
+            to_cells = sps.csr_matrix((num_cells_lower_dimension, 0))
+            from_cells = sps.csr_matrix((0, num_cells_lower_dimension))
+
             # Projections to primary
-            mortar_to_primary_int.append(
-                primary_projection * mg.mortar_to_primary_int(nd)
-            )
-            mortar_to_primary_avg.append(
-                primary_projection * mg.mortar_to_primary_avg(nd)
-            )
+            mortar_to_primary_int.append(to_face)
+            mortar_to_primary_avg.append(to_face)
 
             # Projections from primary
-            primary_to_mortar_int.append(
-                mg.primary_to_mortar_int(nd) * primary_projection.T
-            )
-            primary_to_mortar_avg.append(
-                mg.primary_to_mortar_avg(nd) * primary_projection.T
-            )
+            primary_to_mortar_int.append(from_face)
+            primary_to_mortar_avg.append(from_face)
 
-            mortar_to_secondary_int.append(
-                cell_projection[g_secondary] * mg.mortar_to_secondary_int(nd)
-            )
-            mortar_to_secondary_avg.append(
-                cell_projection[g_secondary] * mg.mortar_to_secondary_avg(nd)
-            )
+            mortar_to_secondary_int.append(to_cells)
+            mortar_to_secondary_avg.append(to_cells)
 
-            secondary_to_mortar_int.append(
-                mg.secondary_to_mortar_int(nd) * cell_projection[g_secondary].T
-            )
-            secondary_to_mortar_avg.append(
-                mg.secondary_to_mortar_avg(nd) * cell_projection[g_secondary].T
-            )
+            secondary_to_mortar_int.append(from_cells)
+            secondary_to_mortar_avg.append(from_cells)
 
         # Stack mappings from the mortar horizontally.
         # The projections are wrapped by a pp.ad.Matrix to be compatible with the
         # requirements for processing of Ad operators.
         def bmat(matrices, name):
-            if len(edges) == 0:
-                return Matrix(sps.bmat([[None]]), name=name)
-            else:
-                return Matrix(sps.bmat(matrices, format="csr"), name=name)
+            return Matrix(sps.bmat(matrices, format="csr"), name=name)
 
         self.mortar_to_primary_int = bmat(
             [mortar_to_primary_int], name="MortarToPrimaryInt"
@@ -479,7 +541,7 @@ class Divergence(Operator):
     def __repr__(self) -> str:
         s = (
             f"divergence for vector field of size {self.dim}"
-            f"defined on {len(self.grids)} grids\n"
+            f" defined on {len(self.grids)} grids\n"
         )
 
         nf = 0
@@ -740,7 +802,11 @@ class ParameterArray(Operator):
         for e in self.edges:
             data = gb.edge_props(e)
             val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
-        return np.hstack([v for v in val])
+
+        if len(val) > 0:
+            return np.hstack([v for v in val])
+        else:
+            return np.array([])
 
 
 #### Helper methods below
