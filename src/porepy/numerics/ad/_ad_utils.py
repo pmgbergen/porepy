@@ -250,6 +250,12 @@ class MergedOperator(operators.Operator):
         # Data structure for matrices
         mat = []
 
+        if len(self.mat_dict_grids) == 0:
+            # The underlying discretization is constructed on an empty grid list, quite
+            # likely on a mixed-dimensional grid containing no mortar grids.
+            # We can return an empty matrix.
+            return sps.csc_matrix((0, 0))
+
         # Loop over all grid-discretization combinations, get hold of the discretization
         # matrix for this grid quantity
         for g in self.mat_dict_grids:

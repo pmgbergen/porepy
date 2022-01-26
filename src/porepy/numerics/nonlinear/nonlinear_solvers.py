@@ -39,7 +39,7 @@ class NewtonSolver:
 
         is_converged = False
 
-        prev_sol = model.get_state_vector()
+        prev_sol = model.dof_manager.assemble_variable(from_iterate=False)
         init_sol = prev_sol
         errors = []
         error_norm = 1
