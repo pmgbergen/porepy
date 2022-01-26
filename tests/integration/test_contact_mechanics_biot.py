@@ -14,6 +14,15 @@ import porepy as pp
 import porepy.models.contact_mechanics_biot_model as model
 
 
+def test_contact_mechanics_model_no_modification():
+    """Test that the raw contact poromechanics model with no modifications can be run with
+    no error messages. Failure of this test would signify rather fundamental problems
+    in the model.
+    """
+    mod = pp.ContactMechanicsBiot({"use_ad": True})
+    pp.run_stationary_model(mod, {})
+
+
 class TestBiot(unittest.TestCase):
     def _solve(self, setup):
         pp.run_time_dependent_model(setup, {})
