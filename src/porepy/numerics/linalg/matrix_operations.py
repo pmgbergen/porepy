@@ -84,7 +84,7 @@ def zero_rows(
         A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
 
 
-def merge_matrices(A: sps.spmatrix, B: sps.spmatrx, lines: np.ndarray) -> None:
+def merge_matrices(A: sps.spmatrix, B: sps.spmatrix, lines: np.ndarray) -> None:
     """
     Replace rows/coloms of matrix A with rows/cols of matrix B.
     If A and B are csc matrices this function is equivalent with
@@ -502,3 +502,266 @@ def _csx_matrix_from_blocks(
         shape=(num_blocks * block_size, num_blocks * block_size),
     )
     return mat
+
+
+def invert_diagonal_blocks(
+    mat: sps.spmatrix, s: np.ndarray, method: Optional[str] = None
+) -> sps.spmatrix:
+    """
+    Invert block diagonal matrix.
+
+    Three implementations are available, either pure numpy, or a speedup using
+    numba or cython. If none is specified, the function will try to use numba,
+    then cython. The python option will only be invoked if explicitly asked
+    for; it will be very slow for general problems.
+
+    Parameters
+    ----------
+    mat: sps.csr matrix to be inverted.
+    s: block size. Must be int64 for the numba acceleration to work
+    method: Choice of method. Either numba (default), cython or 'python'.
+        Defaults to None, in which case first numba, then cython is tried.
+
+    Returns
+    -------
+    imat: Inverse matrix
+
+    Raises
+    -------
+    ImportError: If numba or cython implementation is invoked without numba or
+        cython being available on the system.
+
+    """
+
+    def invert_diagonal_blocks_python(a: sps.spmatrix, sz: np.ndarray) -> np.ndarray:
+        """
+        Invert block diagonal matrix using pure python code.
+
+        The implementation is slow for large matrices, consider to use the
+        numba-accelerated method invert_invert_diagagonal_blocks_numba instead
+
+        Parameters
+        ----------
+        A sps.crs-matrix, to be inverted
+        sz - size of the individual blocks
+
+        Returns
+        -------
+        inv_a inverse matrix
+        """
+        v = np.zeros(np.sum(np.square(sz)))
+        p1 = 0
+        p2 = 0
+        for b in range(sz.size):
+            n = sz[b]
+            n2 = n * n
+            i = p1 + np.arange(n + 1)
+            # Picking out the sub-matrices here takes a lot of time.
+            v[p2 + np.arange(n2)] = np.linalg.inv(
+                a[i[0] : i[-1], i[0] : i[-1]].A
+            ).ravel()
+            p1 = p1 + n
+            p2 = p2 + n2
+        return v
+
+    def invert_diagonal_blocks_cython(a: sps.spmatrix, sz: np.ndarray) -> np.ndarray:
+        """Invert block diagonal matrix using code wrapped with cython."""
+        try:
+            import porepy.numerics.fv.cythoninvert as cythoninvert
+        except ImportError:
+            raise ImportError(
+                """Compiled Cython module not available. Is cython installed?"""
+            )
+
+        a.sorted_indices()
+        ptr = a.indptr
+        indices = a.indices
+        dat = a.data
+
+        v = cythoninvert.inv_python(ptr, indices, dat, sz)
+        return v
+
+    def invert_diagonal_blocks_numba(a: sps.spmatrix, size: np.ndarray) -> np.ndarray:
+        """
+        Invert block diagonal matrix by invoking numba acceleration of a simple
+        for-loop based algorithm.
+
+        This approach should be more efficient than the related method
+        invert_diagonal_blocks_python for larger problems.
+
+        Parameters
+        ----------
+        a : sps.csr matrix
+        size : Size of individual blocks
+
+        Returns
+        -------
+        ia: inverse of a
+        """
+        try:
+            import numba
+        except ImportError:
+            raise ImportError("Numba not available on the system")
+
+        # Sort matrix storage before pulling indices and data
+        a.sorted_indices()
+        ptr = a.indptr
+        indices = a.indices
+        dat = a.data
+
+        # Just in time compilation
+        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True, cache=True)
+        def inv_python(indptr, ind, data, sz):
+            """
+            Invert block matrices by explicitly forming local matrices. The code
+            in itself is not efficient, but it is hopefully well suited for
+            speeding up with numba.
+
+            It may be possible to restruct the code to further help numba,
+            this has not been investigated.
+
+            The computation can easily be parallelized, consider this later.
+            """
+
+            # Index of where the rows start for each block.
+            # block_row_starts_ind = np.hstack((np.array([0]),
+            #                                   np.cumsum(sz[:-1])))
+            block_row_starts_ind = np.zeros(sz.size, dtype=np.int32)
+            block_row_starts_ind[1:] = np.cumsum(sz[:-1])
+
+            # Number of columns per row. Will change from one column to the
+            # next
+            num_cols_per_row = indptr[1:] - indptr[0:-1]
+            # Index to where the columns start for each row (NOT blocks)
+            # row_cols_start_ind = np.hstack((np.zeros(1),
+            #                                 np.cumsum(num_cols_per_row)))
+            row_cols_start_ind = np.zeros(num_cols_per_row.size + 1, dtype=np.int32)
+            row_cols_start_ind[1:] = np.cumsum(num_cols_per_row)
+
+            # Index to where the (full) data starts. Needed, since the
+            # inverse matrix will generally be full
+            # full_block_starts_ind = np.hstack((np.array([0]),
+            #                                    np.cumsum(np.square(sz))))
+            full_block_starts_ind = np.zeros(sz.size + 1, dtype=np.int32)
+            full_block_starts_ind[1:] = np.cumsum(np.square(sz))
+            # Structure to store the solution
+            inv_vals = np.zeros(np.sum(np.square(sz)))
+
+            # Loop over all blocks
+            for iter1 in range(sz.size):
+                n = sz[iter1]
+                loc_mat = np.zeros((n, n))
+                # Fill in non-zero elements in local matrix
+                for iter2 in range(n):  # Local rows
+                    global_row = block_row_starts_ind[iter1] + iter2
+                    data_counter = row_cols_start_ind[global_row]
+
+                    # Loop over local columns. Getting the number of columns
+                    #  for each row is a bit involved
+                    for _ in range(
+                        num_cols_per_row[iter2 + block_row_starts_ind[iter1]]
+                    ):
+                        loc_col = ind[data_counter] - block_row_starts_ind[iter1]
+                        loc_mat[iter2, loc_col] = data[data_counter]
+                        data_counter += 1
+
+                # Compute inverse. np.linalg.inv is supported by numba (May
+                # 2016), it is not clear if this is the best option. To be
+                # revised
+                inv_mat = np.ravel(np.linalg.inv(loc_mat))
+
+                loc_ind = np.arange(
+                    full_block_starts_ind[iter1], full_block_starts_ind[iter1 + 1]
+                )
+                inv_vals[loc_ind] = inv_mat
+                # Update fields
+            return inv_vals
+
+        v = inv_python(ptr, indices, dat, size)
+        return v
+
+    # Remove blocks of size 0
+    s = s[s > 0]
+    # Variable to check if we have tried and failed with numba
+    try_cython = False
+    if method == "numba" or method is None:
+        try:
+            inv_vals = invert_diagonal_blocks_numba(mat, s)
+        except np.linalg.LinAlgError:
+            raise ValueError("Error in inversion of local linear systems")
+        except Exception:
+            # This went wrong, fall back on cython
+            try_cython = True
+    # Variable to check if we should fall back on python
+    if method == "cython" or try_cython:
+        try:
+            inv_vals = invert_diagonal_blocks_cython(mat, s)
+        except ImportError as e:
+            raise e
+    elif method == "python":
+        inv_vals = invert_diagonal_blocks_python(mat, s)
+
+    ia = block_diag_matrix(inv_vals, s)
+    return ia
+
+
+def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
+    """
+    Construct block diagonal matrix based on matrix elements and block sizes.
+
+    Parameters
+    ----------
+    vals: matrix values
+    sz: size of matrix blocks
+
+    Returns
+    -------
+    sps.csr matrix
+    """
+    row, _ = block_diag_index(sz)
+    # This line recovers starting indices of the rows.
+    indptr = np.hstack(
+        (np.zeros(1), np.cumsum(pp.utils.matrix_compression.rldecode(sz, sz)))
+    ).astype("int32")
+    return sps.csr_matrix((vals, row, indptr))
+
+
+def block_diag_index(
+    m: np.ndarray, n: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Get row and column indices for block diagonal matrix
+
+    This is intended as the equivalent of the corresponding method in MRST.
+
+    Examples:
+    >>> m = np.array([2, 3])
+    >>> n = np.array([1, 2])
+    >>> i, j = block_diag_index(m, n)
+    >>> i, j
+    (array([0, 1, 2, 3, 4, 2, 3, 4]), array([0, 0, 1, 1, 1, 2, 2, 2]))
+    >>> a = np.array([1, 3])
+    >>> i, j = block_diag_index(a)
+    >>> i, j
+    (array([0, 1, 2, 3, 1, 2, 3, 1, 2, 3]), array([0, 1, 1, 1, 2, 2, 2, 3, 3, 3]))
+
+    Parameters:
+        m - ndarray, dimension 1
+        n - ndarray, dimension 1, defaults to m
+
+    """
+    if n is None:
+        n = m
+
+    start = np.hstack((np.zeros(1, dtype="int"), m))
+    pos = np.cumsum(start)
+    p1 = pos[0:-1]
+    p2 = pos[1:] - 1
+    p1_full = pp.utils.matrix_compression.rldecode(p1, n)
+    p2_full = pp.utils.matrix_compression.rldecode(p2, n)
+
+    i = mcolon(p1_full, p2_full + 1)
+    sumn = np.arange(np.sum(n))
+    m_n_full = pp.utils.matrix_compression.rldecode(m, n)
+    j = pp.utils.matrix_compression.rldecode(sumn, m_n_full)
+    return i, j
