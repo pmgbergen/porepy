@@ -13,7 +13,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids.grid_bucket import GridBucket
-from porepy.utils import matrix_compression, mcolon
 
 
 class SubcellTopology(object):
@@ -66,10 +65,10 @@ class SubcellTopology(object):
 
         # Duplicate cell and face indices, so that they can be matched with
         # the nodes
-        cells_duplicated = matrix_compression.rldecode(
+        cells_duplicated = pp.matrix_operations.rldecode(
             cell_ind, num_face_nodes[face_ind]
         )
-        faces_duplicated = matrix_compression.rldecode(
+        faces_duplicated = pp.matrix_operations.rldecode(
             face_ind, num_face_nodes[face_ind]
         )
         M = sps.coo_matrix(
@@ -249,13 +248,13 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     -------
     ValueError if the size of eta is not 1 or subcell_topology.num_subfno_unique.
     """
-    _, blocksz = matrix_compression.rlencode(
+    _, blocksz = pp.matrix_operations.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
     )
     dims = g.dim
 
     _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
-    cols += matrix_compression.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
+    cols += pp.matrix_operations.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
     if np.asarray(eta).size == subcell_topology.num_subfno_unique:
         eta_vec = eta[subcell_topology.subfno]
     elif np.asarray(eta).size == 1:
@@ -437,9 +436,6 @@ def remove_nonlocal_contribution(
     eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
     for mat in args:
         pp.matrix_operations.zero_rows(mat, eliminate_ind)
-
-
-# ------------------- End of methods related to block inversion ---------------
 
 
 def expand_indices_nd(ind, nd, direction="F"):
@@ -661,7 +657,7 @@ def scalar_tensor_vector_prod(
     # correspond to a unique rows (Matlab-style) from what I understand.
     # This also means that the pairs in cell_node_blocks uniquely defines
     # subcells, and can be used to index gradients etc.
-    cell_node_blocks, blocksz = pp.utils.matrix_compression.rlencode(
+    cell_node_blocks, blocksz = pp.matrix_operations.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
     )
 
@@ -679,7 +675,7 @@ def scalar_tensor_vector_prod(
     # is adjusted according to block sizes
     _, j = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
     sum_blocksz = np.cumsum(blocksz)
-    j += pp.utils.matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
+    j += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0], blocksz)
 
     # Distribute faces equally on the sub-faces
     num_nodes = np.diff(g.face_nodes.indptr)

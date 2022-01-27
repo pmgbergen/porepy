@@ -1147,7 +1147,7 @@ class Mpsa(Discretization):
         D_c = sps.kron(sps.eye(g.dim), D_c)
         D_c = D_c.tocsc()
         # book keeping
-        cell_node_blocks, _ = pp.utils.matrix_compression.rlencode(
+        cell_node_blocks, _ = pp.matrix_operations.rlencode(
             np.vstack((subcell_topology.cno, subcell_topology.nno))
         )
         num_sub_cells = cell_node_blocks[0].size
@@ -1391,7 +1391,7 @@ class Mpsa(Discretization):
         # correspond to a unique rows (Matlab-style) from what I understand.
         # This also means that the pairs in cell_node_blocks uniquely defines
         # subcells, and can be used to index gradients etc.
-        cell_node_blocks, blocksz = pp.utils.matrix_compression.rlencode(
+        cell_node_blocks, blocksz = pp.matrix_operations.rlencode(
             np.vstack((subcell_topology.cno, subcell_topology.nno))
         )
 
@@ -1409,7 +1409,7 @@ class Mpsa(Discretization):
         # is adjusted according to block sizes
         _, cn = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
         sum_blocksz = np.cumsum(blocksz)
-        cn += pp.utils.matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
+        cn += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0], blocksz)
         ind_ptr_n = np.hstack((np.arange(0, cn.size, nd), cn.size))
 
         # Distribute faces equally on the sub-faces, and store in a matrix
@@ -1424,9 +1424,7 @@ class Mpsa(Discretization):
         # the normal vectors
         _, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd ** 2))
         sum_blocksz = np.cumsum(blocksz ** 2)
-        cc += pp.utils.matrix_compression.rldecode(
-            sum_blocksz - blocksz[0] ** 2, blocksz
-        )
+        cc += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0] ** 2, blocksz)
         ind_ptr_c = np.hstack((np.arange(0, cc.size, nd ** 2), cc.size))
 
         # Splitt stiffness matrix into symmetric and anti-symmatric part

@@ -779,7 +779,7 @@ def duplicate_nodes(g, nodes, offset):
     # From the number of repititions of the node (1 for untouched nodes),
     # get mapping from new to old indices.
     # To see how this works, read the documentation of rldecode, including the examples.
-    new_2_old_nodes = pp.utils.matrix_compression.rldecode(
+    new_2_old_nodes = pp.matrix_operations.rldecode(
         np.arange(repititions.size), repititions
     )
     g.nodes = g.nodes[:, new_2_old_nodes]

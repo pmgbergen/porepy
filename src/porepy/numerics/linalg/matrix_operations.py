@@ -720,9 +720,7 @@ def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
     """
     row, _ = block_diag_index(sz)
     # This line recovers starting indices of the rows.
-    indptr = np.hstack(
-        (np.zeros(1), np.cumsum(pp.utils.matrix_compression.rldecode(sz, sz)))
-    ).astype("int32")
+    indptr = np.hstack((np.zeros(1), np.cumsum(rldecode(sz, sz)))).astype("int32")
     return sps.csr_matrix((vals, row, indptr))
 
 
@@ -757,11 +755,79 @@ def block_diag_index(
     pos = np.cumsum(start)
     p1 = pos[0:-1]
     p2 = pos[1:] - 1
-    p1_full = pp.utils.matrix_compression.rldecode(p1, n)
-    p2_full = pp.utils.matrix_compression.rldecode(p2, n)
+    p1_full = rldecode(p1, n)
+    p2_full = rldecode(p2, n)
 
     i = mcolon(p1_full, p2_full + 1)
     sumn = np.arange(np.sum(n))
-    m_n_full = pp.utils.matrix_compression.rldecode(m, n)
-    j = pp.utils.matrix_compression.rldecode(sumn, m_n_full)
+    m_n_full = rldecode(m, n)
+    j = rldecode(sumn, m_n_full)
     return i, j
+
+
+def rlencode(A: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Compress matrix by looking for identical columns.
+
+    Example usage: Convert the a full set of (row or column) indices of a
+    sparse matrix into compressed storage.
+
+    Acknowledgement: The code is heavily inspired by MRST's function with the
+    same name, however, requirements on the shape of functions are probably
+    somewhat different.
+
+    Parameters:
+        A (np.ndarray): Matrix to be compressed. Should be 2d. Compression
+            will be along the second axis.
+
+    Returns:
+        np.ndarray: The compressed array, size n x m.
+        np.ndarray: Number of times each row in the first output array should
+            be repeated to restore the original array.
+
+    See also:
+        rlencode
+
+    """
+    comp = A[::, 0:-1] != A[::, 1::]
+    i = np.any(comp, axis=0)
+    i = np.hstack((np.argwhere(i).ravel(), (A.shape[1] - 1)))
+
+    num = np.diff(np.hstack((np.array([-1]), i)))
+
+    return A[::, i], num
+
+
+def rldecode(A: np.ndarray, n: np.ndarray) -> np.ndarray:
+    """Decode compressed information in indices.
+
+    Example usage: Convert the index pointers in compressed matrix storage
+    (row or column) to a full set of indices.
+
+    Acknowledgement: The code is heavily inspired by MRST's function with the
+    same name, however, requirements on the shape of functions are probably
+    somewhat different.
+
+    >>> rldecode(np.array([1, 2, 3]), np.array([2, 3, 1]))
+    [1, 1, 2, 2, 2, 3]
+
+    >>> rldecode(np.array([1, 2]), np.array([1, 3]))
+    [1, 2, 2, 2]
+
+    Parameters:
+        A (double, m x k), compressed matrix to be recovered. The
+        compression should be along dimension 1
+        n (int): Number of occurences for each element
+
+    Returns:
+        B: The restored array.
+
+    See also:
+        rlencode
+
+    """
+    r = n > 0
+    i = np.cumsum(np.hstack((np.zeros(1, dtype=int), n[r])), dtype=int)
+    j = np.zeros(i[-1], dtype=int)
+    j[i[1:-1:]] = 1
+    B = A[np.cumsum(j)]
+    return B
