@@ -1,7 +1,6 @@
 import numpy as np
 
 import porepy as pp
-from porepy.utils import sparse_mat
 
 module_sections = ["utils", "gridding"]
 
@@ -28,7 +27,6 @@ class Graph:
             colors.
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, node_connections):
         if node_connections.getformat() != "csr":
             self.node_connections = node_connections.tocsr()
@@ -37,7 +35,6 @@ class Graph:
         self.regions = 0
         self.color = np.array([np.NaN] * node_connections.shape[1])
 
-    @pp.time_logger(sections=module_sections)
     def color_nodes(self):
         """
         Color the nodes in each region
@@ -55,7 +52,6 @@ class Graph:
             "number of regions can not be greater than " "number of nodes"
         )
 
-    @pp.time_logger(sections=module_sections)
     def bfs(self, start, color):
         """
         Breadth first search
@@ -65,6 +61,8 @@ class Graph:
             node = queue.pop(0)
             if node not in visited:
                 visited.append(node)
-                neighbours = sparse_mat.slice_indices(self.node_connections, node)
+                neighbours = pp.matrix_operations.slice_indices(
+                    self.node_connections, node
+                )
                 queue.extend(neighbours)
         self.color[visited] = color

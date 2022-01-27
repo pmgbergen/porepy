@@ -1815,7 +1815,7 @@ class Mpsa(Discretization):
         subfno_nd += subcell_topology.fno.size * np.atleast_2d(np.arange(0, nd)).T
         dof_elim = subfno_nd.ravel("C")[remove_singular]
         # and eliminate the rows corresponding to these subfaces
-        pp.utils.sparse_mat.zero_rows(ncasym, dof_elim)
+        pp.matrix_operations.zero_rows(ncasym, dof_elim)
         logger.debug("number of ncasym eliminated: " + str(np.sum(dof_elim.size)))
         ## the following is some code to enforce symmetric G. Comment for now
         # # Find the equations for the x-values
