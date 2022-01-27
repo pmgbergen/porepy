@@ -42,8 +42,12 @@ def merge_grids(grids: List[pp.Grid]) -> pp.Grid:
         grid.num_nodes += sg.num_nodes
         grid.nodes = np.hstack((grid.nodes, sg.nodes))
 
-        grid.face_nodes = pp.utils.sparse_mat.stack_diag(grid.face_nodes, sg.face_nodes)
-        grid.cell_faces = pp.utils.sparse_mat.stack_diag(grid.cell_faces, sg.cell_faces)
+        grid.face_nodes = pp.matrix_operations.stack_diag(
+            grid.face_nodes, sg.face_nodes
+        )
+        grid.cell_faces = pp.matrix_operations.stack_diag(
+            grid.cell_faces, sg.cell_faces
+        )
 
         grid.face_areas = np.hstack((grid.face_areas, sg.face_areas))
         grid.face_centers = np.hstack((grid.face_centers, sg.face_centers))
