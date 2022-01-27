@@ -9,13 +9,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import grid, grid_bucket
-from porepy.utils import (
-    accumarray,
-    grid_utils,
-    setmembership,
-    mcolon,
-    tags,
-)
+from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
 
 
 def coarsen(

@@ -837,7 +837,7 @@ class Mpsa(Discretization):
         g: pp.Grid,
         subcell_topology: pp.fvutils.SubcellTopology,
         eta: float,
-        num_sub_cells: np.ndarray,
+        num_sub_cells: int,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
     ) -> sps.spmatrix:
 
@@ -1208,7 +1208,7 @@ class Mpsa(Discretization):
         g: pp.Grid,
         subcell_topology: pp.fvutils.SubcellTopology,
         eta: float,
-        num_sub_cells: np.ndarray,
+        num_sub_cells: int,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
     ) -> Tuple[sps.spmatrix, sps.spmatrix]:
         nd = g.dim
@@ -1243,7 +1243,7 @@ class Mpsa(Discretization):
         g: pp.Grid,
         subcell_topology: pp.fvutils.SubcellTopology,
         eta: float,
-        num_sub_cells: np.ndarray,
+        num_sub_cells: int,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
     ) -> Tuple[sps.spmatrix, sps.spmatrix]:
         nd = g.dim
@@ -1509,7 +1509,7 @@ class Mpsa(Discretization):
         grad_eqs: sps.spmatrix,
         sub_cell_index: np.ndarray,
         cell_node_blocks: np.ndarray,
-        nno_unique: int,
+        nno_unique: np.ndarray,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
         nd: int,
         inverter: str,
@@ -1677,7 +1677,7 @@ class Mpsa(Discretization):
         self,
         d_cont_grad: np.ndarray,
         d_cont_cell: np.ndarray,
-        num_sub_cells: np.ndarray,
+        num_sub_cells: int,
         nd: int,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Transform columns of displacement balance from increasing cell
