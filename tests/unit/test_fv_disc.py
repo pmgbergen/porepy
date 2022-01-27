@@ -4,7 +4,7 @@ Created on Sun Feb 28 20:55:56 2016
 
 @author: keile
 """
-
+import unittest
 import numpy as np
 import pytest
 
@@ -20,7 +20,7 @@ def _assign_params(g, perm, bc):
 
 @pytest.mark.parametrize("method", ["tpfa", "mpfa"])
 def test_fv_cart_2d(method):
-    """ Apply TPFA and MPFA on Cartesian grid, should obtain Laplacian stencil."""
+    """Apply TPFA and MPFA on Cartesian grid, should obtain Laplacian stencil."""
 
     # Set up 3 X 3 Cartesian grid
     nx = np.array([3, 3])
@@ -89,7 +89,7 @@ def test_fv_cart_2d(method):
 
 @pytest.mark.parametrize("method", ["tpfa", "mpfa"])
 def test_fv_cart_2d_periodic(method):
-    """ Apply TPFA and MPFA on a periodic Cartesian grid, should obtain Laplacian stencil."""
+    """Apply TPFA and MPFA on a periodic Cartesian grid, should obtain Laplacian stencil."""
 
     # Set up 3 X 3 Cartesian grid
     nx = np.array([3, 3])

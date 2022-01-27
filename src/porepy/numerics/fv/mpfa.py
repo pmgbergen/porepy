@@ -878,7 +878,9 @@ class Mpfa(pp.FVElliptic):
         # Invert the system, and map back to the original form
         igrad = (
             cols2blk_diag
-            * pp.fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
+            * pp.matrix_operations.invert_diagonal_blocks(
+                grad, size_of_blocks, method=inverter
+            )
             * rows2blk_diag
         )
 

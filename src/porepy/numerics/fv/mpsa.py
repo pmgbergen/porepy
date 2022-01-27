@@ -1525,7 +1525,9 @@ class Mpsa(Discretization):
         # Compute inverse gradient operator, and map back again
         igrad = (
             cols2blk_diag
-            * pp.fvutils.invert_diagonal_blocks(grad, size_of_blocks, method=inverter)
+            * pp.matrix_operations.invert_diagonal_blocks(
+                grad, size_of_blocks, method=inverter
+            )
             * rows2blk_diag
         )
         logger.debug("max igrad: " + str(np.max(np.abs(igrad))))
