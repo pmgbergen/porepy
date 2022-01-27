@@ -532,7 +532,7 @@ def __extract_cells_from_faces_2d(g, f):
     num_nodes = np.shape(cell_nodes)[0]
     num_nodes_per_face = np.ones(num_nodes)
 
-    face_node_ind = pp.utils.matrix_compression.rldecode(
+    face_node_ind = pp.matrix_operations.rldecode(
         np.arange(num_faces), num_nodes_per_face
     )
 
@@ -610,7 +610,7 @@ def __extract_cells_from_faces_3d(g, f, is_planar=True):
         (np.ones(num_face_nodes), face_nodes_indices, face_nodes_indptr)
     )
 
-    cell_idx = pp.utils.matrix_compression.rldecode(
+    cell_idx = pp.matrix_operations.rldecode(
         np.arange(num_face_nodes), num_nodes_per_cell
     )
 
