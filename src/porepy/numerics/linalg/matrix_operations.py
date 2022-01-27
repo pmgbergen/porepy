@@ -1,6 +1,7 @@
 """
 module for operations on sparse matrices
 """
+from typing import Optional, Union, Tuple
 import numpy as np
 import scipy.sparse as sps
 
@@ -8,16 +9,23 @@ import porepy as pp
 from porepy.utils.mcolon import mcolon
 
 
-def zero_columns(A, cols):
+def zero_columns(
+    A: sps.csc_matrix, cols: np.ndarray, diag: Optional[np.ndarray] = None
+) -> None:
     """
     Function to zero out columns in matrix A. Note that this function does not
     change the sparcity structure of the matrix, it only changes the column
-    values to 0
+    values to 0.
+
+    The matrix is modified in place.
 
     Parameter
     ---------
     A (scipy.sparse.spmatrix): A sparce matrix
     cols (ndarray): A numpy array of columns that should be zeroed
+    diag (np.ndarray, double, optional): Values to be set to the diagonal
+        on the eliminated cols.
+
     Return
     ------
     None
@@ -32,21 +40,33 @@ def zero_columns(A, cols):
     col_indptr = mcolon(indptr[cols], indptr[cols + 1])
     A.data[col_indptr] = 0
 
+    if diag is not None:
+        # now we set the diagonal
+        diag_vals = np.zeros(A.shape[1])
+        diag_vals[cols] = diag
+        A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
 
-def zero_rows(A, rows):
+
+def zero_rows(
+    A: sps.csr_matrix, rows: np.ndarray, diag: Optional[np.ndarray] = None
+) -> None:
     """
     Function to zero out rows in matrix A. Note that this function does not
     change the sparcity structure of the matrix, it only changes the row
-    values to 0
+    values to 0.
+
+    The matrix is modified in place.
 
     Parameter
     ---------
     A (scipy.sparse.spmatrix): A sparce matrix
     rows (ndarray): A numpy array of columns that should be zeroed
+    diag (np.ndarray, double, optional): Values to be set to the diagonal
+        on the eliminated rows.
+
     Return
     ------
     None
-
 
     """
 
@@ -57,8 +77,14 @@ def zero_rows(A, rows):
     row_indptr = mcolon(indptr[rows], indptr[rows + 1])
     A.data[row_indptr] = 0
 
+    if diag is not None:
+        # now we set the diagonal
+        diag_vals = np.zeros(A.shape[1])
+        diag_vals[rows] = diag
+        A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
 
-def merge_matrices(A, B, lines):
+
+def merge_matrices(A: sps.spmatrix, B: sps.spmatrx, lines: np.ndarray) -> None:
     """
     Replace rows/coloms of matrix A with rows/cols of matrix B.
     If A and B are csc matrices this function is equivalent with
@@ -75,7 +101,6 @@ def merge_matrices(A, B, lines):
     Return
     ------
     None
-
 
     """
     if A.getformat() != "csc" and A.getformat() != "csr":
@@ -134,7 +159,7 @@ def merge_matrices(A, B, lines):
     A.indptr = indptr + num_added
 
 
-def stack_mat(A, B):
+def stack_mat(A: sps.spmatrix, B: sps.spmatrix):
     """
     Stack matrix B at the end of matrix A.
     If A and B are csc matrices this function is equivalent to
@@ -144,8 +169,8 @@ def stack_mat(A, B):
 
     Parameters:
     -----------
-    A (scipy.sparse.spmatrix): A sparce matrix
-    B (scipy.sparse.spmatrix): A sparce matrix
+    A (scipy.sparse.spmatrix): A sparse matrix
+    B (scipy.sparse.spmatrix): A sparse matrix
 
     Return
     ------
@@ -177,7 +202,7 @@ def stack_mat(A, B):
         A._shape = (A._shape[0] + B._shape[0], A._shape[1])
 
 
-def copy(A):
+def copy(A: sps.spmatrix) -> sps.spmatrix:
     """
     Create a new matrix C that is a copy of matrix A
     This function is equivalent to
@@ -201,7 +226,7 @@ def copy(A):
         return A.copy()
 
 
-def stack_diag(A, B):
+def stack_diag(A: sps.spmatrix, B: sps.spmatrix) -> sps.spmatrix:
     """
     Create a new matrix C that contains matrix A and B at the diagonal:
     C = [[A, 0], [0, B]]
@@ -243,7 +268,9 @@ def stack_diag(A, B):
     return C
 
 
-def slice_indices(A, slice_ind, return_array_ind=False):
+def slice_indices(
+    A: sps.spmatrix, slice_ind: np.ndarray, return_array_ind: bool = False
+) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
     """
     Function for slicing sparse matrix along rows or columns.
     If A is a csc_matrix A will be sliced along columns, while if A is a
@@ -288,7 +315,7 @@ def slice_indices(A, slice_ind, return_array_ind=False):
         return indices
 
 
-def slice_mat(A, ind):
+def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
     """
     Function for slicing sparse matrix along rows or columns.
     If A is a csc_matrix A will be sliced along columns, while if A is a
