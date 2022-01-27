@@ -19,7 +19,7 @@ import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
-from porepy.utils import matrix_compression, mcolon, tags
+from porepy.utils import mcolon, tags
 
 module_sections = ["grids", "gridding"]
 
@@ -436,7 +436,7 @@ class Grid:
         #  represents the edge running from face_nodes[i] to face_nodes[i+1])
         face_nodes = self.face_nodes.indices
         # For each node, index of its parent face
-        face_node_ind = matrix_compression.rldecode(
+        face_node_ind = pp.matrix_operations.rldecode(
             np.arange(self.num_faces), num_nodes_per_face
         )
 
@@ -540,7 +540,7 @@ class Grid:
         # from a cell (e.g. edges on internal faces are seen twice).
 
         # Cell numbers are obtained from the columns in edge_2_cell.
-        cell_numbers = matrix_compression.rldecode(
+        cell_numbers = pp.matrix_operations.rldecode(
             np.arange(self.num_cells), np.diff(edge_2_cell.indptr)
         )
         # Edge numbers from the rows. Here it is crucial that the indices
@@ -818,7 +818,7 @@ class Grid:
             return np.zeros((0, 2))
         n = self.cell_faces.tocsr()
         d = np.diff(n.indptr)
-        rows = matrix_compression.rldecode(np.arange(d.size), d)
+        rows = pp.matrix_operations.rldecode(np.arange(d.size), d)
         # Increase the data by one to distinguish cell indices from boundary
         # cells
         data = n.indices + 1
