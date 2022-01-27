@@ -7,10 +7,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.utils.mcolon import mcolon
 
-module_sections = ["gridding", "discretization", "matrix", "numerics"]
 
-
-@pp.time_logger(sections=module_sections)
 def zero_columns(A, cols):
     """
     Function to zero out columns in matrix A. Note that this function does not
@@ -36,7 +33,6 @@ def zero_columns(A, cols):
     A.data[col_indptr] = 0
 
 
-@pp.time_logger(sections=module_sections)
 def zero_rows(A, rows):
     """
     Function to zero out rows in matrix A. Note that this function does not
@@ -62,7 +58,6 @@ def zero_rows(A, rows):
     A.data[row_indptr] = 0
 
 
-@pp.time_logger(sections=module_sections)
 def merge_matrices(A, B, lines):
     """
     Replace rows/coloms of matrix A with rows/cols of matrix B.
@@ -139,7 +134,6 @@ def merge_matrices(A, B, lines):
     A.indptr = indptr + num_added
 
 
-@pp.time_logger(sections=module_sections)
 def stack_mat(A, B):
     """
     Stack matrix B at the end of matrix A.
@@ -183,7 +177,6 @@ def stack_mat(A, B):
         A._shape = (A._shape[0] + B._shape[0], A._shape[1])
 
 
-@pp.time_logger(sections=module_sections)
 def copy(A):
     """
     Create a new matrix C that is a copy of matrix A
@@ -208,7 +201,6 @@ def copy(A):
         return A.copy()
 
 
-@pp.time_logger(sections=module_sections)
 def stack_diag(A, B):
     """
     Create a new matrix C that contains matrix A and B at the diagonal:
@@ -251,7 +243,6 @@ def stack_diag(A, B):
     return C
 
 
-@pp.time_logger(sections=module_sections)
 def slice_indices(A, slice_ind, return_array_ind=False):
     """
     Function for slicing sparse matrix along rows or columns.
@@ -297,7 +288,6 @@ def slice_indices(A, slice_ind, return_array_ind=False):
         return indices
 
 
-@pp.time_logger(sections=module_sections)
 def slice_mat(A, ind):
     """
     Function for slicing sparse matrix along rows or columns.
@@ -352,7 +342,6 @@ def slice_mat(A, ind):
         return sps.csr_matrix((data, indices, indptr), shape=(N, A.shape[1]))
 
 
-@pp.time_logger(sections=module_sections)
 def csr_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
@@ -387,7 +376,6 @@ def csr_matrix_from_blocks(
     return _csx_matrix_from_blocks(data, block_size, num_blocks, sps.csr_matrix)
 
 
-@pp.time_logger(sections=module_sections)
 def csc_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
@@ -422,7 +410,6 @@ def csc_matrix_from_blocks(
     return _csx_matrix_from_blocks(data, block_size, num_blocks, sps.csc_matrix)
 
 
-@pp.time_logger(sections=module_sections)
 def _csx_matrix_from_blocks(
     data: np.ndarray, block_size: int, num_blocks: int, matrix_format
 ) -> sps.spmatrix:
