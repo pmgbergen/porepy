@@ -1,11 +1,11 @@
 """
 module for operations on sparse matrices
 """
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
+
 import numpy as np
 import scipy.sparse as sps
 
-import porepy as pp
 from porepy.utils.mcolon import mcolon
 
 
@@ -270,7 +270,7 @@ def stack_diag(A: sps.spmatrix, B: sps.spmatrix) -> sps.spmatrix:
 
 def slice_indices(
     A: sps.spmatrix, slice_ind: np.ndarray, return_array_ind: bool = False
-) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+) -> Union[np.ndarray, Tuple[np.ndarray, Union[np.ndarray, slice]]]:
     """
     Function for slicing sparse matrix along rows or columns.
     If A is a csc_matrix A will be sliced along columns, while if A is a
@@ -302,7 +302,7 @@ def slice_indices(
 
     if isinstance(slice_ind, int):
         array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
-        indices = A.indices[array_ind]
+        indices: np.ndarray = A.indices[array_ind]
     elif slice_ind.size == 1:
         array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
         indices = A.indices[array_ind]
