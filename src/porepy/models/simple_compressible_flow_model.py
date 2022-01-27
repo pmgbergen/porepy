@@ -121,6 +121,8 @@ class SimpleCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleF
 
         super()._assign_discretizations()
         gb = self.gb
+        grid_list = [g for g, _ in gb.nodes()]
+
 
         # Ad representation of discretizations
         mass_mat = pp.MassMatrix(self.parameter_key)
