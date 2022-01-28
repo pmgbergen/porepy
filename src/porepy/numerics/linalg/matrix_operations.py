@@ -2,6 +2,7 @@
 module for operations on sparse matrices
 """
 from typing import Optional, Tuple, Union
+from typing_extensions import Literal
 
 import numpy as np
 import scipy.sparse as sps
@@ -84,55 +85,74 @@ def zero_rows(
         A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
 
 
-def merge_matrices(A: sps.spmatrix, B: sps.spmatrix, lines: np.ndarray) -> None:
-    """
-    Replace rows/coloms of matrix A with rows/cols of matrix B.
-    If A and B are csc matrices this function is equivalent with
-    A[:, lines] = B
-    If A and B are csr matrices this funciton is equivalent iwth
-    A[lines, :] = B
+def merge_matrices(
+    A: sps.spmatrix,
+    B: sps.spmatrix,
+    lines_to_replace: np.ndarray,
+    matrix_format: Literal["csr", "csc"],
+) -> None:
+    """Replace rows/coloms of matrix A with rows/cols of matrix B.
+
+    If the matrix format is csc, this function is equivalent with
+
+        A[:, lines_to_replace] = B
+
+    If the matrix format is csr, this funciton is equivalent iwth
+
+        A[lines_to_replace, :] = B
+
+    Replacement is done in place.
 
     Parameter
     ---------
-    A (scipy.sparse.spmatrix): A sparce matrix
-    B (scipy.sparse.spmatrix): A sparce matrix
-    lines (ndarray): Lines of A to be replaced by B.
+    A (scipy.sparse.spmatrix): A sparse matrix
+    B (scipy.sparse.spmatrix): A sparse matrix
+    lines_to_replace (ndarray): Lines of A to be replaced by B.
+    matrix_format (str): Should be either 'csr' or 'csc'. Both A and B should adhere
+        to the respective format.
 
     Return
     ------
     None
 
     """
-    if A.getformat() != "csc" and A.getformat() != "csr":
-        raise ValueError("Need a csc or csr matrix")
-    elif A.getformat() != B.getformat():
-        raise ValueError("A and B must be of same matrix type")
-    if A.getformat() == "csc":
-        if A.shape[0] != B.shape[0]:
-            raise ValueError("A.shape[0] must equal B.shape[0]")
-    if A.getformat() == "csr":
-        if A.shape[1] != B.shape[1]:
-            raise ValueError("A.shape[0] must equal B.shape[0]")
+    # Run a set of checks on the input, it easy to get this wrong.
+    if not all((s == matrix_format for s in (A.getformat(), B.getformat()))):
+        raise ValueError(
+            f"Both matrices should be of the specified format {matrix_format}"
+        )
 
-    if B.getformat() == "csc":
-        if lines.size != B.shape[1]:
-            raise ValueError("B.shape[1] must equal size of lines")
-    if B.getformat() == "csr":
-        if lines.size != B.shape[0]:
+    if matrix_format == "csr":
+        if A.shape[1] != B.shape[1]:
+            raise ValueError(
+                f"Unequal number of matrix columns: {A.shape[1]} and {B.shape[1]}"
+            )
+        if lines_to_replace.size != B.shape[0]:
             raise ValueError("B.shape[0] must equal size of lines")
 
-    if np.unique(lines).shape != lines.shape:
+    if matrix_format == "csc":
+        if A.shape[0] != B.shape[0]:
+            raise ValueError(
+                f"Unequal number of matrix columns: {A.shape[0]} and {B.shape[0]}"
+            )
+
+        if lines_to_replace.size != B.shape[1]:
+            raise ValueError("B.shape[1] must equal size of lines")
+
+    if np.unique(lines_to_replace).size != lines_to_replace.size:
         raise ValueError("Can only merge unique lines")
 
     indptr = A.indptr
     indices = A.indices
     data = A.data
 
-    ind_ix = mcolon(indptr[lines], indptr[lines + 1])
+    ind_ix = mcolon(indptr[lines_to_replace], indptr[lines_to_replace + 1])
 
     # First we remove the old data
     num_rem = np.zeros(indptr.size, dtype=np.int32)
-    num_rem[lines + 1] = indptr[lines + 1] - indptr[lines]
+    num_rem[lines_to_replace + 1] = (
+        indptr[lines_to_replace + 1] - indptr[lines_to_replace]
+    )
     num_rem = np.cumsum(num_rem, dtype=num_rem.dtype)
 
     indptr = indptr - num_rem
@@ -148,11 +168,11 @@ def merge_matrices(A: sps.spmatrix, B: sps.spmatrix, lines: np.ndarray) -> None:
     b_data = B.data
 
     num_added = np.zeros(indptr.size, dtype=np.int32)
-    num_added[lines + 1] = b_indptr[1:] - b_indptr[:-1]
+    num_added[lines_to_replace + 1] = b_indptr[1:] - b_indptr[:-1]
     num_added = np.cumsum(num_added, dtype=num_added.dtype)
 
     rep = np.diff(b_indptr)
-    indPos = np.repeat(indptr[lines], rep)
+    indPos = np.repeat(indptr[lines_to_replace], rep)
 
     A.indices = np.insert(indices, indPos, b_indices)
     A.data = np.insert(data, indPos, b_data)
