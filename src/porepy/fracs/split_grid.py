@@ -506,7 +506,9 @@ def update_cell_connectivity(
 
     assert g.cell_faces.getformat() == "csr"
 
-    pp.matrix_operations.merge_matrices(g.cell_faces, cell_frac_right, face_id)
+    pp.matrix_operations.merge_matrices(
+        g.cell_faces, cell_frac_right, face_id, matrix_format="csr"
+    )
 
     # And then we add the new left-faces to the cell_face map. We do not
     # change the sign of the matrix since we did not flip the normals.
