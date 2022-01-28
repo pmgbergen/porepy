@@ -589,7 +589,7 @@ def duplicate_nodes(g, nodes, offset):
     num_nodes_to_duplicate = nodes.size
 
     ## Step 1
-    # Create a list where each item are the cells associated with a node to be expanded.
+    # Create a list where each item is the cells associated with a node to be expanded.
     cell_clusters = [
         np.unique(pp.matrix_operations.slice_indices(cell_node, n)) for n in nodes
     ]
