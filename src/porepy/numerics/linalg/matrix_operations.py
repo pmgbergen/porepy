@@ -542,8 +542,8 @@ def invert_diagonal_blocks(
 
         Parameters
         ----------
-        A sps.crs-matrix, to be inverted
-        sz - size of the individual blocks
+        a: sps.crs-matrix, to be inverted
+        sz: size of the individual blocks
 
         Returns
         -------
@@ -617,7 +617,7 @@ def invert_diagonal_blocks(
             in itself is not efficient, but it is hopefully well suited for
             speeding up with numba.
 
-            It may be possible to restruct the code to further help numba,
+            It may be possible to restructure the code to further help numba,
             this has not been investigated.
 
             The computation can easily be parallelized, consider this later.
@@ -768,7 +768,7 @@ def block_diag_index(
 def rlencode(A: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Compress matrix by looking for identical columns.
 
-    Example usage: Convert the a full set of (row or column) indices of a
+    Example usage: Convert a full set of (row or column) indices of a
     sparse matrix into compressed storage.
 
     Acknowledgement: The code is heavily inspired by MRST's function with the
@@ -785,7 +785,7 @@ def rlencode(A: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
             be repeated to restore the original array.
 
     See also:
-        rlencode
+        rldecode
 
     """
     comp = A[::, 0:-1] != A[::, 1::]
