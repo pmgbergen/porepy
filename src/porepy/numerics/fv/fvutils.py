@@ -13,9 +13,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids.grid_bucket import GridBucket
-from porepy.utils import matrix_compression, mcolon
-
-module_sections = ["numerics", "disrcetization"]
 
 
 class SubcellTopology(object):
@@ -48,7 +45,6 @@ class SubcellTopology(object):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, g):
         """
         Constructor for subcell topology
@@ -69,10 +65,10 @@ class SubcellTopology(object):
 
         # Duplicate cell and face indices, so that they can be matched with
         # the nodes
-        cells_duplicated = matrix_compression.rldecode(
+        cells_duplicated = pp.matrix_operations.rldecode(
             cell_ind, num_face_nodes[face_ind]
         )
-        faces_duplicated = matrix_compression.rldecode(
+        faces_duplicated = pp.matrix_operations.rldecode(
             face_ind, num_face_nodes[face_ind]
         )
         M = sps.coo_matrix(
@@ -172,7 +168,6 @@ class SubcellTopology(object):
         self.num_subfno_unique = self.subfno_unique.max() + 1
         self.unique_subfno = unique_subfno
 
-    @pp.time_logger(sections=module_sections)
     def __repr__(self):
         s = "Subcell topology with:\n"
         s += str(self.num_cno) + " cells\n"
@@ -182,7 +177,6 @@ class SubcellTopology(object):
         s += str(self.fno.size) + " subfaces before pairing face neighbors\n"
         return s
 
-    @pp.time_logger(sections=module_sections)
     def pair_over_subfaces(self, other):
         """
         Transfer quantities from a cell-face base (cells sharing a face have
@@ -208,7 +202,6 @@ class SubcellTopology(object):
         pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
         return pair_over_subfaces * other
 
-    @pp.time_logger(sections=module_sections)
     def pair_over_subfaces_nd(self, other):
         """nd-version of pair_over_subfaces, see above."""
         nd = self.g.dim
@@ -225,7 +218,6 @@ class SubcellTopology(object):
 # ------------------------ End of class SubcellTopology ----------------------
 
 
-@pp.time_logger(sections=module_sections)
 def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     """
     Compute vectors from cell centers continuity points on each sub-face.
@@ -256,13 +248,13 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     -------
     ValueError if the size of eta is not 1 or subcell_topology.num_subfno_unique.
     """
-    _, blocksz = matrix_compression.rlencode(
+    _, blocksz = pp.matrix_operations.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
     )
     dims = g.dim
 
     _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
-    cols += matrix_compression.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
+    cols += pp.matrix_operations.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
     if np.asarray(eta).size == subcell_topology.num_subfno_unique:
         eta_vec = eta[subcell_topology.subfno]
     elif np.asarray(eta).size == 1:
@@ -286,7 +278,6 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
         return mat
 
 
-@pp.time_logger(sections=module_sections)
 def determine_eta(g):
     """Set default value for the location of continuity point eta in MPFA and
     MSPA.
@@ -315,7 +306,6 @@ def determine_eta(g):
         return 0
 
 
-@pp.time_logger(sections=module_sections)
 def find_active_indices(
     parameter_dictionary: Dict[str, Any], g: pp.Grid
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -366,7 +356,6 @@ def find_active_indices(
     return active_cells, active_faces
 
 
-@pp.time_logger(sections=module_sections)
 def subproblems(
     g: pp.Grid, max_memory: int, peak_memory_estimate: int
 ) -> Generator[
@@ -424,7 +413,6 @@ def subproblems(
             yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
 
 
-@pp.time_logger(sections=module_sections)
 def remove_nonlocal_contribution(
     raw_ind: np.ndarray, nd: int, *args: sps.spmatrix
 ) -> None:
@@ -447,278 +435,9 @@ def remove_nonlocal_contribution(
     """
     eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
     for mat in args:
-        pp.fvutils.zero_out_sparse_rows(mat, eliminate_ind)
+        pp.matrix_operations.zero_rows(mat, eliminate_ind)
 
 
-# ------------- Methods related to block inversion ----------------------------
-
-
-@pp.time_logger(sections=module_sections)
-def invert_diagonal_blocks(mat, s, method=None):
-    """
-    Invert block diagonal matrix.
-
-    Three implementations are available, either pure numpy, or a speedup using
-    numba or cython. If none is specified, the function will try to use numba,
-    then cython. The python option will only be invoked if explicitly asked
-    for; it will be very slow for general problems.
-
-    Parameters
-    ----------
-    mat: sps.csr matrix to be inverted.
-    s: block size. Must be int64 for the numba acceleration to work
-    method: Choice of method. Either numba (default), cython or 'python'.
-        Defaults to None, in which case first numba, then cython is tried.
-
-    Returns
-    -------
-    imat: Inverse matrix
-
-    Raises
-    -------
-    ImportError: If numba or cython implementation is invoked without numba or
-        cython being available on the system.
-
-    """
-
-    def invert_diagonal_blocks_python(a, sz):
-        """
-        Invert block diagonal matrix using pure python code.
-
-        The implementation is slow for large matrices, consider to use the
-        numba-accelerated method invert_invert_diagagonal_blocks_numba instead
-
-        Parameters
-        ----------
-        A sps.crs-matrix, to be inverted
-        sz - size of the individual blocks
-
-        Returns
-        -------
-        inv_a inverse matrix
-        """
-        v = np.zeros(np.sum(np.square(sz)))
-        p1 = 0
-        p2 = 0
-        for b in range(sz.size):
-            n = sz[b]
-            n2 = n * n
-            i = p1 + np.arange(n + 1)
-            # Picking out the sub-matrices here takes a lot of time.
-            v[p2 + np.arange(n2)] = np.linalg.inv(
-                a[i[0] : i[-1], i[0] : i[-1]].A
-            ).ravel()
-            p1 = p1 + n
-            p2 = p2 + n2
-        return v
-
-    def invert_diagonal_blocks_cython(a, size):
-        """Invert block diagonal matrix using code wrapped with cython."""
-        try:
-            import porepy.numerics.fv.cythoninvert as cythoninvert
-        except ImportError:
-            raise ImportError(
-                """Compiled Cython module not available. Is cython installed?"""
-            )
-
-        a.sorted_indices()
-        ptr = a.indptr
-        indices = a.indices
-        dat = a.data
-
-        v = cythoninvert.inv_python(ptr, indices, dat, size)
-        return v
-
-    def invert_diagonal_blocks_numba(a, size):
-        """
-        Invert block diagonal matrix by invoking numba acceleration of a simple
-        for-loop based algorithm.
-
-        This approach should be more efficient than the related method
-        invert_diagonal_blocks_python for larger problems.
-
-        Parameters
-        ----------
-        a : sps.csr matrix
-        size : Size of individual blocks
-
-        Returns
-        -------
-        ia: inverse of a
-        """
-        try:
-            import numba
-        except ImportError:
-            raise ImportError("Numba not available on the system")
-
-        # Sort matrix storage before pulling indices and data
-        a.sorted_indices()
-        ptr = a.indptr
-        indices = a.indices
-        dat = a.data
-
-        # Just in time compilation
-        @numba.jit("f8[:](i4[:],i4[:],f8[:],i8[:])", nopython=True, cache=True)
-        def inv_python(indptr, ind, data, sz):
-            """
-            Invert block matrices by explicitly forming local matrices. The code
-            in itself is not efficient, but it is hopefully well suited for
-            speeding up with numba.
-
-            It may be possible to restruct the code to further help numba,
-            this has not been investigated.
-
-            The computation can easily be parallelized, consider this later.
-            """
-
-            # Index of where the rows start for each block.
-            # block_row_starts_ind = np.hstack((np.array([0]),
-            #                                   np.cumsum(sz[:-1])))
-            block_row_starts_ind = np.zeros(sz.size, dtype=np.int32)
-            block_row_starts_ind[1:] = np.cumsum(sz[:-1])
-
-            # Number of columns per row. Will change from one column to the
-            # next
-            num_cols_per_row = indptr[1:] - indptr[0:-1]
-            # Index to where the columns start for each row (NOT blocks)
-            # row_cols_start_ind = np.hstack((np.zeros(1),
-            #                                 np.cumsum(num_cols_per_row)))
-            row_cols_start_ind = np.zeros(num_cols_per_row.size + 1, dtype=np.int32)
-            row_cols_start_ind[1:] = np.cumsum(num_cols_per_row)
-
-            # Index to where the (full) data starts. Needed, since the
-            # inverse matrix will generally be full
-            # full_block_starts_ind = np.hstack((np.array([0]),
-            #                                    np.cumsum(np.square(sz))))
-            full_block_starts_ind = np.zeros(sz.size + 1, dtype=np.int32)
-            full_block_starts_ind[1:] = np.cumsum(np.square(sz))
-            # Structure to store the solution
-            inv_vals = np.zeros(np.sum(np.square(sz)))
-
-            # Loop over all blocks
-            for iter1 in range(sz.size):
-                n = sz[iter1]
-                loc_mat = np.zeros((n, n))
-                # Fill in non-zero elements in local matrix
-                for iter2 in range(n):  # Local rows
-                    global_row = block_row_starts_ind[iter1] + iter2
-                    data_counter = row_cols_start_ind[global_row]
-
-                    # Loop over local columns. Getting the number of columns
-                    #  for each row is a bit involved
-                    for _ in range(
-                        num_cols_per_row[iter2 + block_row_starts_ind[iter1]]
-                    ):
-                        loc_col = ind[data_counter] - block_row_starts_ind[iter1]
-                        loc_mat[iter2, loc_col] = data[data_counter]
-                        data_counter += 1
-
-                # Compute inverse. np.linalg.inv is supported by numba (May
-                # 2016), it is not clear if this is the best option. To be
-                # revised
-                inv_mat = np.ravel(np.linalg.inv(loc_mat))
-
-                loc_ind = np.arange(
-                    full_block_starts_ind[iter1], full_block_starts_ind[iter1 + 1]
-                )
-                inv_vals[loc_ind] = inv_mat
-                # Update fields
-            return inv_vals
-
-        v = inv_python(ptr, indices, dat, size)
-        return v
-
-    # Remove blocks of size 0
-    s = s[s > 0]
-    # Variable to check if we have tried and failed with numba
-    try_cython = False
-    if method == "numba" or method is None:
-        try:
-            inv_vals = invert_diagonal_blocks_numba(mat, s)
-        except np.linalg.LinAlgError:
-            raise ValueError("Error in inversion of local linear systems")
-        except Exception:
-            # This went wrong, fall back on cython
-            try_cython = True
-    # Variable to check if we should fall back on python
-    if method == "cython" or try_cython:
-        try:
-            inv_vals = invert_diagonal_blocks_cython(mat, s)
-        except ImportError as e:
-            raise e
-    elif method == "python":
-        inv_vals = invert_diagonal_blocks_python(mat, s)
-
-    ia = block_diag_matrix(inv_vals, s)
-    return ia
-
-
-@pp.time_logger(sections=module_sections)
-def block_diag_matrix(vals, sz):
-    """
-    Construct block diagonal matrix based on matrix elements and block sizes.
-
-    Parameters
-    ----------
-    vals: matrix values
-    sz: size of matrix blocks
-
-    Returns
-    -------
-    sps.csr matrix
-    """
-    row, _ = block_diag_index(sz)
-    # This line recovers starting indices of the rows.
-    indptr = np.hstack(
-        (np.zeros(1), np.cumsum(matrix_compression.rldecode(sz, sz)))
-    ).astype("int32")
-    return sps.csr_matrix((vals, row, indptr))
-
-
-@pp.time_logger(sections=module_sections)
-def block_diag_index(m, n=None):
-    """
-    Get row and column indices for block diagonal matrix
-
-    This is intended as the equivalent of the corresponding method in MRST.
-
-    Examples:
-    >>> m = np.array([2, 3])
-    >>> n = np.array([1, 2])
-    >>> i, j = block_diag_index(m, n)
-    >>> i, j
-    (array([0, 1, 2, 3, 4, 2, 3, 4]), array([0, 0, 1, 1, 1, 2, 2, 2]))
-    >>> a = np.array([1, 3])
-    >>> i, j = block_diag_index(a)
-    >>> i, j
-    (array([0, 1, 2, 3, 1, 2, 3, 1, 2, 3]), array([0, 1, 1, 1, 2, 2, 2, 3, 3, 3]))
-
-    Parameters:
-        m - ndarray, dimension 1
-        n - ndarray, dimension 1, defaults to m
-
-    """
-    if n is None:
-        n = m
-
-    start = np.hstack((np.zeros(1, dtype="int"), m))
-    pos = np.cumsum(start)
-    p1 = pos[0:-1]
-    p2 = pos[1:] - 1
-    p1_full = matrix_compression.rldecode(p1, n)
-    p2_full = matrix_compression.rldecode(p2, n)
-
-    i = mcolon.mcolon(p1_full, p2_full + 1)
-    sumn = np.arange(np.sum(n))
-    m_n_full = matrix_compression.rldecode(m, n)
-    j = matrix_compression.rldecode(sumn, m_n_full)
-    return i, j
-
-
-# ------------------- End of methods related to block inversion ---------------
-
-
-@pp.time_logger(sections=module_sections)
 def expand_indices_nd(ind, nd, direction="F"):
     """
     Expand indices from scalar to vector form.
@@ -748,7 +467,6 @@ def expand_indices_nd(ind, nd, direction="F"):
     return new_ind
 
 
-@pp.time_logger(sections=module_sections)
 def expand_indices_incr(ind, dim, increment):
 
     # Convenience method for duplicating a list, with a certain increment
@@ -762,7 +480,6 @@ def expand_indices_incr(ind, dim, increment):
     return ind_new
 
 
-@pp.time_logger(sections=module_sections)
 def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     """
     Create mapping from half-faces to faces for vector problems.
@@ -797,7 +514,6 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
     return hf2f
 
 
-@pp.time_logger(sections=module_sections)
 def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
 
     """
@@ -827,7 +543,6 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
     return mat
 
 
-@pp.time_logger(sections=module_sections)
 def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
 
     """
@@ -847,7 +562,6 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
 
     num_cells = cell_index.max() + 1
 
-    @pp.time_logger(sections=module_sections)
     def build_sc2c_single_dimension(dim):
         rows = np.arange(sub_cell_index[dim].size)
         cols = cell_index
@@ -865,7 +579,6 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
     return sc2c
 
 
-@pp.time_logger(sections=module_sections)
 def scalar_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get divergence operator for a grid.
@@ -886,7 +599,6 @@ def scalar_divergence(g: pp.Grid) -> sps.csr_matrix:
     return g.cell_faces.T.tocsr()
 
 
-@pp.time_logger(sections=module_sections)
 def vector_divergence(g: pp.Grid) -> sps.csr_matrix:
     """
     Get vector divergence operator for a grid g
@@ -915,7 +627,6 @@ def vector_divergence(g: pp.Grid) -> sps.csr_matrix:
     return block_div.transpose().tocsr()
 
 
-@pp.time_logger(sections=module_sections)
 def scalar_tensor_vector_prod(
     g: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
 ) -> Tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
@@ -946,7 +657,7 @@ def scalar_tensor_vector_prod(
     # correspond to a unique rows (Matlab-style) from what I understand.
     # This also means that the pairs in cell_node_blocks uniquely defines
     # subcells, and can be used to index gradients etc.
-    cell_node_blocks, blocksz = pp.utils.matrix_compression.rlencode(
+    cell_node_blocks, blocksz = pp.matrix_operations.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
     )
 
@@ -964,7 +675,7 @@ def scalar_tensor_vector_prod(
     # is adjusted according to block sizes
     _, j = np.meshgrid(subcell_topology.subhfno, np.arange(nd))
     sum_blocksz = np.cumsum(blocksz)
-    j += pp.utils.matrix_compression.rldecode(sum_blocksz - blocksz[0], blocksz)
+    j += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0], blocksz)
 
     # Distribute faces equally on the sub-faces
     num_nodes = np.diff(g.face_nodes.indptr)
@@ -985,33 +696,6 @@ def scalar_tensor_vector_prod(
     return nk, cell_node_blocks, sub_cell_ind
 
 
-@pp.time_logger(sections=module_sections)
-def zero_out_sparse_rows(A, rows, diag=None):
-    """
-    zeros out given rows from sparse csr matrix. Optionally also set values on
-    the diagonal.
-
-    Parameters:
-        A: Sparse matrix
-        rows (np.ndarray of int): Indices of rows to be eliminated.
-        diag (np.ndarray, double, optional): Values to be set to the diagonal
-            on the eliminated rows.
-
-    """
-
-    #    A.tocsr()
-    ip = A.indptr
-    row_indices = mcolon.mcolon(ip[rows], ip[rows + 1])
-    A.data[row_indices] = 0
-    if diag is not None:
-        # now we set the diagonal
-        diag_vals = np.zeros(A.shape[1])
-        diag_vals[rows] = diag
-        A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
-
-    return A
-
-
 class ExcludeBoundaries(object):
     """Wrapper class to store mappings needed in the finite volume discretizations.
     The original use for this class was for exclusion of equations that are
@@ -1029,7 +713,6 @@ class ExcludeBoundaries(object):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, subcell_topology, bound, nd):
         """
         Define mappings to exclude boundary subfaces/components with Dirichlet,
@@ -1110,7 +793,6 @@ class ExcludeBoundaries(object):
             self.keep_rob = self._exclude_matrix_xyz(~bound.is_rob)
             self.keep_neu = self._exclude_matrix_xyz(~bound.is_neu)
 
-    @pp.time_logger(sections=module_sections)
     def _linear_transformation(self, loc_trans):
         """
         Creates a global linear transformation matrix from a set of local matrices.
@@ -1154,7 +836,6 @@ class ExcludeBoundaries(object):
         else:
             raise AttributeError("Unknow loc_trans type: " + self.bc_type)
 
-    @pp.time_logger(sections=module_sections)
     def _exclude_matrix(self, ids):
         """
         creates an exclusion matrix. This is a mapping from sub-faces to
@@ -1173,7 +854,6 @@ class ExcludeBoundaries(object):
             shape=(row.size, self.num_subfno),
         ).tocsr()
 
-    @pp.time_logger(sections=module_sections)
     def _exclude_matrix_xyz(self, ids):
         col_x = np.argwhere([not it for it in ids[0]])
 
@@ -1195,7 +875,6 @@ class ExcludeBoundaries(object):
 
         return exclude_nd
 
-    @pp.time_logger(sections=module_sections)
     def exclude_dirichlet(self, other, transform=True):
         """
         Mapping to exclude faces/components with Dirichlet boundary conditions from
@@ -1215,7 +894,6 @@ class ExcludeBoundaries(object):
             return exclude_dirichlet * self.basis_matrix * other
         return exclude_dirichlet * other
 
-    @pp.time_logger(sections=module_sections)
     def exclude_neumann(self, other, transform=True):
         """
         Mapping to exclude faces/components with Neumann boundary conditions from
@@ -1233,7 +911,6 @@ class ExcludeBoundaries(object):
             return self.exclude_neu * self.basis_matrix * other
         return self.exclude_neu * other
 
-    @pp.time_logger(sections=module_sections)
     def exclude_neumann_robin(self, other, transform=True):
         """
         Mapping to exclude faces/components with Neumann and Robin boundary
@@ -1252,7 +929,6 @@ class ExcludeBoundaries(object):
         else:
             return self.exclude_neu_rob * other
 
-    @pp.time_logger(sections=module_sections)
     def exclude_neumann_dirichlet(self, other, transform=True):
         """
         Mapping to exclude faces/components with Neumann and Dirichlet boundary
@@ -1270,7 +946,6 @@ class ExcludeBoundaries(object):
             return self.exclude_neu_dir * self.basis_matrix * other
         return self.exclude_neu_dir * other
 
-    @pp.time_logger(sections=module_sections)
     def exclude_robin_dirichlet(self, other, transform=True):
         """
         Mapping to exclude faces/components with Robin and Dirichlet boundary
@@ -1288,7 +963,6 @@ class ExcludeBoundaries(object):
             return self.exclude_rob_dir * self.basis_matrix * other
         return self.exclude_rob_dir * other
 
-    @pp.time_logger(sections=module_sections)
     def exclude_boundary(self, other, transform=False):
         """Mapping to exclude faces/component with any boundary condition from
         local systems.
@@ -1306,7 +980,6 @@ class ExcludeBoundaries(object):
             return self.exclude_bnd * self.basis_matrix * other
         return self.exclude_bnd * other
 
-    @pp.time_logger(sections=module_sections)
     def keep_robin(self, other, transform=True):
         """
         Mapping to exclude faces/components that is not on the Robin boundary
@@ -1324,7 +997,6 @@ class ExcludeBoundaries(object):
             return self.keep_rob * self.basis_matrix * other
         return self.keep_rob * other
 
-    @pp.time_logger(sections=module_sections)
     def keep_neumann(self, other, transform=True):
         """
         Mapping to exclude faces/components that is not on the Neumann boundary
@@ -1346,7 +1018,6 @@ class ExcludeBoundaries(object):
 # -----------------End of class ExcludeBoundaries-----------------------------
 
 
-@pp.time_logger(sections=module_sections)
 def partial_update_discretization(
     g: pp.Grid,  # Grid
     data: Dict,  # full data dictionary for this grid
@@ -1536,7 +1207,6 @@ def partial_update_discretization(
                 )
 
 
-@pp.time_logger(sections=module_sections)
 def cell_ind_for_partial_update(
     g: pp.Grid,
     cells: np.ndarray = None,
@@ -1742,7 +1412,6 @@ def cell_ind_for_partial_update(
     return cell_ind.astype("int"), face_ind.astype("int")
 
 
-@pp.time_logger(sections=module_sections)
 def map_subgrid_to_grid(
     g: pp.Grid,
     loc_faces: np.ndarray,
@@ -1803,7 +1472,6 @@ def map_subgrid_to_grid(
     return face_map, cell_map
 
 
-@pp.time_logger(sections=module_sections)
 def compute_darcy_flux(
     gb,
     keyword="flow",
@@ -1852,14 +1520,12 @@ def compute_darcy_flux(
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def extract_variable(d, var):
         if from_iterate:
             return d[pp.STATE][pp.ITERATE][var]
         else:
             return d[pp.STATE][var]
 
-    @pp.time_logger(sections=module_sections)
     def calculate_flux(param_dict, mat_dict, d):
         # Calculate the flux. First contributions from pressure and boundary conditions
         dis = (
@@ -1931,7 +1597,6 @@ def compute_darcy_flux(
         d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(d, lam_name).copy()
 
 
-@pp.time_logger(sections=module_sections)
 def boundary_to_sub_boundary(bound, subcell_topology):
     """
     Convert a boundary condition defined for faces to a boundary condition defined by
@@ -1968,7 +1633,6 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     return bound
 
 
-@pp.time_logger(sections=module_sections)
 def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
     """
     Appends rows to existing discretizations stored as 'stress' and
@@ -1999,7 +1663,6 @@ def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
     d[kw2] = sps.hstack([sps.vstack([d[kw2], new_rows]), new_columns], format="csr")
 
 
-@pp.time_logger(sections=module_sections)
 def partial_discretization(
     g, data, tensor, bnd, apertures, partial_discr, physics="flow"
 ):
@@ -2042,7 +1705,7 @@ def partial_discretization(
     # Account for dof offset for mechanical problem
     affected_faces = expand_indices_nd(affected_faces, dof_multiplier)
 
-    zero_out_sparse_rows(data[kw1], affected_faces)
-    zero_out_sparse_rows(data[kw2], affected_faces)
+    pp.matrix_operations.zero_rows(data[kw1], affected_faces)
+    pp.matrix_operations.zero_rows(data[kw2], affected_faces)
     data[kw1] += trm
     data[kw2] += bound_flux

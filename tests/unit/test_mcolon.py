@@ -57,7 +57,7 @@ class TestMColon(unittest.TestCase):
         a = np.array([1, 3], dtype=np.int8)
         b = 1 + np.array([1, 3], dtype=np.int16)
         c = mcolon.mcolon(a, b)
-        self.assertTrue(c.dtype == np.int64)
+        self.assertTrue(c.dtype == int)
 
 
 if __name__ == "__main__":
