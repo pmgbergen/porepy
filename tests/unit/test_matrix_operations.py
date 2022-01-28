@@ -240,7 +240,7 @@ class TestSparseMath(unittest.TestCase):
         pp.matrix_operations.stack_mat(B, A)
         self.assertTrue(np.sum(B != B_t) == 0)
 
-    # ------------------ Test merge_mat() -----------------------
+    # ------------------ Test merge_matrices() -----------------------
 
     def test_merge_mat_split_columns(self):
         # Test slicing of csr_matrix
@@ -250,7 +250,9 @@ class TestSparseMath(unittest.TestCase):
 
         A_t = sps.csc_matrix(np.array([[0, 0, 2], [3, 0, 1], [1, 0, 0]]))
 
-        pp.matrix_operations.merge_matrices(A, B, np.array([0, 2], dtype=int))
+        pp.matrix_operations.merge_matrices(
+            A, B, np.array([0, 2], dtype=int), matrix_format="csc"
+        )
 
         self.assertTrue(np.sum(A != A_t) == 0)
 
@@ -262,7 +264,9 @@ class TestSparseMath(unittest.TestCase):
 
         A_t = sps.csc_matrix(np.array([[0, 0, 2], [1, 3, 1], [0, 1, 0]]))
 
-        pp.matrix_operations.merge_matrices(A, B, np.array([1, 2], dtype=int))
+        pp.matrix_operations.merge_matrices(
+            A, B, np.array([1, 2], dtype=int), matrix_format="csc"
+        )
 
         self.assertTrue(np.sum(A != A_t) == 0)
 
@@ -272,9 +276,10 @@ class TestSparseMath(unittest.TestCase):
 
         B = sps.csc_matrix(np.array([[0, 2], [3, 1], [1, 0]]))
 
-        A_t = sps.csc_matrix(np.array([[2, 0, 0], [1, 0, 0], [0, 0, 3]]))
         try:
-            pp.matrix_operations.merge_matrices(A, B, np.array([0, 0], dtype=int))
+            pp.matrix_operations.merge_matrices(
+                A, B, np.array([0, 0], dtype=int), matrix_format="csc"
+            )
         except ValueError:
             pass
 
@@ -286,7 +291,9 @@ class TestSparseMath(unittest.TestCase):
 
         A_t = sps.csr_matrix(np.array([[0, 2, 2], [1, 0, 0], [3, 1, 3]]))
 
-        pp.matrix_operations.merge_matrices(A, B, np.array([0, 2], dtype=int))
+        pp.matrix_operations.merge_matrices(
+            A, B, np.array([0, 2], dtype=int), matrix_format="csr"
+        )
 
         self.assertTrue(np.sum(A != A_t) == 0)
 
@@ -298,7 +305,9 @@ class TestSparseMath(unittest.TestCase):
 
         A_t = sps.csr_matrix(np.array([[0, 2, 2], [3, 1, 3], [0, 0, 3]]))
 
-        pp.matrix_operations.merge_matrices(A, B, np.array([0, 1], dtype=int))
+        pp.matrix_operations.merge_matrices(
+            A, B, np.array([0, 1], dtype=int), matrix_format="csr"
+        )
 
         self.assertTrue(np.sum(A != A_t) == 0)
 
