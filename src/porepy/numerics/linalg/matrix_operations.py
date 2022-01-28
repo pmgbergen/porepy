@@ -10,9 +10,7 @@ import scipy.sparse as sps
 from porepy.utils.mcolon import mcolon
 
 
-def zero_columns(
-    A: sps.csc_matrix, cols: np.ndarray, diag: Optional[np.ndarray] = None
-) -> None:
+def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
     """
     Function to zero out columns in matrix A. Note that this function does not
     change the sparcity structure of the matrix, it only changes the column
@@ -24,8 +22,6 @@ def zero_columns(
     ---------
     A (scipy.sparse.spmatrix): A sparce matrix
     cols (ndarray): A numpy array of columns that should be zeroed
-    diag (np.ndarray, double, optional): Values to be set to the diagonal
-        on the eliminated cols.
 
     Return
     ------
@@ -41,16 +37,8 @@ def zero_columns(
     col_indptr = mcolon(indptr[cols], indptr[cols + 1])
     A.data[col_indptr] = 0
 
-    if diag is not None:
-        # now we set the diagonal
-        diag_vals = np.zeros(A.shape[1])
-        diag_vals[cols] = diag
-        A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
 
-
-def zero_rows(
-    A: sps.csr_matrix, rows: np.ndarray, diag: Optional[np.ndarray] = None
-) -> None:
+def zero_rows(A: sps.csr_matrix, rows: np.ndarray) -> None:
     """
     Function to zero out rows in matrix A. Note that this function does not
     change the sparcity structure of the matrix, it only changes the row
@@ -62,8 +50,6 @@ def zero_rows(
     ---------
     A (scipy.sparse.spmatrix): A sparce matrix
     rows (ndarray): A numpy array of columns that should be zeroed
-    diag (np.ndarray, double, optional): Values to be set to the diagonal
-        on the eliminated rows.
 
     Return
     ------
@@ -77,12 +63,6 @@ def zero_rows(
     indptr = A.indptr
     row_indptr = mcolon(indptr[rows], indptr[rows + 1])
     A.data[row_indptr] = 0
-
-    if diag is not None:
-        # now we set the diagonal
-        diag_vals = np.zeros(A.shape[1])
-        diag_vals[rows] = diag
-        A += sps.dia_matrix((diag_vals, 0), shape=A.shape)
 
 
 def merge_matrices(
