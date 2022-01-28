@@ -19,7 +19,9 @@ class TestFvutils(unittest.TestCase):
         block = sps.csr_matrix(np.hstack((a, b)))
 
         sz = np.array([2, 3], dtype="i8")
-        iblock_python = fvutils.invert_diagonal_blocks(block, sz, method="python")
+        iblock_python = pp.matrix_operations.invert_diagonal_blocks(
+            block, sz, method="python"
+        )
         iblock_ex = np.linalg.inv(block.toarray())
 
         self.assertTrue(np.allclose(iblock_ex, iblock_python.toarray()))
@@ -27,7 +29,9 @@ class TestFvutils(unittest.TestCase):
         # Numba may or may not be available on the system, so surround test with
         # try. This may not be the most pythonic approach, but it works.
         try:
-            iblock_numba = fvutils.invert_diagonal_blocks(block, sz, method="numba")
+            iblock_numba = pp.matrix_operations.invert_diagonal_blocks(
+                block, sz, method="numba"
+            )
             self.assertTrue(np.allclose(iblock_ex, iblock_numba.toarray()))
         except:
             # Try to import numba to see if it is installed
@@ -48,7 +52,9 @@ class TestFvutils(unittest.TestCase):
         # Cython may or may not be available on the system, so surround test with
         # try. This may not be the most pythonic approach, but it works.
         try:
-            iblock_cython = fvutils.invert_diagonal_blocks(block, sz, method="cython")
+            iblock_cython = pp.matrix_operations.invert_diagonal_blocks(
+                block, sz, method="cython"
+            )
             self.assertTrue(np.allclose(iblock_ex, iblock_cython.toarray()))
         except:
             # Try to import Cython to see if it is installed
@@ -86,7 +92,9 @@ class TestFvutils(unittest.TestCase):
         block = sps.coo_matrix((data, (rows, cols))).tocsr()
         sz = np.array([2, 3], dtype="i8")
 
-        iblock_python = fvutils.invert_diagonal_blocks(block, sz, method="python")
+        iblock_python = pp.matrix_operations.invert_diagonal_blocks(
+            block, sz, method="python"
+        )
         iblock_ex = np.linalg.inv(block.toarray())
 
         self.assertTrue(np.allclose(iblock_ex, iblock_python.toarray()))
@@ -94,7 +102,9 @@ class TestFvutils(unittest.TestCase):
         # Numba may or may not be available on the system, so surround test with
         # try. This may not be the most pythonic approach, but it works.
         try:
-            iblock_numba = fvutils.invert_diagonal_blocks(block, sz, method="numba")
+            iblock_numba = pp.matrix_operations.invert_diagonal_blocks(
+                block, sz, method="numba"
+            )
             self.assertTrue(np.allclose(iblock_ex, iblock_numba.toarray()))
         except:
             # Try to import numba to see if it is installed
@@ -115,7 +125,9 @@ class TestFvutils(unittest.TestCase):
         # Cython may or may not be available on the system, so surround test with
         # try. This may not be the most pythonic approach, but it works.
         try:
-            iblock_cython = fvutils.invert_diagonal_blocks(block, sz, method="cython")
+            iblock_cython = pp.matrix_operations.invert_diagonal_blocks(
+                block, sz, method="cython"
+            )
             self.assertTrue(np.allclose(iblock_ex, iblock_cython.toarray()))
         except:
             # Try to import Cython to see if it is installed

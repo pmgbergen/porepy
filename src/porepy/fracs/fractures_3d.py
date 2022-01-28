@@ -1455,7 +1455,7 @@ class FractureNetwork3d(object):
             # occurences of fi within those lists. Looping is slow, so we expand
             # to a standard list (hstack below), and use rldecode to make a mapping
             # from the expanded list back to the original nested list.
-            frac_ind_expanded = pp.utils.matrix_compression.rldecode(
+            frac_ind_expanded = pp.matrix_operations.rldecode(
                 np.arange(len(edges_2_frac)), np.array([e.size for e in edges_2_frac])
             )
             edges_loc_ind = frac_ind_expanded[np.hstack(edges_2_frac) == fi]

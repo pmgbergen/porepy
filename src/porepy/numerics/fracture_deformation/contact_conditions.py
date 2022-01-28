@@ -409,12 +409,12 @@ class ColoumbContact:
 
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.traction_matrix_key
-        ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
+        ] = pp.matrix_operations.csr_matrix_from_blocks(
             data_traction, self.dim, num_blocks
         )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.displacement_matrix_key
-        ] = pp.utils.sparse_mat.csr_matrix_from_blocks(
+        ] = pp.matrix_operations.csr_matrix_from_blocks(
             data_displacement, self.dim, num_blocks
         )
         data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_matrix_key] = rhs

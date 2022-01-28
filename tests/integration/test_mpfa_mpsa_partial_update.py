@@ -76,9 +76,9 @@ class TestPartialMPFA(unittest.TestCase):
         self.assertTrue(np.max(np.abs(diff_vc[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
-        pp.fvutils.zero_out_sparse_rows(partial_flux, faces_of_cell)
-        pp.fvutils.zero_out_sparse_rows(partial_bound, faces_of_cell)
-        pp.fvutils.zero_out_sparse_rows(partial_vector_source, faces_of_cell)
+        pp.matrix_operations.zero_rows(partial_flux, faces_of_cell)
+        pp.matrix_operations.zero_rows(partial_bound, faces_of_cell)
+        pp.matrix_operations.zero_rows(partial_vector_source, faces_of_cell)
 
         self.assertTrue(np.max(np.abs(partial_flux.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
@@ -128,9 +128,9 @@ class TestPartialMPFA(unittest.TestCase):
         self.assertTrue(np.max(np.abs(diff_vc[faces_of_cell])) == 0)
 
         # Only the faces of the central cell should be zero
-        pp.fvutils.zero_out_sparse_rows(partial_flux, faces_of_cell)
-        pp.fvutils.zero_out_sparse_rows(partial_bound, faces_of_cell)
-        pp.fvutils.zero_out_sparse_rows(partial_vector_source, faces_of_cell)
+        pp.matrix_operations.zero_rows(partial_flux, faces_of_cell)
+        pp.matrix_operations.zero_rows(partial_bound, faces_of_cell)
+        pp.matrix_operations.zero_rows(partial_vector_source, faces_of_cell)
 
         self.assertTrue(np.max(np.abs(partial_flux.data)) == 0)
         self.assertTrue(np.max(np.abs(partial_bound.data)) == 0)
@@ -737,7 +737,6 @@ class PartialBiotMpsa(TestPartialMPSA):
             stab += partial_stab
             bound_displacement_pressure += partial_bound_pressure
 
-
         self.assertTrue((div_u_full - div_u).max() < 1e-8)
         self.assertTrue((bound_div_u_full - bound_div_u).min() > -1e-8)
         self.assertTrue((grad_p_full - grad_p).max() < 1e-8)
@@ -765,9 +764,7 @@ class UpdateDiscretizations(unittest.TestCase):
         self.g.compute_geometry()
         self.g_larger = pp.CartGrid([4, 4])
         self.g_larger.compute_geometry()
-        cell_map_index = np.array(
-            [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14], dtype=int
-        )
+        cell_map_index = np.array([0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14], dtype=int)
         self.cell_map = sps.coo_matrix(
             (np.ones(self.g.num_cells), (cell_map_index, np.arange(self.g.num_cells))),
             shape=(self.g_larger.num_cells, self.g.num_cells),
