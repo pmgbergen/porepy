@@ -2,8 +2,6 @@ import numpy as np
 
 import porepy as pp
 
-module_sections = ["utils", "gridding"]
-
 
 class Graph:
     """
@@ -61,8 +59,8 @@ class Graph:
             node = queue.pop(0)
             if node not in visited:
                 visited.append(node)
-                neighbours = pp.matrix_operations.slice_indices(
+                neighbors = pp.matrix_operations.slice_indices(
                     self.node_connections, node
                 )
-                queue.extend(neighbours)
+                queue.extend(neighbors)
         self.color[visited] = color
