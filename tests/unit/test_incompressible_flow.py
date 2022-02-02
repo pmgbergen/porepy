@@ -39,7 +39,7 @@ class FlowModel(pp.IncompressibleFlow):
         pp.contact_conditions.set_projections(self.gb)
 
 def test_incompressible_flow_model_no_modification():
-    """Test that the raw contact mechanics model with no modifications can be run with
+    """Test that the raw incompressible flow model with no modifications can be run with
     no error messages. Failure of this test would signify rather fundamental problems
     in the model.
     """
