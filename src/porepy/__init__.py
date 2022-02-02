@@ -53,6 +53,7 @@ from porepy.utils.interpolation_tables import (
     InterpolationTable,
     AdaptiveInterpolationTable,
 )
+from porepy.numerics.linalg import matrix_operations
 
 from porepy.geometry import (
     intersections,

@@ -8,7 +8,7 @@ import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
-from porepy.utils import setmembership, sparse_mat, tags
+from porepy.utils import setmembership, tags
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
 
@@ -352,7 +352,7 @@ def _update_face_cells(
     cell_id refers to new lower-dimensional cells, e.g. after fracture
     propagation. In this case, face_id[i] is the "parent" face of cell_id[i].
 
-    TODO: Consider replacing hstack and vstack by sparse_mat.stack_mat.
+    TODO: Consider replacing hstack and vstack by pp.matrix_operations.stack_mat.
 
     Parameters:
         face_cells: List of face-cell relation between a higher-dimensional grid
@@ -377,7 +377,7 @@ def _update_face_cells(
         if j == i:
             # We hit the target neighbor
             # Pick out the part of f_c to be used with this neighbor
-            f_c_sliced = sparse_mat.slice_mat(f_c, face_id)
+            f_c_sliced = pp.matrix_operations.slice_mat(f_c, face_id)
             # The new face-cell relations are added to the end of the matrix
             # (since the faces were added to the end of the face arrays in
             # the higher-dimensional grid).
@@ -506,13 +506,15 @@ def update_cell_connectivity(
 
     assert g.cell_faces.getformat() == "csr"
 
-    sparse_mat.merge_matrices(g.cell_faces, cell_frac_right, face_id)
+    pp.matrix_operations.merge_matrices(
+        g.cell_faces, cell_frac_right, face_id, matrix_format="csr"
+    )
 
     # And then we add the new left-faces to the cell_face map. We do not
     # change the sign of the matrix since we did not flip the normals.
     # This means that the normals of right and left cells point in the same
     # direction, but their cell_faces values have oposite signs.
-    sparse_mat.stack_mat(g.cell_faces, cell_frac_left)
+    pp.matrix_operations.stack_mat(g.cell_faces, cell_frac_left)
     g.cell_faces = g.cell_faces.tocsc()
 
     return 0
@@ -589,8 +591,10 @@ def duplicate_nodes(g, nodes, offset):
     num_nodes_to_duplicate = nodes.size
 
     ## Step 1
-    # Create a list where each item are the cells associated with a node to be expanded.
-    cell_clusters = [np.unique(sparse_mat.slice_indices(cell_node, n)) for n in nodes]
+    # Create a list where each item is the cells associated with a node to be expanded.
+    cell_clusters = [
+        np.unique(pp.matrix_operations.slice_indices(cell_node, n)) for n in nodes
+    ]
 
     # Number of cells in each cluster.
     sz_cell_clusters = [c.size for c in cell_clusters]
@@ -737,10 +741,12 @@ def duplicate_nodes(g, nodes, offset):
         # Map cell indexes from the ordering in the clusters back to global ordering
         loc_cells = rows_cell_map[comp]
         # Faces of these cells
-        loc_faces = np.unique(sparse_mat.slice_indices(g.cell_faces, loc_cells))
+        loc_faces = np.unique(
+            pp.matrix_operations.slice_indices(g.cell_faces, loc_cells)
+        )
         # Nodes of the faces, and indices in the sparse storage format where the nodes
         # are located.
-        loc_nodes, data_ind = sparse_mat.slice_indices(
+        loc_nodes, data_ind = pp.matrix_operations.slice_indices(
             face_node, loc_faces, return_array_ind=True
         )
         # Indices in the sparse storage that should be increased
@@ -775,7 +781,7 @@ def duplicate_nodes(g, nodes, offset):
     # From the number of repititions of the node (1 for untouched nodes),
     # get mapping from new to old indices.
     # To see how this works, read the documentation of rldecode, including the examples.
-    new_2_old_nodes = pp.utils.matrix_compression.rldecode(
+    new_2_old_nodes = pp.matrix_operations.rldecode(
         np.arange(repititions.size), repititions
     )
     g.nodes = g.nodes[:, new_2_old_nodes]
@@ -831,7 +837,7 @@ def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -
         t_node = node + node_count
         # Find cells connected to node
 
-        cells = np.unique(sparse_mat.slice_indices(cell_nodes, node))
+        cells = np.unique(pp.matrix_operations.slice_indices(cell_nodes, node))
         # Find the color of each cell. A group of cells is given the same color
         # if they are connected by faces. This means that all cells on one side
         # of a fracture will have the same color, but a different color than
@@ -847,14 +853,14 @@ def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -
         face_pos = np.array([g.face_nodes.indptr[t_node]])
         assert g.cell_faces.getformat() == "csc"
         assert g.face_nodes.getformat() == "csr"
-        faces_of_node_t = sparse_mat.slice_indices(g.face_nodes, t_node)
+        faces_of_node_t = pp.matrix_operations.slice_indices(g.face_nodes, t_node)
 
         for j in range(colors.size):
             # For each color we wish to add one node. First we find all faces that
             # are connected to the fracture node, and have the correct cell
             # color
             colored_faces = np.unique(
-                sparse_mat.slice_indices(g.cell_faces, cells[ix == j])
+                pp.matrix_operations.slice_indices(g.cell_faces, cells[ix == j])
             )
 
             is_colored = np.in1d(faces_of_node_t, colored_faces, assume_unique=True)
@@ -931,7 +937,7 @@ def _find_cell_color(g, cells):
     c = np.sort(cells)
     # Local cell-face and face-node maps.
     assert g.cell_faces.getformat() == "csc"
-    cell_faces = sparse_mat.slice_mat(g.cell_faces, c)
+    cell_faces = pp.matrix_operations.slice_mat(g.cell_faces, c)
     child_cell_ind = -np.ones(g.num_cells, dtype=int)
     child_cell_ind[c] = np.arange(cell_faces.shape[1])
 

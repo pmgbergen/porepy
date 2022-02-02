@@ -168,6 +168,11 @@ class Operator:
                         # Store id of variable, but only for the first one; we will
                         # concatenate the arrays in ind_var into one array
                         variable_ids.append(variable.id)
+
+                if len(variable.sub_vars) == 0:
+                    # For empty lists of subvariables, we still need to assign an id
+                    # to the variable.
+                    variable_ids.append(variable.id)
             else:
                 # This is a variable that lives on a single grid
                 ind_var.append(
@@ -176,7 +181,10 @@ class Operator:
                 variable_ids.append(variable.id)
 
             # Gather all indices for this variable
-            inds.append(np.hstack([i for i in ind_var]))
+            if len(ind_var) > 0:
+                inds.append(np.hstack([i for i in ind_var]))
+            else:
+                inds.append(np.array([], dtype=int))
 
         return inds, variable_ids, prev_time, prev_iter
 
@@ -337,9 +345,9 @@ class Operator:
                 results = results[::-1]
             try:
                 return results[0] + results[1]
-            except ValueError:
+            except ValueError as exc:
                 msg = error_message("adding")
-                raise ValueError(msg)
+                raise ValueError(msg) from exc
 
         elif tree.op == Operation.sub:
             # To subtract we need two objects
@@ -359,9 +367,9 @@ class Operator:
 
             try:
                 return factor * (results[0] - results[1])
-            except ValueError:
+            except ValueError as exc:
                 msg = error_message("subtracting")
-                raise ValueError(msg)
+                raise ValueError(msg) from exc
 
         elif tree.op == Operation.mul:
             # To multiply we need two objects
@@ -376,7 +384,7 @@ class Operator:
                 results = results[::-1]
             try:
                 return results[0] * results[1]
-            except ValueError:
+            except ValueError as exc:
                 if isinstance(
                     results[0], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
                 ) and isinstance(results[1], np.ndarray):
@@ -402,7 +410,8 @@ class Operator:
 
                 else:
                     msg = error_message("multiplying")
-                raise ValueError(msg)
+                breakpoint()
+                raise ValueError(msg) from exc
 
         elif tree.op == Operation.evaluate:
             # This is a function, which should have at least one argument
@@ -477,7 +486,7 @@ class Operator:
         # cautious with adding this extra parsing to more operations.
         for i, res in enumerate(results):
             if isinstance(res, sps.spmatrix):
-                assert res.shape[0] == 1 or res.shape[1] == 1
+                assert res.shape[0] <= 1 or res.shape[1] <= 1
                 results[i] = res.toarray().ravel()
 
     def __repr__(self) -> str:
@@ -514,20 +523,21 @@ class Operator:
 
     def __mul__(self, other):
         children = self._parse_other(other)
-        tree = Tree(Operation.mul, children)
-        return Operator(tree=tree)
+        return Operator(
+            tree=Tree(Operation.mul, children), name="Multiplication operator"
+        )
 
     def __truediv__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.div, children))
+        return Operator(tree=Tree(Operation.div, children), name="Division operator")
 
     def __add__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.add, children))
+        return Operator(tree=Tree(Operation.add, children), name="Addition operator")
 
     def __sub__(self, other):
         children = [self, other]
-        return Operator(tree=Tree(Operation.sub, children))
+        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -1008,22 +1018,32 @@ class MergedVariable(Variable):
                 same name.
 
         """
-        self._name = variables[0]._name
         self.sub_vars = variables
 
         # Use counter from superclass to ensure unique Variable ids
         self.id = next(Variable._ids)
 
+        # Flag to identify variables merged over no grids. This requires special treatment
+        # in various parts of the code.
+        # A use case is variables that are only defined on grids of codimension >= 1
+        # (e.g., contact traction variable), assigned to a problem where the grid happened
+        # not to have any fractures.
+        self._no_variables = len(variables) == 0
+
         # Take the name from the first variabe.
-        self._name = variables[0]._name
-        # Check that all variables have the same name.
-        # We may release this in the future, but for now, we make it a requirement
-        all_names = set(var._name for var in variables)
-        assert len(all_names) == 1
+        if self._no_variables:
+            self._name = "no_sub_variables"
+        else:
+            self._name = variables[0]._name
+            # Check that all variables have the same name.
+            # We may release this in the future, but for now, we make it a requirement
+            all_names = set(var._name for var in variables)
+            assert len(all_names) <= 1
 
         self._set_tree()
 
-        self.is_interface = isinstance(self.sub_vars[0]._g, tuple)
+        if not self._no_variables:
+            self.is_interface = isinstance(self.sub_vars[0]._g, tuple)
 
         self.prev_time: bool = False
         self.prev_iter: bool = False
@@ -1068,6 +1088,10 @@ class MergedVariable(Variable):
 
     def __repr__(self) -> str:
         sz = np.sum([var.size() for var in self.sub_vars])
+
+        if self._no_variables:
+            return "Merged variable defined on an empty list of grids or interfaces"
+
         if self.is_interface:
             s = "Merged interface"
         else:

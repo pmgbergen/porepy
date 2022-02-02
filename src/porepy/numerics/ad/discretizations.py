@@ -182,11 +182,22 @@ class ColoumbContactAd(Discretization):
     def __init__(self, keyword: str, edges: List[Edge]) -> None:
         self.edges = edges
 
-        dim = np.unique([e[0].dim for e in edges])
+        # Special treatment is needed to cover the case when the edge list happens to
+        # be empty.
+        if len(edges) > 0:
+            dim = np.unique([e[0].dim for e in edges])
 
-        low_dim_grids = [e[1] for e in edges]
-        if not dim.size == 1:
-            raise ValueError("Expected unique dimension of grids with contact problems")
+            low_dim_grids = [e[1] for e in edges]
+            if not dim.size == 1:
+                raise ValueError(
+                    "Expected unique dimension of grids with contact problems"
+                )
+        else:
+            # The assigned dimension value should never be used for anything, so we
+            # set a negative value to indicate this (not sure how the parameter is used)
+            # in the real contact discretization.
+            dim = [-1]
+            low_dim_grids = []
 
         self._discretization = pp.ColoumbContact(
             keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
@@ -258,8 +269,8 @@ class UpwindAd(Discretization):
         self.keyword = keyword
 
         self.upwind: MergedOperator
-        self.rhs: MergedOperator
-        self.outflow_neumann: MergedOperator
+        self.bound_transport_dir: MergedOperator
+        self.bound_transport_neu: MergedOperator
         wrap_discretization(self, self._discretization, grids=grids)
 
 
