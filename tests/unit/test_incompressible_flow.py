@@ -38,6 +38,13 @@ class FlowModel(pp.IncompressibleFlow):
             self.gb, self.box = pp.grid_buckets_2d.two_intersecting()
         pp.contact_conditions.set_projections(self.gb)
 
+def test_incompressible_flow_model_no_modification():
+    """Test that the raw contact mechanics model with no modifications can be run with
+    no error messages. Failure of this test would signify rather fundamental problems
+    in the model.
+    """
+    model = pp.IncompressibleFlow({"use_ad": True})
+    pp.run_stationary_model(model, {})
 
 @pytest.mark.parametrize(
     "n_fracs",
