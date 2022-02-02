@@ -57,7 +57,6 @@ class ContactMechanics(AbstractModel):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, params: Optional[Dict] = None):
 
         super().__init__(params)
@@ -73,19 +72,6 @@ class ContactMechanics(AbstractModel):
         # Terms of the equations
         self.friction_coupling_term: str = "fracture_force_balance"
 
-    ## Public methods
-    @pp.time_logger(sections=module_sections)
-    def get_state_vector(self, use_iterate: bool = False) -> np.ndarray:
-        """Get a vector of the current state of the variables; with the same ordering
-            as in the assembler.
-
-        Returns:
-            np.array: The current state, as stored in the GridBucket.
-
-        """
-        return self.dof_manager.assemble_variable(from_iterate=use_iterate)
-
-    @pp.time_logger(sections=module_sections)
     def before_newton_loop(self):
         """Will be run before entering a Newton loop.
         Discretize time-dependent quantities etc.
@@ -93,7 +79,6 @@ class ContactMechanics(AbstractModel):
         self.convergence_status = False
         self._nonlinear_iteration = 0
 
-    @pp.time_logger(sections=module_sections)
     def before_newton_iteration(self) -> None:
         # Re-discretize the nonlinear term
         if self._use_ad:
@@ -104,7 +89,6 @@ class ContactMechanics(AbstractModel):
             )
             self.assembler.discretize(filt=filt)
 
-    @pp.time_logger(sections=module_sections)
     def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
         """
         Extract parts of the solution for current iterate.
@@ -122,7 +106,6 @@ class ContactMechanics(AbstractModel):
             values=solution_vector, additive=self._use_ad, to_iterate=True
         )
 
-    @pp.time_logger(sections=module_sections)
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -233,7 +216,6 @@ class ContactMechanics(AbstractModel):
 
         return error_mech, converged, diverged
 
-    @pp.time_logger(sections=module_sections)
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
 
         if self._use_ad:
@@ -250,7 +232,6 @@ class ContactMechanics(AbstractModel):
         else:
             raise NotImplementedError("Not that far yet")
 
-    @pp.time_logger(sections=module_sections)
     def reconstruct_local_displacement_jump(
         self,
         data_edge: Dict,
@@ -286,7 +267,6 @@ class ContactMechanics(AbstractModel):
         u_mortar_local = project_to_local * displacement_jump_global_coord
         return u_mortar_local.reshape((self._Nd, -1), order="F")
 
-    @pp.time_logger(sections=module_sections)
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
@@ -347,7 +327,6 @@ class ContactMechanics(AbstractModel):
 
         d[pp.STATE]["stress"] = stress
 
-    @pp.time_logger(sections=module_sections)
     def prepare_simulation(self) -> None:
         """Is run prior to a time-stepping scheme. Use this to initialize
         discretizations, export for visualization, linear solvers etc.
@@ -374,14 +353,12 @@ class ContactMechanics(AbstractModel):
             folder_name=self.params["folder_name"],
         )
 
-    @pp.time_logger(sections=module_sections)
     def after_simulation(self) -> None:
         """Called after a time-dependent problem"""
         pass
 
     # Methods for populating the model etc.
 
-    @pp.time_logger(sections=module_sections)
     def _set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -427,12 +404,10 @@ class ContactMechanics(AbstractModel):
             mg = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
-    @pp.time_logger(sections=module_sections)
     def _nd_grid(self) -> pp.Grid:
         """Get the grid of the highest dimension. Assumes self.gb is set."""
         return self.gb.grids_of_dimension(self._Nd)[0]
 
-    @pp.time_logger(sections=module_sections)
     def _bc_type(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions: Dirichlet on all global boundaries,
         Dirichlet also on fracture faces.
@@ -447,7 +422,6 @@ class ContactMechanics(AbstractModel):
         bc.is_dir[:, frac_face] = True
         return bc
 
-    @pp.time_logger(sections=module_sections)
     def _bc_values(self, g: pp.Grid) -> np.ndarray:
         """Set homogeneous conditions on all boundary faces."""
         # Values for all Nd components, facewise
@@ -456,12 +430,10 @@ class ContactMechanics(AbstractModel):
         values = values.ravel("F")
         return values
 
-    @pp.time_logger(sections=module_sections)
     def _source(self, g: pp.Grid) -> np.ndarray:
         """"""
         return np.zeros(self._Nd * g.num_cells)
 
-    @pp.time_logger(sections=module_sections)
     def _assign_variables(self) -> None:
         """
         Assign variables to the nodes and edges of the grid bucket.
@@ -489,7 +461,6 @@ class ContactMechanics(AbstractModel):
             else:
                 d[pp.PRIMARY_VARIABLES] = {}
 
-    @pp.time_logger(sections=module_sections)
     def _assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
@@ -539,7 +510,7 @@ class ContactMechanics(AbstractModel):
 
             g_primary: pp.Grid = gb.grids_of_dimension(Nd)[0]
             g_frac: List[pp.Grid] = gb.grids_of_dimension(Nd - 1).tolist()
-            num_frac_cells = np.sum([g.num_cells for g in g_frac])
+            num_frac_cells = int(np.sum([g.num_cells for g in g_frac]))
 
             if len(gb.grids_of_dimension(Nd)) != 1:
                 raise NotImplementedError("This will require further work")
@@ -550,13 +521,17 @@ class ContactMechanics(AbstractModel):
                 grids=grid_list, edges=edge_list, gb=gb, nd=self._Nd
             )
             subdomain_proj = pp.ad.SubdomainProjections(grids=grid_list, nd=self._Nd)
-            tangential_proj_lists = [
-                gb.node_props(
-                    gf, "tangential_normal_projection"
-                ).project_tangential_normal(gf.num_cells)
-                for gf in g_frac
-            ]
-            tangential_proj = pp.ad.Matrix(sps.block_diag(tangential_proj_lists))
+
+            if len(g_frac) > 0:
+                tangential_proj_lists = [
+                    gb.node_props(
+                        gf, "tangential_normal_projection"
+                    ).project_tangential_normal(gf.num_cells)
+                    for gf in g_frac
+                ]
+                tangential_proj = pp.ad.Matrix(sps.block_diag(tangential_proj_lists))
+            else:
+                tangential_proj = pp.ad.Matrix(sps.csr_matrix((0, 0)))
 
             mpsa_ad = mpsa_ad = pp.ad.MpsaAd(self.mechanics_parameter_key, [g_primary])
             bc_ad = pp.ad.BoundaryCondition(
@@ -597,7 +572,6 @@ class ContactMechanics(AbstractModel):
                 * mortar_proj.mortar_to_secondary_avg
                 * mortar_proj.sign_of_mortar_sides
             )
-
             # Contact conditions
             jump_discr = coloumb_ad.displacement * jump_rotate * u_mortar
             tmp = np.ones(num_frac_cells * self._Nd)
@@ -614,19 +588,30 @@ class ContactMechanics(AbstractModel):
 
             # Force balance
             mat = None
-            for _, d in gb.edges():
-                mg: pp.MortarGrid = d["mortar_grid"]
-                if mg.dim < self._Nd - 1:
-                    continue
+            # Special handling of the case with no fractures
+            if len(edge_list) > 0:
+                for _, d in gb.edges():
+                    mg: pp.MortarGrid = d["mortar_grid"]
+                    if mg.dim < self._Nd - 1:
+                        continue
 
-                faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
-                m = pp.grid_utils.switch_sign_if_inwards_normal(
-                    g_primary, self._Nd, faces_on_fracture_surface
+                    faces_on_fracture_surface = (
+                        mg.primary_to_mortar_int().tocsr().indices
+                    )
+                    m = pp.grid_utils.switch_sign_if_inwards_normal(
+                        g_primary, self._Nd, faces_on_fracture_surface
+                    )
+                    if mat is None:
+                        mat = m
+                    else:
+                        mat += m
+            else:
+                # If no fractures, make the sign switcher into an empty matrix
+                # of the right size (it will be multiplied by zeros at some point
+                # so we might as well kill it off).
+                mat = sps.csr_matrix(
+                    (g_primary.num_faces * self._Nd, g_primary.num_faces * self._Nd)
                 )
-                if mat is None:
-                    mat = m
-                else:
-                    mat += m
 
             sign_switcher = pp.ad.Matrix(mat)
 
@@ -656,13 +641,11 @@ class ContactMechanics(AbstractModel):
 
             self._eq_manager = eq_manager
 
-    @pp.time_logger(sections=module_sections)
     def _set_friction_coefficient(self, g: pp.Grid) -> np.ndarray:
         """The friction coefficient is uniform, and equal to 1."""
         return np.ones(g.num_cells)
 
     # Methods for discretization, numerical issues etc.
-    @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
         """Discretize all terms"""
         tic = time.time()
@@ -673,7 +656,6 @@ class ContactMechanics(AbstractModel):
             self.assembler.discretize()
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
-    @pp.time_logger(sections=module_sections)
     def _initialize_linear_solver(self) -> None:
         solver: str = self.params.get("linear_solver", "direct")
         if solver == "direct":
@@ -692,7 +674,6 @@ class ContactMechanics(AbstractModel):
         else:
             raise ValueError(f"Unknown linear solver {solver}")
 
-    @pp.time_logger(sections=module_sections)
     def _is_nonlinear_problem(self) -> bool:
         """
         If there is no fracture, the problem is usually linear.

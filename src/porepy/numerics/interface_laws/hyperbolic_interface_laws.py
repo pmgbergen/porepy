@@ -57,7 +57,7 @@ class UpwindCoupling(
         # First check if the grid dimensions are compatible with the implementation.
         # It is not difficult to cover the case of equal dimensions, it will require
         # trace operators for both grids, but it has not yet been done.
-        if g_primary.dim != g_secondary.dim + 1:
+        if g_primary.dim - g_secondary.dim not in [1, 2]:
             raise ValueError(
                 "Implementation is only valid for grids one dimension apart."
             )

@@ -370,7 +370,7 @@ def _update_geometry(
         face_ind = np.array([], dtype=int)
 
         for ci in new_cells:
-            sub_g, fi, _ = pp.partition.extract_subgrid(g_l, ci)
+            sub_g, face_ind_loc, _ = pp.partition.extract_subgrid(g_l, ci)
             sub_g.compute_geometry()
 
             fa = np.append(fa, sub_g.face_areas)
@@ -379,7 +379,7 @@ def _update_geometry(
             cv = np.append(cv, sub_g.cell_volumes)
             cc = np.append(cc, sub_g.cell_centers, axis=1)
 
-            face_ind = np.append(face_ind, fi)
+            face_ind = np.append(face_ind, face_ind_loc)
 
         # The new cell geometry is composed of values from the previous grid, and
         # the values computed one by one for the new cells

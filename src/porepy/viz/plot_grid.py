@@ -267,8 +267,8 @@ def plot_gb(gb, cell_value, vector_value, info, **kwargs):
     else:
         fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection="3d")
-
-    ax.set_title(" ".join(gb.name))
+    title = kwargs.get("title", " ".join(gb.name))
+    ax.set_title(title)
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.set_zlabel("z")

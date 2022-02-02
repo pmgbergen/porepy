@@ -450,7 +450,7 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
 
     # Expand information of the number of faces per cell into a corresponding full set
     # of cell indices
-    cf_cols_vertical = pp.utils.matrix_compression.rldecode(
+    cf_cols_vertical = pp.matrix_operations.rldecode(
         np.arange(nc_3d), cf_vertical_cell_count
     )
 
