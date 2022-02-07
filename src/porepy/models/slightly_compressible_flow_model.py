@@ -12,9 +12,10 @@ import scipy.sparse as sps
 import porepy as pp
 
 logger = logging.getLogger(__name__)
+module_sections = ["models", "numerics"]
 
 
-class SimpleCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleFlow):
+class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleFlow):
     """ This class extends the Incompressible flow model by including a
     cummulative term expressed through pressure and a constant compressibility
     coefficient. For a full documenation refer to the parent class.
@@ -38,7 +39,7 @@ class SimpleCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleF
     def __init__(
         self,
         end_time: Optional[float] = 10.,
-        time_step: Optional[float] = [0.1],
+        time_step: Optional[float] = 0.1,
         params: Optional[Dict] = None
     ) -> None:
         """ 
@@ -56,18 +57,6 @@ class SimpleCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleF
         self.end_time = abs(float(end_time))
         self.time_step = abs(float(time_step))
         self.time_index = 0
-
-    # def run_simulation(self) -> None:
-    #     """ Runs the explicit Euler scheme until endtime is reached.
-    #     """
-    #     if not self._is_set_up:
-    #         raise RuntimeError("Simulation started before set-up was completed")
-        
-    #     t = 0.
-    #     T = self._endtime
-
-    #     while t < T:
-    #         t =+ self._tstep_size
 
     def _set_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
