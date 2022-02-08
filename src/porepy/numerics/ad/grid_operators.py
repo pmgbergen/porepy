@@ -87,6 +87,8 @@ class SubdomainProjections(Operator):
             if len(grids) > 0:
                 # A key error will be raised if a grid in g is not known to
                 # self._cell_projection
+                # IMPLEMENTATION NOTE: Use csc format, since the number of rows can
+                # be much less than the number of columns.
                 mat = sps.bmat([[self._cell_projection[g].T] for g in grids]).tocsr()
             else:
                 # If the grid list is empty, we project from the full set of cells to
@@ -117,11 +119,13 @@ class SubdomainProjections(Operator):
             if len(grids) > 0:
                 # A key error will be raised if a grid in g is not known to
                 # self._cell_projection
-                mat = sps.bmat([[self._cell_projection[g] for g in grids]]).tocsr()
+                # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
+                # be much less than the number of rows.
+                mat = sps.bmat([[self._cell_projection[g] for g in grids]]).tocsc()
             else:
                 # If the grid list is empty, we project from nothing to the full set of
                 # cells
-                mat = sps.csr_matrix((self._tot_num_cells * self._nd, 0))
+                mat = sps.csc_matrix((self._tot_num_cells * self._nd, 0))
             return pp.ad.Matrix(
                 mat,
                 name="CellProlongation",
@@ -149,6 +153,8 @@ class SubdomainProjections(Operator):
             if len(grids) > 0:
                 # A key error will be raised if a grid in grids is not known to
                 # self._face_projection
+                # IMPLEMENTATION NOTE: Use csc format, since the number of rows can
+                # be much less than the number of columns.
                 mat = sps.bmat([[self._face_projection[g].T] for g in grids]).tocsr()
             else:
                 # If the grid list is empty, we project from the full set of faces to
@@ -179,11 +185,13 @@ class SubdomainProjections(Operator):
             if len(grids) > 0:
                 # A key error will be raised if a grid in grids is not known to
                 # self._face_projection
-                mat = sps.bmat([[self._face_projection[g] for g in grids]]).tocsr()
+                # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
+                # be much less than the number of rows.
+                mat = sps.bmat([[self._face_projection[g] for g in grids]]).tocsc()
             else:
                 # If the grid list is empty, we project from nothing to the full set of
                 # faces
-                mat = sps.csr_matrix((self._tot_num_faces * self._nd, 0))
+                mat = sps.csc_matrix((self._tot_num_faces * self._nd, 0))
             return pp.ad.Matrix(
                 mat,
                 name="FaceProlongation",
