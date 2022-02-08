@@ -240,10 +240,18 @@ class MortarGrid:
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
         matrix: sps.spmatrix = sps.bmat(matrix_blocks)
+
+        # Use optimized storage to minimize memory consumption.
         self._secondary_to_mortar_int: sps.spmatrix = (
-            matrix * self._secondary_to_mortar_int
+            pp.matrix_operations.optimized_compressed_storage(
+                matrix * self._secondary_to_mortar_int
+            )
         )
-        self._primary_to_mortar_int: sps.spmatrix = matrix * self._primary_to_mortar_int
+        self._primary_to_mortar_int: sps.spmatrix = (
+            pp.matrix_operations.optimized_compressed_storage(
+                matrix * self._primary_to_mortar_int
+            )
+        )
 
         # Also update the other mappings
         self._set_projections()
@@ -776,30 +784,60 @@ class MortarGrid:
 
         shape_primary = (self.num_cells, primary_secondary.shape[1])
         shape_secondary = (self.num_cells, primary_secondary.shape[0])
-        self._primary_to_mortar_int = sps.csc_matrix(
-            (data.astype(float), (cells, primary_f)), shape=shape_primary
+
+        # IMPLEMENTATION NOTE: Use optimized storage to minimize memory consumption.
+        self._primary_to_mortar_int = pp.matrix_operations.optimized_compressed_storage(
+            sps.csc_matrix(
+                (data.astype(float), (cells, primary_f)), shape=shape_primary
+            )
         )
-        self._secondary_to_mortar_int = sps.csc_matrix(
-            (data.astype(float), (cells, secondary_f)), shape=shape_secondary
+        self._secondary_to_mortar_int = (
+            pp.matrix_operations.optimized_compressed_storage(
+                sps.csc_matrix(
+                    (data.astype(float), (cells, secondary_f)), shape=shape_secondary
+                )
+            )
         )
 
     def _set_projections(self, primary: bool = True, secondary: bool = True) -> None:
         """Set projections to and from primary from the current state of
         self._primary_to_mortar_int and self._secondary_to_mortar_int.
         """
+
+        # IMPLEMENTATION NOTE: Use optimized storage to minimize memory consumption.
         if primary:
-            self._primary_to_mortar_avg = self._row_sum_scaling_matrix(
-                self._primary_to_mortar_int
+            self._primary_to_mortar_avg = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._row_sum_scaling_matrix(self._primary_to_mortar_int)
+                )
             )
-            self._mortar_to_primary_int = self._primary_to_mortar_avg.T
-            self._mortar_to_primary_avg = self._primary_to_mortar_int.T
+            self._mortar_to_primary_int = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._primary_to_mortar_avg.T
+                )
+            )
+            self._mortar_to_primary_avg = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._primary_to_mortar_int.T
+                )
+            )
 
         if secondary:
-            self._secondary_to_mortar_avg = self._row_sum_scaling_matrix(
-                self._secondary_to_mortar_int
+            self._secondary_to_mortar_avg = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._row_sum_scaling_matrix(self._secondary_to_mortar_int)
+                )
             )
-            self._mortar_to_secondary_int = self._secondary_to_mortar_avg.T
-            self._mortar_to_secondary_avg = self._secondary_to_mortar_int.T
+            self._mortar_to_secondary_int = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._secondary_to_mortar_avg.T
+                )
+            )
+            self._mortar_to_secondary_avg = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._secondary_to_mortar_int.T
+                )
+            )
 
 
 @pp.time_logger(sections=module_sections)
