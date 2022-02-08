@@ -32,7 +32,6 @@ def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
 
     if A.getformat() != "csc":
         raise ValueError("Need a csc matrix")
-
     indptr = A.indptr
     col_indptr = mcolon(indptr[cols], indptr[cols + 1])
     A.data[col_indptr] = 0
@@ -59,7 +58,6 @@ def zero_rows(A: sps.csr_matrix, rows: np.ndarray) -> None:
 
     if A.getformat() != "csr":
         raise ValueError("Need a csr matrix")
-
     indptr = A.indptr
     row_indptr = mcolon(indptr[rows], indptr[rows + 1])
     A.data[row_indptr] = 0
@@ -101,7 +99,6 @@ def merge_matrices(
         raise ValueError(
             f"Both matrices should be of the specified format {matrix_format}"
         )
-
     if matrix_format == "csr":
         if A.shape[1] != B.shape[1]:
             raise ValueError(
@@ -109,19 +106,15 @@ def merge_matrices(
             )
         if lines_to_replace.size != B.shape[0]:
             raise ValueError("B.shape[0] must equal size of lines")
-
     if matrix_format == "csc":
         if A.shape[0] != B.shape[0]:
             raise ValueError(
                 f"Unequal number of matrix columns: {A.shape[0]} and {B.shape[0]}"
             )
-
         if lines_to_replace.size != B.shape[1]:
             raise ValueError("B.shape[1] must equal size of lines")
-
     if np.unique(lines_to_replace).size != lines_to_replace.size:
         raise ValueError("Can only merge unique lines")
-
     indptr = A.indptr
     indices = A.indices
     data = A.data
@@ -188,10 +181,8 @@ def stack_mat(A: sps.spmatrix, B: sps.spmatrix):
     if A.getformat() == "csr":
         if A.shape[1] != B.shape[1]:
             raise ValueError("A.shape[0] must equal B.shape[0]")
-
     if B.indptr.size == 1:
         return
-
     A.indptr = np.append(A.indptr, B.indptr[1:] + A.indptr[-1])
     A.indices = np.append(A.indices, B.indices)
     A.data = np.append(A.data, B.data)
@@ -249,17 +240,14 @@ def stack_diag(A: sps.spmatrix, B: sps.spmatrix) -> sps.spmatrix:
         raise ValueError("Need a csc or csr matrix")
     elif A.getformat() != B.getformat():
         raise ValueError("A and B must be of same matrix type")
-
     if B.indptr.size == 1:
         return A
-
     C = A.copy()
 
     if A.getformat() == "csc":
         indices_offset = A.shape[0]
     else:
         indices_offset = A.shape[1]
-
     C.indptr = np.append(A.indptr, B.indptr[1:] + A.indptr[-1])
     C.indices = np.append(A.indices, B.indices + indices_offset)
     C.data = np.append(A.data, B.data)
@@ -299,7 +287,6 @@ def slice_indices(
         if slice_ind.size != A.indptr.size - 1:
             raise IndexError("boolean index did not match indexed array")
         slice_ind = np.where(slice_ind)[0]
-
     if isinstance(slice_ind, int):
         array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
         indices: np.ndarray = A.indices[array_ind]
@@ -345,7 +332,6 @@ def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
         if ind.size != A.indptr.size - 1:
             raise IndexError("boolean index did not match indexed array")
         ind = np.where(ind)[0]
-
     if isinstance(ind, int):
         N = 1
         indptr = np.zeros(2)
@@ -358,7 +344,6 @@ def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
         N = ind.size
         indptr = np.zeros(ind.size + 1)
         ind_slice = mcolon(A.indptr[ind], A.indptr[ind + 1])
-
     indices = A.indices[ind_slice]
     indptr[1:] = np.cumsum(A.indptr[ind + 1] - A.indptr[ind])
     data = A.data[ind_slice]
@@ -367,6 +352,32 @@ def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
         return sps.csc_matrix((data, indices, indptr), shape=(A.shape[0], N))
     elif A.getformat() == "csr":
         return sps.csr_matrix((data, indices, indptr), shape=(N, A.shape[1]))
+
+
+def optimized_compressed_storage(A: sps.spmatrix) -> sps.spmatrix:
+    """Choose an optimal storage format (csr or csc) for a sparse matrix.
+
+    The format is chosen depending on whether A.shape[0] > A.shape[1] or not.
+
+    For very sparse matrices where the number of rows and columns differs significantly
+    (e.g., projection matrices), there can be substantial memory gains by choosing the
+    right storage format, by reducing the number of equal
+
+    As an illustration, consider a matrix with shape 1 x N with 1 element: If stored in
+    csc format, this will require an indptr array of size N, while csr format requires
+    only size 2.
+
+    Parameters:
+        A (sps.spmatrix): Matrix to be reformatted.
+
+    Returns:
+        sps.spmatrix: The matrix represented in optimal storage format.
+
+    """
+    if A.shape[0] > A.shape[1]:
+        return A.tocsc()
+    else:
+        return A.tocsr()
 
 
 def csr_matrix_from_blocks(
@@ -463,7 +474,6 @@ def _csx_matrix_from_blocks(
     """
     if not data.size == block_size ** 2 * num_blocks:
         raise ValueError("Incompatible input to generate block matrix")
-
     # The block structure of the matrix allows for a unified construction of compressed
     # column and row matrices. The difference will simply be in how the data is
     # interpreted
@@ -496,7 +506,6 @@ def _csx_matrix_from_blocks(
         indices = base + block_increase
     else:
         indices = np.arange(num_blocks, dtype=int)
-
     mat = matrix_format(
         (data, indices, indptr),
         shape=(num_blocks * block_size, num_blocks * block_size),
@@ -572,7 +581,6 @@ def invert_diagonal_blocks(
             raise ImportError(
                 """Compiled Cython module not available. Is cython installed?"""
             )
-
         a.sorted_indices()
         ptr = a.indptr
         indices = a.indices
@@ -602,7 +610,6 @@ def invert_diagonal_blocks(
             import numba
         except ImportError:
             raise ImportError("Numba not available on the system")
-
         # Sort matrix storage before pulling indices and data
         a.sorted_indices()
         ptr = a.indptr
@@ -664,7 +671,6 @@ def invert_diagonal_blocks(
                         loc_col = ind[data_counter] - block_row_starts_ind[iter1]
                         loc_mat[iter2, loc_col] = data[data_counter]
                         data_counter += 1
-
                 # Compute inverse. np.linalg.inv is supported by numba (May
                 # 2016), it is not clear if this is the best option. To be
                 # revised
@@ -700,7 +706,6 @@ def invert_diagonal_blocks(
             raise e
     elif method == "python":
         inv_vals = invert_diagonal_blocks_python(mat, s)
-
     ia = block_diag_matrix(inv_vals, s)
     return ia
 
@@ -750,7 +755,6 @@ def block_diag_index(
     """
     if n is None:
         n = m
-
     start = np.hstack((np.zeros(1, dtype="int"), m))
     pos = np.cumsum(start)
     p1 = pos[0:-1]
