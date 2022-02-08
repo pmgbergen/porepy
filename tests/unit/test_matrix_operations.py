@@ -1,4 +1,5 @@
 import unittest
+import pytest
 
 import numpy as np
 import scipy.sparse as sps
@@ -377,6 +378,26 @@ class TestSparseMath(unittest.TestCase):
         value = pp.matrix_operations.csc_matrix_from_blocks(arr, block_size, num_blocks)
 
         self.assertTrue(np.allclose(known, value.toarray()))
+
+
+@pytest.mark.parametrize(
+    "mat", [np.arange(6).reshape((3, 2)), np.arange(6).reshape((2, 3))]
+)
+def test_optimized_storage(mat):
+    # Check that the optimized sparse storage chooses format according to whether the
+    # matrix has more columns or rows or oposite.
+
+    # Convert input matrix to sparse storage. For the moment, the matrix format is chosen
+    # according to the number of rows and columns only, thus the lack of true sparsity
+    # does not matter.
+    A = sps.csc_matrix(mat)
+
+    optimized = pp.matrix_operations.optimized_compressed_storage(A)
+
+    if A.shape[0] > A.shape[1]:
+        assert optimized.getformat() == "csc"
+    else:
+        assert optimized.getformat() == "csr"
 
 
 if __name__ == "__main__":
