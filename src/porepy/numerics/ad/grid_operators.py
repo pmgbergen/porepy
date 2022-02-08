@@ -92,7 +92,6 @@ class SubdomainProjections(Operator):
                 # If the grid list is empty, we project from the full set of cells to
                 # nothing.
                 mat = sps.csr_matrix((0, self._tot_num_cells * self._nd))
-
             return pp.ad.Matrix(
                 mat,
                 name="CellRestriction",
@@ -123,7 +122,6 @@ class SubdomainProjections(Operator):
                 # If the grid list is empty, we project from nothing to the full set of
                 # cells
                 mat = sps.csr_matrix((self._tot_num_cells * self._nd, 0))
-
             return pp.ad.Matrix(
                 mat,
                 name="CellProlongation",
@@ -265,7 +263,6 @@ class MortarProjections(Operator):
         self._nd: int = nd
 
         ## Initialize projections
-
         cell_projection, face_projection = _subgrid_projections(grids, self._nd)
 
         # IMPLEMENTATION NOTE:
@@ -304,34 +301,65 @@ class MortarProjections(Operator):
                     if mg.codim < 2
                     else cell_projection[g_primary]
                 )
+                # Create all projection matrices for this MortarGrid and append them to
+                # the list. The use of optimized storage is of importance here, since
+                # for small subdomain grids in problems with many cells in total, the
+                # projection matrices may have many more rows than columns, or oposite.
+
                 # Projections to primary
                 mortar_to_primary_int.append(
-                    primary_projection * mg.mortar_to_primary_int(nd)
+                    pp.matrix_operations.optimized_compressed_storage(
+                        primary_projection * mg.mortar_to_primary_int(nd)
+                    )
                 )
                 mortar_to_primary_avg.append(
-                    primary_projection * mg.mortar_to_primary_avg(nd)
+                    pp.matrix_operations.optimized_compressed_storage(
+                        primary_projection * mg.mortar_to_primary_avg(nd)
+                    )
                 )
 
                 # Projections from primary
                 primary_to_mortar_int.append(
-                    mg.primary_to_mortar_int(nd) * primary_projection.T
+                    pp.matrix_operations.optimized_compressed_storage(
+                        mg.primary_to_mortar_int(nd) * primary_projection.T
+                    )
                 )
                 primary_to_mortar_avg.append(
-                    mg.primary_to_mortar_avg(nd) * primary_projection.T
+                    pp.matrix_operations.optimized_compressed_storage(
+                        mg.primary_to_mortar_avg(nd) * primary_projection.T
+                    )
                 )
 
+                # Projections to secondary
                 mortar_to_secondary_int.append(
-                    cell_projection[g_secondary] * mg.mortar_to_secondary_int(nd)
+                    pp.matrix_operations.optimized_compressed_storage(
+                        cell_projection[g_secondary] * mg.mortar_to_secondary_int(nd)
+                    )
                 )
                 mortar_to_secondary_avg.append(
-                    cell_projection[g_secondary] * mg.mortar_to_secondary_avg(nd)
+                    pp.matrix_operations.optimized_compressed_storage(
+                        cell_projection[g_secondary] * mg.mortar_to_secondary_avg(nd)
+                    )
                 )
 
+                # Projections from secondary.
+                # IMPLEMENTATION NOTE: For some reason, forcing csr format here
+                # decreased the runtime with a factor of 5, while this was not important
+                # while creating the other projection matrices. Experimentation showed no
+                # similar pattern when flipping between csc and csr formats, so it probably
+                # just has to be in this way, or this was case-dependent behavior (the
+                # relevant test case was the field case in the 3d flow benchmark).
                 secondary_to_mortar_int.append(
-                    mg.secondary_to_mortar_int(nd) * cell_projection[g_secondary].T
+                    pp.matrix_operations.optimized_compressed_storage(
+                        mg.secondary_to_mortar_int(nd).tocsr()
+                        * cell_projection[g_secondary].T
+                    )
                 )
                 secondary_to_mortar_avg.append(
-                    mg.secondary_to_mortar_avg(nd) * cell_projection[g_secondary].T
+                    pp.matrix_operations.optimized_compressed_storage(
+                        mg.secondary_to_mortar_avg(nd).tocsr()
+                        * cell_projection[g_secondary].T
+                    )
                 )
         else:
             # FIXME: The assumption here is that a GridBucket with a single grid
@@ -346,9 +374,9 @@ class MortarProjections(Operator):
             num_faces_higher_dimension = sum([g.num_faces for g in grids]) * nd
 
             # Projections to and from the grid
-            to_face = sps.csr_matrix((num_faces_higher_dimension, 0))
+            to_face = sps.csc_matrix((num_faces_higher_dimension, 0))
             from_face = sps.csr_matrix((0, num_faces_higher_dimension))
-            to_cells = sps.csr_matrix((num_cells_lower_dimension, 0))
+            to_cells = sps.csc_matrix((num_cells_lower_dimension, 0))
             from_cells = sps.csr_matrix((0, num_cells_lower_dimension))
 
             # Projections to primary
@@ -369,7 +397,11 @@ class MortarProjections(Operator):
         # The projections are wrapped by a pp.ad.Matrix to be compatible with the
         # requirements for processing of Ad operators.
         def bmat(matrices, name):
-            return Matrix(sps.bmat(matrices, format="csr"), name=name)
+            # Create block matrix, convert it to optimized storage format
+            block_matrix = pp.matrix_operations.optimized_compressed_storage(
+                sps.bmat(matrices)
+            )
+            return Matrix(block_matrix, name=name)
 
         self.mortar_to_primary_int = bmat(
             [mortar_to_primary_int], name="MortarToPrimaryInt"
@@ -486,7 +518,6 @@ class Trace(Operator):
                 inv_trace.append(div * face_projections[g].T)
             else:
                 raise NotImplementedError("kronecker")
-
         # Stack both trace and inv_trace vertically to make them into mappings to
         # global quantities.
         # Wrap the stacked matrices into an Ad object
@@ -549,7 +580,6 @@ class Divergence(Operator):
         for g in self.grids:
             nf += g.num_faces * g.dim
             nc += g.num_cells * g.dim
-
         s += f"The total size of the matrix is ({nc}, {nf})\n"
 
         return s
@@ -625,11 +655,9 @@ class BoundaryCondition(Operator):
         dims = np.zeros(4, dtype=int)
         for g in self.grids:
             dims[g.dim] += 1
-
         for d in range(3, -1, -1):
             if dims[d] > 0:
                 s += f"{dims[d]} grids of dimension {d}\n"
-
         return s
 
     def __str__(self) -> str:
@@ -651,7 +679,6 @@ class BoundaryCondition(Operator):
         for g in self.grids:
             data = gb.node_props(g)
             val.append(data[pp.PARAMETERS][self.keyword]["bc_values"])
-
         return np.hstack([v for v in val])
 
 
@@ -747,7 +774,6 @@ class ParameterArray(Operator):
                 )
         elif edges is None:
             edges = []
-
         self.param_keyword = param_keyword
         self.array_keyword = array_keyword
         self.grids: List[pp.Grid] = grids
@@ -763,11 +789,9 @@ class ParameterArray(Operator):
         dims = np.zeros(4, dtype=int)
         for g in self.grids:
             dims[g.dim] += 1
-
         for d in range(3, -1, -1):
             if dims[d] > 0:
                 s += f"{dims[d]} grids of dimension {d}\n"
-
         dims = np.zeros(4, dtype=int)
         for e in self.edges:
             # The mg and its dimension are not accessible without the gb.
@@ -777,7 +801,6 @@ class ParameterArray(Operator):
             if dims[d] > 0:
                 s += f"""{dims[d]} mortar grids with lower-dimensional neighbor
                 of dimension {d}\n"""
-
         return s
 
     def __str__(self) -> str:
@@ -802,7 +825,6 @@ class ParameterArray(Operator):
         for e in self.edges:
             data = gb.edge_props(e)
             val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
-
         if len(val) > 0:
             return np.hstack([v for v in val])
         else:
@@ -839,10 +861,12 @@ def _subgrid_projections(
         )
         cell_sz = g.num_cells * nd
 
+        # Create matrix and convert to csc format, since the number of rows is (much)
+        # higher than the number of columns.
         cell_projection[g] = sps.coo_matrix(
             (np.ones(cell_sz), (cell_ind, np.arange(cell_sz))),
             shape=(tot_num_cells, cell_sz),
-        ).tocsr()
+        ).tocsc()
         cell_offset = cell_ind[-1] + 1
 
         if "mortar_grid" not in g.name:
@@ -853,7 +877,8 @@ def _subgrid_projections(
             face_projection[g] = sps.coo_matrix(
                 (np.ones(face_sz), (face_ind, np.arange(face_sz))),
                 shape=(tot_num_faces, face_sz),
-            ).tocsr()
+            ).tocsc()  # Again use csc storage, since num_cols < num_rows
+
             # Correct start of the numbering for the next grid
             if g.dim > 0:
                 # Point grids have no faces
