@@ -915,56 +915,12 @@ class TestRefinementMortarGrid(unittest.TestCase):
         for e, d in gb.edges():
 
             mg = d["mortar_grid"]
-            indices_known = np.array([0, 1, 2, 3, 4, 5, 6, 7])
+            indices_known = np.array([28, 29, 30, 31, 36, 37, 38, 39])
             self.assertTrue(
                 np.array_equal(mg.primary_to_mortar_int().indices, indices_known)
             )
 
-            indptr_known = np.array(
-                [
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    1,
-                    2,
-                    3,
-                    4,
-                    4,
-                    4,
-                    4,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                ]
-            )
+            indptr_known = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8])
             self.assertTrue(
                 np.array_equal(mg.primary_to_mortar_int().indptr, indptr_known)
             )
