@@ -7,14 +7,14 @@ case, see numerics.nonlinear.nonlinear_solvers.
 """
 from typing import Dict, Tuple
 
-import porepy as pp
 from porepy.models.abstract_model import AbstractModel
-
-module_sections = ["numerics", "matrix"]
 
 
 class LinearSolver:
-    @pp.time_logger(sections=module_sections)
+    """Wrapper around models that solves linear problems, and calls the methods in the
+    model class before and after solving the problem.
+    """
+
     def __init__(self, params: Dict = None) -> None:
         """Define linear solver.
 
@@ -29,7 +29,6 @@ class LinearSolver:
         # default_options.update(params)
         self.params = params  # default_options
 
-    @pp.time_logger(sections=module_sections)
     def solve(self, setup: AbstractModel) -> Tuple[float, bool]:
         """Solve a linear problem defined by the current state of the model.
 
@@ -44,13 +43,27 @@ class LinearSolver:
 
         setup.before_newton_loop()
         prev_sol = setup.dof_manager.assemble_variable(from_iterate=False)
+
         # For linear problems, the tolerance is irrelevant
+        # FIXME: This assumes a direct solver is applied, but it may also be that parameters
+        # for linear solvers should be a property of the model, not the solver. This
+        # needs clarification at some point.
         sol = setup.assemble_and_solve_linear_system(tol=0)
         error_norm, is_converged, _ = setup.check_convergence(
             sol, prev_sol, prev_sol, self.params
         )
 
         if is_converged:
+            # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows there is
+            # something wrong with how the linear and non-linear solvers interact with the
+            # models (and it illustrates that the model convention for the before_newton_*
+            # and after_newton_* methods is not ideal).
+            # Since the setup's after_newton_convergence may expect that the converged
+            # solution is already stored as an iterate (this may happen if a model is
+            # implemented to be valid for both linear and non-linear problems, as is
+            # the case for ContactMechanics and possibly others). Thus we first call
+            # after_newton_iteration(), and then after_newton_convergence()
+            setup.after_newton_iteration(sol)
             setup.after_newton_convergence(sol, error_norm, iteration_counter=1)
         else:
             setup.after_newton_failure(sol, error_norm, iteration_counter=1)
