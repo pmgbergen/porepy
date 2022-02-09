@@ -135,7 +135,7 @@ def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
         old_g_ind[ind] = i[1]
         weights[ind] = i[2]
 
-    weights /= old_g.cell_volumes[old_g_ind]
+    weights /= new_g.cell_volumes[new_g_ind]
     return weights, new_g_ind, old_g_ind
 
 
