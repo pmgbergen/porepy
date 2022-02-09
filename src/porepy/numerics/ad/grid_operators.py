@@ -87,7 +87,7 @@ class SubdomainProjections(Operator):
             if len(grids) > 0:
                 # A key error will be raised if a grid in g is not known to
                 # self._cell_projection
-                # IMPLEMENTATION NOTE: Use csc format, since the number of rows can
+                # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
                 # be much less than the number of columns.
                 mat = sps.bmat([[self._cell_projection[g].T] for g in grids]).tocsr()
             else:
@@ -153,7 +153,7 @@ class SubdomainProjections(Operator):
             if len(grids) > 0:
                 # A key error will be raised if a grid in grids is not known to
                 # self._face_projection
-                # IMPLEMENTATION NOTE: Use csc format, since the number of rows can
+                # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
                 # be much less than the number of columns.
                 mat = sps.bmat([[self._face_projection[g].T] for g in grids]).tocsr()
             else:
