@@ -536,7 +536,7 @@ class Operator:
         return Operator(tree=Tree(Operation.add, children), name="Addition operator")
 
     def __sub__(self, other):
-        children = [self, other]
+        children = self._parse_other(other)
         return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
 
     def __rmul__(self, other):
