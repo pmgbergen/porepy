@@ -7,9 +7,9 @@ PorePy, this does not necessarily mean that something is wrong.
 
 """
 import os
-import numpy as np
 import unittest
 
+import numpy as np
 import porepy as pp
 
 
