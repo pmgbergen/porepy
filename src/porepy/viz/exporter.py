@@ -14,8 +14,9 @@ from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
-import porepy as pp
 import scipy.sparse as sps
+
+import porepy as pp
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
