@@ -14,9 +14,8 @@ from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
-import scipy.sparse as sps
-
 import porepy as pp
+import scipy.sparse as sps
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -368,7 +367,7 @@ class Exporter:
     @pp.time_logger(sections=module_sections)
     def _export_gb(self, data: List[str], time_step: float) -> None:
         """Export the entire GridBucket and additional data to vtu.
-        
+
         Parameters:
             data (List[str]): Data to be exported in addition to default GridBucket data.
             time_step (float) : Time step, to be appended at the vtu output file.
@@ -378,7 +377,7 @@ class Exporter:
             data = np.atleast_1d(data).tolist()
         else:
             data = list()
-       
+
         # Extract data which is contained in nodes (and not edges).
         # To make the unit test 'test_vtk' successfull, keep the sorting from data.
         node_data = list()
