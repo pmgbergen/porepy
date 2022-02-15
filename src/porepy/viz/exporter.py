@@ -366,21 +366,37 @@ class Exporter:
     # ------------------------------------------------------------------------------#
 
     @pp.time_logger(sections=module_sections)
-    def _export_gb(self, data: List[str], time_step: float):
+    def _export_gb(self, data: List[str], time_step: float) -> None:
+        """Export the entire GridBucket and additional data to vtu.
+        
+        Parameters:
+            data (List[str]): Data to be exported in addition to default GridBucket data.
+            time_step (float) : Time step, to be appended at the vtu output file.
+        """
         # Convert data to list, or provide an empty list
         if data is not None:
             data = np.atleast_1d(data).tolist()
         else:
             data = list()
+       
+        # Extract data which is contained in nodes (and not edges).
+        # To make the unit test 'test_vtk' successfull, keep the sorting from data.
+        node_data = list()
+        for key in data:
+            for _, d in self.gb.nodes():
+                if pp.STATE in d and key in d[pp.STATE]:
+                    node_data.append(key)
+                    continue
 
-        fields = Fields()
-        if len(data) > 0:
-            fields.extend([Field(d) for d in data])
+        # Transfer data to fields.
+        node_fields = Fields()
+        if len(node_data) > 0:
+            node_fields.extend([Field(d) for d in node_data])
 
         # consider the grid_bucket node data
         extra_node_names = ["grid_dim", "grid_node_number", "is_mortar", "mortar_side"]
         extra_node_fields = [Field(name) for name in extra_node_names]
-        fields.extend(extra_node_fields)
+        node_fields.extend(extra_node_fields)
 
         self.gb.assign_node_ordering(overwrite_existing=False)
         self.gb.add_node_props(extra_node_names)
@@ -396,7 +412,7 @@ class Exporter:
         for dim in self.dims:
             file_name = self._make_file_name(self.file_name, time_step, dim)
             file_name = self._make_folder(self.folder_name, file_name)
-            for field in fields:
+            for field in node_fields:
                 grids = self.gb.get_grids(lambda g: g.dim == dim)
                 values = []
                 for g in grids:
@@ -408,15 +424,30 @@ class Exporter:
                 field.values = np.hstack(values)
 
             if self.meshio_geom[dim] is not None:
-                self._write(fields, file_name, self.meshio_geom[dim])
+                self._write(node_fields, file_name, self.meshio_geom[dim])
 
         self.gb.remove_node_props(extra_node_names)
 
+        # Extract data which is contained in nodes (and not edges).
+        edge_data = list()
+        for key in data:
+            for _, d in self.gb.edges():
+                if pp.STATE in d and key in d[pp.STATE]:
+                    edge_data.append(key)
+                    continue
+
+        # Transfer data to fields.
+        edge_fields = Fields()
+        if len(edge_data) > 0:
+            edge_fields.extend([Field(d) for d in edge_data])
+
         # consider the grid_bucket edge data
-        extra_edge_fields = Fields()
         extra_edge_names = ["grid_dim", "grid_edge_number", "is_mortar", "mortar_side"]
-        extra_edge_fields.extend([Field(name) for name in extra_edge_names])
+        extra_edge_fields = [Field(name) for name in extra_edge_names]
+        edge_fields.extend(extra_edge_fields)
+
         self.gb.add_edge_props(extra_edge_names)
+        # fill the extra data
         for _, d in self.gb.edges():
             d["grid_dim"] = {}
             d["cell_id"] = {}
@@ -447,18 +478,21 @@ class Exporter:
                 e for e, d in self.gb.edges() if cond(d)
             ]
 
-            for field in extra_edge_fields:
+            for field in edge_fields:
                 values = []
                 for mg, edge in zip(mgs, edges):
-                    for side, _ in mg.side_grids.items():
-                        # Convert edge to tuple to be compatible with GridBucket
-                        # data structure
-                        values.append(self.gb.edge_props(edge, field.name)[side])
+                    if field.name in data:
+                        values.append(self.gb.edge_props(edge, pp.STATE)[field.name])
+                    else:
+                        for side, _ in mg.side_grids.items():
+                            # Convert edge to tuple to be compatible with GridBucket
+                            # data structure
+                            values.append(self.gb.edge_props(edge, field.name)[side])
 
                 field.values = np.hstack(values)
 
             if self.m_meshio_geom[dim] is not None:
-                self._write(extra_edge_fields, file_name, self.m_meshio_geom[dim])
+                self._write(edge_fields, file_name, self.m_meshio_geom[dim])
 
         file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
         file_name = self._make_folder(self.folder_name, file_name)
