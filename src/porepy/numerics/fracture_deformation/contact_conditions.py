@@ -37,15 +37,17 @@ import logging
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
+import porepy.numerics.interface_laws.abstract_interface_law
 
 logger = logging.getLogger(__name__)
-module_sections = ["discretization", "numerics"]
 
 
-class ColoumbContact:
-    @pp.time_logger(sections=module_sections)
+class ColoumbContact(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
     def __init__(self, keyword: str, ambient_dimension: int, discr_h) -> None:
         self.keyword = keyword
 
@@ -62,19 +64,15 @@ class ColoumbContact:
         # Tolerance used to define numbers that effectively are zero.
         self.tol = 1e-10
 
-    @pp.time_logger(sections=module_sections)
     def _key(self) -> str:
         return self.keyword + "_"
 
-    @pp.time_logger(sections=module_sections)
     def _discretization_key(self) -> str:
         return self._key() + pp.DISCRETIZATION
 
-    @pp.time_logger(sections=module_sections)
     def ndof(self, g) -> int:
         return g.num_cells * self.dim
 
-    @pp.time_logger(sections=module_sections)
     def discretize(
         self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
     ) -> None:
@@ -423,7 +421,6 @@ class ColoumbContact:
         data_l[pp.STATE][pp.ITERATE]["penetration"] = penetration_bc
         data_l[pp.STATE][pp.ITERATE]["sliding"] = sliding_bc
 
-    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g: pp.Grid, data: Dict):
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
@@ -439,7 +436,6 @@ class ColoumbContact:
         return traction_coefficient, displacement_coefficient, rhs
 
     # Active and inactive boundary faces
-    @pp.time_logger(sections=module_sections)
     def _sliding(self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, ct: np.ndarray):
         """Find faces where the frictional bound is exceeded, that is, the face is
         sliding.
@@ -460,7 +456,6 @@ class ColoumbContact:
         # Not sure about the sensitivity to the tolerance parameter here.
         return self._l2(-Tt - ct * ut) - bf > self.tol
 
-    @pp.time_logger(sections=module_sections)
     def _penetration(
         self, Tn: np.ndarray, un: np.ndarray, cn: np.ndarray, gap: np.ndarray
     ) -> np.ndarray:
@@ -484,12 +479,10 @@ class ColoumbContact:
     ## Below here are different help function for calculating the Newton step
     #####
 
-    @pp.time_logger(sections=module_sections)
     def _e(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # Compute part of (32) in Berge et al.
         return bf / self._l2(-Tt - cut)
 
-    @pp.time_logger(sections=module_sections)
     def _Q(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # Implementation of the term Q involved in the calculation of (32) in Berge
         # et al.
@@ -502,19 +495,16 @@ class ColoumbContact:
 
         return numerator / denominator
 
-    @pp.time_logger(sections=module_sections)
     def _M(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         """Compute the coefficient M used in Eq. (32) in Berge et al."""
         Id = np.eye(Tt.shape[0])
         # M = e * (I - Q)
         return self._e(Tt, cut, bf) * (Id - self._Q(Tt, cut, bf))
 
-    @pp.time_logger(sections=module_sections)
     def _hf(self, Tt: np.ndarray, cut: np.ndarray, bf: np.ndarray) -> np.ndarray:
         # This is the product e * Q * (-Tt + cut), used in computation of r in (32)
         return self._e(Tt, cut, bf) * self._Q(Tt, cut, bf).dot(-Tt - cut)
 
-    @pp.time_logger(sections=module_sections)
     def _sliding_coefficients(
         self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, c: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -579,13 +569,11 @@ class ColoumbContact:
 
         return L, r, v
 
-    @pp.time_logger(sections=module_sections)
     def _l2(self, x):
         x = np.atleast_2d(x)
         return np.sqrt(np.sum(x ** 2, axis=0))
 
 
-@pp.time_logger(sections=module_sections)
 def set_projections(
     gb: pp.GridBucket, edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None
 ) -> None:
@@ -662,3 +650,118 @@ def set_projections(
         d_l = gb.node_props(g_l)
         # Store the projection operator in the lower-dimensional data
         d_l["tangential_normal_projection"] = projection
+
+
+class ContactTraction(
+    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
+):
+    def __init__(self, keyword: str, ambient_dimension: int, discr_h) -> None:
+        self.keyword = keyword
+        self.dim = ambient_dimension
+
+        self.traction_scaling_matrix_key = "force_to_scaled_traction"
+        self.discr_h = discr_h
+
+    def ndof(self, g) -> int:
+        return g.num_cells * self.dim
+
+    def discretize(
+        self,
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_interface: Dict,
+    ) -> None:
+        """Discretize the conversion from contact force to contact traction.
+
+        The traction is scaled with the inverse of a characteristic elastic
+        modulus for stable comparison with displacement jumps in the contact
+        equations.
+        The diagonal discretization matrix is stored in the self.keyword
+        discretization matrix dictionary under the name self.traction_scaling_matrix_key
+
+        Parameters
+        ----------
+        g_primary : pp.Grid
+            Grid of the matrix subdomain.
+        g_secondary : pp.Grid
+            Grid of the fracture subdomain.
+        data_primary : Dict
+            Data dictionary of the matrix subdomain.
+        data_secondary : Dict
+            Data dictionary of the fracture subdomain.
+        data_interface : Dict
+            Data dictionary of the matrix-fracture interface.
+
+
+
+        Returns
+        -------
+        None
+            DESCRIPTION.
+
+        """
+
+        mg = data_interface["mortar_grid"]
+
+        area = g_secondary.cell_volumes
+
+        parameters_h = data_primary[pp.PARAMETERS][self.discr_h.keyword]
+        constit_h = parameters_h["fourth_order_tensor"]
+        mean_constit = (
+            mg.mortar_to_secondary_avg()
+            * mg.primary_to_mortar_avg()
+            * 0.5
+            * np.abs(g_primary.cell_faces * (constit_h.mu + constit_h.lmbda))
+        )
+
+        traction_scaling = np.kron(1 / (mean_constit * area), np.ones(g_primary.dim))
+
+        data_secondary[pp.DISCRETIZATION_MATRICES][self.keyword][
+            self.traction_scaling_matrix_key
+        ] = sps.diags(traction_scaling)
+
+    def assemble_matrix_rhs(
+        self,
+        g_primary: pp.Grid,
+        g_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_interface: Dict,
+        matrix,
+    ):
+        """Abstract method required by base class.
+
+        TODO:
+            Decide if the abstract method should be removed as part of our migration
+            to AD
+
+        Parameters
+        ----------
+        g_primary : pp.Grid
+            Higher-dimensional grid.
+        g_secondary : pp.Grid
+            Lower-dimensional grid.
+        data_primary : Dict
+            Data dictionary corresponding to g_primary.
+        data_secondary : Dict
+            Data dictionary corresponding to g_secondary.
+        data_interface : Dict
+            Data dictionary corresponding to the interface.
+        matrix : TYPE
+            Discretization matrix.
+
+        Raises
+        ------
+        NotImplementedError
+            The class is not intended for use without the ad framework.
+
+        Returns
+        -------
+        None.
+
+        """
+        raise NotImplementedError(
+            "This discretization has been designed for AD only and has no assemble method"
+        )
