@@ -1,17 +1,35 @@
-from typing import Callable
+"""
+This module contains functions to be wrapped in a pp.ad.Function and used as part
+of compound pp.ad.Operators, i.e. as (terms of) equations.
+
+Some functions depend on non-ad objects. This requires that the function (f) be wrapped
+in an ad Function using partial evaluation:
+
+    from functools import partial
+    AdFunction = pp.ad.Function(partial(f, other_parameter), "name")
+    equation: pp.ad.Operator = AdFunction(var) - 2 * var
+
+with var being some ad variable.
+
+Note that while the argument to AdFunction is a pp.ad.Operator, the wrapping in pp.ad.Function implies
+that upon parsing, the argument passed to f will be an Ad_array.
+"""
+from __future__ import annotations
+
+from typing import Callable, Union
 
 import numpy as np
+import scipy.sparse as sps
 
+import porepy as pp
 from porepy.numerics.ad.forward_mode import Ad_array
-
-import porepy  # noqa isort: skip
-
 
 __all__ = [
     "exp",
     "log",
     "sign",
     "abs",
+    "l2_norm",
     "sin",
     "cos",
     "tan",
@@ -27,6 +45,8 @@ __all__ = [
     "heaviside",
     "heaviside_smooth",
     "RegularizedHeaviside",
+    "max",
+    "characteristic_function",
 ]
 
 
@@ -49,7 +69,7 @@ def log(var):
         return np.log(var)
 
 
-# %% Sign and absolute value functions
+# %% Sign and absolute value functions and l2_norm
 def sign(var):
     if not isinstance(var, Ad_array):
         return np.sign(var)
@@ -64,6 +84,55 @@ def abs(var):
         return Ad_array(val, jac)
     else:
         return np.abs(var)
+
+
+def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
+    """L2 norm of a vector variable.
+
+    For the example of dim=3 components and n vectors, the ordering is assumed
+    to be
+        [u0, v0, w0, u1, v1, w1, ..., un, vn, wn]
+
+    Usage note:
+        See module level documentation on how to wrap functions like this in ad.Function.
+
+    Parameters
+    ----------
+    dim : int
+        Dimension, i.e. number of vector components.
+    var : pp.ad.Ad_array
+        Ad operator (variable or expression) which is argument of the norm
+        function.
+
+    Returns
+    -------
+    pp.ad.Ad_array
+        The norm of var with appropriate val and jac attributes.
+
+    """
+
+    if dim == 1:
+        return pp.ad.functions.abs(var)
+    resh = np.reshape(var.val, (dim, -1), order="F")
+    vals = np.linalg.norm(resh, axis=0)
+    # Avoid dividing by zero
+    tol = 1e-12
+    nonzero_inds = vals > tol
+    jac_vals = np.zeros(resh.shape)
+    jac_vals[:, nonzero_inds] = resh[:, nonzero_inds] / vals[nonzero_inds]
+    jac_vals[:, ~nonzero_inds] = 1
+    # Prepare for left multiplication with var.jac to yield
+    # norm(var).jac = var/norm(var) * var.jac
+    dim_size = var.val.size
+    size = int(var.val.size / dim)
+    local_inds_t = np.arange(dim_size)
+    local_inds_n = np.int32(np.kron(np.arange(size), np.ones(dim)))
+    norm_jac = sps.csr_matrix(
+        (jac_vals.ravel("F"), (local_inds_n, local_inds_t)),
+        shape=(size, dim_size),
+    )
+    jac = norm_jac * var.jac
+    return pp.ad.Ad_array(vals, jac)
 
 
 # %% Trigonometric functions
@@ -235,3 +304,70 @@ class RegularizedHeaviside:
             return Ad_array(val, jac)
         else:
             return np.heaviside(var)  # type: ignore
+
+
+def max(
+    var0: pp.ad.Ad_array, var1: Union[pp.ad.Ad_array, np.ndarray]
+) -> pp.ad.Ad_array:
+    """Ad max function.
+
+    The second argument is allowed to be constant, with a numpy array originally
+    wrapped in a pp.ad.Array, whereas the first argument is expected to be an
+    Ad_array originating from a pp.ad.Operator.
+
+    Parameters
+    ----------
+    var0 : pp.ad.Ad_array
+        Ad operator (variable or expression).
+    var1 : Union[pp.ad.Ad_array, pp.ad.Array]
+        Ad operator (variable or expression) OR ad Array.
+
+    Returns
+    -------
+    pp.ad.Ad_array
+        The maximum of var0 and var1 with appropriate val and jac attributes.
+
+    """
+    vals = [var0.val.copy()]
+    jacs = [var0.jac.copy()]
+    if isinstance(var1, np.ndarray):
+        vals.append(var1.copy())
+        jacs.append(sps.csr_matrix((var0.jac.shape)))
+    else:
+        vals.append(var1.val.copy())
+        jacs.append(var1.jac.copy())
+    inds = vals[1] >= vals[0]
+
+    max_val = vals[0].copy()
+    max_val[inds] = vals[1][inds]
+    max_jac = jacs[0].copy()
+    max_jac[inds] = jacs[1][inds].copy()
+    return pp.ad.Ad_array(max_val, max_jac)
+
+
+def characteristic_function(tol: float, var: pp.ad.Ad_array):
+    """Characteristic function of an ad variable.
+
+    Returns 1 if var.val is within absolute tolerance = tol of zero.
+
+    Usage note:
+        See module level documentation on how to wrap functions like this in ad.Function.
+
+    Parameters
+    ----------
+    tol : float
+        Absolute tolerance for comparison with 0 using np.isclose.
+    var : pp.ad.Ad_array
+        Ad operator (variable or expression).
+
+    Returns
+    -------
+    pp.ad.Ad_array
+        The characteristic function of var with appropriate val and jac attributes.
+
+    """
+    vals = np.zeros(var.val.size)
+    zero_inds = np.isclose(var.val, 0, atol=tol)
+    vals[zero_inds] = 1
+    jac = sps.csr_matrix((var.jac.shape))
+    return pp.ad.Ad_array(vals, jac)
