@@ -11,8 +11,8 @@ in an ad Function using partial evaluation:
 
 with var being some ad variable.
 
-Note that while the argument to AdFunction is a pp.ad.Operator, the wrapping in pp.ad.Function implies
-that upon parsing, the argument passed to f will be an Ad_array.
+Note that while the argument to AdFunction is a pp.ad.Operator, the wrapping in
+pp.ad.Function implies that upon parsing, the argument passed to f will be an Ad_array.
 """
 from __future__ import annotations
 
