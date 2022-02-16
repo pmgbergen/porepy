@@ -456,10 +456,7 @@ class ContactMechanics(AbstractModel):
         for g, d in gb:
             if g.dim == self._Nd:
                 # Rock parameters
-                lam = np.ones(g.num_cells)
-                mu = np.ones(g.num_cells)
-                C = pp.FourthOrderTensor(mu, lam)
-
+                C = self._stress_tensor(g)
                 # Define boundary condition
                 bc = self._bc_type(g)
 
@@ -480,15 +477,15 @@ class ContactMechanics(AbstractModel):
                 )
 
             elif g.dim == self._Nd - 1:
-                friction = self._set_friction_coefficient(g)
                 c_num_n, c_num_t = self._numerical_constants(g)
                 pp.initialize_data(
                     g,
                     d,
                     self.mechanics_parameter_key,
                     {
-                        "friction_coefficient": friction,
-                        "initial_gap": np.zeros(g.num_cells),
+                        "friction_coefficient": self._friction_coefficient(g),
+                        "initial_gap": self._initial_gap(g),
+                        "dilation_angle": self._dilation_angle(g),
                         "c_num": c_num_n,  # Non-ad uses single constant
                         "c_num_normal": c_num_n,  # Ad allows for two
                         "c_num_tangential": c_num_t,
@@ -525,8 +522,128 @@ class ContactMechanics(AbstractModel):
         return values
 
     def _source(self, g: pp.Grid) -> np.ndarray:
-        """"""
-        return np.zeros(self._Nd * g.num_cells)
+        """Source term parameter.
+
+        If the source term represents gravity in the y (2d) or z (3d) direction,
+        use:
+            vals = np.zeros((self,_Nd, g.num_cells))
+            vals[-1] = density * pp.GRAVITY_ACCELERATION * g.cell_volumes
+            return vals.ravel("F")
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Subdomain, usually the matrix.
+
+        Returns
+        -------
+        np.ndarray
+            Integrated source values, shape self._Nd * g.num_cells.
+
+        """
+        vals = np.zeros(self._Nd * g.num_cells)
+        return vals
+
+    def _dilation_angle(self, g: pp.Grid) -> np.ndarray:
+        """Dilation angle parameter.
+
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Fracture subdomain grid.
+
+        Returns
+        -------
+        vals : np.ndarray
+            Cell-wise dilation angle.
+
+        """
+        vals: np.ndarray = np.zeros(g.num_cells)
+        return vals
+
+    def _initial_gap(self, g: pp.Grid) -> np.ndarray:
+        """Initial gap value.
+
+        Distance between the surfaces of a fracture when in mechanical contact in
+        the unperturbed state.
+        Parameters
+        ----------
+        g : pp.Grid
+            Fracture subdomain grid.
+
+        Returns
+        -------
+        vals : np.ndarray
+            Cell-wise gap value.
+
+        """
+        vals: np.ndarray = np.zeros(g.num_cells)
+        return vals
+
+    def _friction_coefficient(self, g: pp.Grid) -> np.ndarray:
+        """Friction coefficient parameter.
+
+        The friction coefficient is uniform and equal to 1.
+        Parameters
+        ----------
+        g : pp.Grid
+            Fracture subdomain grid.
+
+        Returns
+        -------
+        np.ndarray
+            Cell-wise friction coefficient.
+
+        """
+        return np.ones(g.num_cells)
+
+    def _numerical_constants(self, g: pp.Grid) -> Tuple[np.ndarray, np.ndarray]:
+        """Numerical constants for contact mechanics.
+
+        Unitary and homogeneous default values.
+
+        The constants enter sums of traction and displacement jump of the type
+            T_i + c * u_i   for i in {n, tau}
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Grid for which the constants are returned.
+
+        Returns
+        -------
+        c_num_n : np.ndarray (g.num_cells)
+            Numerical constant for normal complimentary function.
+        c_num_t: np.ndarray (g.num_cells * g.dim)
+            Numerical constant for tangential complimentary function.
+
+        """
+        c_num_n = np.ones(g.num_cells)
+        # Expand to tangential Nd-1 vector
+        tangential_vals = np.ones(g.num_cells)
+        c_num_t = np.kron(tangential_vals, np.ones(g.dim))
+        return c_num_n, c_num_t
+
+    def _stress_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
+        """Fourth order stress tensor.
+
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Matrix grid.
+
+        Returns
+        -------
+        pp.FourthOrderTensor
+            Cell-wise representation of the stress tensor.
+
+        """
+        # Rock parameters
+        lam = np.ones(g.num_cells)
+        mu = np.ones(g.num_cells)
+        return pp.FourthOrderTensor(mu, lam)
 
     def _assign_variables(self) -> None:
         """
@@ -942,8 +1059,11 @@ class ContactMechanics(AbstractModel):
         self,
         fracture_subdomains: List[pp.Grid],
     ) -> pp.ad.Operator:
-        """
-        Gap function.
+        """Gap function.
+
+        The gap function includes an initial (constant) value and shear dilation.
+        It depends linearly on the norm of tangential displacement jump:
+            g = g_0 + tan(dilation_angle) * norm([[u]]_t)
 
         Parameters
         ----------
@@ -957,12 +1077,27 @@ class ContactMechanics(AbstractModel):
             interfaces when in mechanical contact.
 
         """
-        gap: pp.ad.Operator = pp.ad.ParameterArray(
+        initial_gap: pp.ad.Operator = pp.ad.ParameterArray(
             self.mechanics_parameter_key,
             array_keyword="initial_gap",
             grids=fracture_subdomains,
         )
-        gap.set_name("Constant initial gap")
+        angle: pp.ad.Operator = pp.ad.ParameterArray(
+            self.mechanics_parameter_key,
+            array_keyword="dilation_angle",
+            grids=fracture_subdomains,
+        )
+        Norm = pp.ad.Function(
+            partial(pp.ad.functions.l2_norm, self._Nd - 1), "norm_function"
+        )
+        Tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
+        shear_dilation: pp.ad.Operator = Tan(angle) * Norm(
+            self._ad.tangential_component_frac
+            * self._displacement_jump(fracture_subdomains)
+        )
+
+        gap = initial_gap + shear_dilation
+        gap.set_name("gap_with_shear_dilation")
         return gap
 
     def _contact_mechanics_tangential_equation(
@@ -1187,37 +1322,6 @@ class ContactMechanics(AbstractModel):
             contact_from_primary_mortar + contact_from_secondary
         )
         return force_balance_eq
-
-    def _set_friction_coefficient(self, g: pp.Grid) -> np.ndarray:
-        """The friction coefficient is uniform, and equal to 1."""
-        return np.ones(g.num_cells)
-
-    def _numerical_constants(self, g: pp.Grid) -> Tuple[np.ndarray, np.ndarray]:
-        """Numerical constants for contact mechanics.
-
-        Unitary and homogeneous default values.
-
-        The constants enter sums of traction and displacement jump of the type
-            T_i + c * u_i   for i in {n, tau}
-
-        Parameters
-        ----------
-        g : pp.Grid
-            Grid for which the constants are returned.
-
-        Returns
-        -------
-        c_num_n : np.ndarray (g.num_cells)
-            Numerical constant for normal complimentary function.
-        c_num_t: np.ndarray (g.num_cells * g.dim)
-            Numerical constant for tangential complimentary function.
-
-        """
-        c_num_n = np.ones(g.num_cells)
-        # Expand to tangential Nd-1 vector
-        tangential_vals = np.ones(g.num_cells)
-        c_num_t = np.kron(tangential_vals, np.ones(g.dim))
-        return c_num_n, c_num_t
 
     # Methods for discretization, numerical issues etc.
 
