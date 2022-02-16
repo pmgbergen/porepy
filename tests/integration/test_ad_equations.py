@@ -7,7 +7,6 @@ import pytest
 import porepy as pp
 import numpy as np
 
-from tests import test_utils
 
 
 def test_md_flow():
@@ -189,8 +188,6 @@ class ContactModel(pp.ContactMechanics):
         super().__init__(param)
         self._grid_meth = grid_meth
 
-        self.eq_order = ["u", "contact_traction", "mortar_u"]
-
     def _bc_values(self, g):
         return g.face_centers[: g.dim].ravel("f")
 
@@ -209,8 +206,6 @@ class BiotContactModel(pp.ContactMechanicsBiot):
         self.time_step = 0.5
         self.end_time = 1
         self._grid_meth = grid_meth
-
-        self.eq_order = ["u", "contact_traction", "mortar_u", "p", "mortar_p"]
 
     def _bc_values_scalar(self, g):
         return g.face_centers[: g.dim].sum(axis=0)
@@ -234,7 +229,23 @@ class BiotContactModel(pp.ContactMechanicsBiot):
 
 
 def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
+    """Run two model instances and compare solutions for each time step.
 
+
+    Parameters
+    ----------
+    model_as : AbstractModel
+        Model class not using ad.
+    model_ad : AbstractModel
+        Model class using ad.
+    prepare : bool, optional
+        Whether to run prepare_simulation method. The default is True.
+
+    Returns
+    -------
+    None.
+
+    """
     if prepare:
         # Only do this for time-independent problems
         model_as.prepare_simulation()
@@ -251,13 +262,10 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
     prev_sol_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     init_sol_ad = prev_sol_ad
 
-    tol = 1e-10
+    tol = 1e-8
 
     iteration_counter = 0
 
-    dofs = _block_reordering(
-        model_as.eq_order, model_as.dof_manager, model_ad._eq_manager
-    )
 
     while iteration_counter <= 20 and (not is_converged_as or not is_converged_ad):
         # Re-discretize the nonlinear term
@@ -267,17 +275,6 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         A_as, b_as = model_as.assembler.assemble_matrix_rhs()
         A_ad, b_ad = model_ad._eq_manager.assemble()
 
-        A_as = A_as[dofs]
-        b_as = b_as[dofs]
-
-        dA = A_as - A_ad
-        #       breakpoint()
-        if dA.data.size > 0:
-            if np.max(np.abs(dA.data)) > tol:
-                raise ValueError("Mismatch in Jacobian matrices")
-
-        # No check on equality of right hand sides, they will be different since
-        # ad uses a cumulative approach to the updates.
 
         # Solve linear system
         sol_as = model_as.assemble_and_solve_linear_system(tol)
@@ -285,90 +282,25 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         model_as.after_newton_iteration(sol_as)
         model_ad.after_newton_iteration(sol_ad)
 
-        _, is_converged_as, _ = model_as.check_convergence(
+        e_as, is_converged_as, _ = model_as.check_convergence(
             sol_as, prev_sol_as, init_sol_as, {"nl_convergence_tol": tol}
         )
-        _, is_converged_ad, is_diverged = model_as.check_convergence(
-            sol_ad + prev_sol_ad, prev_sol_ad, init_sol_ad, {"nl_convergence_tol": tol}
+        e_ad, is_converged_ad, is_diverged = model_ad.check_convergence(
+            sol_ad, prev_sol_ad, init_sol_ad, {"nl_convergence_tol": tol}
         )
 
         prev_sol_as = sol_as
-        #       breakpoint()
         prev_sol_ad += sol_ad
         iteration_counter += 1
-
         if is_converged_as and is_converged_ad:
             model_as.after_newton_convergence(sol_as, [], iteration_counter)
             model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
 
+    print(f"Iterations without and with ad: {model_as._nonlinear_iteration}, {model_ad._nonlinear_iteration}")
     state_as = model_as.dof_manager.assemble_variable(from_iterate=False)
     state_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     # Solutions should be identical.
     assert np.linalg.norm(state_as - state_ad) < tol
-
-
-def _block_reordering(eq_names, dof_manager, eqn_manager):
-
-    assert len(eq_names) == len(eqn_manager.equations)
-
-    def compare_grids(g1, g2):
-        if g1.dim != g2.dim:
-            return False
-        if g1.dim == 0:
-            return np.allclose(g1.cell_centers, g2.cell_centers)
-
-        n1, n2 = g1.nodes, g2.nodes
-
-        return test_utils.compare_arrays(n1, n2, sort=False)
-
-    def get_unique_grids(op):
-        # Return the unique grids defined for an AD Operator(/old Expression)
-        all_variables = eq._find_subtree_variables()
-        grids = []
-        for var in all_variables:
-            if isinstance(var, pp.ad.MergedVariable):
-                for sub_var in var.sub_vars:
-                    g = sub_var._g
-                    if g not in grids:
-                        grids.append(g)
-            elif isinstance(var, pp.ad.Variable):
-                g = var._g
-                if g not in grids:
-                    grids.append(g)
-            else:
-                raise NotImplementedError
-
-        return grids
-
-    keys = []
-    for (name, eq) in zip(eq_names, eqn_manager.equations.values()):  #
-        grids_ad = get_unique_grids(eq)
-
-        for grid_eq in grids_ad:
-            for (grid, var) in dof_manager.block_dof:
-                if var != name:
-                    continue
-                # This is the right variable, now sort the grids
-                if isinstance(grid, tuple) and isinstance(grid_eq, tuple):
-                    g0, g1 = grid
-                    ge0, ge1 = grid_eq
-
-                    if compare_grids(g0, ge0) and compare_grids(g1, ge1):
-                        if (grid, var) not in keys:
-                            keys.append((grid, var))
-
-                elif isinstance(grid, pp.Grid) and isinstance(grid_eq, pp.Grid):
-                    if compare_grids(grid, grid_eq):  # and (grid, var) not in keys:
-                        keys.append((grid, var))
-                else:
-                    continue
-
-    assert len(keys) == len(dof_manager.block_dof)
-
-    new_ind = np.hstack(
-        [dof_manager.grid_and_variable_to_dofs(k[0], k[1]) for k in keys]
-    )
-    return new_ind
 
 
 def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
@@ -413,6 +345,7 @@ def test_contact_mechanics(grid_method):
 
     model_ad = ContactModel({}, grid_method)
     model_ad._use_ad = True
+    model_ad.params["use_ad"] = True
 
     _stepwise_newton_with_comparison(model_as, model_ad)
 
@@ -433,4 +366,6 @@ def test_contact_mechanics_biot(grid_method):
 
     model_ad = BiotContactModel({}, grid_method)
     model_ad._use_ad = True
+    model_ad.params["use_ad"] = True
+
     _timestep_stepwise_newton_with_comparison(model_as, model_ad)
