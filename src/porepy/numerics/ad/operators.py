@@ -849,7 +849,7 @@ class Scalar(Operator):
 
 
 class Variable(Operator):
-    """Ad representation of a variable which on a single Grid or MortarGrid.
+    """Ad representation of a variable defined on a single Grid or MortarGrid.
 
     For combinations of variables on different grids, see MergedVariable.
 
@@ -1168,7 +1168,7 @@ class Function(Operator):
 
 
 class ApplicableOperator(Function):
-    """Ad representation of operator providing metod 'apply'.
+    """Ad representation of operator providing method 'apply'.
     This class is meant as base class.
     """
 
