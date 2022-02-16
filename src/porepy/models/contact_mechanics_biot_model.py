@@ -182,8 +182,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         gb = self.gb
         for g, d in gb:
             if g.dim == self._Nd:
-                C = self._stress_tensor(g)
-
                 # Define boundary condition
                 bc = self._bc_type_mechanics(g)
                 # BC and source values
@@ -198,21 +196,18 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                         "bc": bc,
                         "bc_values": bc_val,
                         "source": source_val,
-                        "fourth_order_tensor": C,
                         "time_step": self.time_step,
                         "biot_alpha": self._biot_alpha(g),
-                        "p_reference": np.zeros(g.num_cells),
+                        "p_reference": self._reference_scalar(g),
                     },
                 )
 
             elif g.dim == self._Nd - 1:
-                friction = self._set_friction_coefficient(g)
                 pp.initialize_data(
                     g,
                     d,
                     self.mechanics_parameter_key,
                     {
-                        "friction_coefficient": friction,
                         "time_step": self.time_step,
                         "mass_weight": np.ones(g.num_cells),
                     },
@@ -333,6 +328,23 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         return pp.FourthOrderTensor(mu, lam)
 
     def _source_scalar(self, g: pp.Grid) -> np.ndarray:
+        return np.zeros(g.num_cells)
+
+    def _reference_scalar(self, g: pp.Grid) -> np.ndarray:
+        """Reference scalar value.
+
+        Used for the scalar (pressure) contribution to stress.
+        Parameters
+        ----------
+        g : pp.Grid
+            Matrix grid.
+
+        Returns
+        -------
+        np.ndarray
+            Reference scalar value.
+
+        """
         return np.zeros(g.num_cells)
 
     def _biot_alpha(self, g: pp.Grid) -> Union[float, np.ndarray]:
