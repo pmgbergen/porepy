@@ -301,6 +301,7 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         assert(np.all(np.isclose(t0[0].cell_centers, t1[0].cell_centers)))
     for t0, t1 in zip(model_as.dof_manager.block_dof.keys(), model_ad.dof_manager.block_dof.keys()):
         assert(t0[1]==t1[1])
+        assert(model_as.dof_manager.block_dof[t0]==model_ad.dof_manager.block_dof[t1])
         if isinstance(t0[0], tuple):
             mg0 = model_as.gb.edge_props(t0[0])["mortar_grid"]
             mg1 = model_ad.gb.edge_props(t1[0])["mortar_grid"]
