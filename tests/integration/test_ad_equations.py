@@ -296,7 +296,17 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
             model_as.after_newton_convergence(sol_as, [], iteration_counter)
             model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
 
-    print(f"Iterations without and with ad: {model_as._nonlinear_iteration}, {model_ad._nonlinear_iteration}")
+    # This is intended as a check that the dof ordering is the same for both models:
+    for t0, t1 in zip(model_as.gb, model_ad.gb):
+        assert(np.all(np.isclose(t0[0].cell_centers, t1[0].cell_centers)))
+    for t0, t1 in zip(model_as.dof_manager.block_dof.keys(), model_ad.dof_manager.block_dof.keys()):
+        assert(t0[1]==t1[1])
+        if isinstance(t0[0], tuple):
+            mg0 = model_as.gb.edge_props(t0[0])["mortar_grid"]
+            mg1 = model_ad.gb.edge_props(t1[0])["mortar_grid"]
+            assert(np.all(np.isclose(mg0.cell_centers, mg1.cell_centers)))
+        else:
+            assert(np.all(np.isclose(t0[0].cell_centers, t1[0].cell_centers)))
     state_as = model_as.dof_manager.assemble_variable(from_iterate=False)
     state_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     # Solutions should be identical.
