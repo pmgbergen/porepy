@@ -227,6 +227,64 @@ class BiotContactModel(pp.ContactMechanicsBiot):
             box.update({"zmin": xn[2].min(), "zmax": xn[2].max()})
         self.box = box
 
+def _compare_solutions(m0, m1):
+    """Safe comparison of solutions without assumptions of identical dof ordering.
+
+    We loop over block_dof keys, i.e. combinations of grid_like and variable names,
+    and identify the grid in m1.gb by cell center coordinates. We assume the grids
+    to be identical for each subdomain.
+    Parameters
+    ----------
+    m0 : Model
+        First model.
+    m1 : Model
+        Second model.
+
+    Returns
+    -------
+    None.
+
+    """
+    def _same_grid(g0, g1):
+        if g0.num_cells == g1.num_cells:
+            return np.all(np.isclose(g0.cell_centers, g1.cell_centers))
+        else:
+            return False
+    for grid_like, var in m0.dof_manager.block_dof.keys():
+        # Identify grid in m1
+        if isinstance(grid_like, tuple):
+            for e1, d1 in m1.gb.edges():
+                # Check for equality of both neighbour subdomains. MortarGrid
+                # coordinates are not unique for intersection interfaces.
+                if _same_grid(grid_like[0], e1[0]) and _same_grid(grid_like[1], e1[1]):
+                    sol0 = m0.gb.edge_props(grid_like)[pp.STATE][var]
+                    sol1 = d1[pp.STATE][var]
+
+                    assert(np.all(np.isclose(sol0, sol1)))
+                    break
+        else:
+            for g1, d1 in m1.gb:
+                if _same_grid(grid_like, g1):
+                    sol0 = m0.gb.node_props(grid_like)[pp.STATE][var]
+                    sol1 = d1[pp.STATE][var]
+                    assert(np.all(np.isclose(sol0, sol1)))
+                    break
+    # Compare them for each combination of subdomain/interface and variable,
+    # as the ordering of global dofs might vary.
+    # state_as = model_as.dof_manager.assemble_variable(from_iterate=False)
+    # state_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
+
+
+    # for t0, t1 in zip(model_as.dof_manager.block_dof.keys(), model_ad.dof_manager.block_dof.keys()):
+    #     # This is intended as a check that the subdomain and variable ordering
+    #     # is the same for both models:
+    #     assert(t0[1]==t1[1])
+    #     assert(model_as.dof_manager.block_dof[t0]==model_ad.dof_manager.block_dof[t1])
+    #     # Then
+    #     ind0 = model_as.dof_manager.grid_and_variable_to_dofs(t0[0], t0[1])
+    #     ind1 = model_ad.dof_manager.grid_and_variable_to_dofs(t1[0], t1[1])
+    #     assert np.linalg.norm(state_as[ind0] - state_ad[ind1]) < tol
+
 
 def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
     """Run two model instances and compare solutions for each time step.
@@ -296,22 +354,8 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
             model_as.after_newton_convergence(sol_as, [], iteration_counter)
             model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
 
-    # This is intended as a check that the dof ordering is the same for both models:
-    for t0, t1 in zip(model_as.gb, model_ad.gb):
-        assert(np.all(np.isclose(t0[0].cell_centers, t1[0].cell_centers)))
-    for t0, t1 in zip(model_as.dof_manager.block_dof.keys(), model_ad.dof_manager.block_dof.keys()):
-        assert(t0[1]==t1[1])
-        assert(model_as.dof_manager.block_dof[t0]==model_ad.dof_manager.block_dof[t1])
-        if isinstance(t0[0], tuple):
-            mg0 = model_as.gb.edge_props(t0[0])["mortar_grid"]
-            mg1 = model_ad.gb.edge_props(t1[0])["mortar_grid"]
-            assert(np.all(np.isclose(mg0.cell_centers, mg1.cell_centers)))
-        else:
-            assert(np.all(np.isclose(t0[0].cell_centers, t1[0].cell_centers)))
-    state_as = model_as.dof_manager.assemble_variable(from_iterate=False)
-    state_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     # Solutions should be identical.
-    assert np.linalg.norm(state_as - state_ad) < tol
+    _compare_solutions(model_as, model_ad)
 
 
 def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
@@ -322,7 +366,6 @@ def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
     model_ad.prepare_simulation()
     model_ad.before_newton_loop()
 
-    tol = 1e-10
 
     model_as.time_index = 0
     model_ad.time_index = 0
@@ -334,10 +377,6 @@ def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
             model.time_index += 1
         _stepwise_newton_with_comparison(model_as, model_ad, prepare=False)
 
-    state_as = model_as.dof_manager.assemble_variable(from_iterate=False)
-    state_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
-    # Solutions should be identical.
-    assert np.linalg.norm(state_as - state_ad) < tol
 
 
 @pytest.mark.parametrize(
