@@ -346,7 +346,11 @@ class Exporter:
             data = list()
 
         # Extract data which is contained in nodes (and not edges).
-        # To make the unit test 'test_vtk' successfull, keep the sorting from data.
+        # IMPLEMENTATION NOTE: We need a unique set of keywords for node_data. The simpler option
+        # would have been to  gather all keys and uniquify by converting to a set, and then back to a list.
+        # However, this will make the ordering of the keys random, and it turned out that this complicates
+        # testing (see tests/unit/test_vtk). It was therefore considered better to use a more complex loop which
+        # (seems to) guarantee a deterministic ordering of the keys.
         node_data = list()
         for key in data:
             for _, d in self.gb.nodes():
