@@ -322,7 +322,7 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
     prev_sol_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     init_sol_ad = prev_sol_ad
 
-    tol = 1e-8
+    tol = 1e-10
 
     iteration_counter = 0
 
