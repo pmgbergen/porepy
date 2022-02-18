@@ -177,8 +177,6 @@ class ContactMechanics(AbstractModel):
         # Also find indices for the contact variables
         contact_dof = np.array([], dtype=int)
         u_j_dof = np.array([], dtype=int)
-        # for g, _ in self.gb:
-        #     if g.dim == self._Nd-1:
 
         for e, _ in self.gb.edges():
             if e[0].dim == self._Nd:

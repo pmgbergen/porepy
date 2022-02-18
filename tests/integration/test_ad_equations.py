@@ -355,7 +355,9 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         if is_converged_as and is_converged_ad:
             model_as.after_newton_convergence(sol_as, [], iteration_counter)
             model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
-
+    # Check that both models have converged, just to be on the safe side
+    assert(iteration_counter < 20)
+    assert(is_converged_as and is_converged_ad)
     # Solutions should be identical.
     _compare_solutions(model_as, model_ad)
 
