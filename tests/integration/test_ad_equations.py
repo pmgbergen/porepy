@@ -227,7 +227,7 @@ class BiotContactModel(pp.ContactMechanicsBiot):
             box.update({"zmin": xn[2].min(), "zmax": xn[2].max()})
         self.box = box
 
-def _compare_solutions(m0, m1):
+def _compare_solutions(m0, m1, tol=1e-5):
     """Safe comparison of solutions without assumptions of identical dof ordering.
 
     We loop over block_dof keys, i.e. combinations of grid_like and variable names,
@@ -239,6 +239,8 @@ def _compare_solutions(m0, m1):
         First model.
     m1 : Model
         Second model.
+    tol : float
+        Comparison tolerance.
 
     Returns
     -------
@@ -260,14 +262,14 @@ def _compare_solutions(m0, m1):
                     sol0 = m0.gb.edge_props(grid_like)[pp.STATE][var]
                     sol1 = d1[pp.STATE][var]
 
-                    assert(np.all(np.isclose(sol0, sol1)))
+                    assert(np.linalg.norm(sol0 - sol1) < tol)
                     break
         else:
             for g1, d1 in m1.gb:
                 if _same_grid(grid_like, g1):
                     sol0 = m0.gb.node_props(grid_like)[pp.STATE][var]
                     sol1 = d1[pp.STATE][var]
-                    assert(np.all(np.isclose(sol0, sol1)))
+                    assert(np.linalg.norm(sol0 - sol1) < tol)
                     break
     # Compare them for each combination of subdomain/interface and variable,
     # as the ordering of global dofs might vary.
