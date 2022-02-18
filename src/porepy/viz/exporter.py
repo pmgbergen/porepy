@@ -399,6 +399,8 @@ class Exporter:
         self.gb.remove_node_props(extra_node_names)
 
         # Extract data which is contained in nodes (and not edges).
+        # IMPLEMENTATION NOTE: See the above loop to construct node_data for an explanation of this
+        # elaborate construction of `edge_data`
         edge_data = list()
         for key in data:
             for _, d in self.gb.edges():
