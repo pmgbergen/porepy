@@ -356,7 +356,9 @@ class Exporter:
             for _, d in self.gb.nodes():
                 if pp.STATE in d and key in d[pp.STATE]:
                     node_data.append(key)
-                    continue
+                    # After successfully identifying data contained in nodes, break the loop over nodes
+                    # to avoid any unintended repeated listing of key.
+                    break
 
         # Transfer data to fields.
         node_fields = Fields()
@@ -406,7 +408,9 @@ class Exporter:
             for _, d in self.gb.edges():
                 if pp.STATE in d and key in d[pp.STATE]:
                     edge_data.append(key)
-                    continue
+                    # After successfully identifying data contained in edges, break the loop over edges
+                    # to avoid unintended repeated listing of key.
+                    break
 
         # Transfer data to fields.
         edge_fields = Fields()
