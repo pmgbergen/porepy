@@ -346,6 +346,9 @@ class Exporter:
         # It was therefore considered better to use a more complex loop which
         # (seems to) guarantee a deterministic ordering of the keys.
         node_data = list()
+        # For each element in data, apply a brute force approach and check whether there
+        # exists a data dictionary associated to a node which contains a state variable
+        # with same key. If so, add the key and move on to the next key.
         for key in data:
             for _, d in self.gb.nodes():
                 if pp.STATE in d and key in d[pp.STATE]:
@@ -395,8 +398,8 @@ class Exporter:
         self.gb.remove_node_props(extra_node_names)
 
         # Extract data which is contained in edges (and not nodes).
-        # IMPLEMENTATION NOTE: See the above loop to construct node_data for an explanation of this
-        # elaborate construction of `edge_data`
+        # IMPLEMENTATION NOTE: See the above loop to construct node_data for an explanation
+        # of this elaborate construction of `edge_data`
         edge_data = list()
         for key in data:
             for _, d in self.gb.edges():
