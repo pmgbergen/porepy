@@ -7,9 +7,9 @@ PorePy, this does not necessarily mean that something is wrong.
 
 """
 import os
-import numpy as np
 import unittest
 
+import numpy as np
 import porepy as pp
 
 
@@ -172,8 +172,18 @@ class MeshioExporterTest(unittest.TestCase):
                 },
             )
 
+        for e, d in gb.edges():
+            g = d["mortar_grid"]
+            pp.set_state(
+                d,
+                {
+                    "dummy_scalar": np.zeros(g.num_cells),
+                    "unique_dummy_scalar": np.zeros(g.num_cells),
+                },
+            )
+
         save = pp.Exporter(gb, self.file_name, self.folder, binary=False)
-        save.write_vtu(["dummy_scalar", "dummy_vector"])
+        save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -11640,6 +11650,36 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Float64" Name="dummy_scalar" format="ascii">
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+
+</DataArray>
+<DataArray type="Float64" Name="unique_dummy_scalar" format="ascii">
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+
+</DataArray>
 <DataArray type="Int64" Name="grid_dim" format="ascii">
 1
 1
