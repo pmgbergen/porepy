@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -1082,6 +1082,80 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         self._ad.interface_flux = self._eq_manager.merge_variables(
             [(e, self.mortar_scalar_variable) for e in interfaces]
         )
+
+    def check_convergence(
+        self,
+        solution: np.ndarray,
+        prev_solution: np.ndarray,
+        init_solution: np.ndarray,
+        nl_params: Dict[str, Any],
+    ) -> Tuple[float, bool, bool]:
+        """
+        Check whether the solution has converged by comparing values from the two
+        most recent iterations.
+
+        Tailored implementation if AD is not used. Else, the generic check in
+        AbstractModel is used.
+
+        Parameters:
+            solution (array): solution of current iteration.
+            solution (array): solution of previous iteration.
+            solution (array): initial solution (or from beginning of time step).
+            nl_params (dictionary): assumed to have the key nl_convergence_tol whose
+                value is a float.
+        """
+        if self._use_ad or not self._is_nonlinear_problem():
+            return super().check_convergence(
+                solution, prev_solution, init_solution, nl_params
+            )
+        error_super, converged_super, diverged_super = super().check_convergence(
+            solution, prev_solution, init_solution, nl_params
+        )
+        p_dof = np.array([], dtype=int)
+        for g, _ in self.gb:
+            p_dof = np.hstack(
+                (
+                    p_dof,
+                    self.dof_manager.grid_and_variable_to_dofs(
+                        g, self.scalar_variable
+                    ),
+                )
+            )
+
+        # Pick out the solution from current, previous iterates, as well as the
+        # initial guess.
+        p_now = solution[p_dof]
+        p_prev = prev_solution[p_dof]
+        p_init = init_solution[p_dof]
+
+        # Calculate errors
+        difference_in_iterates = np.sum((p_now - p_prev) ** 2)
+        difference_from_init = np.sum((p_now - p_init) ** 2)
+
+        tol_convergence: float = nl_params["nl_convergence_tol"]
+
+        converged_p = False
+        diverged_p = False  # type: ignore
+
+        # Check absolute convergence criterion
+        if difference_in_iterates < tol_convergence:
+            converged_p = True
+            error_p = difference_in_iterates
+        else:
+            # Check relative convergence criterion
+            if (
+                difference_in_iterates
+                < tol_convergence * difference_from_init
+            ):
+                converged_p = True
+            error_p = difference_in_iterates / difference_from_init
+
+        converged = converged_p and converged_super
+        diverged = diverged_p or diverged_super
+        logger.info("Error in pressure is {}".format(error_p))
+        error = error_super + error_p
+
+        return error, converged, diverged
 
     def _initial_condition(self) -> None:
         """
