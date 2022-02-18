@@ -311,7 +311,7 @@ class DofManager:
 
         """
         block_range = self._block_range_from_grid_and_var(g, name)
-        np.arange(block_range[0], block_range[1])
+        return np.arange(block_range[0], block_range[1])
 
     def dof_var(
         self,
