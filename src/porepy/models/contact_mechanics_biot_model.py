@@ -98,8 +98,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Time
         self.time: float = 0
-        self.time_step: float = 1
-        self.end_time: float = 1
+        self.time_step: float = self.params.get("end_time", 1.0)
+        self.end_time: float = self.params.get("end_time", 1.0)
 
         # Temperature
         self.scalar_variable: str = "p"
@@ -108,8 +108,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         self.scalar_parameter_key: str = "flow"
 
         # Scaling coefficients
-        self.scalar_scale: float = 1
-        self.length_scale: float = 1
+        self.scalar_scale: float = 1.0
+        self.length_scale: float = 1.0
 
         # Whether or not to subtract the fracture pressure contribution for the contact
         # traction. This should be done if the scalar variable is pressure, but not for
@@ -182,20 +182,14 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         gb = self.gb
         for g, d in gb:
             if g.dim == self._Nd:
-                # Define boundary condition
-                bc = self._bc_type_mechanics(g)
-                # BC and source values
-                bc_val = self._bc_values_mechanics(g)
-                source_val = self._source_mechanics(g)
-
                 pp.initialize_data(
                     g,
                     d,
                     self.mechanics_parameter_key,
                     {
-                        "bc": bc,
-                        "bc_values": bc_val,
-                        "source": source_val,
+                        "bc": self._bc_type_mechanics(g),
+                        "bc_values": self._bc_values_mechanics(g),
+                        "source": self._source_mechanics(g),
                         "time_step": self.time_step,
                         "biot_alpha": self._biot_alpha(g),
                         "p_reference": self._reference_scalar(g),
@@ -222,11 +216,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         kappa = 1 * tensor_scale
         mass_weight = 1 * self.scalar_scale
         for g, d in self.gb:
-            bc = self._bc_type_scalar(g)
-            bc_values = self._bc_values_scalar(g)
-            source_values = self._source_scalar(g)
-
             specific_volume = self._specific_volume(g)
+            kappa = self._permeability(g) / self._viscosity(g) * tensor_scale
             diffusivity = pp.SecondOrderTensor(
                 kappa * specific_volume * np.ones(g.num_cells)
             )
@@ -237,18 +228,17 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 d,
                 self.scalar_parameter_key,
                 {
-                    "bc": bc,
-                    "bc_values": bc_values,
+                    "bc": self._bc_type_scalar(g),
+                    "bc_values": self._bc_values_scalar(g),
                     "mass_weight": mass_weight * specific_volume,
                     "biot_alpha": alpha,
-                    "source": source_values,
+                    "source": self._source_scalar(g),
                     "second_order_tensor": diffusivity,
                     "time_step": self.time_step,
-                    "vector_source": np.zeros(g.num_cells * self.gb.dim_max()),
+                    "vector_source": self._vector_source(g),
                     "ambient_dimension": self.gb.dim_max(),
                 },
             )
-
         # Assign diffusivity in the normal direction of the fractures.
         for e, data_edge in self.gb.edges():
             g_l, g_h = self.gb.nodes_of_edge(e)
@@ -264,7 +254,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             )
             # Division by a/2 may be thought of as taking the gradient in the normal
             # direction of the fracture.
-            normal_diffusivity = kappa * 2 / (mg.secondary_to_mortar_avg() * a_l)
+            kappa_l = self._permeability(g_l) / self._viscosity(g_l)
+            normal_diffusivity = mg.secondary_to_mortar_avg() * (kappa_l * 2 / a_l)
             # The interface flux is to match fluxes across faces of g_h,
             # and therefore need to be weighted by the corresponding
             # specific volumes
@@ -281,26 +272,77 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             )
 
     def _bc_type_mechanics(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
-        # Use parent class method for mechanics
+        """Use parent class method for mechanics
+
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Subdomain grid.
+
+        Returns
+        -------
+        pp.BoundaryConditionVectorial
+            Boundary condition representation.
+
+        """
         return super()._bc_type(g)
 
     def _bc_type_scalar(self, g: pp.Grid) -> pp.BoundaryCondition:
+        """Dirichlet condition on all external boundaries
+
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Subdomain grid.
+
+        Returns
+        -------
+        pp.BoundaryCondition
+            Boundary condition representation.
+
+        """
         # Define boundary regions
         all_bf, *_ = self._domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
     def _bc_values_mechanics(self, g: pp.Grid) -> np.ndarray:
-        """
+        """Homogeneous values on all boundaries
+
         Note that Dirichlet values should be divided by length_scale, and Neumann values
         by scalar_scale.
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Subdomain grid.
+
+        Returns
+        -------
+        np.ndarray (nd x #faces)
+            Boundary condition values.
+
         """
         # Set the boundary values
         return super()._bc_values(g)
 
     def _bc_values_scalar(self, g: pp.Grid) -> np.ndarray:
-        """
+        """Homogeneous values on all boundaries
+
         Note that Dirichlet values should be divided by scalar_scale.
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Subdomain grid.
+
+        Returns
+        -------
+        np.ndarray (#faces)
+            Boundary condition values.
+
         """
         return np.zeros(g.num_faces)
 
@@ -308,7 +350,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         return super()._source(g)
 
     def _stress_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
-        """
+        """Stress tensor parameter, unitary Lame parameters.
 
 
         Parameters
@@ -328,7 +370,35 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         return pp.FourthOrderTensor(mu, lam)
 
     def _source_scalar(self, g: pp.Grid) -> np.ndarray:
+        """Zero source term.
+
+        Units: m^3 / s
+        """
         return np.zeros(g.num_cells)
+
+    def _permeability(self, g: pp.Grid) -> np.ndarray:
+        """Unitary permeability.
+
+        Units: m^2
+        """
+        return np.ones(g.num_cells)
+
+    def _viscosity(self, g: pp.Grid) -> np.ndarray:
+        """Unitary viscosity.
+
+        Units: kg / m / s = Pa s
+        """
+        return np.ones(g.num_cells)
+
+    def _vector_source(self, g: pp.Grid) -> np.ndarray:
+        """Zero vector source (gravity).
+
+        To assign a gravity-like vector source, add a non-zero contribution in
+        the last dimension:
+            vals[-1] = - pp.GRAVITY_ACCELERATION * fluid_density
+        """
+        vals = np.zeros((self.gb.dim_max(), g.num_cells))
+        return vals.ravel("F")
 
     def _reference_scalar(self, g: pp.Grid) -> np.ndarray:
         """Reference scalar value.
@@ -660,7 +730,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         if not self.subtract_fracture_pressure:
             return eq
 
-        # This gives an error because of -=
         g_primary = matrix_subdomains[0]
         mat = []
 
@@ -1116,9 +1185,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             p_dof = np.hstack(
                 (
                     p_dof,
-                    self.dof_manager.grid_and_variable_to_dofs(
-                        g, self.scalar_variable
-                    ),
+                    self.dof_manager.grid_and_variable_to_dofs(g, self.scalar_variable),
                 )
             )
 
@@ -1143,10 +1210,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             error_p = difference_in_iterates
         else:
             # Check relative convergence criterion
-            if (
-                difference_in_iterates
-                < tol_convergence * difference_from_init
-            ):
+            if difference_in_iterates < tol_convergence * difference_from_init:
                 converged_p = True
             error_p = difference_in_iterates / difference_from_init
 
