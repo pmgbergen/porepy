@@ -500,6 +500,18 @@ class ContactMechanics(AbstractModel):
     def _bc_type(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions: Dirichlet on all global boundaries,
         Dirichlet also on fracture faces.
+
+
+        Parameters
+        ----------
+        g : pp.Grid
+            DESCRIPTION.
+
+        Returns
+        -------
+        bc : pp.BoundaryConditionVectorial()
+            Boundary condition representation.
+
         """
         all_bf = g.get_boundary_faces()
         bc = pp.BoundaryConditionVectorial(g, all_bf, "dir")
