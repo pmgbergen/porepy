@@ -72,8 +72,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
                 d,
                 self.parameter_key,
                 {
-                    "mass_weight": self._compressibility(g),
-                    'time_step': self.time_step
+                    "mass_weight": self._compressibility(g)
                 }
             )
 
@@ -96,18 +95,13 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         super()._assign_discretizations()
         
-        if not hasattr(self, "dof_manager"):
-            self.dof_manager = pp.DofManager(self.gb)
-        
         # Collection of subdomains
         subdomains: List[pp.Grid] = [g for g, _ in self.gb]
         
         # AD representation of the mass operator
         accumulation_term = pp.ad.MassMatrixAd(self.parameter_key, subdomains)
         
-        # Need to find a way / refactor to access the superclass "and pressure" instead of create a new one
-        # If for some reason the mesh ordering change, this will be inconsistent
-        p = self._eq_manager.merge_variables([(g, self.variable) for g in subdomains])
+        p = self._ad_var_map[self.variable]
         time_step_ad = pp.ad.Scalar(self.time_step, "time step")
         
         accumulation_term = accumulation_term.mass * (
