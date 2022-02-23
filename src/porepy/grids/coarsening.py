@@ -9,14 +9,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import grid, grid_bucket
-from porepy.utils import (
-    accumarray,
-    grid_utils,
-    matrix_compression,
-    mcolon,
-    setmembership,
-    tags,
-)
+from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
 
 
 def coarsen(
@@ -140,7 +133,7 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
 
     # compute the face_node indexes
     num_nodes_per_face = g.face_nodes.indptr[1:] - g.face_nodes.indptr[:-1]
-    face_node_ind = matrix_compression.rldecode(
+    face_node_ind = pp.matrix_operations.rldecode(
         np.arange(g.num_faces), num_nodes_per_face
     )
 

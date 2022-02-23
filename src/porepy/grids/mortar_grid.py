@@ -9,8 +9,6 @@ from scipy import sparse as sps
 
 import porepy as pp
 
-module_sections = ["grids", "gridding"]
-
 
 class MortarSides(Enum):
     # Enum of constants used to identify the grids on each side of the mortar
@@ -54,7 +52,6 @@ class MortarGrid:
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         dim: int,
@@ -123,7 +120,6 @@ class MortarGrid:
             self._init_projections(primary_secondary, face_duplicate_ind)
             self._set_projections()
 
-    @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
         """
         Implementation of __repr__
@@ -151,7 +147,6 @@ class MortarGrid:
 
         return s
 
-    @pp.time_logger(sections=module_sections)
     def __str__(self) -> str:
         """Implementation of __str__"""
         s = (
@@ -163,7 +158,6 @@ class MortarGrid:
         )
         return s
 
-    @pp.time_logger(sections=module_sections)
     def compute_geometry(self) -> None:
         """
         Compute the geometry of the mortar grids.
@@ -186,7 +180,6 @@ class MortarGrid:
 
     ### Methods to update the mortar grid, or the neighboring grids.
 
-    @pp.time_logger(sections=module_sections)
     def update_mortar(
         self, new_side_grids: Dict[MortarSides, pp.Grid], tol: float = None
     ) -> None:
@@ -240,10 +233,18 @@ class MortarGrid:
         # Once the global matrix is constructed the new low_to_mortar_int and
         # high_to_mortar_int maps are updated.
         matrix: sps.spmatrix = sps.bmat(matrix_blocks)
+
+        # Use optimized storage to minimize memory consumption.
         self._secondary_to_mortar_int: sps.spmatrix = (
-            matrix * self._secondary_to_mortar_int
+            pp.matrix_operations.optimized_compressed_storage(
+                matrix * self._secondary_to_mortar_int
+            )
         )
-        self._primary_to_mortar_int: sps.spmatrix = matrix * self._primary_to_mortar_int
+        self._primary_to_mortar_int: sps.spmatrix = (
+            pp.matrix_operations.optimized_compressed_storage(
+                matrix * self._primary_to_mortar_int
+            )
+        )
 
         # Also update the other mappings
         self._set_projections()
@@ -257,7 +258,6 @@ class MortarGrid:
 
         self._check_mappings()
 
-    @pp.time_logger(sections=module_sections)
     def update_secondary(self, new_g: pp.Grid, tol: float = None) -> None:
         """
         Update the _secondary_to_mortar_int map when the lower dimensional grid is changed.
@@ -312,7 +312,6 @@ class MortarGrid:
 
         self._check_mappings()
 
-    @pp.time_logger(sections=module_sections)
     def update_primary(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
         """
 
@@ -374,7 +373,6 @@ class MortarGrid:
         self._set_projections(secondary=False)
         self._check_mappings()
 
-    @pp.time_logger(sections=module_sections)
     def num_sides(self) -> int:
         """
         Shortcut to compute the number of sides, it has to be 2 or 1.
@@ -384,7 +382,6 @@ class MortarGrid:
         """
         return len(self.side_grids)
 
-    @pp.time_logger(sections=module_sections)
     def project_to_side_grids(
         self,
     ) -> Generator[Tuple[sps.spmatrix, pp.Grid], None, None]:
@@ -412,7 +409,6 @@ class MortarGrid:
             yield proj, grid
 
     ## Methods to construct projection matrices
-    @pp.time_logger(sections=module_sections)
     def primary_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of primary to the mortar, by summing quantities
         from the primary side.
@@ -434,7 +430,6 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._primary_to_mortar_int, nd)
 
-    @pp.time_logger(sections=module_sections)
     def secondary_to_mortar_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells on the secondary side to the mortar, by
         summing quantities from the secondary side.
@@ -456,7 +451,6 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._secondary_to_mortar_int, nd)
 
-    @pp.time_logger(sections=module_sections)
     def primary_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from faces of primary to the mortar, by averaging quantities
         from the primary side.
@@ -479,7 +473,6 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._primary_to_mortar_avg, nd)
 
-    @pp.time_logger(sections=module_sections)
     def secondary_to_mortar_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from cells at the secondary to the mortar, by averaging
         quantities from the secondary side.
@@ -501,7 +494,6 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._secondary_to_mortar_avg, nd)
 
-    @pp.time_logger(sections=module_sections)
     def _row_sum_scaling_matrix(self, mat):
         # Helper method to construct projection matrices.
         row_sum = mat.sum(axis=1).A.ravel()
@@ -522,7 +514,6 @@ class MortarGrid:
     # found by taking transposes, and switching average and integration (since we are
     # changing which side we are taking the area relative to.
 
-    @pp.time_logger(sections=module_sections)
     def mortar_to_primary_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of primary, by summing quantities
         from the mortar side.
@@ -544,7 +535,6 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._mortar_to_primary_int, nd)
 
-    @pp.time_logger(sections=module_sections)
     def mortar_to_secondary_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to cells at the secondary, by summing quantities
         from the mortar side.
@@ -567,7 +557,6 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._mortar_to_secondary_int, nd)
 
-    @pp.time_logger(sections=module_sections)
     def mortar_to_primary_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of primary, by averaging
         quantities from the mortar side.
@@ -590,7 +579,6 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._mortar_to_primary_avg, nd)
 
-    @pp.time_logger(sections=module_sections)
     def mortar_to_secondary_avg(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to secondary, by averaging quantities from the
         mortar side.
@@ -613,7 +601,6 @@ class MortarGrid:
         """
         return self._convert_to_vector_variable(self._mortar_to_secondary_avg, nd)
 
-    @pp.time_logger(sections=module_sections)
     def _convert_to_vector_variable(
         self, matrix: sps.spmatrix, nd: int
     ) -> sps.spmatrix:
@@ -627,7 +614,6 @@ class MortarGrid:
         else:
             return sps.kron(matrix, sps.eye(nd)).tocsc()
 
-    @pp.time_logger(sections=module_sections)
     def sign_of_mortar_sides(self, nd: int = 1) -> sps.spmatrix:
         """Assign positive or negative weight to the two sides of a mortar grid.
 
@@ -675,14 +661,12 @@ class MortarGrid:
             )
             return sps.dia_matrix((data, 0), shape=(nd * nc, nd * nc))
 
-    @pp.time_logger(sections=module_sections)
     def cell_diameters(self) -> np.ndarray:
         diams = np.empty(self.num_sides(), dtype=object)
         for pos, (_, g) in enumerate(self.side_grids.items()):
             diams[pos] = g.cell_diameters()
         return np.concatenate(diams).ravel()
 
-    @pp.time_logger(sections=module_sections)
     def _check_mappings(self, tol=1e-4) -> None:
         row_sum = self._primary_to_mortar_int.sum(axis=1)
         if not (row_sum.min() > tol):
@@ -692,7 +676,6 @@ class MortarGrid:
         if not (row_sum.min() > tol):
             raise ValueError("Check not satisfied for the secondary grid")
 
-    @pp.time_logger(sections=module_sections)
     def _init_projections(
         self,
         primary_secondary: sps.spmatrix,
@@ -776,33 +759,62 @@ class MortarGrid:
 
         shape_primary = (self.num_cells, primary_secondary.shape[1])
         shape_secondary = (self.num_cells, primary_secondary.shape[0])
-        self._primary_to_mortar_int = sps.csc_matrix(
-            (data.astype(float), (cells, primary_f)), shape=shape_primary
+
+        # IMPLEMENTATION NOTE: Use optimized storage to minimize memory consumption.
+        self._primary_to_mortar_int = pp.matrix_operations.optimized_compressed_storage(
+            sps.csc_matrix(
+                (data.astype(float), (cells, primary_f)), shape=shape_primary
+            )
         )
-        self._secondary_to_mortar_int = sps.csc_matrix(
-            (data.astype(float), (cells, secondary_f)), shape=shape_secondary
+        self._secondary_to_mortar_int = (
+            pp.matrix_operations.optimized_compressed_storage(
+                sps.csc_matrix(
+                    (data.astype(float), (cells, secondary_f)), shape=shape_secondary
+                )
+            )
         )
 
     def _set_projections(self, primary: bool = True, secondary: bool = True) -> None:
         """Set projections to and from primary from the current state of
         self._primary_to_mortar_int and self._secondary_to_mortar_int.
         """
+
+        # IMPLEMENTATION NOTE: Use optimized storage to minimize memory consumption.
         if primary:
-            self._primary_to_mortar_avg = self._row_sum_scaling_matrix(
-                self._primary_to_mortar_int
+            self._primary_to_mortar_avg = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._row_sum_scaling_matrix(self._primary_to_mortar_int)
+                )
             )
-            self._mortar_to_primary_int = self._primary_to_mortar_avg.T
-            self._mortar_to_primary_avg = self._primary_to_mortar_int.T
+            self._mortar_to_primary_int = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._primary_to_mortar_avg.T
+                )
+            )
+            self._mortar_to_primary_avg = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._primary_to_mortar_int.T
+                )
+            )
 
         if secondary:
-            self._secondary_to_mortar_avg = self._row_sum_scaling_matrix(
-                self._secondary_to_mortar_int
+            self._secondary_to_mortar_avg = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._row_sum_scaling_matrix(self._secondary_to_mortar_int)
+                )
             )
-            self._mortar_to_secondary_int = self._secondary_to_mortar_avg.T
-            self._mortar_to_secondary_avg = self._secondary_to_mortar_int.T
+            self._mortar_to_secondary_int = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._secondary_to_mortar_avg.T
+                )
+            )
+            self._mortar_to_secondary_avg = (
+                pp.matrix_operations.optimized_compressed_storage(
+                    self._secondary_to_mortar_int.T
+                )
+            )
 
 
-@pp.time_logger(sections=module_sections)
 def _split_matrix_1d(g_old: pp.Grid, g_new: pp.Grid, tol: float) -> sps.spmatrix:
     """
     By calling matching grid the function compute the cell mapping between two
@@ -826,7 +838,6 @@ def _split_matrix_1d(g_old: pp.Grid, g_new: pp.Grid, tol: float) -> sps.spmatrix
     return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
 
 
-@pp.time_logger(sections=module_sections)
 def _split_matrix_2d(g_old: pp.Grid, g_new: pp.Grid, tol: float) -> sps.spmatrix:
     """
     By calling matching grid the function compute the cell mapping between two
