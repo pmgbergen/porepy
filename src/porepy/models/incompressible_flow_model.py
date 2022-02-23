@@ -4,6 +4,7 @@
 import logging
 import time
 from typing import Dict, Optional
+from dataclasses import dataclass
 
 import numpy as np
 import scipy.sparse as sps
@@ -12,6 +13,10 @@ import porepy as pp
 
 logger = logging.getLogger(__name__)
 
+@dataclass
+class AdVariables:
+    pressure = None
+    mortar_flux = None
 
 class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
     """This is a shell class for single-phase incompressible flow problems.
@@ -52,7 +57,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.mortar_variable: str = "mortar_" + self.variable
         self.parameter_key: str = "flow"
         self._use_ad = True
-        self._ad_var_map = dict()
+        self._ad = AdVariables()
 
     def prepare_simulation(self) -> None:
         self.create_grid()
@@ -64,7 +69,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self._assign_variables()
 
         self._create_dof_and_eq_manager()
-        self._create_ad_variables_map()
+        self._create_ad_variables()
         self._create_assembler() 
         
         self._assign_discretizations()
@@ -238,11 +243,11 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
     def _create_assembler(self) -> None:
         self.assembler = pp.Assembler(self.gb, self.dof_manager)
 
-    def _create_ad_variables_map(self) -> None:
+    def _create_ad_variables(self) -> None:
         grid_list = [g for g, _ in self.gb.nodes()]
         edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
-        self._ad_var_map[self.variable] = self._eq_manager.merge_variables([(g, self.variable) for g in grid_list])
-        self._ad_var_map[self.mortar_variable]  = self._eq_manager.merge_variables(
+        self._ad.pressure = self._eq_manager.merge_variables([(g, self.variable) for g in grid_list])
+        self._ad.mortar_flux = self._eq_manager.merge_variables(
             [(e, self.mortar_variable) for e in edge_list]
         )
 
@@ -276,8 +281,8 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         div = pp.ad.Divergence(grids=grid_list)
 
         # Ad variables
-        p = self._ad_var_map[self.variable]
-        mortar_flux = self._ad_var_map[self.mortar_variable]
+        p = self._ad.pressure
+        mortar_flux = self._ad.mortar_flux
 
         # Ad parameters
         vector_source_grids = pp.ad.ParameterArray(
