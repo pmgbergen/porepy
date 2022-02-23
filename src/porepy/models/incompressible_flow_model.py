@@ -258,13 +258,12 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         parameter.
         """
         
-        gb = self.gb
-        grid_list = [g for g, _ in gb.nodes()]
+        grid_list = [g for g, _ in self.gb.nodes()]
         self.grid_list = grid_list
         if len(self.gb.grids_of_dimension(self.gb.dim_max())) != 1:
             raise NotImplementedError("This will require further work")
 
-        edge_list = [e for e, d in gb.edges() if d["mortar_grid"].codim < 2]
+        edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
 
         mortar_proj = pp.ad.MortarProjections(
             edges=edge_list, grids=grid_list, gb=self.gb, nd=1

@@ -101,6 +101,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         # AD representation of the mass operator
         accumulation_term = pp.ad.MassMatrixAd(self.parameter_key, subdomains)
         
+        # Access to pressure ad variable
         p = self._ad_var_map[self.variable]
         time_step_ad = pp.ad.Scalar(self.time_step, "time step")
         
