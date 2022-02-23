@@ -52,6 +52,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.mortar_variable: str = "mortar_" + self.variable
         self.parameter_key: str = "flow"
         self._use_ad = True
+        self._ad_var_map = dict()
 
     def prepare_simulation(self) -> None:
         self.create_grid()
@@ -61,11 +62,17 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         )
         self._set_parameters()
         self._assign_variables()
+
+        self._create_dof_and_eq_manager()
+        self._create_ad_variables_map()
+        self._create_assembler() 
+        
         self._assign_discretizations()
         self._initial_condition()
 
         self._export()
         self._discretize()
+
 
     def _set_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
@@ -223,6 +230,21 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                 d[pp.PRIMARY_VARIABLES] = {
                     self.mortar_variable: {"cells": 1},
                 }
+                
+    def _create_dof_and_eq_manager(self) -> None:
+        self.dof_manager = pp.DofManager(self.gb)
+        self._eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager) 
+        
+    def _create_assembler(self) -> None:
+        self.assembler = pp.Assembler(self.gb, self.dof_manager)
+
+    def _create_ad_variables_map(self) -> None:
+        grid_list = [g for g, _ in self.gb.nodes()]
+        edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
+        self._ad_var_map[self.variable] = self._eq_manager.merge_variables([(g, self.variable) for g in grid_list])
+        self._ad_var_map[self.mortar_variable]  = self._eq_manager.merge_variables(
+            [(e, self.mortar_variable) for e in edge_list]
+        )
 
     def _assign_discretizations(self) -> None:
         """Define equations through discretizations.
@@ -235,12 +257,8 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         Gravity is included, but may be set to 0 through assignment of the vector_source
         parameter.
         """
+        
         gb = self.gb
-        dof_manager = pp.DofManager(gb)
-        self.dof_manager = dof_manager
-        self.assembler = pp.Assembler(self.gb, self.dof_manager)
-        self._eq_manager = pp.ad.EquationManager(gb, dof_manager)
-
         grid_list = [g for g, _ in gb.nodes()]
         self.grid_list = grid_list
         if len(self.gb.grids_of_dimension(self.gb.dim_max())) != 1:
@@ -259,10 +277,8 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         div = pp.ad.Divergence(grids=grid_list)
 
         # Ad variables
-        p = self._eq_manager.merge_variables([(g, self.variable) for g in grid_list])
-        mortar_flux = self._eq_manager.merge_variables(
-            [(e, self.mortar_variable) for e in edge_list]
-        )
+        p = self._ad_var_map[self.variable]
+        mortar_flux = self._ad_var_map[self.mortar_variable]
 
         # Ad parameters
         vector_source_grids = pp.ad.ParameterArray(
