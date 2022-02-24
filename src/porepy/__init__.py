@@ -207,3 +207,6 @@ from porepy.utils.default_domains import (
     UnitSquareDomain,
     UnitCubeDomain,
 )
+
+# composite submodule
+from . import composite
