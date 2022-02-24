@@ -1,10 +1,11 @@
 """This module contains an implementation of a base model for incompressible flow problems.
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from typing import Dict, Optional
-from dataclasses import dataclass
 
 import numpy as np
 import scipy.sparse as sps
@@ -13,10 +14,11 @@ import porepy as pp
 
 logger = logging.getLogger(__name__)
 
-@dataclass
+
 class AdVariables:
-    pressure = None
-    mortar_flux = None
+    pressure: pp.ad.Variable
+    mortar_flux: pp.ad.Variable
+
 
 class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
     """This is a shell class for single-phase incompressible flow problems.
@@ -70,14 +72,13 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
         self._create_dof_and_eq_manager()
         self._create_ad_variables()
-        self._create_assembler() 
-        
+        self._create_assembler()
+
         self._assign_discretizations()
         self._initial_condition()
 
         self._export()
         self._discretize()
-
 
     def _set_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
@@ -235,18 +236,20 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                 d[pp.PRIMARY_VARIABLES] = {
                     self.mortar_variable: {"cells": 1},
                 }
-                
+
     def _create_dof_and_eq_manager(self) -> None:
         self.dof_manager = pp.DofManager(self.gb)
-        self._eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager) 
-        
+        self._eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager)
+
     def _create_assembler(self) -> None:
         self.assembler = pp.Assembler(self.gb, self.dof_manager)
 
     def _create_ad_variables(self) -> None:
         grid_list = [g for g, _ in self.gb.nodes()]
         edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
-        self._ad.pressure = self._eq_manager.merge_variables([(g, self.variable) for g in grid_list])
+        self._ad.pressure = self._eq_manager.merge_variables(
+            [(g, self.variable) for g in grid_list]
+        )
         self._ad.mortar_flux = self._eq_manager.merge_variables(
             [(e, self.mortar_variable) for e in edge_list]
         )
@@ -262,7 +265,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         Gravity is included, but may be set to 0 through assignment of the vector_source
         parameter.
         """
-        
+
         grid_list = [g for g, _ in self.gb.nodes()]
         self.grid_list = grid_list
         if len(self.gb.grids_of_dimension(self.gb.dim_max())) != 1:
