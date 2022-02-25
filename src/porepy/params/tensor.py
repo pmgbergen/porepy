@@ -15,7 +15,7 @@ module_sections = ["parameters"]
 
 
 class SecondOrderTensor(object):
-    """Cell-wise permeability represented by (3 ,3 ,Nc)-matrix, where Nc
+    """Cell-wise permeability represented by (3, 3, Nc)-array, where Nc
     denotes the number of cells, i.e. the tensor values are stored discretely.
 
     The permeability is always 3-dimensional (since the geometry is always 3D),
