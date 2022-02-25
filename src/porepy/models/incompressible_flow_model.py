@@ -246,6 +246,8 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
     def _create_ad_variables(self) -> None:
         grid_list = [g for g, _ in self.gb.nodes()]
+        # Make a list of interfaces, but only for couplings one dimension apart (e.g. not for
+        # couplings that involve wells)
         edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
         self._ad.pressure = self._eq_manager.merge_variables(
             [(g, self.variable) for g in grid_list]
