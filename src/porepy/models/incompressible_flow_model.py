@@ -347,6 +347,19 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self._eq_manager.discretize(self.gb)
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
+    def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
+        """
+        Scatters the solution vector for current iterate.
+
+        Parameters:
+            solution_vector (np.array): solution vector for the current iterate.
+
+        """
+        self._nonlinear_iteration += 1
+        self.dof_manager.distribute_variable(
+            values=solution_vector, additive=self._use_ad, to_iterate=True
+        )
+
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
