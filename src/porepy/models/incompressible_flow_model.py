@@ -15,7 +15,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class AdVariables:
+class _AdVariables:
     pressure: pp.ad.Variable
     mortar_flux: pp.ad.Variable
 
@@ -59,7 +59,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.mortar_variable: str = "mortar_" + self.variable
         self.parameter_key: str = "flow"
         self._use_ad = True
-        self._ad = AdVariables()
+        self._ad = _AdVariables()
 
     def prepare_simulation(self) -> None:
         self.create_grid()
