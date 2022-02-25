@@ -1,2 +1,0 @@
-import porepy as pp
-
