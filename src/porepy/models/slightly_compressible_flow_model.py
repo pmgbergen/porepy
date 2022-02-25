@@ -78,7 +78,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         Uses the Mpfa discretization of the parent class for the elliptic part
         and same boundary conditions coupling on internal boundaries.
 
-        Implements an Explicit Euler discretization in time.
+        Implements an Implicit Euler discretization in time.
         """
 
         super()._assign_discretizations()
