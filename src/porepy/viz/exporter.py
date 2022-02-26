@@ -50,10 +50,6 @@ class Field:
         if np.atleast_2d(values).shape[1] != g.num_cells:
             raise ValueError("Field " + str(self.name) + " has wrong dimension.")
 
-    def _check_values(self) -> None:
-        if self.values is None:
-            raise ValueError("Field " + str(self.name) + " values not valid")
-
 class Exporter:
     def __init__(
         self,
