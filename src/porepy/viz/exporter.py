@@ -54,44 +54,6 @@ class Field:
         if self.values is None:
             raise ValueError("Field " + str(self.name) + " values not valid")
 
-
-class Fields:
-    """
-    Internal class to store a list of field.
-    """
-
-    def __init__(self) -> None:
-        self._fields: List[Field] = []
-
-    def __iter__(self) -> Generator[Field, None, None]:
-        """
-        Iterator on all the fields.
-        """
-        for f in self._fields:
-            yield f
-
-    def __repr__(self) -> str:
-        """
-        Repr function
-        """
-        return "\n".join([repr(f) for f in self])
-
-    def extend(self, new_fields: List[Field]) -> None:
-        """
-        Extend the list of fields with additional fields.
-        """
-        if isinstance(new_fields, list):
-            self._fields.extend(new_fields)
-        else:
-            raise ValueError
-
-    def names(self) -> List[str]:
-        """
-        Return the list of name of the fields.
-        """
-        return [f.name for f in self]
-
-
 class Exporter:
     def __init__(
         self,
@@ -315,7 +277,7 @@ class Exporter:
         if data is None:
             data = dict()
 
-        fields = Fields()
+        fields: List[Field] = []
         if len(data) > 0:
             fields.extend([Field(n, v) for n, v in data.items()])
 
@@ -358,7 +320,7 @@ class Exporter:
                     break
 
         # Transfer data to fields.
-        node_fields = Fields()
+        node_fields: List[Field] = []
         if len(node_data) > 0:
             node_fields.extend([Field(d) for d in node_data])
 
@@ -410,7 +372,7 @@ class Exporter:
                     break
 
         # Transfer data to fields.
-        edge_fields = Fields()
+        edge_fields: List[Field] = []
         if len(edge_data) > 0:
             edge_fields.extend([Field(d) for d in edge_data])
 
