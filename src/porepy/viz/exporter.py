@@ -105,38 +105,42 @@ class Exporter:
         if isinstance(gb, pp.Grid):
             self.gb = pp.GridBucket()
             self.gb.add_nodes(gb) 
-        else:
+        elif isinstance(gb, pp.GridBucket):
             self.gb = gb
+        else:
+            raise TypeError("Exporter only supports single grids and grid buckets.")
 
+        # Store target location for storing vtu and pvd files.
         self.file_name = file_name
         self.folder_name = folder_name
+
+        # Check for optional keywords
         self.fixed_grid: bool = kwargs.pop("fixed_grid", True)
         self.binary: bool = kwargs.pop("binary", True)
         if kwargs:
             msg = "Exporter() got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
+        # Hard code keywords
         self.cell_id_key = "cell_id"
 
-        if self.gb.num_graph_nodes() > 0:
-            # Fixed-dimensional grids to be included in the export. We include
-            # all but the 0-d grids
-            self.dims = np.setdiff1d(self.gb.all_dims(), [0])
-            num_dims = self.dims.size
-            self.meshio_geom = dict(zip(self.dims, [tuple()] * num_dims))  # type: ignore
+        # Generate infrastructure for storing fixed-dimensional grids in
+        # meshio format. Include all but the 0-d grids
+        self.dims = np.setdiff1d(self.gb.all_dims(), [0])
+        num_dims = self.dims.size
+        self.meshio_geom = dict(zip(self.dims, [tuple()] * num_dims))  # type: ignore
 
-        if self.gb.num_graph_edges() > 0:
-            # mortar grid variables
-            self.m_dims = np.unique([d["mortar_grid"].dim for _, d in self.gb.edges()])
-            num_m_dims = self.m_dims.size
-            self.m_meshio_geom = dict(zip(self.m_dims, [tuple()] * num_m_dims))  # type: ignore
-        else:
-            self.m_dims = np.zeros(0, dtype=int)
+        # Generate infrastructure for storing fixed-dimensional mortar grids
+        # in meshio format.
+        self.m_dims = np.unique([d["mortar_grid"].dim for _, d in self.gb.edges()])
+        num_m_dims = self.m_dims.size
+        self.m_meshio_geom = dict(zip(self.m_dims, [tuple()] * num_m_dims))  # type: ignore
 
         # Assume numba is available
+        # TODO rm hardcoded assumption, and move somewhere else
         self.has_numba: bool = True
 
-        # TODO what is behind that? this takes time so we should explain.
+        # Generate geometrical information in meshio format
         self._update_meshio_geom()
 
         # Counter for time step. Will be used to identify files of individual time step,
