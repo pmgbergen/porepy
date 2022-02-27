@@ -53,7 +53,7 @@ class Field:
 class Exporter:
     def __init__(
         self,
-        grid: Union[pp.Grid, pp.GridBucket],
+        gb: Union[pp.Grid, pp.GridBucket],
         file_name: str,
         folder_name: Optional[str] = None,
         **kwargs,
@@ -62,7 +62,7 @@ class Exporter:
         Class for exporting data to vtu files.
 
         Parameters:
-        grid: the grid or grid bucket
+        gb: grid bucket (if grid is provided, it will be converted to a grid bucket)
         file_name: the root of file name without any extension.
         folder_name: (optional) the name of the folder to save the file.
             If the folder does not exist it will be created.
@@ -101,13 +101,12 @@ class Exporter:
 
         """
 
-        if isinstance(grid, pp.GridBucket):
-            self.is_GridBucket = True
-            self.gb: pp.GridBucket = grid
-
+        # Exporter is operating on grid buckets. If a grid is provided, convert to a grid bucket.
+        if isinstance(gb, pp.Grid):
+            self.gb = pp.GridBucket()
+            self.gb.add_nodes(gb) 
         else:
-            self.is_GridBucket = False
-            self.grid: pp.Grid = grid  # type: ignore
+            self.gb = gb
 
         self.file_name = file_name
         self.folder_name = folder_name
@@ -119,23 +118,25 @@ class Exporter:
 
         self.cell_id_key = "cell_id"
 
-        if self.is_GridBucket:
+        if self.gb.num_graph_nodes() > 0:
             # Fixed-dimensional grids to be included in the export. We include
             # all but the 0-d grids
             self.dims = np.setdiff1d(self.gb.all_dims(), [0])
             num_dims = self.dims.size
             self.meshio_geom = dict(zip(self.dims, [tuple()] * num_dims))  # type: ignore
 
+        if self.gb.num_graph_edges() > 0:
             # mortar grid variables
             self.m_dims = np.unique([d["mortar_grid"].dim for _, d in self.gb.edges()])
             num_m_dims = self.m_dims.size
             self.m_meshio_geom = dict(zip(self.m_dims, [tuple()] * num_m_dims))  # type: ignore
         else:
-            self.meshio_geom = tuple()  # type: ignore
+            self.m_dims = np.zeros(0, dtype=int)
 
         # Assume numba is available
         self.has_numba: bool = True
 
+        # TODO what is behind that? this takes time so we should explain.
         self._update_meshio_geom()
 
         # Counter for time step. Will be used to identify files of individual time step,
@@ -154,12 +155,13 @@ class Exporter:
         """
         self.file_name = file_name
 
+    # TODO do we need dicts here? do we want to support both for grid buckets (this does not make sense)
     def write_vtu(
         self,
         data: Optional[Union[Dict, List[str]]] = None,
         time_dependent: bool = False,
         time_step: int = None,
-        grid: Optional[Union[pp.Grid, pp.GridBucket]] = None,
+        gb: Optional[Union[pp.Grid, pp.GridBucket]] = None,
     ) -> None:
         """
         Interface function to export the grid and additional data with meshio.
@@ -181,17 +183,22 @@ class Exporter:
         grid: (optional) in case of changing grid set a new one.
 
         """
-        if self.fixed_grid and grid is not None:
+        if self.fixed_grid and gb is not None:
             raise ValueError("Inconsistency in exporter setting")
-        elif not self.fixed_grid and grid is not None:
-            if self.is_GridBucket:
-                self.gb = grid  # type: ignore
+        elif not self.fixed_grid and gb is not None:
+            # Convert to grid bucket if a grid is provided.
+            if isinstance(gb, pp.Grid):
+                self.gb = pp.GridBucket()
+                self.gb.add_nodes(gb) 
             else:
-                self.grid = grid  # type: ignore
+                self.gb = gb
 
+            # Update meshio format
             self._update_meshio_geom()
 
+        # TODO is this option actively used?
         # If the problem is time dependent, but no time step is set, we set one
+        # using the updated, internal counter.
         if time_dependent and time_step is None:
             time_step = self._time_step_counter
             self._time_step_counter += 1
@@ -201,11 +208,16 @@ class Exporter:
         if time_step is not None:
             self._exported_time_step_file_names.append(time_step)
 
-        if self.is_GridBucket:
+        # NOTE grid buckets are exported with dict data, while single
+        # grids (converted to grid buckets) are exported with list data.
+        if isinstance(data, list):
             self._export_gb(data, time_step)  # type: ignore
+        elif isinstance(data, dict):
+            self._export_g(data, time_step)
         else:
-            self._export_g(data, time_step)  # type: ignore
+            raise NotImplemented("No other data type than list and dict supported.")
 
+    # TODO does not contain all keywords as in write_vtu. make consistent?
     def write_pvd(
         self,
         timestep: np.ndarray,
@@ -248,15 +260,11 @@ class Exporter:
         o_file.write(header)
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
-        if self.is_GridBucket:
-            for time, fn in zip(timestep, file_extension):
-                for dim in self.dims:
-                    o_file.write(
-                        fm % (time, self._make_file_name(self.file_name, fn, dim))
-                    )
-        else:
-            for time, fn in zip(timestep, file_extension):
-                o_file.write(fm % (time, self._make_file_name(self.file_name, fn)))
+        for time, fn in zip(timestep, file_extension):
+            for dim in self.dims:
+                o_file.write(
+                    fm % (time, self._make_file_name(self.file_name, fn, dim))
+                )
 
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
@@ -277,11 +285,13 @@ class Exporter:
         if len(data) > 0:
             fields.extend([Field(n, v) for n, v in data.items()])
 
-        grid_dim = self.grid.dim * np.ones(self.grid.num_cells, dtype=int)
+        grid = [g for g, _ in self.gb.nodes()][0]
+
+        grid_dim = grid.dim * np.ones(grid.num_cells, dtype=int)
 
         fields.extend([Field("grid_dim", grid_dim)])
 
-        self._write(fields, name, self.meshio_geom)
+        self._write(fields, name, self.meshio_geom[grid.dim])
 
     def _export_gb(self, data: List[str], time_step: float) -> None:
         """Export the entire GridBucket and additional data to vtu.
@@ -775,21 +785,16 @@ class Exporter:
         meshio.write(file_name, meshio_grid_to_export, binary=self.binary)
 
     def _update_meshio_geom(self):
-        if self.is_GridBucket:
-            for dim in self.dims:
-                g = self.gb.get_grids(lambda g: g.dim == dim)
-                self.meshio_geom[dim] = self._export_grid(g, dim)
+        for dim in self.dims:
+            g = self.gb.get_grids(lambda g: g.dim == dim)
+            self.meshio_geom[dim] = self._export_grid(g, dim)
 
-            for dim in self.m_dims:
-                # extract the mortar grids for dimension dim
-                mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
-                # it contains the mortar grids "unrolled" by sides
-                mg = np.array([g for m in mgs for _, g in m.side_grids.items()])
-                self.m_meshio_geom[dim] = self._export_grid(mg, dim)
-        else:
-            self.meshio_geom = self._export_grid(
-                np.atleast_1d(self.grid), self.grid.dim
-            )
+        for dim in self.m_dims:
+            # extract the mortar grids for dimension dim
+            mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
+            # it contains the mortar grids "unrolled" by sides
+            mg = np.array([g for m in mgs for _, g in m.side_grids.items()])
+            self.m_meshio_geom[dim] = self._export_grid(mg, dim)
 
     def _make_folder(self, folder_name: Optional[str] = None, name: str = "") -> str:
         if folder_name is None:
