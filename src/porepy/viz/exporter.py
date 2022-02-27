@@ -197,10 +197,9 @@ class Exporter:
             else:
                 self.gb = gb
 
-            # Update meshio format
+            # Update geometrical info in meshio format
             self._update_meshio_geom()
 
-        # TODO is this option actively used?
         # If the problem is time dependent, but no time step is set, we set one
         # using the updated, internal counter.
         if time_dependent and time_step is None:
@@ -215,9 +214,9 @@ class Exporter:
         # NOTE grid buckets are exported with dict data, while single
         # grids (converted to grid buckets) are exported with list data.
         if isinstance(data, list):
-            self._export_gb(data, time_step)  # type: ignore
+            self._export_list_data(data, time_step) # type: ignore
         elif isinstance(data, dict):
-            self._export_g(data, time_step)
+            self._export_dict_data(data, time_step)
         else:
             raise NotImplemented("No other data type than list and dict supported.")
 
@@ -273,10 +272,18 @@ class Exporter:
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
 
-    def _export_g(self, data: Dict[str, np.ndarray], time_step):
+    def _export_dict_data(self, data: Dict[str, np.ndarray], time_step):
         """
-        Export a single grid (not grid bucket) to a vtu file.
+        Export single grid to a vtu file with dictionary data.
+
+        Parameters:
+            data (Dict[str, np.ndarray]): Data to be exported.
+            time_step (float) : Time step, to be appended at the vtu output file.
         """
+        # Currently this method does only support single grids.
+        if self.dims.shape[0] > 1:
+            raise NotImplementedError("Grid buckets with more than one grid are not supported.")
+
         # No need of special naming, create the folder
         name = self._make_folder(self.folder_name, self.file_name)
         name = self._make_file_name(name, time_step)
@@ -285,20 +292,23 @@ class Exporter:
         if data is None:
             data = dict()
 
+        # Store the provided data as list of Fields
         fields: List[Field] = []
         if len(data) > 0:
             fields.extend([Field(n, v) for n, v in data.items()])
 
+        # Extract grid (it is assumed it is the only one)
         grid = [g for g, _ in self.gb.nodes()][0]
 
+        # Add grid dimension to the data
         grid_dim = grid.dim * np.ones(grid.num_cells, dtype=int)
-
         fields.extend([Field("grid_dim", grid_dim)])
 
+        # Write data to file
         self._write(fields, name, self.meshio_geom[grid.dim])
 
-    def _export_gb(self, data: List[str], time_step: float) -> None:
-        """Export the entire GridBucket and additional data to vtu.
+    def _export_list_data(self, data: List[str], time_step: float) -> None:
+        """Export the entire GridBucket and additional list data to vtu.
 
         Parameters:
             data (List[str]): Data to be exported in addition to default GridBucket data.
