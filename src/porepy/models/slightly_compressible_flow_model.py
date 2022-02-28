@@ -27,7 +27,8 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
     Overwritten methods include:
         1. _set_parameters: compressibility added
-        2. _assign_discretizations: Upgrade incompressible flow equations to slightly compressible
+        2. _assign_discretizations: Upgrade incompressible flow equations
+            to slightly compressible
 
     New methods:
         1. _compressibility: constant compressibility per cell
@@ -82,7 +83,9 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         return np.ones(g.num_cells)
 
     def _assign_discretizations(self) -> None:
-        """Upgrade incompressible flow equations to slightly compressible by adding the accumulation term.
+        """Upgrade incompressible flow equations to slightly compressible
+            by adding the accumulation term.
+
         Time derivative is approximated with Implicit Euler time stepping.
         """
 
