@@ -2,6 +2,8 @@
 including a time derivative of the pressure and constant compressibility.
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Dict, List, Optional
 
@@ -12,6 +14,9 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
+class _AdVariables(pp.models.incompressible_flow_model._AdVariables):    
+    time_step: pp.ad.Scalar
+
 class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleFlow):
     """This class extends the Incompressible flow model by including a
     cummulative term expressed through pressure and a constant compressibility
@@ -20,9 +25,8 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
     The simulation starts at time t=0.
 
     Overwritten methods include:
-        1. prepare_simulation:
-        Starting time set to 0, end time and timestep size optional paramters
-        2. _set_parameters: compressibility added
+        1. _set_parameters: compressibility added
+        2. _assign_discretizations: Upgrade incompressible flow equations to slightly compressible
 
     New methods:
         1. _compressibility: constant compressibility per cell
@@ -44,8 +48,13 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         super().__init__(params)
 
         # attributes
-        self.end_time = float(0)
-        self.time_step = float(0)
+        if isinstance(params, type(None)):
+            self.end_time = self.params.get("end_time", float(1))
+            self.time_step = self.params.get("time_step", float(1))
+        else:
+            self.end_time = float(1)
+            self.time_step = float(1)
+
         self.time = float(0)
         self.time_index = 0
 
@@ -68,15 +77,11 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         Units: Pa^(-1)
         """
-        return np.ones(g.num_cells)
+        return np.ones(g.num_cells)   
 
     def _assign_discretizations(self) -> None:
-        """Define equations through discretizations.
-
-        Uses the Mpfa discretization of the parent class for the elliptic part
-        and same boundary conditions coupling on internal boundaries.
-
-        Implements an Implicit Euler discretization in time.
+        """ Upgrade incompressible flow equations to slightly compressible by adding the accumulation term.
+        Time derivative is approximated with Implicit Euler time stepping.
         """
 
         super()._assign_discretizations()
@@ -89,10 +94,10 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         # Access to pressure ad variable
         p = self._ad.pressure
-        time_step_ad = pp.ad.Scalar(self.time_step, "time step")
+        self._ad.time_step = pp.ad.Scalar(self.time_step, "time step")
 
         accumulation_term = (
-            accumulation_term.mass * (p - p.previous_timestep()) / time_step_ad
+            accumulation_term.mass * (p - p.previous_timestep()) / self._ad.time_step
         )
 
         #  Adding accumulation term to incompressible flow equations
