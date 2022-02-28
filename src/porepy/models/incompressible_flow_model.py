@@ -72,7 +72,6 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
         self._create_dof_and_eq_manager()
         self._create_ad_variables()
-        self._create_assembler()
 
         self._assign_discretizations()
         self._initial_condition()
@@ -238,13 +237,13 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                 }
 
     def _create_dof_and_eq_manager(self) -> None:
+        """Create a dof_magaer and eq_maganer based on a mixed-dimensional grid"""
         self.dof_manager = pp.DofManager(self.gb)
         self._eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager)
 
-    def _create_assembler(self) -> None:
-        self.assembler = pp.Assembler(self.gb, self.dof_manager)
-
     def _create_ad_variables(self) -> None:
+        """Create the merged variables for potential and mortar flux"""
+
         grid_list = [g for g, _ in self.gb.nodes()]
         # Make a list of interfaces, but only for couplings one dimension apart (e.g. not for
         # couplings that involve wells)
@@ -388,10 +387,9 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
-        if self._use_ad:
-            solution = self.dof_manager.assemble_variable(from_iterate=True)
 
-        self.assembler.distribute_variable(solution)
+        solution = self.dof_manager.assemble_variable(from_iterate=True)
+        self.dof_manager.distribute_variable(values=solution, additive=False)
         self.convergence_status = True
         self._export()
 
