@@ -28,7 +28,7 @@ def sort_point_pairs(
     lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume
         that the points are stored in the first two rows.
     check_circular: Verify that the sorted polyline form a circle.
-                    Defaluts to true.
+                    Defaults to true.
     ordering: np.array, return in the original order if a line is flipped or not
     is_circular: if the lines form a closed set. Default is True.
 
