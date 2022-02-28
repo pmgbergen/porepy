@@ -22,7 +22,7 @@ def sort_point_pairs(
     start end endpoints, so that they form a continuous polyline.
 
     The algorithm is brute-force, using a double for-loop. This can
-    surely be imporved.
+    surely be improved.
 
     Parameters:
     lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume
@@ -36,7 +36,7 @@ def sort_point_pairs(
     sorted_lines: np.ndarray, 2xn, sorted line pairs. If lines had more than 2 rows,
         the extra are sorted accordingly.
     sort_ind: np.ndarray, n: Sorted column indices, so that
-        sorted_lines = lines[:, sort_ind], modulu flipping of rows in individual columns
+        sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual columns
     is_ordered: np.ndarray (optional): True if the ordering of a segment (first and second
         row in input lines) is kept in the sorted lines. Refers to the original ordering
         of the lines (so lines, not sorted_lines).
