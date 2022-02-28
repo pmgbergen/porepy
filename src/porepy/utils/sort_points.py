@@ -9,7 +9,6 @@ import porepy as pp
 module_sections = ["utils"]
 
 
-@pp.time_logger(sections=module_sections)
 def sort_point_pairs(
     lines: np.ndarray,
     check_circular: Optional[bool] = True,
@@ -115,7 +114,6 @@ def sort_point_pairs(
     return sorted_lines, sort_ind
 
 
-@pp.time_logger(sections=module_sections)
 def sort_point_plane(
     pts: np.ndarray,
     centre: np.ndarray,
@@ -151,7 +149,6 @@ def sort_point_plane(
     return np.argsort(np.arctan2(*delta[active_dim]))
 
 
-@pp.time_logger(sections=module_sections)
 def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     """Sort a set of triangles so that no edges occur twice with the same ordering.
 
@@ -175,7 +172,6 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
 
     # Helper method to remove pairs from the queue if they already exist,
     # add them if not
-    @pp.time_logger(sections=module_sections)
     def update_queue(pair_0, pair_1):
         if pair_0 in queue:
             queue.remove(pair_0)
