@@ -14,8 +14,9 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class _AdVariables(pp.models.incompressible_flow_model._AdVariables):    
+class _AdVariables(pp.models.incompressible_flow_model._AdVariables):
     time_step: pp.ad.Scalar
+
 
 class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleFlow):
     """This class extends the Incompressible flow model by including a
@@ -57,6 +58,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         self.time = float(0)
         self.time_index = 0
+        self._ad = _AdVariables()
 
     def _set_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
@@ -77,10 +79,10 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         Units: Pa^(-1)
         """
-        return np.ones(g.num_cells)   
+        return np.ones(g.num_cells)
 
     def _assign_discretizations(self) -> None:
-        """ Upgrade incompressible flow equations to slightly compressible by adding the accumulation term.
+        """Upgrade incompressible flow equations to slightly compressible by adding the accumulation term.
         Time derivative is approximated with Implicit Euler time stepping.
         """
 
