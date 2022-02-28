@@ -30,18 +30,16 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
     Attributes:
         end_time (float): Upper limit of considered time interval
         time_step (float): time step size
-        time_index (int): number of time loops passed.
         time (float): simulation time
+        time_index (int): number of time steps passed
     """
 
     def __init__(self, params: Optional[Dict] = None) -> None:
         """
         Parameters:
-            end_time (optional float): specifices end time for simulation.
-                Simulation stops when first time value bigger than end_time is
-                reached.
-            time_step (optional float ): Timestep size. Currently only
-                uniform timestepping is supported.
+            params (dict): Dictionary of parameters used to control the solution procedure.
+                Some frequently used entries are file and folder names for export,
+                mesh sizes...
         """
         super().__init__(params)
 
