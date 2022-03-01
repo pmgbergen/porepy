@@ -563,6 +563,7 @@ class Divergence(Operator):
             grids (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the divergence operators.
             dim (int, optional): Dimension of vector field. Defaults to 1.
+            name (str, optional): Name to be assigned to the operator. Default is None.
 
         """
         super().__init__(name=name)
