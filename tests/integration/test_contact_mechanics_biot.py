@@ -1,5 +1,5 @@
 """
-Integration tests for the Biot modell, with and without contact mechanics.
+Integration tests for the Biot model, with and without contact mechanics.
 
 We have the full Biot equations in the matrix, and mass conservation and contact
 conditions in the fracture. For the contact mechanical part of this

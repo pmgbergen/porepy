@@ -198,8 +198,8 @@ class ContactModel(pp.ContactMechanics):
 
 class BiotContactModel(pp.ContactMechanicsBiot):
     def __init__(self, param, grid_meth):
-        ############# NB: tests should be with and without subtract_fracture_pressure
-        ## Time steps should be an input parameters, try a few
+        ## NB: tests should be with and without subtract_fracture_pressure
+        # Time steps should be an input parameters, try a few
         # Make initial states random?
         # Biot alpha should vary
         super().__init__(param)
@@ -254,11 +254,13 @@ def _compare_solutions(m0, m1, tol=1e-5):
             return False
     for grid_like, var in m0.dof_manager.block_dof.keys():
         # Identify grid in m1
+        found = False
         if isinstance(grid_like, tuple):
             for e1, d1 in m1.gb.edges():
                 # Check for equality of both neighbour subdomains. MortarGrid
                 # coordinates are not unique for intersection interfaces.
-                if _same_grid(grid_like[0], e1[0]) and _same_grid(grid_like[1], e1[1]):
+                found = _same_grid(grid_like[0], e1[0]) and _same_grid(grid_like[1], e1[1])
+                if found:
                     sol0 = m0.gb.edge_props(grid_like)[pp.STATE][var]
                     sol1 = d1[pp.STATE][var]
 
@@ -266,11 +268,13 @@ def _compare_solutions(m0, m1, tol=1e-5):
                     break
         else:
             for g1, d1 in m1.gb:
-                if _same_grid(grid_like, g1):
+                found = _same_grid(grid_like, g1)
+                if found:
                     sol0 = m0.gb.node_props(grid_like)[pp.STATE][var]
                     sol1 = d1[pp.STATE][var]
                     assert(np.linalg.norm(sol0 - sol1) < tol)
                     break
+        assert found
     # Compare them for each combination of subdomain/interface and variable,
     # as the ordering of global dofs might vary.
     # state_as = model_as.dof_manager.assemble_variable(from_iterate=False)
