@@ -146,6 +146,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                     "normal_diffusivity": normal_diffusivity,
                     "vector_source": gravity.ravel("F"),
                     "ambient_dimension": self.gb.dim_max(),
+                    "darcy_flux": np.zeros(mg.num_cells)
                 },
             )
 
@@ -245,8 +246,6 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         """Create the merged variables for potential and mortar flux"""
 
         grid_list = [g for g, _ in self.gb.nodes()]
-        # Make a list of interfaces, but only for couplings one dimension apart (e.g. not for
-        # couplings that involve wells)
         # Make a list of interfaces, but only for couplings one dimension apart (e.g. not for
         # couplings that involve wells)
         edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
