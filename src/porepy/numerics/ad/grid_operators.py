@@ -829,6 +829,7 @@ class ParameterArray(Operator):
 
 # Helper methods below
 
+
 def _subgrid_projections(
     grids: List[pp.Grid], nd: int
 ) -> Tuple[Dict[pp.Grid, sps.spmatrix], Dict[pp.Grid, sps.spmatrix]]:
