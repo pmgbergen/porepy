@@ -251,14 +251,13 @@ class MortarProjections(Operator):
         is used by other operators.
 
         Parameters:
-            gb (pp.GridBucket): Mixed-dimensional grid.
-            grids (List of pp.Grid, optional): List of grids for which the projections
-                should apply. If not provided, all grids in gb will be used. The order
-                 of the grids in the list sets the ordering of the subdomain projections.
-
-            edges (List of edges, optional): List of edges for which the projections
-                should apply. If not provided, all grids in gb will be used. The order
-                 of the grids in the list sets the ordering of the subdomain projections.
+            gb (pp.GridBucket): Mixed-dimensional grid bucket.
+            grids (List of pp.Grid): List of grids for which the projections
+                should apply. The order of the grids in the list establishes the ordering of
+                the subdomain projections.
+            edges (List of edges): List of edges for which the projections
+                should apply. The order of the grids in the list establishes the ordering of
+                the subdomain projections.
             nd (int, optional): Dimension of the quantities to be projected.
 
         """
@@ -266,7 +265,7 @@ class MortarProjections(Operator):
         self._num_edges: int = len(edges)
         self._nd: int = nd
 
-        ## Initialize projections
+        # Initialize projections
         cell_projection, face_projection = _subgrid_projections(grids, self._nd)
 
         # IMPLEMENTATION NOTE:
