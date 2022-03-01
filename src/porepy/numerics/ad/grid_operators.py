@@ -482,15 +482,14 @@ class Trace(Operator):
     ):
         """Construct trace operators and their inverse for a given set of subdomains.
 
-        The operators will be ordered according to the ordering in grids, or the order
-        of the GridBucket iteration over grids. Iit is critical that the same ordering
-        is used by other operators.
+        The operators will be ordered according to the ordering in grids. It is critical
+        that the same ordering is used by other operators.
 
         Parameters:
             grids (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the trace operators.
-            is_scalar (bool, optional): If true, trace operators are constructed for
-                scalar quantities.
+            nd (int, optional): Dimension of the quantities to be projected.
+            name (str, optional): Name of the operator. Default is None.
 
         """
         super().__init__(name=name)
