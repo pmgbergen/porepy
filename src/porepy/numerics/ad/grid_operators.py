@@ -628,9 +628,8 @@ class BoundaryCondition(Operator):
     ):
         """Construct a wrapper for boundary conditions for a set of subdomains.
 
-        The boundary values will be ordered according to the ordering in grids, or theorder
-        ordre of the GridBucket iteration over grids. Iit is critical that the same
-        ordering is used by other operators.
+        The boundary values will be ordered according to the ordering in grids. It is
+        critical that the same ordering is used by other operators.
 
         IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be
         added in due course.
@@ -643,8 +642,7 @@ class BoundaryCondition(Operator):
                 to get the relevant boundary conditions.
             grids (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the boundary values.
-            gb (pp.GridBucket): Used if grid list is not provided. The order of the
-                grids is set according to iteration over the GridBucket nodes.
+            name (str, optional): Name to be assigned to the operator. Default is None.
 
         """
         super().__init__(name=name)
