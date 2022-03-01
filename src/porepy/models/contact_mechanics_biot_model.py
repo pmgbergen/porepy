@@ -274,7 +274,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     def _bc_type_mechanics(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Use parent class method for mechanics
 
-
         Parameters
         ----------
         g : pp.Grid
@@ -290,7 +289,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     def _bc_type_scalar(self, g: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet condition on all external boundaries
-
 
         Parameters
         ----------

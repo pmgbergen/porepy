@@ -865,9 +865,9 @@ class ContactMechanics(AbstractModel):
             subdomain_projections_vector: Prolongation and restriction operators for
                 all grids with Nd components for each cell or face.
             normal_component_frac: Extract the normal component (scalar) of a
-            Nd-dimensional fracture cell vector.
+                Nd-dimensional fracture cell vector.
             tangential_component_frac: Extract the tangential component (Nd-1 vector)
-            of a Nd-dimensional fracture cell vector.
+                of a Nd-dimensional fracture cell vector.
             normal_to_tangential_frac: Prolong from scalar to (Nd-1) cell-wise values.
 
         Returns
@@ -1228,7 +1228,6 @@ class ContactMechanics(AbstractModel):
         matrix_subdomains: List[pp.Grid],
     ) -> pp.ad.Operator:
         """Ad representation of mechanical stress.
-
 
         Parameters
         ----------
