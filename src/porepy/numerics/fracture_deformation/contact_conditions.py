@@ -694,8 +694,6 @@ class ContactTraction(
         data_interface : Dict
             Data dictionary of the matrix-fracture interface.
 
-
-
         Returns
         -------
         None

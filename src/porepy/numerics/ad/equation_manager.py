@@ -678,14 +678,9 @@ class EquationManager:
     ) -> None:
         """Convenience method for assigning and naming equations.
 
-        Parameters
-        ----------
-        equation_dictionary : Dict
-            Dictionary containing name: equation pairs.
+        Parameters:
+            equation_dictionary (Dict): Dictionary containing name: equation pairs.
 
-        Returns
-        -------
-        None
 
         """
         for name, eq in equation_dictionary.items():
