@@ -870,12 +870,6 @@ class ParameterMatrix(ParameterArray):
             return sps.diags(np.hstack([v for v in val]))
         else:
             return sps.csr_matrix((0, 0))
-        # if isinstance(val[0], np.ndarray):
-        #     return sps.diags(np.hstack([v for v in val]))
-        # else:
-        #     raise ValueError(
-        #         "Implementation only covers vectors (which are set as diagonal matrices)"
-        #     )
 
 
 #### Helper methods below

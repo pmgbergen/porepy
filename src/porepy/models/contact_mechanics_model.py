@@ -900,14 +900,19 @@ class ContactMechanics(AbstractModel):
                 "normal_component_frac",
                 "tangential_component_frac",
                 "normal_to_tangential_frac",
-                "internal_boundary_vector_to_outwards"
+                "internal_boundary_vector_to_outwards",
             ]
             for attribute_name in matrix_attributes:
                 setattr(ad, attribute_name, pp.ad.Matrix(sps.csr_matrix((0, 0))))
             setattr(
                 ad,
                 "internal_boundary_vector_to_outwards",
-                sps.csr_matrix((self._nd_grid().num_faces * self._Nd, self._nd_grid().num_faces * self._Nd))
+                sps.csr_matrix(
+                    (
+                        self._nd_grid().num_faces * self._Nd,
+                        self._nd_grid().num_faces * self._Nd,
+                    )
+                ),
             )
         else:
             # Global to local coordinate transformation
@@ -1313,11 +1318,8 @@ class ContactMechanics(AbstractModel):
         ad = self._ad
         if len(matrix_subdomains) > 1:
             raise NotImplementedError("Implementation assumes a single Nd grid")
-        g_primary = matrix_subdomains[0]
-        # Force balance
 
-
-        # Contact from primary grid and mortar displacements (via primary grid)
+        # Contact traction from primary grid and mortar displacements (via primary grid)
         contact_from_primary_mortar = (
             ad.mortar_projections_vector.primary_to_mortar_int
             * ad.subdomain_projections_vector.face_prolongation(matrix_subdomains)

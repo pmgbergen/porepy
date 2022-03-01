@@ -709,9 +709,9 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         Parameters
         ----------
-        matrix_grids : List[pp.Grid]
+        matrix_subdomains: List[pp.Grid]
             Matrix grids. Normally, only a single matrix grid is used
-        fracture_grids: List[pp.Grid].
+        fracture_subdomains: List[pp.Grid].
             Fracture grids.
         interfaces: List[Tuple[pp.Grid, pp.Grid]]
             Matrix-fracture interfaces.
@@ -719,8 +719,13 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         Returns
         -------
         force_balance_eq : pp.ad.Operator
-            Force balance equation with contact stress and pressure contriution.
+            Force balance equation with contact stress and pressure contribution.
 
+        Implementation note:
+            The fracture pressure mapping involves flipping of normals as is done in
+            the super method. Reuse of internal_boundary_vector_to_outwards would be
+            preferable, but was deemed to lead to too complicated projections between
+            subdomains and interfaces.
         """
         eq = super()._force_balance_equation(
             matrix_subdomains, fracture_subdomains, interfaces
@@ -738,14 +743,14 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             sgn, _ = g_primary.signs_and_cells_of_boundary_faces(
                 faces_on_fracture_surface
             )
-            fracture_normals = g_primary.face_normals[
+            internal_boundary_normals = g_primary.face_normals[
                 : self._Nd, faces_on_fracture_surface
             ]
-            outwards_fracture_normals = sgn * fracture_normals
+            outwards_fracture_normals = sgn * internal_boundary_normals
 
             data = outwards_fracture_normals.ravel("F")
-            row = np.arange(g_primary.dim * mg.num_cells)
-            col = np.tile(np.arange(mg.num_cells), (g_primary.dim, 1)).ravel("F")
+            row = np.arange(self._Nd * mg.num_cells)
+            col = np.tile(np.arange(mg.num_cells), (self._Nd, 1)).ravel("F")
             n_dot_I = sps.csc_matrix((data, (row, col)))
             # i) The scalar contribution to the contact stress is mapped to
             # the mortar grid  and multiplied by n \dot I, with n being the
@@ -848,8 +853,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             The interface equation on ad form.
 
         """
-        # if len(interfaces) == 0:
-        #     return pp.ad.Function(foo, "empty_interface_flow_equation")
         # Interface equation: \lambda = -\kappa (p_l - p_h)
         # Robin_ad.mortar_discr represents -\kappa. The involved term is
         # reconstruction of p_h on internal boundary, which has contributions

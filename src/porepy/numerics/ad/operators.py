@@ -410,7 +410,6 @@ class Operator:
 
                 else:
                     msg = error_message("multiplying")
-                breakpoint()
                 raise ValueError(msg) from exc
 
         elif tree.op == Operation.evaluate:

@@ -655,11 +655,22 @@ def set_projections(
 class ContactTraction(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
 ):
+    """Discretization class for obtaining contact traction from contact force.
+
+    Contact force is the primary variable used in the Model classes. However,
+    it is beneficial to also use the secondary variable traction.
+    The traction is scaled with the inverse of a characteristic elastic
+    modulus for stable comparison with displacement jumps in the contact
+    equations.
+    """
+
     def __init__(self, keyword: str, ambient_dimension: int, discr_h) -> None:
         self.keyword = keyword
         self.dim = ambient_dimension
 
         self.traction_scaling_matrix_key = "force_to_scaled_traction"
+        self.elastic_scaling_matrix_key = "elastic_scaling"
+        self.area_matrix_key = "fracture_area"
         self.discr_h = discr_h
 
     def ndof(self, g) -> int:
@@ -675,9 +686,6 @@ class ContactTraction(
     ) -> None:
         """Discretize the conversion from contact force to contact traction.
 
-        The traction is scaled with the inverse of a characteristic elastic
-        modulus for stable comparison with displacement jumps in the contact
-        equations.
         The diagonal discretization matrix is stored in the self.keyword
         discretization matrix dictionary under the name self.traction_scaling_matrix_key
 

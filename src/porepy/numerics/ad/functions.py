@@ -112,7 +112,8 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
     """
 
     if dim == 1:
-        # For scalar variables, the cell-wise L2 norm is equivalent to taking the absolute value.
+        # For scalar variables, the cell-wise L2 norm is equivalent to
+        # taking the absolute value.
         return pp.ad.functions.abs(var)
     resh = np.reshape(var.val, (dim, -1), order="F")
     vals = np.linalg.norm(resh, axis=0)
@@ -125,7 +126,8 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
     # Prepare for left multiplication with var.jac to yield
     # norm(var).jac = var/norm(var) * var.jac
     dim_size = var.val.size
-    # Check that size of var is compatible with the given dimension, e.g. all 'cells' have the same number of values assigned
+    # Check that size of var is compatible with the given dimension, e.g. all 'cells' have
+    # the same number of values assigned
     assert dim_size % dim == 0
     size = int(dim_size / dim)
     local_inds_t = np.arange(dim_size)
@@ -351,7 +353,8 @@ def max(
 def characteristic_function(tol: float, var: pp.ad.Ad_array):
     """Characteristic function of an ad variable.
 
-    Returns 1 if var.val is within absolute tolerance = tol of zero. The derivative is set to zero independent of var.val.
+    Returns 1 if var.val is within absolute tolerance = tol of zero. The derivative is set to
+    zero independent of var.val.
 
     Usage note:
         See module level documentation on how to wrap functions like this in ad.Function.
