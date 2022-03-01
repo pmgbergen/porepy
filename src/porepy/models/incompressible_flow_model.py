@@ -146,7 +146,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                     "normal_diffusivity": normal_diffusivity,
                     "vector_source": gravity.ravel("F"),
                     "ambient_dimension": self.gb.dim_max(),
-                    "darcy_flux": np.zeros(mg.num_cells)
+                    "darcy_flux": np.zeros(mg.num_cells),
                 },
             )
 
