@@ -44,6 +44,7 @@ class ContactMechanicsAdObjects:
     tangential_component_frac: pp.ad.Matrix
     normal_component_frac: pp.ad.Matrix
     normal_to_tangential_frac: pp.ad.Matrix
+    internal_boundary_vector_to_outwards: pp.ad.Matrix
     mortar_projections_vector: pp.ad.MortarProjections
 
 
@@ -869,6 +870,10 @@ class ContactMechanics(AbstractModel):
             tangential_component_frac: Extract the tangential component (Nd-1 vector)
                 of a Nd-dimensional fracture cell vector.
             normal_to_tangential_frac: Prolong from scalar to (Nd-1) cell-wise values.
+            internal_boundary_vector_to_outwards: Switch sign/direction of a nd
+                vector at internal boundary faces of the matrix grid, i.e. corresponding
+                to all matrix-fracture interfaces. Entries are 1 and -1, size is
+                (ndgrid.num_faces * self._Nd) ** 2
 
         Returns
         -------
@@ -895,9 +900,15 @@ class ContactMechanics(AbstractModel):
                 "normal_component_frac",
                 "tangential_component_frac",
                 "normal_to_tangential_frac",
+                "internal_boundary_vector_to_outwards"
             ]
             for attribute_name in matrix_attributes:
                 setattr(ad, attribute_name, pp.ad.Matrix(sps.csr_matrix((0, 0))))
+            setattr(
+                ad,
+                "internal_boundary_vector_to_outwards",
+                sps.csr_matrix((self._nd_grid().num_faces * self._Nd, self._nd_grid().num_faces * self._Nd))
+            )
         else:
             # Global to local coordinate transformation
             local_coord_proj_list = [
@@ -950,6 +961,23 @@ class ContactMechanics(AbstractModel):
                 shape=(n_frac_c_t, self._num_frac_cells),
             )
             ad.normal_to_tangential_frac = pp.ad.Matrix(n2t_matrix)
+
+            # Sign switcher accounting for normal direction of faces on internal boundaries of
+            # matrix grid (corresponding to matrix-fracture interfaces).
+            outwards_mat = None
+            for interface in fracture_matrix_interfaces:
+                mg: pp.MortarGrid = self.gb.edge_props(interface)["mortar_grid"]
+
+                faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
+                switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
+                    self._nd_grid(), self._Nd, faces_on_fracture_surface
+                )
+                if outwards_mat is None:
+                    outwards_mat = switcher_int
+                else:
+                    outwards_mat += switcher_int
+
+            ad.internal_boundary_vector_to_outwards = pp.ad.Matrix(outwards_mat)
 
         # Projections between interfaces and subdomains
         ad.mortar_projections_vector = pp.ad.MortarProjections(
@@ -1287,37 +1315,13 @@ class ContactMechanics(AbstractModel):
             raise NotImplementedError("Implementation assumes a single Nd grid")
         g_primary = matrix_subdomains[0]
         # Force balance
-        mat = None
-        # Special handling of the case with no fractures
-        if len(fracture_subdomains) > 0:
-            for _, d in self.gb.edges():
-                mg: pp.MortarGrid = d["mortar_grid"]
-                if mg.dim < self._Nd - 1:
-                    continue
 
-                faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
-                m = pp.grid_utils.switch_sign_if_inwards_normal(
-                    g_primary, self._Nd, faces_on_fracture_surface
-                )
-                if mat is None:
-                    mat = m
-                else:
-                    mat += m
-        else:
-            # If no fractures, make the sign switcher into an empty matrix
-            # of the right size (it will be multiplied by zeros at some point
-            # so we might as well kill it off).
-            mat = sps.csr_matrix(
-                (g_primary.num_faces * self._Nd, g_primary.num_faces * self._Nd)
-            )
-
-        sign_switcher = pp.ad.Matrix(mat)
 
         # Contact from primary grid and mortar displacements (via primary grid)
         contact_from_primary_mortar = (
             ad.mortar_projections_vector.primary_to_mortar_int
             * ad.subdomain_projections_vector.face_prolongation(matrix_subdomains)
-            * sign_switcher
+            * ad.internal_boundary_vector_to_outwards
             * self._stress(matrix_subdomains)
         )
         contact_from_secondary = (
