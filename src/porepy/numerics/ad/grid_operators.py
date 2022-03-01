@@ -26,11 +26,11 @@ Edge = Tuple[pp.Grid, pp.Grid]
 class SubdomainProjections(Operator):
     """Wrapper class for generating projection to and from subdomains.
 
-    One use case in when variables are defined on only some of subdomains.
+    One use case in when variables are defined on only some of the subdomains.
 
-    The class should be used through the methods {cell, face}_{projection,restriction}.
+    The class should be used through the methods {cell, face}_{projection, restriction}.
 
-    See also MortarProjections for projcetions to and from mortar grids.
+    See also MortarProjections for projections to and from mortar grids.
 
     """
 
@@ -41,17 +41,13 @@ class SubdomainProjections(Operator):
     ) -> None:
         """Construct sudomain restrictions and prolongations for a set of subdomains.
 
-        The projections will be ordered according to the ordering in grids, or the order
-        of the GridBucket iteration over grids. Iit is critical that the same ordering
-        is used by other operators.
+        The projections will be ordered according to the ordering in grids. It is critical
+        that the same ordering is used by other operators.
 
         Parameters:
             grids (List of pp.Grid): List of grids. The order of the grids in the list
-                sets the ordering of the subdomain projections.
-            gb (pp.GridBucket): Used if grid list is not provided. The order of the
-                grids is set according to iteration over the GridBucket nodes.
-            is_scalar (bool, optional): If true, projections are constructed for scalar
-                quantities.
+                will establish the ordering of the subdomain projections.
+            nd (int, optional): Dimension of the quantities to be projected.
 
         """
         self._name = "SubdomainProjection"
@@ -77,7 +73,7 @@ class SubdomainProjections(Operator):
                 the projection should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the
+            pp.ad.Matrix: Matrix operator (in the Ad sense) that represents the
                 projection.
 
         """
