@@ -727,10 +727,6 @@ class ParameterArray(Operator):
 
     """
 
-    # TODO: Eventually, we should settle for ScalarSource or ScalarSourceAD
-    # TODO: Also, we should decide if this really belongs here in grid_operators.py
-    #      or rather in discretizations.py. To be decided later.
-
     def __init__(
         self,
         param_keyword: str,
@@ -745,19 +741,18 @@ class ParameterArray(Operator):
         in grids, or the order of the GridBucket iteration over grids. It is
         critical that the same ordering is used by other operators.
 
-        IMPLEMENTATION NOTE: This class only takes care of scalar sources. Vector
-        sources (as the ones used for mechanics) will be included later.
+        IMPLEMENTATION NOTE: This class only takes care of scalar parameter arrays. Vector
+        paramater arrays (e.g. the ones used for sources in mechanics) will be included later.
 
         Parameters:
-
             param_keyword (str): Keyword that should be used to access the data dictionary
                 to get the relevant parameter dictionary (same way as discretizations
                 pick out their parameters).
             grids (List of pp.Grid): List of grids. The order of the grids in the list
-                sets the ordering of the parameter values.
-           edges (List of tuples of pp.Grid): List of edges. The order of the edges in the list
-                sets the ordering of the parameter values.
-
+                establishes the ordering of the parameter values.
+            edges (List of tuples of pp.Grid): List of edges. The order of the edges in the
+                list establishes the ordering of the parameter values.
+            name (str, optional): Name to be assigned to the operator. Default is None.
 
         Example:
             To get the source term for a flow equation initialize with param_keyword='flow',
@@ -832,8 +827,7 @@ class ParameterArray(Operator):
             return np.array([])
 
 
-#### Helper methods below
-
+# Helper methods below
 
 def _subgrid_projections(
     grids: List[pp.Grid], nd: int
