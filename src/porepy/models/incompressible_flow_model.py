@@ -1,6 +1,8 @@
 """This module contains an implementation of a base model for incompressible flow problems.
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from typing import Dict, Optional
@@ -11,6 +13,11 @@ import scipy.sparse as sps
 import porepy as pp
 
 logger = logging.getLogger(__name__)
+
+
+class _AdVariables:
+    pressure: pp.ad.Variable
+    mortar_flux: pp.ad.Variable
 
 
 class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
@@ -52,6 +59,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.mortar_variable: str = "mortar_" + self.variable
         self.parameter_key: str = "flow"
         self._use_ad = True
+        self._ad = _AdVariables()
 
     def prepare_simulation(self) -> None:
         self.create_grid()
@@ -61,6 +69,10 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         )
         self._set_parameters()
         self._assign_variables()
+
+        self._create_dof_and_eq_manager()
+        self._create_ad_variables()
+
         self._assign_discretizations()
         self._initial_condition()
 
@@ -134,6 +146,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                     "normal_diffusivity": normal_diffusivity,
                     "vector_source": gravity.ravel("F"),
                     "ambient_dimension": self.gb.dim_max(),
+                    "darcy_flux": np.zeros(mg.num_cells),
                 },
             )
 
@@ -224,6 +237,25 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                     self.mortar_variable: {"cells": 1},
                 }
 
+    def _create_dof_and_eq_manager(self) -> None:
+        """Create a dof_magaer and eq_maganer based on a mixed-dimensional grid"""
+        self.dof_manager = pp.DofManager(self.gb)
+        self._eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager)
+
+    def _create_ad_variables(self) -> None:
+        """Create the merged variables for potential and mortar flux"""
+
+        grid_list = [g for g, _ in self.gb.nodes()]
+        # Make a list of interfaces, but only for couplings one dimension apart (e.g. not for
+        # couplings that involve wells)
+        edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
+        self._ad.pressure = self._eq_manager.merge_variables(
+            [(g, self.variable) for g in grid_list]
+        )
+        self._ad.mortar_flux = self._eq_manager.merge_variables(
+            [(e, self.mortar_variable) for e in edge_list]
+        )
+
     def _assign_discretizations(self) -> None:
         """Define equations through discretizations.
 
@@ -235,18 +267,13 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         Gravity is included, but may be set to 0 through assignment of the vector_source
         parameter.
         """
-        gb = self.gb
-        dof_manager = pp.DofManager(gb)
-        self.dof_manager = dof_manager
-        self.assembler = pp.Assembler(self.gb, self.dof_manager)
-        self._eq_manager = pp.ad.EquationManager(gb, dof_manager)
 
-        grid_list = [g for g, _ in gb.nodes()]
+        grid_list = [g for g, _ in self.gb.nodes()]
         self.grid_list = grid_list
         if len(self.gb.grids_of_dimension(self.gb.dim_max())) != 1:
             raise NotImplementedError("This will require further work")
 
-        edge_list = [e for e, d in gb.edges() if d["mortar_grid"].codim < 2]
+        edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
 
         mortar_proj = pp.ad.MortarProjections(
             edges=edge_list, grids=grid_list, gb=self.gb, nd=1
@@ -259,10 +286,8 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         div = pp.ad.Divergence(grids=grid_list)
 
         # Ad variables
-        p = self._eq_manager.merge_variables([(g, self.variable) for g in grid_list])
-        mortar_flux = self._eq_manager.merge_variables(
-            [(e, self.mortar_variable) for e in edge_list]
-        )
+        p = self._ad.pressure
+        mortar_flux = self._ad.mortar_flux
 
         # Ad parameters
         vector_source_grids = pp.ad.ParameterArray(
@@ -363,10 +388,9 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
-        if self._use_ad:
-            solution = self.dof_manager.assemble_variable(from_iterate=True)
 
-        self.assembler.distribute_variable(solution)
+        solution = self.dof_manager.assemble_variable(from_iterate=True)
+        self.dof_manager.distribute_variable(values=solution, additive=False)
         self.convergence_status = True
         self._export()
 
