@@ -50,7 +50,7 @@ class AbstractModel:
             "use_ad": False,
         }
         default_params.update(params)
-        self.params = default_params
+        self.params: dict = default_params
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.

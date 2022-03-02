@@ -208,5 +208,5 @@ from porepy.utils.default_domains import (
     UnitCubeDomain,
 )
 
-# composite submodule
+# composite submodule. VL: it will have a lot elements, keep it bundled as pp.composite
 from . import composite
