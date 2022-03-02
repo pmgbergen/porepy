@@ -1050,7 +1050,7 @@ class ContactMechanics(AbstractModel):
 
         T_n: pp.ad.Operator = self._ad.normal_component_frac * self._ad.contact_traction
 
-        MaxAd = pp.ad.Function(pp.ad.max, "max_function")
+        MaxAd = pp.ad.Function(pp.ad.maximum, "max_function")
         zeros_frac = pp.ad.Array(np.zeros(self._num_frac_cells))
         u_n: pp.ad.Operator = self._ad.normal_component_frac * self._displacement_jump(
             fracture_subdomains
@@ -1183,7 +1183,7 @@ class ContactMechanics(AbstractModel):
         zeros_frac = pp.ad.Array(np.zeros(self._num_frac_cells))
 
         # Functions
-        MaxAd = pp.ad.Function(pp.ad.max, "max_function")
+        MaxAd = pp.ad.Function(pp.ad.maximum, "max_function")
         NormAd = pp.ad.Function(partial(pp.ad.l2_norm, self._Nd - 1), "norm_function")
         tol = 1e-5
         Characteristic = pp.ad.Function(
