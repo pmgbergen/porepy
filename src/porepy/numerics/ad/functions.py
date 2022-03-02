@@ -45,7 +45,7 @@ __all__ = [
     "heaviside",
     "heaviside_smooth",
     "RegularizedHeaviside",
-    "max",
+    "maximum",
     "characteristic_function",
 ]
 
@@ -93,6 +93,8 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
     to be
         [u0, v0, w0, u1, v1, w1, ..., un, vn, wn]
 
+    Vectors satisfying ui=vi=wi=0 are assigned zero entries in the jacobi matrix
+
     Usage note:
         See module level documentation on how to wrap functions like this in ad.Function.
 
@@ -122,7 +124,6 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
     nonzero_inds = vals > tol
     jac_vals = np.zeros(resh.shape)
     jac_vals[:, nonzero_inds] = resh[:, nonzero_inds] / vals[nonzero_inds]
-    jac_vals[:, ~nonzero_inds] = 1
     # Prepare for left multiplication with var.jac to yield
     # norm(var).jac = var/norm(var) * var.jac
     dim_size = var.val.size
@@ -311,10 +312,10 @@ class RegularizedHeaviside:
             return np.heaviside(var)  # type: ignore
 
 
-def max(
+def maximum(
     var0: pp.ad.Ad_array, var1: Union[pp.ad.Ad_array, np.ndarray]
 ) -> pp.ad.Ad_array:
-    """Ad max function represented as an Ad_array.
+    """Ad maximum function represented as an Ad_array.
 
     The second argument is allowed to be constant, with a numpy array originally
     wrapped in a pp.ad.Array, whereas the first argument is expected to be an
@@ -337,7 +338,7 @@ def max(
     jacs = [var0.jac.copy()]
     if isinstance(var1, np.ndarray):
         vals.append(var1.copy())
-        jacs.append(sps.csr_matrix((var0.jac.shape)))
+        jacs.append(sps.csr_matrix(var0.jac.shape))
     else:
         vals.append(var1.val.copy())
         jacs.append(var1.jac.copy())
@@ -375,5 +376,5 @@ def characteristic_function(tol: float, var: pp.ad.Ad_array):
     vals = np.zeros(var.val.size)
     zero_inds = np.isclose(var.val, 0, atol=tol)
     vals[zero_inds] = 1
-    jac = sps.csr_matrix((var.jac.shape))
+    jac = sps.csr_matrix(var.jac.shape)
     return pp.ad.Ad_array(vals, jac)
