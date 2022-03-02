@@ -1394,11 +1394,11 @@ class Assembler:
         self._dof_manager.distribute_variable(values, variables=variable_names)
 
     @pp.time_logger(sections=module_sections)
-    def num_dof(self) -> int:
+    def num_dof(self) -> np.int_:
         """Get total number of unknowns of the identified variables.
 
         Returns:
-            int: Number of unknowns. Size of solution vector.
+            np.int_: Number of unknowns. Size of solution vector.
         """
         return self._dof_manager.num_dofs()
 

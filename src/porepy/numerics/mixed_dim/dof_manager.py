@@ -6,8 +6,6 @@ import itertools
 import sys
 from typing import Dict, List, Optional, Tuple, Union
 
-from numpy import ndarray
-
 if sys.version[:3] < "3.8":
     from typing_extensions import Literal
 else:
@@ -313,7 +311,8 @@ class DofManager:
 
         """
         block_range = self._block_range_from_grid_and_var(g, variable)
-        return np.arange(block_range[0], block_range[1])
+        dof_range: np.ndarray = np.arange(block_range[0], block_range[1])
+        return dof_range
 
     def dof_var(
         self,
@@ -363,11 +362,11 @@ class DofManager:
 
     def num_dofs(
         self,
-    ) -> ndarray:
+    ) -> np.int_:
         """Get the number of degrees of freedom in this DofManager.
 
         Returns:
-            int: Size of subsystem.
+            np.int_: Size of subsystem.
 
         """
         return np.sum(self.full_dof)
