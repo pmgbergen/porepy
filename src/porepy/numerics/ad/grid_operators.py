@@ -488,7 +488,7 @@ class Trace(Operator):
         Parameters:
             grids (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the trace operators.
-            nd (int, optional): Dimension of the quantities to be projected.
+            nd (int, optional): Dimension of the quantities to be projected. Defaults to 1.
             name (str, optional): Name of the operator. Default is None.
 
         """
