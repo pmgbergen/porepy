@@ -9,10 +9,11 @@ from cv2 import phase
 import porepy as pp
 import numpy as np
 
-from ._composite_utils import create_merged_variable_on_gb
+from ._composite_utils import COMPUTATIONAL_VARIABLES
+from .computational_domain import ComputationalDomain
 
 
-class Component(abc.ABC):
+class Substance(abc.ABC):
     """
     Abstract base class for pure substances, providing abstract physical propertis which need to be implemented
     for concrete child classes to work in PorePy.
@@ -36,29 +37,25 @@ class Component(abc.ABC):
     
     """
 
-    def __init__(self, grid_bucket: pp.GridBucket) -> None:
+    def __init__(self, computational_domain: ComputationalDomain) -> None:
         """ Abstract base class constructor. Initiates component-related AD-variables.
         Contains symbolic names of associated model variables.
         
-        :param grid_bucked: domain of computations containing the component
-        :type grid_bucket: :class:`porepy.GridBucket`        
+        :param computational_domain: domain of computations containing the component
+        :type computational_domain: :class:`~porepy.composite.computational_domain.ComputationalDomain`        
         """
         super().__init__()
 
+        # public properties
+        self.cd = computational_domain
+
         # private properties
-        self._gb = grid_bucket
-        self._mortar_prefix = "mortar"
+        self._registered_phases: list = list()
 
-        self._overall_molar_fraction: pp.ad.MergedVariable
-        self._mortar_omf: pp.ad.MergedVariable
-        self._omf_var: str = "zeta"
-        self._instantiate_overall_molar_fraction()
-
-        self._molar_fraction_in_phase: Dict[str, "pp.ad.MergedVariable"] = dict()
-        self._mortar_molar_fraction_in_phase: Dict[str, "pp.ad.MergedVariable"] = dict()
-        self._mfip_var: str = "chi"
-        self._mfip_names: dict = dict()
-        self._mortar_mfip_names: dict = dict()
+        # adding the overall molar fraction to the primary variables
+        self.cd(self.omf_name, {"cells": 1})
+        # TODO math. check if mortar var is needed
+        self.cd(self.mortar_omf_name, {"cells": 1})
 
     @property
     def name(self):
@@ -67,14 +64,6 @@ class Component(abc.ABC):
         :rtype: str 
         """
         return str(self.__class__.__name__)
-
-    @property
-    def nc(self) -> int:
-        """ 
-        :return: number of cells in computational domain of instantiation
-        :rtype: int
-        """
-        return self.cd.num_cells()
 
     @property
     def ideal_gas_constant(self) -> float:
@@ -95,7 +84,7 @@ class Component(abc.ABC):
         :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the overall molar fraction of this component
         :rtype: :class:`porepy.ad.MergedVariable`
         """
-        return self._overall_molar_fraction
+        return self.cd(self.omf_name)
 
     @property
     def omf_name(self) -> str:
@@ -103,7 +92,7 @@ class Component(abc.ABC):
         :return: name of the overall molar fraction variable under which it is stored in the grid data dictionaries
         :rtype: str
         """
-        return self._omf_var + "_" + self.name
+        return COMPUTATIONAL_VARIABLES["component_overall_fraction"] + "_" + self.name
 
     @property
     def mortar_overall_molar_fraction(self) -> pp.ad.MergedVariable:
@@ -112,7 +101,7 @@ class Component(abc.ABC):
         :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the overall molar fraction on mortar grids of this component
         :rtype: :class:`porepy.ad.MergedVariable`
         """
-        return self._mortar_omf
+        return self.cd(self.mortar_omf_name)
     
     @property
     def mortar_omf_name(self) -> str:
@@ -120,7 +109,7 @@ class Component(abc.ABC):
         :return: name of the overall molar fraction variable on the mortar grids under which it is stored in the grid data dictionaries
         :rtype: str
         """
-        return self._mortar_prefix + "_" + self._omf_var + "_" + self.name
+        return COMPUTATIONAL_VARIABLES["mortar_prefix"] + "_" + COMPUTATIONAL_VARIABLES["component_overall_fraction"] + "_" + self.name
 
     def molar_fraction_in_phase(self, phase_name: str) -> pp.ad.MergedVariable:
         """ As a fractional quantity, all values are between 0 and 1.
@@ -131,20 +120,17 @@ class Component(abc.ABC):
         :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the molar fraction of this component in phase `phase_name`.
         :rtype: :class:`porepy.ad.MergedVariable`
         """
-        return self._molar_fraction_in_phase[phase_name]
+        return self.cd(self.mfip_name(phase_name))
 
     def mfip_name(self, phase_name: str) -> str:
         """
-        :param phase_name: name of the  :class:`porepy.composig.Phase` for which the fraction variable's name is requested
+        :param phase_name: name of the  :class:`~porepy.composite.phase.Phase` for which the fraction variable's name is requested
         :type phase_name: str
 
-        :return: name of the molar fraction in phase variable under which it is stored in the grid data dictionaries
+        :return: name of the molar fraction in phase variable 
         :rtype: str
         """
-        if phase_name in self._molar_fraction_in_phase.keys():
-            return self._mfip_var + "_" + self.name + "_" + phase_name
-        else:
-            raise ValueError("Component " + self.name + " not in phase " + str(phase_name))
+        return COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + self.name + "_" + str(phase_name)
 
     def mortar_molar_fraction_in_phase(self, phase_name: str) -> pp.ad.MergedVariable:
         """ As a fractional quantity, all values are between 0 and 1.
@@ -155,53 +141,47 @@ class Component(abc.ABC):
         :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the molar fraction of this component in phase `phase_name` on the mortar grids.
         :rtype: :class:`porepy.ad.MergedVariable`
         """
-        return self._mortar_molar_fraction_in_phase[phase_name]
+        return self.cd(self.mortar_mfip_name(phase_name))
     
-    def mfip_name(self, phase_name: str) -> str:
+    def mortar_mfip_name(self, phase_name: str) -> str:
         """
-        :param phase_name: name of the  :class:`porepy.composig.Phase` for which the fraction variable's name is requested
+        :param phase_name: name of the :class:`~porepy.composite.phase.Phase` for which the fraction variable's name is requested
         :type phase_name: str
 
-        :return: name of the molar fraction in phase variable under which it is stored in the grid data dictionaries
+        :return: name of the mortar molar fraction in phase variable 
         :rtype: str
         """
-        if phase_name in self._mortar_molar_fraction_in_phase.keys():
-            return self._mortar_prefix + "_" + self._mfip_var + "_" + self.name + "_" + phase_name
-        else:
-            raise ValueError("(Mortar) Component " + self.name + " not in phase " + str(phase_name))
+        return COMPUTATIONAL_VARIABLES["mortar_prefix"] + "_" + COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + self.name + "_" + str(phase_name)
 
-    def create_molar_fraction_in_phase(self, phase_name: str) -> Tuple[pp.ad.MergedVariable, pp.ad.MergedVariable]:
-        """ Creates an AD variable representing the molar fraction of the component in phase `phase_name`.
+    def _register_phase(self, phase_name: str) -> None:
+        """
+        Registers the presence of this substance in given phase. 
+
+        Creates an AD variable representing the molar fraction of the component in phase `phase_name`.
         This is a primary variable in composite flow obtained by flash calculations.
         Given phase name will be key for accessing the variable using.
 
-        NOTE (VL): Use this function carefully.
-        The supposed usage is only by the Phase class to register itself with this component.
+        NOTE (VL): This method might be useless, since mfip vars can be called dynamically.
+        The supposed usage is only by the Phase class to register itself with this component,
+        and to instantiate mfip vars with the correct number of dofs.
         This solution is not elegant and meant only for prototyping.
         
         :param phase_name: name of the phase
         :type phase_name: str
-
-        :return: reference to the domain-wide variable 
-        :rtype: :class:`porepy.ad.MergedVariable`
         """
         
         phase_name = str(phase_name)
 
-        # set name for this global variable
-        fraction_name = self._mfip_var + "_" + self.name + "_" + phase_name
-        # set the name for the associated mortar variable
-        mortar_fraction_name = self._mortar_prefix + "_" + self._mfip_var + "_" + self.name + "_" + phase_name
+        # if phase is already registered, do nothing
+        if phase_name in self._registered_phases:
+            return
+        else:
+            self._registered_phases.append(phase_name)
 
         # create domain-wide MergedVariable object
+        self.cd(self.mfip_name(phase_name), {"cells": 1})
         # TODO maths. check if mortar var is needed
-        new_mfip_var, new_mortar_mfip_var = create_merged_variable_on_gb(
-            self._gb, {"cells": 1}, fraction_name, mortar_fraction_name
-        )
-
-        # stor the variables in a private dictionary
-        self._molar_fraction_in_phase.update({phase_name: new_mfip_var})
-        self._mortar_molar_fraction_in_phase.update({phase_name: new_mortar_mfip_var})
+        self.cd(self.mortar_mfip_name(phase_name), {"cells": 1})
 
     def set_initial_overall_molar_fraction(self, initial_values: List["np.ndarray"]) -> None:
         """ Order of grid-related initial values in `initial_values` has to be the same as 
@@ -215,7 +195,7 @@ class Component(abc.ABC):
         # create a copy to avoid issues in case there is another manipulated reference to the values
         vals = [arr.copy() for arr in initial_values]
 
-        for grid_data, vals in zip(self._gb, vals):
+        for grid_data, vals in zip(self.cd.gb, vals):
             data = grid_data[1]  # get data out (grid, data) tuple
             if pp.STATE not in data:
                 data[pp.STATE] = {}
@@ -228,26 +208,12 @@ class Component(abc.ABC):
         # TODO set initial values at interfaces, if applicable (the maths is missing here)
         # check if above code works for GridBuckets without fractures
 
-    def _instantiate_overall_molar_fraction(self) -> None:
-        """ Creates the AD representation of the overall molar fraction.
-        This is a primary variable in composit flows.
-        """
-        # adding the overall molar fraction to the primary variables
-        # important to notice that they are ADDED, i.e. update the dictionary of prim.vars., don't overwrite it
-        # TODO math. check if mortar var is needed
-        omf_var, mortar_omf_var = create_merged_variable_on_gb(
-            self._gb, {"cells": 1},  self.omf_name, self.mortar_omf_name
-        )
-
-        self._overall_molar_fraction = omf_var
-        self._mortar_omf = mortar_omf_var
-
 
 #------------------------------------------------------------------------------
 ### CONSTANT SCALAR ATTRIBUTES
 #------------------------------------------------------------------------------
 
-    @property
+    @staticmethod
     @abc.abstractmethod
     def molar_mass(self) -> float:
         """
@@ -264,7 +230,7 @@ class Component(abc.ABC):
 #------------------------------------------------------------------------------
 
     @abc.abstractmethod
-    def molar_density(self) -> pp.ad.Function:
+    def molar_density(self, *args, **kwargs) -> pp.ad.Function:
         """ 
         Math. Dimension:        scalar
         Phys. Dimension:        [mol / m^3]
@@ -286,7 +252,7 @@ class Component(abc.ABC):
     #     pass
 
 
-class FluidComponent(Component):
+class FluidSubstance(Substance):
     """
     A class extending the list of abstract physical properties with new ones, associated with fluid components.
 
@@ -296,7 +262,7 @@ class FluidComponent(Component):
     """
 
     @abc.abstractmethod
-    def dynamic_viscosity(self) -> pp.ad.Function:
+    def dynamic_viscosity(self, *args, **kwargs) -> pp.ad.Function:
         """ 
         Math. Dimension:        scalar
         Phys. Dimension:        [kg / m s]
@@ -307,7 +273,7 @@ class FluidComponent(Component):
         pass
 
 
-class SolidSkeletonComponent(Component):
+class SolidSubstance(Substance):
     """
     A class extending the list of abstract physical properties with new ones,
     associated with material for the skeleton of various porous media.
@@ -319,13 +285,26 @@ class SolidSkeletonComponent(Component):
     
     """
 
+    @staticmethod
     @abc.abstractmethod
-    def base_porosity(self,) -> float:
+    def base_porosity() -> float:
         """
         Math. Dimension:        scalar
         Phys. Dimension:        dimensionsless, fractional
 
         :return: base porosity of the material
+        :rtype: float
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def base_permeability() -> float:
+        """
+        Math. Dimension:        scalar
+        Phys. Dimension:        [m^2] ( [Darcy] not official SI unit)
+
+        :return: base permeability of the material
         :rtype: float
         """
         pass
