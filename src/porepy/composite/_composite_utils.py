@@ -22,15 +22,8 @@ The key is a word describing the physical variable.
 They are used for accessing the variable using :class:`~pp.composite.material_subdomain.MaterialSubDomain` and
 :class: `~porepy.compostie.computational_domain.ComputationalDomain`.
 
-The value is a 2-tuple,
-    1. entry is a string, representing the mathematical symbol,
-    2. entry a dictionary, containing the degrees of freedom on each grid elements like cells and faces.
-        The dictionary has keys
-            - 'cells'
-            - 'faces'
-            - 'nodes'
-        and integer values, representing the mathematical dimension of the variable on that element.
-        (e.g.  inside a cell, pressure has 1 mathematical dimension, displacement has 3 in 3D)
+The value is a string, representing the mathematical symbol,
+
 Above information is used to construct AD variables and to store respective information in the grid data structure.
 (e.g. if pressure has the symbol 'p', the relevant information will be found in 'data[pp.PRIMARY_VARIABLES]["p"]')
 
@@ -46,12 +39,12 @@ Assumed, default SI units of the respective variables are found below in comment
 COMPUTATIONAL_VARIABLES: Dict[str, str] = {
     "mortar_prefix": "mortar",                                                  # SYMBOL prefix for variables which appear on mortar grids
     
-    "pressure" : ("p", {"cells": 1}),                                           # [Pa] = [N / m^2] = [ kg / m s^2]
+    "pressure" : "p",                                                           # [Pa] = [N / m^2] = [ kg / m / s^2]
 
-    "enthalpy" : ("h", {"cells": 1}),                                           # (specific, molar) [J / mol] = [kg m^2 / s^2 mol]
-    "temperature" : ("T", {"cells": 1}),                                        # [K]
+    "enthalpy" : "h",                                                           # (specific, molar) [J / mol] = [kg m^2 / s^2 / mol]
+    "temperature" : "T",                                                        # [K]
 
-    "displacement" : ("u", {"nodes": 3}),                                                       # [m]
+    "displacement" : "u",                                                       # [m]
     
     "component_overall_fraction" : "zeta",                                      # (fractional, molar) [-]
     "component_fraction_in_phase" : "chi",                                      # (fractional, molar) [-]

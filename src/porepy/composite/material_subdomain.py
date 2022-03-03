@@ -33,12 +33,26 @@ class MaterialSubdomain:
         # NOTE currently we assume only a single substance. Mixed substance Domains remain a question for future development
         self.substance: SolidSubstance = substances[0]
 
+    def __str__(self) -> str:
+        """ String representation combining information about geometry and material."""
+        out = 'Material subdomain made of ' + self.substance.name + ' on grid:\n'
+        return out + str(self.grid)
+
     def base_porosity(self) -> pp.ad.Array:
         """
         :return: AD representation of the base porosity
         :rtype: :class:`~porepy.numerics.ad.operators.Array`
         """
         arr = np.ones(self.grid.num_cells) * self.substance.base_porosity()
+
+        return pp.ad.Array(arr)
+    
+    def base_permeability(self) -> pp.ad.Array:
+        """
+        :return: AD representation of the base permeability
+        :rtype: :class:`~porepy.numerics.ad.operators.Array`
+        """
+        arr = np.ones(self.grid.num_cells) * self.substance.base_permeability()
 
         return pp.ad.Array(arr)
         

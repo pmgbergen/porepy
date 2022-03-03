@@ -265,7 +265,7 @@ class FluidSubstance(Substance):
     def dynamic_viscosity(self, *args, **kwargs) -> pp.ad.Function:
         """ 
         Math. Dimension:        scalar
-        Phys. Dimension:        [kg / m s]
+        Phys. Dimension:        [kg / m / s]
 
         :return: dynamic viscosity of the fluid (dependent on thermodynamic state)
         :rtype: :class:`porepy.ad.Function`
