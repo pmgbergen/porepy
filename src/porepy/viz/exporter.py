@@ -549,44 +549,15 @@ class Exporter:
             nodes_offset += g.num_nodes
 
         # construct the meshio data structure
-        num_block = len(cell_to_nodes)
-        meshio_cells = np.empty(num_block, dtype=object)
-        meshio_cell_id = np.empty(num_block, dtype=object)
+        num_blocks = len(cell_to_nodes)
+        meshio_cells = np.empty(num_blocks, dtype=object)
+        meshio_cell_id = np.empty(num_blocks, dtype=object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         return meshio_pts, meshio_cells, meshio_cell_id
-
-    # Light-weight alternative to sort_point_pairs from utils.
-    # NOTE it returns equivalent (in terms of graph theory) but not equal results.
-    # TODO not used here, see if this replaces sort_point_pairs in utils.
-    def _sort_point_pairs(nds):
-        # TODO proper doc
-        """Expects an array of size 2 x npts. Each column represents an edge in a cyclic graph,
-        containing the connected node ids. The algorithm returns a 1D array of size npts with
-        node ids ordered such that they represent a cycle.
-        """
-
-        # First flip point pairs until each point is represented merely once in each row.
-        for i in range(1,nds.shape[1]):
-            if min([len(set(nds[j][:i+1])) for j in range(2)]) < i + 1:
-                nds[0][i], nds[1][i] = nds[1][i], nds[0][i]
-
-        # Safety check. Expect no double appearance.
-        if min([len(set(nds[j])) for j in range(2)]) != nds.shape[1]:
-            raise ValueError("Input does not allow sorting.")
-
-        # Convert to list of tuples with tuples and its entries representing
-        # edges and nodes, resp.
-        tuple_representation = [(nds[0][i], nds[1][i]) for i in range(nds.shape[1])]
-
-        # Domino sort
-        sorted_tuple_representation = sorted(tuple_representation)
-
-        # Extract sorted nodes and convert to array
-        return np.array([n for (n,m) in sorted_tuple_representation], dtype=int)
 
     def _export_2d(
         self, gs: Iterable[pp.Grid]
@@ -599,8 +570,8 @@ class Exporter:
             gs (Iterable[pp.Grid]): Subdomains.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 2d cells, and cell ids
-                in correct meshio format.
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 2d cells (storing the
+                connectivity), and cell ids in correct meshio format.
         """
 
         # Dictionary storing cell->nodes connectivity information for all
@@ -630,6 +601,8 @@ class Exporter:
             # This would allow for using optimized numpy operations.
             # Finally, polygon3 and polygon4 could be renamed to triangle and quad,
             # whereas all other polygonN are merged to a common polygon.
+
+            # See export_3d.
 
             # Determine cell types based on number of nodes per cell.
             num_nodes_per_cell = g.cell_nodes().getnnz(axis=0)
@@ -740,6 +713,7 @@ class Exporter:
                 cell_to_nodes["quad"] = quad_cn + nodes_offset
 
             # 3. General polygons. Proceed in case the grid contains polygons.
+            # TODO rm.
             if num_polygon_cells > 0:
 
                 # Cell-face and face-node relations
@@ -790,9 +764,9 @@ class Exporter:
             cell_offset += g.num_cells
 
         # Construct the meshio data structure
-        num_block = len(cell_to_nodes)
-        meshio_cells = np.empty(num_block, dtype=object)
-        meshio_cell_id = np.empty(num_block, dtype=object)
+        num_blocks = len(cell_to_nodes)
+        meshio_cells = np.empty(num_blocks, dtype=object)
+        meshio_cell_id = np.empty(num_blocks, dtype=object)
 
         # For each cell_type store the connectivity pattern cell_to_nodes for
         # the corresponding cells with ids from cell_id.
@@ -894,129 +868,151 @@ class Exporter:
         """
         Export the geometrical data (point coordinates) and connectivity
         information from the 3d PorePy grids to meshio.
+
+        Parameters:
+            gs (Iterable[pp.Grid]): Subdomains.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 3d cells (storing the
+                connectivity), and cell ids in correct meshio format.
         """
 
-        # use standard name for simple object type
-        # NOTE: this part is not developed
-        # polygon_map  = {"polyhedron4": "tetra", "polyhedron8": "hexahedron"}
+        # Use standard name for simple object types: in this routine only tetra cells
+        # are treated in a special manner.
+        polyhedron_map  = {"polyhedron4": "tetra"}
 
-        # cell-faces and cell nodes connectivity information
+        # Dictionaries storing cell->faces and cell->nodes connectivity information
+        # for all cell types. For this, the nodes have to be sorted such that
+        # they form a circular chain, describing the boundary of the cell.
         cell_to_faces: Dict[str, List[List[int]]] = {}
         cell_to_nodes: Dict[str, np.ndarray] = {}
-        # cell id map
+        # Dictionary collecting all cell ids for each cell type.
         cell_id: Dict[str, List[int]] = {}
 
-        # points
+        # Data structure for storing node coordinates of all 2d grids.
         num_pts = np.sum([g.num_nodes for g in gs])
         meshio_pts = np.empty((num_pts, 3))  # type: ignore
 
-        # offsets
+        # Initialize offsets. Required taking into account multiple 2d grids.
         nodes_offset = 0
-        cell_pos = 0 # TODO rm and include offset
+        cell_offset = 0
 
-        # loop on all the 3d grids
+        # Loop over all 3d grids
         for g in gs:
-            # save the points information
+
+            # Store node coordinates
             sl = slice(nodes_offset, nodes_offset + g.num_nodes)
             meshio_pts[sl, :] = g.nodes.T
 
-            # TODO rm
-            # Cell-face and face-node relations
-            g_faces_cells, g_cells, _ = sps.find(g.cell_faces)
-            # Ensure ordering of the cells
-            g_faces_cells = g_faces_cells[np.argsort(g_cells)]
-            g_nodes_faces, _, _ = sps.find(g.face_nodes)
+            # Determine cell types based on number of nodes per cell.
+            num_faces_per_cell = g.cell_faces.getnnz(axis=0)
 
-            cptr = g.cell_faces.indptr
-            fptr = g.face_nodes.indptr
-            face_per_cell = np.diff(cptr)
-            nodes_per_face = np.diff(fptr)
+            # Loop over all available cell types and group cells of one type.
+            # Init first data corresponding structure.
+            g_cell_map = dict()
+            for n in np.unique(num_faces_per_cell):
+                # Define cell type; check if it coincides with a predefined cell type
+                cell_type = polyhedron_map.get(f"polyhedron{n}", f"polyhedron{n}")
+                # Find all cells with n faces, and store for later use
+                cells = np.nonzero(num_faces_per_cell == n)[0]
+                g_cell_map[cell_type] = cells
+                # Store cell ids in global container; init if entry not yet established
+                if cell_type not in cell_id:
+                    cell_id[cell_type] = []
+                # Add offset taking into account previous grids
+                cell_id[cell_type] += (cells + cell_offset).tolist()
 
-            # Total number of nodes to be written in the face-node relation
-            num_cell_nodes = np.array([nodes_per_face[i] for i in g.cell_faces.indices])
+            # Determine connectivity. Loop over available cell types, and treat tetrahedra
+            # and general polyhedra differently aiming for optimized performance. 
 
-            n = g.nodes
-            fc = g.face_centers
-            normal_vec = g.face_normals / g.face_areas
+            for n in np.unique(num_faces_per_cell):
 
-            # Use numba if available, unless the problem is very small, in which
-            # case the pure python version probably is faster than combined compile
-            # and runtime for numba
-            # The number 1000 here is somewhat random.
-            if self._has_numba and g.num_cells > 1000:
-                logger.info("Construct 3d grid information using numba")
-                cell_nodes = self._point_ind_numba(
-                    cptr,
-                    fptr,
-                    g_faces_cells,
-                    g_nodes_faces,
-                    n,
-                    fc,
-                    normal_vec,
-                    num_cell_nodes,
-                )
-            else:
-                logger.info("Construct 3d grid information using pure python")
-                cell_nodes = self._point_ind(
-                    cptr,
-                    fptr,
-                    g_faces_cells,
-                    g_nodes_faces,
-                    n,
-                    fc,
-                    normal_vec,
-                    num_cell_nodes,
-                )
+                # Define the cell type
+                cell_type = polyhedron_map.get(f"polyhedron{n}", f"polyhedron{n}")
 
-            # implementation note: I did not even try feeding this to numba, my
-            # guess is that it will not like the vtk specific stuff.
-            nc = 0
-            f_counter = 0
+                # Special case: Tetrahedra
+                if cell_type == "tetra":
+                    # Since tetra is a meshio-known cell type, cell_to_nodes connectivity information
+                    # is provided, i.e., for each cell the nodes in the meshio-defined local numbering
+                    # of nodes is generated. Since tetra is a simplex, the nodes do not need to be
+                    # ordered in any specific type, as the geometrical object is invariant under
+                    # permutations.
 
-            # loop on all the grid cells
-            for c in np.arange(g.num_cells):
-                faces_loc: List[int] = []
-                # loop on all the cell faces
-                for _ in np.arange(face_per_cell[c]):
-                    fi = g.cell_faces.indices[f_counter]
-                    faces_loc += [cell_nodes[nc : (nc + nodes_per_face[fi])]]
-                    nc += nodes_per_face[fi]
-                    f_counter += 1
+                    # Determine all tetra cells
+                    cells = g_cell_map[cell_type]
+                    # Extract indptr for all tetra cells.
+                    cn_indptr = g.cell_nodes().indptr[cells]
+                    # Expand indptr, explicitly specifying the location of all nodes for each tetra cell.
+                    # Integrate the explicit knowledge that each tetra cell consists of 4 nodes.
+                    expanded_cn_indptr = np.vstack([cn_indptr + i for i in range(4)]).reshape(-1, order="F")
+                    # Detect all corresponding nodes by applying the expanded mask to the indices
+                    cn_indices = g.cell_nodes().indices[expanded_cn_indptr]
+                    # Bring to number of num tetra cells x 4 format by reshaping
+                    cn_indices = np.reshape(cn_indices, (-1,4), order="C")
+                    # Initialize data structure if not available yet
+                    if cell_type not in cell_to_nodes:
+                        cell_to_nodes[cell_type] = np.empty((0,4), dtype=int)
+                    # Store cell-node connectivity, and add offset taking into account previous grids
+                    cell_to_nodes[cell_type] = cn_indices + nodes_offset
 
-                # collect all the nodes for the cell
-                nodes_loc = np.unique(np.hstack(faces_loc)).astype(int)
-
-                # define the type of cell we are currently saving
-                cell_type = "polyhedron" + str(nodes_loc.size)
-                # cell_type = polygon_map.get(cell_type, cell_type)
-
-                # if the cell type is not present, then add it
-                if cell_type not in cell_to_nodes:
-                    cell_to_nodes[cell_type] = np.atleast_2d(nodes_loc + nodes_offset)
-                    cell_to_faces[cell_type] = [faces_loc]
-                    cell_id[cell_type] = [cell_pos]
+                # Identify remaining cells as polyhedra
                 else:
-                    cell_to_nodes[cell_type] = np.vstack(
-                        (cell_to_nodes[cell_type], nodes_loc + nodes_offset)
-                    )
-                    cell_to_faces[cell_type] += [faces_loc]
-                    cell_id[cell_type] += [cell_pos]
-                cell_pos += 1
+                    # The general strategy is to define the connectivity as cell-face information,
+                    # where the faces are defined by nodes. Hence, this information is significantly
+                    # larger than the info provided for tetra cells. Here, we make use of the fact
+                    # that g.face_nodes provides nodes ordered wrt. the right-hand rule.
+                    
+                    # Determine all cells with n faces
+                    cells = g_cell_map[cell_type]
 
+                    # Store short cuts to cell-face and face-node information
+                    cf_indptr = g.cell_faces.indptr
+                    cf_indices = g.cell_faces.indices
+                    fn_indptr = g.face_nodes.indptr
+                    fn_indices = g.face_nodes.indices
+
+                    # Determine the cell-face connectivity (with faces described by their
+                    # nodes ordered such that they form a chain and are identified by the
+                    # face boundary. The final data format is a List[List[np.ndarray]].
+                    # The outer list, loops over all cells. Each cell entry contains a
+                    # list over faces, and each face entry is given by the face nodes.
+                    if cell_type not in cell_to_faces:
+                        cell_to_faces[cell_type] = []
+                    cell_to_faces[cell_type] = [
+                        [
+                            fn_indices[fn_indptr[f] : fn_indptr[f+1]]           # nodes
+                            for f in cf_indices[cf_indptr[c]:cf_indptr[c+1]]    # faces
+                        ] for c in cells                                        # cells
+                    ]
+
+            # Update offset
             nodes_offset += g.num_nodes
+            cell_offset += g.num_cells
 
-        # NOTE: only cell->faces relation will be kept, so far we export only polyhedron
-        # otherwise in the next lines we should consider also the cell->nodes map
+        # Determine the total number of blocks. Recall that tetra and general
+        # polyhedron{n} cells are stored differently.
+        num_tetra_blocks = len(cell_to_nodes)
+        num_polyhedron_blocks = len(cell_to_faces)
+        num_blocks = num_tetra_blocks + num_polyhedron_blocks
 
-        # construct the meshio data structure
-        num_block = len(cell_to_nodes)
-        meshio_cells = np.empty(num_block, dtype=object)
-        meshio_cell_id = np.empty(num_block, dtype=object)
+        # Initialize the meshio data structure for the connectivity and cell ids.
+        meshio_cells = np.empty(num_blocks, dtype=object)
+        meshio_cell_id = np.empty(num_blocks, dtype=object)
 
+        # Store tetra cells. Use cell_to_nodes to store the connectivity info.
+        for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
+            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
+            meshio_cell_id[block] = np.array(cell_id[cell_type])
+
+        # Store tetra cells first. Use the more general cell_to_faces to store
+        # the connectivity info.
         for block, (cell_type, cell_block) in enumerate(cell_to_faces.items()):
+            # Adapt the block number taking into account of previous cell types.
+            block += num_tetra_blocks
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
+        # Return final meshio data: points, cell (connectivity), cell ids
         return meshio_pts, meshio_cells, meshio_cell_id
 
     def _write(self, fields: Iterable[Field], file_name: str, meshio_geom) -> None:
@@ -1108,185 +1104,3 @@ class Exporter:
         else:
             time = str(time_step).zfill(padding)
             return file_name + str(dim) + "_" + time + extension
-
-    ### Below follows utility functions for sorting points in 3d
-
-    def _point_ind(
-        self,
-        cell_ptr,
-        face_ptr,
-        face_cells,
-        nodes_faces,
-        nodes,
-        fc,
-        normals,
-        num_cell_nodes,
-    ):
-        cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=int)
-        counter = 0
-        for ci in range(cell_ptr.size - 1):
-            loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
-
-            for fi in face_cells[loc_c]:
-                loc_f = slice(face_ptr[fi], face_ptr[fi + 1])
-                ptsId = nodes_faces[loc_f]
-                num_p_loc = ptsId.size
-                nodes_loc = nodes[:, ptsId]
-                # Sort points. Cut-down version of
-                # sort_points.sort_points_plane() and subfunctions
-                reference = np.array([0.0, 0.0, 1])
-                angle = np.arccos(np.dot(normals[:, fi], reference))
-                vect = np.cross(normals[:, fi], reference)
-                # Cut-down version of cg.rot()
-                W = np.array(
-                    [
-                        [0.0, -vect[2], vect[1]],
-                        [vect[2], 0.0, -vect[0]],
-                        [-vect[1], vect[0], 0.0],
-                    ]
-                )
-                R = (
-                    np.identity(3)
-                    + np.sin(angle) * W
-                    + (1.0 - np.cos(angle)) * np.linalg.matrix_power(W, 2)
-                )
-                # pts is now a npt x 3 matrix
-                pts = np.array(
-                    [R.dot(nodes_loc[:, i]) for i in range(nodes_loc.shape[1])]
-                )
-                center = R.dot(fc[:, fi])
-                # Distance from projected points to center
-                delta = np.array([pts[i] - center for i in range(pts.shape[0])])[:, :2]
-                nrm = np.sqrt(delta[:, 0] ** 2 + delta[:, 1] ** 2)
-                delta = delta / nrm[:, np.newaxis]
-
-                argsort = np.argsort(np.arctan2(delta[:, 0], delta[:, 1]))
-                cell_nodes[counter : (counter + num_p_loc)] = ptsId[argsort]
-                counter += num_p_loc
-
-        return cell_nodes
-
-    def _point_ind_numba(
-        self,
-        cell_ptr,
-        face_ptr,
-        faces_cells,
-        nodes_faces,
-        nodes,
-        fc,
-        normals,
-        num_cell_nodes,
-    ):
-        import numba
-
-        @numba.jit(
-            "i4[:](i4[:],i4[:],i4[:],i4[:],f8[:,:],f8[:,:],f8[:,:],i4[:])",
-            nopython=True,
-            nogil=False,
-        )
-        def _function_to_compile(
-            cell_ptr,
-            face_ptr,
-            faces_cells,
-            nodes_faces,
-            nodes,
-            fc,
-            normals,
-            num_cell_nodes,
-        ):
-            """Implementation note: This turned out to be less than pretty, and quite
-            a bit more explicit than the corresponding pure python implementation.
-            The process was basically to circumvent whatever statements numba did not
-            like. Not sure about why this ended so, but there you go.
-            """
-            cell_nodes = np.zeros(num_cell_nodes.sum(), dtype=np.int32)
-            counter = 0
-            fc.astype(np.float64)
-            for ci in range(cell_ptr.size - 1):
-                loc_c = slice(cell_ptr[ci], cell_ptr[ci + 1])
-                for fi in faces_cells[loc_c]:
-                    loc_f = np.arange(face_ptr[fi], face_ptr[fi + 1])
-                    ptsId = nodes_faces[loc_f]
-                    num_p_loc = ptsId.size
-                    nodes_loc = np.zeros((3, num_p_loc))
-                    for iter1 in range(num_p_loc):
-                        nodes_loc[:, iter1] = nodes[:, ptsId[iter1]]
-                    #            # Sort points. Cut-down version of
-                    #            # sort_points.sort_points_plane() and subfunctions
-                    reference = np.array([0.0, 0.0, 1])
-                    angle = np.arccos(np.dot(normals[:, fi], reference))
-                    # Hand code cross product, not supported by current numba version
-                    vect = np.array(
-                        [
-                            normals[1, fi] * reference[2]
-                            - normals[2, fi] * reference[1],
-                            normals[2, fi] * reference[0]
-                            - normals[0, fi] * reference[2],
-                            normals[0, fi] * reference[1]
-                            - normals[1, fi] * reference[0],
-                        ],
-                        dtype=np.float64,
-                    )
-                    ##            # Cut-down version of cg.rot()
-                    W = np.array(
-                        [
-                            0.0,
-                            -vect[2],
-                            vect[1],
-                            vect[2],
-                            0.0,
-                            -vect[0],
-                            -vect[1],
-                            vect[0],
-                            0.0,
-                        ]
-                    ).reshape((3, 3))
-                    R = (
-                        np.identity(3)
-                        + np.sin(angle) * W.reshape((3, 3))
-                        + (
-                            (1.0 - np.cos(angle)) * np.linalg.matrix_power(W, 2).ravel()
-                        ).reshape((3, 3))
-                    )
-                    ##            # pts is now a npt x 3 matrix
-                    num_p = nodes_loc.shape[1]
-                    pts = np.zeros((3, num_p))
-                    fc_loc = fc[:, fi]
-                    center = np.zeros(3)
-                    for i in range(3):
-                        center[i] = (
-                            R[i, 0] * fc_loc[0]
-                            + R[i, 1] * fc_loc[1]
-                            + R[i, 2] * fc_loc[2]
-                        )
-                    for i in range(num_p):
-                        for j in range(3):
-                            pts[j, i] = (
-                                R[j, 0] * nodes_loc[0, i]
-                                + R[j, 1] * nodes_loc[1, i]
-                                + R[j, 2] * nodes_loc[2, i]
-                            )
-                    ##            # Distance from projected points to center
-                    delta = 0 * pts
-                    for i in range(num_p):
-                        delta[:, i] = pts[:, i] - center
-                    nrm = np.sqrt(delta[0] ** 2 + delta[1] ** 2)
-                    for i in range(num_p):
-                        delta[:, i] = delta[:, i] / nrm[i]
-                    ##
-                    argsort = np.argsort(np.arctan2(delta[0], delta[1]))
-                    cell_nodes[counter : (counter + num_p_loc)] = ptsId[argsort]
-                    counter += num_p_loc
-
-            return cell_nodes
-
-        return _function_to_compile(
-            cell_ptr,
-            face_ptr,
-            faces_cells,
-            nodes_faces,
-            nodes,
-            fc,
-            normals,
-            num_cell_nodes,
-        )
