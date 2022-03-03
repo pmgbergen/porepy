@@ -574,6 +574,10 @@ class Exporter:
                 connectivity), and cell ids in correct meshio format.
         """
 
+        # Use standard names for simple object types: in this routine only triangle
+        # and quad cells are treated in a special manner.
+        polygon_map  = {"polygon3": "triangle", "polygon4": "quad"}
+
         # Dictionary storing cell->nodes connectivity information for all
         # cell types. For this, the nodes have to be sorted such that
         # they form a circular chain, describing the boundary of the cell.
@@ -596,168 +600,105 @@ class Exporter:
             sl = slice(nodes_offset, nodes_offset + g.num_nodes)
             meshio_pts[sl, :] = g.nodes.T
 
-            # TODO vectorize over cell_type? Could keep the previous concept
-            # of calling each element polygonN with N the number of points per cell.
-            # This would allow for using optimized numpy operations.
-            # Finally, polygon3 and polygon4 could be renamed to triangle and quad,
-            # whereas all other polygonN are merged to a common polygon.
+            # Determine cell types based on number of faces=nodes per cell.
+            num_faces_per_cell = g.cell_faces.getnnz(axis=0)
 
-            # See export_3d.
+            # Loop over all available cell types and group cells of one type.
+            g_cell_map = dict()
+            for n in np.unique(num_faces_per_cell):
+                # Define cell type; check if it coincides with a predefined cell type
+                cell_type = polygon_map.get(f"polygon{n}", f"polygon{n}")
+                # Find all cells with n faces, and store for later use
+                cells = np.nonzero(num_faces_per_cell == n)[0]
+                g_cell_map[cell_type] = cells
+                # Store cell ids in global container; init if entry not yet established
+                if cell_type not in cell_id:
+                    cell_id[cell_type] = []
+                # Add offset taking into account previous grids
+                cell_id[cell_type] += (cells + cell_offset).tolist()
 
-            # Determine cell types based on number of nodes per cell.
-            num_nodes_per_cell = g.cell_nodes().getnnz(axis=0)
-
-            # Cells with three nodes are identified as triangle cells            
-            triangle_cells = np.nonzero(num_nodes_per_cell == 3)[0]
-            num_triangle_cells = triangle_cells.shape[0]
-            if num_triangle_cells > 0:
-                # Initialize data structures for connectivity and cell ids
-                if "triangle" not in cell_to_nodes:
-                    cell_to_nodes["triangle"] = np.empty((0,3), dtype=int)
-                    cell_id["triangle"] = []
-                # Store triangle cells and add offset taking into account previous grids
-                cell_id["triangle"] += (triangle_cells + cell_offset).tolist()
-
-            # Cells with four nodes are identified as quad cells
-            quad_cells = np.nonzero(num_nodes_per_cell == 4)[0]
-            num_quad_cells = quad_cells.shape[0]
-            if num_quad_cells > 0:
-                # Initialize data structures for connectivity and cell ids
-                if "quad" not in cell_to_nodes:
-                    cell_to_nodes["quad"] = np.empty((0,4), dtype=int)
-                    cell_id["quad"] = []
-                # Store quad cells and add offset taking into account previous grids
-                cell_id["quad"] += (quad_cells + cell_offset).tolist()
-
-            # Cells with more than four nodes are identified as polygons
-            polygon_cells = np.nonzero(num_nodes_per_cell > 4)[0]
-            num_polygon_cells = polygon_cells.shape[0]
-            if num_polygon_cells > 0:
-                # Initialize data structures for connectivity and cell ids
-                if "polygon" not in cell_to_nodes:
-                    #cell_to_nodes["polygon"] = np.empty((0,5), dtype=int) # TODO num cols?
-                    cell_id["polygon"] = []
-                # Store polygon cells and add offset taking into account previous grids
-                cell_id["polygon"] += (polygon_cells + cell_offset).tolist()
-    
-            # Determine cell-node connectivity - treat triangle, quad and polygonal cells differently
+            # Determine cell-node connectivity for each cell type and all cells.
+            # Treat triangle, quad and polygonal cells differently
             # aiming for optimized performance.
+            for n in np.unique(num_faces_per_cell):
 
-            # 1. Triangles. Proceed in case the grid contains triangles.
-            if num_triangle_cells > 0:
+                # Define the cell type
+                cell_type = polygon_map.get(f"polygon{n}", f"polygon{n}")
 
-                # Triangles have a trivial connectivity since all nodes are connected.
+                # Check if cell_type already defined in cell_to_nodes, otherwise construct
+                if cell_type not in cell_to_nodes:
+                    cell_to_nodes[cell_type] = np.empty((0,n), dtype=int)
 
-                # Extract indptr for triangle cells. Here, we in general loose information about
-                # the next cell, i.e., the end of the indices corresponding to the selected cells.
-                triangle_cn_indptr = g.cell_nodes().indptr[triangle_cells]
-                # Expand indptr, explicitly specifying the location of all nodes for each triangle cell.
-                # Integrate the explicit knowledge that each triangle cell consists of 3 nodes.
-                expanded_triangle_cn_indptr = np.vstack([triangle_cn_indptr + i for i in range(3)]).reshape(-1, order="F")
-                # Detect all corresponding nodes by applying the expanded mask to the indices
-                expanded_triangle_cn_indices = g.cell_nodes().indices[expanded_triangle_cn_indptr]
-                # Bring to number of triangle cells x 3 format by reshaping
-                triangle_cn = np.reshape(expanded_triangle_cn_indices, (-1,3), order="C")
-                # Add offset
-                cell_to_nodes["triangle"] = triangle_cn + nodes_offset
+                # Special case: Triangle cells, i.e., n=3.
+                if cell_type == "triangle":
 
-            # 2. Quads. Proceed in case the grid contains quads.
-            if num_quad_cells > 0:
-                # For quads, g.cell_nodes cannot be blindly used as for triangles, since the
-                # ordering of the nodes may define a cell of the type
-                # x--x and not x--x
-                #  \/          |  |
-                #  /\          |  |
-                # x--x         x--x .
-                # Therefore, use both g.cell_faces and g.face_nodes to make use of face information
-                # and sort those correctly to retrieve the correct connectivity.,
+                    # Triangles have a trivial connectivity since all nodes are connected.
 
-                # Collect all cell nodes including their connectivity in a matrix of double size.
-                # The goal will be to gather starting and end points for all faces of each cell,
-                # sort those faces, such that they form a circlular graph, and then choose the
-                # resulting starting points of all faces to define the connectivity.
+                    # Fetch triangle cells
+                    cells = g_cell_map[cell_type]
+                    # Extract indptr for triangle cells. Here, we in general loose information about
+                    # the next cell, i.e., the end of the indices corresponding to the selected cells.
+                    cn_indptr = g.cell_nodes().indptr[cells]
+                    # Expand indptr, explicitly specifying the location of all nodes for each triangle cell.
+                    # Integrate the explicit knowledge that each triangle cell consists of 3 nodes.
+                    expanded_cn_indptr = np.vstack([cn_indptr + i for i in range(n)]).reshape(-1, order="F")
+                    # Detect all corresponding nodes by applying the expanded mask to the indices
+                    expanded_cn_indices = g.cell_nodes().indices[expanded_cn_indptr]
+                    # Bring to number of triangle cells x 3 format by reshaping
+                    cn = np.reshape(expanded_cn_indices, (-1,n), order="C")
 
-                # First determine all faces of all quad cells. Use an analogous approach as
-                # used to determine all cell nodes for triangle cells. And use the hardcoded
-                # info that each quad has four faces.
-                quad_cf_indptr = g.cell_faces.indptr[quad_cells]
-                expanded_quad_cf_indptr = np.vstack([quad_cf_indptr + i for i in range(4)]).reshape(-1, order="F")
-                quad_cf_indices = g.cell_faces.indices[expanded_quad_cf_indptr]
+                # Quad and polygon cells.
+                else:
+                    # For quads/polygons, g.cell_nodes cannot be blindly used as for triangles, since the
+                    # ordering of the nodes may define a cell of the type (here specific for quads)
+                    # x--x and not x--x
+                    #  \/          |  |
+                    #  /\          |  |
+                    # x--x         x--x .
+                    # Therefore, use both g.cell_faces and g.face_nodes to make use of face information
+                    # and sort those correctly to retrieve the correct connectivity.,
 
-                # Determine the associated (two) nodes of all faces for each cell. Use again an
-                # analogous approach as for quad cell faces. In particular, include the hardcoded
-                # info that each face has two nodes.
-                quad_fn_indptr = g.face_nodes.indptr[quad_cf_indices]
-                # Extract nodes for first and second node of each face; reshape such
-                # that all first nodes of all faces for each cell are stored in one row,
-                # i.e., end up with an array of size num_quad_cells x 4.
-                quad_cfn_indices = [g.face_nodes.indices[quad_fn_indptr + i].reshape(-1,4) for i in range(2)]
-                # Group first and second nodes, with alternating order of rows.
-                # By this, each cell is respresented by two rows. The first and second
-                # rows contain first and second nodes of faces. And each column stands
-                # for one face.
-                quad_cfn = np.ravel(quad_cfn_indices, order="F").reshape(4,-1).T
+                    # Strategy: Collect all cell nodes including their connectivity in a matrix of
+                    # double num cell size. The goal will be to gather starting and end points for
+                    # all faces of each cell, sort those faces, such that they form a circlular graph,
+                    # and then choose the resulting starting points of all faces to define the connectivity.
 
-                # Sort faces for each cell such that they form a chain. Use a function
-                # compiled with Numba. Currently, no alternative is provided when Numba
-                # is not installed. This step is the bottleneck of this routine.
-                if not self._has_numba:
-                    raise NotImplementedError("The sorting algorithm requires numba to be installed.")
-                quad_cfn = self._sort_point_pairs_numba(quad_cfn).astype(int)
+                    # Fetch corresponding cells
+                    cells = g_cell_map[cell_type]
+                    # Determine all faces of all cells. Use an analogous approach as used to determine
+                    # all cell nodes for triangle cells. And use that a polygon with n nodes has also
+                    # n faces.
+                    cf_indptr = g.cell_faces.indptr[cells]
+                    expanded_cf_indptr = np.vstack([cf_indptr + i for i in range(n)]).reshape(-1, order="F")
+                    cf_indices = g.cell_faces.indices[expanded_cf_indptr]
 
-                # For each cell pick the sorted nodes such that they form a chain and thereby
-                # define the connectivity.
-                quad_cn = quad_cfn[np.arange(0,2*num_quad_cells,2),:]
+                    # Determine the associated (two) nodes of all faces for each cell.
+                    fn_indptr = g.face_nodes.indptr[cf_indices]
+                    # Extract nodes for first and second node of each face; reshape such
+                    # that all first nodes of all faces for each cell are stored in one row,
+                    # i.e., end up with an array of size num_cells (for this cell type) x n.
+                    cfn_indices = [g.face_nodes.indices[fn_indptr + i].reshape(-1,n) for i in range(2)]
+                    # Group first and second nodes, with alternating order of rows.
+                    # By this, each cell is respresented by two rows. The first and second
+                    # rows contain first and second nodes of faces. And each column stands
+                    # for one face.
+                    cfn = np.ravel(cfn_indices, order="F").reshape(n,-1).T
 
-                # Add offset to account for multiple grids
-                cell_to_nodes["quad"] = quad_cn + nodes_offset
+                    # Sort faces for each cell such that they form a chain. Use a function
+                    # compiled with Numba. Currently, no alternative is provided when Numba
+                    # is not installed. This step is the bottleneck of this routine.
+                    if not self._has_numba:
+                        raise NotImplementedError("The sorting algorithm requires numba to be installed.")
+                    cfn = self._sort_point_pairs_numba(cfn).astype(int)
 
-            # 3. General polygons. Proceed in case the grid contains polygons.
-            # TODO rm.
-            if num_polygon_cells > 0:
+                    # For each cell pick the sorted nodes such that they form a chain and thereby
+                    # define the connectivity, i.e., skip every second row.
+                    cn = cfn[::2,:]
 
-                # Cell-face and face-node relations
-                g_faces_cells, g_cells, _ = sps.find(g.cell_faces)
-                # Ensure ordering of the cells
-                g_faces_cells = g_faces_cells[np.argsort(g_cells)]
-                g_nodes_faces, _, _ = sps.find(g.face_nodes)
-
-                # loop on all the grid cells
-                for c in polygon_cells:
-                    loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
-
-                    # get the nodes for the current cell
-                    nodes = np.array(
-                        [
-                            g_nodes_faces[
-                                g.face_nodes.indptr[f] : g.face_nodes.indptr[f + 1]
-                            ]
-                            for f in g_faces_cells[loc]
-                        ]
-                    ).T
-
-                    # sort the nodes
-                    nodes_loc, *_ = pp.utils.sort_points.sort_point_pairs(nodes)
-
-                    # TODO rm.
-                    ## define the type of cell we are currently saving
-                    #cell_type_raw = "polygon" + str(nodes_loc.shape[1])
-
-                    #default_type = "polygon"
-                    ## Map to triangle/quad if relevant, or simple polygon for general cells.
-                    #cell_type = polygon_map.get(cell_type_raw, default_type)
-                    cell_type = "polygon"
-
-                    # Gather cells of same type, and store both cell ids and connectivity patterns
-                    # for each (stored through sorted cell nodes).
-                    if cell_type not in cell_to_nodes:
-                        # Initialize data structures if cell type not present
-                        cell_to_nodes[cell_type] = np.atleast_2d(nodes_loc[0] + nodes_offset)
-                    else:
-                        # Extend existing data structures
-                        cell_to_nodes[cell_type] = np.vstack(
-                            (cell_to_nodes[cell_type], nodes_loc[0] + nodes_offset)
-                        )
+                # Add offset to account for previous grids, and store
+                cell_to_nodes[cell_type] = np.vstack(
+                    (cell_to_nodes[cell_type], cn + nodes_offset)
+                )
 
             # Update offset
             nodes_offset += g.num_nodes
@@ -771,9 +712,16 @@ class Exporter:
         # For each cell_type store the connectivity pattern cell_to_nodes for
         # the corresponding cells with ids from cell_id.
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
+            # Meshio does not accept polygon{n} cell types. Remove {n} if
+            # cell type not special geometric object.
+            cell_type_meshio_format = polygon_map.get(f"polygon{n}", "polygon")
+            meshio_cells[block] = meshio.CellBlock(
+                cell_type_meshio_format,
+                cell_block.astype(int)
+            )
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
+        # Return final meshio data: points, cell (connectivity), cell ids
         return meshio_pts, meshio_cells, meshio_cell_id
 
     def _sort_point_pairs_numba(self, lines):
@@ -908,7 +856,6 @@ class Exporter:
             num_faces_per_cell = g.cell_faces.getnnz(axis=0)
 
             # Loop over all available cell types and group cells of one type.
-            # Init first data corresponding structure.
             g_cell_map = dict()
             for n in np.unique(num_faces_per_cell):
                 # Define cell type; check if it coincides with a predefined cell type
@@ -938,7 +885,7 @@ class Exporter:
                     # ordered in any specific type, as the geometrical object is invariant under
                     # permutations.
 
-                    # Determine all tetra cells
+                    # Fetch tetra cells
                     cells = g_cell_map[cell_type]
                     # Extract indptr for all tetra cells.
                     cn_indptr = g.cell_nodes().indptr[cells]
@@ -953,7 +900,9 @@ class Exporter:
                     if cell_type not in cell_to_nodes:
                         cell_to_nodes[cell_type] = np.empty((0,4), dtype=int)
                     # Store cell-node connectivity, and add offset taking into account previous grids
-                    cell_to_nodes[cell_type] = cn_indices + nodes_offset
+                    cell_to_nodes[cell_type] = np.vstack(
+                        (cell_to_nodes[cell_type], cn_indices + nodes_offset)
+                    )
 
                 # Identify remaining cells as polyhedra
                 else:
@@ -962,7 +911,7 @@ class Exporter:
                     # larger than the info provided for tetra cells. Here, we make use of the fact
                     # that g.face_nodes provides nodes ordered wrt. the right-hand rule.
                     
-                    # Determine all cells with n faces
+                    # Fetch cells with n faces
                     cells = g_cell_map[cell_type]
 
                     # Store short cuts to cell-face and face-node information
@@ -978,7 +927,7 @@ class Exporter:
                     # list over faces, and each face entry is given by the face nodes.
                     if cell_type not in cell_to_faces:
                         cell_to_faces[cell_type] = []
-                    cell_to_faces[cell_type] = [
+                    cell_to_faces[cell_type] += [
                         [
                             fn_indices[fn_indptr[f] : fn_indptr[f+1]]           # nodes
                             for f in cf_indices[cf_indptr[c]:cf_indptr[c+1]]    # faces
