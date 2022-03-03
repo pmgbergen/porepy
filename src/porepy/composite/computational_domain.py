@@ -2,8 +2,6 @@
 
 from typing import Union, Iterable, List, Optional, Dict
 
-from cv2 import split
-
 import porepy as pp
 import numpy as np
 from scipy import sparse as sps
@@ -123,8 +121,8 @@ class ComputationalDomain:
 
         if incompatible:
             err_msg = ""
-            for unc in incompatible:
-                err_msg += str(unc) + "\n"
+            for inc in incompatible:
+                err_msg += str(inc) + "\n"
         else:
             err_msg = None
 

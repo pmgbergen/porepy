@@ -3,6 +3,7 @@ Contains a general composit flow class. Phases and components can be added durin
 Does not involve chemical reactions.
 
 Large parts of this code are attributed to EK and his prototype of the reactive multiphase model.
+VL refactored the model for usage with composite submodule.
 """
 
 from typing import Dict, List, Tuple, Union, Optional
@@ -29,6 +30,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
         # create default grid bucket for this model
         self.gb: pp.GridBucket
+        self.box: Dict = dict()
         self.create_grid()
 
         # public properties
@@ -38,6 +40,10 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         self._components = list() 
         # variable holding all involved fluid phases
         self._fluid_phases = list()
+
+        # TODO find more modular solution
+        # aperture per grid in gridbucket
+        self._apertures = [1.]
 
         ## Representation of variables
 
@@ -83,14 +89,17 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """
         return 0
 
-
     def create_grid(self) -> None:
-        """ Assigns a 10x10 cartesian grid as computational domain.
+        """ Assigns a cartesian grid as computational domain.
         Overwrites the instance variables 'gb'.
         """
-        phys_dims = [10, 1]
-        n_cells = [10, 1]
+        refinement = 4
+        phys_dims = [3, 1]
+        n_cells = [i * refinement for i in phys_dims]
         g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
+        self.box: Dict = pp.geometry.bounding_box.from_points(
+            np.array([[0, 0], phys_dims]).T
+        )
         g.compute_geometry()
         self.gb: pp.GridBucket = pp.meshing._assemble_in_bucket([[g]])
 
@@ -307,7 +316,80 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 ### SET-UP
 #------------------------------------------------------------------------------
 
-    #### IC, BC, sources
+    #### collective set-up method
+    def _set_parameters(self):
+        """Set default parameters needed in the simulations.
+
+        Many of the functions here may change in the future, partly to allow for more
+        general descriptions of fluid and rock properties. Also, overriding some of
+        the constitutive laws may lead to different parameters being needed.
+
+        """
+        for g, d in self.gb:
+
+            bc, bc_vals = self._BC_flow(g)
+
+            source_vals = self._source(g)
+
+            # specific volume and aperture are related to other physics. This has to stay like this for now.
+            specific_volume = self._specific_volume(g)
+
+            material_subdomain = g(pp.composite.UnitSolid(self.cd))
+            transmissability = pp.SecondOrderTensor(
+                specific_volume * material_subdomain.base_permeability()
+            )
+
+            # No gravity
+            gravity = np.zeros((self.gb.dim_max(), g.num_cells))
+            # with gravity TODO add mass density
+            # gravity = np.vstack([np.zeros(self.gb.num_cells),
+            #                      np.zeros(self.gb.num_cells),
+            #                      -np.ones(self.gb.num_cells)])
+
+            pp.initialize_data(
+                g,
+                d,
+                self.flow_parameter_key,
+                {
+                    "bc": bc,
+                    "bc_values": bc_vals,
+                    "source": source_vals,
+                    "second_order_tensor": transmissability,
+                    "vector_source": gravity.ravel("F"),
+                    "ambient_dimension": self.gb.dim_max(),
+                },
+            )
+
+            # Mass weight parameter. Same for all phases
+            mass_weight = material_subdomain.base_porosity() * specific_volume
+            pp.initialize_data(
+                g, d, self.mass_parameter_key, {"mass_weight": mass_weight}
+            )
+            
+            # NOTE: Seen from the upstream discretization, the Darcy velocity is a
+            # parameter, although it is a derived quantity from the flow discretization
+            # point of view. We will set a value for this in the initialization, to
+            # increase the chances the user remembers to set compatible flux and
+            # pressure.
+
+            for j in range(self.num_fluid_phases):
+                bc = self._bc_type_transport(g, j)
+                bc_values = self._bc_values_transport(g, j)
+                pp.initialize_data(
+                    g,
+                    d,
+                    f"{self.upwind_parameter_key}_{j}",
+                    {
+                        "bc": bc,
+                        "bc_values": bc_values,
+                    },
+                )
+
+        # Assign diffusivity in the normal direction of the fractures.
+        for e, data_edge in self.gb.edges():
+            raise NotImplementedError("Only single grid for now")
+
+    ### Initial Conditions
 
     def _initial_condition(self):
         """Set initial conditions: Homogeneous for all variables except the pressure.
@@ -332,83 +414,36 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
                     "darcy_flux"
                 ] = darcy
 
-    def _set_parameters(self):
-        """Set default parameters needed in the simulations.
+    ### Boundary Conditions
 
-        Many of the functions here may change in the future, partly to allow for more
-        general descriptions of fluid and rock properties. Also, overriding some of
-        the constitutive laws may lead to different parameters being needed.
+    def _BC_flow(self, g: pp.Grid) -> Tuple[pp.BoundaryCondition, np.ndarray]:
+        """ NOTE: this assumes for now the simplest case, namely a single rectangular grid.
+        
+        Phys. Dimensions:
+            - Dirichlet conditions: [Pa] = [kg / m^1 / s^2]
+            - Neumann conditions: [m^3 / s]
 
+
+        :param g: grid representing subdomain on which BCs are imposed
+        :type g: :class:`~porepy.grids.grid.Grid`
+        
+        :return: Returns the :class:`~porepy.params.bc.BoundaryCondition` object and respective values.
+        :rtype: Tuple[porepy.BoundaryCondition, numpy.ndarray]
         """
-        for g, d in self.gb:
-            # Parameters for single-phase Darcy. This is copied from the incompressible
-            # flow model.
-            bc = self._bc_type_flow(g)
-            bc_values = self._bc_values_flow(g)
+        # change this value for the constant D-BC to change
+        outflow_pressure = 1. 
 
-            source_values = self._source(g)
+        all_bf, east_bf, west_bf, north_bf, south_bf, *_ = self._domain_boundary_sides(g)
 
-            specific_volume = self._specific_volume(g)
+        # Dirichlet on west side, BoundaryCondition object automatically assumes Neumann for rest
+        bc = pp.BoundaryCondition(g, west_bf, "dir")
 
-            kappa = self._permeability(g) # / self._viscosity(g)
-            diffusivity = pp.SecondOrderTensor(
-                kappa * specific_volume * np.ones(g.num_cells)
-            )
+        # Zero-Neumann BC on whole domain
+        vals = np.zeros(g.num_faces)
+        # Constant-Dirichlet BC on westside
+        vals[west_bf] = outflow_pressure
 
-            # No gravity
-            gravity = np.zeros((self.gb.dim_max(), g.num_cells))
-
-            pp.initialize_data(
-                g,
-                d,
-                self.flow_parameter_key,
-                {
-                    "bc": bc,
-                    "bc_values": bc_values,
-                    "source": source_values,
-                    "second_order_tensor": diffusivity,
-                    "vector_source": gravity.ravel("F"),
-                    "ambient_dimension": self.gb.dim_max(),
-                },
-            )
-
-            ## Parameters for the transport problems. These are less mature.
-
-            # NOTE: Seen from the upstream discretization, the Darcy velocity is a
-            # parameter, although it is a derived quantity from the flow discretization
-            # point of view. We will set a value for this in the initialization, to
-            # increase the chances the user remembers to set compatible flux and
-            # pressure.
-
-            # Mass weight parameter. Same for all phases
-            mass_weight = self._porosity(g) * self._specific_volume(g)
-            pp.initialize_data(
-                g, d, self.mass_parameter_key, {"mass_weight": mass_weight}
-            )
-
-            for j in range(self.num_fluid_phases):
-                bc = self._bc_type_transport(g, j)
-                bc_values = self._bc_values_transport(g, j)
-                pp.initialize_data(
-                    g,
-                    d,
-                    f"{self.upwind_parameter_key}_{j}",
-                    {
-                        "bc": bc,
-                        "bc_values": bc_values,
-                    },
-                )
-
-        # Assign diffusivity in the normal direction of the fractures.
-        for e, data_edge in self.gb.edges():
-            raise NotImplementedError("Only single grid for now")
-
-    def _bc_type_flow(self, g: pp.Grid) -> pp.BoundaryCondition:
-        """Neumann conditions on all external boundaries."""
-        # Define boundary regions
-        all_bf, *_ = self._domain_boundary_sides(g)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(g, all_bf, "neu")
+        return (bc, vals)
 
     def _bc_type_transport(self, g: pp.Grid, j: int) -> pp.BoundaryCondition:
         """Set type of boundary condition for transport of phase j"""
@@ -436,11 +471,25 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         return np.zeros(g.num_faces)
 
     def _source(self, g: pp.Grid) -> np.ndarray:
-        """Zero source term.
+        """ Single-cell source term in center of first grid part
+        |-----|-----|-----|
+        |  .  |     |     |
+        |-----|-----|-----|
 
-        Units: m^3 / s
+        Phys. Dimensions: [m^3 / s]
+
+        :return: source values per cell
+        :rtype: :class:`~numpy.ndarray`
         """
-        return np.zeros(g.num_cells)
+        # change this value to alter source magnitude
+        source = 1.
+
+        # find and set single-cell source
+        vals = np.zeros(g.num_cells)
+        source_cell = g.closest_cell(np.ndarray([0.5, 0.5]))
+        vals[source_cell] = source
+
+        return vals
 
     #### Variable set-up
 
@@ -979,14 +1028,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """
         return pp.ad.Array(np.ones(self.gb.num_cells()))
 
-    
-    def _permeability(self, g: pp.Grid) -> np.ndarray:
-        """Unitary permeability.
-
-        Units: m^2
-        """
-        return np.ones(g.num_cells)
-
     def _porosity(self, g: pp.Grid) -> np.ndarray:
         """Homogeneous porosity"""
         if g.dim < self.gb.dim_max():
@@ -1025,4 +1066,4 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         of aperture in dimension 1 and 0.
         """
         a = self._aperture(g)
-        return np.power(a, self._nd_grid().dim - g.dim)
+        return np.power(a, self.gb.dim_max() - g.dim)

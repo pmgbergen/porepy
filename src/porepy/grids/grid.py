@@ -257,6 +257,13 @@ class Grid:
 
         return s
 
+    def __call__(self, substance: pp.composite.SolidSubstance) -> pp.composite.MaterialSubdomain:
+        """ 
+        :return: instantiates a materialized subdomain using grid and substance information
+        :rtype: :class:`~porepy.composite.material_subdomain.MaterialSubdomain`
+        """
+        return pp.composite.MaterialSubdomain(self, substance)
+
     @pp.time_logger(sections=module_sections)
     def compute_geometry(self) -> None:
         """Compute geometric quantities for the grid.
