@@ -508,56 +508,94 @@ class Exporter:
         """
         Export the geometrical data (point coordinates) and connectivity
         information from the 1d PorePy grids to meshio.
+
+        Parameters:
+            gs (Iterable[pp.Grid]): Subdomains.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 1d cells (storing the
+                connectivity), and cell ids in correct meshio format.
         """
 
-        # in 1d we have only one cell type
+        # In 1d each cell is a line
         cell_type = "line"
 
-        # cell connectivity information
-        num_cells = np.sum(np.array([g.num_cells for g in gs]))
-        cell_to_nodes = {cell_type: np.empty((num_cells, 2))}  # type: ignore
-        # cell id map
-        cell_id = {cell_type: np.empty(num_cells, dtype=int)}  # type: ignore
-        cell_offset = 0
+        # Dictionary storing cell->nodes connectivity information
+        cell_to_nodes: Dict[str, np.ndarray] = {
+            cell_type: np.empty((0, 2), dtype=int)
+        }
 
-        # points
+        # Dictionary collecting all cell ids for each cell type.
+        # Since each cell is a line, the list of cell ids is trivial
+        total_num_cells = np.sum(np.array([g.num_cells for g in gs]))
+        cell_id: Dict[str, List[int]] = {
+            cell_type: np.arange(total_num_cells, dtype=int).tolist()
+        }
+
+        # Data structure for storing node coordinates of all 1d grids.
         num_pts = np.sum([g.num_nodes for g in gs])
         meshio_pts = np.empty((num_pts, 3))  # type: ignore
-        nodes_offset = 0
 
-        # loop on all the 1d grids
+        # Initialize offsets. Required taking into account multiple 1d grids.
+        nodes_offset = 0
+        cell_offset = 0
+
+        # Loop over all 2d grids
         for g in gs:
-            # save the points information
+
+            # Store node coordinates
             sl = slice(nodes_offset, nodes_offset + g.num_nodes)
             meshio_pts[sl, :] = g.nodes.T
 
-            # TODO vectorize, and use directly indices and indptr without sorting
-            # Cell-node relations
-            g_cell_nodes = g.cell_nodes()
-            g_nodes_cells, g_cells, _ = sps.find(g_cell_nodes)
-            # Ensure ordering of the cells
-            g_nodes_cells = g_nodes_cells[np.argsort(g_cells)]
+            # Lines are simplices, and have a trivial connectvity.
+            cn_indices = self._simplex_cell_to_nodes(2, g)
 
-            # loop on all the grid cells
-            for c in np.arange(g.num_cells):
-                loc = slice(g_cell_nodes.indptr[c], g_cell_nodes.indptr[c + 1])
-                # get the local nodes and save them
-                cell_to_nodes[cell_type][cell_offset, :] = g_nodes_cells[loc] + nodes_offset
-                cell_id[cell_type][cell_offset] = cell_offset
-                cell_offset += 1
+            # Add to previous connectivity information
+            cell_to_nodes[cell_type] = np.vstack(
+                (cell_to_nodes[cell_type], cn_indices + cell_offset)
+            )
 
+            # Update offsets
             nodes_offset += g.num_nodes
+            cell_offset += g.num_cells
 
-        # construct the meshio data structure
+        # Construct the meshio data structure
         num_blocks = len(cell_to_nodes)
         meshio_cells = np.empty(num_blocks, dtype=object)
         meshio_cell_id = np.empty(num_blocks, dtype=object)
 
+        # For each cell_type store the connectivity pattern cell_to_nodes for
+        # the corresponding cells with ids from cell_id.
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
+        # Return final meshio data: points, cell (connectivity), cell ids
         return meshio_pts, meshio_cells, meshio_cell_id
+
+    def _simplex_cell_to_nodes(self, n: int, g: pp.Grid, cells: Optional[np.ndarray] = None) -> np.ndarray:
+        """Determine cell to node connectivity for a n-simplex.
+
+        Parameters:
+            n (int): order of the simplices in the grid.
+            g (pp.Grid): grid containing cells and nodes.
+            cells (np.ndarray, optional): all simplex cells
+
+        Returns:
+            np.ndarray: cell to node connectivity array, in which for each row
+                all nodes are given.
+        """
+
+        # Determine cell-node ptr
+        cn_indptr = g.cell_nodes().indptr[:-1] if cells is None else g.cell_nodes().indptr[cells]
+        # Each cell contains n nodes
+        expanded_cn_indptr = np.vstack([cn_indptr + i for i in range(n)]).reshape(-1, order="F")
+        # Detect all corresponding nodes by applying the expanded mask to the indices
+        expanded_cn_indices = g.cell_nodes().indices[expanded_cn_indptr]
+        # Bring in correct form.
+        cn_indices = np.reshape(expanded_cn_indices, (-1,n), order="C")
+
+        return cn_indices
 
     def _export_2d(
         self, gs: Iterable[pp.Grid]
@@ -632,20 +670,12 @@ class Exporter:
                 # Special case: Triangle cells, i.e., n=3.
                 if cell_type == "triangle":
 
-                    # Triangles have a trivial connectivity since all nodes are connected.
+                    # Triangles are simplices and have a trivial connectivity.
 
                     # Fetch triangle cells
                     cells = g_cell_map[cell_type]
-                    # Extract indptr for triangle cells. Here, we in general loose information about
-                    # the next cell, i.e., the end of the indices corresponding to the selected cells.
-                    cn_indptr = g.cell_nodes().indptr[cells]
-                    # Expand indptr, explicitly specifying the location of all nodes for each triangle cell.
-                    # Integrate the explicit knowledge that each triangle cell consists of 3 nodes.
-                    expanded_cn_indptr = np.vstack([cn_indptr + i for i in range(n)]).reshape(-1, order="F")
-                    # Detect all corresponding nodes by applying the expanded mask to the indices
-                    expanded_cn_indices = g.cell_nodes().indices[expanded_cn_indptr]
-                    # Bring to number of triangle cells x 3 format by reshaping
-                    cn = np.reshape(expanded_cn_indices, (-1,n), order="C")
+                    # Determine the trivial connectivity.
+                    cn_indices = self._simplex_cell_to_nodes(3, g, cells)
 
                 # Quad and polygon cells.
                 else:
@@ -693,14 +723,14 @@ class Exporter:
 
                     # For each cell pick the sorted nodes such that they form a chain and thereby
                     # define the connectivity, i.e., skip every second row.
-                    cn = cfn[::2,:]
+                    cn_indices = cfn[::2,:]
 
                 # Add offset to account for previous grids, and store
                 cell_to_nodes[cell_type] = np.vstack(
-                    (cell_to_nodes[cell_type], cn + nodes_offset)
+                    (cell_to_nodes[cell_type], cn_indices + nodes_offset)
                 )
 
-            # Update offset
+            # Update offsets
             nodes_offset += g.num_nodes
             cell_offset += g.num_cells
 
@@ -885,17 +915,11 @@ class Exporter:
                     # ordered in any specific type, as the geometrical object is invariant under
                     # permutations.
 
-                    # Fetch tetra cells
+                    # Fetch triangle cells
                     cells = g_cell_map[cell_type]
-                    # Extract indptr for all tetra cells.
-                    cn_indptr = g.cell_nodes().indptr[cells]
-                    # Expand indptr, explicitly specifying the location of all nodes for each tetra cell.
-                    # Integrate the explicit knowledge that each tetra cell consists of 4 nodes.
-                    expanded_cn_indptr = np.vstack([cn_indptr + i for i in range(4)]).reshape(-1, order="F")
-                    # Detect all corresponding nodes by applying the expanded mask to the indices
-                    cn_indices = g.cell_nodes().indices[expanded_cn_indptr]
-                    # Bring to number of num tetra cells x 4 format by reshaping
-                    cn_indices = np.reshape(cn_indices, (-1,4), order="C")
+                    # Tetrahedra are simplices and have a trivial connectivity.
+                    cn_indices = self._simplex_cell_to_nodes(4, g, cells)
+
                     # Initialize data structure if not available yet
                     if cell_type not in cell_to_nodes:
                         cell_to_nodes[cell_type] = np.empty((0,4), dtype=int)
