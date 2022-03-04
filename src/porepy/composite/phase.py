@@ -2,14 +2,16 @@
 
 import abc
 
+from sympy import frac
+
 import porepy as pp
+import numpy as np
 
-from typing import Generator
+from typing import Iterator, List, Tuple
 
-from porepy.composite.substance import Substance
-
-from ._composite_utils import create_merged_variable, COMPUTATIONAL_VARIABLES
-from.computational_domain import ComputationalDomain
+from .substance import Substance
+from ._composite_utils import COMPUTATIONAL_VARIABLES
+from .computational_domain import ComputationalDomain
 
 class Phase(abc.ABC):
     """
@@ -23,7 +25,7 @@ class Phase(abc.ABC):
     """ For a computational domain (key), contains a list of present phases"""
     _present_phases = dict()
 
-    def __new__(cls, name:str, computational_domain: pp.ComputationalDomain):
+    def __new__(cls, name:str, computational_domain: ComputationalDomain):
         """ Declarator. Assures the phase name is unique for a given computational domain.
         Ambiguities must be avoided due to the central storage of the AD variables.
         """
@@ -38,7 +40,7 @@ class Phase(abc.ABC):
         
         return super().__new__(cls)
 
-    def __init__(self, name: str, computational_domain: pp.ComputationalDomain) -> None:
+    def __init__(self, name: str, computational_domain: ComputationalDomain) -> None:
         """Base class constructor. Initiates phase-related AD-variables.
         Contains symbolic names of associated model variables.
         
@@ -66,7 +68,7 @@ class Phase(abc.ABC):
         #TODO maths
         self.cd(self.mortar_molar_fraction_name)
 
-    def __iter__(self) -> Generator[Substance]:
+    def __iter__(self) -> Iterator[Substance]:
         """ Iterator over substances present in phase.
 
         :return: yields present substance
@@ -157,16 +159,56 @@ class Phase(abc.ABC):
         """
         return COMPUTATIONAL_VARIABLES["mortar_prefix"] + "_" + COMPUTATIONAL_VARIABLES["phase_molar_fraction"] + "_" + self.name
 
-    def add_substance(self, substance: pp.composite.Substance) -> None:
-        """ Adds a component to this phase and registers this phase with the component.
-        A phase-related molar fraction variable is created in the component.
+    def add_substances(self, phase_composition: List[Tuple[Substance, np.array]]) -> None:
+        """ Adds a composition of substances to this phase, including their initial molar fraction.
+
+        Asserts the sum over molar fractions is 1 per cell.
+        Ergo, the array arguments have to be of length :method:`~porepy.grids.grid_bucket.GridBucket.num_cells`.
+
+        The Substances have to instantiated using the same
+        :class:`~porepy.composite.computational_domain.ComputationalDomain` instance as for this object.
+
         
-        :param component: a component/species anticipated in this phase
-        :type component: :class:`porepy.composite.Component`
+        :param phase_composition: iterable object containing 2-tuples of substances and respective concentrations in this phase
+        :type component: List[Tuple[:class:`~porepy.composite.substance.Substance`, :class:`~numpy.array`]]
         """
-        # associate component with this phase.
-        self._present_substances.append(substance)
-        # instantiate related AD variables
-        self.cd(substance.molar_fraction_in_phase(self.name))
-        # TODO needs maths
-        self.cd(substance.mortar_molar_fraction_in_phase(self.name))
+        # Sum of molar fractions in this phase. Has to be 1 in each cell
+        sum_over_fractions = np.zeros(self.cd.gb.num_cells())
+
+        for substance, fraction in phase_composition:
+            # check if objects are meant for same domain
+            if substance.cd != self.cd:
+                raise ValueError("Substance '%s' instantiated on unknown ComputationalDomain."%(substance.name))
+            # check if initial conditions (fractions) are complete
+            if len(fraction) != len(sum_over_fractions):
+                raise ValueError("Initial fraction of substance '%s' not given on correct number of cells"%(substance.name))
+            # sum the fractions for assertion that it equals 1. on each cell
+            sum_over_fractions += fraction
+
+            # store reference to present substance
+            self._present_substances.append(substance)
+            # instantiate related AD variables
+            self.cd(substance.mfip_name(self.name), {"cells": 1})
+            # TODO needs maths
+            self.cd(substance.mortar_mfip_name(self.name), {"cells": 1})
+
+            ## setting initial values (fractions)
+            # create a copy to avoid issues in case there is another manipulated reference to this values
+            init_vals = np.copy(fraction)
+
+            for grid_data, vals in zip(self.cd.gb, vals):
+                data = grid_data[1]  # get data out (grid, data) tuple
+                if pp.STATE not in data:
+                    data[pp.STATE] = {}
+                if pp.ITERATE not in data[pp.STATE]:
+                    data[pp.STATE][pp.ITERATE] = {}
+
+                data[pp.STATE][self.omf_name] = vals
+                data[pp.STATE][pp.ITERATE][self.omf_name] = vals
+
+            # TODO set initial values at interfaces, if applicable (the maths is missing here)
+            # check if above code works for GridBuckets without fractures
+            
+        # assert the fractional character (sum equals 1) is given on each cell
+        if np.any(sum_over_fractions != 1.): #TODO check sensitivity
+            raise ValueError("Initial fractions do not sum up to 1. on each cell.")

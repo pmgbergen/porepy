@@ -6,7 +6,7 @@ import porepy as pp
 import numpy as np
 from scipy import sparse as sps
 
-from .material_subdomain import MaterialSubdomain
+# from .material_subdomain import MaterialSubdomain
 from ._composite_utils import (
     COMPUTATIONAL_VARIABLES,
     create_merged_variable,
@@ -55,7 +55,7 @@ class ComputationalDomain:
 
         return out + str(self.gb)
 
-    def __call__(self, variable_name: str, dof_info: Optional[Dict[str: int]] = {"cells":1}) -> pp.ad.MergedVariable:
+    def __call__(self, variable_name: str, dof_info: Optional[Dict[str, int]] = {"cells":1}) -> pp.ad.MergedVariable:
         """ Returns a reference to the unique, domain wide variable with a distinguishable name.
         Accessing the same variable is of importance in inherited models and multi-physics scenarios.
 
@@ -72,6 +72,7 @@ class ComputationalDomain:
         :rtype: :class:`~porepy.ad.operators.MergedVariable`
         """
         if variable_name in self._global_ad.keys():
+            #TODO case when variable exists AND new DOF information is given (dereference old var and create new one)
             var = self._global_ad[variable_name]
         else:
             split_name = variable_name.split("-")
@@ -104,55 +105,55 @@ class ComputationalDomain:
         """
         return self.gb.num_cells()
 
-    def _compatibility_check(to_check: List[MaterialSubdomain]) -> Union[None, str]:
-        """ Checks if all elements in 'to_check' are compatible with this extension.
+    # def _compatibility_check(to_check: List[MaterialSubdomain]) -> Union[None, str]:
+    #     """ Checks if all elements in 'to_check' are compatible with this extension.
         
-        :param to_check: iterable containing all objects to be checked
-        :type to_check: iterable
+    #     :param to_check: iterable containing all objects to be checked
+    #     :type to_check: iterable
 
-        :return: concetaneted str representation of each element of 'to_check', if incompatibility detected. None otherwise
-        :rtype: str/None
-        """
-        incompatible = list()
+    #     :return: concetaneted str representation of each element of 'to_check', if incompatibility detected. None otherwise
+    #     :rtype: str/None
+    #     """
+    #     incompatible = list()
 
-        for subdomain in to_check:
-            if not isinstance(subdomain, MaterialSubdomain):
-                incompatible.append(subdomain)
+    #     for subdomain in to_check:
+    #         if not isinstance(subdomain, MaterialSubdomain):
+    #             incompatible.append(subdomain)
 
-        if incompatible:
-            err_msg = ""
-            for inc in incompatible:
-                err_msg += str(inc) + "\n"
-        else:
-            err_msg = None
+    #     if incompatible:
+    #         err_msg = ""
+    #         for inc in incompatible:
+    #             err_msg += str(inc) + "\n"
+    #     else:
+    #         err_msg = None
 
-        return err_msg
+    #     return err_msg
 
-    def add_nodes(self, new_subdomains: Union[MaterialSubdomain, Iterable[MaterialSubdomain]]) -> None:
-        """ See documentation of parent method :method:`~porepy.GridBucket.add_nodes`.
+    # def add_nodes(self, new_subdomains: Union[MaterialSubdomain, Iterable[MaterialSubdomain]]) -> None:
+    #     """ See documentation of parent method :method:`~porepy.GridBucket.add_nodes`.
 
-        This child classes assures only that arguments are of type :class:`~porepy.domain.SubDomain` in order for the
-        extended functionality to work.
-        """
+    #     This child classes assures only that arguments are of type :class:`~porepy.domain.SubDomain` in order for the
+    #     extended functionality to work.
+    #     """
 
-        if not isinstance(new_subdomains, list):
-            new_subdomains = [new_subdomains]
+    #     if not isinstance(new_subdomains, list):
+    #         new_subdomains = [new_subdomains]
         
-        check = self._compatibility_check(new_subdomains)
-        if check:
-            raise TypeError("Following subdomains expected to be of type 'SubDomain':\n" + check)
+    #     check = self._compatibility_check(new_subdomains)
+    #     if check:
+    #         raise TypeError("Following subdomains expected to be of type 'SubDomain':\n" + check)
 
-        return super().add_nodes(new_subdomains)
+    #     return super().add_nodes(new_subdomains)
 
-    def add_edge(self, subdomains: List[MaterialSubdomain], primary_secondary_map: sps.spmatrix) -> None:
-        """ See documentation of parent method :method:`~porepy.GridBucket.add_edge`.
+    # def add_edge(self, subdomains: List[MaterialSubdomain], primary_secondary_map: sps.spmatrix) -> None:
+    #     """ See documentation of parent method :method:`~porepy.GridBucket.add_edge`.
 
-        This child classes assures only that arguments are of type :class:`~porepy.domain.SubDomain` in order for the
-        extended functionality to work.
-        """
+    #     This child classes assures only that arguments are of type :class:`~porepy.domain.SubDomain` in order for the
+    #     extended functionality to work.
+    #     """
 
-        check = self._compatibility_check(subdomains)
-        if check:
-            raise TypeError("Following subdomains expected to be of type 'SubDomain':\n" + check)
+    #     check = self._compatibility_check(subdomains)
+    #     if check:
+    #         raise TypeError("Following subdomains expected to be of type 'SubDomain':\n" + check)
 
-        return super().add_edge(subdomains, primary_secondary_map)
+    #     return super().add_edge(subdomains, primary_secondary_map)
