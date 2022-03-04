@@ -3,9 +3,10 @@ Contains a general composit flow class. Phases and components can be added durin
 Does not involve chemical reactions.
 
 Large parts of this code are attributed to EK and his prototype of the reactive multiphase model.
-VL refactored the model for usage with composite submodule.
+VL refactored the model for usage with the composite submodule.
 """
 
+from this import d
 from typing import Dict, List, Tuple, Union, Optional
 
 import porepy as pp
@@ -22,10 +23,25 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
     Represents the mathematical model of compositional flow with phase change in molar formulation.
     Physical phase change model given by k-value approach.
+
+    Public properties:
+        - gb : :class:`~porepy.grids.grid_bucket.GridBucket` Grid object for simulation (3:1 cartesian grid by default)
+        - cd : :class:`~porepy.composite.computational_domain.ComputationalDomain` based on 'gb'
+        - box: 'dict' containing 'xmax','xmin' as keys and the respective bounding box values. Hold also for 'y' and 'z'
+
     """
 
     def __init__(self, params: Dict) -> None:
-        """ Base constructor for a standard grid. """
+        """ Base constructor for a standard grid.
+
+        The following configurations can be passed:
+            - 'use_ad' : Bool  -  indicates whether :module:`porepy.ad` is used or not
+            - 'file_name' : str  -  name of file for exporting simulation results (without extensions)
+            - 'folder_name' : str  -  absolute path to directory for saving simulation results
+        
+        :param params: contains information about above configurations
+        :type params: dict        
+        """
         super().__init__(params)
 
         # create default grid bucket for this model
@@ -35,6 +51,11 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
         # public properties
         self.cd = pp.composite.ComputationalDomain(self.gb)
+        
+        # list of grids as ordered in GridBucket
+        self._grids = [g for g, _ in self.gb]
+        # list of edges as ordered in GridBucket
+        self._edges = [e for e, _ in self.gb.edges()]
 
         # variable holding all involved component instances
         self._components = list() 
@@ -104,29 +125,36 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         self.gb: pp.GridBucket = pp.meshing._assemble_in_bucket([[g]])
 
     def prepare_simulation(self) -> None:
-        """ Method needs to be called prior to applying any solver.
-        It does the following point:
-            - sets model parameters
-            - assigns variables according to the model
-            - sets initial conditions
-            - sets the model equations using PorePy.ad
-            - discretizes the equations
-
-        The intended use is to define parameters, geometry and grid, discretize linear
-        and time-independent terms, and generally prepare for the simulation.
-
         """
+        Method needs to be called prior to applying any solver,
+        and after adding relevant phases and substances.
+
+        It does the following points:
+            - resolves model composition in terms of phases and components
+                - stores information about anticipated phase change and initial conditions
+            - sets model parameters
+                - boundary conditions
+                - source terms
+                - porosity, permeability, aperture (constant for now)
+            - assigns primary pressure and enthalpy variable
+                - set initial conditions for them
+            - sets the model equations using :module:`porepy.ad`
+                - discretizes the equations
+        """
+
         # Exporter initialization must be done after grid creation.
         self.exporter = pp.Exporter(
             self.gb, self.params["file_name"], folder_name=self.params["folder_name"]
         )
 
+        self._resolve_composition()
+        
         self._set_parameters()
 
-        # Assign variables. This will also set up Dof and EquationManager,
-        # and define Ad versions of the variables not related to phases and components
+        # Assign variables. This will also set up DOF- and EquationManager,
+        # and define Ad versions of the variables not related to the composition
         self._assign_variables()
-        # Assign initial conditions.
+
         # NOTE if the initial conditions are not in equilibrium, it needs to be iterated prior to simulation
         self._initial_condition()
 
@@ -316,8 +344,20 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 ### SET-UP
 #------------------------------------------------------------------------------
 
+    def _resolve_composition(self) -> None:
+        """
+        Analyzes the associated :class:`~porepy.composite.computational_domain.ComputationalDomain`
+        and obtains information about the composition, i.e. about phases and substances.
+        
+        Information about substances which are anticipated in multiple phases is stored.
+
+        Computes initial overall molar fractions per component
+        (see :method:`~porepy.composite.substance.Substance.overall_molar_fraction`)
+        """
+        pass
+
     #### collective set-up method
-    def _set_parameters(self):
+    def _set_parameters(self) -> None:
         """Set default parameters needed in the simulations.
 
         Many of the functions here may change in the future, partly to allow for more
@@ -327,9 +367,9 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """
         for g, d in self.gb:
 
-            bc, bc_vals = self._BC_flow(g)
+            bc, bc_vals = self._BC_convective_flux(g)
 
-            source_vals = self._source(g)
+            mass_sources = self._mass_sources(g)
 
             # specific volume and aperture are related to other physics. This has to stay like this for now.
             specific_volume = self._specific_volume(g)
@@ -353,7 +393,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
                 {
                     "bc": bc,
                     "bc_values": bc_vals,
-                    "source": source_vals,
+                    "source": source_vals,  # TODO: specify as MASS source term and split it according substances
                     "second_order_tensor": transmissability,
                     "vector_source": gravity.ravel("F"),
                     "ambient_dimension": self.gb.dim_max(),
@@ -366,7 +406,9 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
                 g, d, self.mass_parameter_key, {"mass_weight": mass_weight}
             )
             
-            # NOTE: Seen from the upstream discretization, the Darcy velocity is a
+            # NOTE VL: below should be done per component, not phase, since we have an equation per component.
+
+            # NOTE EK: Seen from the upstream discretization, the Darcy velocity is a
             # parameter, although it is a derived quantity from the flow discretization
             # point of view. We will set a value for this in the initialization, to
             # increase the chances the user remembers to set compatible flux and
@@ -416,12 +458,15 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
     ### Boundary Conditions
 
-    def _BC_flow(self, g: pp.Grid) -> Tuple[pp.BoundaryCondition, np.ndarray]:
+    def _BC_convective_flux(self, g: pp.Grid) -> Tuple[pp.BoundaryCondition, np.ndarray]:
         """ NOTE: this assumes for now the simplest case, namely a single rectangular grid.
         
+        Convective flux due to the pressure potential.
+
         Phys. Dimensions:
-            - Dirichlet conditions: [Pa] = [kg / m^1 / s^2]
-            - Neumann conditions: [m^3 / s]
+            - Dirichlet conditions: [Pa] = [N / m^2] = [kg / m^1 / s^2]
+            - Neumann conditions: [Pa / A] = [kg / m^(dim) / s^2]  ([A] = [m^(1 OR 2)] depending on dimension dim)
+              (physical dimension given without the scalar part of the total convective flux expression)
 
 
         :param g: grid representing subdomain on which BCs are imposed
@@ -445,21 +490,33 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
         return (bc, vals)
 
+    def _BC_conductive_flux(self, g: pp.Grid) -> Tuple[pp.BoundaryCondition, np.ndarray]:
+        """ NOTE: this assumes for now the simplest case, namely a single rectangular grid.
+        
+        (Thermal) conductive flux due to the temperature potential
+
+        Phys. Dimensions:
+            - Dirichlet conditions: [K]
+            - Neumann conditions: [J / s / m^2] = [kg / s^-3] ([J]=[kg m^2 / s^-2])
+
+
+        :param g: grid representing subdomain on which BCs are imposed
+        :type g: :class:`~porepy.grids.grid.Grid`
+        
+        :return: Returns the :class:`~porepy.params.bc.BoundaryCondition` object and respective values.
+        :rtype: Tuple[porepy.BoundaryCondition, numpy.ndarray]
+        """
+        # change this value for the constant D-BC to change
+        bottom_temperature = 373.15  # in Kelvin, this is 100°C 
+
+        all_bf, east_bf, west_bf, north_bf, south_bf, *_ = self._domain_boundary_sides(g)
+
     def _bc_type_transport(self, g: pp.Grid, j: int) -> pp.BoundaryCondition:
         """Set type of boundary condition for transport of phase j"""
         # Define boundary regions
         all_bf, *_ = self._domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "neu")
-
-    def _bc_values_flow(self, g: pp.Grid) -> np.ndarray:
-        """Homogeneous boundary values.
-
-        Units:
-            Dirichlet conditions: Pa = kg / m^1 / s^2
-            Neumann conditions: m^3 / s
-        """
-        return np.zeros(g.num_faces)
 
     def _bc_values_transport(self, g: pp.Grid, j: int) -> np.ndarray:
         """Homogeneous boundary values.
@@ -470,16 +527,18 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """
         return np.zeros(g.num_faces)
 
-    def _source(self, g: pp.Grid) -> np.ndarray:
+    #### Source terms
+
+    def _mass_sources(self, g: pp.Grid) -> Dict[str, np.ndarray]:
         """ Single-cell source term in center of first grid part
         |-----|-----|-----|
         |  .  |     |     |
         |-----|-----|-----|
 
-        Phys. Dimensions: [m^3 / s]
+        Phys. Dimensions: [mol / m^3 / s]
 
-        :return: source values per cell
-        :rtype: :class:`~numpy.ndarray`
+        :return: source values per cell and per component. Keys: names of component, Values: source terms
+        :rtype: Dict[str, :class:`~numpy.ndarray`]
         """
         # change this value to alter source magnitude
         source = 1.
@@ -489,7 +548,25 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         source_cell = g.closest_cell(np.ndarray([0.5, 0.5]))
         vals[source_cell] = source
 
-        return vals
+        return {"SimpleWater": vals}
+
+    def _enthalpy_source(self, g: pp.Grid) -> np.ndarray:
+        """ Single-cell source term in center of first grid part
+
+        NOTE: For the basic simulation, only water is pumped into the system
+
+        |-----|-----|-----|
+        |  .  |     |     |
+        |-----|-----|-----|
+
+        Phys. Dimensions: [J / mol / s] = [kg m^2 / mol / s^3]
+
+        :return: source values per cell and per component.
+        :rtype: :class:`~numpy.ndarray`
+        """
+        # Values for computing the enthalpy source term
+        water_source_pressure = 3.
+        water_source_temperature = 293.15  # 20°C water source
 
     #### Variable set-up
 
@@ -565,23 +642,21 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """
         eqm = self._eq_manager
 
-        grid_list = self._grid_list()
-
         # type annotation removed since it also annotated in the class definition
         # Pylance throws warning otherwise
         self._ad.pressure = eqm.merge_variables(
-            [(g, self.pressure_variable) for g in grid_list]
+            [(g, self.pressure_variable) for g in self._grids]
         )
 
         self._ad.enthalpy = eqm.merge_variables(
-            [(g, self.energy_variable) for g in grid_list]
+            [(g, self.energy_variable) for g in self._grids]
         )
 
         self._ad.component = []
 
         for i in range(self.num_components):
             name = f"{self.component_variable}_{i}"
-            var = eqm.merge_variables([(g, name) for g in grid_list])
+            var = eqm.merge_variables([(g, name) for g in self._grids])
             self._ad.component.append(var)
 
         # Represent component phases as an numpy array instead of a list, so that we
@@ -592,7 +667,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             for j in range(self.num_phases):
                 if self._component_present_in_phase[i, j]:
                     name = f"{self.component_phase_variable}_{i}_{j}"
-                    var = eqm.merge_variables([(g, name) for g in grid_list])
+                    var = eqm.merge_variables([(g, name) for g in self._grids])
                     self._ad.component_phase[(i, j)] = var
 
         self._ad.saturation = []
@@ -600,13 +675,13 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         for j in range(self.num_fluid_phases):
             # Define saturation variables for each phase
             sat_var = eqm.merge_variables(
-                [(g, f"{self.saturation_variable}_{j}") for g in grid_list]
+                [(g, f"{self.saturation_variable}_{j}") for g in self._grids]
             )
             self._ad.saturation.append(sat_var)
 
             # Define Molar fraction variables, one for each phase
             mf_var = eqm.merge_variables(
-                [(g, f"{self.phase_mole_fraction_variable}_{j}") for g in grid_list]
+                [(g, f"{self.phase_mole_fraction_variable}_{j}") for g in self._grids]
             )
             self._ad.phase_mole_fraction.append(mf_var)
 
@@ -638,14 +713,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             + list(self._ad.component_phase.values())
         )
         return secondary_variables
-
-    def _grid_list(self) -> List[pp.Grid]:
-        # Helper method to get list of grids. Not sure if we need this, but it
-        # looks cleaner than creating this list in several other functions
-        return [g for g, _ in self.gb]
-
-    def _edge_list(self) -> List[interface_type]:
-        return [e for e, _ in self.gb.edges()]
 
 #------------------------------------------------------------------------------
 ### MATHEMATICAL MODEL equation methods
@@ -682,7 +749,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         assert len(self._ad.component) > 1
 
         # FIXME: Mortar variables are needed here
-        assert len(self._edge_list()) == 0
+        assert len(self._edges) == 0
 
         # Create a separate EquationManager for the secondary variables and equations.
         # This set of secondary equations will still contain the primary variables,
@@ -716,7 +783,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
     def _set_transport_equations(self) -> None:
         """Set transport equations"""
-        grid_list = self._grid_list()
 
         darcy = self._single_phase_darcy()
 
@@ -726,7 +792,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             rp = self._rel_perm(j)
             visc = self._phase_viscosity(j)
 
-            upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{j}", grid_list)
+            upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{j}", self._grids)
 
             rho_j = self._density(j)
 
@@ -738,14 +804,14 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
                         upwind.upwind * (rho_j * self._ad.component_phase[i, j])
                     )
         
-        mass = pp.ad.MassMatrixAd(self.mass_parameter_key, grid_list)
+        mass = pp.ad.MassMatrixAd(self.mass_parameter_key, self._grids)
 
         dt = 1
 
         rho_tot = self._density()
         rho_tot_prev_time = self._density(prev_time=True)
 
-        div = pp.ad.Divergence(grid_list, dim=1, name="Divergence")
+        div = pp.ad.Divergence(self._grids, dim=1, name="Divergence")
 
         component_mass_balance: List[pp.ad.Operator()] = []
 
@@ -787,10 +853,9 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             DESCRIPTION.
 
         """
-        grid_list = self._grid_list()
-        mpfa = pp.ad.MpfaAd(self.flow_parameter_key, grid_list)
+        mpfa = pp.ad.MpfaAd(self.flow_parameter_key, self._grids)
 
-        bc = pp.ad.ParameterArray(self.flow_parameter_key, "bc_values", grids=grid_list)
+        bc = pp.ad.ParameterArray(self.flow_parameter_key, "bc_values", grids=self._grids)
 
         darcy = mpfa.flux * self._ad.pressure + mpfa.bound_flux * bc
         return darcy
@@ -798,9 +863,8 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
     def _upstream(self, phase_ind: int) -> pp.ad.Operator:
         # Not sure we need this one, but it may be convenient if we want to override this
         # (say, for countercurrent flow).
-        grid_list = self._grid_list()
 
-        upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{phase_ind}", grid_list)
+        upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{phase_ind}", self._grids)
 
         rp = self._rel_perm(phase_ind)
 
@@ -812,8 +876,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """ Sets the global enthalpy balance equation.
         """
 
-        grid_list = self._grid_list()
-
         darcy = self._single_phase_darcy()
 
         # redundant 
@@ -824,7 +886,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         for j in range(self.num_fluid_phases):
             rp = self._rel_perm(j)
 
-            upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{j}", grid_list)
+            upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{j}", self._grids)
 
             rho_j = self._density(j)
 

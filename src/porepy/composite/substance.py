@@ -165,6 +165,7 @@ class Substance(abc.ABC):
         The supposed usage is only by the Phase class to register itself with this component,
         and to instantiate mfip vars with the correct number of dofs.
         This solution is not elegant and meant only for prototyping.
+        In a top-down model, a substance has no information about phases it is in.
         
         :param phase_name: name of the phase
         :type phase_name: str
