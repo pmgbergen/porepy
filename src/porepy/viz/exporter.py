@@ -155,7 +155,8 @@ class Exporter:
         considered but on the same grid.
 
         Parameters:
-        file_name: the new root name of the files.
+            file_name (str): the new root name of the files.
+
         """
         self.file_name = file_name
 
@@ -178,7 +179,7 @@ class Exporter:
         data: if g is a single grid then data is a dictionary (see example)
               if g is a grid bucket then list of names for optional data,
               they are the keys in the grid bucket (see example).
-        time_dependent: (bolean, optional) If False, file names will not be appended with
+        time_dependent: (boolean, optional) If False, file names will not be appended with
                         an index that markes the time step. Can be overridden by giving
                         a value to time_step.
         time_step: (optional) in a time dependent problem defines the part of the file
@@ -490,6 +491,14 @@ class Exporter:
         """
         Wrapper function to export grids of dimension dim. Calls the
         appropriate dimension specific export function.
+
+        Parameters:
+            gs (Iterable[pp.Grid]): Subdomains of same dimension.
+            dim (int): Dimension of the subdomains.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, cells (storing the
+                connectivity), and cell ids in correct meshio format.
         """
         if dim == 0:
             return None
@@ -510,7 +519,7 @@ class Exporter:
         information from the 1d PorePy grids to meshio.
 
         Parameters:
-            gs (Iterable[pp.Grid]): Subdomains.
+            gs (Iterable[pp.Grid]): 1d subdomains.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 1d cells (storing the
@@ -605,7 +614,7 @@ class Exporter:
         information from the 2d PorePy grids to meshio.
 
         Parameters:
-            gs (Iterable[pp.Grid]): Subdomains.
+            gs (Iterable[pp.Grid]): 2d subdomains.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 2d cells (storing the
@@ -848,7 +857,7 @@ class Exporter:
         information from the 3d PorePy grids to meshio.
 
         Parameters:
-            gs (Iterable[pp.Grid]): Subdomains.
+            gs (Iterable[pp.Grid]): 3d subdomains.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 3d cells (storing the
