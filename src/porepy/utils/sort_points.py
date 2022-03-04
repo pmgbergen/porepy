@@ -9,11 +9,9 @@ import porepy as pp
 module_sections = ["utils"]
 
 
-@pp.time_logger(sections=module_sections)
 def sort_point_pairs(
     lines: np.ndarray,
     check_circular: Optional[bool] = True,
-    ordering: Optional[bool] = False,
     is_circular: Optional[bool] = True,
 ) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """Sort pairs of numbers to form a chain.
@@ -22,13 +20,13 @@ def sort_point_pairs(
     start end endpoints, so that they form a continuous polyline.
 
     The algorithm is brute-force, using a double for-loop. This can
-    surely be imporved.
+    surely be improved.
 
     Parameters:
     lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume
         that the points are stored in the first two rows.
     check_circular: Verify that the sorted polyline form a circle.
-                    Defaluts to true.
+                    Defaults to true.
     ordering: np.array, return in the original order if a line is flipped or not
     is_circular: if the lines form a closed set. Default is True.
 
@@ -36,10 +34,7 @@ def sort_point_pairs(
     sorted_lines: np.ndarray, 2xn, sorted line pairs. If lines had more than 2 rows,
         the extra are sorted accordingly.
     sort_ind: np.ndarray, n: Sorted column indices, so that
-        sorted_lines = lines[:, sort_ind], modulu flipping of rows in individual columns
-    is_ordered: np.ndarray (optional): True if the ordering of a segment (first and second
-        row in input lines) is kept in the sorted lines. Refers to the original ordering
-        of the lines (so lines, not sorted_lines).
+        sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual columns
 
     """
 
@@ -80,10 +75,6 @@ def sort_point_pairs(
     # The starting point for the next line
     prev = sorted_lines[1, 0]
 
-    # Order of the origin line list, store if they are flipped or not to form the chain
-    is_ordered = np.zeros(num_lines, dtype=bool)
-    is_ordered[0] = True
-
     # The sorting algorithm: Loop over all places in sorted_line to be filled,
     # for each of these, loop over all members in lines, check if the line is still
     # a candidate, and if one of its points equals the current starting point.
@@ -95,7 +86,6 @@ def sort_point_pairs(
                 sorted_lines[:, i] = lines[:, j]
                 found[j] = True
                 prev = lines[1, j]
-                is_ordered[j] = True
                 sort_ind[i] = j
 
                 break
@@ -110,12 +100,9 @@ def sort_point_pairs(
     assert np.all(found)
     if check_circular:
         assert sorted_lines[0, 0] == sorted_lines[1, -1]
-    if ordering:
-        return sorted_lines, sort_ind, is_ordered
     return sorted_lines, sort_ind
 
 
-@pp.time_logger(sections=module_sections)
 def sort_point_plane(
     pts: np.ndarray,
     centre: np.ndarray,
@@ -151,7 +138,6 @@ def sort_point_plane(
     return np.argsort(np.arctan2(*delta[active_dim]))
 
 
-@pp.time_logger(sections=module_sections)
 def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     """Sort a set of triangles so that no edges occur twice with the same ordering.
 
@@ -175,7 +161,6 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
 
     # Helper method to remove pairs from the queue if they already exist,
     # add them if not
-    @pp.time_logger(sections=module_sections)
     def update_queue(pair_0, pair_1):
         if pair_0 in queue:
             queue.remove(pair_0)
