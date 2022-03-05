@@ -11,6 +11,7 @@ import logging
 import os
 import sys
 from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
+from xml.etree import ElementTree as ET
 
 import meshio
 import numpy as np
@@ -118,6 +119,7 @@ class Exporter:
         # Check for optional keywords
         self.fixed_grid: bool = kwargs.pop("fixed_grid", True)
         self.binary: bool = kwargs.pop("binary", True)
+        self._reuse_data: bool = kwargs.pop("reuse_data", False) # NOTE for now, do not set True per default.
         if kwargs:
             msg = "Exporter() got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
@@ -149,6 +151,16 @@ class Exporter:
         # Storage for file name extensions for time steps
         self._exported_time_step_file_names: List[int] = []
 
+        # Time step used in the latest write routine. Will be optionally used
+        # to retain constant geometrical and extra data in the next write routine.
+        # It will be used as control parameter, and needs to be reset when the
+        # general file name is replaces and/or the geometrical data is not
+        # constant over single time steps.
+        self._prev_exported_time_step: Union[int, type(None)] = None
+
+        # Parameter to be used in several occasions for adding time stamps.
+        self.padding = 6
+
     def change_name(self, file_name: str) -> None:
         """
         Change the root name of the files, useful when different keywords are
@@ -159,6 +171,11 @@ class Exporter:
 
         """
         self.file_name = file_name
+
+        # Reset control parameter for the reuse of fixed data in the write routine.
+        # One could consider also allowing to reuse data from files with different
+        # names, but at the moment a more light-weight variant has been chosen.
+        self._prev_exported_time_step = None
 
     # TODO do we need dicts here? do we want to support both for grid buckets (this does not make sense)
     def write_vtu(
@@ -201,6 +218,9 @@ class Exporter:
             # Update geometrical info in meshio format
             self._update_meshio_geom()
 
+            # Reset control parameter for the reuse of fixed data in the write routine.
+            self._prev_exported_time_step = None
+
         # If the problem is time dependent, but no time step is set, we set one
         # using the updated, internal counter.
         if time_dependent and time_step is None:
@@ -220,6 +240,10 @@ class Exporter:
             self._export_dict_data(data, time_step)
         else:
             raise NotImplemented("No other data type than list and dict supported.")
+
+        # Update previous time step used for export to be used in the next application.
+        if time_step is not None:
+            self._prev_exported_time_step = time_step
 
     # TODO does not contain all keywords as in write_vtu. make consistent?
     def write_pvd(
@@ -1027,7 +1051,195 @@ class Exporter:
         meshio_grid_to_export = meshio.Mesh(
             meshio_geom[0], meshio_geom[1], cell_data=cell_data
         )
+
+        # Exclude/block fixed geometric data as grid points and connectivity information
+        # by removing fields mesh and extra node/edge data from meshio_grid_to_export.
+        # Do this only if explicitly asked in init and if a suitable previous time step
+        # had been exported already. This data will be copied to the final VTKFile
+        # from a reference file from this previous time step.
+        to_copy_prev_exported_data = self._reuse_data and self._prev_exported_time_step is not None
+        if to_copy_prev_exported_data:
+            self._remove_fixed_mesh_data(meshio_grid_to_export)
+
+        # Write mesh information and data to VTK format.
         meshio.write(file_name, meshio_grid_to_export, binary=self.binary)
+
+        # Include the fixed mesh data and the extra node/edge data by copy
+        # if remove earlier from meshio_grid_to_export.
+        if to_copy_prev_exported_data:
+            self._copy_fixed_mesh_data(file_name)
+
+    def _remove_fixed_mesh_data(self, meshio_grid: meshio._mesh.Mesh) -> meshio._mesh.Mesh:
+        """Remove points, cells, and cell data related to the extra node and
+        edge data from given meshio_grid.
+
+        Auxiliary routine in _write.
+
+        Parameters:
+            meshio_grid (meshio._mesh.Mesh): The meshio grid to be cleaned.
+
+        Returns:
+            meshio._mesh.Mesh: Cleaned meshio grid.
+
+        """
+
+        # Empty points and cells deactivate the export of geometric information
+        # in meshio. For more details, check the method 'write' in meshio.vtu._vtu.
+        meshio_grid.points = np.empty((0,3))
+        meshio_grid.cells = []
+
+        # Deactivate extra node/edge data, incl. cell_id as added in _export_list_data. 
+        extra_node_edge_names = set([
+            "cell_id",
+            "grid_dim",
+            "grid_node_number",
+            "grid_edge_number",
+            "is_mortar",
+            "mortar_side"
+        ])
+        # Simply delete from meshio grid
+        for key in extra_node_edge_names:
+            if key in meshio_grid.cell_data:
+                del meshio_grid.cell_data[key]
+
+    def _copy_fixed_mesh_data(self, file_name: str) -> None:
+        """Given two VTK files (in xml format), transfer all fixed geometric
+        info from a reference to a new file.
+
+        This includes Piece, Points, Cells, and extra node and edge data.
+
+        Parameters:
+            file_name(str): Incomplete VTK file, to be completed.
+
+        """
+
+        # Determine the path to the reference file, based on the current
+        # file_name and the previous time step.
+
+        # Find latest occurence of "." to identify extension.
+        # Reverse string in order to use index(). Add 1 to cancel
+        # the effect of te reverse.
+        dot_index = list(file_name)[::-1].index(".") + 1
+        extension = "".join(list(file_name)[-dot_index:])
+        if not extension == ".vtu":
+            raise NotImplementedError("Only support for VTKFile.")
+
+        # Extract file_name without extension and the time_step stamp.
+        # For this, assume the time stamp occurs after the latest underscore.
+        # Use a similar approach as for finding the extension.
+        latest_underscore_index = list(file_name)[::-1].index("_")
+        file_name_without_time_extension = "".join(list(file_name)[:-latest_underscore_index])
+
+        # As in _make_file_name, use padding for the time stamp
+        prev_exported_time = str(self._prev_exported_time_step).zfill(self.padding)
+
+        # Add the time stamp of the previously exported time step and the same extension.
+        ref_file_name = (
+            file_name_without_time_extension
+            + prev_exported_time
+            + extension
+        )
+
+        # Fetch VTK file in XML format.
+        tree = ET.parse(file_name)
+        new_vtkfile = tree.getroot()
+       
+        # Fetch reference VTK file in XML format
+        ref_tree = ET.parse(ref_file_name)
+        ref_vtkfile = ref_tree.getroot()
+        
+        def fetch_child(root: ET.Element, key: str) -> Union[ET.Element, type(None)]:
+            """Find the unique (nested) child in xml file root with tag key.
+            """
+            # Iterate over all children and count, by always just
+            # updating the latest counter.
+            count = 0
+            for count, child in enumerate(root.iter(key)):
+                count += 1
+            # Do not accept non-uniqueness
+            if count > 1:
+                raise ValueError(f"No child calles {key} present.")
+            # Return child, if it exists (and is unique) or None if not.
+            return child if count==1 else None
+        
+        def fetch_data_array(
+                root: ET.Element,
+                key: str,
+                check_existence: bool = True
+            ) -> Union[ET.Element, type(None)]:
+            """Find the unique DataArray in xml file root with "Name"=key,
+            where "Name" is an element of the attributed of the DataArray.
+            """
+            # Count how many candidates have been found (hopefully in the end
+            # it is just one.
+            count = 0
+        
+            # To search for nested children in xml files, iterate..
+            for child in root.iter("DataArray"):
+                # Check if the child has the correct Name
+                if child.attrib["Name"] == key:
+                    count += 1
+                    data_array = child
+        
+            # Check existence only if required.
+            if check_existence:
+                assert(count > 0)
+        
+            # Check uniqueness of candidates for correct <DataArray>.
+            if count > 1:
+                raise ValueError(f"DataArray with name {key} not unique.")
+        
+            # Return the DataArray if it exists, otherwise return None
+            return data_array if count > 0 else None
+        
+        # Transfer the attributes of the <Piece> block. It contains
+        # the geometrical information on the number of points and cells.
+        ref_piece = fetch_child(ref_vtkfile, "Piece")
+        new_piece = fetch_child(new_vtkfile, "Piece")
+        new_piece.attrib = ref_piece.attrib
+        
+        # Transfer the content of the <DataArray> with "Name"="Points"
+        # among its attributes. It contains the coordinates of the points.
+        ref_points = fetch_data_array(ref_vtkfile, "Points")
+        new_points = fetch_data_array(new_vtkfile, "Points")
+        new_points.text = ref_points.text
+        
+        # Transfer the <Cells> which contains cell information including
+        # cell types and the connectivity. <Cell> is expected to be not included
+        # in the current VTKFile. It is therefore added as a whole. It is
+        # assumed to be a child of <Piece>
+        ref_cells = fetch_child(ref_vtkfile, "Cells")
+        new_piece.insert(1, ref_cells)
+        
+        # Transfer extra node/edge data with the keys:
+        extra_node_edge_names = set([
+            "cell_id",
+            "grid_dim",
+            "grid_node_number",
+            "grid_edge_number",
+            "is_mortar",
+            "mortar_side"
+        ])
+        
+        # These are separately stored as <DataArray> under <CellData>. Hence, fetch
+        # the corrsponding <CellData> child and search for the <DataArray>.
+        new_cell_data = fetch_child(new_vtkfile, "CellData")
+        # If no <CellData> available, add to <Piece> and repeat search for <CellData>.
+        if new_cell_data == None:
+            new_cell_data = ET.Element("CellData")
+            new_piece.append(new_cell_data)
+
+        # Loop over all extra data to check whether it is included in the reference
+        # file. If so, copy it.
+        for key in extra_node_edge_names:
+            ref_data_array = fetch_data_array(ref_vtkfile, key, check_existence=False)
+            new_data_array = fetch_data_array(new_vtkfile, key, check_existence=False)
+            # Copy data only if it is included in the reference file, but not the current.
+            if ref_data_array is not None and new_data_array is None:
+                new_cell_data.append(ref_data_array)
+        
+        # Write updates to file
+        tree.write(file_name)
 
     def _update_meshio_geom(self):
         for dim in self.dims:
@@ -1057,7 +1269,7 @@ class Exporter:
         extension: str = ".vtu",
     ) -> str:
 
-        padding = 6
+        padding = self.padding
         if dim is None:  # normal grid
             if time_step is None:
                 return file_name + extension
@@ -1080,7 +1292,7 @@ class Exporter:
 
         extension = ".vtu"
         file_name = file_name + "_mortar_"
-        padding = 6
+        padding = self.padding
         if time_step is None:
             return file_name + str(dim) + extension
         else:
