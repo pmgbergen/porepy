@@ -189,7 +189,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     {
                         "bc": self._bc_type_mechanics(g),
                         "bc_values": self._bc_values_mechanics(g),
-                        "source": self._source_mechanics(g),
                         "time_step": self.time_step,
                         "biot_alpha": self._biot_alpha(g),
                         "p_reference": self._reference_scalar(g),
@@ -343,9 +342,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         """
         return np.zeros(g.num_faces)
-
-    def _source_mechanics(self, g: pp.Grid) -> np.ndarray:
-        return super()._source(g)
 
     def _stress_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
         """Stress tensor parameter, unitary Lame parameters.

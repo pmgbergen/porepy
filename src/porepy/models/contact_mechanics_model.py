@@ -454,24 +454,15 @@ class ContactMechanics(AbstractModel):
 
         for g, d in gb:
             if g.dim == self._Nd:
-                # Rock parameters
-                C = self._stress_tensor(g)
-                # Define boundary condition
-                bc = self._bc_type(g)
-
-                # BC and source values
-                bc_val = self._bc_values(g)
-                source_val = self._source(g)
-
                 pp.initialize_data(
                     g,
                     d,
                     self.mechanics_parameter_key,
                     {
-                        "bc": bc,
-                        "bc_values": bc_val,
-                        "source": source_val,
-                        "fourth_order_tensor": C,
+                        "bc": self._bc_type(g),
+                        "bc_values": self._bc_values(g),
+                        "source": self._body_force(g),
+                        "fourth_order_tensor": self._stress_tensor(g),
                     },
                 )
 
@@ -532,8 +523,8 @@ class ContactMechanics(AbstractModel):
         values = values.ravel("F")
         return values
 
-    def _source(self, g: pp.Grid) -> np.ndarray:
-        """Source term parameter.
+    def _body_force(self, g: pp.Grid) -> np.ndarray:
+        """Body force parameter.
 
         If the source term represents gravity in the y (2d) or z (3d) direction,
         use:
