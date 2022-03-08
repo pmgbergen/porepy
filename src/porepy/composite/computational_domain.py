@@ -1,17 +1,21 @@
 """ Contains the physical extension for :class:`~porepy.grids.grid_bucket.GridBucket`."""
-
-from typing import Union, Iterable, List, Optional, Dict
+from __future__ import annotations
 
 import porepy as pp
 import numpy as np
-from scipy import sparse as sps
 
-# from .material_subdomain import MaterialSubdomain
 from ._composite_utils import (
     COMPUTATIONAL_VARIABLES,
     create_merged_variable,
     create_merged_mortar_variable
 )
+
+from typing import (Optional, Dict, Set, Iterator, Iterable, Tuple, 
+TYPE_CHECKING)
+# this solution avoids circular imports due to type checking. Needs __future__.annotations
+if TYPE_CHECKING:
+    from .phase import Phase
+
 
 class ComputationalDomain:
     """ Physical extension of :class:`~porepy.GridBucket`.
@@ -37,9 +41,13 @@ class ComputationalDomain:
         # public
         self.gb: pp.GridBucket = gridbucket
 
-        # keys: symbolic variable names
+        # keys: symbolic variable names, values: respective MergedVariable
         self._global_ad: dict = dict()
-
+        self._unique_phase_names: set = set()
+        self._unique_substance_names: set = set()
+        # key: phase name, value: set with present substance names
+        self._substance_in_phase: Dict[str, Set[str]] = dict()
+        self._phases: list = list()
 
     def __str__(self) -> str:
         """ Returns string representation of instance,
@@ -96,6 +104,10 @@ class ComputationalDomain:
 
         return var
 
+    def __iter__(self) -> Iterator[Phase]:
+        """ Returns an Iterator over all present phases."""
+        for phase in self._phases:
+            yield phase
     
     @property
     def nc(self) -> int:
@@ -104,6 +116,60 @@ class ComputationalDomain:
         :rtype: int
         """
         return self.gb.num_cells()
+
+    @property
+    def np(self) -> int:
+        """
+        :return: number of added phases
+        :rtype: int
+        """
+        return len(self._unique_phase_names)
+
+    @property
+    def ns(self) -> int:
+        """
+        :return: total number of distinct substances in all phases
+        :rtype: int
+        """
+        return len(self._unique_substance_names)
+    
+    def is_variable(self, var_name: str) -> bool:
+        """
+        :param var_name: name of the variable you want to check for existence in this domain
+        :type var_name: str
+
+        :return: True, if variable has already been instantiated, False otherwise.
+        :rtype: bool
+        """
+        if var_name in self._global_ad.keys():
+            return True
+        else:
+            return False
+
+    def add_phase(self, phases: Iterable[Tuple[Phase, np.ndarray]]) -> None:
+        """
+        Adds the phases to the compositional domain.
+        Asserts uniqueness of present phases via :method:`~porepy.composite.phase.Phase.name` and object comparison.
+        Asserts unitarity of initial saturations
+        Calls an internal method to resolve the compositions and store relevant information and compute initial overall molar fractions based on the saturation.
+
+        NOTE: Overwrites previously passed phases and removes their
+        
+        
+        :param phases: Iterable of 2-tuples, containing the phase instance and it's respective initial saturation.
+        :type phases: Iterable[Tuple[Phase, np.ndarray]]
+        """
+        self._resolve_composition()
+
+
+    def _resolve_composition(self) -> None:
+        """
+        Analyzes the composition, i.e. presence of substances in phases.
+        Information about substances which are anticipated in multiple phases is stored.
+        Computes initial overall molar fractions per component
+        (see :method:`~porepy.composite.substance.Substance.overall_molar_fraction`).
+        """
+        pass
 
     # def _compatibility_check(to_check: List[MaterialSubdomain]) -> Union[None, str]:
     #     """ Checks if all elements in 'to_check' are compatible with this extension.

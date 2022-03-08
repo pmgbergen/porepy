@@ -10,8 +10,10 @@ _COMPONENT_TEST_ARRAY = [ "UnitIncompressibleFluid",
                           "UnitSolid"
                           ]
 
-from .substance import Substance, FluidSubstance, SolidSubstance
+from .computational_domain import ComputationalDomain
+
 from .phase import Phase
+from .substance import Substance, FluidSubstance, SolidSubstance
 
 from ._composite_utils import (
     COMPUTATIONAL_VARIABLES,
@@ -22,7 +24,7 @@ from ._composite_utils import (
 from .unit_substance import UnitIncompressibleFluid, UnitIdealFluid, UnitSolid
 
 from .material_subdomain import MaterialSubdomain
-from .computational_domain import ComputationalDomain
+
 
 #------------------------------------------------------------------------------
 ### IMPORT concrete Component children below
