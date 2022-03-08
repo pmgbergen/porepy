@@ -6,7 +6,6 @@ Large parts of this code are attributed to EK and his prototype of the reactive 
 VL refactored the model for usage with the composite submodule.
 """
 
-from this import d
 from typing import Dict, List, Tuple, Union, Optional
 
 import porepy as pp
@@ -344,18 +343,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 ### SET-UP
 #------------------------------------------------------------------------------
 
-    def _resolve_composition(self) -> None:
-        """
-        Analyzes the associated :class:`~porepy.composite.computational_domain.ComputationalDomain`
-        and obtains information about the composition, i.e. about phases and substances.
-        
-        Information about substances which are anticipated in multiple phases is stored.
-
-        Computes initial overall molar fractions per component
-        (see :method:`~porepy.composite.substance.Substance.overall_molar_fraction`)
-        """
-        pass
-
     #### collective set-up method
     def _set_parameters(self) -> None:
         """Set default parameters needed in the simulations.
@@ -369,7 +356,8 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
             bc, bc_vals = self._BC_convective_flux(g)
 
-            mass_sources = self._mass_sources(g)
+            mass_source = self._unitary_source(g)
+            enthalpy_source = np.copy(mass_source)
 
             # specific volume and aperture are related to other physics. This has to stay like this for now.
             specific_volume = self._specific_volume(g)
@@ -393,7 +381,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
                 {
                     "bc": bc,
                     "bc_values": bc_vals,
-                    "source": source_vals,  # TODO: specify as MASS source term and split it according substances
+                    "source": mass_source,  # TODO: specify as MASS source term and split it according substances
                     "second_order_tensor": transmissability,
                     "vector_source": gravity.ravel("F"),
                     "ambient_dimension": self.gb.dim_max(),
@@ -458,97 +446,88 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
     ### Boundary Conditions
 
-    def _BC_convective_flux(self, g: pp.Grid) -> Tuple[pp.BoundaryCondition, np.ndarray]:
-        """ NOTE: this assumes for now the simplest case, namely a single rectangular grid.
-        
-        Convective flux due to the pressure potential.
+    def _BC_unitary_transport_flux(self, g: pp.Grid, bc_type: Optional[str] = "neu"
+    )-> Tuple[pp.BoundaryCondition, np.ndarray]:
+        """        
+        BC objects for unitary flux. Currently only the east side allows boundary a non-zero flux
 
-        Phys. Dimensions:
+        Phys. Dimensions of CONVECTIVE MASS FLUX:
             - Dirichlet conditions: [Pa] = [N / m^2] = [kg / m^1 / s^2]
-            - Neumann conditions: [Pa / A] = [kg / m^(dim) / s^2]  ([A] = [m^(1 OR 2)] depending on dimension dim)
-              (physical dimension given without the scalar part of the total convective flux expression)
+            - Neumann conditions: [mol / m^2 s] = [(mol / m^3) * (m^3 / m^2 s)]  (molar density * Darcy flux)
+        
+        Phys. Dimensions of CONVECTIVE ENTHALPY FLUX:
+            - Dirichlet conditions: [K] (temperature)
+            - Neumann conditions: [J m^3 / m^2 s] (density * specific enthalpy * Darcy flux)
+        NOTE: Enthalpy flux BCs need some more thoughts. Isn't it unrealistic to assume the temperature or enthalpy of the outflowing fluid is known?
+        That BC would influence our physical setting and it's actually our goal to find out how warm the water will be at the outflow.
+        NOTE: DC-BC for enthalpy might be tricky if pressure is given as DC-BC for convective mass flux at the same time (h = h(T,p))
+
+        Phys. Dimensions of FICK's LAW OF DIFFUSION:
+            - Dirichlet conditions: [-] (molar, fractional: constant substance concentration at boundary) 
+            - Neumann conditions: [mol / m^2 s]  (same as regular mass flux)
+        NOTE: Does the type of BC have to be the same for convective and diffusive flux? Or is anything else nonphysical?
 
 
         :param g: grid representing subdomain on which BCs are imposed
         :type g: :class:`~porepy.grids.grid.Grid`
+        :param bc_type: (default='neu') defines the type of the eastside BC. Currently only Dirichlet and Neumann BC are supported
+        :type bc_type: str
         
         :return: Returns the :class:`~porepy.params.bc.BoundaryCondition` object and respective values.
         :rtype: Tuple[porepy.BoundaryCondition, numpy.ndarray]
         """
-        # change this value for the constant D-BC to change
-        outflow_pressure = 1. 
+        _, east_bf, *_ = self._domain_boundary_sides(g)
 
-        all_bf, east_bf, west_bf, north_bf, south_bf, *_ = self._domain_boundary_sides(g)
+        # heterogeneous on west side, BoundaryCondition object automatically assumes  Neumann for rest
+        bc = pp.BoundaryCondition(g, east_bf, bc_type)
 
-        # Dirichlet on west side, BoundaryCondition object automatically assumes Neumann for rest
-        bc = pp.BoundaryCondition(g, west_bf, "dir")
-
-        # Zero-Neumann BC on whole domain
+        # homogeneous Neumann BC
         vals = np.zeros(g.num_faces)
-        # Constant-Dirichlet BC on westside
-        vals[west_bf] = outflow_pressure
+        # Constant, unitary D-BC on eastside
+        vals[east_bf] = 1.
 
         return (bc, vals)
 
-    def _BC_conductive_flux(self, g: pp.Grid) -> Tuple[pp.BoundaryCondition, np.ndarray]:
-        """ NOTE: this assumes for now the simplest case, namely a single rectangular grid.
-        
-        (Thermal) conductive flux due to the temperature potential
-
-        Phys. Dimensions:
-            - Dirichlet conditions: [K]
-            - Neumann conditions: [J / s / m^2] = [kg / s^-3] ([J]=[kg m^2 / s^-2])
-
-
-        :param g: grid representing subdomain on which BCs are imposed
-        :type g: :class:`~porepy.grids.grid.Grid`
-        
-        :return: Returns the :class:`~porepy.params.bc.BoundaryCondition` object and respective values.
-        :rtype: Tuple[porepy.BoundaryCondition, numpy.ndarray]
+    def _BC_unitary_conductive_flux(self, g: pp.Grid, bc_type: Optional[str] = "neu"
+    )-> Tuple[pp.BoundaryCondition, np.ndarray]:
         """
-        # change this value for the constant D-BC to change
-        bottom_temperature = 373.15  # in Kelvin, this is 100°C 
+        BC object for unitary, conductive flux. Currently only non-zero BC at southside assumed.
 
-        all_bf, east_bf, west_bf, north_bf, south_bf, *_ = self._domain_boundary_sides(g)
-
-    def _bc_type_transport(self, g: pp.Grid, j: int) -> pp.BoundaryCondition:
-        """Set type of boundary condition for transport of phase j"""
-        # Define boundary regions
-        all_bf, *_ = self._domain_boundary_sides(g)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(g, all_bf, "neu")
-
-    def _bc_values_transport(self, g: pp.Grid, j: int) -> np.ndarray:
-        """Homogeneous boundary values.
-
-        Units:
-            Dirichlet conditions: Pa = kg / m^1 / s^2
-            Neumann conditions: m^3 / s
+        Phys. Dimensions of CONDUCTIVE HEAT FLUX:
+            - Dirichlet conditions: [K] (temperature)
+            - Neumann conditions: [J m^3 / m^2 s] (density * specific enthalpy * Darcy flux) (same as convective flux)
         """
-        return np.zeros(g.num_faces)
+        _, _, _, _, south_bf,*_ = self._domain_boundary_sides(g)
+
+        # heterogeneous on west side, BoundaryCondition object automatically assumes  Neumann for rest
+        bc = pp.BoundaryCondition(g, south_bf, bc_type)
+
+        # homogeneous Neumann BC
+        vals = np.zeros(g.num_faces)
+        # Constant, unitary D-BC on eastside
+        vals[south_bf] = 1.
+
+        return (bc, vals)
 
     #### Source terms
 
-    def _mass_sources(self, g: pp.Grid) -> Dict[str, np.ndarray]:
-        """ Single-cell source term in center of first grid part
+    def _unitary_source(self, g: pp.Grid) -> np.array:
+        """ Unitary, single-cell source term in center of first grid part
         |-----|-----|-----|
         |  .  |     |     |
         |-----|-----|-----|
 
         Phys. Dimensions: [mol / m^3 / s]
 
-        :return: source values per cell and per component. Keys: names of component, Values: source terms
-        :rtype: Dict[str, :class:`~numpy.ndarray`]
+        :return: source values per cell.
+        :rtype: :class:`~numpy.array`
         """
-        # change this value to alter source magnitude
-        source = 1.
-
         # find and set single-cell source
         vals = np.zeros(g.num_cells)
         source_cell = g.closest_cell(np.ndarray([0.5, 0.5]))
-        vals[source_cell] = source
+        vals[source_cell] = 1.
 
-        return {"SimpleWater": vals}
+        return vals
 
     def _enthalpy_source(self, g: pp.Grid) -> np.ndarray:
         """ Single-cell source term in center of first grid part

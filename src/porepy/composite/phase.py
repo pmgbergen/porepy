@@ -1,17 +1,18 @@
 """ Contains the abstract base class for all phases."""
+from __future__ import annotations
 
 import abc
-
-from sympy import frac
-
 import porepy as pp
 import numpy as np
 
-from typing import Iterator, List, Tuple
-
-from .substance import Substance
 from ._composite_utils import COMPUTATIONAL_VARIABLES
-from .computational_domain import ComputationalDomain
+
+from typing import Iterator, Tuple, Iterable, TYPE_CHECKING
+# this solution avoids circular imports due to type checking. Needs __future__.annotations
+if TYPE_CHECKING:
+    from .computational_domain import ComputationalDomain
+    from .substance import Substance
+
 
 class Phase(abc.ABC):
     """
@@ -25,7 +26,8 @@ class Phase(abc.ABC):
     """ For a computational domain (key), contains a list of present phases"""
     _present_phases = dict()
 
-    def __new__(cls, name:str, computational_domain: ComputationalDomain):
+    def __new__(cls,
+    name:str, computational_domain: ComputationalDomain):
         """ Declarator. Assures the phase name is unique for a given computational domain.
         Ambiguities must be avoided due to the central storage of the AD variables.
         """
@@ -40,7 +42,8 @@ class Phase(abc.ABC):
         
         return super().__new__(cls)
 
-    def __init__(self, name: str, computational_domain: ComputationalDomain) -> None:
+    def __init__(self,
+    name: str, computational_domain: ComputationalDomain) -> None:
         """Base class constructor. Initiates phase-related AD-variables.
         Contains symbolic names of associated model variables.
         
@@ -159,7 +162,8 @@ class Phase(abc.ABC):
         """
         return COMPUTATIONAL_VARIABLES["mortar_prefix"] + "_" + COMPUTATIONAL_VARIABLES["phase_molar_fraction"] + "_" + self.name
 
-    def add_substances(self, phase_composition: List[Tuple[Substance, np.array]]) -> None:
+    def add_substances(self,
+    phase_composition: Iterable[Tuple[Substance, np.array]]) -> None:
         """ Adds a composition of substances to this phase, including their initial molar fraction.
 
         Asserts the sum over molar fractions is 1 per cell.
