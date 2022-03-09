@@ -27,11 +27,11 @@ Edge = Tuple[pp.Grid, pp.Grid]
 class SubdomainProjections(Operator):
     """Wrapper class for generating projection to and from subdomains.
 
-    One use case in when variables are defined on only some of subdomains.
+    One use case in when variables are defined on only some of the subdomains.
 
-    The class should be used through the methods {cell, face}_{projection,restriction}.
+    The class should be used through the methods {cell, face}_{projection, restriction}.
 
-    See also MortarProjections for projcetions to and from mortar grids.
+    See also MortarProjections for projections to and from mortar grids.
 
     """
 
@@ -42,17 +42,13 @@ class SubdomainProjections(Operator):
     ) -> None:
         """Construct sudomain restrictions and prolongations for a set of subdomains.
 
-        The projections will be ordered according to the ordering in grids, or the order
-        of the GridBucket iteration over grids. Iit is critical that the same ordering
-        is used by other operators.
+        The projections will be ordered according to the ordering in grids. It is critical
+        that the same ordering is used by other operators.
 
         Parameters:
             grids (List of pp.Grid): List of grids. The order of the grids in the list
-                sets the ordering of the subdomain projections.
-            gb (pp.GridBucket): Used if grid list is not provided. The order of the
-                grids is set according to iteration over the GridBucket nodes.
-            is_scalar (bool, optional): If true, projections are constructed for scalar
-                quantities.
+                will establish the ordering of the subdomain projections.
+            nd (int, optional): Dimension of the quantities to be projected.
 
         """
         self._name = "SubdomainProjection"
@@ -78,7 +74,7 @@ class SubdomainProjections(Operator):
                 the projection should apply.
 
         Returns:
-            pp.ad.Matrix: Matrix operator (in the Ad sense) that represent the
+            pp.ad.Matrix: Matrix operator (in the Ad sense) that represents the
                 projection.
 
         """
@@ -256,14 +252,13 @@ class MortarProjections(Operator):
         is used by other operators.
 
         Parameters:
-            gb (pp.GridBucket): Mixed-dimensional grid.
-            grids (List of pp.Grid, optional): List of grids for which the projections
-                should apply. If not provided, all grids in gb will be used. The order
-                 of the grids in the list sets the ordering of the subdomain projections.
-
-            edges (List of edges, optional): List of edges for which the projections
-                should apply. If not provided, all grids in gb will be used. The order
-                 of the grids in the list sets the ordering of the subdomain projections.
+            gb (pp.GridBucket): Mixed-dimensional grid bucket.
+            grids (List of pp.Grid): List of grids for which the projections
+                should apply. The order of the grids in the list establishes the ordering of
+                the subdomain projections.
+            edges (List of edges): List of edges for which the projections
+                should apply. The order of the grids in the list establishes the ordering of
+                the subdomain projections.
             nd (int, optional): Dimension of the quantities to be projected.
 
         """
@@ -271,7 +266,7 @@ class MortarProjections(Operator):
         self._num_edges: int = len(edges)
         self._nd: int = nd
 
-        ## Initialize projections
+        # Initialize projections
         cell_projection, face_projection = _subgrid_projections(grids, self._nd)
 
         # IMPLEMENTATION NOTE:
@@ -488,15 +483,14 @@ class Trace(Operator):
     ):
         """Construct trace operators and their inverse for a given set of subdomains.
 
-        The operators will be ordered according to the ordering in grids, or the order
-        of the GridBucket iteration over grids. Iit is critical that the same ordering
-        is used by other operators.
+        The operators will be ordered according to the ordering in grids. It is critical
+        that the same ordering is used by other operators.
 
         Parameters:
             grids (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the trace operators.
-            is_scalar (bool, optional): If true, trace operators are constructed for
-                scalar quantities.
+            nd (int, optional): Dimension of the quantities to be projected. Defaults to 1.
+            name (str, optional): Name of the operator. Default is None.
 
         """
         super().__init__(name=name)
@@ -570,6 +564,7 @@ class Divergence(Operator):
             grids (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the divergence operators.
             dim (int, optional): Dimension of vector field. Defaults to 1.
+            name (str, optional): Name to be assigned to the operator. Default is None.
 
         """
         super().__init__(name=name)
@@ -634,9 +629,8 @@ class BoundaryCondition(Operator):
     ):
         """Construct a wrapper for boundary conditions for a set of subdomains.
 
-        The boundary values will be ordered according to the ordering in grids, or theorder
-        ordre of the GridBucket iteration over grids. Iit is critical that the same
-        ordering is used by other operators.
+        The boundary values will be ordered according to the ordering in grids. It is
+        critical that the same ordering is used by other operators.
 
         IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be
         added in due course.
@@ -649,8 +643,7 @@ class BoundaryCondition(Operator):
                 to get the relevant boundary conditions.
             grids (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the boundary values.
-            gb (pp.GridBucket): Used if grid list is not provided. The order of the
-                grids is set according to iteration over the GridBucket nodes.
+            name (str, optional): Name to be assigned to the operator. Default is None.
 
         """
         super().__init__(name=name)
@@ -758,10 +751,10 @@ class ParameterArray(Operator):
                 to get the relevant parameter dictionary (same way as discretizations
                 pick out their parameters).
             grids (List of pp.Grid): List of grids. The order of the grids in the list
-                sets the ordering of the parameter values.
+                establishes the ordering of the parameter values.
             edges (List of tuples of pp.Grid): List of edges. The order of the edges in the
-                list sets the ordering of the parameter values.
-            name (str): Name of the parameter.
+                list establishes the ordering of the parameter values.
+            name (str, optional): Name to be assigned to the array. Default is None.
 
         Example:
             To get the source term for a flow equation initialize with param_keyword='flow',
@@ -872,7 +865,7 @@ class ParameterMatrix(ParameterArray):
             return sps.csr_matrix((0, 0))
 
 
-#### Helper methods below
+# Helper methods below
 
 
 def _subgrid_projections(
