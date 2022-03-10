@@ -18,9 +18,18 @@ class Substance(abc.ABC):
     Abstract base class for pure substances, providing abstract physical propertis which need to be implemented
     for concrete child classes to work in PorePy.
 
+    NOTE proposition:
+    Turns every child in a conditional singleton class: It can only be instantiated once per computational domain.
+    Any further instantiation will return a reference to the same, first class.
+    Assures uniqueness and integrity of variable values (like concentrations) in grid-specific dictionaries.
+
     Provides and manages component-related AD-variables.
 
     Instantiated AD variables are provided as properties, as well as the names under which they are stored in the grid data dictionary.
+
+    Current relevant variables (per substance instance):
+        - overall molar fraction
+        - molar fraction in phase for given phase name
 
     Physical attributes include constants and scalar functions.
     The latter one is dependent on the thermodynamic state (e.g. pressure, enthalpy),
@@ -34,8 +43,22 @@ class Substance(abc.ABC):
     
     2. Scalars (THD dependent)
         - molar density
+        - Fick diffusivity coefficient
+        - thermal conductivity coefficient
     
     """
+
+    # """ For a computational domain (key), contains a list of present substances. """
+    # __present_substances: dict = dict()
+    # """Switch for skipping the instantiation of phase instances, which are already present."""
+    # __new_instante = True
+
+    # def __new__(cls, computational_domain: ComputationalDomain) -> Substance:
+    #     """ Declarator. Assures the phase name is unique for a given computational domain.
+    #     Ambiguities must be avoided due to the central storage of the AD variables.
+    #     """
+    #     name = str(cls.__name__)
+
 
     def __init__(self, computational_domain: ComputationalDomain) -> None:
         """ Abstract base class constructor. Initiates component-related AD-variables.
@@ -55,7 +78,7 @@ class Substance(abc.ABC):
         # adding the overall molar fraction to the primary variables
         self.cd(self.omf_name, {"cells": 1})
         # TODO math. check if mortar var is needed
-        self.cd(self.mortar_omf_name, {"cells": 1})
+        # self.cd(self.mortar_omf_name, {"cells": 1})
 
     @property
     def name(self):
@@ -302,10 +325,8 @@ class SolidSubstance(Substance):
     associated with material for the skeleton of various porous media.
 
     The extensive list includes:
-        - porosity
-            - constant
-            - pressure related
-    
+        - base porosity (constant)
+        - base permeability (constant)
     """
 
     @staticmethod
@@ -335,20 +356,3 @@ class SolidSubstance(Substance):
         :rtype: float
         """
         pass
-
-    def porosity_p(self, reference_pressure: float) -> pp.ad.Operator:
-        """
-        Implements a simple, linear  pressure-based law for porosity:
-
-        \Phi = \Phi_0 * ( p - p_0 )
-
-        :param reference_pressure: a reference pressure value for the linear relation
-        :type reference_pressure: float
-
-        :return: Ad object representing the pressure-dependent porosity
-        :rtype: :class:`porepy.ad.Operator`
-        """
-        p = 1 # TODO get reference to pressure variable
-
-        return pp.ad.Function(lambda p: self.base_porosity*(p - reference_pressure),
-        "Rel. perm. liquid")(p)

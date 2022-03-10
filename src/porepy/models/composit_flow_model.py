@@ -5,7 +5,7 @@ Does not involve chemical reactions.
 Large parts of this code are attributed to EK and his prototype of the reactive multiphase model.
 VL refactored the model for usage with the composite submodule.
 """
-
+from __future__ import annotations
 from typing import Dict, List, Tuple, Union, Optional
 
 import porepy as pp
@@ -145,8 +145,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         self.exporter = pp.Exporter(
             self.gb, self.params["file_name"], folder_name=self.params["folder_name"]
         )
-
-        self._resolve_composition()
         
         self._set_parameters()
 
@@ -352,7 +350,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         the constitutive laws may lead to different parameters being needed.
 
         """
-        for g, d in self.gb:
+        for g, d, mat_sd in self.cd:
 
             bc, bc_vals = self._BC_convective_flux(g)
 
@@ -362,17 +360,20 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             # specific volume and aperture are related to other physics. This has to stay like this for now.
             specific_volume = self._specific_volume(g)
 
-            material_subdomain = g(pp.composite.UnitSolid(self.cd))
+            # transmissibility coefficients for the mpfa
             transmissability = pp.SecondOrderTensor(
-                specific_volume * material_subdomain.base_permeability()
+                specific_volume * mat_sd.base_permeability()
             )
 
             # No gravity
             gravity = np.zeros((self.gb.dim_max(), g.num_cells))
-            # with gravity TODO add mass density
-            # gravity = np.vstack([np.zeros(self.gb.num_cells),
-            #                      np.zeros(self.gb.num_cells),
-            #                      -np.ones(self.gb.num_cells)])
+            # With gravity FIXME WIP
+            # gravity = np.array([0.,0.,-9.98])
+            # gravity_glob = list()
+            # for phase in self.cd.Phases:
+            #     gravity_glob.append(phase.mass_phase_density() * gravity.copy())
+            
+            # gravity_glob = np.vstack(gravity_glob).T.ravel("F")
 
             pp.initialize_data(
                 g,
@@ -387,20 +388,18 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
                     "ambient_dimension": self.gb.dim_max(),
                 },
             )
-
-            # Mass weight parameter. Same for all phases
-            mass_weight = material_subdomain.base_porosity() * specific_volume
+             # Mass weight parameter. Same for all phases
             pp.initialize_data(
-                g, d, self.mass_parameter_key, {"mass_weight": mass_weight}
+                g, d, self.mass_parameter_key, {"mass_weight": mat_sd.base_porosity() * specific_volume}
             )
-            
-            # NOTE VL: below should be done per component, not phase, since we have an equation per component.
 
             # NOTE EK: Seen from the upstream discretization, the Darcy velocity is a
             # parameter, although it is a derived quantity from the flow discretization
             # point of view. We will set a value for this in the initialization, to
             # increase the chances the user remembers to set compatible flux and
             # pressure.
+
+            # NOTE VL: below should be done per component, not phase, since we have an equation per component.
 
             for j in range(self.num_fluid_phases):
                 bc = self._bc_type_transport(g, j)
@@ -1068,17 +1067,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             pp.ad.Array: Relative permeability of the given phase.
         """
         return pp.ad.Array(np.ones(self.gb.num_cells()))
-
-    def _porosity(self, g: pp.Grid) -> np.ndarray:
-        """Homogeneous porosity"""
-        if g.dim < self.gb.dim_max():
-            # Unit porosity in fractures. Scaling with aperture (dimension reduction)
-            # should be handled by including a specific volume.
-            scaling = 1
-        else:
-            scaling = 0.2
-
-        return np.zeros(g.num_cells) * scaling
 
     def _viscosity(self, g: pp.Grid) -> np.ndarray:
         """Unitary viscosity.

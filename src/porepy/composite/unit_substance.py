@@ -27,6 +27,9 @@ class UnitIncompressibleFluid(FluidSubstance):
 
     def thermal_conductivity(self, *args, **kwargs) -> pp.ad.Operator:
         return pp.ad.Array(np.ones(self.cd.nc))
+    
+    def dynamic_viscosity(self, *args, **kwargs) -> pp.ad.Operator:
+        return pp.ad.Array(np.ones(self.cd.nc))
 
 class UnitIdealFluid(UnitIncompressibleFluid):
     """
