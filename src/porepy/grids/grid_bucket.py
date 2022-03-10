@@ -45,7 +45,6 @@ class GridBucket:
             grids as keys, and data associated with the grid as values.
         _edges (dictionary): For each interface grid, a dictionary with
             the edges as keys, and data associated with the grid as values.
-
     """
 
     @pp.time_logger(sections=module_sections)

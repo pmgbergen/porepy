@@ -80,6 +80,10 @@ def create_merged_variable(
     # creating variables on each subdomain
     variables = list()
     for g, d in gb:
+
+        if pp.PRIMARY_VARIABLES not in d:
+            d[pp.PRIMARY_VARIABLES] = dict()
+
         d[pp.PRIMARY_VARIABLES].update({variable_name: dof_info})
         # TODO test if the order of variables is alright
         variables.append(pp.ad.Variable(
@@ -115,6 +119,7 @@ def create_merged_mortar_variable(
 
     mortar_variables = list()
     for e, d in gb.edges():
+        # FIXME: assure the data dict has the respective keys
         if d["mortar_grid"].codim == 2:  # no variables in points
             continue
         else:

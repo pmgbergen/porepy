@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import porepy as pp
 import numpy as np
+import warnings
+
+from porepy.composite.material_subdomain import MaterialSubdomain
 
 from ._composite_utils import (
     COMPUTATIONAL_VARIABLES,
@@ -10,11 +13,12 @@ from ._composite_utils import (
     create_merged_mortar_variable
 )
 
-from typing import (Optional, Dict, Set, Iterator, Iterable, Tuple, 
+from typing import (Optional, Dict, Set, Iterator, List, Union, Tuple,
 TYPE_CHECKING)
 # this solution avoids circular imports due to type checking. Needs __future__.annotations
 if TYPE_CHECKING:
     from .phase import Phase
+    from .substance import SolidSubstance
 
 
 class ComputationalDomain:
@@ -43,11 +47,20 @@ class ComputationalDomain:
 
         # keys: symbolic variable names, values: respective MergedVariable
         self._global_ad: dict = dict()
-        self._unique_phase_names: set = set()
-        self._unique_substance_names: set = set()
+        self._phase_names: set = set()
+        self._substance_names: set = set()
         # key: phase name, value: set with present substance names
         self._substance_in_phase: Dict[str, Set[str]] = dict()
+        # instances of added phases 
         self._phases: list = list()
+        # key: grid, value: MaterialSubdomain
+        self._material_subdomains: dict = dict()
+
+        for grid, _ in self.gb:
+            #TODO: discuss whether None or UnitSolid should be used to create a MaterialSubdomain
+            # the first approach needs further programmatical assertions
+            # the latter will keep the model "runable" without the user explicitely stating that it should be like that.
+            self._material_subdomains.update({grid: pp.composite.UnitSolid(self)}) 
 
     def __str__(self) -> str:
         """ Returns string representation of instance,
@@ -83,7 +96,7 @@ class ComputationalDomain:
             #TODO case when variable exists AND new DOF information is given (dereference old var and create new one)
             var = self._global_ad[variable_name]
         else:
-            split_name = variable_name.split("-")
+            split_name = variable_name.split("_")
             # case: variable on the mortar grids
             if COMPUTATIONAL_VARIABLES["mortar_prefix"] == split_name[0]:
                 symbol = split_name[1]
@@ -98,16 +111,20 @@ class ComputationalDomain:
             if is_mortar:
                 var = create_merged_mortar_variable(self.gb, dof_info, variable_name)
             else:
-                var = create_merged_variable(self.gb, dof_info, variable_name)
+                var, _ = create_merged_variable(self.gb, dof_info, variable_name)
             
             self._global_ad.update({variable_name: var})
 
         return var
 
-    def __iter__(self) -> Iterator[Phase]:
-        """ Returns an Iterator over all present phases."""
-        for phase in self._phases:
-            yield phase
+    def __iter__(self) -> Iterator[Tuple[pp.Grid, dict, MaterialSubdomain]]:
+        """
+        Returns an Iterator over all grids of this domain.
+        Similar to the iterator of :class:`~porepy.grids.grid_bucket.GridBucket`,
+        only here the respective MaterialDomain is added as a third component in the yielded tuple.
+        """
+        for grid, data in self.gb:
+            yield (grid, data, self._material_subdomains[grid])
     
     @property
     def nc(self) -> int:
@@ -123,7 +140,7 @@ class ComputationalDomain:
         :return: number of added phases
         :rtype: int
         """
-        return len(self._unique_phase_names)
+        return len(self._phase_names)
 
     @property
     def ns(self) -> int:
@@ -131,8 +148,36 @@ class ComputationalDomain:
         :return: total number of distinct substances in all phases
         :rtype: int
         """
-        return len(self._unique_substance_names)
+        return len(self._substance_names)
     
+    @property
+    def Phases(self) -> Tuple[Phase]:
+        """
+        IMPORTANT: The order in this iterator (tuple) is used for choosing e.g. the values in a list of 'numpy.array' when setting initial values.
+        Use the order returns here everytime you deal with phase-related values or other.
+        
+        :return: returns the phases created and added to this domain.
+        :rtype: tuple
+        """
+        return (phase for phase in self._phases)
+
+    def assign_material_to_grid(self, grid: pp.Grid, substance: SolidSubstance) -> None:
+        """
+        Assigns a material to a grid i.e., creates an instance of :class:`~porepy.composite.material_subdomain.MaterialSubdomain`
+        
+        Currently, one has to assign substances to each grid.
+        Domain-wide objects like domain porosity will throw an error if this is missing.
+        More elegant solutions should be found in the future.
+
+        Use the iterator of :class:`~porepy.grids.grid_bucket.GridBucket` to assign substances to each grid.
+        That iterator is used as a base for this class' iterator.
+
+        """
+        if grid in self.gb.get_grids():
+            pass
+        else:
+            raise KeyError("Argument 'grid' not among grids of GridBucket.")
+
     def is_variable(self, var_name: str) -> bool:
         """
         :param var_name: name of the variable you want to check for existence in this domain
@@ -146,7 +191,7 @@ class ComputationalDomain:
         else:
             return False
 
-    def add_phase(self, phases: Iterable[Tuple[Phase, np.ndarray]]) -> None:
+    def add_phase(self, phases: Union[List[Phase], Phase]) -> None:
         """
         Adds the phases to the compositional domain.
         Asserts uniqueness of present phases via :method:`~porepy.composite.phase.Phase.name` and object comparison.
@@ -156,18 +201,81 @@ class ComputationalDomain:
         NOTE: Overwrites previously passed phases and removes their
         
         
-        :param phases: Iterable of 2-tuples, containing the phase instance and it's respective initial saturation.
-        :type phases: Iterable[Tuple[Phase, np.ndarray]]
+        :param phases: a phase instance to be added or multiple phase instances in a list.
+        :type phases: :class:`~porepy.composite.phase.Phase`
         """
-        self._resolve_composition()
 
+        if isinstance(phases, Phase):
+            phases = [phases]
 
-    def _resolve_composition(self) -> None:
+        old_names = {phase.name for phase in self._phases}
+        # check if phase is instantiated on same domain or if it's name is already among the present phases
+        for phase in phases:
+            if phase.cd != self: 
+                raise ValueError("Phase '%s' instantiated on unknown ComputationalDomain."%(phase.name))
+            
+            if phase.name in old_names:
+                warnings.warn("Phase '%s' has already been added. Skipping..."%(phase.name))
+            else:
+                self._phases.append(phase)
+
+        self.resolve_composition()
+
+    def set_initial_values(self,
+    pressure: Union[float, np.array],
+    temperature: Union[float, np.array],
+    saturations: Union[List[float], List[np.array]],
+    molar_fractions_in_phase: Dict[str, Union[float, np.array]],
+    compute_equilibrium: Optional[bool] = True
+    ) -> None:
+        """ Sets the initial compositional and thermodynamic state of the system.
+        Natural variables are used as arguments, since the approach using them is relatable.
+
+        Enthalpy is computed using an isenthalpic flash.
+
+        Initial values of molar variables are computed using above values.
+        (see :method:`~porepy.composite.substance.Substance.overall_molar_fraction` and
+        :method:`~porepy.composite.phase.Phase.molar_fraction`).
+        
+        If 'compute_equilibrium' is True, the equilibrium equations are iterated until initial equilibrium is reached.
+        NOTE: This needs some investigations, as omitting this might influence the stability of the solver.
+        
+        Each variable can either be given homogenously (float per variable)
+        or heterogeneously (float per cell).
+        Floats will be used for arrays (values per cell) and unitary conditions
+        for the fractional variables will be checked either way.
+        IMPORTANT: If initial unitary conditions are not met, an error will be thrown.
+
+        :param saturations: saturation values per cell (arrays, if heterogeneous)
+        :type saturations: List[float] / List[numpy.array]
+        """
+        
+        self._calculate_initial_phase_molar_fractions()
+        self._calculate_initial_component_overall_fractions()
+
+    def resolve_composition(self) -> None:
         """
         Analyzes the composition, i.e. presence of substances in phases.
         Information about substances which are anticipated in multiple phases is stored.
-        Computes initial overall molar fractions per component
-        (see :method:`~porepy.composite.substance.Substance.overall_molar_fraction`).
+
+        IMPORTANT: This method is called internally by phases and domains, everytime any new component is added.
+
+        """
+        pass
+
+    def _calculate_initial_phase_molar_fractions(self) -> None:
+        """ 
+        Name is self-explanatory.
+
+        These calculations have to be done everytime everytime new initial values are set.
+        """
+        pass
+
+    def _calculate_initial_component_overall_fractions(self) -> None:
+        """ 
+        Name is self-explanatory.
+        
+        These calculations have to be done everytime everytime new initial values are set.
         """
         pass
 
