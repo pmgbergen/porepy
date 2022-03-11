@@ -573,7 +573,7 @@ class Exporter:
         nodes_offset = 0
         cell_offset = 0
 
-        # Loop over all 2d grids
+        # Loop over all 1d grids
         for g in gs:
 
             # Store node coordinates
@@ -585,12 +585,13 @@ class Exporter:
 
             # Add to previous connectivity information
             cell_to_nodes[cell_type] = np.vstack(
-                (cell_to_nodes[cell_type], cn_indices + cell_offset)
+                (cell_to_nodes[cell_type], cn_indices + nodes_offset)
             )
 
             # Update offsets
             nodes_offset += g.num_nodes
             cell_offset += g.num_cells
+
 
         # Construct the meshio data structure
         num_blocks = len(cell_to_nodes)
@@ -621,10 +622,13 @@ class Exporter:
 
         # Determine cell-node ptr
         cn_indptr = g.cell_nodes().indptr[:-1] if cells is None else g.cell_nodes().indptr[cells]
-        # Each cell contains n nodes
+        
+        # Collect the indptr to all nodes of the cell; each cell contains n nodes
         expanded_cn_indptr = np.vstack([cn_indptr + i for i in range(n)]).reshape(-1, order="F")
+        
         # Detect all corresponding nodes by applying the expanded mask to the indices
         expanded_cn_indices = g.cell_nodes().indices[expanded_cn_indptr]
+        
         # Bring in correct form.
         cn_indices = np.reshape(expanded_cn_indices, (-1,n), order="C")
 
