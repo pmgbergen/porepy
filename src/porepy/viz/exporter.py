@@ -19,10 +19,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+from porepy.viz.type_test import *
+
 # Module-wide logger
 logger = logging.getLogger(__name__)
-
-import time
 
 class Field:
     """
@@ -177,48 +177,57 @@ class Exporter:
         # names, but at the moment a more light-weight variant has been chosen.
         self._prev_exported_time_step = None
 
-    # TODO do we need dicts here? do we want to support both for grid buckets (this does not make sense)
     def write_vtu(
         self,
-        data: Optional[Union[Dict, List[str]]] = None,
-        time_dependent: bool = False,
-        time_step: int = None,
-        gb: Optional[Union[pp.Grid, pp.GridBucket]] = None,
+        data: Optional[Union[DataInput, List[DataInput]]] = None,
+        time_dependent: Optional[bool] = False, # TODO in use? e.g., when not each time step is printed? or is time_step usually used?
+        time_step: Optional[int] = None,
+        gb: Optional[Union[pp.Grid, pp.GridBucket]] = None, # TODO what if it is none?
     ) -> None:
         """
         Interface function to export the grid and additional data with meshio.
 
-        In 1d the cells are represented as lines, 2d the cells as polygon or triangle/quad,
-        while in 3d as polyhedra/tetrahedra/hexahedra.
+        In 1d the cells are represented as lines, 2d the cells as polygon or
+        triangle/quad, while in 3d as polyhedra/tetrahedra/hexahedra.
         In all the dimensions the geometry of the mesh needs to be computed.
 
         Parameters:
-        data: if g is a single grid then data is a dictionary (see example)
-              if g is a grid bucket then list of names for optional data,
-              they are the keys in the grid bucket (see example).
-        time_dependent: (boolean, optional) If False, file names will not be appended with
-                        an index that markes the time step. Can be overridden by giving
-                        a value to time_step.
-        time_step: (optional) in a time dependent problem defines the part of the file
-                   name associated with this time step. If not provided, subsequent
-                   time steps will have file names ending with 0, 1, etc.
-        grid: (optional) in case of changing grid set a new one.
+            data (Union[DataInput, List[DataInput]], optional): node and
+                edge data, prescribed through strings, or tuples of
+                grids/edges, keys and values. If not provided only
+                geometical infos are exported.
+            time_dependent (boolean, optional): If False, file names will
+                not be appended with an index that markes the time step.
+                Can be overwritten by giving a value to time_step; if not,
+                the file names will subsequently be ending with 0, 1, etc.
+            time_step (int, optional): will be used ass eppendic to define
+                the file corresponding to this specific time step.
+            gb (Union[pp.Grid, pp.Gridbucket], optional): grid or gridbucket
+                if it is not fixed and should be updated.
 
         """
+
+        # Update the grid (bucket) but only if allowed, i.e., the initial grid
+        # (bucket) has not been characterized as fixed.
         if self.fixed_grid and gb is not None:
             raise ValueError("Inconsistency in exporter setting")
+
         elif not self.fixed_grid and gb is not None:
-            # Convert to grid bucket if a grid is provided.
+
+            # Require a grid bucket. Thus, convert grid -> grid bucket.
             if isinstance(gb, pp.Grid):
+                # Create a new grid bucket solely with a single grid as nodes.
                 self.gb = pp.GridBucket()
                 self.gb.add_nodes(gb) 
+
             else:
                 self.gb = gb
 
-            # Update geometrical info in meshio format
+            # Update geometrical info in meshio format for the updated grid
             self._update_meshio_geom()
 
-            # Reset control parameter for the reuse of fixed data in the write routine.
+            # Reset control parameter for the reuse of fixed data in the
+            # write routine, so the updated mesh is used for further export.
             self._prev_exported_time_step = None
 
         # If the problem is time dependent, but no time step is set, we set one
@@ -232,14 +241,22 @@ class Exporter:
         if time_step is not None:
             self._exported_time_step_file_names.append(time_step)
 
-        # NOTE grid buckets are exported with dict data, while single
-        # grids (converted to grid buckets) are exported with list data.
-        if isinstance(data, list):
-            self._export_list_data(data, time_step) # type: ignore
-        elif isinstance(data, dict):
-            self._export_dict_data(data, time_step)
-        else:
-            raise NotImplemented("No other data type than list and dict supported.")
+        # Convert provided data to the most general type: NodeDataBaseType
+        # Also sort wrt. whether data is associated to nodes or edges.
+        node_data, edge_data = self._unify_data(data)
+
+        # Add geometrical info for nodes and edges
+        node_data = self._add_extra_node_data(node_data)
+        edge_data = self._add_extra_edge_data(edge_data)
+
+        # Export data and treat node and edge data separately
+        self._export_data(node_data, time_step)
+        self._export_data(edge_data, time_step)
+
+        # Export pvd
+        file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
+        file_name = self._make_folder(self.folder_name, file_name)
+        self._export_pvd_gb(file_name, time_step)
 
         # Update previous time step used for export to be used in the next application.
         if time_step is not None:
@@ -297,191 +314,408 @@ class Exporter:
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
 
-    def _export_dict_data(self, data: Dict[str, np.ndarray], time_step):
-        """
-        Export single grid to a vtu file with dictionary data.
+    # Some auxiliary routines used in write_vtu()
 
+    def _unify_data(
+            self, data: Optional[Union[DataInput, List[DataInput]]] = None,
+        ) -> Tuple[NodeData, EdgeData]:
+        """Bring data in unified format to be further used in the export.
+        
+        The routine has two goals: Splitting data into node and edge data,
+        as well as transforming all data to be exported into dictionaries
+        of the format {(grid/edge, key): value)}.
+        
         Parameters:
-            data (Dict[str, np.ndarray]): Data to be exported.
-            time_step (float) : Time step, to be appended at the vtu output file.
+            data (Union[DataInput, List[DataInput]], optional): data
+                provided by the user in the form of strings and/or tuples
+                of grids/edges.
+                
+        Returns:
+            Tuple[NodeData, EdgeData]: Node and edge data decomposed and
+                brought into unified format.
         """
-        # Currently this method does only support single grids.
-        if self.dims.shape[0] > 1:
-            raise NotImplementedError("Grid buckets with more than one grid are not supported.")
 
-        # No need of special naming, create the folder
-        name = self._make_folder(self.folder_name, self.file_name)
-        name = self._make_file_name(name, time_step)
-
-        # Provide an empty dict if data is None
+        # Convert data to list, while keeping the data structures provided,
+        # or provide an empty list if no data provided
         if data is None:
-            data = dict()
+            data = list()
+        elif not isinstance(data, list):
+            data = [data]
 
-        # Store the provided data as list of Fields
-        fields: List[Field] = []
-        if len(data) > 0:
-            fields.extend([Field(n, v) for n, v in data.items()])
+        # Initialize container for data associated to nodes
+        node_data: Dict[NodeDataKey, np.ndarray] = dict()
+        edge_data: Dict[EdgeDataKey, np.ndarray] = dict()
 
-        # Extract grid (it is assumed it is the only one)
-        grid = [g for g, _ in self.gb.nodes()][0]
+        # Auxiliary function transforming scalar ranged values
+        # to vector ranged values when suitable.
+        def toVectorFormat(value: np.ndarray, g: pp.Grid) -> np.ndarray:
+            """Check wether the value array has the right dimension correpsonding
+            to the grid size. If possible, translate the value to a vectorial
+            object, But do nothing if the data naturally can be interpreted as
+            scalar data.
+            """
+            # Make some checks
+            if not value.size % g.num_cells == 0:
+                raise ValueError("The data array is not compatible with the grid.")
+            
+            # Convert to vectorial data if more data provided than grid cells available,
+            # and the value array is not already in vectorial format
+            if not value.size == g.num_cells and not (len(value.shape) > 1 and value.shape[1] == g.num_cells): 
+                value = np.reshape(value, (-1, g.num_cells), "F")
 
-        # Add grid dimension to the data
-        grid_dim = grid.dim * np.ones(grid.num_cells, dtype=int)
-        fields.extend([Field("grid_dim", grid_dim)])
+            return value
 
-        # Write data to file
-        self._write(fields, name, self.meshio_geom[grid.dim])
+        # Loop over all data points and convert them collect them in the format
+        # (grid/edge, key, data) for single grids etc.
+        for pt in data:
 
-    def _export_list_data(self, data: List[str], time_step: float) -> None:
-        """Export the entire GridBucket and additional list data to vtu.
+            # Allow for different cases. Distinguish each case separately
+
+            # Case 1: Data provided by the key of a field only - could be both node
+            # and edge data. Idea: Collect all data corresponding to grids and edges
+            # related to the key.
+            if isinstance(pt, str):
+                
+                # The data point is simply a string addressing a state using a key
+                key = pt
+
+                # Fetch grids and interfaces as well as data associated to the key
+                has_key = False
+
+                # Try to find the key in the data dictionary associated to nodes
+                for g, d in self.gb.nodes():
+                    if pp.STATE in d and key in d[pp.STATE]:
+                        # Mark the key as found
+                        has_key = True
+
+                        # Fetch data and convert to vectorial format if suggested by the size
+                        value: np.ndarray = toVectorFormat(d[pp.STATE][key], g)
+
+                        # Add data point in correct format to the collection
+                        node_data[(g, key)] = value
+
+                # Try to find the key in the data dictionary associated to edges
+                for e, d in self.gb.edges():
+                    if pp.STATE in d and key in d[pp.STATE]:
+                        # Mark the key as found
+                        has_key = True
+
+                        # Fetch data and convert to vectorial format if suggested by the size
+                        mg = d["mortar_grid"]
+                        value: np.ndarray = toVectorFormat(d[pp.STATE][key], mg) # TODO g?
+
+                        # Add data point in correct format to the collection
+                        edge_data[(e, key)] = value
+
+                # Make sure the key exists
+                if not has_key:
+                    raise ValueError(f"No data with provided key {key} present in the grid bucket.")
+
+            # Case 2a: Data provided by a tuple ([g], key) where [g] is a single grid
+            # or a list of grids.Idea: Collect the data only among the grids specified.
+            elif isTupleOf_entity_str(pt, entity="node"):
+
+                # By construction, the first component contains grids.
+                # Unify by converting the first component to a list
+                grids: List[pp.Grid] = pt[0] if isinstance(pt[0], list) else [pt[0]] 
+
+                # By construction, the second component contains a key.
+                key: str = pt[1]
+
+                # Loop over grids and fetch the states corresponding to the key
+                for g in grids:
+
+                    # Fetch the data dictionary containing the data value
+                    d = self.gb.node_props(g) # TODO type
+
+                    # Make sure the data exists.
+                    assert(pp.STATE in d and key in d[pp.STATE])
+
+                    # Fetch data and convert to vectorial format if suitable
+                    value: np.ndarray = toVectorFormat(d[pp.STATE][key], g)
+
+                    # Add data point in correct format to collection
+                    node_data[(g, key)] = value
+
+            # Case 2b: Data provided by a tuple ([e], key) where [e] is a single edge
+            # or a list of edges. Idea: Collect the data only among the grids specified.
+            elif isTupleOf_entity_str(pt, entity="edge"):
+
+                # By construction, the first component contains grids.
+                # Unify by converting the first component to a list
+                edges: Union[Edge, List[Edge]] = pt[0] if isinstance(pt[0], list) else [pt[0]]
+
+                # By construction, the second component contains a key.
+                key: str = pt[1]
+
+                # Loop over edges and fetch the states corresponding to the key
+                for e in edges:
+
+                    # Fetch the data dictionary containing the data value
+                    d = self.gb.edge_props(e) # TODO type
+
+                    # Make sure the data exists.
+                    assert(pp.STATE in d and key in d[pp.STATE])
+
+                    # Fetch data and convert to vectorial format if suitable
+                    mg = d["mortar_grid"]
+                    value: np.ndarray = toVectorFormat(d[pp.STATE][key], mg)
+
+                    # Add data point in correct format to collection
+                    edge_data[(e, key)] = value
+
+            # TODO include this case at all? It is currently kept as close to the previous use case.
+
+            # Case 3: Data provided by a tuple (key, data). Here, the grid is
+            # implicitly is addressed. This only works if there is just a single
+            # grid. Idea: Extract the unique grid and continue as in Case 2.
+            elif isTupleOf_str_array(pt):
+                # Fetch the correct grid. This option is only supported for grid buckets containing a single grid.
+
+                # Collect all grids
+                grids: List[pp.Grid] = [g for g, _ in self.gb.nodes()]
+
+                # Make sure there exists only a single grid
+                if not len(grids)==1:
+                    raise ValueError(f"The data type used for {pt} is only supported if the grid bucket only contains a single grid.")
+
+                # Extract the unique grid
+                g = grids[0]
+
+                # Fetch remaining ingredients required to define node data element
+                key: str = pt[0]
+                value: np.ndarray = toVectorFormat(pt[1], g)
+
+                # Add data point in correct format to collection
+                node_data[(g, key)] = value
+
+            # Case 4a: Data provided as tuple (g, key, data). Idea: Since this is
+            # already the desired format, process naturally.
+            elif isTupleOf_entity_str_array(pt, entity = "node"):
+                # Data point in correct format
+                g: pp.Grid = pt[0]
+                key: str = pt[1]
+                value: np.ndarray = toVectorFormat(pt[2], g)
+
+                # Add data point in correct format to collection
+                node_data[(g, key)] = value
+
+            # Case 4b: Data provided as tuple (e, key, data). Idea: Since this is
+            # already the desired format, process naturally.
+            elif isTupleOf_entity_str_array(pt, entity = "edge"):
+                # Data point in correct format
+                e: Edge = pt[0]
+                key: str = pt[1]
+                d = self.gb.edge_props(e) # TODO type
+                mg = d["mortar_grid"]
+                value: np.ndarray = toVectorFormat(pt[2], mg)
+
+                # Add data point in correct format to collection
+                edge_data[(e, key)] = value
+
+            else:
+                raise ValueError(f"The provided data type used for {pt} is not supported.")
+
+        return node_data, edge_data
+
+    def _add_extra_node_data(self, node_data: NodeData) -> NodeData:
+        """Enahnce node data with geometrical information.
 
         Parameters:
-            data (List[str]): Data to be exported in addition to default GridBucket data.
-            time_step (float) : Time step, to be appended at the vtu output file.
+            node_data (NodeData, optional): data contains which will be
+                enhanced
+
+        Returns:
+            NodeData: previous node_data with additional information on
+                the grid dimension, mortar side and whether the grid is
+                mortar.
         """
-        # Convert data to list, or provide an empty list
-        if data is not None:
-            data = np.atleast_1d(data).tolist()
-        else:
-            data = list()
+        # All extra fields to be added to the data container
+        self._extra_node_data = ["grid_dim", "is_mortar", "mortar_side"]
 
-        # Extract data which is contained in nodes (and not edges).
-        # IMPLEMENTATION NOTE: We need a unique set of keywords for node_data. The simpler
-        # option would have been to  gather all keys and uniquify by converting to a set,
-        # and then back to a list. However, this will make the ordering of the keys random,
-        # and it turned out that this complicates testing (see tests/unit/test_vtk).
-        # It was therefore considered better to use a more complex loop which
-        # (seems to) guarantee a deterministic ordering of the keys.
-        node_data = list()
-        # For each element in data, apply a brute force approach and check whether there
-        # exists a data dictionary associated to a node which contains a state variable
-        # with same key. If so, add the key and move on to the next key.
-        for key in data:
-            for _, d in self.gb.nodes():
-                if pp.STATE in d and key in d[pp.STATE]:
-                    node_data.append(key)
-                    # After successfully identifying data contained in nodes, break the loop
-                    # over nodes to avoid any unintended repeated listing of key.
-                    break
-
-        # Transfer data to fields.
-        node_fields: List[Field] = []
-        if len(node_data) > 0:
-            node_fields.extend([Field(d) for d in node_data])
-
-        # consider the grid_bucket node data
-        extra_node_names = ["grid_dim", "grid_node_number", "is_mortar", "mortar_side"]
-        extra_node_fields = [Field(name) for name in extra_node_names]
-        node_fields.extend(extra_node_fields)
-
-        self.gb.assign_node_ordering(overwrite_existing=False)
-        self.gb.add_node_props(extra_node_names)
-        # fill the extra data
-        for g, d in self.gb:
+        # Add info by direct assignment
+        for g, d in self.gb.nodes():
             ones = np.ones(g.num_cells, dtype=int)
-            d["grid_dim"] = g.dim * ones
-            d["grid_node_number"] = d["node_number"] * ones
-            d["is_mortar"] = 0 * ones
-            d["mortar_side"] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
+            node_data[(g, "grid_dim")] = g.dim * ones
+            #node_data[(g, "grid_node_number")] = d["node_number"] * ones # TODO?
+            node_data[(g, "is_mortar")] = 0 * ones
+            node_data[(g, "mortar_side")] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
 
-        # collect the data and extra data in a single stack for each dimension
-        for dim in self.dims:
-            file_name = self._make_file_name(self.file_name, time_step, dim)
-            file_name = self._make_folder(self.folder_name, file_name)
-            for field in node_fields:
-                grids = self.gb.get_grids(lambda g: g.dim == dim)
-                values = []
-                for g in grids:
-                    if field.name in data:
-                        values.append(self.gb.node_props(g, pp.STATE)[field.name])
-                    else:
-                        values.append(self.gb.node_props(g, field.name))
-                    field.check(values[-1], g)
-                field.values = np.hstack(values)
+        return node_data
 
-            if self.meshio_geom[dim] is not None:
-                self._write(node_fields, file_name, self.meshio_geom[dim])
+    def _add_extra_edge_data(self, edge_data: EdgeData) -> EdgeData:
+        """Enahnce edge data with geometrical information.
 
-        self.gb.remove_node_props(extra_node_names)
+        Parameters:
+            edge_data (EdgeData, optional): data contains which will be
+                enhanced
 
-        # Extract data which is contained in edges (and not nodes).
-        # IMPLEMENTATION NOTE: See the above loop to construct node_data for an explanation
-        # of this elaborate construction of `edge_data`
-        edge_data = list()
-        for key in data:
-            for _, d in self.gb.edges():
-                if pp.STATE in d and key in d[pp.STATE]:
-                    edge_data.append(key)
-                    # After successfully identifying data contained in edges, break the loop
-                    # over edges to avoid any unintended repeated listing of key.
-                    break
+        Returns:
+            EdgeData: previous edge_data with additional information on
+                the grid dimension, the cell ids, the grid edge number,
+                mortar side and whether the grid is mortar.
+        """
+        # All extra fields to be added to the data container
+        self._extra_edge_data = ["grid_dim", "cell_id", "grid_edge_number", "is_mortar", "mortar_side"]
 
-        # Transfer data to fields.
-        edge_fields: List[Field] = []
-        if len(edge_data) > 0:
-            edge_fields.extend([Field(d) for d in edge_data])
+        # Add info by direct assignment - have to take into account values on both sides
+        # TODO can't we do this more explicit and by that shorter and simpler?
+        for e, d in self.gb.edges():
 
-        # consider the grid_bucket edge data
-        extra_edge_names = ["grid_dim", "grid_edge_number", "is_mortar", "mortar_side"]
-        extra_edge_fields = [Field(name) for name in extra_edge_names]
-        edge_fields.extend(extra_edge_fields)
-
-        self.gb.add_edge_props(extra_edge_names)
-        # fill the extra data
-        for _, d in self.gb.edges():
-            d["grid_dim"] = {}
-            d["cell_id"] = {}
-            d["grid_edge_number"] = {}
-            d["is_mortar"] = {}
-            d["mortar_side"] = {}
+            # Fetch mortar grid
             mg = d["mortar_grid"]
+
+            # Construct empty arrays for all extra edge data
+            edge_data[(e, "grid_dim")] = np.empty(0, dtype=int)
+            edge_data[(e, "cell_id")] = np.empty(0, dtype=int)
+            edge_data[(e, "grid_edge_number")] = np.empty(0, dtype=int)
+            edge_data[(e, "is_mortar")] = np.empty(0, dtype=int)
+            edge_data[(e, "mortar_side")] = np.empty(0, dtype=int)
+
+            # Assign extra edge data by collecting values on both sides.
             mg_num_cells = 0
             for side, g in mg.side_grids.items():
                 ones = np.ones(g.num_cells, dtype=int)
-                d["grid_dim"][side] = g.dim * ones
-                d["is_mortar"][side] = ones
-                d["mortar_side"][side] = side.value * ones
-                d["cell_id"][side] = np.arange(g.num_cells, dtype=int) + mg_num_cells
-                mg_num_cells += g.num_cells
-                d["grid_edge_number"][side] = d["edge_number"] * ones
 
-        # collect the data and extra data in a single stack for each dimension
-        for dim in self.m_dims:
-            file_name = self._make_file_name_mortar(
-                self.file_name, time_step=time_step, dim=dim
-            )
+                # Grid dimension of the mortar grid
+                edge_data[(e, "grid_dim")] = np.hstack(
+                    (
+                        edge_data[(e, "grid_dim")],
+                        g.dim * ones
+                    )
+                )
+
+                # Cell ids of the mortar grid
+                edge_data[(e, "cell_id")] = np.hstack(
+                    (
+                        edge_data[(e, "cell_id")],
+                        np.arange(g.num_cells, dtype=int) + mg_num_cells
+                    )
+                )
+
+                # Grid edge number of each edge
+                edge_data[(e, "grid_edge_number")] = np.hstack(
+                    (
+                        edge_data[(e, "grid_edge_number")],
+                        d["edge_number"] * ones
+                    )
+                )
+
+                # Whether the edge is mortar
+                edge_data[(e, "is_mortar")] = np.hstack(
+                    (
+                        edge_data[(e, "is_mortar")],
+                        ones
+                    )
+                )
+
+                # Side of the mortar
+                edge_data[(e, "mortar_side")] = np.hstack(
+                    (
+                        edge_data[(e, "mortar_side")],
+                        side.value * ones
+                    )
+                )
+
+                mg_num_cells += g.num_cells
+
+        return edge_data
+
+    def _export_data(
+            self,
+            data: Union[NodeData, EdgeData],
+            time_step: int
+        ) -> None:
+        """Routine for collecting data associated to a single grid dimension
+        and passing further to the final writing routine.
+        
+        For each fixed dimension, all subdomains of that dimension and the data
+        related to that subdomains will be exported simultaneously. The same
+        for interfaces.
+
+        Parameters:
+            data (Union[NodeData, EdgeData]): Node or edge data. The routine
+                notices itself of which type the data is and proceeds
+                accordingly.
+            time_step (int): time_step to be used to append the file name.
+        """
+        # Deterimine whether data corresponds to node or edge data.
+        # Node data and edge data will be treated differently throughout
+        # the export procedure.
+        is_node_data = all([isTupleOf_entity_str(pt, entity="node") for pt in data])
+        is_edge_data = all([isTupleOf_entity_str(pt, entity="edge") for pt in data])
+        if not is_node_data and not is_edge_data:
+            raise ValueError("data has to be consistently either of node or edge data type.")
+
+        # Collect unique keys, and for unique sorting, sort by alphabet
+        keys = list(set([key for _,key in data]))
+        keys.sort()
+
+        # Fetch the dimnensions to be traversed. For nodes, fetch the dimensions
+        # of the available grids, and for edges fetch the dimensions of the available
+        # mortar grids.
+        dims = self.dims if is_node_data else self.m_dims
+
+        # Collect the data and extra data in a single stack for each dimension
+        for dim in dims:
+            # Define the file name depending on data type
+            if is_node_data:
+                file_name = self._make_file_name(self.file_name, time_step, dim)
+            elif is_edge_data:
+                file_name = self._make_file_name_mortar(
+                    self.file_name, time_step=time_step, dim=dim
+                )
+
+            # Append folder name to file name
             file_name = self._make_folder(self.folder_name, file_name)
 
-            mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
-            cond = lambda d: d["mortar_grid"].dim == dim
-            edges: List[Tuple[pp.Grid, pp.Grid]] = [
-                e for e, d in self.gb.edges() if cond(d)
-            ]
+            # Get all geometrical entities of dimension dim: subdomains
+            # with correct grid dimension for node data, and interfaces
+            # with correct mortar grid dimension for edge data.
+            entities: Union[List[pp.Grid], List[Tuple[pp.Grid, pp.Grid]]] = []
+            if is_node_data:
+                entities = self.gb.get_grids(lambda g: g.dim == dim)
+            elif is_edge_data:
+                entities = [e for e, d in self.gb.edges() if d["mortar_grid"].dim == dim]
 
-            for field in edge_fields:
+            # Construct the list of fields represented on this dimension.
+            fields: List[Field] = []
+            for key in keys:
+
+                # Collect the values associated to all entities
                 values = []
-                for mg, edge in zip(mgs, edges):
-                    if field.name in data:
-                        values.append(self.gb.edge_props(edge, pp.STATE)[field.name])
-                    else:
-                        for side, _ in mg.side_grids.items():
-                            # Convert edge to tuple to be compatible with GridBucket
-                            # data structure
-                            values.append(self.gb.edge_props(edge, field.name)[side])
+                for e in entities:
+                    if (e,key) in data:
+                        values.append(data[(e,key)])
 
-                field.values = np.hstack(values)
+                # Require data for all or none entities of that dimension.
+                assert(len(values) in [0, len(entities)])
 
-            if self.m_meshio_geom[dim] is not None:
-                self._write(edge_fields, file_name, self.m_meshio_geom[dim])
+                # If data has been found, append data to list after stacking
+                # values for different entities
+                if values:
+                    field = Field(key)
+                    field.values = np.hstack(values)
+                    fields.append(field)
 
-        file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
-        file_name = self._make_folder(self.folder_name, file_name)
-        self._export_pvd_gb(file_name, time_step)
+            # Print data for the particular dimension. Since geometric
+            # info is required distinguish between node and edge data.
+            meshio_geom = self.meshio_geom[dim] if is_node_data else self.m_meshio_geom[dim]
+            if meshio_geom is not None:
+                self._write(fields, file_name, meshio_geom)
 
-        self.gb.remove_edge_props(extra_edge_names)
+    def _export_pvd_gb(self, file_name: str, time_step: int) -> None:
+        """Routine to export to pvd format and collect all data scattered over
+        several files for distinct grid dimensions.
 
-    def _export_pvd_gb(self, file_name: str, time_step: float) -> None:
+        Parameters:
+            file_name (str): storage path for pvd file
+            time_step (int): used as appendix for the file name
+        """
+        # Open the file
         o_file = open(file_name, "w")
+
+        # Write VTK header to file
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
         header = (
@@ -493,13 +727,15 @@ class Exporter:
         o_file.write(header)
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
 
-        # Include the grids and mortar grids of all dimensions, but only if the
-        # grids (or mortar grids) of this dimension are included in the vtk export
+        # Include the grids of all dimensions, but only if the grids of this
+        # dimension are included in the vtk export
         for dim in self.dims:
             if self.meshio_geom[dim] is not None:
                 o_file.write(
                     fm % self._make_file_name(self.file_name, time_step, dim=dim)
                 )
+
+        # Same for mortar grids.
         for dim in self.m_dims:
             if self.m_meshio_geom[dim] is not None:
                 o_file.write(
@@ -569,9 +805,8 @@ class Exporter:
         num_pts = np.sum([g.num_nodes for g in gs])
         meshio_pts = np.empty((num_pts, 3))  # type: ignore
 
-        # Initialize offsets. Required taking into account multiple 1d grids.
+        # Initialize offset. Required taking into account multiple 1d grids.
         nodes_offset = 0
-        cell_offset = 0
 
         # Loop over all 1d grids
         for g in gs:
@@ -590,8 +825,6 @@ class Exporter:
 
             # Update offsets
             nodes_offset += g.num_nodes
-            cell_offset += g.num_cells
-
 
         # Construct the meshio data structure
         num_blocks = len(cell_to_nodes)
@@ -681,14 +914,18 @@ class Exporter:
             # Loop over all available cell types and group cells of one type.
             g_cell_map = dict()
             for n in np.unique(num_faces_per_cell):
+
                 # Define cell type; check if it coincides with a predefined cell type
                 cell_type = polygon_map.get(f"polygon{n}", f"polygon{n}")
+
                 # Find all cells with n faces, and store for later use
                 cells = np.nonzero(num_faces_per_cell == n)[0]
                 g_cell_map[cell_type] = cells
+
                 # Store cell ids in global container; init if entry not yet established
                 if cell_type not in cell_id:
                     cell_id[cell_type] = []
+
                 # Add offset taking into account previous grids
                 cell_id[cell_type] += (cells + cell_offset).tolist()
 
@@ -1302,3 +1539,276 @@ class Exporter:
         else:
             time = str(time_step).zfill(padding)
             return file_name + str(dim) + "_" + time + extension
+
+
+
+
+
+    ####################################################
+    # TODO
+    # Remove!
+
+    # TODO do we need dicts here? do we want to support both for grid buckets (this does not make sense)
+    def old_write_vtu(
+        self,
+        data: Optional[Union[Dict, List[str]]] = None, # TODO update
+        time_dependent: bool = False, # TODO in use? e.g., when not each time step is printed? or is time_step usually used?
+        time_step: int = None,
+        gb: Optional[Union[pp.Grid, pp.GridBucket]] = None,
+    ) -> None:
+        """
+        Interface function to export the grid and additional data with meshio.
+
+        In 1d the cells are represented as lines, 2d the cells as polygon or
+        triangle/quad, while in 3d as polyhedra/tetrahedra/hexahedra.
+        In all the dimensions the geometry of the mesh needs to be computed.
+
+        Parameters:
+        data: if g is a single grid then data is a dictionary (see example)
+              if g is a grid bucket then list of names for optional data,
+              they are the keys in the grid bucket (see example).
+        time_dependent: (boolean, optional) If False, file names will not be appended with
+                        an index that markes the time step. Can be overridden by giving
+                        a value to time_step.
+        time_step: (optional) in a time dependent problem defines the part of the file
+                   name associated with this time step. If not provided, subsequent
+                   time steps will have file names ending with 0, 1, etc.
+        grid: (optional) in case of changing grid set a new one.
+
+        """
+
+        # Update the grid (bucket) but only if allowed, i.e., the initial grid
+        # (bucket) has not been characterized as fixed.
+        if self.fixed_grid and gb is not None:
+            raise ValueError("Inconsistency in exporter setting")
+
+        elif not self.fixed_grid and gb is not None:
+
+            # Require a grid bucket. Thus, convert grid -> grid bucket.
+            if isinstance(gb, pp.Grid):
+                # Create a new grid bucket solely with a single grid as nodes.
+                self.gb = pp.GridBucket()
+                self.gb.add_nodes(gb) 
+
+            else:
+                self.gb = gb
+
+            # Update geometrical info in meshio format for the updated grid
+            self._update_meshio_geom()
+
+            # Reset control parameter for the reuse of fixed data in the
+            # write routine, so the updated mesh is used for further export.
+            self._prev_exported_time_step = None
+
+        # TODO rm? OK to keep for now!
+        # If the problem is time dependent, but no time step is set, we set one
+        # using the updated, internal counter.
+        if time_dependent and time_step is None:
+            time_step = self._time_step_counter
+            self._time_step_counter += 1
+
+        # If the problem is time dependent (with specified or automatic time step index)
+        # add the time step to the exported files
+        if time_step is not None:
+            self._exported_time_step_file_names.append(time_step)
+
+        # TODO change this!
+        # NOTE grid buckets are exported with dict data, while single
+        # grids (converted to grid buckets) are exported with list data.
+        if isinstance(data, list):
+            self._export_list_data(data, time_step) # type: ignore
+        elif isinstance(data, dict):
+            self._export_dict_data(data, time_step)
+        else:
+            raise NotImplemented("No other data type than list and dict supported.")
+
+        # Update previous time step used for export to be used in the next application.
+        if time_step is not None:
+            self._prev_exported_time_step = time_step
+
+    def _export_dict_data(self, data: Dict[str, np.ndarray], time_step):
+        """
+        Export single grid to a vtu file with dictionary data.
+
+        Parameters:
+            data (Dict[str, np.ndarray]): Data to be exported.
+            time_step (float) : Time step, to be appended at the vtu output file.
+        """
+        # Currently this method does only support single grids.
+        if self.dims.shape[0] > 1:
+            raise NotImplementedError("Grid buckets with more than one grid are not supported.")
+
+        # No need of special naming, create the folder
+        name = self._make_folder(self.folder_name, self.file_name)
+        name = self._make_file_name(name, time_step)
+
+        # Provide an empty dict if data is None
+        if data is None:
+            data = dict()
+
+        # Store the provided data as list of Fields
+        fields: List[Field] = []
+        if len(data) > 0:
+            fields.extend([Field(n, v) for n, v in data.items()])
+
+        # Extract grid (it is assumed it is the only one)
+        grid = [g for g, _ in self.gb.nodes()][0]
+
+        # Add grid dimension to the data
+        grid_dim = grid.dim * np.ones(grid.num_cells, dtype=int)
+        fields.extend([Field("grid_dim", grid_dim)])
+
+        # Write data to file
+        self._write(fields, name, self.meshio_geom[grid.dim])
+
+    def _export_list_data(self, data: List[str], time_step: float) -> None:
+        """Export the entire GridBucket and additional list data to vtu.
+
+        Parameters:
+            data (List[str]): Data to be exported in addition to default GridBucket data.
+            time_step (float) : Time step, to be appended at the vtu output file.
+        """
+        # Convert data to list, or provide an empty list
+        if data is not None:
+            data = np.atleast_1d(data).tolist()
+        else:
+            data = list()
+
+        # TODO simplify
+
+        # Extract data which is contained in nodes (and not edges).
+        # IMPLEMENTATION NOTE: We need a unique set of keywords for node_data. The simpler
+        # option would have been to  gather all keys and uniquify by converting to a set,
+        # and then back to a list. However, this will make the ordering of the keys random,
+        # and it turned out that this complicates testing (see tests/unit/test_vtk).
+        # It was therefore considered better to use a more complex loop which
+        # (seems to) guarantee a deterministic ordering of the keys.
+        node_data = list()
+        # For each element in data, apply a brute force approach and check whether there
+        # exists a data dictionary associated to a node which contains a state variable
+        # with same key. If so, add the key and move on to the next key.
+        for key in data:
+            for _, d in self.gb.nodes():
+                if pp.STATE in d and key in d[pp.STATE]:
+                    node_data.append(key)
+                    # After successfully identifying data contained in nodes, break the loop
+                    # over nodes to avoid any unintended repeated listing of key.
+                    break
+
+        # Transfer data to fields.
+        # TODO Field structure required here? or can we use something standard in Python?
+        # Collect all provided keywords and 
+        node_fields: List[Field] = []
+        if len(node_data) > 0:
+            node_fields.extend([Field(d) for d in node_data])
+
+        # Include consider the grid_bucket node data
+        extra_node_names = ["grid_dim", "grid_node_number", "is_mortar", "mortar_side"]
+        extra_node_fields = [Field(name) for name in extra_node_names]
+        node_fields.extend(extra_node_fields)
+
+        self.gb.assign_node_ordering(overwrite_existing=False)
+        self.gb.add_node_props(extra_node_names)
+        # fill the extra data
+        for g, d in self.gb:
+            ones = np.ones(g.num_cells, dtype=int)
+            d["grid_dim"] = g.dim * ones
+            d["grid_node_number"] = d["node_number"] * ones
+            d["is_mortar"] = 0 * ones
+            d["mortar_side"] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
+
+        # collect the data and extra data in a single stack for each dimension
+        for dim in self.dims:
+            file_name = self._make_file_name(self.file_name, time_step, dim)
+            file_name = self._make_folder(self.folder_name, file_name)
+            for field in node_fields:
+                grids = self.gb.get_grids(lambda g: g.dim == dim)
+                values = []
+                for g in grids:
+                    if field.name in data:
+                        values.append(self.gb.node_props(g, pp.STATE)[field.name])
+                    else:
+                        values.append(self.gb.node_props(g, field.name))
+                    field.check(values[-1], g)
+                field.values = np.hstack(values)
+
+            if self.meshio_geom[dim] is not None:
+                self._write(node_fields, file_name, self.meshio_geom[dim])
+
+        self.gb.remove_node_props(extra_node_names)
+
+        # Extract data which is contained in edges (and not nodes).
+        # IMPLEMENTATION NOTE: See the above loop to construct node_data for an explanation
+        # of this elaborate construction of `edge_data`
+        edge_data = list()
+        for key in data:
+            for _, d in self.gb.edges():
+                if pp.STATE in d and key in d[pp.STATE]:
+                    edge_data.append(key)
+                    # After successfully identifying data contained in edges, break the loop
+                    # over edges to avoid any unintended repeated listing of key.
+                    break
+
+        # Transfer data to fields.
+        edge_fields: List[Field] = []
+        if len(edge_data) > 0:
+            edge_fields.extend([Field(d) for d in edge_data])
+
+        # consider the grid_bucket edge data
+        extra_edge_names = ["grid_dim", "grid_edge_number", "is_mortar", "mortar_side"]
+        extra_edge_fields = [Field(name) for name in extra_edge_names]
+        edge_fields.extend(extra_edge_fields)
+
+        self.gb.add_edge_props(extra_edge_names)
+        # fill the extra data
+        for _, d in self.gb.edges():
+            d["grid_dim"] = {}
+            d["cell_id"] = {}
+            d["grid_edge_number"] = {}
+            d["is_mortar"] = {}
+            d["mortar_side"] = {}
+            mg = d["mortar_grid"]
+            mg_num_cells = 0
+            for side, g in mg.side_grids.items():
+                ones = np.ones(g.num_cells, dtype=int)
+                d["grid_dim"][side] = g.dim * ones
+                d["is_mortar"][side] = ones
+                d["mortar_side"][side] = side.value * ones
+                d["cell_id"][side] = np.arange(g.num_cells, dtype=int) + mg_num_cells
+                mg_num_cells += g.num_cells
+                d["grid_edge_number"][side] = d["edge_number"] * ones
+
+        # collect the data and extra data in a single stack for each dimension
+        for dim in self.m_dims:
+            file_name = self._make_file_name_mortar(
+                self.file_name, time_step=time_step, dim=dim
+            )
+            file_name = self._make_folder(self.folder_name, file_name)
+
+            mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
+            cond = lambda d: d["mortar_grid"].dim == dim
+            edges: List[Tuple[pp.Grid, pp.Grid]] = [
+                e for e, d in self.gb.edges() if cond(d)
+            ]
+
+            for field in edge_fields:
+                values = []
+                for mg, edge in zip(mgs, edges):
+                    if field.name in data:
+                        values.append(self.gb.edge_props(edge, pp.STATE)[field.name])
+                    else:
+                        for side, _ in mg.side_grids.items():
+                            # Convert edge to tuple to be compatible with GridBucket
+                            # data structure
+                            values.append(self.gb.edge_props(edge, field.name)[side])
+
+                field.values = np.hstack(values)
+
+            if self.m_meshio_geom[dim] is not None:
+                self._write(edge_fields, file_name, self.m_meshio_geom[dim])
+
+        file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
+        file_name = self._make_folder(self.folder_name, file_name)
+        self._export_pvd_gb(file_name, time_step)
+
+        self.gb.remove_edge_props(extra_edge_names)
