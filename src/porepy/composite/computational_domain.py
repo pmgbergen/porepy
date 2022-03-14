@@ -111,7 +111,7 @@ class ComputationalDomain:
             if is_mortar:
                 var = create_merged_mortar_variable(self.gb, dof_info, variable_name)
             else:
-                var, _ = create_merged_variable(self.gb, dof_info, variable_name)
+                var = create_merged_variable(self.gb, dof_info, variable_name)
             
             self._global_ad.update({variable_name: var})
 
@@ -224,8 +224,8 @@ class ComputationalDomain:
     def set_initial_values(self,
     pressure: Union[float, np.array],
     temperature: Union[float, np.array],
-    saturations: Union[List[float], List[np.array]],
-    molar_fractions_in_phase: Dict[str, Union[float, np.array]],
+    saturations: Dict[str, Union[List[float], List[np.array]]],
+    molar_fractions_in_phase: Dict[str, Union[List[float], List[np.array]]],
     compute_equilibrium: Optional[bool] = True
     ) -> None:
         """ Sets the initial compositional and thermodynamic state of the system.

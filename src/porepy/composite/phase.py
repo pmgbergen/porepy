@@ -9,7 +9,8 @@ from weakref import WeakValueDictionary, WeakKeyDictionary
 
 from ._composite_utils import COMPUTATIONAL_VARIABLES
 
-from typing import Iterator, Tuple, Iterable, Dict, List, TYPE_CHECKING
+from typing import (TYPE_CHECKING,
+Iterator, Tuple, Iterable, Union, Dict, List)
 # this solution avoids circular imports due to type checking. Needs __future__.annotations
 if TYPE_CHECKING:
     from .computational_domain import ComputationalDomain
@@ -84,20 +85,21 @@ class Phase:#(abc.ABC):
 
         # Instantiate saturation variable
         self.cd(self.saturation_name)
-        # TODO maths
-        # self.cd(self.mortar_saturation_name)
         # Instantiate phase molar fraction variable
         self.cd(self.molar_fraction_name)
-        #TODO maths
-        # self.cd(self.mortar_molar_fraction_name)
 
     def __iter__(self) -> Iterator[Substance]:
-        """ Iterator over substances present in phase.
+        """
+        Iterator over substances present in phase.
+        The first substance will always be the solvent passed at instantiation.
+
+        IMPORTANT: The order in this iterator (tuple) is used for choosing e.g. the values in a list of 'numpy.array' when setting initial values.
+        Use the order returns here everytime you deal with substance-related values or other for substances in this phase.
 
         :return: yields present substance
         :rtype: :class:`~porepy.composite.substance.Substance`
         """
-        for substance in self._present_substances:
+        for substance in [self._solvent] + self._present_substances:
             yield substance
 
     @property
@@ -144,55 +146,15 @@ class Phase:#(abc.ABC):
         """
         return COMPUTATIONAL_VARIABLES["phase_molar_fraction"] + "_" + self.name
 
-    @property
-    def mortar_saturation(self) -> pp.ad.MergedVariable:
+    def add_substance(self, substance: Union[List[Substance], Substance] ) -> None:
         """
-        As a fractional quantity, all values are between 0 and 1.
-
-        :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the saturation of this phase on the mortar grids
-        :rtype: :class:`porepy.ad.MergedVariable`
-        """
-        return self.cd(self.mortar_saturation_name)
-    
-    @property
-    def mortar_saturation_name(self) -> str:
-        """
-        :return: name of the mortar saturation variable under which it is stored in the grid data dictionaries
-        :rtype: str
-        """
-        return COMPUTATIONAL_VARIABLES["mortar_prefix"] + "_" + COMPUTATIONAL_VARIABLES["saturation"] + "_" + self.name
-
-    @property
-    def mortar_molar_fraction(self) -> pp.ad.MergedVariable:
-        """
-        As a fractional quantity, all values are between 0 and 1.
-
-        :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the molar fraction of this phase on the mortar grids
-        :rtype: :class:`porepy.ad.MergedVariable`
-        """
-        return self.cd(self.mortar_molar_fraction_name)
-
-    @property
-    def mortar_molar_fraction_name(self) -> str:
-        """
-        :return: name of the mortar phase molar fraction variable under which it is stored in the grid data dictionaries
-        :rtype: str
-        """
-        return COMPUTATIONAL_VARIABLES["mortar_prefix"] + "_" + COMPUTATIONAL_VARIABLES["phase_molar_fraction"] + "_" + self.name
-
-    def add_substances(self,
-    phase_composition: Iterable[Tuple[Substance, np.array]]) -> None:
-        """ Adds a composition of substances to this phase, including their initial molar fraction.
-
-        Asserts the sum over molar fractions is 1 per cell.
-        Ergo, the array arguments have to be of length :method:`~porepy.grids.grid_bucket.GridBucket.num_cells`.
+        Adds substances which are anticipated in this phase
 
         The Substances have to instantiated using the same
         :class:`~porepy.composite.computational_domain.ComputationalDomain` instance as for this object.
 
-        
-        :param phase_composition: iterable object containing 2-tuples of substances and respective concentrations in this phase
-        :type component: List[Tuple[:class:`~porepy.composite.substance.Substance`, :class:`~numpy.array`]]
+        :param phase_composition: substance or list of substances to be added to this phase
+        :type component: :class:`~porepy.composite.substance.Substance`
         """
         # Sum of molar fractions in this phase. Has to be 1 in each cell
         sum_over_fractions = np.zeros(self.cd.gb.num_cells())
@@ -211,8 +173,6 @@ class Phase:#(abc.ABC):
             self._present_substances.append(substance)
             # instantiate related AD variables
             self.cd(substance.mfip_name(self.name), {"cells": 1})
-            # TODO needs maths
-            self.cd(substance.mortar_mfip_name(self.name), {"cells": 1})
 
             ## setting initial values (fractions)
             # create a copy to avoid issues in case there is another manipulated reference to this values
@@ -228,8 +188,6 @@ class Phase:#(abc.ABC):
                 data[pp.STATE][self.omf_name] = vals
                 data[pp.STATE][pp.ITERATE][self.omf_name] = vals
 
-            # TODO set initial values at interfaces, if applicable (the maths is missing here)
-            # check if above code works for GridBuckets without fractures
             
         # assert the fractional character (sum equals 1) is given on each cell
         if np.any(sum_over_fractions != 1.): #TODO check sensitivity
