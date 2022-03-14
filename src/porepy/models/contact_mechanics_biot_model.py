@@ -6,14 +6,12 @@ the purely mechanical problem with contact conditions on the fractures. Here, we
 expand to a model where the displacement solution is coupled to a scalar variable, e.g.
 pressure (Biot equations) or temperature. Parameters, variables and discretizations are
 set in the model class, and the problem may be solved using run_biot.
-
-NOTE: This module should be considered an experimental feature, which may
-undergo major changes on little notice.
-
 """
+from __future__ import annotations
+
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -24,6 +22,22 @@ from porepy.utils.derived_discretizations import implicit_euler as IE_discretiza
 # Module-wide logger
 logger = logging.getLogger(__name__)
 module_sections = ["models", "numerics"]
+
+
+class ContactMechanicsBiotAdObjects(
+    pp.models.contact_mechanics_model.ContactMechanicsAdObjects
+):
+    """Storage class for ad related objects.
+
+    Stored objects include variables, compound ad operators and projections.
+    """
+
+    pressure: pp.ad.Variable
+    interface_flux: pp.ad.Variable
+    subdomain_projections_scalar: pp.ad.SubdomainProjections
+    mortar_projections_scalar: pp.ad.MortarProjections
+    time_step: pp.ad.Scalar
+    flux_discretization: Union[pp.ad.MpfaAd, pp.ad.TpfaAd]
 
 
 class ContactMechanicsBiot(pp.ContactMechanics):
@@ -84,8 +98,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Time
         self.time: float = 0
-        self.time_step: float = 1
-        self.end_time: float = 1
+        self.time_step: float = self.params.get("end_time", 1.0)
+        self.end_time: float = self.params.get("end_time", 1.0)
 
         # Temperature
         self.scalar_variable: str = "p"
@@ -94,15 +108,14 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         self.scalar_parameter_key: str = "flow"
 
         # Scaling coefficients
-        self.scalar_scale: float = 1
-        self.length_scale: float = 1
+        self.scalar_scale: float = 1.0
+        self.length_scale: float = 1.0
 
         # Whether or not to subtract the fracture pressure contribution for the contact
         # traction. This should be done if the scalar variable is pressure, but not for
         # temperature. See assign_discretizations
         self.subtract_fracture_pressure: bool = True
 
-    @pp.time_logger(sections=module_sections)
     def before_newton_loop(self) -> None:
         """Will be run before entering a Newton loop.
         E.g.
@@ -112,14 +125,12 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         super().before_newton_loop()
         self._set_parameters()
 
-    @pp.time_logger(sections=module_sections)
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         super().after_newton_convergence(solution, errors, iteration_counter)
         self._save_mechanical_bc_values()
 
-    @pp.time_logger(sections=module_sections)
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
@@ -156,7 +167,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     # Methods for setting parametrs etc.
 
-    @pp.time_logger(sections=module_sections)
     def _set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -164,64 +174,49 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         self._set_scalar_parameters()
         self._set_mechanics_parameters()
 
-    @pp.time_logger(sections=module_sections)
     def _set_mechanics_parameters(self) -> None:
         """
         Set the parameters for the simulation.
         """
+        super()._set_parameters()
         gb = self.gb
         for g, d in gb:
             if g.dim == self._Nd:
-                # Rock parameters
-                lam = np.ones(g.num_cells) / self.scalar_scale
-                mu = np.ones(g.num_cells) / self.scalar_scale
-                C = pp.FourthOrderTensor(mu, lam)
-
-                # Define boundary condition
-                bc = self._bc_type_mechanics(g)
-                # BC and source values
-                bc_val = self._bc_values_mechanics(g)
-                source_val = self._source_mechanics(g)
-
                 pp.initialize_data(
                     g,
                     d,
                     self.mechanics_parameter_key,
                     {
-                        "bc": bc,
-                        "bc_values": bc_val,
-                        "source": source_val,
-                        "fourth_order_tensor": C,
+                        "bc": self._bc_type_mechanics(g),
+                        "bc_values": self._bc_values_mechanics(g),
                         "time_step": self.time_step,
                         "biot_alpha": self._biot_alpha(g),
-                        "p_reference": np.zeros(g.num_cells),
+                        "p_reference": self._reference_scalar(g),
                     },
                 )
 
             elif g.dim == self._Nd - 1:
-                friction = self._set_friction_coefficient(g)
                 pp.initialize_data(
                     g,
                     d,
                     self.mechanics_parameter_key,
-                    {"friction_coefficient": friction, "time_step": self.time_step},
+                    {
+                        "time_step": self.time_step,
+                        "mass_weight": np.ones(g.num_cells),
+                    },
                 )
 
         for _, d in gb.edges():
             mg: pp.MortarGrid = d["mortar_grid"]
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
-    @pp.time_logger(sections=module_sections)
     def _set_scalar_parameters(self) -> None:
         tensor_scale = self.scalar_scale / self.length_scale ** 2
         kappa = 1 * tensor_scale
         mass_weight = 1 * self.scalar_scale
         for g, d in self.gb:
-            bc = self._bc_type_scalar(g)
-            bc_values = self._bc_values_scalar(g)
-            source_values = self._source_scalar(g)
-
             specific_volume = self._specific_volume(g)
+            kappa = self._permeability(g) / self._viscosity(g) * tensor_scale
             diffusivity = pp.SecondOrderTensor(
                 kappa * specific_volume * np.ones(g.num_cells)
             )
@@ -232,18 +227,17 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 d,
                 self.scalar_parameter_key,
                 {
-                    "bc": bc,
-                    "bc_values": bc_values,
+                    "bc": self._bc_type_scalar(g),
+                    "bc_values": self._bc_values_scalar(g),
                     "mass_weight": mass_weight * specific_volume,
                     "biot_alpha": alpha,
-                    "source": source_values,
+                    "source": self._source_scalar(g),
                     "second_order_tensor": diffusivity,
                     "time_step": self.time_step,
-                    "vector_source": np.zeros(g.num_cells * self.gb.dim_max()),
+                    "vector_source": self._vector_source(g),
                     "ambient_dimension": self.gb.dim_max(),
                 },
             )
-
         # Assign diffusivity in the normal direction of the fractures.
         for e, data_edge in self.gb.edges():
             g_l, g_h = self.gb.nodes_of_edge(e)
@@ -259,7 +253,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             )
             # Division by a/2 may be thought of as taking the gradient in the normal
             # direction of the fracture.
-            normal_diffusivity = kappa * 2 / (mg.secondary_to_mortar_avg() * a_l)
+            kappa_l = self._permeability(g_l) / self._viscosity(g_l)
+            normal_diffusivity = mg.secondary_to_mortar_avg() * (kappa_l * 2 / a_l)
             # The interface flux is to match fluxes across faces of g_h,
             # and therefore need to be weighted by the corresponding
             # specific volumes
@@ -275,47 +270,153 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 },
             )
 
-    @pp.time_logger(sections=module_sections)
     def _bc_type_mechanics(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
-        # Use parent class method for mechanics
+        """Use parent class method for mechanics
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Subdomain grid.
+
+        Returns
+        -------
+        pp.BoundaryConditionVectorial
+            Boundary condition representation.
+
+        """
         return super()._bc_type(g)
 
-    @pp.time_logger(sections=module_sections)
     def _bc_type_scalar(self, g: pp.Grid) -> pp.BoundaryCondition:
+        """Dirichlet condition on all external boundaries
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Subdomain grid.
+
+        Returns
+        -------
+        pp.BoundaryCondition
+            Boundary condition representation.
+
+        """
         # Define boundary regions
         all_bf, *_ = self._domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
-    @pp.time_logger(sections=module_sections)
     def _bc_values_mechanics(self, g: pp.Grid) -> np.ndarray:
-        """
+        """Homogeneous values on all boundaries
+
         Note that Dirichlet values should be divided by length_scale, and Neumann values
         by scalar_scale.
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Subdomain grid.
+
+        Returns
+        -------
+        np.ndarray (nd x #faces)
+            Boundary condition values.
+
         """
         # Set the boundary values
         return super()._bc_values(g)
 
-    @pp.time_logger(sections=module_sections)
     def _bc_values_scalar(self, g: pp.Grid) -> np.ndarray:
-        """
+        """Homogeneous values on all boundaries
+
         Note that Dirichlet values should be divided by scalar_scale.
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Subdomain grid.
+
+        Returns
+        -------
+        np.ndarray (#faces)
+            Boundary condition values.
+
         """
         return np.zeros(g.num_faces)
 
-    @pp.time_logger(sections=module_sections)
-    def _source_mechanics(self, g: pp.Grid) -> np.ndarray:
-        return super()._source(g)
+    def _stress_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
+        """Stress tensor parameter, unitary Lame parameters.
 
-    @pp.time_logger(sections=module_sections)
+
+        Parameters
+        ----------
+        g : pp.Grid
+            Matrix grid.
+
+        Returns
+        -------
+        pp.FourthOrderTensor
+            Representation of the stress tensor.
+
+        """
+        # Rock parameters
+        lam = np.ones(g.num_cells) / self.scalar_scale
+        mu = np.ones(g.num_cells) / self.scalar_scale
+        return pp.FourthOrderTensor(mu, lam)
+
     def _source_scalar(self, g: pp.Grid) -> np.ndarray:
+        """Zero source term.
+
+        Units: m^3 / s
+        """
         return np.zeros(g.num_cells)
 
-    @pp.time_logger(sections=module_sections)
-    def _biot_alpha(self, g: pp.Grid) -> float:
-        return 1
+    def _permeability(self, g: pp.Grid) -> np.ndarray:
+        """Unitary permeability.
 
-    @pp.time_logger(sections=module_sections)
+        Units: m^2
+        """
+        return np.ones(g.num_cells)
+
+    def _viscosity(self, g: pp.Grid) -> np.ndarray:
+        """Unitary viscosity.
+
+        Units: kg / m / s = Pa s
+        """
+        return np.ones(g.num_cells)
+
+    def _vector_source(self, g: pp.Grid) -> np.ndarray:
+        """Zero vector source (gravity).
+
+        To assign a gravity-like vector source, add a non-zero contribution in
+        the last dimension:
+            vals[-1] = - pp.GRAVITY_ACCELERATION * fluid_density
+        """
+        vals = np.zeros((self.gb.dim_max(), g.num_cells))
+        return vals.ravel("F")
+
+    def _reference_scalar(self, g: pp.Grid) -> np.ndarray:
+        """Reference scalar value.
+
+        Used for the scalar (pressure) contribution to stress.
+        Parameters
+        ----------
+        g : pp.Grid
+            Matrix grid.
+
+        Returns
+        -------
+        np.ndarray
+            Reference scalar value.
+
+        """
+        return np.zeros(g.num_cells)
+
+    def _biot_alpha(self, g: pp.Grid) -> Union[float, np.ndarray]:
+        if self._use_ad:
+            return 1.0 * np.ones(g.num_cells)
+        else:
+            return 1.0
+
     def _aperture(self, g: pp.Grid) -> np.ndarray:
         """
         Aperture is a characteristic thickness of a cell, with units [m].
@@ -328,7 +429,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             aperture *= 0.1
         return aperture
 
-    @pp.time_logger(sections=module_sections)
     def _specific_volume(self, g: pp.Grid) -> np.ndarray:
         """
         The specific volume of a cell accounts for the dimension reduction and has
@@ -339,7 +439,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         a = self._aperture(g)
         return np.power(a, self._Nd - g.dim)
 
-    @pp.time_logger(sections=module_sections)
     def _assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
@@ -500,406 +599,624 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     }
 
         else:
+            self._assign_equations()
 
-            gb = self.gb
-            Nd = self._Nd
-            eq_manager = pp.ad.EquationManager(gb, self.dof_manager)
+    def _assign_equations(self):
+        """Assign equations for mixed-dimensional flow and deformation.
 
-            g_primary = gb.grids_of_dimension(Nd)[0]
-            g_frac = gb.grids_of_dimension(Nd - 1).tolist()
+        The following equations are assigned to the equation manager:
+            "momentum" in the nd subdomain
+            "contact_mechanics_normal" in all fracture subdomains
+            "contact_mechanics_tangential" in all fracture subdomains
+            "force_balance" at the matrix-fracture interfaces
 
-            grid_list = [
-                g_primary,
-                *g_frac,
-                *gb.grids_of_dimension(Nd - 2),
-                *gb.grids_of_dimension(Nd - 3),
+            "subdomain_flow" in all subdomains
+            "interface_flow" on all interfaces of codimension 1
+
+        Returns
+        -------
+        None.
+
+        """
+        # The parent assigns momentum and force balance and two contact mechanics equations.
+        # These are constructed by submethods. The former two,
+        # _momentum_balance_equation and _force_balance_equation, are modified
+        # in this class to account for pressure effects.
+        super()._assign_equations()
+
+        # Now, assign the two flow equations not present in the parent model.
+
+        gb, ad = self.gb, self._ad
+
+        # g_primary: pp.Grid = gb.grids_of_dimension(Nd)[0]
+        # g_frac: List[pp.Grid] = gb.grids_of_dimension(Nd - 1).tolist()
+        subdomains: List[pp.Grid] = [g for g, _ in self.gb]
+
+        interfaces = [e for e, d in gb.edges() if d["mortar_grid"].codim == 1]
+
+        # Primary variables on Ad form
+        ad.pressure: pp.ad.Variable = self._eq_manager.merge_variables(
+            [(g, self.scalar_variable) for g in subdomains]
+        )
+        ad.interface_flux: pp.ad.Variable = self._eq_manager.merge_variables(
+            [(e, self.mortar_scalar_variable) for e in interfaces]
+        )
+        # Construct equations
+
+        subdomain_flow_eq: pp.ad.Operator = self._subdomain_flow_equation(subdomains)
+        interface_flow_eq: pp.ad.Operator = self._interface_flow_equation(interfaces)
+        # Assign equations to manager
+        self._eq_manager.name_and_assign_equations(
+            {
+                "subdomain_flow": subdomain_flow_eq,
+                "interface_flow": interface_flow_eq,
+            },
+        )
+
+    def _set_ad_projections(
+        self,
+    ) -> None:
+        """
+        Sets projection and rotation matrices.
+
+
+        The following attributes are assigned to self._ad in addition to those
+        set by the parent class:
+            subdomain_projections_scalar
+            local_fracture_coord_transformation_normal
+
+        Returns
+        -------
+        None
+
+        """
+        super()._set_ad_projections()
+        gb, ad = self.gb, self._ad
+        subdomains: List[pp.Grid] = [g for g, _ in gb]
+        fracture_subdomains: List[pp.Grid] = gb.grids_of_dimension(
+            self._Nd - 1
+        ).tolist()
+        ad.subdomain_projections_scalar = pp.ad.SubdomainProjections(grids=subdomains)
+        interfaces = [e for e, d in gb.edges() if d["mortar_grid"].codim == 1]
+        ad.mortar_projections_scalar = pp.ad.MortarProjections(
+            grids=subdomains, edges=interfaces, gb=gb, nd=1
+        )
+
+        normal_proj_list = []
+        if len(fracture_subdomains) > 0:
+            for gf in fracture_subdomains:
+                proj = self.gb.node_props(gf, "tangential_normal_projection")
+                normal_proj_list.append(proj.project_normal(gf.num_cells))
+            normal_proj = pp.ad.Matrix(sps.block_diag(normal_proj_list))
+        else:
+            # In the case of no fractures, empty matrices are needed.
+            normal_proj = pp.ad.Matrix(sps.csr_matrix((0, 0)))
+
+        ad.local_fracture_coord_transformation_normal = normal_proj
+
+    def _force_balance_equation(
+        self,
+        matrix_subdomains: List[pp.Grid],
+        fracture_subdomains: List[pp.Grid],
+        interfaces: List[Tuple[pp.Grid, pp.Grid]],
+    ) -> pp.ad.Operator:
+        """Force balance equation on fracture subdomains.
+
+
+        Parameters
+        ----------
+        matrix_subdomains: List[pp.Grid]
+            Matrix grids. Normally, only a single matrix grid is used
+        fracture_subdomains: List[pp.Grid].
+            Fracture grids.
+        interfaces: List[Tuple[pp.Grid, pp.Grid]]
+            Matrix-fracture interfaces.
+
+        Returns
+        -------
+        force_balance_eq : pp.ad.Operator
+            Force balance equation with contact stress and pressure contribution.
+
+        Implementation note:
+            The fracture pressure mapping involves flipping of normals as is done in
+            the super method. Reuse of internal_boundary_vector_to_outwards would be
+            preferable, but was deemed to lead to too complicated projections between
+            subdomains and interfaces.
+        """
+        eq = super()._force_balance_equation(
+            matrix_subdomains, fracture_subdomains, interfaces
+        )
+        if not self.subtract_fracture_pressure:
+            return eq
+
+        g_primary = matrix_subdomains[0]
+        mat = []
+
+        for e in interfaces:
+            mg = self.gb.edge_props(e, "mortar_grid")
+
+            faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
+            sgn, _ = g_primary.signs_and_cells_of_boundary_faces(
+                faces_on_fracture_surface
+            )
+            internal_boundary_normals = g_primary.face_normals[
+                : self._Nd, faces_on_fracture_surface
             ]
+            outwards_fracture_normals = sgn * internal_boundary_normals
 
-            if len(gb.grids_of_dimension(Nd)) != 1:
-                raise NotImplementedError("This will require further work")
+            data = outwards_fracture_normals.ravel("F")
+            row = np.arange(self._Nd * mg.num_cells)
+            col = np.tile(np.arange(mg.num_cells), (self._Nd, 1)).ravel("F")
+            n_dot_I = sps.csc_matrix((data, (row, col)))
+            # i) The scalar contribution to the contact stress is mapped to
+            # the mortar grid  and multiplied by n \dot I, with n being the
+            # outwards normals on the two sides.
+            # Note that by using different normals for the two sides, we do not need to
+            # adjust the secondary pressure with the corresponding signs by applying
+            # sign_of_mortar_sides as done in PrimalContactCoupling.
+            # iii) The contribution should be subtracted so that we balance the primary
+            # forces by
+            # T_contact - n dot I p,
+            # hence the minus.
+            mat.append(n_dot_I * mg.secondary_to_mortar_int(nd=1))
 
-            edge_list_highest = [(g_primary, g) for g in g_frac]
-            edge_list = [e for e, d in gb.edges() if d["mortar_grid"].codim == 1]
+        if len(interfaces) == 0:
+            mat = [sps.csr_matrix((0, 0))]
+        # May need to do this as for tangential projections, additive that is
+        normal_matrix = pp.ad.Matrix(sps.block_diag(mat))
 
-            mortar_proj_scalar = pp.ad.MortarProjections(
-                grids=grid_list, edges=edge_list, gb=gb, nd=1
+        p_frac = (
+            self._ad.subdomain_projections_scalar.cell_restriction(fracture_subdomains)
+            * self._ad.pressure
+        )
+
+        fracture_pressure = normal_matrix * p_frac
+        force_balance_equation: pp.ad.Operator = eq + fracture_pressure
+        return force_balance_equation
+
+    def _subdomain_flow_equation(self, subdomains: List[pp.Grid]):
+        """Mass balance equation for slightly compressible flow in a deformable medium.
+
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Subdomains on which the equation is defined.
+
+        Returns
+        -------
+        eq : pp.ad.Operator
+            The equation on AD form.
+
+        """
+
+        ad = self._ad
+        g_frac: List[pp.Grid] = self.gb.grids_of_dimension(self._Nd - 1).tolist()
+        mass_discr = pp.ad.MassMatrixAd(self.scalar_parameter_key, subdomains)
+
+        # Flow parameters
+
+        # Facilitate updates of dt. self.time_step_ad.time_step._value must be updated
+        # if time steps are changed.
+        ad.time_step = pp.ad.Scalar(self.time_step, "time step")
+
+        flow_source = pp.ad.ParameterArray(
+            param_keyword=self.scalar_parameter_key,
+            array_keyword="source",
+            grids=subdomains,
+        )
+
+        div_scalar = pp.ad.Divergence(grids=subdomains)
+        biot_accumulation_primary = self._biot_terms_flow([self._nd_grid()])
+
+        # Accumulation term on the fractures.
+        accumulation_fracs = self._volume_change(g_frac)
+        accumulation_all = mass_discr.mass * (
+            ad.pressure - ad.pressure.previous_timestep()
+        )
+
+        flux = self._fluid_flux(subdomains)
+
+        eq = (
+            ad.time_step
+            * (  # Time scaling of flux terms, both inter-dimensional and from
+                # the higher dimension
+                div_scalar * flux
+                - ad.mortar_projections_scalar.mortar_to_secondary_int
+                * ad.interface_flux
             )
-            mortar_proj_vector = pp.ad.MortarProjections(
-                grids=grid_list, edges=edge_list_highest, gb=gb, nd=self._Nd
+            + accumulation_all
+            + ad.subdomain_projections_scalar.cell_prolongation([self._nd_grid()])
+            * biot_accumulation_primary
+            - ad.subdomain_projections_scalar.cell_prolongation(g_frac)
+            * accumulation_fracs
+            - flow_source
+        )
+        return eq
+
+    def _interface_flow_equation(self, interfaces: List[Tuple[pp.Grid, pp.Grid]]):
+        """Equation for interface fluxes.
+
+
+        Parameters
+        ----------
+        interfaces : List[Tuple[pp.Grid, pp.Grid]]
+            DESCRIPTION.
+
+        Returns
+        -------
+        interface_flow_eq : pp.ad.Operator
+            The interface equation on ad form.
+
+        """
+        # Interface equation: \lambda = -\kappa (p_l - p_h)
+        # Robin_ad.mortar_discr represents -\kappa. The involved term is
+        # reconstruction of p_h on internal boundary, which has contributions
+        # from cell center pressure, external boundary and interface flux
+        # on internal boundaries (including those corresponding to "other"
+        # fractures).
+
+        # Create list of subdomains. Ensure matrix grid is present so that bc
+        # and vector_source_subdomains are consistent with ad.flux_discretization
+        subdomains = [self._nd_grid()]
+        for interface in interfaces:
+            for sd in interface:
+                if sd not in subdomains:
+                    subdomains.append(sd)
+
+        ad = self._ad
+        flux_discr = ad.flux_discretization
+        interface_discr = pp.ad.RobinCouplingAd(self.scalar_parameter_key, interfaces)
+
+        bc = pp.ad.ParameterArray(
+            self.scalar_parameter_key,
+            array_keyword="bc_values",
+            grids=subdomains,
+        )
+
+        vector_source_subdomains = pp.ad.ParameterArray(
+            param_keyword=self.scalar_parameter_key,
+            array_keyword="vector_source",
+            grids=subdomains,
+        )
+        vector_source_interfaces = pp.ad.ParameterArray(
+            param_keyword=self.scalar_parameter_key,
+            array_keyword="vector_source",
+            edges=interfaces,
+        )
+        # Construct primary (higher-dimensional) pressure
+        # IMPLEMENTATION NOTE: this could possibly do with a sub-method
+        p_primary = (
+            flux_discr.bound_pressure_cell * ad.pressure
+            + flux_discr.bound_pressure_face
+            * ad.mortar_projections_scalar.mortar_to_primary_int
+            * ad.interface_flux
+            + flux_discr.bound_pressure_face * bc
+            + flux_discr.vector_source * vector_source_subdomains
+        )
+        # Project the two pressures to the interface and equate with \lambda
+        interface_flow_eq: pp.ad.Operator = (
+            interface_discr.mortar_discr
+            * (
+                ad.mortar_projections_scalar.primary_to_mortar_avg * p_primary
+                - ad.mortar_projections_scalar.secondary_to_mortar_avg * ad.pressure
+                + interface_discr.mortar_vector_source * vector_source_interfaces
             )
-            subdomain_proj_scalar = pp.ad.SubdomainProjections(grids=grid_list)
-            subdomain_proj_vector = pp.ad.SubdomainProjections(
-                grids=grid_list, nd=self._Nd
+            + ad.interface_flux
+        )
+        return interface_flow_eq
+
+    def _biot_terms_flow(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        """Biot terms, div(u) and stabilization
+
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Matrix subdomains, expected to have length=1.
+
+        Returns
+        -------
+        biot_terms : pp.ad.Operator
+            Ad operator representing d/dt div(u) and stabilization terms of the
+            Biot flow equation in the matrix.
+
+        """
+
+        ad = self._ad
+        div_u_discr = pp.ad.DivUAd(
+            self.mechanics_parameter_key,
+            grids=subdomains,
+            mat_dict_keyword=self.scalar_parameter_key,
+        )
+        stabilization_discr = pp.ad.BiotStabilizationAd(
+            self.scalar_parameter_key, subdomains
+        )
+        biot_alpha = pp.ad.ParameterMatrix(
+            self.scalar_parameter_key,
+            array_keyword="biot_alpha",
+            grids=subdomains,
+        )
+        bc_mech = pp.ad.ParameterArray(
+            self.mechanics_parameter_key,
+            array_keyword="bc_values",
+            grids=subdomains,
+        )
+        bc_mech_previous = pp.ad.ParameterArray(
+            self.mechanics_parameter_key,
+            array_keyword="bc_values_previous_timestep",
+            grids=subdomains,
+        )
+        # The "div_u" really represents the time increment d/dt div(u), thus
+        # all contributions are defined on differences between current and previous
+        # state. There are three components: matrix, external boundary and
+        # internal boundary (fractures). The last term requires projection of
+        # displacements from interfaces
+        matrix_div_u: pp.ad.Operator = div_u_discr.div_u * (
+            ad.displacement - ad.displacement.previous_timestep()
+        )
+        external_boundary_div_u: pp.ad.Operator = div_u_discr.bound_div_u * (
+            bc_mech - bc_mech_previous
+        )
+        internal_boundary_div_u: pp.ad.Operator = (
+            div_u_discr.bound_div_u
+            * ad.subdomain_projections_vector.face_restriction(subdomains)
+            * ad.mortar_projections_vector.mortar_to_primary_int
+            * (
+                ad.interface_displacement
+                - ad.interface_displacement.previous_timestep()
             )
+        )
+        div_u_terms: pp.ad.Operator = biot_alpha * (
+            matrix_div_u + external_boundary_div_u + internal_boundary_div_u
+        )
+        div_u_terms.set_name("div_u")
 
-            tangential_normal_proj_list = []
-            normal_proj_list = []
-            if len(g_frac) > 0:
-                for gf in g_frac:
-                    proj = gb.node_props(gf, "tangential_normal_projection")
-                    tangential_normal_proj_list.append(
-                        proj.project_tangential_normal(gf.num_cells)
-                    )
-                    normal_proj_list.append(proj.project_normal(gf.num_cells))
-                tangential_normal_proj = pp.ad.Matrix(
-                    sps.block_diag(tangential_normal_proj_list)
-                )
-                normal_proj = pp.ad.Matrix(sps.block_diag(normal_proj_list))
-            else:
-                # In the case of no fractures, empty matrices are needed.
-                tangential_normal_proj = pp.ad.Matrix(sps.csr_matrix((0, 0)))
-                normal_proj = pp.ad.Matrix(sps.csr_matrix((0, 0)))
+        # The stabilization term is also defined on a time increment, but only
+        # considers the matrix subdomain and no boundary contributions.
+        stabilization_term: pp.ad.Operator = (
+            stabilization_discr.stabilization
+            * ad.subdomain_projections_scalar.cell_restriction(subdomains)
+            * (ad.pressure - ad.pressure.previous_timestep())
+        )
+        stabilization_term.set_name("Biot stabilization")
 
-            # Ad representation of discretizations
-            mpsa_ad = pp.ad.BiotAd(self.mechanics_parameter_key, [g_primary])
-            grad_p_ad = pp.ad.GradPAd(self.mechanics_parameter_key, [g_primary])
+        biot_terms: pp.ad.Operator = div_u_terms + stabilization_term
+        return biot_terms
 
-            mpfa_ad = pp.ad.MpfaAd(self.scalar_parameter_key, grid_list)
-            mass_ad = pp.ad.MassMatrixAd(self.scalar_parameter_key, grid_list)
-            robin_ad = pp.ad.RobinCouplingAd(self.scalar_parameter_key, edge_list)
+    def _volume_change(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        """Volume change term for fracture subdomains
 
-            # Facilitate updates of dt. self.time_step_ad._value must be updated
-            # if time steps are changed.
-            dt = pp.ad.Scalar(self.time_step, "time step")
-            self.time_step_ad = dt
-            div_u_ad = pp.ad.DivUAd(
-                self.mechanics_parameter_key,
-                grids=[g_primary],
-                mat_dict_keyword=self.scalar_parameter_key,
+        Volume change terms for intersections are neglected in this implementation.
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Fracture subdomains.
+
+        Returns
+        -------
+        volume_change : pp.ad.Operator
+            Volume change term for the fracture subdomains as an ad operator.
+
+        """
+        discr = pp.ad.MassMatrixAd(self.mechanics_parameter_key, subdomains)
+        # Neglects intersections
+        volume_change: pp.ad.Operator = (
+            discr.mass
+            * self._ad.local_fracture_coord_transformation_normal
+            * (
+                self._displacement_jump(subdomains)
+                - self._displacement_jump(subdomains, previous_timestep=True)
             )
-            stab_biot_ad = pp.ad.BiotStabilizationAd(
-                self.scalar_parameter_key, [g_primary]
-            )
+        )
+        return volume_change
 
-            coloumb_ad = pp.ad.ColoumbContactAd(
-                self.mechanics_parameter_key, edge_list_highest
-            )
+    def _fluid_flux(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        """Fluid flux.
 
-            bc_mech = pp.ad.ParameterArray(
-                self.mechanics_parameter_key,
-                array_keyword="bc_values",
-                grids=[g_primary],
-            )
-            bc_mech_previous = pp.ad.ParameterArray(
-                self.mechanics_parameter_key,
-                array_keyword="bc_values_previous_timestep",
-                grids=[g_primary],
-            )
-            # Alpha is for now assumed to be scalar:
-            biot_alpha = self._biot_alpha(g_primary)
 
-            div_vector = pp.ad.Divergence(grids=[g_primary], dim=g_primary.dim)
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Subdomains for which fluid fluxes are defined, normally all.
 
-            # Primary variables on Ad form
-            u = eq_manager.variable(g_primary, self.displacement_variable)
-            u_mortar = eq_manager.merge_variables(
-                [(e, self.mortar_displacement_variable) for e in edge_list_highest]
-            )
-            contact_force = eq_manager.merge_variables(
-                [(g, self.contact_traction_variable) for g in g_frac]
-            )
-            p = eq_manager.merge_variables(
-                [(g, self.scalar_variable) for g in grid_list]
-            )
-            mortar_flux = eq_manager.merge_variables(
-                [(e, self.mortar_scalar_variable) for e in edge_list]
-            )
+        Note:
+            The ad flux discretization used here is stored for consistency with
+            self._interface_flow_equations, where self._ad.flux_discretization
+            is applied.
 
-            u_prev = u.previous_timestep()
-            u_mortar_prev = u_mortar.previous_timestep()
-            p_prev = p.previous_timestep()
+        Returns
+        -------
+        flux : pp.ad.Operator
+            Flux on ad form.
 
-            # Reference pressure, corresponding to an initial stress free state
-            p_reference = pp.ad.ParameterArray(
-                param_keyword=self.mechanics_parameter_key,
-                array_keyword="p_reference",
-                grids=[g_primary],
-            )
-            gravity = pp.ad.ParameterArray(
-                self.mechanics_parameter_key, "source", grids=[g_primary]
-            )
-            # Stress in g_h
-            stress = (
-                mpsa_ad.stress * u
-                + mpsa_ad.bound_stress * bc_mech
-                + mpsa_ad.bound_stress
-                * subdomain_proj_vector.face_restriction(g_primary)
-                * mortar_proj_vector.mortar_to_primary_avg
-                * u_mortar
-                + grad_p_ad.grad_p
-                * subdomain_proj_scalar.cell_restriction(g_primary)
-                * p
-                # The reference pressure is only defined on g_primary, thus there is no need
-                # for a subdomain projection.
-                - grad_p_ad.grad_p * p_reference
-            )
+        """
+        bc = pp.ad.ParameterArray(
+            self.scalar_parameter_key,
+            array_keyword="bc_values",
+            grids=subdomains,
+        )
+        vector_source_subdomains = pp.ad.ParameterArray(
+            param_keyword=self.scalar_parameter_key,
+            array_keyword="vector_source",
+            grids=subdomains,
+        )
 
-            momentum_eq = div_vector * stress - gravity
+        flux_discr = pp.ad.MpfaAd(self.scalar_parameter_key, subdomains)
+        # Store to ensure consistency in interface flux
+        self._ad.flux_discretization = flux_discr
+        flux: pp.ad.Operator = (
+            flux_discr.flux * self._ad.pressure
+            + flux_discr.bound_flux * bc
+            + flux_discr.bound_flux
+            * self._ad.mortar_projections_scalar.mortar_to_primary_int
+            * self._ad.interface_flux
+            + flux_discr.vector_source * vector_source_subdomains
+        )
+        flux.set_name("Fluid flux")
+        return flux
 
-            jump = (
-                subdomain_proj_vector.cell_restriction(g_frac)
-                * mortar_proj_vector.mortar_to_secondary_avg
-                * mortar_proj_vector.sign_of_mortar_sides
-            )
-            jump_rotate = tangential_normal_proj * jump
+    def _stress(
+        self,
+        matrix_subdomains: List[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Ad representation of poromechanical stress.
 
-            # Contact conditions
-            num_frac_cells = int(np.sum([g.num_cells for g in g_frac]))
 
-            jump_discr = coloumb_ad.displacement * jump_rotate * u_mortar
-            tmp = np.ones(num_frac_cells * self._Nd)
-            tmp[self._Nd - 1 :: self._Nd] = 0
-            exclude_normal = pp.ad.Matrix(
-                sps.dia_matrix((tmp, 0), shape=(tmp.size, tmp.size))
-            )
-            # Rhs of contact conditions
-            rhs = (
-                coloumb_ad.rhs
-                + exclude_normal * coloumb_ad.displacement * jump_rotate * u_mortar_prev
-            )
-            contact_eq = coloumb_ad.traction * contact_force + jump_discr - rhs
+        Parameters
+        ----------
+        matrix_subdomains : List[pp.Grid]
+            List of N-dimensional grids, usually with a single entry.
 
-            # Force balance
-            mat = None
-            if len(g_frac) > 0:
-                for _, d in gb.edges():
-                    mg: pp.MortarGrid = d["mortar_grid"]
-                    if mg.dim < self._Nd - 1:
-                        continue
+        Returns
+        -------
+        stress : pp.ad.Operator
+            Stress operator.
 
-                    faces_on_fracture_surface = (
-                        mg.primary_to_mortar_int().tocsr().indices
-                    )
-                    m = pp.grid_utils.switch_sign_if_inwards_normal(
-                        g_primary, self._Nd, faces_on_fracture_surface
-                    )
-                    if mat is None:
-                        mat = m
-                    else:
-                        mat += m
-            else:
-                # If no fractures, make the sign switcher into an empty matrix
-                # of the right size (it will be multiplied by zeros at some point
-                # so we might as well kill it off).
-                mat = sps.csr_matrix(
-                    (g_primary.num_faces * self._Nd, g_primary.num_faces * self._Nd)
-                )
+        """
 
-            sign_switcher = pp.ad.Matrix(mat)
+        mechanical_stress = super()._stress(matrix_subdomains)
+        discr = pp.ad.BiotAd(self.mechanics_parameter_key, matrix_subdomains)
+        p_reference = pp.ad.ParameterArray(
+            param_keyword=self.mechanics_parameter_key,
+            array_keyword="p_reference",
+            grids=matrix_subdomains,
+        )
+        pressure: pp.ad.Operator = (
+            discr.grad_p
+            * self._ad.subdomain_projections_scalar.cell_restriction(matrix_subdomains)
+            * self._ad.pressure
+            # The reference pressure is only defined on g_primary, thus there is no need
+            # for a subdomain projection.
+            - discr.grad_p * p_reference
+        )
+        pressure.set_name("pressure_stress")  # better name needed
+        stress: pp.ad.Operator = mechanical_stress + pressure
+        stress.set_name("poromechanical_stress")
+        return stress
 
-            # Contact from primary grid and mortar displacements (via primary grid)
-            contact_from_primary_mortar = (
-                mortar_proj_vector.primary_to_mortar_int
-                * subdomain_proj_vector.face_prolongation(g_primary)
-                * sign_switcher
-                * stress
-            )
-            contact_from_secondary = (
-                mortar_proj_vector.sign_of_mortar_sides
-                * mortar_proj_vector.secondary_to_mortar_int
-                * subdomain_proj_vector.cell_prolongation(g_frac)
-                * tangential_normal_proj.transpose()
-                * contact_force
-            )
-            if self.subtract_fracture_pressure:
-                # This gives an error because of -=
-
-                mat = []
-
-                for e in edge_list_highest:
-                    mg = gb.edge_props(e, "mortar_grid")
-
-                    faces_on_fracture_surface = (
-                        mg.primary_to_mortar_int().tocsr().indices
-                    )
-                    sgn, _ = g_primary.signs_and_cells_of_boundary_faces(
-                        faces_on_fracture_surface
-                    )
-                    fracture_normals = g_primary.face_normals[
-                        : self._Nd, faces_on_fracture_surface
-                    ]
-                    outwards_fracture_normals = sgn * fracture_normals
-
-                    data = outwards_fracture_normals.ravel("F")
-                    row = np.arange(g_primary.dim * mg.num_cells)
-                    col = np.tile(np.arange(mg.num_cells), (g_primary.dim, 1)).ravel(
-                        "F"
-                    )
-                    n_dot_I = sps.csc_matrix((data, (row, col)))
-                    # i) The scalar contribution to the contact stress is mapped to
-                    # the mortar grid  and multiplied by n \dot I, with n being the
-                    # outwards normals on the two sides.
-                    # Note that by using different normals for the two sides, we do not need to
-                    # adjust the secondary pressure with the corresponding signs by applying
-                    # sign_of_mortar_sides as done in PrimalContactCoupling.
-                    # iii) The contribution should be subtracted so that we balance the primary
-                    # forces by
-                    # T_contact - n dot I p,
-                    # hence the minus.
-                    mat.append(n_dot_I * mg.secondary_to_mortar_int(nd=1))
-
-                if len(edge_list_highest) == 0:
-                    mat = [sps.csr_matrix((0, 0))]
-                # May need to do this as for tangential projections, additive that is
-                normal_matrix = pp.ad.Matrix(sps.block_diag(mat))
-
-                p_frac = subdomain_proj_scalar.cell_restriction(g_frac) * p
-
-                contact_from_secondary2 = normal_matrix * p_frac
-            force_balance_eq = (
-                contact_from_primary_mortar
-                + contact_from_secondary
-                + contact_from_secondary2
-            )
-            # Flow parameters
-            bc_scalar = pp.ad.ParameterArray(
-                self.scalar_parameter_key,
-                array_keyword="bc_values",
-                grids=grid_list,
-            )
-            flow_source = pp.ad.ParameterArray(
-                param_keyword=self.scalar_parameter_key,
-                array_keyword="source",
-                grids=grid_list,
-            )
-            vector_source_grids = pp.ad.ParameterArray(
-                param_keyword=self.scalar_parameter_key,
-                array_keyword="vector_source",
-                grids=grid_list,
-            )
-            vector_source_edges = pp.ad.ParameterArray(
-                param_keyword=self.scalar_parameter_key,
-                array_keyword="vector_source",
-                edges=edge_list,
-            )
-
-            div_scalar = pp.ad.Divergence(grids=grid_list)
-            div_u_terms = biot_alpha * (
-                div_u_ad.div_u * (u - u_prev)
-                + div_u_ad.bound_div_u
-                * subdomain_proj_vector.face_restriction(g_primary)
-                * mortar_proj_vector.mortar_to_primary_int
-                * (u_mortar - u_mortar_prev)
-                + div_u_ad.bound_div_u * (bc_mech - bc_mech_previous)
-            )
-            div_u_terms.set_name("div u")
-            accumulation_primary = (
-                div_u_terms
-                + stab_biot_ad.stabilization
-                * subdomain_proj_scalar.cell_restriction(g_primary)
-                * (p - p_prev)
-            )
-
-            # Accumulation term on the fractures.
-            if len(g_frac) > 0:
-                frac_vol = np.hstack([g.cell_volumes for g in g_frac])
-            else:
-                frac_vol = np.array([])
-            vol_mat = pp.ad.Matrix(
-                sps.dia_matrix((frac_vol, 0), shape=(num_frac_cells, num_frac_cells))
-            )
-            accumulation_fracs = (
-                vol_mat * normal_proj * jump * (u_mortar - u_mortar_prev)
-            )
-
-            accumulation_all = mass_ad.mass * (p - p_prev)
-
-            flux = (
-                mpfa_ad.flux * p
-                + mpfa_ad.bound_flux * bc_scalar
-                + mpfa_ad.bound_flux
-                * mortar_proj_scalar.mortar_to_primary_int
-                * mortar_flux
-                + mpfa_ad.vector_source * vector_source_grids
-            )
-
-            flow_eq = (
-                dt
-                * (  # Time scaling of flux terms, both inter-dimensional and from
-                    # the higher dimension
-                    div_scalar * flux
-                    - mortar_proj_scalar.mortar_to_secondary_int * mortar_flux
-                )
-                + accumulation_all
-                + subdomain_proj_scalar.cell_prolongation(g_primary)
-                * accumulation_primary
-                + subdomain_proj_scalar.cell_prolongation(g_frac) * accumulation_fracs
-                + flow_source
-            )
-
-            # Interface equation: \lambda = -\kappa (p_l - p_h)
-            # Robin_ad.mortar_discr represents -\kappa. The involved term is
-            # reconstruction of p_h on internal boundary, which has contributions
-            # from cell center pressure, external boundary and interface flux
-            # on internal boundaries (including those corresponding to "other"
-            # fractures).
-
-            p_primary = (
-                mpfa_ad.bound_pressure_cell * p
-                + mpfa_ad.bound_pressure_face
-                * mortar_proj_scalar.mortar_to_primary_int
-                * mortar_flux
-                + mpfa_ad.bound_pressure_face * bc_scalar
-                + mpfa_ad.vector_source * vector_source_grids
-            )
-            # Project the two pressures to the interface and equate with \lambda
-
-            interface_flow_eq = (
-                robin_ad.mortar_discr
-                * (
-                    mortar_proj_scalar.primary_to_mortar_avg * p_primary
-                    - mortar_proj_scalar.secondary_to_mortar_avg * p
-                    + robin_ad.mortar_vector_source * vector_source_edges
-                )
-                + mortar_flux
-            )
-            flow_eq.set_name("flow")
-            momentum_eq.set_name("momentum")
-            interface_flow_eq._name = "interface_flow"
-            force_balance_eq._name = "force balance"
-            contact_eq.set_name("contact")
-            eq_manager.equations.update(
-                {
-                    "momentum": momentum_eq,
-                    "contact": contact_eq,
-                    "force_balance": force_balance_eq,
-                    "subdomain_flow": flow_eq,
-                    "interface_flow": interface_flow_eq,
-                }
-            )
-            self._eq_manager = eq_manager
-
-    @pp.time_logger(sections=module_sections)
     def _assign_variables(self) -> None:
         """
         Assign primary variables to the nodes and edges of the grid bucket.
         """
+        super()._assign_variables()
         # First for the nodes
         for g, d in self.gb:
             if g.dim == self._Nd:
-                d[pp.PRIMARY_VARIABLES] = {
-                    self.displacement_variable: {"cells": self._Nd},
-                    self.scalar_variable: {"cells": 1},
-                }
-            elif g.dim == self._Nd - 1:
-                d[pp.PRIMARY_VARIABLES] = {
-                    self.contact_traction_variable: {"cells": self._Nd},
-                    self.scalar_variable: {"cells": 1},
-                }
+                d[pp.PRIMARY_VARIABLES].update(
+                    {
+                        self.scalar_variable: {"cells": 1},
+                    }
+                )
             else:
-                d[pp.PRIMARY_VARIABLES] = {self.scalar_variable: {"cells": 1}}
+                d[pp.PRIMARY_VARIABLES].update({self.scalar_variable: {"cells": 1}})
 
         # Then for the edges
         for e, d in self.gb.edges():
             _, g_h = self.gb.nodes_of_edge(e)
 
-            if g_h.dim == self._Nd:
-                d[pp.PRIMARY_VARIABLES] = {
-                    self.mortar_displacement_variable: {"cells": self._Nd},
-                    self.mortar_scalar_variable: {"cells": 1},
-                }
-            elif d["mortar_grid"].codim == 1:
-                d[pp.PRIMARY_VARIABLES] = {self.mortar_scalar_variable: {"cells": 1}}
+            if d["mortar_grid"].codim == 1:
+                d[pp.PRIMARY_VARIABLES].update(
+                    {self.mortar_scalar_variable: {"cells": 1}}
+                )
+
+    def _assign_ad_variables(self) -> None:
+        """Assign variables to self._ad
+
+
+        Assigns the following attributes to self._ad in addition to those set by
+        the parent class:
+            pressure: primary variable in all subdomains.
+            interface_flux: Primary variable on interfaces of codimension 1 (usually
+                all interfaces).
+
+        Returns
+        -------
+        None
+
+        """
+        super()._assign_ad_variables()
+        subdomains: List[pp.Grid] = [g for g, _ in self.gb]
+
+        interfaces = [e for e, d in self.gb.edges() if d["mortar_grid"].codim == 1]
+
+        # Primary variables on Ad form
+        self._ad.pressure = self._eq_manager.merge_variables(
+            [(g, self.scalar_variable) for g in subdomains]
+        )
+        self._ad.interface_flux = self._eq_manager.merge_variables(
+            [(e, self.mortar_scalar_variable) for e in interfaces]
+        )
+
+    def check_convergence(
+        self,
+        solution: np.ndarray,
+        prev_solution: np.ndarray,
+        init_solution: np.ndarray,
+        nl_params: Dict[str, Any],
+    ) -> Tuple[float, bool, bool]:
+        """
+        Check whether the solution has converged by comparing values from the two
+        most recent iterations.
+
+        Tailored implementation if AD is not used. Else, the generic check in
+        AbstractModel is used.
+
+        Parameters:
+            solution (array): solution of current iteration.
+            solution (array): solution of previous iteration.
+            solution (array): initial solution (or from beginning of time step).
+            nl_params (dictionary): assumed to have the key nl_convergence_tol whose
+                value is a float.
+        """
+        if self._use_ad or not self._is_nonlinear_problem():
+            return super().check_convergence(
+                solution, prev_solution, init_solution, nl_params
+            )
+        error_super, converged_super, diverged_super = super().check_convergence(
+            solution, prev_solution, init_solution, nl_params
+        )
+        p_dof = np.array([], dtype=int)
+        for g, _ in self.gb:
+            p_dof = np.hstack(
+                (
+                    p_dof,
+                    self.dof_manager.grid_and_variable_to_dofs(g, self.scalar_variable),
+                )
+            )
+
+        # Pick out the solution from current, previous iterates, as well as the
+        # initial guess.
+        p_now = solution[p_dof]
+        p_prev = prev_solution[p_dof]
+        p_init = init_solution[p_dof]
+
+        # Calculate errors
+        difference_in_iterates = np.sum((p_now - p_prev) ** 2)
+        difference_from_init = np.sum((p_now - p_init) ** 2)
+
+        tol_convergence: float = nl_params["nl_convergence_tol"]
+
+        converged_p = False
+        diverged_p = False  # type: ignore
+
+        # Check absolute convergence criterion
+        if difference_in_iterates < tol_convergence:
+            converged_p = True
+            error_p = difference_in_iterates
+        else:
+            # Check relative convergence criterion
+            if difference_in_iterates < tol_convergence * difference_from_init:
+                converged_p = True
+            error_p = difference_in_iterates / difference_from_init
+
+        converged = converged_p and converged_super
+        diverged = diverged_p or diverged_super
+        logger.info("Error in pressure is {}".format(error_p))
+        error = error_super + error_p
+
+        return error, converged, diverged
 
     def _initial_condition(self) -> None:
         """
@@ -927,7 +1244,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     # Methods for discretization etc.
 
-    @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
         """Discretize all terms"""
         if not hasattr(self, "dof_manager"):
@@ -981,7 +1297,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
-    @pp.time_logger(sections=module_sections)
     def _initialize_linear_solver(self) -> None:
 
         solver = self.params.get("linear_solver", "direct")
@@ -1001,7 +1316,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         else:
             raise ValueError("unknown linear solver " + solver)
 
-    @pp.time_logger(sections=module_sections)
     def _discretize_biot(self, update_after_geometry_change: bool = False) -> None:
         """
         To save computational time, the full Biot equation (without contact mechanics)
@@ -1020,3 +1334,14 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             biot.update_discretization(g, d)
         else:
             biot.discretize(g, d)
+
+    def _set_ad_objects(self) -> None:
+        """Sets the storage class self._ad
+
+
+        Returns
+        -------
+        None
+
+        """
+        self._ad = ContactMechanicsBiotAdObjects()

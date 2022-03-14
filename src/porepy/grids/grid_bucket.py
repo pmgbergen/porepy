@@ -33,7 +33,6 @@ class GridBucket:
     intersections.
 
     The mixed-dimensional grid can be considered a graph, with the fixed-dimensional grids
-    @pp.time_logger(sections=module_sections)
     defining nodes, and interfaces edges. The terminology in the implementation,
     and in method names, are strongly marked by this graph thinking.
 

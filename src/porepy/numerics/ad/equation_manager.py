@@ -1,6 +1,8 @@
 """ Main content:
 EquationManager: representation of a set of equations on Ad form.
 """
+from __future__ import annotations
+
 from collections import Counter
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -670,3 +672,17 @@ class EquationManager:
             s += "\n\t".join(eq_names) + "\n"
 
         return s
+
+    def name_and_assign_equations(
+        self, equation_dictionary: Dict[str, pp.ad.Operator]
+    ) -> None:
+        """Convenience method for assigning and naming equations.
+
+        Parameters:
+            equation_dictionary (Dict): Dictionary containing name: equation pairs.
+
+
+        """
+        for name, eq in equation_dictionary.items():
+            eq.set_name(name)
+            self.equations.update({name: eq})
