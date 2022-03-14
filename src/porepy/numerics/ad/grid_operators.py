@@ -18,6 +18,7 @@ __all__ = [
     "Trace",
     "SubdomainProjections",
     "ParameterArray",
+    "ParameterMatrix",
 ]
 
 Edge = Tuple[pp.Grid, pp.Grid]
@@ -733,16 +734,17 @@ class ParameterArray(Operator):
         array_keyword: str,
         grids: Optional[List[pp.Grid]] = None,
         edges: Optional[List[Edge]] = None,
+        matrix_representation: bool = False,
         name: Optional[str] = None,
     ):
-        """Construct a wrapper for scalar sources for a set of subdomains.
+        """Construct a wrapper for parameter arrays for a set of subdomains.
 
-        The values of the source terms will be ordered according to the ordering
+        The values of the parameter will be ordered according to the ordering
         in grids, or the order of the GridBucket iteration over grids. It is
         critical that the same ordering is used by other operators.
 
-        IMPLEMENTATION NOTE: This class only takes care of scalar parameter arrays. Vector
-        paramater arrays (e.g. the ones used for sources in mechanics) will be included later.
+        IMPLEMENTATION NOTE: This class only takes care of parameter arrays. For
+            parameters which are (left) multiplied with other terms, use ParameterMatrix.
 
         Parameters:
             param_keyword (str): Keyword that should be used to access the data dictionary
@@ -752,7 +754,7 @@ class ParameterArray(Operator):
                 establishes the ordering of the parameter values.
             edges (List of tuples of pp.Grid): List of edges. The order of the edges in the
                 list establishes the ordering of the parameter values.
-            name (str, optional): Name to be assigned to the operator. Default is None.
+            name (str, optional): Name to be assigned to the array. Default is None.
 
         Example:
             To get the source term for a flow equation initialize with param_keyword='flow',
@@ -778,8 +780,8 @@ class ParameterArray(Operator):
 
     def __repr__(self) -> str:
         s = (
-            f"Will access the parameter array with keyword {self.param_keyword}"
-            f" and array keyword {self.array_keyword}"
+            f"Will access the parameter with keyword {self.param_keyword}"
+            f" and keyword {self.array_keyword}"
         )
 
         dims = np.zeros(4, dtype=int)
@@ -825,6 +827,42 @@ class ParameterArray(Operator):
             return np.hstack([v for v in val])
         else:
             return np.array([])
+
+
+class ParameterMatrix(ParameterArray):
+    """Extract a matrix from the parameter dictionaries for a given set of grids.
+
+    Typical use: Parameters which are left multiplied with an ad expression. Note that
+        array parameters are represented by one diagonal matrix for each grid.
+
+    """
+
+    def __str__(self) -> str:
+        return f"ParameterArray({self.param_keyword})({self.array_keyword})"
+
+    def parse(self, gb: pp.GridBucket) -> np.ndarray:
+        """Convert the Ad expression into numerical values for the scalar sources,
+        in the form of an np.ndarray concatenated for all grids.
+
+        Pameteres:
+            gb (pp.GridBucket): Mixed-dimensional grid. The boundary condition will be
+                taken from the data dictionaries with the relevant keyword.
+
+        Returns:
+            np.ndarray: Value of boundary conditions.
+
+        """
+        val = []
+        for g in self.grids:
+            data = gb.node_props(g)
+            val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
+        for e in self.edges:
+            data = gb.edge_props(e)
+            val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
+        if len(val) > 0:
+            return sps.diags(np.hstack([v for v in val]))
+        else:
+            return sps.csr_matrix((0, 0))
 
 
 # Helper methods below
