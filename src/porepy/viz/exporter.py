@@ -53,6 +53,76 @@ class Field:
             raise ValueError("Field " + str(self.name) + " has wrong dimension.")
 
 class Exporter:
+    # TODO DOC
+    """
+    Class for exporting data to vtu files.
+
+    Parameters:
+    gb: grid bucket (if grid is provided, it will be converted to a grid bucket)
+    file_name: the root of file name without any extension.
+    folder_name: (optional) the name of the folder to save the file.
+        If the folder does not exist it will be created.
+
+    Optional arguments in kwargs:
+    fixed_grid: (optional) in a time dependent simulation specify if the
+        grid changes in time or not. The default is True.
+    binary: export in binary format, default is True.
+
+    How to use:
+    If you need to export a single grid:
+    save = Exporter(g, "solution", folder_name="results")
+    save.write_vtu({"cells_id": cells_id, "pressure": pressure})
+
+    In a time loop:
+    save = Exporter(gb, "solution", folder_name="results")
+    while time:
+        save.write_vtu({"conc": conc}, time_step=i)
+    save.write_pvd(steps*deltaT)
+
+    if you need to export the state of variables as stored in the GridBucket:
+    save = Exporter(gb, "solution", folder_name="results")
+    # export the field stored in data[pp.STATE]["pressure"]
+    save.write_vtu(gb, ["pressure"])
+
+    In a time loop:
+    while time:
+        save.write_vtu(["conc"], time_step=i)
+    save.write_pvd(steps*deltaT)
+
+    In the case of different keywords, change the file name with
+    "change_name".
+
+    NOTE: the following names are reserved for data exporting: grid_dim,
+    is_mortar, mortar_side, cell_id
+
+    """
+
+    # Short cuts for some typing used in Exporter
+    Edge = Tuple[pp.Grid, pp.Grid]
+    
+    # Allowed data structures to define node data
+    NodeDataInput = Union[
+        str,
+        Tuple[Union[pp.Grid, List[pp.Grid]], str],
+        Tuple[pp.Grid, str, np.ndarray],
+        Tuple[str, np.ndarray],
+    ]
+    
+    # Allowed data structures to define edge data
+    EdgeDataInput = Union[
+        str,
+        Tuple[Union[Edge, List[Edge]], str],
+        Tuple[Edge, str, np.ndarray],
+        Tuple[str, np.ndarray],
+    ]
+    
+    # Altogether allowed data structures to define data
+    DataInput = Union[NodeDataInput, EdgeDataInput]
+    
+    # Data structure in which data is stored
+    NodeData = Dict[Tuple[pp.Grid, str], np.ndarray]
+    EdgeData = Dict[Tuple[Edge, str], np.ndarray]
+
     def __init__(
         self,
         gb: Union[pp.Grid, pp.GridBucket],
@@ -60,48 +130,21 @@ class Exporter:
         folder_name: Optional[str] = None,
         **kwargs,
     ) -> None:
-        """
-        Class for exporting data to vtu files.
+        """Initialization of Exporter.
 
         Parameters:
-        gb: grid bucket (if grid is provided, it will be converted to a grid bucket)
-        file_name: the root of file name without any extension.
-        folder_name: (optional) the name of the folder to save the file.
-            If the folder does not exist it will be created.
-
-        Optional arguments in kwargs:
-        fixed_grid: (optional) in a time dependent simulation specify if the
-            grid changes in time or not. The default is True.
-        binary: export in binary format, default is True.
-
-        How to use:
-        If you need to export a single grid:
-        save = Exporter(g, "solution", folder_name="results")
-        save.write_vtu({"cells_id": cells_id, "pressure": pressure})
-
-        In a time loop:
-        save = Exporter(gb, "solution", folder_name="results")
-        while time:
-            save.write_vtu({"conc": conc}, time_step=i)
-        save.write_pvd(steps*deltaT)
-
-        if you need to export the state of variables as stored in the GridBucket:
-        save = Exporter(gb, "solution", folder_name="results")
-        # export the field stored in data[pp.STATE]["pressure"]
-        save.write_vtu(gb, ["pressure"])
-
-        In a time loop:
-        while time:
-            save.write_vtu(["conc"], time_step=i)
-        save.write_pvd(steps*deltaT)
-
-        In the case of different keywords, change the file name with
-        "change_name".
-
-        NOTE: the following names are reserved for data exporting: grid_dim,
-        is_mortar, mortar_side, cell_id
+            gb (Union[pp.Grid, pp.Gridbucket]): grid or gridbucket containing all
+                mesh information to be exported.
+            file_name (str): basis for file names used for storing the output
+            folder_name (str, optional): folder, all files are stored in
+            kwargs: Optional keywords. 1. fixed_grid (boolean) to control whether
+                the grid(bucket) may be redfined; 2. binary (boolena) to control
+                whether the output is using binary or non binary format;
+                3. reuse_data (boolean) to control whether geometrical data is
+                reused from the previous time step when printing to file.
 
         """
+        # TODO what is the right format for describing kwargs?
 
         # Exporter is operating on grid buckets. If a grid is provided, convert to a grid bucket.
         if isinstance(gb, pp.Grid):
