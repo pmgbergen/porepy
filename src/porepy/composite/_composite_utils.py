@@ -55,7 +55,7 @@ COMPUTATIONAL_VARIABLES: Dict[str, str] = {
 
 def create_merged_variable(
     gb: pp.GridBucket, dof_info: Dict[str, int],
-    variable_name: str, mortar_variable_name: Optional[Union[str, None]] = None
+    variable_name: str,
     )-> Tuple[pp.ad.MergedVariable, Union[None, pp.ad.MergedVariable]]:
     """
     Creates domain-wide merged variables for a given grid bucket.
@@ -70,8 +70,6 @@ def create_merged_variable(
     :type dof_info: dict
     :param variable_name: name given to variable, used as keyword for storage
     :type variable_name: str
-    :param mortar_variable_name: (optional) name given to respective mortar variable, used as keyword for storage. If none, no mortar variable will be assigned.
-    :type mortar_variable_name: str
 
     :return: Returns a 2-tuple containing the new objects. The second object will be None, if no mortar variable name is specified.
     :rtype: tuple(2)
@@ -90,12 +88,7 @@ def create_merged_variable(
             variable_name, dof_info, 
             grids=[g])) 
 
-    # creating variables on each mortar grid, if requested
-    if mortar_variable_name is not None:
-        return (pp.ad.MergedVariable(variables),
-        create_merged_mortar_variable(gb, dof_info, mortar_variable_name))
-    else:
-        return (pp.ad.MergedVariable(variables), None)
+    return pp.ad.MergedVariable(variables)
 
 
 def create_merged_mortar_variable(

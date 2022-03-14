@@ -77,8 +77,6 @@ class Substance(abc.ABC):
 
         # adding the overall molar fraction to the primary variables
         self.cd(self.omf_name, {"cells": 1})
-        # TODO math. check if mortar var is needed
-        # self.cd(self.mortar_omf_name, {"cells": 1})
 
     @property
     def name(self):
@@ -117,23 +115,6 @@ class Substance(abc.ABC):
         """
         return COMPUTATIONAL_VARIABLES["component_overall_fraction"] + "_" + self.name
 
-    @property
-    def mortar_overall_molar_fraction(self) -> pp.ad.MergedVariable:
-        """ As a fractional quantity, all values are between 0 and 1.
-
-        :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the overall molar fraction on mortar grids of this component
-        :rtype: :class:`porepy.ad.MergedVariable`
-        """
-        return self.cd(self.mortar_omf_name)
-    
-    @property
-    def mortar_omf_name(self) -> str:
-        """
-        :return: name of the overall molar fraction variable on the mortar grids under which it is stored in the grid data dictionaries
-        :rtype: str
-        """
-        return COMPUTATIONAL_VARIABLES["mortar_prefix"] + "_" + COMPUTATIONAL_VARIABLES["component_overall_fraction"] + "_" + self.name
-
     def molar_fraction_in_phase(self, phase_name: str) -> pp.ad.MergedVariable:
         """ As a fractional quantity, all values are between 0 and 1.
 
@@ -154,27 +135,6 @@ class Substance(abc.ABC):
         :rtype: str
         """
         return COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + self.name + "_" + str(phase_name)
-
-    def mortar_molar_fraction_in_phase(self, phase_name: str) -> pp.ad.MergedVariable:
-        """ As a fractional quantity, all values are between 0 and 1.
-
-        :param phase_name: Name of the  :class:`porepy.composig.Phase` for which the fractions are requested
-        :type phase_name: str
-        
-        :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the molar fraction of this component in phase `phase_name` on the mortar grids.
-        :rtype: :class:`porepy.ad.MergedVariable`
-        """
-        return self.cd(self.mortar_mfip_name(phase_name))
-    
-    def mortar_mfip_name(self, phase_name: str) -> str:
-        """
-        :param phase_name: name of the :class:`~porepy.composite.phase.Phase` for which the fraction variable's name is requested
-        :type phase_name: str
-
-        :return: name of the mortar molar fraction in phase variable 
-        :rtype: str
-        """
-        return COMPUTATIONAL_VARIABLES["mortar_prefix"] + "_" + COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + self.name + "_" + str(phase_name)
 
     def _register_phase(self, phase_name: str) -> None:
         """
@@ -204,8 +164,6 @@ class Substance(abc.ABC):
 
         # create domain-wide MergedVariable object
         self.cd(self.mfip_name(phase_name), {"cells": 1})
-        # TODO maths. check if mortar var is needed
-        self.cd(self.mortar_mfip_name(phase_name), {"cells": 1})
 
     def set_initial_overall_molar_fraction(self, initial_values: List["np.ndarray"]) -> None:
         """ Order of grid-related initial values in `initial_values` has to be the same as 
@@ -229,8 +187,6 @@ class Substance(abc.ABC):
             data[pp.STATE][self.omf_name] = vals
             data[pp.STATE][pp.ITERATE][self.omf_name] = vals
 
-        # TODO set initial values at interfaces, if applicable (the maths is missing here)
-        # check if above code works for GridBuckets without fractures
 
 
 #------------------------------------------------------------------------------
@@ -287,6 +243,7 @@ class Substance(abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
     def thermal_conductivity(self, *args, **kwargs) -> pp.ad.Operator:
         """ 
         Math. Dimension:        scalar

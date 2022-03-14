@@ -146,7 +146,6 @@ class Shale(UnitRock):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, theta_ref=None):
         # No source for permeability and porosity.
         self.PERMEABILITY = 1e-5 * pp.DARCY
@@ -167,7 +166,6 @@ class Shale(UnitRock):
 
         self.DENSITY = 2650 * pp.KILOGRAM / pp.METER ** 3
 
-    @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
@@ -185,7 +183,6 @@ class Granite(UnitRock):
     https://www.jsg.utexas.edu/tyzhu/files/Some-Useful-Numbers.pdf
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, theta_ref=None):
         # No source for permeability and porosity
         self.PERMEABILITY = 1e-8 * pp.DARCY
@@ -208,7 +205,6 @@ class Granite(UnitRock):
         else:
             self.theta_ref = theta_ref
 
-    @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
@@ -217,6 +213,5 @@ class Granite(UnitRock):
         theta_ref = 0
         return c_ref + eta * (theta - theta_ref)
 
-    @pp.time_logger(sections=module_sections)
     def thermal_conductivity(self, theta=None):
         return 3.07
