@@ -61,20 +61,22 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         # variable holding all involved fluid phases
         self._fluid_phases = list()
 
-        # TODO find more modular solution
-        # aperture per grid in gridbucket
-        self._apertures = [1.]
+        # model-specific input. below hardcoded values are up for modularization
+        self._water_source_quantity = 55555.5  # mol in 1 cubic meter (1 mol of liquid water is approx 1.8xe-5 m^3)
+        self._water_source_pressure = 3.
+        self._water_source_temperature = 293.15  # 20°C water source
+        self._conductive_boundary_temperature = 383.15  # 110°C southern boundary temperature (D-BC)
+        self._outflow_flux = 1.  # N-BC eastern boundary
 
         ## Representation of variables
 
-        # primary differential variables are global pressure, global enthalpy
+        # main primary variables are global pressure, global enthalpy
         # and component overall fractions
         self.pressure_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["pressure"]
-        self.energy_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["enthalpy"]
-        # NOTE: ambiguity energy-enthalpy, keeping option for different energy variable in future
+        self.enthalpy_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["enthalpy"]
         self.component_overall_fraction_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["component_overall_fraction"]
 
-        # primary algebraic variables are component molar fractions per phase,
+        # other primary variables are component molar fractions per phase,
         # saturations (phase volumetric fractions) and phase molar fractions
         self.component_molar_fraction_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["component_fraction_in_phase"]
         self.saturation_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["saturation"]
@@ -84,6 +86,14 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         self.flow_parameter_key: str = "flow"
         self.upwind_parameter_key: str = "upwind"
         self.mass_parameter_key: str = "mass"
+        self.energy_parameter_key: str = "energy"
+
+        ## global AD variables
+        self.pressure = self.cd(self.pressure_variable)
+        self.enthalpy = self.cd(self.enthalpy_variable)
+
+        # update the DOfs since two new variables have been added
+        self.cd.dof_manager.update_dofs()
 
     @property
     def num_components(self) -> int:
@@ -129,14 +139,15 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         and after adding relevant phases and substances.
 
         It does the following points:
-            - resolves model composition in terms of phases and components
-                - stores information about anticipated phase change and initial conditions
-            - sets model parameters
+            - model set-up
+                - initiates primary variables enthalpy and pressure
+                - initiates EQ and DOF managers
                 - boundary conditions
                 - source terms
-                - porosity, permeability, aperture (constant for now)
-            - assigns primary pressure and enthalpy variable
-                - set initial conditions for them
+                - connects to model parameters (constant for now)
+                    - porosity
+                    - permeability
+                    - aperture
             - sets the model equations using :module:`porepy.ad`
                 - discretizes the equations
         """
@@ -146,7 +157,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             self.gb, self.params["file_name"], folder_name=self.params["folder_name"]
         )
         
-        self._set_parameters()
+        self._set_up()
 
         # Assign variables. This will also set up DOF- and EquationManager,
         # and define Ad versions of the variables not related to the composition
@@ -161,7 +172,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         self._discretize()
 
 #------------------------------------------------------------------------------
-### SIMULATION related methods
+### SIMULATION related methods and implementation of abstract methods
 #------------------------------------------------------------------------------
 
     def before_newton_loop(self) -> None:
@@ -337,12 +348,41 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """Specifies whether the Model problem is nonlinear."""
         return True
 
+    def _primary_variables(self) -> List[pp.ad.MergedVariable]:
+        """Get a list of the primary variables of the system on AD form.
+
+        This will be the pressure and n-1 of the total molar fractions.
+
+        """
+        # The primary variables are the pressure and all but one of the total
+        # molar fractions.
+        # Represent primary variables by their AD format, since this is what is needed
+        # to interact with the EquationManager.
+        primary_variables = [self._ad.pressure] + self._ad.component[:-1]
+        return primary_variables
+
+    def _secondary_variables(self) -> List[pp.ad.MergedVariable]:
+        """Get a list of secondary variables of the system on AD form.
+
+        This will the final total molar fraction, phase molar fraction, component
+        mole fractions, and saturations.
+        """
+        # The secondary variables are the final molar fraction, saturations, phase
+        # mole fractions and component phases.
+        secondary_variables = (
+            [self._ad.component[-1]]
+            + self._ad.saturation
+            + self._ad.phase_mole_fraction
+            + list(self._ad.component_phase.values())
+        )
+        return secondary_variables
+
 #------------------------------------------------------------------------------
 ### SET-UP
 #------------------------------------------------------------------------------
 
     #### collective set-up method
-    def _set_parameters(self) -> None:
+    def _set_up(self) -> None:
         """Set default parameters needed in the simulations.
 
         Many of the functions here may change in the future, partly to allow for more
@@ -352,17 +392,21 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """
         for g, d, mat_sd in self.cd:
 
-            bc, bc_vals = self._BC_convective_flux(g)
+            bc, bc_vals = self._BC_unitary_transport_flux(g)
 
-            mass_source = self._unitary_source(g)
-            enthalpy_source = np.copy(mass_source)
+            # TODO get enthalpy of inflow substance at given pressure and temperature
+            inflow_enthalpy = 1.
 
-            # specific volume and aperture are related to other physics. This has to stay like this for now.
-            specific_volume = self._specific_volume(g)
+            mass_source = self._unitary_source(g) * self._water_source_quantity
+            enthalpy_source = np.copy(mass_source) * inflow_enthalpy
+
+            # specific volume and aperture are related to other physics.
+            # This has to stay like this for now.
+            # specific_volume = self._specific_volume(g)
 
             # transmissibility coefficients for the mpfa
             transmissability = pp.SecondOrderTensor(
-                specific_volume * mat_sd.base_permeability()
+                mat_sd.base_permeability() # * specific_volume
             )
 
             # No gravity
@@ -375,6 +419,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             
             # gravity_glob = np.vstack(gravity_glob).T.ravel("F")
 
+            # TODO split flow parameters into parameters per component (different sources)
             pp.initialize_data(
                 g,
                 d,
@@ -382,7 +427,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
                 {
                     "bc": bc,
                     "bc_values": bc_vals,
-                    "source": mass_source,  # TODO: specify as MASS source term and split it according substances
+                    "source": mass_source,  
                     "second_order_tensor": transmissability,
                     "vector_source": gravity.ravel("F"),
                     "ambient_dimension": self.gb.dim_max(),
@@ -390,7 +435,8 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             )
              # Mass weight parameter. Same for all phases
             pp.initialize_data(
-                g, d, self.mass_parameter_key, {"mass_weight": mat_sd.base_porosity() * specific_volume}
+                g, d, self.mass_parameter_key, {"mass_weight": mat_sd.base_porosity() # * specific_volume
+                }
             )
 
             # NOTE EK: Seen from the upstream discretization, the Darcy velocity is a
@@ -432,8 +478,8 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             d[pp.STATE][pp.ITERATE][self.pressure_variable][:] = 1
 
             # intrinsic energy in [joule/moles]
-            d[pp.STATE][self.energy_variable][:] = 1  
-            d[pp.STATE][pp.ITERATE][self.energy_variable][:] = 1
+            d[pp.STATE][self.enthalpy_variable][:] = 1  
+            d[pp.STATE][pp.ITERATE][self.enthalpy_variable][:] = 1
 
             # Careful here: Use the same variable to store the Darcy flux for all phases.
             # This is okay in this case, but do not do so for other variables.
@@ -516,7 +562,9 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         |  .  |     |     |
         |-----|-----|-----|
 
-        Phys. Dimensions: [mol / m^3 / s]
+        Phys. Dimensions: 
+            - mass source:          [mol / m^3 / s]
+            - enthalpy source:      [J / m^3 / s] = [kg m^2 / m^3 / s^3]
 
         :return: source values per cell.
         :rtype: :class:`~numpy.array`
@@ -528,170 +576,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
         return vals
 
-    def _enthalpy_source(self, g: pp.Grid) -> np.ndarray:
-        """ Single-cell source term in center of first grid part
-
-        NOTE: For the basic simulation, only water is pumped into the system
-
-        |-----|-----|-----|
-        |  .  |     |     |
-        |-----|-----|-----|
-
-        Phys. Dimensions: [J / mol / s] = [kg m^2 / mol / s^3]
-
-        :return: source values per cell and per component.
-        :rtype: :class:`~numpy.ndarray`
-        """
-        # Values for computing the enthalpy source term
-        water_source_pressure = 3.
-        water_source_temperature = 293.15  # 20°C water source
-
-    #### Variable set-up
-
-    def _assign_variables(self) -> None:
-        """Define variables used to describe the system.
-
-        These will include both primary and secondary variables, however, to be
-        compatible to the terminology in PorePy, they will all be denoted as primary
-        in certain settings.
-
-        """
-        # This function works in three steps:
-        # 1) All variables are defined, with the right set of DOFS.
-        # 2) Set Dof- and EquationManagers.
-        # 3) Define AD representations of all the variables. This is done by
-        #    calling a separate function.
-
-        for g, d in self.gb:
-            # Naming scheme for component and phase indices:
-            # Component index is always i, phase index always j.
-            primary_variables = {self.pressure_variable: {"cells": 1},
-                                 self.energy_variable: {"cells": 1}
-                                 }
-
-            # Total molar fraction of each component
-            primary_variables.update(
-                {
-                    f"{self.component_variable}_{i}": {"cells": 1}
-                    for i in range(self.num_components)
-                }
-            )
-
-            # Phase mole fractions. Only in fluid phases
-            primary_variables.update(
-                {
-                    f"{self.phase_mole_fraction_variable}_{i}": {"cells": 1}
-                    for i in range(self.num_fluid_phases)
-                }
-            )
-            # Saturations. Only in fluid phases
-            primary_variables.update(
-                {
-                    f"{self.saturation_variable}_{i}": {"cells": 1}
-                    for i in range(self.num_fluid_phases)
-                }
-            )
-
-            # Component phase molar fractions
-            # Note systematic naming convention: i is always component, j is phase.
-            for j in range(self.num_phases):
-                for i in range(self.num_components):
-                    if self._component_present_in_phase[i, j]:
-                        primary_variables.update(
-                            {f"{self.component_phase_variable}_{i}_{j}": {"cells": 1}}
-                        )
-            # The wording is a bit confusing here, these will not be taken as
-            d[pp.PRIMARY_VARIABLES] = primary_variables
-
-        for e, d in self.gb.edges():
-            raise NotImplementedError("Have only considered non-fractured domains.")
-
-        # All variables defined, we can set up Dof and Equation managers
-        self.dof_manager = pp.DofManager(self.gb)
-        self._eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager)
-
-        # The manager set, we can finally do the Ad formulation of variables
-        self._assign_ad_variables()
-
-    def _assign_ad_variables(self) -> None:
-        """Make lists of AD-variables, indexed by component and/or phase number.
-        The idea is to enable easy access to the Ad variables without having to
-        construct these from the equation manager every time we need them.
-        """
-        eqm = self._eq_manager
-
-        # type annotation removed since it also annotated in the class definition
-        # Pylance throws warning otherwise
-        self._ad.pressure = eqm.merge_variables(
-            [(g, self.pressure_variable) for g in self._grids]
-        )
-
-        self._ad.enthalpy = eqm.merge_variables(
-            [(g, self.energy_variable) for g in self._grids]
-        )
-
-        self._ad.component = []
-
-        for i in range(self.num_components):
-            name = f"{self.component_variable}_{i}"
-            var = eqm.merge_variables([(g, name) for g in self._grids])
-            self._ad.component.append(var)
-
-        # Represent component phases as an numpy array instead of a list, so that we
-        # can access items by array[i, j], rather the more cumbersome array[i][j]
-        self._ad.component_phase = {}
-        for i in range(self.num_components):
-            # Make inner list
-            for j in range(self.num_phases):
-                if self._component_present_in_phase[i, j]:
-                    name = f"{self.component_phase_variable}_{i}_{j}"
-                    var = eqm.merge_variables([(g, name) for g in self._grids])
-                    self._ad.component_phase[(i, j)] = var
-
-        self._ad.saturation = []
-        self._ad.phase_mole_fraction = []
-        for j in range(self.num_fluid_phases):
-            # Define saturation variables for each phase
-            sat_var = eqm.merge_variables(
-                [(g, f"{self.saturation_variable}_{j}") for g in self._grids]
-            )
-            self._ad.saturation.append(sat_var)
-
-            # Define Molar fraction variables, one for each phase
-            mf_var = eqm.merge_variables(
-                [(g, f"{self.phase_mole_fraction_variable}_{j}") for g in self._grids]
-            )
-            self._ad.phase_mole_fraction.append(mf_var)
-
-    def _primary_variables(self) -> List[pp.ad.MergedVariable]:
-        """Get a list of the primary variables of the system on AD form.
-
-        This will be the pressure and n-1 of the total molar fractions.
-
-        """
-        # The primary variables are the pressure and all but one of the total
-        # molar fractions.
-        # Represent primary variables by their AD format, since this is what is needed
-        # to interact with the EquationManager.
-        primary_variables = [self._ad.pressure] + self._ad.component[:-1]
-        return primary_variables
-
-    def _secondary_variables(self) -> List[pp.ad.MergedVariable]:
-        """Get a list of secondary variables of the system on AD form.
-
-        This will the final total molar fraction, phase molar fraction, component
-        mole fractions, and saturations.
-        """
-        # The secondary variables are the final molar fraction, saturations, phase
-        # mole fractions and component phases.
-        secondary_variables = (
-            [self._ad.component[-1]]
-            + self._ad.saturation
-            + self._ad.phase_mole_fraction
-            + list(self._ad.component_phase.values())
-        )
-        return secondary_variables
-
 #------------------------------------------------------------------------------
 ### MATHEMATICAL MODEL equation methods
 #------------------------------------------------------------------------------
@@ -700,35 +584,22 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """Method to set all equations."""
 
         # balance equations
-        self._set_transport_equations()
-        self._set_enthalpy_equation()            
+        self._set_mass_balance_equations()
+        self._set_energy_balance_equation()            
 
         # Equilibrium equations
         self._phase_equilibrium_equations()
-        self._chemical_equilibrium_equations()
 
-        # Equations for pure bookkeeping, relations between variables etc.
+        # Closing equations (unitarity conditions and definitions)
         self._overall_molar_fraction_sum_equations()
         self._component_phase_sum_equations()
         self._phase_mole_fraction_sum_equation()
-
         self._saturation_definition_equation()
 
         # Now that all equations are set, we define sets of primary and secondary
         # equations, and similar with variables. These will be used to represent
         # the systems to be solved globally (transport equations) and locally
         # (equilibrium equations).
-        eq_manager = self._eq_manager
-
-        # What to do in the case of a single component is not clear to EK at the time
-        # of writing. Question is, do we still eliminate (the only) one transport equation?
-        # Maybe the answer is a trivial yes, but raise an error at this stage, just to
-        # be sure.
-        assert len(self._ad.component) > 1
-
-        # FIXME: Mortar variables are needed here
-        assert len(self._edges) == 0
-
         # Create a separate EquationManager for the secondary variables and equations.
         # This set of secondary equations will still contain the primary variables,
         # but their derivatives will not be computed in the construction of the
@@ -742,11 +613,11 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         # Ad hoc approach to get the names of the secondary equations. This is not beautiful.
         secondary_equation_names = [
             name
-            for name in list(eq_manager.equations.keys())
+            for name in list(self.cd.eq_manager.equations.keys())
             if name[:12] != "Mass_balance"
         ]
 
-        self._secondary_equation_manager = eq_manager.subsystem_equation_manager(
+        self._secondary_equation_manager = self.cd.eq_manager.subsystem_equation_manager(
             secondary_equation_names, secondary_variables
         )
 
@@ -754,14 +625,14 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         # the global linear system later on.
         # FIXME: Should we also store secondary equation names, for symmetry reasons?
         self._primary_equation_names = list(
-            set(eq_manager.equations.keys()).difference(secondary_equation_names)
+            set(self.cd.eq_manager.equations.keys()).difference(secondary_equation_names)
         )
 
-    #### Methods to set transport equation
+    #### Balance equations
 
-    def _set_transport_equations(self) -> None:
+    def _set_mass_balance_equations(self) -> None:
         """Set transport equations"""
-
+        # TODO treat case of single component system specially!
         darcy = self._single_phase_darcy()
 
         component_flux = [0 for i in range(self.num_components)]
@@ -820,6 +691,31 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         for i, eq in enumerate(component_mass_balance):
             self._eq_manager.equations[f"Mass_balance_component{i}"] = eq
 
+    def _set_energy_balance_equation(self) -> None:
+        """ Sets the global enthalpy balance equation.
+        """
+
+        darcy = self._single_phase_darcy()
+
+        # redundant 
+        # rp = [self._rel_perm(j) for j in range(self.num_fluid_phases)]
+
+        component_flux = [0 for i in range(self.num_components)]
+
+        for j in range(self.num_fluid_phases):
+            rp = self._rel_perm(j)
+
+            upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{j}", self._grids)
+
+            rho_j = self._density(j)
+
+            darcy_j = (upwind.upwind * rp) * darcy
+
+            for i in range(self.num_components):
+                if self._component_present_in_phase[i, j]:
+                    component_flux[i] += darcy_j * (
+                        upwind.upwind * (rho_j * self._ad.component_phase[i, j])
+                    )
     def _single_phase_darcy(self) -> pp.ad.Operator:
         """Discretize single-phase Darcy's law using Mpfa.
 
@@ -848,35 +744,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
         return upwind.upwind * rp
 
-    #### Methods to set energy equation
-
-    def _set_enthalpy_equation(self) -> None:
-        """ Sets the global enthalpy balance equation.
-        """
-
-        darcy = self._single_phase_darcy()
-
-        # redundant 
-        # rp = [self._rel_perm(j) for j in range(self.num_fluid_phases)]
-
-        component_flux = [0 for i in range(self.num_components)]
-
-        for j in range(self.num_fluid_phases):
-            rp = self._rel_perm(j)
-
-            upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{j}", self._grids)
-
-            rho_j = self._density(j)
-
-            darcy_j = (upwind.upwind * rp) * darcy
-
-            for i in range(self.num_components):
-                if self._component_present_in_phase[i, j]:
-                    component_flux[i] += darcy_j * (
-                        upwind.upwind * (rho_j * self._ad.component_phase[i, j])
-                    )
-
-    #### Equilibrium and closing equations
+    #### Equilibrium equations
 
     def _phase_equilibrium_equations(self) -> None:
         """Define equations for phase equilibrium and assign to the EquationManager.
@@ -958,10 +826,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 #------------------------------------------------------------------------------
 ### CONSTITUTIVE LAWS
 #------------------------------------------------------------------------------
-
-    def _kinetic_reaction_rate(self, i: int) -> float:
-        """Get the kinetic rate for a given reaction."""
-        raise NotImplementedError("This is not covered")
 
     def _rel_perm(self, j: int) -> pp.ad.Operator:
         """Get the relative permeability for a given phase.
@@ -1067,13 +931,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
             pp.ad.Array: Relative permeability of the given phase.
         """
         return pp.ad.Array(np.ones(self.gb.num_cells()))
-
-    def _viscosity(self, g: pp.Grid) -> np.ndarray:
-        """Unitary viscosity.
-
-        Units: kg / m / s = Pa s
-        """
-        return np.ones(g.num_cells)
 
     def _aperture(self, g: pp.Grid) -> np.ndarray:
         """

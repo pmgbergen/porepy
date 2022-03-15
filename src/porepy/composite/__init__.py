@@ -12,7 +12,7 @@ _COMPONENT_TEST_ARRAY = [ "UnitIncompressibleFluid",
 
 from .computational_domain import ComputationalDomain
 
-from .phase import Phase
+from .phase import PhaseField, PhysicalState
 from .substance import Substance, FluidSubstance, SolidSubstance
 
 from ._composite_utils import (

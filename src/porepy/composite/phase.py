@@ -1,11 +1,11 @@
 """ Contains the abstract base class for all phases."""
 from __future__ import annotations
 
-# import abc
-from multiprocessing.sharedctypes import Value
+import abc
+import warnings
 import porepy as pp
 import numpy as np
-from weakref import WeakValueDictionary, WeakKeyDictionary
+# from weakref import WeakValueDictionary, WeakKeyDictionary
 
 from ._composite_utils import COMPUTATIONAL_VARIABLES
 
@@ -17,51 +17,62 @@ if TYPE_CHECKING:
     from .substance import Substance, FluidSubstance
 
 
-class Phase:#(abc.ABC):
+class PhaseField(abc.ABC):
     """
-    Base class for all phases. Provides functionalities to handle and manage anticipated components.
+    Base class for all phases.
+
+    The name PhaseFIELD was chosen on purpose to avoid ambiguities when talking about general phases or states of matter.
+    Both of the latter ones are mathematically identified by the (time-dependent) region they occupy and a respective general velocity field (or flux) in that region.
+    Those are expressed by the 'PhaseField', the basis for both interpretations of the term phase.
+
+    The phase related to a state of matter is characterized by a dominating substance and can be treated less abstract in a child class.
+
+    In order to create a general phase, like e.g. a Black-Oil-Model, use this abstract base class.
+
+    Currently, the modeler has to ANTICIPATE the appearance of a substance in a phase or state of matter.
+    There is no dynamic creation of phases/states or a dynamic appearance of a substance in a phase
 
     NOTE proposition:
     Turns every child in a conditional singleton class: It can only be instantiated once per computational domain.
     Any further instantiation will return a reference to the same, first class.
     Assures uniqueness and integrity of variable values (like concentrations) in grid-specific dictionaries.
+    Currently this is only indirectly given due to how the access to the variables is implemented (indirectly using CD)
     
-    Provides and manages phase-related AD-variables.
-
-    Instantiated variables are provided as properties, as well as the names under which they are stored in the grid data dictionary.
+    Functionality:
+        - handles anticipated substances
+        - instantiates and provides direct access to phase-related AD-variables.
+        - serves as a "container" object for anticipated substances.
     
-    Current relevant variables (per phase instance):
+    PhaseField-related variables:
         - saturation
         - phase molar fraction
+        - molar fraction in phase (per present component)
     """
 
-    """ For a computational domain (key), contains a list of present phases. """
-    __present_phases: Dict[ComputationalDomain, list] = dict()
-    # """ For a """
-    # __singletons: dict = dict()
-    # """Switch for skipping the instantiation of phase instances, which are already present."""
-    # __new_instance = True
+    """ For a computational domain (keys), contains a list of present phases (values). """
+    __phase_instances: Dict[ComputationalDomain, list] = dict()
 
     def __new__(cls,
-    name: str, solvent: FluidSubstance, computational_domain: ComputationalDomain) -> Phase:
-        """ Declarator. Assures the phase name is unique for a given computational domain.
-        Ambiguities must be avoided due to the central storage of the AD variables and usage of the name as a key
+    name: str, computational_domain: ComputationalDomain
+    ) -> PhaseField:
+        """
+        Declarator.
+        Assures the phase name is unique for a given computational domain.
+        Ambiguities must be avoided due to the central storage of the AD variables and usage of the name as a key.
         """
         name = str(name)
-        if computational_domain in Phase.__present_phases.keys():
-            if name in Phase.__present_phases[computational_domain]:
-                # reference = Phase.__present_phases[computational_domain]
-                # Phase.__new_instance = False
+        if computational_domain in PhaseField.__phase_instances.keys():
+            if name in PhaseField.__phase_instances[computational_domain]:
                 raise RuntimeError("Phase with name '" + name + "' already present in\n" + str(computational_domain))
-            else:
-                Phase.__present_phases[computational_domain].append(name)
         else:
-            Phase.__present_phases.update({computational_domain: list()})
+            PhaseField.__phase_instances.update({computational_domain: list()})
         
+        PhaseField.__phase_instances[computational_domain].append(name)
         return super().__new__(cls)
 
     def __init__(self,
-    name: str, solvent: FluidSubstance, computational_domain: ComputationalDomain) -> None:
+    name: str, computational_domain: ComputationalDomain
+    ) -> None:
         """
         Base class constructor. Initiates phase-related AD-variables.
         
@@ -80,13 +91,12 @@ class Phase:#(abc.ABC):
 
         # private properties
         self._name = str(name)
-        self._solvent: FluidSubstance = solvent
-        self._present_substances: List[Substance] = list()
+        self._anticipated_substances: List[Substance] = list()
 
         # Instantiate saturation variable
-        self.cd(self.saturation_name)
+        self.cd(self.saturation_name, {"cells": 1})
         # Instantiate phase molar fraction variable
-        self.cd(self.molar_fraction_name)
+        self.cd(self.molar_fraction_name, {"cells": 1})
 
     def __iter__(self) -> Iterator[Substance]:
         """
@@ -99,7 +109,7 @@ class Phase:#(abc.ABC):
         :return: yields present substance
         :rtype: :class:`~porepy.composite.substance.Substance`
         """
-        for substance in [self._solvent] + self._present_substances:
+        for substance in self._anticipated_substances:
             yield substance
 
     @property
@@ -146,57 +156,92 @@ class Phase:#(abc.ABC):
         """
         return COMPUTATIONAL_VARIABLES["phase_molar_fraction"] + "_" + self.name
 
-    def add_substance(self, substance: Union[List[Substance], Substance] ) -> None:
+    def add_substance(self, substances: Union[List[Substance], Substance] ) -> None:
         """
-        Adds substances which are anticipated in this phase
+        Adds substances which are anticipated in this phase.
 
-        The Substances have to instantiated using the same
-        :class:`~porepy.composite.computational_domain.ComputationalDomain` instance as for this object.
+        The Substances must be instantiated on the same
+        :class:`~porepy.composite.computational_domain.ComputationalDomain` instance used for this object.
 
-        :param phase_composition: substance or list of substances to be added to this phase
-        :type component: :class:`~porepy.composite.substance.Substance`
+        :param substances: substance or list of substances to be added to this phase
+        :type substances: :class:`~porepy.composite.substance.Substance`
         """
-        # Sum of molar fractions in this phase. Has to be 1 in each cell
-        sum_over_fractions = np.zeros(self.cd.gb.num_cells())
 
-        for substance, fraction in phase_composition:
+        if isinstance(substances, Substance):
+            substances = [substances]
+
+        for subst in substances:
             # check if objects are meant for same domain
-            if substance.cd != self.cd:
-                raise ValueError("Substance '%s' instantiated on unknown ComputationalDomain."%(substance.name))
-            # check if initial conditions (fractions) are complete
-            if len(fraction) != len(sum_over_fractions):
-                raise ValueError("Initial fraction of substance '%s' not given on correct number of cells"%(substance.name))
-            # sum the fractions for assertion that it equals 1. on each cell
-            sum_over_fractions += fraction
-
+            if subst.cd != self.cd:
+                raise ValueError("Substance '%s' instantiated on unknown ComputationalDomain."%(subst.name))
+            
+            # skip already present substances:
+            if subst.name in [ps.name for ps in self._anticipated_substances]:
+                warnings.warn("Substance '%s' has already been added to phase '%s'. Skipping..."%(subst.name, self.name))
+                continue
+            
             # store reference to present substance
-            self._present_substances.append(substance)
-            # instantiate related AD variables
-            self.cd(substance.mfip_name(self.name), {"cells": 1})
+            self._anticipated_substances.append(subst)
+            # instantiate molar fraction in phase variable
+            self.cd(subst.mfip_name(self.name), {"cells": 1})
 
-            ## setting initial values (fractions)
-            # create a copy to avoid issues in case there is another manipulated reference to this values
-            init_vals = np.copy(fraction)
+    def set_initial_fractions_in_phase(self, fractions: Union[List[List["np.array"]], List[List[float]]]) -> None:
+        """
+        Sets the (initial) molar fractions for present components.
 
-            for grid_data, vals in zip(self.cd.gb, vals):
-                data = grid_data[1]  # get data out (grid, data) tuple
+        This methods assumes the order of the gridbuckets iterator to be used for the argument 'fractions', containing the initial values per grid.
+        The initial values themselves have to be given as numpy.array per grid per substance.
+
+        in detail, the input must have the following, nested structure:
+            - the top list ('fractions') contains lists per grid in gridbucket
+            - the lists per grid contain arrays per substance
+
+        For homogenous fraction values per grid per substance, pass a float.
+        For heterogeneous fraction values per grid per substance, use numpy.array with length equal to number of cells, per grid per substance
+
+        Finally, this methods asserts the initial unitarity of the values per cell.
+
+        :param fractions: list of lists of arrays or floats, containing the fractions per component per grid, in the order of the gridbuckets iterator and this class' iterator.
+        :param fractions: list
+        """
+        # loop over top list: fractions per grid in gridbucket
+        # this throws an error if there are values are missing for a grid (or if there are too many)
+        for grid_data, vals_per_grid in zip(self.cd.gb, fractions):
+
+            grid = grid_data[0]
+            data = grid_data[1]
+
+            sum_per_grid = np.zeros(grid.num_cells)
+
+            # loop over next level: fractions per substance (per grid)
+            # this throws an error if there are values missing for a substance (or if there are too many)
+            for subst, vals in zip(self, vals_per_grid):
+            
+                # convert homogenous fractions to values per cell
+                if isinstance(vals, float):
+                    vals = np.ones(grid.num_cells) * vals
+
+                # this throws an error if the dimensions should mismatch when giving fractions for a grid in array form
+                sum_per_grid += vals
+
+                # check if data dictionary has necessary keys
+                # If not, create them. TODO check if we should also prepare the 'previous_timestep' values here
                 if pp.STATE not in data:
                     data[pp.STATE] = {}
                 if pp.ITERATE not in data[pp.STATE]:
                     data[pp.STATE][pp.ITERATE] = {}
 
-                data[pp.STATE][self.omf_name] = vals
-                data[pp.STATE][pp.ITERATE][self.omf_name] = vals
+                data[pp.STATE][subst.mfip_name(self.name)] = np.copy(vals)
+                data[pp.STATE][pp.ITERATE][subst.mfip_name(self.name)] = np.copy(vals)  
 
-            
-        # assert the fractional character (sum equals 1) is given on each cell
-        if np.any(sum_over_fractions != 1.): #TODO check sensitivity
-            raise ValueError("Initial fractions do not sum up to 1. on each cell.")
+            # assert the fractional character (sum equals 1) in each cell
+            if np.any(sum_per_grid != 1.): #TODO check sensitivity
+                raise ValueError("Initial fractions do not sum up to 1. on each cell on grid:\n" + str(grid))
 
-    def mass_phase_density(self) -> pp.ad.Operator:
+    def mass_phase_density(self, *args, **kwargs) -> pp.ad.Operator:
         """ 
-        Uses the  molar mass values  in combination with the molar fractions in this phase to compute
-        the mass density of the phase
+        Uses the  molar mass values in combination with the molar fractions in this phase to compute
+        the mass density of the phase.
 
         rho_e_mass = sum_s density_e_molar() * chi_s_e * M_s
 
@@ -211,24 +256,135 @@ class Phase:#(abc.ABC):
         :return: mass density of the phase (dependent on thermodynamic state and the composition)
         :rtype: :class:`~porepy.ad.operators.Operator`
         """
-        # compute the mass-weighted fraction of the solvent
-        mass_fraction_sum = self._solvent.molar_mass()* self._solvent.molar_fraction_in_phase(self.name)
+
+        weight = pp.ad.Scalar(0., "mass-density-%s"%(self.name))
+        # if there are no substances in this phase, return a zero
+        if not self._anticipated_substances:
+            return weight
 
         # add the mass-weighted fraction for each present substance.
-        for substance in self._present_substances:
-            mass_fraction_sum += substance.molar_mass() * substance.molar_fraction_in_phase(self.name)
+        for substance in self._anticipated_substances:
+            weight += substance.molar_mass() * substance.molar_fraction_in_phase(self.name)
         
         # Multiply the mass weight with the molar density and return the operator
-        return mass_fraction_sum  * self.molar_phase_density() 
+        return weight * self.molar_phase_density(*args, **kwargs) 
+
+#------------------------------------------------------------------------------
+### Abstract, phase-related physical properties
+#------------------------------------------------------------------------------
+
+    @abc.abstractmethod
+    def molar_phase_density(self, *args, **kwargs) -> pp.ad.Operator:
+        """ 
+        Abstract physical property.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [mol / m^3]
+
+        :return: molar density of the phase (dependent on thermodynamic state and the composition)
+        :rtype: :class:`~porepy.ad.operators.Operator`
+        """
+        pass
+        # raise NotImplementedError("Molar density for phase '%s' not implemented."%(self.name))
+
+    @abc.abstractmethod
+    def phase_viscosity(self, *args, **kwargs) -> pp.ad.Operator:
+        """ 
+        Abstract physical property.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [kg / m / s]
+
+        :return: dynamic viscosity of the phase (dependent on thermodynamic state and the composition)
+        :rtype: :class:`~porepy.ad.operators.Operator`
+        """
+        pass
+        # raise NotImplementedError("Viscosity for phase '%s' not implemented."%(self.name))
+
+    @abc.abstractmethod
+    def relative_permeability(self, law: str, *args, **kwargs) -> pp.ad.Operator:
+        """
+        Currently supported heuristic laws (values for 'law'):
+            - 'brooks_corey':   Brook-Corey model TODO finish
+            - 'quadratic':      quadratic power law for saturation
+
+        Inherit this class and overwrite this method if you want to implement special models for the relative permeability.
+        Use positional arguments 'args' and keyword arguments 'kwargs' to provide arguments for the heuristic law.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [-] (fractional)
+
+        :param law: name of the law to be applied (see valid values above)
+        :type law: str
+
+        :return: relative permeability using the respectie law
+        :rtype: :class:`~porepy.ad.operators.Operator`
+        """
+        law = str(law)
+        if law == "quadratic":
+            return pp.ad.Function(lambda S: S ** 2, "rel-perm-%s-%s"%(law, self.name))(self.saturation)
+        else:
+            raise NotImplementedError("Unknown 'law' keyword for rel.Perm.: %s \n"%(law)
+            + "Available: 'quadratic,'")
+
+
+class PhysicalState(PhaseField):
+    """
+    This class represent the 'state of matter'-interpretation of of the term phase.
+    The phase(-field) is associated with a specific, dominating substance in a specific state of matter,
+    which serves as a solvent for in the region occupied by this phase.
+
+    Physical properties like density and viscosity of the phase are dominated by the respective physical property of the solvent.
+    
+    Functionalities:
+        - provides classifications of states of matter (currently only classical ones: solid, liquid, gas)
+        - provides simple physical properties of the phase associated with the underlying substance
+        - based on the last point, serves as a concrete implementation of a phase-field and is not abstract
+
+    Physical properties are mainly heuristic laws. In order to provide more models/laws
+    create a child class and override the respective method.
+    Follow the if-else construction given in the methods here and return a call to '__super__().<physical property>' in the 'else' branch.
+    """
+    
+    """ Tuple of strings representing the currently supported states of matter. """
+    supported_states = ('solid', 'liquid', 'gas')
+
+    def __init__(self,
+    name: str, computational_domain: ComputationalDomain,
+    solvent: FluidSubstance, state_of_matter: str
+    ) -> None:
+        """
+        Constructor with additional arguments.
+        
+        :param solvent: substance filling this phase field and for which the state of matter is assumed.
+        :type solvent: :class:`~porepy.composite.substance.FluidSubstance`
+
+        :param state_of_matter: currently supported states of matter are 'solid', 'liquid', 'gas'
+        :type state_of_matter: str
+        """
+        # stringify to make sure string operations work as intended
+        state_of_matter = str(state_of_matter)
+
+        if state_of_matter not in self.supported_states:
+            raise ValueError("Unknown state of matter '%s'."%(state_of_matter))
+
+        super().__init__(name, computational_domain)
+
+        #Add the solvent to the present substances. It will always be the first substance in the iterator this way.
+        self.add_substance(solvent)
+
+        # private
+        self._solvent: FluidSubstance = solvent
+        self._state = state_of_matter
 
 #------------------------------------------------------------------------------
 ### HEURISTIC LAWS NOTE all heuristic laws can be modularized somewhere and referenced here
 #------------------------------------------------------------------------------
 
+    @abc.abstractmethod
     def molar_phase_density(self, law: str, *args, **kwargs) -> pp.ad.Operator:
         """ 
         Currently supported heuristic laws (values for 'law'):
-            - 'stupid':        just stupid (VL)
             - 'solvent':       uses the unmodified solvent density
 
         Inherit this class and overwrite this method if you want to implement special models for the phase density.
@@ -243,31 +399,22 @@ class Phase:#(abc.ABC):
         :return: molar density of the phase (dependent on thermodynamic state and the composition)
         :rtype: :class:`~porepy.ad.operators.Operator`
         """
+        # stringify to ensure the string operations below work
         law = str(law)
-        if law == "stupid":
+        # assumed thermodynamic state variables of the current implementation
+        pressure = self.cd(COMPUTATIONAL_VARIABLES["pressure"])
+        enthalpy = self.cd(COMPUTATIONAL_VARIABLES["enthalpy"])
 
-            def stupid(p, h, *fracs):
-                """
-                Stupid, incorrect law using substance densities and molar fractions. 
-                Thanks VL for making this mistake.
-                """
-                solv_dens = self._solvent.molar_density(p, h) * self._solvent.molar_fraction_in_phase(self.name)
-                for subs, frac in zip(self._present_substances, fracs):
-                    solv_dens += subs.molar_density(p, h) * frac
-
-            molar_fractions = (subs.molar_fraction_in_phase(self.name) for subs in self._present_substances)
-            pressure = self.cd(COMPUTATIONAL_VARIABLES["pressure"])
-            enthalpy = self.cd(COMPUTATIONAL_VARIABLES["enthalpy"])
-
-            return pp.ad.Function(stupid , "molar-density-%s-%s"%(law, self.name))(
-                pressure, enthalpy, *molar_fractions)
         if law == "solvent":
-            return pp.ad.Function(lambda mu: mu , "molar-density-%s-%s"%(law, self.name))(
-                self._solvent.molar_density())
+
+            return pp.ad.Function(lambda p,h: self._solvent.molar_density(p,h) ,
+            "molar-density-%s-%s"%(self.name, law))(pressure, enthalpy)
+
         else:
             raise NotImplementedError("Unknown 'law' keyword for phase viscosity.: %s \n"%(law)
             + "Available: 'solvent,'")
 
+    @abc.abstractmethod
     def phase_viscosity(self, law: str, *args, **kwargs) -> pp.ad.Operator:
         """ 
         Currently supported heuristic laws (values for 'law'):
@@ -285,13 +432,20 @@ class Phase:#(abc.ABC):
         :return: dynamic viscosity of the phase (dependent on thermodynamic state and the composition)
         :rtype: :class:`~porepy.ad.operators.Operator`
         """
+        # stringify to ensure the string operations below work
         law = str(law)
+        # assumed thermodynamic state variables of the current implementation
+        pressure = self.cd(COMPUTATIONAL_VARIABLES["pressure"])
+        enthalpy = self.cd(COMPUTATIONAL_VARIABLES["enthalpy"])
+
         if law == "solvent":
-            return pp.ad.Function(lambda mu: mu , "viscosity-%s-%s"%(law, self.name))(self._solvent.dynamic_viscosity())
+            return pp.ad.Function(lambda p,h: self._solvent.dynamic_viscosity(p,h) ,
+            "viscosity-%s-%s"%(self.name, law))(pressure, enthalpy)
         else:
             raise NotImplementedError("Unknown 'law' keyword for phase viscosity.: %s \n"%(law)
             + "Available: 'solvent,'")
 
+    @abc.abstractmethod
     def relative_permeability(self, law: str, *args, **kwargs) -> pp.ad.Operator:
         """
         Currently supported heuristic laws (values for 'law'):
