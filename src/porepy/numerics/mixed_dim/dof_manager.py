@@ -53,7 +53,24 @@ class DofManager:
 
         """
 
+        # public 
         self.gb = gb
+        self.full_dof: np.ndarray
+        self.block_dof: Dict[Tuple[GridLike, str], int]
+
+        self.update_dofs()
+        
+    def update_dofs(self) -> None:
+        """ Resolves the DOFs saved in the data dictionaries per grid on a grid bucket.
+        It updates the information the 'DofManager' instance has about the grid bucket,
+        so that it can provide its functionality.
+
+        Call this method every time before a simulation is started and after DOFs and number of variables have changed.
+
+        NOTE VL: this code was originally in the constructor of the 'DofManager'. By putting it in a separate (public) method,
+        this class becomes more flexible for a kind-of dynamical approach to setting up models.
+        Backwards-compatibility is maintained by simply calling this method at the end of the constructor.
+        """
 
         # Counter for block index
         block_dof_counter = 0
@@ -65,7 +82,7 @@ class DofManager:
         # to the ordering specified in block_dof
         full_dof: List[int] = []
 
-        for g, d in gb:
+        for g, d in self.gb:
             if pp.PRIMARY_VARIABLES not in d:
                 continue
 
@@ -85,7 +102,7 @@ class DofManager:
                 )
                 full_dof.append(total_local_dofs)
 
-        for e, d in gb.edges():
+        for e, d in self.gb.edges():
             if pp.PRIMARY_VARIABLES not in d:
                 continue
 
@@ -104,8 +121,8 @@ class DofManager:
                 full_dof.append(total_local_dofs)
 
         # Array version of the number of dofs per node/edge and variable
-        self.full_dof: np.ndarray = np.array(full_dof)
-        self.block_dof: Dict[Tuple[GridLike, str], int] = block_dof
+        self.full_dof = np.array(full_dof)
+        self.block_dof = block_dof
 
     def grid_and_variable_to_dofs(self, g: GridLike, variable: str) -> np.ndarray:
         """Get the indices in the global system of variables associated with a

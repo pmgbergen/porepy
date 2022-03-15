@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import abc
+
 import porepy as pp
 import numpy as np
 
@@ -124,7 +125,14 @@ class Substance(abc.ABC):
         :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the molar fraction of this component in phase `phase_name`.
         :rtype: :class:`porepy.ad.MergedVariable`
         """
+        # in order to avoid uncontrolled or arbitrary creation of variables,
+        # we can perform a check if the phase is present at all
+        # NOTE this limits the possible order of instantiations and method calls in a run script
+        # phase_name = str(phase_name)
+        # if phase_name in self.cd.Phase_names:
         return self.cd(self.mfip_name(phase_name))
+        # else:
+        #     raise ValueError("Phase '%s' not present in same computational domain."%(phase_name))
 
     def mfip_name(self, phase_name: str) -> str:
         """
@@ -135,35 +143,6 @@ class Substance(abc.ABC):
         :rtype: str
         """
         return COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + self.name + "_" + str(phase_name)
-
-    def _register_phase(self, phase_name: str) -> None:
-        """
-        Registers the presence of this substance in given phase. 
-
-        Creates an AD variable representing the molar fraction of the component in phase `phase_name`.
-        This is a primary variable in composite flow obtained by flash calculations.
-        Given phase name will be key for accessing the variable using.
-
-        NOTE (VL): This method might be useless, since mfip vars can be called dynamically.
-        The supposed usage is only by the Phase class to register itself with this component,
-        and to instantiate mfip vars with the correct number of dofs.
-        This solution is not elegant and meant only for prototyping.
-        In a top-down model, a substance has no information about phases it is in.
-        
-        :param phase_name: name of the phase
-        :type phase_name: str
-        """
-        
-        phase_name = str(phase_name)
-
-        # if phase is already registered, do nothing
-        if phase_name in self._registered_phases:
-            return
-        else:
-            self._registered_phases.append(phase_name)
-
-        # create domain-wide MergedVariable object
-        self.cd(self.mfip_name(phase_name), {"cells": 1})
 
     def set_initial_overall_molar_fraction(self, initial_values: List["np.ndarray"]) -> None:
         """ Order of grid-related initial values in `initial_values` has to be the same as 
@@ -188,6 +167,34 @@ class Substance(abc.ABC):
             data[pp.STATE][pp.ITERATE][self.omf_name] = vals
 
 
+    # def _register_phase(self, phase_name: str) -> None:
+    #     """
+    #     Registers the presence of this substance in given phase. 
+
+    #     Creates an AD variable representing the molar fraction of the component in phase `phase_name`.
+    #     This is a primary variable in composite flow obtained by flash calculations.
+    #     Given phase name will be key for accessing the variable using.
+
+    #     NOTE (VL): This method might be useless, since mfip vars can be called dynamically.
+    #     The supposed usage is only by the Phase class to register itself with this component,
+    #     and to instantiate mfip vars with the correct number of dofs.
+    #     This solution is not elegant and meant only for prototyping.
+    #     In a top-down model, a substance has no information about phases it is in.
+        
+    #     :param phase_name: name of the phase
+    #     :type phase_name: str
+    #     """
+        
+    #     phase_name = str(phase_name)
+
+    #     # if phase is already registered, do nothing
+    #     if phase_name in self._registered_phases:
+    #         return
+    #     else:
+    #         self._registered_phases.append(phase_name)
+
+    #     # create domain-wide MergedVariable object
+    #     self.cd(self.mfip_name(phase_name), {"cells": 1})
 
 #------------------------------------------------------------------------------
 ### CONSTANT SCALAR ATTRIBUTES

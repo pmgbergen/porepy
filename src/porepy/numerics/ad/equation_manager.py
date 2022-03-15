@@ -58,23 +58,50 @@ class EquationManager:
         Parameters:
             gb (pp.GridBucket): Mixed-dimensional grid for this EquationManager.
             dof_manager (pp.DofManager): Degree of freedom manager.
-            equations (List, Optional): List of equations. Defaults to empty list.
+            equations (Dict, Optional): Dict of equations. Defaults to empty Dict.
             secondary_variables (List of Ad Variable or MergedVariable): Variables
                 to be considered secondary for this EquationManager.
-
         """
+
+        # public
         self.gb = gb
+        self.dof_manager: pp.DofManager = dof_manager
 
         # Inform mypy about variables, and then set them by a dedicated method.
         self.variables: Dict[GridLike, Dict[str, "pp.ad.Variable"]]
-        self._set_variables(gb)
+
+        # declare public attributes to be set when updating equations
+        self.equations: Dict[str, pp.ad.Operator]
+        self.secondary_variables: List["pp.ad.Variable"]
+        self.row_block_indices_last_assembled: Optional[np.ndarray]
+
+        self.update_equations(equations, secondary_variables)
+        
+
+    def update_equations(self,
+    equations: Optional[Dict[str, "pp.ad.Operator"]] = None,
+    secondary_variables: Optional[Sequence["pp.ad.Variable"]] = None,
+    ) -> None:
+        """
+        Update the equations and declaration of secondary variables.
+        
+        NOTE VL: this code was originally in the constructor of the 'EquationManager'.
+        By putting it in a separate (public) method, this class becomes more flexible for a kind-of dynamical approach to setting up models.
+        Backwards-compatibility is maintained by simply calling this method at the end of the constructor.
+
+        :param equations: a dictionary with equation names (str) as keys and :class:`~porepy.ad.operators.Operator` as values representing a root point equation
+        :type equations: dict
+
+        :param secondary_variables: list of :class:`~porepy.ad.operators.Variable` or :class:`~porepy.ad.operators.MergedVariable` to be considered secondary in the equations
+        :type secondary_variables: List
+        """
+
+        self._set_variables(self.gb)
 
         if equations is None:
             self.equations: Dict[str, pp.ad.Operator] = {}
         else:
             self.equations = equations
-
-        self.dof_manager: pp.DofManager = dof_manager
 
         # Define secondary variables.
         # Note that secondary variables will be present in self.variables; the exclusion
@@ -119,24 +146,6 @@ class EquationManager:
         # Start index for blocks corresponding to rows of the different equations.
         # Defaults to None, will be overwritten by assembly methods.
         self.row_block_indices_last_assembled: Optional[np.ndarray] = None
-
-    def _set_variables(self, gb):
-        # Define variables as specified in the GridBucket
-        variables = {}
-        for g, d in gb:
-            variables[g] = {}
-            for var, info in d[pp.PRIMARY_VARIABLES].items():
-                variables[g][var] = operators.Variable(var, info, grids=[g])
-
-        for e, d in gb.edges():
-            variables[e] = {}
-            num_cells = d["mortar_grid"].num_cells
-            for var, info in d[pp.PRIMARY_VARIABLES].items():
-                variables[e][var] = operators.Variable(
-                    var, info, edges=[e], num_cells=num_cells
-                )
-
-        self.variables = variables
 
     def merge_variables(
         self, grid_var: Sequence[Tuple[GridLike, str]]
@@ -545,6 +554,24 @@ class EquationManager:
         # Do the complement
         other_variables = list(set(all_variables).difference(set(variables)))
         return other_variables
+
+    def _set_variables(self, gb):
+        # Define variables as specified in the GridBucket
+        variables = {}
+        for g, d in gb:
+            variables[g] = {}
+            for var, info in d[pp.PRIMARY_VARIABLES].items():
+                variables[g][var] = operators.Variable(var, info, grids=[g])
+
+        for e, d in gb.edges():
+            variables[e] = {}
+            num_cells = d["mortar_grid"].num_cells
+            for var, info in d[pp.PRIMARY_VARIABLES].items():
+                variables[e][var] = operators.Variable(
+                    var, info, edges=[e], num_cells=num_cells
+                )
+
+        self.variables = variables
 
     def _variables_as_list(
         self,
