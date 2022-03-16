@@ -131,7 +131,7 @@ class DofManager:
         Parameters:
             g (pp.Grid or pp.GridBucket edge): Either a grid or an edge in the
                 GridBucket.
-           variables (str): Name of a variable.
+           variable (str): Name of a variable.
 
         Returns:
             np.array (int): Index of degrees of freedom for this variable.
@@ -158,7 +158,7 @@ class DofManager:
         the output.
 
         Parameters:
-            g (pp.Grid or pp.GridBucket edge): List of grids, edges (in the GridBucket)
+            grids (pp.Grid or pp.GridBucket edge): List of grids, edges (in the GridBucket)
                 or combinations of the two. If not provided, all grids and edges that are
                 assigned variables will be considered.
             variables (str): Name of variables. If not provided, all variables assigned
@@ -315,7 +315,7 @@ class DofManager:
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
         return (dof_start[block_ind], dof_start[block_ind + 1])
 
-    def _dof_range_from_grid_and_var(self, g: GridLike, name: str):
+    def _dof_range_from_grid_and_var(self, g: GridLike, variable: str):
         """Helper function to get the indices for a grid-variable combination.
 
         Parameters:
@@ -327,8 +327,9 @@ class DofManager:
             np.ndarray: Indices of the degrees of freedom for this grid-variable combination.
 
         """
-        block_range = self._block_range_from_grid_and_var(g, name)
-        np.arange(block_range[0], block_range[1])
+        block_range = self._block_range_from_grid_and_var(g, variable)
+        dof_range: np.ndarray = np.arange(block_range[0], block_range[1])
+        return dof_range
 
     def dof_var(
         self,
@@ -378,11 +379,11 @@ class DofManager:
 
     def num_dofs(
         self,
-    ) -> int:
+    ) -> np.int_:
         """Get the number of degrees of freedom in this DofManager.
 
         Returns:
-            int: Size of subsystem.
+            np.int_: Size of subsystem.
 
         """
         return np.sum(self.full_dof)
