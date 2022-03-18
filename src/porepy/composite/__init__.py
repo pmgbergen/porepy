@@ -10,12 +10,13 @@ _COMPONENT_TEST_ARRAY = [ "UnitIncompressibleFluid",
                           "UnitSolid"
                           ]
 
-from .computational_domain import ComputationalDomain
+from .compositional_domain import CompositionalDomain
 
 from .phase import PhaseField, PhysicalState
 from .substance import Substance, FluidSubstance, SolidSubstance
 
 from ._composite_utils import (
+    STATES_OF_MATTER,
     COMPUTATIONAL_VARIABLES,
     create_merged_variable,
     create_merged_mortar_variable

@@ -8,7 +8,7 @@ Functions:
 
 """
 
-from typing import Tuple, Union, Optional, Dict
+from typing import Tuple, Union, Dict
 
 import porepy as pp
 
@@ -52,6 +52,9 @@ COMPUTATIONAL_VARIABLES: Dict[str, str] = {
     "saturation" : "S",                                                         # (fractional, volumetric) [-]
 }
 
+""" Currently supported states of matter.
+This influences the parameters for physical attributes, as well as the class :class:`~porepy.composite.phase.PhysicalState`."""
+STATES_OF_MATTER = ('solid', 'liquid', 'gas')
 
 def create_merged_variable(
     gb: pp.GridBucket, dof_info: Dict[str, int],
@@ -74,7 +77,7 @@ def create_merged_variable(
     :return: Returns a 2-tuple containing the new objects. The second object will be None, if no mortar variable name is specified.
     :rtype: tuple(2)
     """
-
+    # TODO decide whether variables should be initiated with values (zero)
     # creating variables on each subdomain
     variables = list()
     for g, d in gb:
