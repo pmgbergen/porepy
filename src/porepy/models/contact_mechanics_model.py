@@ -462,7 +462,7 @@ class ContactMechanics(AbstractModel):
                         "bc": self._bc_type(g),
                         "bc_values": self._bc_values(g),
                         "source": self._body_force(g),
-                        "fourth_order_tensor": self._stress_tensor(g),
+                        "fourth_order_tensor": self._stiffness_tensor(g),
                     },
                 )
 
@@ -627,7 +627,7 @@ class ContactMechanics(AbstractModel):
         c_num_t = np.kron(tangential_vals, np.ones(g.dim))
         return c_num_n, c_num_t
 
-    def _stress_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
+    def _stiffness_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
         """Fourth order stress tensor.
 
 
@@ -1151,8 +1151,6 @@ class ContactMechanics(AbstractModel):
 
         Parameters
         ----------
-        contact_force : pp.ad.MergedVariable
-            Ad contact force variable.
         fracture_subdomains : List[pp.Grid]
             List of fracture grids.
 
