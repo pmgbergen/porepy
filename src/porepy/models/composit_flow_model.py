@@ -13,9 +13,6 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
 
-# Shorthand typing
-interface_type = Tuple[pp.Grid, pp.Grid]
-grid_like_type = Union[pp.Grid, interface_type]
 
 class CompositionalFLow(pp.models.abstract_model.AbstractModel):
     """ Non-isothermal and non-isobaric flow consisting of multiple phases and components.
@@ -49,7 +46,10 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         self.create_grid()
 
         # public properties
-        self.cd = pp.composite.ComputationalDomain(self.gb)
+        self.cd = pp.composite.CompositionalDomain(self.gb)
+        # these two will be instantiated only during the prepare_simulation method
+        self.eq_manager: pp.ad.EquationManager
+        self.dof_manager: pp.DofManager
         
         # list of grids as ordered in GridBucket
         self._grids = [g for g, _ in self.gb]
@@ -87,13 +87,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         self.upwind_parameter_key: str = "upwind"
         self.mass_parameter_key: str = "mass"
         self.energy_parameter_key: str = "energy"
-
-        ## global AD variables
-        self.pressure = self.cd(self.pressure_variable)
-        self.enthalpy = self.cd(self.enthalpy_variable)
-
-        # update the DOfs since two new variables have been added
-        self.cd.dof_manager.update_dofs()
 
     @property
     def num_components(self) -> int:
@@ -140,14 +133,13 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
 
         It does the following points:
             - model set-up
-                - initiates primary variables enthalpy and pressure
-                - initiates EQ and DOF managers
                 - boundary conditions
                 - source terms
                 - connects to model parameters (constant for now)
                     - porosity
                     - permeability
                     - aperture
+            - initiates EQ and DOF managers
             - sets the model equations using :module:`porepy.ad`
                 - discretizes the equations
         """
@@ -159,9 +151,9 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         
         self._set_up()
 
-        # Assign variables. This will also set up DOF- and EquationManager,
-        # and define Ad versions of the variables not related to the composition
-        self._assign_variables()
+        # instantiate Equation- and DofManager
+        self.dof_manager = pp.DofManager(self.gb)
+        self.eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager)
 
         # NOTE if the initial conditions are not in equilibrium, it needs to be iterated prior to simulation
         self._initial_condition()
@@ -613,11 +605,11 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         # Ad hoc approach to get the names of the secondary equations. This is not beautiful.
         secondary_equation_names = [
             name
-            for name in list(self.cd.eq_manager.equations.keys())
+            for name in list(self.eq_manager.equations.keys())
             if name[:12] != "Mass_balance"
         ]
 
-        self._secondary_equation_manager = self.cd.eq_manager.subsystem_equation_manager(
+        self._secondary_equation_manager = self.eq_manager.subsystem_equation_manager(
             secondary_equation_names, secondary_variables
         )
 
@@ -625,7 +617,7 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         # the global linear system later on.
         # FIXME: Should we also store secondary equation names, for symmetry reasons?
         self._primary_equation_names = list(
-            set(self.cd.eq_manager.equations.keys()).difference(secondary_equation_names)
+            set(self.eq_manager.equations.keys()).difference(secondary_equation_names)
         )
 
     #### Balance equations

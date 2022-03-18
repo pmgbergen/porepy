@@ -11,7 +11,7 @@ from ._composite_utils import COMPUTATIONAL_VARIABLES
 from typing import List, TYPE_CHECKING
 # this solution avoids circular imports due to type checking. Needs __future__.annotations
 if TYPE_CHECKING:
-    from .computational_domain import ComputationalDomain
+    from .compositional_domain import CompositionalDomain
 
 
 class Substance(abc.ABC):
@@ -61,7 +61,7 @@ class Substance(abc.ABC):
     #     name = str(cls.__name__)
 
 
-    def __init__(self, computational_domain: ComputationalDomain) -> None:
+    def __init__(self, computational_domain: CompositionalDomain) -> None:
         """ Abstract base class constructor. Initiates component-related AD-variables.
         Contains symbolic names of associated model variables.
         
@@ -70,10 +70,10 @@ class Substance(abc.ABC):
         """
         super().__init__()
 
-        # public properties
+        ## PUBLIC
         self.cd = computational_domain
 
-        # private properties
+        ## PRIVATE
         self._registered_phases: list = list()
 
         # adding the overall molar fraction to the primary variables

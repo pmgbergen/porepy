@@ -7,13 +7,13 @@ import porepy as pp
 import numpy as np
 # from weakref import WeakValueDictionary, WeakKeyDictionary
 
-from ._composite_utils import COMPUTATIONAL_VARIABLES
+from ._composite_utils import STATES_OF_MATTER, COMPUTATIONAL_VARIABLES
 
 from typing import (TYPE_CHECKING,
 Iterator, Tuple, Iterable, Union, Dict, List)
 # this solution avoids circular imports due to type checking. Needs __future__.annotations
 if TYPE_CHECKING:
-    from .computational_domain import ComputationalDomain
+    from .compositional_domain import CompositionalDomain
     from .substance import Substance, FluidSubstance
 
 
@@ -50,10 +50,10 @@ class PhaseField(abc.ABC):
     """
 
     """ For a computational domain (keys), contains a list of present phases (values). """
-    __phase_instances: Dict[ComputationalDomain, list] = dict()
+    __phase_instances: Dict[CompositionalDomain, list] = dict()
 
     def __new__(cls,
-    name: str, computational_domain: ComputationalDomain
+    name: str, computational_domain: CompositionalDomain
     ) -> PhaseField:
         """
         Declarator.
@@ -71,7 +71,7 @@ class PhaseField(abc.ABC):
         return super().__new__(cls)
 
     def __init__(self,
-    name: str, computational_domain: ComputationalDomain
+    name: str, computational_domain: CompositionalDomain
     ) -> None:
         """
         Base class constructor. Initiates phase-related AD-variables.
@@ -86,10 +86,10 @@ class PhaseField(abc.ABC):
         """
         super().__init__()
 
-        # public properties
+        ## PUBLIC
         self.cd = computational_domain
 
-        # private properties
+        ## PRIVATE
         self._name = str(name)
         self._anticipated_substances: List[Substance] = list()
 
@@ -184,6 +184,9 @@ class PhaseField(abc.ABC):
             self._anticipated_substances.append(subst)
             # instantiate molar fraction in phase variable
             self.cd(subst.mfip_name(self.name), {"cells": 1})
+            # update the data structures of the computational domain
+            # NOTE this is not so nice, there may be a nicer solution in the future
+            self.cd.resolve_composition()
 
     def set_initial_fractions_in_phase(self, fractions: Union[List[List["np.array"]], List[List[float]]]) -> None:
         """
@@ -194,7 +197,7 @@ class PhaseField(abc.ABC):
 
         in detail, the input must have the following, nested structure:
             - the top list ('fractions') contains lists per grid in gridbucket
-            - the lists per grid contain arrays per substance
+            - the lists per grid contain arrays per substance in this phase
 
         For homogenous fraction values per grid per substance, pass a float.
         For heterogeneous fraction values per grid per substance, use numpy.array with length equal to number of cells, per grid per substance
@@ -345,12 +348,9 @@ class PhysicalState(PhaseField):
     create a child class and override the respective method.
     Follow the if-else construction given in the methods here and return a call to '__super__().<physical property>' in the 'else' branch.
     """
-    
-    """ Tuple of strings representing the currently supported states of matter. """
-    supported_states = ('solid', 'liquid', 'gas')
 
     def __init__(self,
-    name: str, computational_domain: ComputationalDomain,
+    name: str, computational_domain: CompositionalDomain,
     solvent: FluidSubstance, state_of_matter: str
     ) -> None:
         """
@@ -365,7 +365,7 @@ class PhysicalState(PhaseField):
         # stringify to make sure string operations work as intended
         state_of_matter = str(state_of_matter)
 
-        if state_of_matter not in self.supported_states:
+        if state_of_matter not in STATES_OF_MATTER:
             raise ValueError("Unknown state of matter '%s'."%(state_of_matter))
 
         super().__init__(name, computational_domain)
@@ -373,7 +373,7 @@ class PhysicalState(PhaseField):
         #Add the solvent to the present substances. It will always be the first substance in the iterator this way.
         self.add_substance(solvent)
 
-        # private
+        ## PRIVATE
         self._solvent: FluidSubstance = solvent
         self._state = state_of_matter
 

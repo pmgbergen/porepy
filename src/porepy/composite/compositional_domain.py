@@ -6,6 +6,7 @@ import numpy as np
 import warnings
 
 from porepy.composite.material_subdomain import MaterialSubdomain
+from porepy.composite.substance import Substance
 
 from ._composite_utils import (
     COMPUTATIONAL_VARIABLES,
@@ -18,23 +19,30 @@ TYPE_CHECKING)
 # this solution avoids circular imports due to type checking. Needs __future__.annotations
 if TYPE_CHECKING:
     from .phase import PhaseField
-    from .substance import SolidSubstance
+    from .substance import SolidSubstance, Substance
 
 
-class ComputationalDomain:
+class CompositionalDomain:
     """ Physical extension of :class:`~porepy.GridBucket`.
     NOTE: alternative name could be PhysicalDomain
 
     Constructs computational elements for the simulation, by
         - combining the geometrical functions provided by a :class:`~porepy.grids.grid_bucket.GridBucket`
-        - combining the DOF managing functions provided by a :class:`~porepy.numerics.mixed_dim.dof_manager.DofManager`
-        - combining the equations managing functions provided by a :class:`~porepy.numerics.ad.equation_manager.EquationManager`
         - providing calls to global, physical variables (merged variables from the AD submodule)
             - serves as a central point for creating, storing and accessing those variables
 
     The physical properties of the domain are assembled using a material representations of each grid in the gridbucket,
     namely :class:`~porepy.composite.material_subdomain.MaterialSubDomain`.
     Currently they are accessed grid-wise in the model-classes.
+
+    Public attributes:
+        - 'gb': GridBucket for which the CompositionalDomain was initiated
+        - 'INITIAL_EQUILIBRIUM': bool. Flagged false if composition changes.
+                                 Only flagged True after initial equilibrium is computed, i.e. after initial variables were set.
+                                 DO NOT flag this bool yourself as you please.
+        - 'pressure': MergedVariable representing the global pressure
+        - 'enthalpy': MergedVariable representing the global enthalpy
+
     """
 
     def __init__(self, gridbucket: pp.GridBucket) -> None:
@@ -43,30 +51,34 @@ class ComputationalDomain:
         :param gridbucket: geometrical representation of domain
         :type gridbucket: :class:`~porepy.grids.grid_bucket.GridBucket`
 
-        Instantiates an equation and an DOF manager.
-
         Instantiate default material subdomains using the unit solid class.
         NOTE this approach should be discussed. One could also instantiate None and demand certain steps by the modeler
         The current solution keeps the model 'runable' without the modeler explicitely setting material properties for the grids.
         """
-        # public
-        self.gb: pp.GridBucket = gridbucket
-        self.dof_manager: pp.DofManager = pp.DofManager(self.gb)
-        self.eq_manager: pp.ad.EquationManager = pp.ad.EquationManager(self.gb, self.dof_manager)
-
+        ## PRIVATE
         # keys: symbolic variable names, values: respective MergedVariable
         self._global_ad: Dict[str, "pp.ad.MergedVariable"] = dict()
-        # unique names of all present substances
-        self._substance_names: Set[str] = set()
+        # set containing all present substances
+        self._present_substances: Set[Substance] = set()
         # key: phase name, value: tuple of present substance names
-        self._substance_in_phase: Dict[str, Tuple[str]] = dict()
+        self._phases_per_substance: Dict[Substance, Set[PhaseField]] = dict()
         # instances of added phases 
         self._anticipated_phases: List[PhaseField] = list()
         # key: grid, value: MaterialSubdomain
         self._material_subdomains: Dict["pp.Grid", MaterialSubdomain] = dict()
 
+        # initiate system-wide primary variables
+        self._pressure_var: str = COMPUTATIONAL_VARIABLES["pressure"]
+        self._enthalpy_var: str = COMPUTATIONAL_VARIABLES["enthalpy"]
+
         for grid, _ in self.gb:
             self._material_subdomains.update({grid: MaterialSubdomain(grid, pp.composite.UnitSolid(self))}) 
+
+        ## PUBLIC
+        self.gb: pp.GridBucket = gridbucket
+        self.INITIAL_EQUILIBRIUM: bool = False
+        self.pressure: pp.ad.MergedVariable = self(self._pressure_var)
+        self.enthalpy: pp.ad.MergedVariable = self(self._enthalpy_var)
 
     def __str__(self) -> str:
         """ Returns string representation of instance,
@@ -127,7 +139,6 @@ class ComputationalDomain:
             
             self._global_ad.update({variable_name: var})
             # update DOFs since a new variable has been created
-            self.dof_manager.update_dofs()
 
         return var
 
@@ -162,7 +173,7 @@ class ComputationalDomain:
         :return: total number of distinct substances in all phases
         :rtype: int
         """
-        return len(self._substance_names)
+        return len(self._present_substances)
     
     @property
     def Phases(self) -> Tuple[PhaseField]:
@@ -212,8 +223,6 @@ class ComputationalDomain:
 
         Resolves the composition of the flow (which substance appears in which phase).
 
-        Updates the DOFs in the DOF manager.
-
         Skips phases which were already added.
 
         The phases must be instantiated on the this
@@ -239,30 +248,18 @@ class ComputationalDomain:
             else:
                 self._anticipated_phases.append(phase)
 
-        # NOTE this isprobably not needed, since the DOFs are updated every time a variable is created
-        # self.dof_manager.update_dofs()  
-
-        self._resolve_composition()
+        self.resolve_composition()
 
     def set_initial_values(self,
     pressure: Union[List[float], List[np.array]],
     temperature: Union[List[float], List[np.array]],
-    saturations: List[Union[List[float], List[np.array]]],
-    compute_equilibrium: Optional[bool] = True
+    saturations: List[Union[List[float], List[np.array]]]
     ) -> None:
         """
         Sets the initial compositional and thermodynamic state of the system.
         Natural variables are used as arguments, since they are more relatable in application.
 
         Enthalpy is computed using an isenthalpic flash.
-
-        Initial values of molar variables are computed using above values.
-        (see :method:`~porepy.composite.substance.Substance.overall_molar_fraction` and
-        :method:`~porepy.composite.phase.Phase.molar_fraction`).
-        
-        If 'compute_equilibrium' is True, the equilibrium equations are iterated until initial equilibrium is reached.
-        NOTE: This needs some investigations, as omitting this might influence the stability of the solver.
-        
 
         THE FOLLOWING IS ASSUMED FOR THE ARGUMENTS:
             - the top list contains lists/arrays/floats per grid in gridbucket
@@ -276,43 +273,125 @@ class ComputationalDomain:
 
         :param pressure: initial pressure values per grid
         :type pressure: list
-
         :param temperature: initial temperature per grid
         :type temperature: list
-
         :param saturations: saturation values per grid per anticipated phase
         :type saturations: list
         """
         
-        self._calculate_initial_phase_molar_fractions()
-        self._calculate_initial_component_overall_fractions()
+        for idx, grid_data in enumerate(self.gb):
+            
+            grid, data = grid_data
 
-    def _resolve_composition(self) -> None:
+            ## check if data dictionary has necessary keys
+            # If not, create them. TODO check if we should also prepare the 'previous_timestep' values here
+            if pp.STATE not in data:
+                data[pp.STATE] = {}
+            if pp.ITERATE not in data[pp.STATE]:
+                data[pp.STATE][pp.ITERATE] = {}
+
+            ## setting initial pressure values for this grid
+            vals = pressure[idx]
+            # convert homogenous fractions to values per cell
+            if isinstance(vals, float):
+                vals = np.ones(grid.num_cells) * vals
+            data[pp.STATE][self._pressure_var] = np.copy(vals)
+            data[pp.STATE][pp.ITERATE][self._pressure_var] = np.copy(vals)  
+
+            ## setting initial enthalpy values for this grid
+            vals_t = temperature[idx]
+            # convert homogenous fractions to values per cell
+            if isinstance(vals, float):
+                vals_t = np.ones(grid.num_cells) * vals_t
+
+            # TODO convert TEMPERATURE vals to ENTHALPY vals
+            
+            data[pp.STATE][self._enthalpy_var] = np.copy(vals_t)
+            data[pp.STATE][pp.ITERATE][self._enthalpy_var] = np.copy(vals_t)
+
+            ## setting initial saturation values for this grid
+            # assertions of unitarity of saturation per grid (per cell actually)
+            sum_saturation_per_grid = np.zeros(grid.num_cells)
+
+            # loop over next level: fractions per phase (per grid)
+            # this throws an error if there are values missing for a phase (or if there are too many)
+            for phase, values in zip(self.Phases, saturations[idx]):
+            
+                # convert homogenous fractions to values per cell
+                if isinstance(values, float):
+                    values = np.ones(grid.num_cells) * values
+
+                # this throws an error if the dimensions should mismatch when giving fractions for a grid in array form
+                sum_saturation_per_grid += values
+
+
+                data[pp.STATE][phase.saturation_name] = np.copy(values)
+                data[pp.STATE][pp.ITERATE][phase.saturation_name] = np.copy(values)  
+
+            # assert the fractional character (sum equals 1) in each cell
+            if np.any(sum_saturation_per_grid != 1.): #TODO check sensitivity
+                raise ValueError("Initial saturations do not sum up to 1. on each cell on grid:\n" + str(grid))
+
+    def phases_of_substance(self, substance: Substance) -> Tuple[PhaseField]:
+        """
+        :return: for given substance, a tuple of phases is returned which contain this substance.
+        :rtype: tuple
+        """
+        return self._phases_per_substance[substance]
+
+    def resolve_composition(self) -> None:
         """
         Analyzes the composition, i.e. presence of substances in phases.
         Information about substances which are anticipated in multiple phases is stored.
 
-        IMPORTANT: This method is called internally by phases and domains, everytime any new component is added.
-
-        NOTE this might not be necessary after all, since the iterators of the phase class and this class' attribuge 'Phases' deliver this information in principle
+        This method is called internally by phases and domains, everytime any new component is added.
         """
-        # for given phase names (keys), save list of anticipated substances (values)
-        composition = dict()
+        # for given substance (keys), save set of phases containing the substance (values)
+        phases_per_substance: Dict[Substance, Set[PhaseField]] = dict()
         # unique substance names. Independent of number of phases in which a substance is anticipated, the name appears here only once.
-        unique_substances = set()
+        unique_substances: Set[Substance] = set()
 
         for phase in self.Phases:
-
-            substances_in_phase = list()
-
             for substance in phase:
-                substances_in_phase.append(substance.name)
-                unique_substances.add(substance.name)
+                unique_substances.add(substance)
+
+                if substance in phases_per_substance.keys():
+                    phases_per_substance[substance].add(phase)
+                else:
+                    phases_per_substance.update({substance: set()})
+                    phases_per_substance[substance].add(phase)
             
-            composition.update({phase.name: tuple(substances_in_phase)})
         
-        self._substance_names = unique_substances
-        self._substance_in_phase = composition
+        self._present_substances = unique_substances
+        self._phases_per_substance = phases_per_substance
+
+        self.INITIAL_EQUILIBRIUM = False
+
+    def compute_initial_equilibrium(self) -> None:
+        """
+        Computes the initial equilibrium using the initial values.
+        Throws an error if not all initial values have been set.
+
+        Initial values of molar variables are computed using the natural variables.
+        (see :method:`~porepy.composite.substance.Substance.overall_molar_fraction` and
+        :method:`~porepy.composite.phase.Phase.molar_fraction`).
+
+        Use :method:`~porepy.compostie.phase.PhaseField.set_initial_fractions_in_phase` to set initial molar fractions per phase
+        Use :method:`~porepy.compostie.compositional_domain.CompositionalDomain.set_initial_values` to set the rest.
+
+        If successful, flags this instance by setting :data:`~~porepy.compostie.compositional_domain.CompositionalDomain.INITIAL_EQUILIBRIUM` true.
+
+        NOTE: this approach of setting initial values and computing the equilibrium is a first.
+        The reason for splitting it between the PhaseField class and this class is for reasons of easier overview,
+        and to give more responsibility to the PhaseField.
+        """
+
+        self._calculate_initial_phase_molar_fractions()
+        self._calculate_initial_component_overall_fractions()
+
+        # TODO compute equilibrium
+
+        self.INITIAL_EQUILIBRIUM = False
 
     def _calculate_initial_phase_molar_fractions(self) -> None:
         """ 
