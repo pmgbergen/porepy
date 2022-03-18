@@ -3,21 +3,25 @@ Module with functions for computing intersections between geometric objects.
 
 """
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
-module_sections = ["geometry"]
 
 # Module level logger
 logger = logging.getLogger(__name__)
 
 
-@pp.time_logger(sections=module_sections)
-def segments_2d(start_1, end_1, start_2, end_2, tol=1e-8):
+def segments_2d(
+    start_1: np.ndarray,
+    end_1: np.ndarray,
+    start_2: np.ndarray,
+    end_2: np.ndarray,
+    tol: float = 1e-8,
+) -> Optional[np.ndarray]:
     """
     Check if two line segments defined by their start end endpoints, intersect.
 
@@ -156,8 +160,13 @@ def segments_2d(start_1, end_1, start_2, end_2, tol=1e-8):
         return None
 
 
-@pp.time_logger(sections=module_sections)
-def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
+def segments_3d(
+    start_1: np.ndarray,
+    end_1: np.ndarray,
+    start_2: np.ndarray,
+    end_2: np.ndarray,
+    tol: float = 1e-8,
+) -> Optional[np.ndarray]:
     """
     Find intersection points (or segments) of two 3d lines.
 
@@ -355,8 +364,14 @@ def segments_3d(start_1, end_1, start_2, end_2, tol=1e-8):
             return None
 
 
-@pp.time_logger(sections=module_sections)
-def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
+def polygons_3d(
+    polys: List[np.ndarray],
+    target_poly: Optional[Union[int, np.ndarray]] = None,
+    tol: float = 1e-8,
+    include_point_contact: bool = True,
+) -> Tuple[
+    np.ndarray, np.ndarray, np.ndarray, List[Tuple], List[List[Tuple]], List[List[bool]]
+]:
     """Compute the intersection between polygons embedded in 3d.
 
     In addition to intersection points, the function also decides:
@@ -388,6 +403,8 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
             whole set in poly. If not provided, all polygons are compared with
             each other.
         tol (double, optional): Geometric tolerance for the computations.
+        include_point_contact (bool, optional): If True (default) point contacts will be
+            considered an intersection. This is an experimental feature, use with care.
 
     Returns:
         np.array: 3 x num_pt, intersection coordinates.
@@ -1338,7 +1355,9 @@ def polygons_3d(polys, target_poly=None, tol=1e-8, include_point_contact=True):
     )
 
 
-def segments_polygon(start, end, poly, tol=1e-5):
+def segments_polygon(
+    start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol: float = 1e-5
+) -> Tuple[np.ndarray, np.ndarray]:
     """Compute the internal intersection from line segments to a polygon in 3d.
     Intersections with the boundary of the polygon are not computed.
 
@@ -1415,7 +1434,9 @@ def segments_polygon(start, end, poly, tol=1e-5):
     return crosses, cp
 
 
-def segments_polyhedron(start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol=1e-5):
+def segments_polyhedron(
+    start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol: float = 1e-5
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Compute the intersection from line segments to the interior of a convex polyhedron.
     Intersections with the boundary of the polyhedron are not computed.
 
@@ -1527,8 +1548,9 @@ def _point_in_or_on_polygon(p: np.ndarray, poly: np.ndarray, tol=1e-8):
         return 2, None
 
 
-@pp.time_logger(sections=module_sections)
-def triangulations(p_1, p_2, t_1, t_2):
+def triangulations(
+    p_1: np.ndarray, p_2: np.ndarray, t_1: np.ndarray, t_2: np.ndarray
+) -> List[Tuple]:
     """Compute intersection of two triangle tessalation of a surface.
 
     The function will identify partly overlapping triangles between t_1 and
@@ -1625,8 +1647,9 @@ def triangulations(p_1, p_2, t_1, t_2):
     return intersections
 
 
-@pp.time_logger(sections=module_sections)
-def line_tesselation(p1, p2, l1, l2):
+def line_tesselation(
+    p1: np.ndarray, p2: np.ndarray, l1: np.ndarray, l2: np.ndarray
+) -> List[Tuple]:
     """Compute intersection of two line segment tessalations of a line.
 
     The function will identify partly overlapping line segments between l1 and
@@ -1671,7 +1694,6 @@ def line_tesselation(p1, p2, l1, l2):
     return intersections
 
 
-@pp.time_logger(sections=module_sections)
 def surface_tessalations(
     poly_sets: List[List[np.ndarray]], return_simplexes: bool = False
 ) -> Tuple[List[np.ndarray], List[sps.csr_matrix]]:
@@ -1936,8 +1958,9 @@ def surface_tessalations(
     return isect_polys, mappings
 
 
-@pp.time_logger(sections=module_sections)
-def split_intersecting_segments_2d(p, e, tol=1e-8, return_argsort=False):
+def split_intersecting_segments_2d(
+    p: np.ndarray, e: np.ndarray, tol: bool = 1e-8, return_argsort: bool = False
+):
     """Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
 
@@ -2196,8 +2219,9 @@ def split_intersecting_segments_2d(p, e, tol=1e-8, return_argsort=False):
             return unique_all_pt, new_edge.astype(int), tag_info
 
 
-@pp.time_logger(sections=module_sections)
-def _axis_aligned_bounding_box_2d(p, e):
+def _axis_aligned_bounding_box_2d(
+    p: np.ndarray, e: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """For a set of lines in 2d, obtain the bounding box for each line.
 
     The lines are specified as a list of points, together with connections between
@@ -2231,8 +2255,9 @@ def _axis_aligned_bounding_box_2d(p, e):
     return x_min, x_max, y_min, y_max
 
 
-@pp.time_logger(sections=module_sections)
-def _axis_aligned_bounding_box_3d(polys):
+def _axis_aligned_bounding_box_3d(
+    polys: List[np.ndarray],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """For a set of polygons embedded in 3d, obtain the bounding box for each object.
 
     The polygons are specified as a list of numpy arrays.
@@ -2273,8 +2298,7 @@ def _axis_aligned_bounding_box_3d(polys):
     return x_min, x_max, y_min, y_max, z_min, z_max
 
 
-@pp.time_logger(sections=module_sections)
-def _identify_overlapping_intervals(left, right):
+def _identify_overlapping_intervals(left: np.ndarray, right: np.ndarray) -> np.ndarray:
     """Based on a set of start and end coordinates for intervals, identify pairs of
     overlapping intervals.
 
@@ -2348,8 +2372,13 @@ def _identify_overlapping_intervals(left, right):
         return pairs
 
 
-@pp.time_logger(sections=module_sections)
-def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
+def _identify_overlapping_rectangles(
+    xmin: np.ndarray,
+    xmax: np.ndarray,
+    ymin: np.ndarray,
+    ymax: np.ndarray,
+    tol: float = 1e-8,
+) -> np.ndarray:
     """Based on a set of start and end coordinates for bounding boxes, identify pairs of
     overlapping rectangles.
 
@@ -2435,8 +2464,7 @@ def _identify_overlapping_rectangles(xmin, xmax, ymin, ymax, tol=1e-8):
         return pairs
 
 
-@pp.time_logger(sections=module_sections)
-def _intersect_pairs(p1, p2):
+def _intersect_pairs(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     """For two lists containing pair of indices, find the intersection.
 
     Parameters:
