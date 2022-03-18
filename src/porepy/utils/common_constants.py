@@ -83,7 +83,7 @@ def CELSIUS_to_KELVIN(celsius):
     return celsius + 273.15
 
 
-def KELKIN_to_CELSIUS(kelvin):
+def KELVIN_to_CELSIUS(kelvin):
     return kelvin - 273.15
 
 
