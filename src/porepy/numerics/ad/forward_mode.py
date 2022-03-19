@@ -84,7 +84,7 @@ class Ad_array:
     def __rmul__(self, other):
         if isinstance(other, Ad_array):
             # other is Ad_var, so should have called __mul__
-            raise RuntimeError("Somthing went horrible wrong")
+            raise RuntimeError("Something went horrible wrong")
         val = other * self.val
         jac = self._other_mul_jac(other)
         return Ad_array(val, jac)
@@ -102,9 +102,7 @@ class Ad_array:
 
     def __rpow__(self, other):
         if isinstance(other, Ad_array):
-            raise ValueError(
-                "Somthing went horrible wrong, should" "have called __pow__"
-            )
+            raise ValueError("Somthing went horrible wrong, should have called __pow__")
         val = other ** self.val
         jac = self.diagvec_mul_jac(other ** self.val * np.log(other))
         return Ad_array(val, jac)
