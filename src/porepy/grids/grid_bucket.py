@@ -24,8 +24,6 @@ import porepy as pp
 from porepy.grids import mortar_grid
 from porepy.utils import setmembership
 
-module_sections = ["grids", "gridding"]
-
 
 class GridBucket:
     """
@@ -47,13 +45,11 @@ class GridBucket:
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self) -> None:
         self._nodes: Dict[pp.Grid, Dict] = {}
         self._edges: Dict[Tuple[pp.Grid, pp.Grid], Dict] = {}
         self.name = "grid bucket"
 
-    @pp.time_logger(sections=module_sections)
     def __contains__(self, key: Any) -> bool:
         """Overload __contains__.
 
@@ -87,7 +83,6 @@ class GridBucket:
 
     # --------- Iterators -------------------------
 
-    @pp.time_logger(sections=module_sections)
     def __iter__(self) -> Generator[Tuple[pp.Grid, Dict], None, None]:
         """Iterator over the nodes in the GridBucket.
 
@@ -99,7 +94,6 @@ class GridBucket:
         for grid, data in self._nodes.items():
             yield grid, data
 
-    @pp.time_logger(sections=module_sections)
     def nodes(self) -> Generator[Tuple[pp.Grid, Dict], None, None]:
         """Iterator over the nodes in the GridBucket.
 
@@ -114,7 +108,6 @@ class GridBucket:
         for grid, data in self._nodes.items():
             yield grid, data
 
-    @pp.time_logger(sections=module_sections)
     def edges(self) -> Generator[Tuple[Tuple[pp.Grid, pp.Grid], Dict], None, None]:
         """
         Iterator over the edges in the GridBucket
@@ -129,7 +122,6 @@ class GridBucket:
         for edge, data in self._edges.items():
             yield edge, data
 
-    @pp.time_logger(sections=module_sections)
     def nodes_and_edges(
         self,
     ) -> Generator[Tuple[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], Dict], None, None]:
@@ -148,7 +140,6 @@ class GridBucket:
 
     # ---------- Navigate within the graph --------
 
-    @pp.time_logger(sections=module_sections)
     def nodes_of_edge(self, edge: Tuple[pp.Grid, pp.Grid]) -> Tuple[pp.Grid, pp.Grid]:
         """Obtain the vertices of an edge.
 
@@ -185,7 +176,6 @@ class GridBucket:
         else:
             return edge[1], edge[0]
 
-    @pp.time_logger(sections=module_sections)
     def edges_of_node(
         self, node
     ) -> Generator[Tuple[Tuple[pp.Grid, pp.Grid], Dict], None, None]:
@@ -205,7 +195,6 @@ class GridBucket:
             if edge[0] == node or edge[1] == node:
                 yield edge, self.edge_props(edge)
 
-    @pp.time_logger(sections=module_sections)
     def node_neighbors(
         self, node: pp.Grid, only_higher: bool = False, only_lower: bool = False
     ) -> np.ndarray:
@@ -252,7 +241,6 @@ class GridBucket:
 
     # ------------ Getters for grids
 
-    @pp.time_logger(sections=module_sections)
     def get_grids(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """Obtain the grids, optionally filtered by a specified condition.
 
@@ -272,7 +260,6 @@ class GridBucket:
 
         return np.array([grid for grid, _ in self if cond(grid)])
 
-    @pp.time_logger(sections=module_sections)
     def grids_of_dimension(self, dim: int) -> np.ndarray:
         """Get all grids in the bucket of a specific dimension.
 
@@ -283,7 +270,6 @@ class GridBucket:
 
         return self.get_grids(lambda grid: grid.dim == dim)
 
-    @pp.time_logger(sections=module_sections)
     def get_mortar_grids(
         self, cond: Callable[[pp.Grid], bool] = None, name: str = "mortar_grid"
     ) -> np.ndarray:
@@ -307,7 +293,6 @@ class GridBucket:
 
     # ----------- Adders for node and edge properties (introduce keywords)
 
-    @pp.time_logger(sections=module_sections)
     def add_node_props(
         self,
         keys: Union[Any, List[Any]],
@@ -357,7 +342,6 @@ class GridBucket:
                 if overwrite or key not in data:
                     data[key] = None
 
-    @pp.time_logger(sections=module_sections)
     def add_edge_props(
         self,
         keys: Union[Any, List[Any]],
@@ -376,7 +360,7 @@ class GridBucket:
         Parameters:
             keys (object or list of object): Key to the property to be handled.
             edges (list of 2-tuple of pp.Grid, optional): Grid pairs
-                @pp.time_logger(sections=module_sections)
+
                 defining the edges to be assigned. values. Defaults to None, in
                 which case all edges are assigned the same value.
             overwrite (bool, optional): Whether to overwrite existing keys.
@@ -398,7 +382,6 @@ class GridBucket:
 
     # ------------ Getters for node and edge properties
 
-    @pp.time_logger(sections=module_sections)
     def has_nodes_prop(self, grids: Iterable[pp.Grid], key: Any) -> List[bool]:
         """Test if a key exists in the data dictionary related to each of a list of nodes.
 
@@ -418,7 +401,6 @@ class GridBucket:
             found.append(key in self._nodes[grid])
         return found
 
-    @pp.time_logger(sections=module_sections)
     def node_props(self, grid: pp.Grid, key: Any = None) -> Any:
         """Getter for a node property of the bucket.
 
@@ -437,7 +419,6 @@ class GridBucket:
         else:
             return self._nodes[grid][key]
 
-    @pp.time_logger(sections=module_sections)
     def edge_props(self, edge: Tuple[pp.Grid, pp.Grid], key: Any = None) -> Dict:
         """Getter for an edge properties of the bucket.
 
@@ -469,7 +450,6 @@ class GridBucket:
 
     # ------------- Setters for edge and grid properties
 
-    @pp.time_logger(sections=module_sections)
     def set_node_prop(self, grid: pp.Grid, key: Any, val: Any) -> None:
         """Set the value of a property of a given node.
 
@@ -488,7 +468,6 @@ class GridBucket:
         """
         self._nodes[grid][key] = val
 
-    @pp.time_logger(sections=module_sections)
     def set_edge_prop(self, edge: Tuple[pp.Grid, pp.Grid], key: Any, val: Any) -> None:
         """Set the value of a property of a given edge.
 
@@ -518,7 +497,6 @@ class GridBucket:
 
     # ------------ Removers for nodes properties ----------
 
-    @pp.time_logger(sections=module_sections)
     def remove_node_props(
         self, keys: Union[Any, List[Any]], grids: Union[pp.Grid, List[pp.Grid]] = None
     ) -> None:
@@ -558,7 +536,6 @@ class GridBucket:
                 if key in data:
                     del data[key]
 
-    @pp.time_logger(sections=module_sections)
     def remove_edge_props(
         self,
         keys: Union[Any, List[Any]],
@@ -610,7 +587,6 @@ class GridBucket:
 
     # ------------ Add new nodes and edges ----------
 
-    @pp.time_logger(sections=module_sections)
     def add_nodes(self, new_grids: Union[pp.Grid, Iterable[pp.Grid]]) -> None:
         """
         Add grids to the hierarchy.
@@ -635,7 +611,6 @@ class GridBucket:
         for grid in ng:
             self._nodes[grid] = {}
 
-    @pp.time_logger(sections=module_sections)
     def add_edge(
         self, grids: List[pp.Grid], primary_secondary_map: sps.spmatrix
     ) -> None:
@@ -689,7 +664,6 @@ class GridBucket:
 
     # --------- Remove and update nodes
 
-    @pp.time_logger(sections=module_sections)
     def remove_node(self, node: pp.Grid) -> None:
         """
         Remove node, and related edges, from the grid bucket.
@@ -709,7 +683,6 @@ class GridBucket:
         for edge in edges_to_remove:
             del self._edges[edge]
 
-    @pp.time_logger(sections=module_sections)
     def remove_nodes(self, cond: Callable[[pp.Grid], bool]) -> None:
         """
         Remove nodes, and related edges, from the grid bucket subject to a
@@ -734,7 +707,6 @@ class GridBucket:
         for edge in edges_to_remove:
             del self._edges[edge]
 
-    @pp.time_logger(sections=module_sections)
     def update_nodes(self, mapping: Dict[pp.Grid, pp.Grid]) -> None:
         """
         Update the grids giving old and new values. The edges are updated
@@ -760,7 +732,6 @@ class GridBucket:
 
             self._edges = new_dict
 
-    @pp.time_logger(sections=module_sections)
     def eliminate_node(self, node: pp.Grid) -> List[pp.Grid]:
         """
         Remove the node (and the edges it partakes in) and add new direct
@@ -788,7 +759,6 @@ class GridBucket:
 
         return neighbors
 
-    @pp.time_logger(sections=module_sections)
     def duplicate_without_dimension(
         self, dim: int
     ) -> Tuple["GridBucket", Dict[str, Dict]]:
@@ -845,7 +815,6 @@ class GridBucket:
 
     # ---------- Functionality related to ordering of nodes
 
-    @pp.time_logger(sections=module_sections)
     def assign_node_ordering(self, overwrite_existing: bool = True) -> None:
         """
         Assign an ordering of the nodes in the graph, stored as the attribute
@@ -893,7 +862,6 @@ class GridBucket:
             data["edge_number"] = counter
             counter += 1
 
-    @pp.time_logger(sections=module_sections)
     def update_node_ordering(self, removed_number: int) -> None:
         """
         Uppdate an existing ordering of the nodes in the graph, stored as the attribute
@@ -924,7 +892,6 @@ class GridBucket:
                 if old_number > removed_number:
                     n["node_number"] = old_number - 1
 
-    @pp.time_logger(sections=module_sections)
     def sort_multiple_nodes(self, nodes: List[pp.Grid]) -> List[pp.Grid]:
         """
         Sort all the nodes according to node number.
@@ -942,7 +909,6 @@ class GridBucket:
 
     # ------------- Miscellaneous functions ---------
 
-    @pp.time_logger(sections=module_sections)
     def target_2_source_nodes(self, g_src, g_trg):
         """
         Find the local node mapping from a source grid to a target grid.
@@ -960,7 +926,6 @@ class GridBucket:
         )
         return trg_2_src_nodes
 
-    @pp.time_logger(sections=module_sections)
     def compute_geometry(self) -> None:
         """Compute geometric quantities for the grids."""
         for grid, _ in self:
@@ -970,7 +935,6 @@ class GridBucket:
             if "mortar_grid" in data.keys():
                 data["mortar_grid"].compute_geometry()
 
-    @pp.time_logger(sections=module_sections)
     def copy(self) -> "GridBucket":
         """Make a shallow copy of the grid bucket. The underlying grids are not copied.
 
@@ -983,7 +947,6 @@ class GridBucket:
         gb_copy._edges = self._edges.copy()
         return gb_copy
 
-    @pp.time_logger(sections=module_sections)
     def replace_grids(
         self,
         g_map: Optional[Dict[pp.Grid, pp.Grid]] = None,
@@ -1028,7 +991,6 @@ class GridBucket:
                 else:  # g_new.dim == mg.dim + 1
                     mg.update_primary(g_new, g_old, tol)
 
-    @pp.time_logger(sections=module_sections)
     def _find_shared_face(self, g0: pp.Grid, g1: pp.Grid, g_l: pp.Grid) -> np.ndarray:
         """
         Given two nd grids meeting at a (n-1)d node (to be removed), find which two
@@ -1083,7 +1045,6 @@ class GridBucket:
 
     # ----------- Apply functions to nodes and edges
 
-    @pp.time_logger(sections=module_sections)
     def apply_function_to_nodes(
         self, fct: Callable[[pp.Grid, Dict], Any]
     ) -> np.ndarray:
@@ -1104,7 +1065,6 @@ class GridBucket:
             values[d["node_number"]] = fct(g, d)
         return values
 
-    @pp.time_logger(sections=module_sections)
     def apply_function_to_edges(
         self, fct: Callable[[pp.Grid, pp.Grid, Dict, Dict, Dict], Any]
     ) -> sps.spmatrix:
@@ -1144,7 +1104,6 @@ class GridBucket:
 
     # ---- Methods for getting information on the bucket, or its components ----
 
-    @pp.time_logger(sections=module_sections)
     def diameter(
         self, cond: Callable[[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]], bool] = None
     ) -> float:
@@ -1173,7 +1132,6 @@ class GridBucket:
 
         return np.amax(np.hstack((diam_g, diam_mg)))  # type: ignore
 
-    @pp.time_logger(sections=module_sections)
     def bounding_box(
         self, as_dict: bool = False
     ) -> Union[Dict[str, float], Tuple[float, float]]:
@@ -1201,7 +1159,6 @@ class GridBucket:
         else:
             return min_vals, max_vals  # type: ignore
 
-    @pp.time_logger(sections=module_sections)
     def size(self) -> int:
         """
         Returns:
@@ -1210,7 +1167,6 @@ class GridBucket:
         """
         return self.num_graph_nodes() + self.num_graph_edges()
 
-    @pp.time_logger(sections=module_sections)
     def dim_min(self) -> int:
         """
         Returns:
@@ -1219,7 +1175,6 @@ class GridBucket:
         """
         return np.amin([grid.dim for grid, _ in self])  # type: ignore
 
-    @pp.time_logger(sections=module_sections)
     def dim_max(self) -> int:
         """
         Returns:
@@ -1228,7 +1183,6 @@ class GridBucket:
         """
         return np.amax([grid.dim for grid, _ in self])  # type: ignore
 
-    @pp.time_logger(sections=module_sections)
     def all_dims(self) -> np.ndarray:
         """
         Returns:
@@ -1237,7 +1191,6 @@ class GridBucket:
         """
         return np.unique([grid.dim for grid, _ in self])
 
-    @pp.time_logger(sections=module_sections)
     def cell_volumes(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
         Get the cell volumes of all cells of the grid bucket, considering a loop
@@ -1257,7 +1210,6 @@ class GridBucket:
             [grid.cell_volumes for grid, _ in self._nodes.items() if cond(grid)]
         )
 
-    @pp.time_logger(sections=module_sections)
     def face_centers(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
         Get the face centers of all faces of the grid bucket, considering a loop
@@ -1276,7 +1228,6 @@ class GridBucket:
             [grid.face_centers for grid, _ in self._nodes.items() if cond(grid)]
         )
 
-    @pp.time_logger(sections=module_sections)
     def cell_centers(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
         Get the cell centers of all cells of the grid bucket, considering a loop
@@ -1296,7 +1247,6 @@ class GridBucket:
             [grid.cell_centers for grid, _ in self._nodes.items() if cond(grid)]
         )
 
-    @pp.time_logger(sections=module_sections)
     def cell_volumes_mortar(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
         Get the cell volumes of all mortar cellse of the grid bucket, considering a loop
@@ -1323,7 +1273,6 @@ class GridBucket:
             ]
         )
 
-    @pp.time_logger(sections=module_sections)
     def num_cells(self, cond: Callable[[pp.Grid], bool] = None) -> int:
         """
         Compute the total number of cells of the grid bucket, considering a loop
@@ -1343,7 +1292,6 @@ class GridBucket:
             [grid.num_cells for grid in self._nodes.keys() if cond(grid)], dtype=int
         )
 
-    @pp.time_logger(sections=module_sections)
     def num_mortar_cells(self, cond: Callable[[pp.Grid], bool] = None) -> int:
         """
         Compute the total number of mortar cells of the grid bucket, considering
@@ -1368,7 +1316,6 @@ class GridBucket:
             dtype=int,
         )
 
-    @pp.time_logger(sections=module_sections)
     def num_faces(self, cond: Callable[[pp.Grid], bool] = None) -> int:
         """
         Compute the total number of faces of the grid bucket, considering a loop
@@ -1389,7 +1336,6 @@ class GridBucket:
             [grid.num_faces for grid in self._nodes.keys() if cond(grid)]
         )
 
-    @pp.time_logger(sections=module_sections)
     def num_nodes(self, cond: Callable[[pp.Grid], bool] = None) -> int:
         """
         Compute the total number of nodes of the grid bucket, considering a loop
@@ -1410,7 +1356,6 @@ class GridBucket:
             [grid.num_nodes for grid in self._nodes.keys() if cond(grid)]
         )
 
-    @pp.time_logger(sections=module_sections)
     def num_graph_nodes(self):
         """
         Return the total number of nodes (physical meshes) in the graph.
@@ -1421,7 +1366,6 @@ class GridBucket:
         """
         return len(self._nodes)
 
-    @pp.time_logger(sections=module_sections)
     def num_graph_edges(self) -> int:
         """
         Return the total number of edge in the graph.
@@ -1432,7 +1376,6 @@ class GridBucket:
         """
         return len(self._edges)
 
-    @pp.time_logger(sections=module_sections)
     def num_nodes_edges(self) -> int:
         """
         Return the total number of nodes (physical meshes) plus the total number
@@ -1444,7 +1387,6 @@ class GridBucket:
         """
         return self.num_graph_nodes() + self.num_graph_edges()
 
-    @pp.time_logger(sections=module_sections)
     def __str__(self) -> str:
         max_dim = self.grids_of_dimension(self.dim_max())
         num_nodes = 0
@@ -1483,7 +1425,6 @@ class GridBucket:
             s += f"{num_e} interfaces between grids of dimension {dim} and {dim-1}\n"
         return s
 
-    @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
         s = (
             f"Grid bucket containing {self.num_graph_nodes() } grids and "
