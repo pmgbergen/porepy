@@ -805,11 +805,11 @@ class FractureNetwork3d(object):
             in_frac_occurences - in_frac_occurences_by_constraints
         )
 
-        # If all but one occurence of a line internal to a polygon is caused by
-        # constraints, this is likely a fracture.
-        auxiliary_line = num_occ_not_by_constraints == 1
+        # Lines at most one non-constraint occurences are either constraint-constraint
+        # or constraint-fracture intersections. None of these are "physical" lines.s
+        auxiliary_line = num_occ_not_by_constraints <= 1
 
-        # .. However, the line may also be caused by a T- or L-intersection
+        # .. However, the line may also be caused by a T- or L-intersection with the boundary.
         auxiliary_line[some_boundary_edge] = False
         # The edge tags for internal lines were set accordingly in self._classify_edges.
         # Update to auxiliray line if this was really what we had.
