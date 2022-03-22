@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Sat Nov 11 17:25:01 2017
 
@@ -657,7 +655,6 @@ class TestRefinementMortarGrid(unittest.TestCase):
                     [0.5, 0.0],
                 ]
             )
-
             self.assertTrue(
                 np.allclose(high_to_mortar_known, mg.primary_to_mortar_int().todense())
             )
@@ -758,7 +755,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
                     ],
                 ]
             )
-            low_to_mortar_known = np.matrix(
+            low_to_mortar_known_avg = np.matrix(
                 [
                     [0.0, 0.0, 0.5, 0.5],
                     [0.5, 0.5, 0.0, 0.0],
@@ -776,11 +773,11 @@ class TestRefinementMortarGrid(unittest.TestCase):
             self.assertTrue(
                 np.logical_or(
                     np.allclose(
-                        low_to_mortar_known, mg.secondary_to_mortar_int().todense()
+                        low_to_mortar_known_avg, mg.secondary_to_mortar_avg().A
                     ),
                     np.allclose(
-                        low_to_mortar_known,
-                        mg.secondary_to_mortar_int().todense()[::-1],
+                        low_to_mortar_known_avg,
+                        mg.secondary_to_mortar_avg().A[::-1],
                     ),
                 )
             )
@@ -788,7 +785,7 @@ class TestRefinementMortarGrid(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_mortar_grid_1d_refine_1d_grid_2(self):
-        """Refine the 1D grid so that it is no longer matching the 2D grid."""
+        """Refine the 1D grid so that it no longer matches the 2D grid."""
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
@@ -876,12 +873,15 @@ class TestRefinementMortarGrid(unittest.TestCase):
                     ],
                 ]
             )
-            low_to_mortar_known = (
+            low_to_mortar_known_avg = (
                 1.0
                 / 3.0
                 * np.matrix(
                     [[0.0, 1.0, 2.0], [2.0, 1.0, 0.0], [0.0, 1.0, 2.0], [2.0, 1.0, 0.0]]
                 )
+            )
+            low_to_mortar_known_int = np.matrix(
+                [[0.0, 0.5, 1.0], [1.0, 0.5, 0.0], [0.0, 0.5, 1.0], [1.0, 0.5, 0.0]]
             )
 
             self.assertTrue(
@@ -892,11 +892,22 @@ class TestRefinementMortarGrid(unittest.TestCase):
             self.assertTrue(
                 np.logical_or(
                     np.allclose(
-                        low_to_mortar_known, mg.secondary_to_mortar_int().todense()
+                        low_to_mortar_known_avg, mg.secondary_to_mortar_avg().A
                     ),
                     np.allclose(
-                        low_to_mortar_known,
-                        mg.secondary_to_mortar_int().todense()[::-1],
+                        low_to_mortar_known_avg,
+                        mg.secondary_to_mortar_avg().A[::-1],
+                    ),
+                )
+            )
+            self.assertTrue(
+                np.logical_or(
+                    np.allclose(
+                        low_to_mortar_known_int, mg.secondary_to_mortar_int().A
+                    ),
+                    np.allclose(
+                        low_to_mortar_known_int,
+                        mg.secondary_to_mortar_int().A[::-1],
                     ),
                 )
             )
