@@ -218,7 +218,7 @@ class Operator:
         the tree of this operator, using data from gb.
 
         IMPLEMENTATION NOTE: The discretizations was identified at initialization of
-        Expression - it is now done here to accomodate updates (?) and
+        Expression - it is now done here to accommodate updates (?) and
 
         """
         unique_discretizations: Dict[
@@ -563,7 +563,7 @@ class Operator:
                 at the previous time step.
 
         Returns:
-            An Ad-array representation of the residual and Jacbobian. Note that the Jacobian
+            An Ad-array representation of the residual and Jacobian. Note that the Jacobian
                 matrix need not be invertible, or ever square; this depends on the operator.
 
         """
