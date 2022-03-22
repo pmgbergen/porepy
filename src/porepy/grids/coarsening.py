@@ -247,23 +247,30 @@ def _generate_coarse_grid_gb(gb, subdiv):
         # We update also all the face_cells
         for e, d in gb.edges_of_node(g):
             # The indices that need to be mapped to the new grid
-            primary_to_mortar = d["mortar_grid"].primary_to_mortar_int().tocsr()
-            indices = primary_to_mortar.indices
 
-            # Map indices
-            mask = np.argsort(indices)
-            indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
-            # Reverse the ordering
-            indices = indices[np.argsort(mask)]
+            projections = [
+                d["mortar_grid"].primary_to_mortar_int().tocsr(),
+                d["mortar_grid"].primary_to_mortar_avg().tocsr(),
+            ]
 
-            # Create the new matrix
-            shape = (primary_to_mortar.shape[0], g.num_faces)
-            new_primary_to_mortar = sps.csr_matrix(
-                (primary_to_mortar.data, indices, primary_to_mortar.indptr), shape=shape
-            )
+            for ind, mat in enumerate(projections):
+                indices = mat.indices
+
+                # Map indices
+                mask = np.argsort(indices)
+                indices = np.in1d(face_map[0, :], indices[mask]).nonzero()[0]
+                # Reverse the ordering
+                indices = indices[np.argsort(mask)]
+
+                # Create the new matrix
+                shape = (mat.shape[0], g.num_faces)
+                projections[ind] = sps.csr_matrix((mat.data, indices, mat.indptr), shape=shape)
+
             # Update mortar projection
-            d["mortar_grid"]._primary_to_mortar_int = new_primary_to_mortar.tocsc()
-            # Also update all other projections to secondary
+            d["mortar_grid"]._primary_to_mortar_int = projections[0].tocsc()
+            d["mortar_grid"]._primary_to_mortar_avg = projections[1].tocsc()
+
+            # Also update all other projections to primary
             d["mortar_grid"]._set_projections(secondary=False)
 
             # update also the face_cells map

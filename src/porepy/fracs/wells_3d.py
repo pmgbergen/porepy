@@ -546,7 +546,9 @@ def compute_well_rock_matrix_intersections(
         mg = pp.MortarGrid(g_w.dim, side_g, codim=g_max.dim - g_w.dim)
         # set the maps
         mg._primary_to_mortar_int = primary_secondary_map
+        mg._primary_to_mortar_avg = primary_secondary_map.copy()
         mg._secondary_to_mortar_int = sps.diags(np.ones(g_w.num_cells), format="csc")
+        mg._secondary_to_mortar_avg = sps.diags(np.ones(g_w.num_cells), format="csc")
         mg._set_projections()
         # compute the geometry and save the mortar grid
         mg.compute_geometry()
