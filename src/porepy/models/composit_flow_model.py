@@ -380,8 +380,8 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         Many of the functions here may change in the future, partly to allow for more
         general descriptions of fluid and rock properties. Also, overriding some of
         the constitutive laws may lead to different parameters being needed.
-
         """
+        
         for g, d, mat_sd in self.cd:
 
             bc, bc_vals = self._BC_unitary_transport_flux(g)
