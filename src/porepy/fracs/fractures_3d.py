@@ -22,7 +22,6 @@ from .gmsh_interface import GmshData3d, GmshWriter, Tags
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
-module_sections = ["gridding"]
 
 
 class Fracture(object):
@@ -48,7 +47,6 @@ class Fracture(object):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, points, index=None, check_convexity=False, sort_points=True):
         """Initialize fractures.
 
@@ -84,7 +82,6 @@ class Fracture(object):
         if check_convexity:
             assert self.check_convexity(), "Points form non-convex polygon"
 
-    @pp.time_logger(sections=module_sections)
     def set_index(self, i):
         """Set index of this fracture.
 
@@ -94,7 +91,6 @@ class Fracture(object):
         """
         self.index = i
 
-    @pp.time_logger(sections=module_sections)
     def __eq__(self, other):
         """Equality is defined as two fractures having the same index.
 
@@ -103,7 +99,6 @@ class Fracture(object):
         """
         return self.index == other.index
 
-    @pp.time_logger(sections=module_sections)
     def copy(self):
         """Return a deep copy of the fracture.
 
@@ -117,7 +112,6 @@ class Fracture(object):
         p = np.copy(self.p)
         return Fracture(p)
 
-    @pp.time_logger(sections=module_sections)
     def points(self):
         """
         Iterator over the vexrtexes of the bounding polygon
@@ -129,7 +123,6 @@ class Fracture(object):
         for i in range(self.p.shape[1]):
             yield self.p[:, i].reshape((-1, 1))
 
-    @pp.time_logger(sections=module_sections)
     def segments(self):
         """
         Iterator over the segments of the bounding polygon.
@@ -142,7 +135,6 @@ class Fracture(object):
         for i in range(sz):
             yield self.p[:, np.array([i, i + 1]) % sz]
 
-    @pp.time_logger(sections=module_sections)
     def is_vertex(self, p, tol=1e-4):
         """Check whether a given point is a vertex of the fracture.
 
@@ -166,7 +158,6 @@ class Fracture(object):
             occurences = np.where(ind == ind[0])[0]
             return True, (occurences[1] - 1)
 
-    @pp.time_logger(sections=module_sections)
     def points_2_ccw(self):
         """
         Ensure that the points are sorted in a counter-clockwise order.
@@ -193,13 +184,12 @@ class Fracture(object):
 
         return sort_ind
 
-    @pp.time_logger(sections=module_sections)
     def add_points(self, p, check_convexity=True, tol=1e-4, enforce_pt_tol=None):
         """
         Add a point to the polygon with ccw sorting enforced.
 
         Always run a test to check that the points are still planar. By
-        @pp.time_logger(sections=module_sections)
+
         default, a check of convexity is also performed, however, this can be
         turned off to speed up simulations (the test uses sympy, which turns
         out to be slow in many cases).
@@ -242,7 +232,6 @@ class Fracture(object):
         else:
             return self.is_planar()
 
-    @pp.time_logger(sections=module_sections)
     def remove_points(self, ind, keep_orig=False):
         """Remove points from the fracture definition
 
@@ -256,7 +245,6 @@ class Fracture(object):
         if not keep_orig:
             self.orig_p = self.p
 
-    @pp.time_logger(sections=module_sections)
     def plane_coordinates(self):
         """
         Represent the vertex coordinates in its natural 2d plane.
@@ -273,7 +261,6 @@ class Fracture(object):
 
         return points_2d[:2]
 
-    @pp.time_logger(sections=module_sections)
     def check_convexity(self):
         """
         Check if the polygon is convex.
@@ -295,7 +282,6 @@ class Fracture(object):
         p_2d = self.plane_coordinates()
         return self.as_sp_polygon(p_2d).is_convex()
 
-    @pp.time_logger(sections=module_sections)
     def is_planar(self, tol=1e-4):
         """Check if the points forming this fracture lies in a plane.
 
@@ -311,7 +297,6 @@ class Fracture(object):
         p_2d = rot.dot(p)
         return np.max(np.abs(p_2d[2])) < tol
 
-    @pp.time_logger(sections=module_sections)
     def compute_centroid(self):
         """
         Compute, and redefine, center of the fracture in the form of the
@@ -341,12 +326,10 @@ class Fracture(object):
         # Project back again.
         self.center = rot.transpose().dot(np.append(center, z)).reshape((3, 1))
 
-    @pp.time_logger(sections=module_sections)
     def compute_normal(self):
         """Compute normal to the polygon."""
         self.normal = pp.map_geometry.compute_normal(self.p)[:, None]
 
-    @pp.time_logger(sections=module_sections)
     def as_sp_polygon(self, p=None):
         """Represent polygon as a sympy object.
 
@@ -366,11 +349,9 @@ class Fracture(object):
         sp = [Point(p[:, i]) for i in range(p.shape[1])]
         return Polygon(*sp)
 
-    @pp.time_logger(sections=module_sections)
     def __repr__(self):
         return self.__str__()
 
-    @pp.time_logger(sections=module_sections)
     def __str__(self):
         s = "Points: \n"
         s += str(self.p) + "\n"
@@ -386,7 +367,6 @@ class EllipticFracture(Fracture):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         center,
@@ -506,7 +486,6 @@ class FractureNetwork3d(object):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         fractures: Optional[List[Fracture]] = None,
@@ -576,7 +555,6 @@ class FractureNetwork3d(object):
 
         self.bounding_box_imposed = False
 
-    @pp.time_logger(sections=module_sections)
     def add(self, f):
         """Add a fracture to the network.
 
@@ -595,7 +573,6 @@ class FractureNetwork3d(object):
             f.set_index(0)
         self._fractures.append(f)
 
-    @pp.time_logger(sections=module_sections)
     def copy(self):
         """Create deep copy of the network.
 
@@ -634,7 +611,6 @@ class FractureNetwork3d(object):
 
         return num
 
-    @pp.time_logger(sections=module_sections)
     def mesh(
         self,
         mesh_args: Dict[str, float],
@@ -660,7 +636,7 @@ class FractureNetwork3d(object):
             dfn (boolean, optional): If True, a DFN mesh (of the network, but not
                 the surrounding matrix) is created.
             file_name (str, optional): Name of file used to communicate with gmsh.
-                @pp.time_logger(sections=module_sections)
+
                 defaults to gmsh_frac_file. The gmsh configuration file will be
                 file_name.geo, while the mesh is dumped to file_name.msh.
             constraints (np.array): Index list of elements in the fracture list that
@@ -726,7 +702,6 @@ class FractureNetwork3d(object):
         gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
         return gb
 
-    @pp.time_logger(sections=module_sections)
     def prepare_for_gmsh(self, mesh_args, dfn=False, constraints=None) -> GmshData3d:
         """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
@@ -742,7 +717,7 @@ class FractureNetwork3d(object):
             dfn (boolean, optional): If True, a DFN mesh (of the network, but not
                 the surrounding matrix) is created.
             file_name (str, optional): Name of file used to communicate with gmsh.
-                @pp.time_logger(sections=module_sections)
+
                 defaults to gmsh_frac_file. The gmsh configuration file will be
                 file_name.geo, while the mesh is dumped to file_name.msh.
             constraints (np.array): Index list of elements in the fracture list that
@@ -769,8 +744,6 @@ class FractureNetwork3d(object):
         # Find intersections between fractures
         if not self.has_checked_intersections:
             self.find_intersections()
-        else:
-            logger.info("Use existing intersections")
 
         if "mesh_size_frac" not in mesh_args.keys():
             raise ValueError("Meshing algorithm needs argument mesh_size_frac")
@@ -1023,11 +996,9 @@ class FractureNetwork3d(object):
 
         return gmsh_repr
 
-    @pp.time_logger(sections=module_sections)
     def __getitem__(self, position):
         return self._fractures[position]
 
-    @pp.time_logger(sections=module_sections)
     def intersections_of_fracture(
         self, frac: Union[int, Fracture]
     ) -> Tuple[List[int], List[bool]]:
@@ -1059,7 +1030,6 @@ class FractureNetwork3d(object):
 
         return isects, is_first
 
-    @pp.time_logger(sections=module_sections)
     def find_intersections(self, use_orig_points=False):
         """
         Find intersections between fractures in terms of coordinates.
@@ -1153,7 +1123,6 @@ class FractureNetwork3d(object):
             time.time() - start_time,
         )
 
-    @pp.time_logger(sections=module_sections)
     def split_intersections(self):
         """
         Based on the fracture network, and their known intersections, decompose
@@ -1220,7 +1189,6 @@ class FractureNetwork3d(object):
             "Finished fracture splitting after %.5f seconds", time.time() - start_time
         )
 
-    @pp.time_logger(sections=module_sections)
     def _fracs_2_edges(self, edges_2_frac):
         """Invert the mapping between edges and fractures.
 
@@ -1237,7 +1205,6 @@ class FractureNetwork3d(object):
             f2e.append(f_l)
         return f2e
 
-    @pp.time_logger(sections=module_sections)
     def _point_and_edge_lists(self):
         """
         Obtain lists of all points and connections necessary to describe
@@ -1332,7 +1299,6 @@ class FractureNetwork3d(object):
             all_p, edges, edges_2_frac, is_boundary_edge
         )
 
-    @pp.time_logger(sections=module_sections)
     def _uniquify_points_and_edges(self, all_p, edges, edges_2_frac, is_boundary_edge):
 
         start_time = time.time()
@@ -1407,7 +1373,6 @@ class FractureNetwork3d(object):
 
         return p_unique, edges, edges_2_frac, is_boundary_edge
 
-    @pp.time_logger(sections=module_sections)
     def _remove_edge_intersections(self, all_p, edges, edges_2_frac, is_boundary_edge):
         """
         Remove crossings from the set of fracture intersections.
@@ -1587,7 +1552,6 @@ class FractureNetwork3d(object):
             all_p, edges, edges_2_frac, is_boundary_edge
         )
 
-    @pp.time_logger(sections=module_sections)
     def fractures_of_points(self, pts):
         """
         For a given point, find all fractures that refer to it, either as
@@ -1616,7 +1580,6 @@ class FractureNetwork3d(object):
             fracs_of_points.append(list(np.unique(fracs_loc)))
         return fracs_of_points
 
-    @pp.time_logger(sections=module_sections)
     def close_points(self, dist):
         """
         In the set of points used to describe the fractures (after
@@ -1646,7 +1609,6 @@ class FractureNetwork3d(object):
 
         return c_points
 
-    @pp.time_logger(sections=module_sections)
     def _verify_fractures_in_plane(self, p, edges, edges_2_frac):
         """
         Essentially a debugging method that verify that the given set of
@@ -1670,7 +1632,6 @@ class FractureNetwork3d(object):
             # Run through points_2_plane, to check the assertions
             self._points_2_plane(p_loc, edges_loc, p_ind_loc)
 
-    @pp.time_logger(sections=module_sections)
     def _points_2_plane(self, p_loc, edges_loc, p_ind_loc):
         """
         Convenience method for rotating a point cloud into its own 2d-plane.
@@ -1741,7 +1702,6 @@ class FractureNetwork3d(object):
             "zmax": max_coord[2],
         }
 
-    @pp.time_logger(sections=module_sections)
     def impose_external_boundary(
         self,
         domain: Optional[Union[Dict[str, float], List[np.ndarray]]] = None,
@@ -2229,7 +2189,6 @@ class FractureNetwork3d(object):
         self._reindex_fractures()
         return ind_map
 
-    @pp.time_logger(sections=module_sections)
     def _classify_edges(self, polygon_edges, constraints):
         """
         Classify the edges into fracture boundary, intersection, or auxiliary.
@@ -2303,7 +2262,6 @@ class FractureNetwork3d(object):
 
         return tag, np.logical_not(all_bound), some_bound
 
-    @pp.time_logger(sections=module_sections)
     def _on_domain_boundary(self, edges, edge_tags):
         """
         Finds edges and points on boundary, to avoid that these
@@ -2373,7 +2331,6 @@ class FractureNetwork3d(object):
 
         return point_tags, edge_tags
 
-    @pp.time_logger(sections=module_sections)
     def _poly_2_segment(self):
         """
         Represent the polygons by the global edges, and determine if the lines
@@ -2411,7 +2368,6 @@ class FractureNetwork3d(object):
 
         return poly_2_line, line_reverse
 
-    @pp.time_logger(sections=module_sections)
     def _determine_mesh_size(self, point_tags, **kwargs):
         """
         Set the preferred mesh size for geometrical points as specified by
@@ -2454,7 +2410,6 @@ class FractureNetwork3d(object):
             mesh_size[on_boundary] = np.maximum(mesh_size, mesh_size_bound)[on_boundary]
         return mesh_size
 
-    @pp.time_logger(sections=module_sections)
     def _insert_auxiliary_points(
         self, mesh_size_frac=None, mesh_size_min=None, mesh_size_bound=None
     ):
@@ -2480,7 +2435,7 @@ class FractureNetwork3d(object):
             mesh_size_min: Minimal mesh size; we will make no attempts to
                 enforce even smaller mesh sizes upon Gmsh.
             mesh_size_bound (optional): Boundary mesh size. Will be added to the points
-                @pp.time_logger(sections=module_sections)
+
                 defining the boundary, unless there are any fractures in the
                 immediate vicinity influencing the size. In other words,
                 mesh_size_bound is the boundary point equivalent of
@@ -2744,7 +2699,6 @@ class FractureNetwork3d(object):
                     # inserted auxiliary points.
                     start_index += 1 + sorted_new.shape[1]
 
-    @pp.time_logger(sections=module_sections)
     def _split_intersections_of_fracture(self, cp: np.ndarray) -> None:
         """Check if a point lies on intersections of a given fracture, and if so,
         split the intersection into two.
@@ -2850,7 +2804,6 @@ class FractureNetwork3d(object):
             (self.intersections["bound_second"], bound_second)
         )
 
-    @pp.time_logger(sections=module_sections)
     def to_file(
         self, file_name: str, data: Dict[str, Union[np.ndarray, List]] = None, **kwargs
     ) -> None:
@@ -2941,7 +2894,6 @@ class FractureNetwork3d(object):
         )
         meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
-    @pp.time_logger(sections=module_sections)
     def to_csv(self, file_name, domain=None):
         """
         Save the 3d network on a csv file with comma , as separator.
@@ -2969,7 +2921,6 @@ class FractureNetwork3d(object):
             for f in self._fractures:
                 csv_writer.writerow(f.p.ravel(order="F"))
 
-    @pp.time_logger(sections=module_sections)
     def to_fab(self, file_name):
         """
         Save the 3d network on a fab file, as specified by FracMan.
@@ -2981,7 +2932,7 @@ class FractureNetwork3d(object):
             file_name (str): File name.
         """
         # function to write a numpy matrix as string
-        @pp.time_logger(sections=module_sections)
+
         def to_file(p):
             return "\n\t\t".join(" ".join(map(str, x)) for x in p)
 
@@ -3011,7 +2962,6 @@ class FractureNetwork3d(object):
                 f.write("\t0 -1 -1 -1\n")
             f.write("END FRACTURE")
 
-    @pp.time_logger(sections=module_sections)
     def fracture_to_plane(self, frac_num):
         """Project fracture vertexes and intersection points to the natural
         plane of the fracture.
@@ -3039,7 +2989,6 @@ class FractureNetwork3d(object):
 
         rot = pp.map_geometry.project_plane_matrix(frac.p)
 
-        @pp.time_logger(sections=module_sections)
         def rot_translate(pts):
             # Convenience method to translate and rotate a point.
             return rot.dot(pts - cp)
