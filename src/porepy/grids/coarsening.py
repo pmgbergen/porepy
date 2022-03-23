@@ -264,7 +264,9 @@ def _generate_coarse_grid_gb(gb, subdiv):
 
                 # Create the new matrix
                 shape = (mat.shape[0], g.num_faces)
-                projections[ind] = sps.csr_matrix((mat.data, indices, mat.indptr), shape=shape)
+                projections[ind] = sps.csr_matrix(
+                    (mat.data, indices, mat.indptr), shape=shape
+                )
 
             # Update mortar projection
             d["mortar_grid"]._primary_to_mortar_int = projections[0].tocsc()

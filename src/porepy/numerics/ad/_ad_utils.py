@@ -166,7 +166,7 @@ def discretize_from_list(
         # Loop over all grids (or GridBucket edges), do discretization.
         for g in discretizations[discr]:
             if isinstance(g, tuple):
-                data = gb.edge_props(g)
+                data = gb.edge_props(g)  # type:ignore
                 g_primary, g_secondary = g
                 d_primary = gb.node_props(g_primary)
                 d_secondary = gb.node_props(g_secondary)

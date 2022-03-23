@@ -4,15 +4,14 @@
 Functions for (boolean) inquires about geometric objects, and relations between
 objects.
 """
+from typing import List, Union
+
 import numpy as np
 import scipy
 
 import porepy as pp
 
-module_sections = ["geometry"]
 
-
-@pp.time_logger(sections=module_sections)
 def is_ccw_polygon(poly: np.ndarray) -> bool:
     """
     Determine if the vertices of a polygon are sorted counter clockwise.
@@ -61,7 +60,6 @@ def is_ccw_polygon(poly: np.ndarray) -> bool:
 # ----------------------------------------------------------
 
 
-@pp.time_logger(sections=module_sections)
 def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
     """
     Check if the line segments formed by three points is part of a
@@ -83,7 +81,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
         p3 (np.ndarray): Points to be tested
         tol (double, optional): Tolerance used in the comparison, can be used
             to account for rounding errors. Defaults to zero.
-        @pp.time_logger(sections=module_sections)
+
         default (boolean, optional): Mode returned if the point is within the
             tolerance. Should be set according to what is desired behavior of
             the function (will vary with application). Defaults to False.
@@ -121,10 +119,6 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
         return is_ccw
 
 
-# -----------------------------------------------------------------------------
-
-
-@pp.time_logger(sections=module_sections)
 def point_in_polygon(poly, p, default=False):
     """
     Check if a set of points are inside a polygon.
@@ -209,8 +203,11 @@ def point_in_polygon(poly, p, default=False):
     return inside
 
 
-@pp.time_logger(sections=module_sections)
-def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
+def point_in_polyhedron(
+    polyhedron: Union[np.ndarray, List[np.ndarray]],
+    test_points: np.ndarray,
+    tol: float = 1e-8,
+) -> np.ndarray:
     """Test whether a set of point is inside a polyhedron.
 
     The actual algorithm and implementation used for the test can be found
@@ -229,7 +226,7 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
     Suggestions for better solutions to this are most welcome.
 
     Parameters:
-        polyhedron (list of np.ndarray): Each list element represent a side
+        polyhedron (nested np.ndarray): Each outer element represent a side
             of the polyhedron. Each side is assumed to be a convex polygon.
         test_points (np.ndarray, 3 x num_pt): Points to be tested.
         tol (double, optional): Geometric tolerance, used in comparison of
@@ -318,7 +315,6 @@ def point_in_polyhedron(polyhedron, test_points, tol=1e-8):
     return is_inside
 
 
-@pp.time_logger(sections=module_sections)
 def points_are_planar(pts, normal=None, tol=1e-5):
     """Check if the points lie on a plane.
 
@@ -347,7 +343,6 @@ def points_are_planar(pts, normal=None, tol=1e-5):
     return np.all(check_all)
 
 
-@pp.time_logger(sections=module_sections)
 def point_in_cell(poly, p, if_make_planar=True):
     """
     Check whatever a point is inside a cell. Note a similar behaviour could be
@@ -391,7 +386,6 @@ def point_in_cell(poly, p, if_make_planar=True):
     return is_odd
 
 
-@pp.time_logger(sections=module_sections)
 def points_are_collinear(pts, tol=1e-5):
     """Check if the points lie on a line.
 
@@ -423,7 +417,6 @@ def points_are_collinear(pts, tol=1e-5):
     return np.allclose(coll, np.zeros(coll.size), atol=tol, rtol=0)
 
 
-@pp.time_logger(sections=module_sections)
 def polygon_hanging_nodes(p, edges, tol=1e-8):
     """
     Find hanging nodes of a polygon

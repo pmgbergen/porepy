@@ -211,12 +211,13 @@ class Assembler:
         # the matrix to a sps. block matrix.
         if add_matrices:
             size = np.sum(self._dof_manager.full_dof)
-            full_matrix = sps_matrix((size, size))
-            full_rhs = np.zeros(size)  # type: ignore
+            full_matrix: sps.spmatrix = sps_matrix((size, size))
+            full_rhs: np.ndarray = np.zeros(size)  # type: ignore
 
             for mat in matrix.values():
                 full_matrix += sps.bmat(mat, matrix_format)
 
+            assert isinstance(rhs, dict)  # Appease mypy
             for vec in rhs.values():
                 full_rhs += np.concatenate(tuple(vec))
 
@@ -225,6 +226,8 @@ class Assembler:
         else:
             for k, v in matrix.items():
                 matrix[k] = sps.bmat(v, matrix_format)
+
+            assert isinstance(rhs, dict)  # Appease mypy
             for k, v in rhs.items():
                 rhs[k] = np.concatenate(tuple(v))
 
@@ -393,7 +396,7 @@ class Assembler:
 
         # Return type depends on operation
         if operation == "assemble":
-            return matrix, rhs
+            return matrix, rhs  # type:ignore
         else:
             return None
 
@@ -490,7 +493,7 @@ class Assembler:
         filt: pp.assembler_filters.AssemblerFilter,
         operation: str,
         matrix: Optional[Dict[str, np.ndarray]],
-        rhs: Dict[str, np.ndarray],
+        rhs: Optional[Dict[str, np.ndarray]],
         sps_matrix: Type[csc_or_csr_matrix],
         assemble_matrix_only: Optional[bool] = False,
         assemble_rhs_only: Optional[bool] = False,
@@ -729,6 +732,7 @@ class Assembler:
 
                     if not assemble_matrix_only:
                         # Finally take care of the right hand side
+                        assert rhs is not None
                         rhs[mat_key][[primary_idx, secondary_idx, edge_idx]] += loc_rhs
 
             elif primary_idx is not None:
@@ -775,6 +779,7 @@ class Assembler:
                         ] = tmp_mat[0, 0]
 
                     if not assemble_matrix_only:
+                        assert rhs is not None
                         rhs[mat_key][[primary_idx, edge_idx]] += loc_rhs
 
             elif secondary_idx is not None:
@@ -821,6 +826,7 @@ class Assembler:
                             secondary_idx, secondary_idx
                         ] = tmp_mat[0, 0]
                     if not assemble_matrix_only:
+                        assert rhs is not None
                         rhs[mat_key][[secondary_idx, edge_idx]] += loc_rhs
 
             else:
@@ -969,6 +975,7 @@ class Assembler:
                         assemble_rhs=assemble_rhs,
                     )
                     matrix[mat_key][edge_idx, oi] = tmp_mat[1, 2]  # type:ignore
+                    assert rhs is not None
                     rhs[mat_key][edge_idx] += loc_rhs[1]
 
     def _identify_variable_combinations(self) -> None:

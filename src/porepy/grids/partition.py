@@ -452,11 +452,13 @@ def extract_subgrid(
     fn_sub, unique_nodes = __extract_submatrix(g.face_nodes.tocsc(), unique_faces)
 
     # Append information on subgrid extraction to the new grid's history
-    name = list(g.name)
-    name.append("Extract subgrid")
+    history = list(g.name)
+    history.append("Extract subgrid")
 
     # Construct new grid.
-    h = pp.Grid(g.dim, g.nodes[:, unique_nodes], fn_sub, cf_sub, name)
+    h = pp.Grid(
+        g.dim, g.nodes[:, unique_nodes], fn_sub, cf_sub, name=g.name, history=history
+    )
 
     # Copy geometric information if any
     if hasattr(g, "cell_centers"):

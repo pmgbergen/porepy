@@ -641,7 +641,7 @@ def structured_refinement(
             polygon = nodes[:, nodes_idx]
             test_points = cells_ref[:, test_cells_ptr]
             in_poly = pp.geometry_property_checks.point_in_polygon(
-                poly=polygon, p=test_points, tol=point_in_poly_tol
+                poly=polygon, p=test_points
             )
 
         elif g.dim == 3:
@@ -652,7 +652,9 @@ def structured_refinement(
             node_coords = nodes[:, nodes_idx]
 
             ids = np.arange(num_nodes)
-            polyhedron = [node_coords[:, ids != i] for i in np.arange(num_nodes)]
+            polyhedron: np.ndarray = np.array(
+                [node_coords[:, ids != i] for i in np.arange(num_nodes)]
+            )
             # Test only points not inside another polyhedron.
             test_points = cells_ref[:, test_cells_ptr]
             in_poly = pp.geometry_property_checks.point_in_polyhedron(

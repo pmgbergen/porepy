@@ -135,8 +135,8 @@ class GridBucket:
                 The dictionary storing all information in this node or edge.
 
         """
-        for node_or_edge, data in itertools.chain(*[self, self.edges()]):
-            yield node_or_edge, data
+        for node_or_edge, data in itertools.chain(*[self.nodes(), self.edges()]):
+            yield node_or_edge, data  # type: ignore
 
     # ---------- Navigate within the graph --------
 
@@ -539,9 +539,7 @@ class GridBucket:
     def remove_edge_props(
         self,
         keys: Union[Any, List[Any]],
-        edges: Optional[
-            Union[Tuple[pp.Grid, pp.Grid], List[Tuple[pp.Grid, pp.Grid]]]
-        ] = None,
+        edges: Optional[Union[Tuple[pp.Grid, pp.Grid]]] = None,
     ) -> None:
         """
         Remove property to existing edges in the graph.
@@ -612,7 +610,7 @@ class GridBucket:
             self._nodes[grid] = {}
 
     def add_edge(
-        self, grids: List[pp.Grid], primary_secondary_map: sps.spmatrix
+        self, grids: Tuple[pp.Grid, pp.Grid], primary_secondary_map: sps.spmatrix
     ) -> None:
         """
         Add an edge in the graph.
@@ -622,7 +620,7 @@ class GridBucket:
         the ordering of the nodes is the same as in input grids.
 
         Parameters:
-            grids (list, len==2). Grids to be connected. Order is arbitrary.
+            grids (Tuple, len==2). Grids to be connected. Order is arbitrary.
             primary_secondary_map (sps.spmatrix): Identity mapping between cells in the
                 higher-dimensional grid and faces in the lower-dimensional
                 grid. No assumptions are made on the type of the object at this
@@ -639,7 +637,7 @@ class GridBucket:
         if len(grids) != 2:
             raise ValueError("An edge should be specified by exactly two grids")
 
-        if tuple(grids) in list(self._edges.keys()) or tuple(grids[::-1]) in list(
+        if tuple(grids) in list(self._edges.keys()) or grids[::-1] in list(
             self._edges.keys()
         ):
             raise ValueError("Cannot add existing edge")
@@ -740,7 +738,9 @@ class GridBucket:
 
         """
         # Identify neighbors
-        neighbors: List[pp.Grid] = self.sort_multiple_nodes(self.node_neighbors(node))
+        neighbors: List[pp.Grid] = self.sort_multiple_nodes(
+            self.node_neighbors(node).tolist()
+        )
 
         n_neighbors = len(neighbors)
 
@@ -750,7 +750,7 @@ class GridBucket:
             for j in range(i + 1, n_neighbors):
                 g1 = neighbors[j]
                 cell_cells = self._find_shared_face(g0, g1, node)
-                self.add_edge([g0, g1], cell_cells)
+                self.add_edge((g0, g1), cell_cells)
 
         # Remove the node and update the ordering of the remaining nodes
         node_number = self.node_props(node, "node_number")
