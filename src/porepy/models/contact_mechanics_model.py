@@ -280,7 +280,7 @@ class ContactMechanics(AbstractModel):
         if self._use_ad:
             A, b = self._eq_manager.assemble()
         else:
-            A, b = self.assembler.assemble_matrix_rhs()
+            A, b = self.assembler.assemble_matrix_rhs()  # type: ignore
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
             f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min"
