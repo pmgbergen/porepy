@@ -343,7 +343,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
         return np.zeros(g.num_faces)
 
-    def _stress_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
+    def _stiffness_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
         """Stress tensor parameter, unitary Lame parameters.
 
 
