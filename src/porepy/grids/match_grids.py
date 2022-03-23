@@ -5,7 +5,8 @@ which should be done via the GridBucket method replace_grids(). That is, the met
 herein should as a rule not be invoked directly.
 """
 import logging
-from typing import Literal, Optional
+from typing import Optional
+from typing_extensions import Literal
 
 import numpy as np
 import scipy.sparse as sps
