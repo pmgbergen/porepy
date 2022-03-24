@@ -91,7 +91,7 @@ def segment_segment_set(start, end, start_set, end_set):
     dot_2_2 = dot(d2, d2)
     dot_1_starts = dot(d1, d_starts)
     dot_2_starts = dot(d2, d_starts)
-    discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
+    discr = dot_1_1 * dot_2_2 - dot_1_2**2
 
     # Variable used to fine almost parallel lines. Sensitivity to this value has not
     # been tested.
@@ -228,7 +228,7 @@ def points_segments(p, start, end):
             # Project the vectors from start to point onto the line, and compute
             # relative length
             v = p[:, pi].reshape((-1, 1)) - start
-            proj = np.sum(v * line, axis=0) / lengths ** 2
+            proj = np.sum(v * line, axis=0) / lengths**2
 
             # Projections with length less than zero have the closest point at
             # start

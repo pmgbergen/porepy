@@ -211,7 +211,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
     def _set_scalar_parameters(self) -> None:
-        tensor_scale = self.scalar_scale / self.length_scale ** 2
+        tensor_scale = self.scalar_scale / self.length_scale**2
         kappa = 1 * tensor_scale
         mass_weight = 1 * self.scalar_scale
         for g, d in self.gb:

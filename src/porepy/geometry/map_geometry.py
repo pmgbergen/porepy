@@ -399,7 +399,7 @@ def compute_tangent(pts, check=True):
     # is nonzero
     tangent = pts - mean_pts
     # Find the point that is furthest away from the mean point
-    max_ind = np.argmax(np.sum(tangent ** 2, axis=0))
+    max_ind = np.argmax(np.sum(tangent**2, axis=0))
     tangent = tangent[:, max_ind]
     if check:
         assert not np.allclose(tangent, np.zeros(3))

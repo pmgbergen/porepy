@@ -243,15 +243,15 @@ class TangentialNormalProjection:
             u2': ndarray (u2 - u2*u1 * u1) / ||u2||
             u3': (optional) ndArray (u3 - u3*u2' - u3*u1')/||u3||
         """
-        u1 = u1 / np.sqrt(np.sum(u1 ** 2, axis=0))
+        u1 = u1 / np.sqrt(np.sum(u1**2, axis=0))
 
         u2 = u2 - np.sum(u2 * u1, axis=0) * u1
-        u2 = u2 / np.sqrt(np.sum(u2 ** 2, axis=0))
+        u2 = u2 / np.sqrt(np.sum(u2**2, axis=0))
 
         if u3 is None:
             return u1, u2
         u3 = u3 - np.sum(u3 * u1, axis=0) * u1 - np.sum(u3 * u2, axis=0) * u2
-        u3 = u3 / np.sqrt(np.sum(u3 ** 2, axis=0))
+        u3 = u3 / np.sqrt(np.sum(u3**2, axis=0))
 
         return u1, u2, u3
 
