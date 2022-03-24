@@ -91,24 +91,24 @@ class Ad_array:
 
     def __pow__(self, other):
         if not isinstance(other, Ad_array):
-            val = self.val ** other
+            val = self.val**other
             jac = self.diagvec_mul_jac(other * self.val ** (other - 1))
         else:
-            val = self.val ** other.val
+            val = self.val**other.val
             jac = self.diagvec_mul_jac(
                 other.val * self.val ** (other.val - 1)
-            ) + other.diagvec_mul_jac(self.val ** other.val * np.log(self.val))
+            ) + other.diagvec_mul_jac(self.val**other.val * np.log(self.val))
         return Ad_array(val, jac)
 
     def __rpow__(self, other):
         if isinstance(other, Ad_array):
             raise ValueError("Somthing went horrible wrong, should have called __pow__")
-        val = other ** self.val
-        jac = self.diagvec_mul_jac(other ** self.val * np.log(other))
+        val = other**self.val
+        jac = self.diagvec_mul_jac(other**self.val * np.log(other))
         return Ad_array(val, jac)
 
     def __truediv__(self, other):
-        return self * other ** -1
+        return self * other**-1
 
     def __neg__(self):
         b = self.copy()

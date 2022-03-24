@@ -216,11 +216,11 @@ class ContactMechanics(AbstractModel):
         difference_in_iterates_mech = np.sum((u_mech_now - u_mech_prev) ** 2)
         difference_from_init_mech = np.sum((u_mech_now - u_mech_init) ** 2)
 
-        u_j_norm = np.sum(u_j_now ** 2)
+        u_j_norm = np.sum(u_j_now**2)
         difference_in_iterates_j = np.sum((u_j_now - u_j_prev) ** 2)
         difference_from_init_j = np.sum((u_j_now - u_j_init) ** 2)
 
-        contact_norm = np.sum(contact_now ** 2)
+        contact_norm = np.sum(contact_now**2)
         difference_in_iterates_contact = np.sum((contact_now - contact_prev) ** 2)
         difference_from_init_contact = np.sum((contact_now - contact_init) ** 2)
 

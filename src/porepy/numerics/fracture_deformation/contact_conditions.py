@@ -571,7 +571,7 @@ class ColoumbContact(
 
     def _l2(self, x):
         x = np.atleast_2d(x)
-        return np.sqrt(np.sum(x ** 2, axis=0))
+        return np.sqrt(np.sum(x**2, axis=0))
 
 
 def set_projections(
