@@ -1700,7 +1700,7 @@ def line_tesselation(
     return intersections
 
 
-def surface_tessalations(
+def surface_tesselations(
     poly_sets: List[List[np.ndarray]], return_simplexes: bool = False
 ) -> Tuple[List[np.ndarray], List[sps.csr_matrix]]:
     """Intersect a set of surface tessalations to find a finer subdivision that does
