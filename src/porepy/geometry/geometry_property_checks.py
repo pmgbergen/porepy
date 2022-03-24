@@ -226,7 +226,7 @@ def point_in_polyhedron(
     Suggestions for better solutions to this are most welcome.
 
     Parameters:
-        polyhedron (nested np.ndarray): Each outer element represent a side
+        polyhedron (nested np.ndarray): Each outer element represents a side
             of the polyhedron. Each side is assumed to be a convex polygon.
         test_points (np.ndarray, 3 x num_pt): Points to be tested.
         tol (double, optional): Geometric tolerance, used in comparison of

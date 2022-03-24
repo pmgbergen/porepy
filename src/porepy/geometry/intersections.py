@@ -1557,7 +1557,7 @@ def _point_in_or_on_polygon(p: np.ndarray, poly: np.ndarray, tol=1e-8):
 def triangulations(
     p_1: np.ndarray, p_2: np.ndarray, t_1: np.ndarray, t_2: np.ndarray
 ) -> List[Tuple[int, int, float]]:
-    """Compute intersection of two triangle tessalation of a surface.
+    """Compute intersection of two triangle tesselations of a surface.
 
     The function will identify partly overlapping triangles between t_1 and
     t_2, and compute their common area. If parts of domain 1 or 2 is covered by
