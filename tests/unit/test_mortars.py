@@ -31,7 +31,7 @@ import porepy as pp
 class TestGridMappings1d(unittest.TestCase):
     """Tests of matching of 1d grids.
 
-    This is in pratice a tets of pp.match_grids.match_1d()
+    This is in pratice a test of pp.match_grids.match_1d()
     """
 
     def test_merge_grids_all_common(self):
