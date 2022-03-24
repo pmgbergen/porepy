@@ -291,7 +291,7 @@ class MortarGrid:
     def update_secondary(self, new_g: pp.Grid, tol: float = None) -> None:
         """Update the mappings between Mortar and secondary grid when the latter is changed.
 
-        NOTE: This function assumes that the secondary grid is only update once: A change
+        NOTE: This function assumes that the secondary grid is only updated once: A change
         from matching to non-matching between the mortar and secondary grids is okay,
         but replacing a non-matching secondary grid with another one will not work.
 
