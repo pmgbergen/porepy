@@ -457,7 +457,7 @@ def polygons_3d(
 
     def normalize(v):
         # Normalize a vector
-        nrm = np.sqrt(np.sum(v ** 2, axis=0))
+        nrm = np.sqrt(np.sum(v**2, axis=0))
         return v / nrm
 
     def mod_sign(v, tol=1e-8):
@@ -2070,7 +2070,7 @@ def split_intersecting_segments_2d(
 
         # Utility function to normalize the fracture length
         def normalize(v):
-            nrm = np.sqrt(np.sum(v ** 2, axis=0))
+            nrm = np.sqrt(np.sum(v**2, axis=0))
 
             # If the norm of the vector is essentially zero, do not normalize the vector
             hit = nrm < tol

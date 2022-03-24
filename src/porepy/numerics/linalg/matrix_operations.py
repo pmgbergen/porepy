@@ -472,14 +472,14 @@ def _csx_matrix_from_blocks(
             of blocks.
 
     """
-    if not data.size == block_size ** 2 * num_blocks:
+    if not data.size == block_size**2 * num_blocks:
         raise ValueError("Incompatible input to generate block matrix")
     # The block structure of the matrix allows for a unified construction of compressed
     # column and row matrices. The difference will simply be in how the data is
     # interpreted
 
     # The new columns or rows start with intervals of block_size
-    indptr = np.arange(0, block_size ** 2 * num_blocks + 1, block_size)
+    indptr = np.arange(0, block_size**2 * num_blocks + 1, block_size)
 
     # To get the indices in the compressed storage format requires some more work
     if block_size > 1:
@@ -498,7 +498,7 @@ def _csx_matrix_from_blocks(
         # unperturbed.
         # the next block_size elements are increased by block_size^2 etc.
         block_increase = (
-            np.tile(np.arange(num_blocks), (block_size ** 2, 1)).reshape(
+            np.tile(np.arange(num_blocks), (block_size**2, 1)).reshape(
                 (1, -1), order="F"
             )[0]
             * block_size
