@@ -211,7 +211,7 @@ class MortarGrid:
                 # Nothing to do
                 return
             elif g.dim == 1:
-                # The mapping between grids will be left-multiplied to the existing
+                # The mapping between grids will be left-multiplied by the existing
                 # mapping from primary to mortar. Therefore, we construct mappings
                 # from the old to the new grid.
                 mat_avg = pp.match_grids.match_1d(new_g, g, tol, scaling="averaged")
