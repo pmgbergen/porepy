@@ -42,7 +42,7 @@ def match_1d(
 
     Returns:
         sps.spmatrix: Mapping from the cells in the old to the new grid. The values in
-            the matrix depends on the parameter scaling: If set to 'averaged', a mapping
+            the matrix depend on the parameter scaling: If set to 'averaged', a mapping
             fit for intensive quantities (e.g., pressure) is returned (all rows sum to
             unity). If set to 'integrated', the matrix is a mapping for extensive
             quantities (column sum is 1). If not provided, the matrix elements are 1
@@ -67,7 +67,7 @@ def match_1d(
     p_new = new_g.nodes
     p_old = old_g.nodes
 
-    # Compute the intersection between the two tessalations.
+    # Compute the intersection between the two tesselations.
     # intersect is a list, every list member is a tuple with overlapping
     # cells in grid 1 and 2, and their common area.
     intersect = pp.intersections.line_tesselation(p_new, p_old, lines_new, lines_old)
@@ -211,7 +211,7 @@ def match_grids_along_1d_mortar(
 
     Returns:
         sps.csr_matrix: Matrix that can be used to update mg._primary_to_mortar_int by
-            by right multiplication; essentially a mapping from the new to the old grid.
+            right multiplication; essentially a mapping from the new to the old grid.
 
     Raises:
         ValueError: If the matching procedure goes wrong.
