@@ -5,8 +5,7 @@ Define compositional flow models using available substances.
 """ List of components to be included for in the testing framework. 
 Include the name of your Component child class here to have it tested by the porepy unit tests and other.
 """
-_COMPONENT_TEST_ARRAY = [ "UnitIncompressibleFluid",
-                          "UnitIdealFluid",
+_COMPONENT_TEST_ARRAY = [ "SimpleFLuid",
                           "UnitSolid"
                           ]
 
@@ -18,11 +17,12 @@ from .substance import Substance, FluidSubstance, SolidSubstance
 from ._composite_utils import (
     STATES_OF_MATTER,
     COMPUTATIONAL_VARIABLES,
+    IDEAL_GAS_CONSTANT,
     create_merged_variable,
     create_merged_mortar_variable
     )
 
-from .unit_substance import UnitIncompressibleFluid, UnitIdealFluid, UnitSolid
+from .unit_substance import SimpleFluid, UnitSolid
 
 from .material_subdomain import MaterialSubdomain
 

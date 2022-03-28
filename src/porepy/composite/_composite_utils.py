@@ -54,7 +54,14 @@ COMPUTATIONAL_VARIABLES: Dict[str, str] = {
 
 """ Currently supported states of matter.
 This influences the parameters for physical attributes, as well as the class :class:`~porepy.composite.phase.PhysicalState`."""
-STATES_OF_MATTER = ('solid', 'liquid', 'gas')
+STATES_OF_MATTER: Tuple[str] = ('solid', 'liquid', 'gas')
+
+"""
+Universal molar gas constant.         
+        Math. Dimension:        scalar
+        Phys. Dimension:        [kg m^2 / s K mol]
+"""
+IDEAL_GAS_CONSTANT: float = 8.31446261815324
 
 def create_merged_variable(
     gb: pp.GridBucket, dof_info: Dict[str, int],

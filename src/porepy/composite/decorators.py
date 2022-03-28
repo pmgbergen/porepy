@@ -8,7 +8,7 @@ A call using the decorated method as an argument is done immediately after insta
 """
 
 from types import FunctionType
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Tuple
 from functools import wraps
 
 import porepy as pp
@@ -85,12 +85,15 @@ class THMSignature:
 
             return output
 
+        ## Adding signature meta-info to tge wrapped method
+        wrapper.THM_SIGNATURE = tuple(self._signature)
+
         ## Adding information to docs from wrapper
         # if original method has no doc string, add generic one
         if wrapper.__doc__ is None:
             wrapper.__doc__ = "Class method '%s'."%(str(method.__name__))
 
-        wrapper.__doc__ += "\nTHM-Signature: %s"%(str(self._signature))
+        wrapper.__doc__ += "\nTHM-Signature decorated physical attribute: %s"%(str(self._signature))
 
         return wrapper
 
@@ -121,6 +124,15 @@ class ADProperty:
     :class:`~porepy.numerics.ad.operators.MergedVariable` representing pressure and temperature.
     The return value will be an AD expression with an approximate Jacobian w.r.t to the arguments
     (see :class:`~porepy.numerics.ad.operators.ApproximateJacobianFunction`)
+
+    If the decorated method was previously decorated with :class:`~porepy.composite.decorators.THMSignature`,
+    the decorated property does not need input arguments anymore.
+    In that case, the MergedVariables and their respective state can be accessed accordingly.
+    
+    A keyword argument 'state' can be passed to the method, specifying which state is requested:
+    'current', 'previous', 'iterated'
+    state: str = 'current' is assumed by default
+
     """
 
     def __init__(self, ad_type: TypeVar("ApproximateJacobianFunction-type", pp.ad.ApproximateJacobianFunction)) -> None:

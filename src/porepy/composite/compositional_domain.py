@@ -325,8 +325,8 @@ class CompositionalDomain:
                 sum_saturation_per_grid += values
 
 
-                data[pp.STATE][phase.saturation_name] = np.copy(values)
-                data[pp.STATE][pp.ITERATE][phase.saturation_name] = np.copy(values)  
+                data[pp.STATE][phase.saturation_var] = np.copy(values)
+                data[pp.STATE][pp.ITERATE][phase.saturation_var] = np.copy(values)  
 
             # assert the fractional character (sum equals 1) in each cell
             if np.any(sum_saturation_per_grid != 1.): #TODO check sensitivity
@@ -408,3 +408,25 @@ class CompositionalDomain:
         These calculations have to be done everytime everytime new initial values are set.
         """
         pass
+    
+    def _set_initial_overall_molar_fraction(self, initial_values: List["np.ndarray"]) -> None:
+        """ Order of grid-related initial values in `initial_values` has to be the same as 
+        returned by the iterator of the respective :class:`porepy.GridBucket`.
+        Keep in mind that the sum over all components of this quantity has to be 1 at all times.
+        
+        :param initial_values: initial values for the overall molar fractions of this component
+        :type initial_values: List[numpy.ndarray]
+        """
+
+        # create a copy to avoid issues in case there is another manipulated reference to the values
+        vals = [arr.copy() for arr in initial_values]
+
+        for grid_data, vals in zip(self.cd.gb, vals):
+            data = grid_data[1]  # get data out (grid, data) tuple
+            if pp.STATE not in data:
+                data[pp.STATE] = {}
+            if pp.ITERATE not in data[pp.STATE]:
+                data[pp.STATE][pp.ITERATE] = {}
+
+            data[pp.STATE][self.omf_var] = vals
+            data[pp.STATE][pp.ITERATE][self.omf_var] = vals
