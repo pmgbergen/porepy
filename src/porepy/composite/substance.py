@@ -6,7 +6,7 @@ import abc
 import porepy as pp
 import numpy as np
 
-from ._composite_utils import COMPUTATIONAL_VARIABLES
+from ._composite_utils import COMPUTATIONAL_VARIABLES, STATES_OF_MATTER
 
 from typing import List, TYPE_CHECKING
 # this solution avoids circular imports due to type checking. Needs __future__.annotations
@@ -14,7 +14,41 @@ if TYPE_CHECKING:
     from .compositional_domain import CompositionalDomain
 
 
-class Substance(abc.ABC):
+class MetaSubstance(type):
+    """ Meta class for substances. 
+    Implements so far contains only a 'name' property on class level
+    
+    """
+
+    @property
+    def name(cls) -> str:
+        """
+        NOTE: This can be simplified in Python>=3.9 by using property and classmethod together
+
+        :return: name of the substance class. The name is used to construct names for AD variables and keys to store them.
+        :rtype: str 
+        """
+        return str(cls.__name__)
+
+    @property
+    def omf_var(cls) -> str:
+        """
+        :return: name of the overall molar fraction variable under which it is stored in the grid data dictionaries
+        :rtype: str
+        """
+        return COMPUTATIONAL_VARIABLES["component_overall_fraction"] + "_" + cls.name
+
+    def mfip_var(cls, phase_name: str) -> str:
+        """
+        :param phase_name: name of the  :class:`~porepy.composite.phase.Phase` for which the fraction variable's name is requested
+        :type phase_name: str
+
+        :return: name of the molar fraction in phase variable 
+        :rtype: str
+        """
+        return COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + cls.name + "_" + str(phase_name)
+
+class Substance(abc.ABC, metaclass=MetaSubstance):
     """
     Abstract base class for pure substances, providing abstract physical propertis which need to be implemented
     for concrete child classes to work in PorePy.
@@ -33,8 +67,11 @@ class Substance(abc.ABC):
         - molar fraction in phase for given phase name
 
     Physical attributes include constants and scalar functions.
-    The latter one is dependent on the thermodynamic state (e.g. pressure, enthalpy),
-    which are provided as :class:`pp.ad.MergedVariables` by this class for a given domain (:class:`pp.GridBucket`)
+    The latter one is dependent on the thermodynamic state (e.g. pressure, enthalpy).
+    
+    IMPORTANT:  The first argument of every physical attribute is 'state_of_matter',
+        a string indicating for which state of matter the respective attribute is requested.
+        The rest of the thermodynamic arguments is free to choose 
 
     IMPORTANT:  The doc strings of the abstract properties and methods contain information about
                 intended physical dimensions. Keep it consistent when deriving child classes!
@@ -60,7 +97,6 @@ class Substance(abc.ABC):
     #     """
     #     name = str(cls.__name__)
 
-
     def __init__(self, computational_domain: CompositionalDomain) -> None:
         """ Abstract base class constructor. Initiates component-related AD-variables.
         Contains symbolic names of associated model variables.
@@ -74,30 +110,10 @@ class Substance(abc.ABC):
         self.cd = computational_domain
 
         ## PRIVATE
-        self._registered_phases: list = list()
+        self._registered_phases: set = set()
 
         # adding the overall molar fraction to the primary variables
-        self.cd(self.omf_name, {"cells": 1})
-
-    @property
-    def name(self):
-        """
-        :return: name of the class. The name is used to construct names for AD variables and keys to store them.
-        :rtype: str 
-        """
-        return str(self.__class__.__name__)
-
-    @property
-    def ideal_gas_constant(self) -> float:
-        """ Protected by the property decorator to avoid manipulation by mistake.
-
-        Math. Dimension:        scalar
-        Phys. Dimension:        [kg m^2 / s K mol]
-
-        :return: universal molar gas constant
-        :rtype: float
-        """
-        return 8.31446261815324  # NOTE we might consider adding this to pp.utils.common_constants
+        self.cd(self.omf_var, {"cells": 1})
     
     @property
     def overall_molar_fraction(self) -> pp.ad.MergedVariable:
@@ -106,15 +122,7 @@ class Substance(abc.ABC):
         :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the overall molar fraction of this component
         :rtype: :class:`porepy.ad.MergedVariable`
         """
-        return self.cd(self.omf_name)
-
-    @property
-    def omf_name(self) -> str:
-        """
-        :return: name of the overall molar fraction variable under which it is stored in the grid data dictionaries
-        :rtype: str
-        """
-        return COMPUTATIONAL_VARIABLES["component_overall_fraction"] + "_" + self.name
+        return self.cd(self.omf_var)
 
     def molar_fraction_in_phase(self, phase_name: str) -> pp.ad.MergedVariable:
         """ As a fractional quantity, all values are between 0 and 1.
@@ -129,72 +137,12 @@ class Substance(abc.ABC):
         # we can perform a check if the phase is present at all
         # NOTE this limits the possible order of instantiations and method calls in a run script
         # phase_name = str(phase_name)
-        # if phase_name in self.cd.Phase_names:
-        return self.cd(self.mfip_name(phase_name))
+        # if phase_name in [phase.name for phase in self.cd.Phases]:
+        self._registered_phases.add(str(phase_name))
+        return self.cd(self.mfip_var(phase_name))
         # else:
         #     raise ValueError("Phase '%s' not present in same computational domain."%(phase_name))
 
-    def mfip_name(self, phase_name: str) -> str:
-        """
-        :param phase_name: name of the  :class:`~porepy.composite.phase.Phase` for which the fraction variable's name is requested
-        :type phase_name: str
-
-        :return: name of the molar fraction in phase variable 
-        :rtype: str
-        """
-        return COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + self.name + "_" + str(phase_name)
-
-    def set_initial_overall_molar_fraction(self, initial_values: List["np.ndarray"]) -> None:
-        """ Order of grid-related initial values in `initial_values` has to be the same as 
-        returned by the iterator of the respective :class:`porepy.GridBucket`.
-        Keep in mind that the sum over all components of this quantity has to be 1 at all times.
-        
-        :param initial_values: initial values for the overall molar fractions of this component
-        :type initial_values: List[numpy.ndarray]
-        """
-
-        # create a copy to avoid issues in case there is another manipulated reference to the values
-        vals = [arr.copy() for arr in initial_values]
-
-        for grid_data, vals in zip(self.cd.gb, vals):
-            data = grid_data[1]  # get data out (grid, data) tuple
-            if pp.STATE not in data:
-                data[pp.STATE] = {}
-            if pp.ITERATE not in data[pp.STATE]:
-                data[pp.STATE][pp.ITERATE] = {}
-
-            data[pp.STATE][self.omf_name] = vals
-            data[pp.STATE][pp.ITERATE][self.omf_name] = vals
-
-
-    # def _register_phase(self, phase_name: str) -> None:
-    #     """
-    #     Registers the presence of this substance in given phase. 
-
-    #     Creates an AD variable representing the molar fraction of the component in phase `phase_name`.
-    #     This is a primary variable in composite flow obtained by flash calculations.
-    #     Given phase name will be key for accessing the variable using.
-
-    #     NOTE (VL): This method might be useless, since mfip vars can be called dynamically.
-    #     The supposed usage is only by the Phase class to register itself with this component,
-    #     and to instantiate mfip vars with the correct number of dofs.
-    #     This solution is not elegant and meant only for prototyping.
-    #     In a top-down model, a substance has no information about phases it is in.
-        
-    #     :param phase_name: name of the phase
-    #     :type phase_name: str
-    #     """
-        
-    #     phase_name = str(phase_name)
-
-    #     # if phase is already registered, do nothing
-    #     if phase_name in self._registered_phases:
-    #         return
-    #     else:
-    #         self._registered_phases.append(phase_name)
-
-    #     # create domain-wide MergedVariable object
-    #     self.cd(self.mfip_name(phase_name), {"cells": 1})
 
 #------------------------------------------------------------------------------
 ### CONSTANT SCALAR ATTRIBUTES
@@ -216,7 +164,7 @@ class Substance(abc.ABC):
 ### SCALAR ATTRIBUTES
 #------------------------------------------------------------------------------
 
-    def mass_density(self,*args, **kwargs) -> pp.ad.Operator:
+    def mass_density(self, state_of_matter: str, *args, **kwargs) -> float:
         """ 
         Non-abstract. Uses the molar mass and mass density to compute it.
 
@@ -224,40 +172,40 @@ class Substance(abc.ABC):
         Phys. Dimension:        [kg / m^3]
     
         :return: mass density of the component (dependent on thermodynamic state)
-        :rtype: :class:`~porepy.ad.operators.Operator`
+        :rtype: float
         """
-        return self.molar_mass * self.molar_density(*args, **kwargs)
+        return self.molar_mass * self.molar_density(state_of_matter, *args, **kwargs)
 
     @abc.abstractmethod
-    def molar_density(self, *args, **kwargs) -> pp.ad.Operator:
+    def molar_density(self, state_of_matter: str, *args, **kwargs) -> float:
         """ 
         Math. Dimension:        scalar
         Phys. Dimension:        [mol / m^3]
 
         :return: molar density of the component (dependent on thermodynamic state)
-        :rtype: :class:`~porepy.ad.operators.Operator`
+        :rtype: float
         """
         pass
     
     @abc.abstractmethod
-    def Fick_diffusivity(self, *args, **kwargs) -> pp.ad.Operator:
+    def Fick_diffusivity(self, state_of_matter: str,  *args, **kwargs) -> float:
         """
         Math. Dimension:        scalar
         Phys. Dimension:        m^2 / s
 
         :return: Fick's diffusivity coefficient (or tensor in the case of heterogeneity)
-        :rtype: :class:`~porepy.ad.operators.Operator`
+        :rtype: float
         """
         pass
 
     @abc.abstractmethod
-    def thermal_conductivity(self, *args, **kwargs) -> pp.ad.Operator:
+    def thermal_conductivity(self, state_of_matter: str,  *args, **kwargs) -> float:
         """ 
         Math. Dimension:        scalar
         Phys. Dimension:        [W / m / s]
 
         :return: thermal conductivity of the substance
-        :rtype: :class:`~porepy.ad.operators.Operator`
+        :rtype: float
         """
         pass
 
@@ -272,13 +220,13 @@ class FluidSubstance(Substance):
     """
 
     @abc.abstractmethod
-    def dynamic_viscosity(self, *args, **kwargs) -> pp.ad.Operator:
+    def dynamic_viscosity(self,state_of_matter: str,  *args, **kwargs) -> float:
         """ 
         Math. Dimension:        scalar
         Phys. Dimension:        [kg / m / s]
 
         :return: dynamic viscosity of the fluid (dependent on thermodynamic state)
-        :rtype: :class:`~porepy.ad.operators.Operator`
+        :rtype: float
         """
         pass
 

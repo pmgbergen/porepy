@@ -94,9 +94,9 @@ class PhaseField(abc.ABC):
         self._anticipated_substances: List[Substance] = list()
 
         # Instantiate saturation variable
-        self.cd(self.saturation_name, {"cells": 1})
+        self.cd(self.saturation_var, {"cells": 1})
         # Instantiate phase molar fraction variable
-        self.cd(self.molar_fraction_name, {"cells": 1})
+        self.cd(self.molar_fraction_var, {"cells": 1})
 
     def __iter__(self) -> Iterator[Substance]:
         """
@@ -128,10 +128,10 @@ class PhaseField(abc.ABC):
         :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the saturation of this phase
         :rtype: :class:`porepy.ad.MergedVariable`
         """
-        return self.cd(self.saturation_name)
+        return self.cd(self.saturation_var)
 
     @property
-    def saturation_name(self) -> str:
+    def saturation_var(self) -> str:
         """
         :return: name of the saturation variable under which it is stored in the grid data dictionaries
         :rtype: str
@@ -146,10 +146,10 @@ class PhaseField(abc.ABC):
         :return: reference to domain-wide :class:`porepy.ad.MergedVariable` representing the molar fraction of this phase
         :rtype: :class:`porepy.ad.MergedVariable`
         """
-        return self.cd(self.molar_fraction_name)
+        return self.cd(self.molar_fraction_var)
 
     @property
-    def molar_fraction_name(self) -> str:
+    def molar_fraction_var(self) -> str:
         """
         :return: name of the phase molar fraction variable under which it is stored in the grid data dictionaries
         :rtype: str
@@ -183,7 +183,7 @@ class PhaseField(abc.ABC):
             # store reference to present substance
             self._anticipated_substances.append(subst)
             # instantiate molar fraction in phase variable
-            self.cd(subst.mfip_name(self.name), {"cells": 1})
+            self.cd(subst.mfip_var(self.name), {"cells": 1})
             # update the data structures of the computational domain
             # NOTE this is not so nice, there may be a nicer solution in the future
             self.cd.resolve_composition()
@@ -234,8 +234,8 @@ class PhaseField(abc.ABC):
                 if pp.ITERATE not in data[pp.STATE]:
                     data[pp.STATE][pp.ITERATE] = {}
 
-                data[pp.STATE][subst.mfip_name(self.name)] = np.copy(vals)
-                data[pp.STATE][pp.ITERATE][subst.mfip_name(self.name)] = np.copy(vals)  
+                data[pp.STATE][subst.mfip_var(self.name)] = np.copy(vals)
+                data[pp.STATE][pp.ITERATE][subst.mfip_var(self.name)] = np.copy(vals)  
 
             # assert the fractional character (sum equals 1) in each cell
             if np.any(sum_per_grid != 1.): #TODO check sensitivity
