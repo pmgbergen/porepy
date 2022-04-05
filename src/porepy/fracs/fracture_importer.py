@@ -5,10 +5,7 @@ import numpy as np
 
 import porepy as pp
 
-module_sections = ["gridding"]
 
-
-@pp.time_logger(sections=module_sections)
 def network_3d_from_csv(
     file_name: str, has_domain: bool = True, tol: float = 1e-4, **kwargs
 ) -> pp.FractureNetwork3d:
@@ -90,7 +87,6 @@ def network_3d_from_csv(
         return pp.FractureNetwork3d(frac_list, tol=tol)
 
 
-@pp.time_logger(sections=module_sections)
 def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=False):
 
     """
@@ -167,7 +163,6 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
         return pp.FractureNetwork3d(frac_list, tol=tol)
 
 
-@pp.time_logger(sections=module_sections)
 def network_2d_from_csv(
     f_name,
     tagcols=None,
@@ -312,10 +307,6 @@ def network_2d_from_csv(
         return network
 
 
-# ------------ End of CSV-based functions. Start of gmsh related --------------#
-
-
-@pp.time_logger(sections=module_sections)
 def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.GridBucket:
     """Generate a GridBucket from a gmsh file.
 
@@ -367,10 +358,6 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.GridBucket:
     return pp.meshing.grid_list_to_grid_bucket(grids, **kwargs)
 
 
-# ------------ End of gmsh-based functions, start of fab related --------------#
-
-
-@pp.time_logger(sections=module_sections)
 def dfm_3d_from_fab(
     file_name, tol=1e-4, domain=None, return_domain=False, **mesh_kwargs
 ):
@@ -403,10 +390,6 @@ def dfm_3d_from_fab(
         return gb
 
 
-# ------------------------------------------------------------------------------#
-
-
-@pp.time_logger(sections=module_sections)
 def network_3d_from_fab(f_name, return_all=False, tol=None):
     """Read fractures from a .fab file, as specified by FracMan.
 
@@ -431,7 +414,6 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def read_keyword(line):
         # Read a single keyword, on the form  key = val
         words = line.split("=")
@@ -439,7 +421,6 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
         val = words[1].strip()
         return key, val
 
-    @pp.time_logger(sections=module_sections)
     def read_section(f, section_name):
         # Read a section of the file, surrounded by a BEGIN / END wrapping
         d = {}
@@ -449,7 +430,6 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
             k, v = read_keyword(line)
             d[k] = v
 
-    @pp.time_logger(sections=module_sections)
     def read_fractures(f, is_tess=False):
         # Read the fracture
         fracs = []
@@ -520,6 +500,3 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
         return network, tess_fracs, tess_sgn
     else:
         return network
-
-
-# ------------------------------------------------------------------------------#
