@@ -20,8 +20,6 @@ from typing import Dict, List, Optional, Tuple, Union
 import gmsh
 import numpy as np
 
-import porepy as pp
-
 __all__ = [
     "GmshData1d",
     "GmshData2d",
@@ -199,7 +197,6 @@ class GmshWriter:
     # outside the class.
     gmsh_initialized = False
 
-    @pp.time_logger(sections=["gridding"])
     def __init__(self, data: Union[GmshData2d, GmshData3d]) -> None:
         """Initialization feeds the geometry specification to Gmsh.
 
@@ -235,7 +232,6 @@ class GmshWriter:
                 except Exception:
                     raise ValueError(f"Could not set string gmsh option with key {key}")
 
-    @pp.time_logger(sections=["gridding"])
     def define_geometry(self) -> None:
         """Feed the geometry specified in self._data to gmsh."""
 
@@ -297,7 +293,6 @@ class GmshWriter:
 
         gmsh.model.geo.synchronize()
 
-    @pp.time_logger(sections=["gridding"])
     def generate(
         self,
         file_name: str,

@@ -6,8 +6,6 @@ import numpy as np
 
 import porepy as pp
 
-module_sections = ["utils"]
-
 
 def sort_point_pairs(
     lines: np.ndarray,
@@ -208,7 +206,6 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
         ind_old = np.where(hit_old > 0)[0]
         ind_new = np.where(hit_new > 0)[0]
 
-        #   pdb.set_trace()
         # Check if the edge occured at all among the non-processed triangles
         if ind_new.size == 0:
             continue
