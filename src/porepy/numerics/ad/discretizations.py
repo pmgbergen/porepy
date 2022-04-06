@@ -379,6 +379,7 @@ class UpwindCouplingAd(Discretization):
 
 def differentiable_mpfa(
     perm_function: pp.ad.Function,
+    perm_argument: pp.ad.Variable,
     potential: pp.ad.Variable,
     grid_list: List[pp.Grid],
     bc: Dict[pp.Grid, pp.BoundaryCondition],
@@ -451,12 +452,41 @@ def differentiable_mpfa(
 
         # From here on, the code is specific for transmissibility differentiation.
 
-        # Mapping from cell values to faces (assigning separate values for the right and
-        # left sides of a face).
+        # The chain rule applied to T(k(u)) * p (where the k(u) dependency can be replaced
+        # by other primary variables - Ad should take care of this) gives
+        #
+        #    dT/du * p + T dp =  * p + T dp
+        #
+        # Here, dT/du is in reality a third-order tensor, which we have represented as a matrix
+        # (assuming isotropic permeability). For simplicity of implementation, we move the
+        # gradient from dT/du to the p term. This implies as far as EK/IS have deduced that
+        # each line of dT/du (# faces x # global dofs) should be multiplied with the gradient
+        # at the corresponding face.
+        # The chain rule gives
+        #
+        #   dT/du = dT/dk dk/du.
+        #
+        # k being an ad function, dk/du is available as .jac after evaluation. dT/dk is computed
+        # below. Its deduction requires differentiating T w.r.t. half transmissibilities and
+        # collection of contributions from each cell. For i in {left, right} cells, it reads
+        #
+        #   dT_face/dt_i = T_face ** 2 / t_i ** 2,
+        #
+        # where the tpfa face transmissibility is
+        #
+        #   T_face = 1 / (1/t_l + 1/t_r).
+
+        # Evaluate the permeability as a function of the current potential
+        # The evaluation means we go from an Ad operator formulation to the forward mode,
+        # working with Ad_arrays. We map the computed permeability to the faces (distinguishing between
+        # the left and right sides of the face).
         cell_2_one_sided_face = sps.coo_matrix(
             (np.ones(sz), (np.arange(sz), ci)),
             shape=(sz, g.num_cells),
         ).tocsr()
+        k_one_sided = cell_2_one_sided_face * perm_function(perm_argument).evaluate(
+            dof_manager
+        )
 
         # Evaluate the permeability as a function of the current potential and restrict
         # the permeability to the current grid (if perm_function is specific to the
@@ -479,37 +509,28 @@ def differentiable_mpfa(
             * k_one_sided
         )
 
-        # We are not interested in the transmissibiliets themselves (these are assumed
-        # computed by base_discr), so we move from an Ad_array representation to
-        # considering only the Jacboian matrix.
-        inv_jac_one_sided = t_one_sided.jac
-        # The half transmissibilities
-        inv_jac_one_sided.data = 1.0 / inv_jac_one_sided.data
-
-        # Mapping which sums the right and left sides of the face
-        one_sided_face_to_face = sps.coo_matrix(
-            (sgn, (fi, np.arange(sz))), shape=(g.num_faces, sz)
+        # Mapping which sums the right and left sides of the face.
+        # Unlike in normal tpfa, the sign of the normal vector is disregarded.
+        # This is made up for when multiplying by grad p.
+        sum_cell_face_pair_to_face = sps.coo_matrix(
+            (np.ones(sz), (fi, np.arange(sz))), shape=(g.num_faces, sz)
         ).tocsr()
         # The result after mapping is the inverse of the transmissibilities
         inv_jac = one_sided_face_to_face * inv_jac_one_sided
 
-        # Finally the Jacobian matrix, with transmissibilities differentiated with
-        # respect to the permeability (with nested dependencies handled by the
-        # chain rule in the forward Ad implementation)
-        jac = inv_jac
-        # And the transmissibilities.
-        jac.data = 1.0 / jac.data
+        # Compute the two factors of dT_face/dt_i (see defenition and explanation above).
+        inverse_sum_squared = sum_cell_face_pair_to_face * ((1 / t_one_sided.val) ** 2)
+        face_transmissibility_squared = sps.dia_matrix(
+            (1 / inverse_sum_squared, 0), shape=(g.num_faces, g.num_faces)
+        )
+        hf_vals = np.power(t_one_sided.val, -2)
+        half_face_transmissibility_inv_squared = sps.coo_matrix(
+            (hf_vals, (fi, np.arange(sz))), shape=(g.num_faces, sz)
+        ).tocsr()
+        d_transmissibility_d_k = (
+            face_transmissibility_squared * half_face_transmissibility_inv_squared
+        )
 
-        # The chain rule applied to T(k(p)) * p (where the k(p) dependency can be replaced
-        # by other primary variables - Ad should take care of this) gives
-        #
-        #    dT/tp * p + T
-        #
-        # Here, dT/dp is in reality a third-order tensor, which we have
-        # represented as a matrix. Multiplication by p should (as far as EK understand)
-        # be done from the right. This requires mapping the potential values for this
-        # grid to a diagonal matrix of size equal to the global number of dofs (the
-        # number of columns in the Jacobian matrices).
         num_glob_dofs = dof_manager.num_dofs()
 
         # Use unit values for elements not associated with the potential in this grid
@@ -518,15 +539,18 @@ def differentiable_mpfa(
         # of other variables than the potential).
         loc_vals = np.ones(num_glob_dofs)
 
-        # Indices of potential for this grid
-        loc_rows = dof_manager.grid_and_variable_to_dofs(g, var_name)
-        loc_vals[loc_rows] = dof_manager.assemble_variable(from_iterate=True)[loc_rows]
-
-        # Create matrix, multiply into Jacobian
-        potential_distributed = sps.dia_matrix(
-            (loc_vals, 0), shape=(num_glob_dofs, num_glob_dofs)
+        # Potential for this grid (Could also be retrieved using potential.evaluate?)
+        potential_value = dof_manager.assemble_variable(
+            grids=[g], variables=[var_name], from_iterate=True
         )
-        jac *= potential_distributed
+        # Create matrix and multiply into Jacobian
+        grad_p = sps.diags(
+            pp.fvutils.scalar_divergence(g).T * potential_value,
+            shape=(g.num_faces, g.num_faces),
+        )
+        jac = grad_p * d_transmissibility_d_k * k_one_sided.jac
+
+
 
         # Eliminate values on Neumann boundaries.
         # FIXME: we should a corresponding operation for Dirichlet.
