@@ -515,8 +515,6 @@ def differentiable_mpfa(
         sum_cell_face_pair_to_face = sps.coo_matrix(
             (np.ones(sz), (fi, np.arange(sz))), shape=(g.num_faces, sz)
         ).tocsr()
-        # The result after mapping is the inverse of the transmissibilities
-        inv_jac = one_sided_face_to_face * inv_jac_one_sided
 
         # Compute the two factors of dT_face/dt_i (see defenition and explanation above).
         inverse_sum_squared = sum_cell_face_pair_to_face * ((1 / t_one_sided.val) ** 2)
@@ -549,8 +547,6 @@ def differentiable_mpfa(
             shape=(g.num_faces, g.num_faces),
         )
         jac = grad_p * d_transmissibility_d_k * k_one_sided.jac
-
-
 
         # Eliminate values on Neumann boundaries.
         # FIXME: we should a corresponding operation for Dirichlet.
