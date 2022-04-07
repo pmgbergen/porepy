@@ -484,9 +484,6 @@ def differentiable_mpfa(
             (np.ones(sz), (np.arange(sz), ci)),
             shape=(sz, g.num_cells),
         ).tocsr()
-        k_one_sided = cell_2_one_sided_face * perm_function(perm_argument).evaluate(
-            dof_manager
-        )
 
         # Evaluate the permeability as a function of the current potential and restrict
         # the permeability to the current grid (if perm_function is specific to the
@@ -496,9 +493,12 @@ def differentiable_mpfa(
         # working with Ad_arrays.
         # Finally map the computed permeability to the faces (distinguishing between
         # the left and right sides of the face).
-        k_one_sided = cell_2_one_sided_face * (
-            (projections.cell_restriction(g)) * perm_function(potential)
-        ).evaluate(dof_manager)
+        k_one_sided = cell_2_one_sided_face * perm_function(perm_argument).evaluate(
+            dof_manager
+        )
+        #        k_one_sided = cell_2_one_sided_face * (
+        #            (projections.cell_restriction(g)) * perm_function(perm_argument)
+        #        ).evaluate(dof_manager)
 
         # Multiply the permeability (and its derivatives with respect to potential,
         # since k_one_sided is an Ad_array) with normal vectors divided by distance
@@ -516,8 +516,11 @@ def differentiable_mpfa(
             (np.ones(sz), (fi, np.arange(sz))), shape=(g.num_faces, sz)
         ).tocsr()
 
-        # Compute the two factors of dT_face/dt_i (see defenition and explanation above).
-        inverse_sum_squared = sum_cell_face_pair_to_face * ((1 / t_one_sided.val) ** 2)
+        # Compute the two factors of dT_face/dt_i (see definition and explanation above).
+        inverse_sum_squared = (
+            sum_cell_face_pair_to_face * ((1 / t_one_sided.val))
+        ) ** 2
+
         face_transmissibility_squared = sps.dia_matrix(
             (1 / inverse_sum_squared, 0), shape=(g.num_faces, g.num_faces)
         )
