@@ -1071,12 +1071,12 @@ class ContactMechanics(AbstractModel):
 
         Note:
             Hueeber and Berge use
-            (-1) * friction_coefficient * (T_n + discr.normal * (u_n - gap))
+            (-1) * friction_coefficient * (T_n + c_n * (u_n - gap))
             The argument is that with this choice, "the Newton-type iteration
             automatically takes the form of an active set method" (Hueber's
             thesis p. 104). Since we abandon the sets in the ad-based
              implementation, the simpler form more closely related to the
-             Coloumb friction law is prefered.
+             Coulomb friction law is prefered.
         """
         friction_coefficient = pp.ad.ParameterMatrix(
             self.mechanics_parameter_key,
