@@ -21,8 +21,10 @@ Example:
     discretization matrices) is performed before the operator tree is parsed.
 """
 from __future__ import annotations
+
 import abc
-from typing import List, Tuple, Union, Dict
+from typing import Dict, List, Tuple, Union
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -379,8 +381,8 @@ class UpwindCouplingAd(Discretization):
 
 def differentiable_mpfa(
     perm_function: pp.ad.Function,
-    perm_argument: pp.ad.Variable,
-    potential: pp.ad.Variable,
+    perm_argument: pp.ad.Ad_array,
+    potential: pp.ad.Ad_array,
     grid_list: List[pp.Grid],
     bc: Dict[pp.Grid, pp.BoundaryCondition],
     base_discr: Union[pp.ad.MpfaAd, pp.ad.TpfaAd],
@@ -398,9 +400,13 @@ def differentiable_mpfa(
 
     Parameters:
         perm_function (pp.ad.Function): Function which gives the permeability as a
-            function of primary variables.
-        potential (pp.ad.Variable): Variable that enters the diffusion law (pressure, say).
-        bc (pp.BoundaryCondition):
+            function of primary variables. The function should return cell-wise permeability
+            for all grids in grid_list.
+        perm_argument (pp.ad.Ad_array, evaluation of a pp.ad.Variable): Variable(s) upon which
+            the permeability depends.
+        potential (pp.ad.Variable, evaluation of a pp.ad.Variable): Variable that enters
+            the diffusion law (pressure, say).
+        bc (pp.BoundaryCondition): Dictionary with grids as keys and bc objects as items.
         base_discr: Tpfa or Mpfa discretization (Ad), gol which we want to approximate
             the transmissibility matrix.
         dof_manager (pp.DofManager): Needed to evaluate Ad operators.
@@ -430,9 +436,10 @@ def differentiable_mpfa(
     # The differentiation of transmissibilities with respect to permeability is
     # implemented as a loop over all grids. It could be possible to gather all grid
     # information in arrays as a preprocessing step, but that seems not to be worth
-    # the effort.
+    # the effort. However, to avoid evaluating the permeability function multiple times,
+    # we precompute it here
+    global_permeability = perm_function(perm_argument).evaluate(dof_manager)
     for g in grid_list:
-
         # The first few lines are pasted from the standard Tpfa implementation
         fi, ci, sgn = sps.find(g.cell_faces)
         sz = fi.size
@@ -464,49 +471,46 @@ def differentiable_mpfa(
         # at the corresponding face.
         # The chain rule gives
         #
-        #   dT/du = dT/dk dk/du.
+        #   dT/du = dT/dt dt/dk dk/du.
         #
-        # k being an ad function, dk/du is available as .jac after evaluation. dT/dk is computed
-        # below. Its deduction requires differentiating T w.r.t. half transmissibilities and
-        # collection of contributions from each cell. For i in {left, right} cells, it reads
+        # k being an ad function, dk/du is available as .jac after evaluation. dT/dt and dt/dk
+        # are computed below. The former requires differentiating T w.r.t. half
+        # transmissibilities and collection of contributions from each cell.
+        # For i in {left, right} cells, it reads
         #
         #   dT_face/dt_i = T_face ** 2 / t_i ** 2,
         #
         # where the tpfa face transmissibility is
         #
         #   T_face = 1 / (1/t_l + 1/t_r).
+        #
+        # For isotropic tpfa, dt/dk is areas (-weighted normal) divided by cell-face distances.
 
         # Evaluate the permeability as a function of the current potential
         # The evaluation means we go from an Ad operator formulation to the forward mode,
-        # working with Ad_arrays. We map the computed permeability to the faces (distinguishing between
-        # the left and right sides of the face).
+        # working with Ad_arrays. We map the computed permeability to the faces (distinguishing
+        # between the left and right sides of the face).
         cell_2_one_sided_face = sps.coo_matrix(
             (np.ones(sz), (np.arange(sz), ci)),
             shape=(sz, g.num_cells),
         ).tocsr()
 
-        # Evaluate the permeability as a function of the current potential and restrict
-        # the permeability to the current grid (if perm_function is specific to the
+        # Restrict the permeability to the current grid (if perm_function is specific to the
         # grid, the restriction should be applied to the potential rather than the
         # permeability).
         # The evaluation means we go from an Ad operator formulation to the forward mode,
         # working with Ad_arrays.
-        # Finally map the computed permeability to the faces (distinguishing between
+        # Then, map the computed permeability to the faces (distinguishing between
         # the left and right sides of the face).
-        k_one_sided = cell_2_one_sided_face * perm_function(perm_argument).evaluate(
-            dof_manager
-        )
-        #        k_one_sided = cell_2_one_sided_face * (
-        #            (projections.cell_restriction(g)) * perm_function(perm_argument)
-        #        ).evaluate(dof_manager)
+        cells_of_grid = projections.cell_restriction([g]).evaluate(dof_manager)
+        k_one_sided = cell_2_one_sided_face * cells_of_grid * global_permeability
 
         # Multiply the permeability (and its derivatives with respect to potential,
-        # since k_one_sided is an Ad_array) with normal vectors divided by distance
+        # since k_one_sided is an Ad_array) with area weighted normal vectors divided by
+        # distance
+        normals_over_distance = np.divide(n_dist.sum(axis=0), dist_face_cell)
         t_one_sided = (
-            sps.dia_matrix(
-                (np.divide(n_dist.sum(axis=0), dist_face_cell), 0), shape=(sz, sz)
-            )
-            * k_one_sided
+            sps.dia_matrix((normals_over_distance, 0), shape=(sz, sz)) * k_one_sided
         )
 
         # Mapping which sums the right and left sides of the face.
@@ -528,17 +532,12 @@ def differentiable_mpfa(
         half_face_transmissibility_inv_squared = sps.coo_matrix(
             (hf_vals, (fi, np.arange(sz))), shape=(g.num_faces, sz)
         ).tocsr()
-        d_transmissibility_d_k = (
+        # Face transmissibility differentiated w.r.t. half face transmissibility
+        d_transmissibility_d_t = (
             face_transmissibility_squared * half_face_transmissibility_inv_squared
         )
-
-        num_glob_dofs = dof_manager.num_dofs()
-
-        # Use unit values for elements not associated with the potential in this grid
-        # (unit values seem more natural than zeros here, since the latter risks
-        # eliminating columns relevant for problems where the permeability is a function
-        # of other variables than the potential).
-        loc_vals = np.ones(num_glob_dofs)
+        # Face half face transmissibility differentiated w.r.t. permeability
+        d_t_d_k = sps.dia_matrix((normals_over_distance, 0), shape=(sz, sz))
 
         # Potential for this grid (Could also be retrieved using potential.evaluate?)
         potential_value = dof_manager.assemble_variable(
@@ -549,15 +548,18 @@ def differentiable_mpfa(
             pp.fvutils.scalar_divergence(g).T * potential_value,
             shape=(g.num_faces, g.num_faces),
         )
-        jac = grad_p * d_transmissibility_d_k * k_one_sided.jac
-
+        # Compose chain rule for T(t(K(u)). k_one_sided.jac is dK/du.
+        jac = d_transmissibility_d_t * d_t_d_k * k_one_sided.jac
+        # One half of the product rule applied to (T grad p). The other half
+        # is base_flux * potential.jac as added below this loop.
+        jac = grad_p * jac
         # Eliminate values on Neumann boundaries.
         # FIXME: we should a corresponding operation for Dirichlet.
         is_neu = bc[g].is_neu
         pp.matrix_operations.zero_rows(jac, np.where(is_neu)[0])
 
         # Prolong this Jacobian to the full set of faces and add.
-        block_jac += projections.face_prolongation(g).evaluate(dof_manager) * jac
+        block_jac += projections.face_prolongation([g]).evaluate(dof_manager) * jac
 
     # Second part of product rule, applied to the potential. This is the standard part of
     # a Mpfa (Tpfa) discretization
