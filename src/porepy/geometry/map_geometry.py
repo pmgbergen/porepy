@@ -213,7 +213,7 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_plana
     if check_planar:
         assert pp.geometry_property_checks.points_are_planar(pts, normal, tol)
 
-    reference = np.asarray(reference, dtype=np.float)
+    reference = np.asarray(reference, dtype=float)
     angle = np.arccos(np.dot(normal, reference))
     vect = np.array(
         [
@@ -250,7 +250,7 @@ def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
     if reference is None:
         reference = [0, 0, 1]
 
-    reference = np.asarray(reference, dtype=np.float)
+    reference = np.asarray(reference, dtype=float)
     angle = np.arccos(np.dot(tangent, reference))
     vect = np.array(
         [

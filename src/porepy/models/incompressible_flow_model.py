@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 class _AdVariables:
     pressure: pp.ad.Variable
     mortar_flux: pp.ad.Variable
+    mortar_proj: pp.ad.MortarProjections
+    flux_discretization: Union[pp.ad.MpfaAd, pp.ad.TpfaAd]
 
 
 class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
@@ -275,12 +277,11 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
         edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
 
-        mortar_proj = pp.ad.MortarProjections(
+        self._ad.mortar_proj = pp.ad.MortarProjections(
             edges=edge_list, grids=grid_list, gb=self.gb, nd=1
         )
 
         # Ad representation of discretizations
-        flow_ad = pp.ad.MpfaAd(self.parameter_key, grid_list)
         robin_ad = pp.ad.RobinCouplingAd(self.parameter_key, edge_list)
 
         div = pp.ad.Divergence(grids=grid_list)
@@ -308,14 +309,10 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         )
 
         # Ad equations
-        flux = (
-            flow_ad.flux * p
-            + flow_ad.bound_flux * bc_val
-            + flow_ad.bound_flux * mortar_proj.mortar_to_primary_int * mortar_flux
-            + flow_ad.vector_source * vector_source_grids
-        )
         subdomain_flow_eq = (
-            div * flux - mortar_proj.mortar_to_secondary_int * mortar_flux - source
+            div * self._flux(grid_list)
+            - self._ad.mortar_proj.mortar_to_secondary_int * mortar_flux
+            - source
         )
 
         # Interface equation: \lambda = -\kappa (p_l - p_h)
@@ -324,20 +321,21 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         # from cell center pressure, external boundary and interface flux
         # on internal boundaries (including those corresponding to "other"
         # fractures).
+        flux_discr = self._ad.flux_discretization
         p_primary = (
-            flow_ad.bound_pressure_cell * p
-            + flow_ad.bound_pressure_face
-            * mortar_proj.mortar_to_primary_int
+            flux_discr.bound_pressure_cell * p
+            + flux_discr.bound_pressure_face
+            * self._ad.mortar_proj.mortar_to_primary_int
             * mortar_flux
-            + flow_ad.bound_pressure_face * bc_val
-            + flow_ad.vector_source * vector_source_grids
+            + flux_discr.bound_pressure_face * bc_val
+            + flux_discr.vector_source * vector_source_grids
         )
         # Project the two pressures to the interface and equate with \lambda
         interface_flow_eq = (
             robin_ad.mortar_discr
             * (
-                mortar_proj.primary_to_mortar_avg * p_primary
-                - mortar_proj.secondary_to_mortar_avg * p
+                self._ad.mortar_proj.primary_to_mortar_avg * p_primary
+                - self._ad.mortar_proj.secondary_to_mortar_avg * p
                 + robin_ad.mortar_vector_source * vector_source_edges
             )
             + mortar_flux
@@ -352,6 +350,51 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                 "interface_flow": interface_flow_eq,
             }
         )
+
+    def _flux(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        """Fluid flux.
+
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Subdomains for which fluid fluxes are defined, normally all.
+
+        Note:
+            The ad flux discretization used here is stored for consistency with
+            self._interface_flow_equations, where self._ad.flux_discretization
+            is applied.
+
+        Returns
+        -------
+        flux : pp.ad.Operator
+            Flux on ad form.
+
+        """
+        bc = pp.ad.ParameterArray(
+            self.parameter_key,
+            array_keyword="bc_values",
+            grids=subdomains,
+        )
+        vector_source_subdomains = pp.ad.ParameterArray(
+            param_keyword=self.parameter_key,
+            array_keyword="vector_source",
+            grids=subdomains,
+        )
+
+        flux_discr = pp.ad.MpfaAd(self.parameter_key, subdomains)
+        # Store to ensure consistency in interface flux
+        self._ad.flux_discretization = flux_discr
+        flux: pp.ad.Operator = (
+            flux_discr.flux * self._ad.pressure
+            + flux_discr.bound_flux * bc
+            + flux_discr.bound_flux
+            * self._ad.mortar_proj.mortar_to_primary_int
+            * self._ad.mortar_flux
+            + flux_discr.vector_source * vector_source_subdomains
+        )
+        flux.set_name("Fluid flux")
+        return flux
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
         """Use a direct solver for the linear system."""

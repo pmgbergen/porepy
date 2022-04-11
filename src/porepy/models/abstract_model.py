@@ -48,6 +48,7 @@ class AbstractModel:
             "folder_name": "visualization",
             "file_name": "data",
             "use_ad": False,
+            "linear_solver": "direct",
         }
         default_params.update(params)
         self.params = default_params
@@ -55,7 +56,7 @@ class AbstractModel:
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
         self.convergence_status: bool = False
-        self.linear_solver: str = "direct"
+        self.linear_solver = self.params["linear_solver"]
 
         self._nonlinear_iteration: int = 0
         assert isinstance(self.params["use_ad"], bool)
@@ -283,9 +284,13 @@ class AbstractModel:
         box = self.box
         east = g.face_centers[0] > box["xmax"] - tol
         west = g.face_centers[0] < box["xmin"] + tol
-        north = g.face_centers[1] > box["ymax"] - tol
-        south = g.face_centers[1] < box["ymin"] + tol
-        if self.gb.dim_max() == 2:
+        if self.gb.dim_max() == 1:
+            north = np.zeros(g.num_faces, dtype=bool)
+            south = north.copy()
+        else:
+            north = g.face_centers[1] > box["ymax"] - tol
+            south = g.face_centers[1] < box["ymin"] + tol
+        if self.gb.dim_max() < 3:
             top = np.zeros(g.num_faces, dtype=bool)
             bottom = top.copy()
         else:
