@@ -14,41 +14,39 @@ if TYPE_CHECKING:
     from .compositional_domain import CompositionalDomain
 
 
-class MetaSubstance(type):
-    """ Meta class for substances. 
-    Implements so far contains only a 'name' property on class level
+# class MetaSubstance(type):
+#     """ Meta class for substances. 
+#     Implements so far contains only a 'name' property on class level
     
-    """
+#     """
 
-    @property
-    def name(cls) -> str:
-        """
-        NOTE: This can be simplified in Python>=3.9 by using property and classmethod together
+#     @property
+#     def name(cls) -> str:
+#         """
+#         :return: name of the substance class. The name is used to construct names for AD variables and keys to store them.
+#         :rtype: str 
+#         """
+#         return str(cls.__name__)
 
-        :return: name of the substance class. The name is used to construct names for AD variables and keys to store them.
-        :rtype: str 
-        """
-        return str(cls.__name__)
+#     @property
+#     def omf_var(cls) -> str:
+#         """
+#         :return: name of the overall molar fraction variable under which it is stored in the grid data dictionaries
+#         :rtype: str
+#         """
+#         return COMPUTATIONAL_VARIABLES["component_overall_fraction"] + "_" + cls.name
 
-    @property
-    def omf_var(cls) -> str:
-        """
-        :return: name of the overall molar fraction variable under which it is stored in the grid data dictionaries
-        :rtype: str
-        """
-        return COMPUTATIONAL_VARIABLES["component_overall_fraction"] + "_" + cls.name
+#     def mfip_var(cls, phase_name: str) -> str:
+#         """
+#         :param phase_name: name of the  :class:`~porepy.composite.phase.Phase` for which the fraction variable's name is requested
+#         :type phase_name: str
 
-    def mfip_var(cls, phase_name: str) -> str:
-        """
-        :param phase_name: name of the  :class:`~porepy.composite.phase.Phase` for which the fraction variable's name is requested
-        :type phase_name: str
+#         :return: name of the molar fraction in phase variable 
+#         :rtype: str
+#         """
+#         return COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + cls.name + "_" + str(phase_name)
 
-        :return: name of the molar fraction in phase variable 
-        :rtype: str
-        """
-        return COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + cls.name + "_" + str(phase_name)
-
-class Substance(abc.ABC, metaclass=MetaSubstance):
+class Substance(abc.ABC):
     """
     Abstract base class for pure substances, providing abstract physical propertis which need to be implemented
     for concrete child classes to work in PorePy.
@@ -115,6 +113,32 @@ class Substance(abc.ABC, metaclass=MetaSubstance):
         # adding the overall molar fraction to the primary variables
         self.cd(self.omf_var, {"cells": 1})
     
+    @property
+    def name(self) -> str:
+        """
+        :return: name of the substance class. The name is used to construct names for AD variables and keys to store them.
+        :rtype: str 
+        """
+        return str(self.__class__.__name__)
+
+    @property
+    def omf_var(self) -> str:
+        """
+        :return: name of the overall molar fraction variable under which it is stored in the grid data dictionaries
+        :rtype: str
+        """
+        return COMPUTATIONAL_VARIABLES["component_overall_fraction"] + "_" + self.name
+
+    def mfip_var(self, phase_name: str) -> str:
+        """
+        :param phase_name: name of the  :class:`~porepy.composite.phase.Phase` for which the fraction variable's name is requested
+        :type phase_name: str
+
+        :return: name of the molar fraction in phase variable 
+        :rtype: str
+        """
+        return COMPUTATIONAL_VARIABLES["component_fraction_in_phase"] + "_" + self.name + "_" + str(phase_name)
+
     @property
     def overall_molar_fraction(self) -> pp.ad.MergedVariable:
         """ As a fractional quantity, all values are between 0 and 1.

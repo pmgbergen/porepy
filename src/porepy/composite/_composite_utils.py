@@ -11,6 +11,7 @@ Functions:
 from typing import Tuple, Union, Dict
 
 import porepy as pp
+import numpy as np
 
 
 
@@ -76,7 +77,7 @@ def create_merged_variable(
     
     :param gb: grid bucket representing the whole computational domain
     :type gb: :class:`porepy.GridBucket`
-    :param dof_info: number of DOFs per grid element (e.g. cell, face)
+    :param dof_info: number of DOFs per grid element (e.g. cells, faces, nodes)
     :type dof_info: dict
     :param variable_name: name given to variable, used as keyword for storage
     :type variable_name: str
@@ -84,20 +85,31 @@ def create_merged_variable(
     :return: Returns a 2-tuple containing the new objects. The second object will be None, if no mortar variable name is specified.
     :rtype: tuple(2)
     """
-    # TODO decide whether variables should be initiated with values (zero)
     # creating variables on each subdomain
     variables = list()
     for g, d in gb:
-
+        # store DOF information about variable
         if pp.PRIMARY_VARIABLES not in d:
             d[pp.PRIMARY_VARIABLES] = dict()
 
         d[pp.PRIMARY_VARIABLES].update({variable_name: dof_info})
-        # TODO test if the order of variables is alright
+        
+        # create grid-specific variable
         variables.append(pp.ad.Variable(
             variable_name, dof_info, 
-            grids=[g])) 
+            grids=[g]))
 
+        # initiate state and iterative state as zero
+        if pp.STATE not in d:
+            d[pp.STATE] = {}
+        if pp.ITERATE not in d[pp.STATE]:
+            d[pp.STATE][pp.ITERATE] = {}
+
+        d[pp.STATE].update({variable_name: np.zeros(g.num_cells)})
+        d[pp.STATE][pp.ITERATE].update({variable_name: np.zeros(g.num_cells)})
+        # TODO for variables with not only cell values, above is wrong/incomplete
+
+    # returns a merged variable on whole grid bucket
     return pp.ad.MergedVariable(variables)
 
 
