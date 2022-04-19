@@ -45,6 +45,8 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
 
             for _, d_e in gb.edges_of_node(g):
                 g_m = d_e["mortar_grid"]
+                # do not consider the contribution from the mortar grid when the latter is
+                # of the same dimension or codim > 1 (e.g., wells)
                 if g_m.dim == g.dim or g_m.codim > 1:
                     continue
                 # project the mortar variable back to the higher dimensional
