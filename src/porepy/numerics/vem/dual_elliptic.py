@@ -43,9 +43,10 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
             _, indices = np.unique(g.cell_faces.indices, return_index=True)
             sign = sps.diags(g.cell_faces.data[indices], 0)
 
-            for _, d_e in gb.edges_of_node(g):
+            for e, d_e in gb.edges_of_node(g):
                 g_m = d_e["mortar_grid"]
-                if g_m.dim == g.dim:
+                g1, _ = gb.nodes_of_edge(e)
+                if g_m.dim == g.dim or g1.well_num > -1:
                     continue
                 # project the mortar variable back to the higher dimensional
                 # problem
