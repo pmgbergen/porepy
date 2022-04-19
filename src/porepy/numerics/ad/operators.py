@@ -1,8 +1,10 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
 import copy
+import abc
 from enum import Enum
 from itertools import count
+from multiprocessing.sharedctypes import Value
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
@@ -14,7 +16,7 @@ import porepy as pp
 from porepy.params.tensor import SecondOrderTensor
 
 from . import _ad_utils
-from .forward_mode import initAdArrays
+from .forward_mode import initAdArrays, Ad_array
 
 __all__ = [
     "Operator",
@@ -24,6 +26,7 @@ __all__ = [
     "Variable",
     "MergedVariable",
     "Function",
+    "BlackboxOperator"
 ]
 
 # Short hand for typing
@@ -32,8 +35,18 @@ GridLike = Union[pp.Grid, Edge]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
 Operation = Enum(
-    "Operation", ["void", "add", "sub", "mul", "evaluate", "div", "localeval", "apply"]
+    "Operation", ["void",
+                  "add", "sub", "mul", "div",
+                  "evaluate", "localeval", "apply", "blackbox"]
 )
+
+
+def _get_shape(mat):
+    """ Get shape of a numpy.ndarray or the Jacobian of Ad_array"""
+    if isinstance(mat, (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)):
+        return mat.jac.shape
+    else:
+        return mat.shape
 
 
 class Operator:
@@ -218,7 +231,7 @@ class Operator:
         the tree of this operator, using data from gb.
 
         IMPLEMENTATION NOTE: The discretizations was identified at initialization of
-        Expression - it is now done here to accomodate updates (?) and
+        Expression - it is now done here to accommodate updates (?) and
 
         """
         unique_discretizations: Dict[
@@ -299,37 +312,6 @@ class Operator:
         tree = op.tree
         results = [self._parse_operator(child, gb) for child in tree.children]
 
-        def get_shape(mat):
-            # Get shape of a matrix
-            if isinstance(mat, (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)):
-                return mat.jac.shape
-            else:
-                return mat.shape
-
-        def error_message(operation):
-            # Helper function to format error message
-            msg_0 = self._parse_readable(tree.children[0])
-            msg_1 = self._parse_readable(tree.children[1])
-
-            nl = "\n"
-            msg = (
-                f"Ad parsing: Error when {operation}\n"
-                + "  "
-                + msg_0
-                + nl
-                + "with"
-                + nl
-                + "  "
-                + msg_1
-                + nl
-            )
-
-            msg += (
-                f"Matrix sizes are {get_shape(results[0])} and "
-                f"{get_shape(results[1])}"
-            )
-            return msg
-
         # Combine the results
         if tree.op == Operation.add:
             # To add we need two objects
@@ -346,7 +328,7 @@ class Operator:
             try:
                 return results[0] + results[1]
             except ValueError as exc:
-                msg = error_message("adding")
+                msg = self._get_error_message("adding", tree, results)
                 raise ValueError(msg) from exc
 
         elif tree.op == Operation.sub:
@@ -368,7 +350,7 @@ class Operator:
             try:
                 return factor * (results[0] - results[1])
             except ValueError as exc:
-                msg = error_message("subtracting")
+                msg = self._get_error_message("subtracting", tree, results)
                 raise ValueError(msg) from exc
 
         elif tree.op == Operation.mul:
@@ -409,46 +391,86 @@ class Operator:
                     )
 
                 else:
-                    msg = error_message("multiplying")
+                    msg = self._get_error_message("multiplying", tree, results)
                 raise ValueError(msg) from exc
+
+        elif tree.op == Operation.div:
+            return results[0] / results[1]
 
         elif tree.op == Operation.evaluate:
             # This is a function, which should have at least one argument
             assert len(results) > 1
             return results[0].func(*results[1:])
 
+        elif tree.op == Operation.blackbox:
+            assert len(results) > 1
+            blackbox = results[0]
+            try:
+                val = blackbox.blackbox_val(*results[1:])
+                jac = blackbox.blackbox_jac(*results[1:])
+            except Exception as exc:  
+                # TODO specify what can go wrong here (Exception type)
+                msg = "Ad parsing: Error evaluating black box operator:\n"
+                msg += blackbox._parse_readable()
+                raise ValueError(msg) from exc
+            return Ad_array(val, jac)
+
         elif tree.op == Operation.apply:
             assert len(results) > 1
             return results[0].apply(*results[1:])
 
-        elif tree.op == Operation.div:
-            return results[0] / results[1]
-
         else:
             raise ValueError("Should not happen")
+    
+    def _get_error_message(operation: str, tree, results: list) -> str:
+        # Helper function to format error message
+        msg_0 = tree.children[0]._parse_readable()
+        msg_1 = tree.children[1]._parse_readable()
 
-    def _parse_readable(self, op: "Operator") -> str:
-        # Make a human-readable error message related to a parsing error.
-        # NOTE: The exact formatting should be considered work in progress,
-        # in particular when it comes to function evaluation.
+        nl = "\n"
+        msg = (
+            f"Ad parsing: Error when {operation}\n"
+            + "  "
+            + msg_0
+            + nl
+            + "with"
+            + nl
+            + "  "
+            + msg_1
+            + nl
+        )
+
+        msg += (
+            f"Matrix sizes are {_get_shape(results[0])} and "
+            f"{_get_shape(results[1])}"
+        )
+        return msg
+
+    def _parse_readable(self) -> str:
+        """
+        Make a human-readable error message related to a parsing error.
+        NOTE: The exact formatting should be considered work in progress,
+        in particular when it comes to function evaluation.
+        """
 
         # There are three cases to consider: Either the operator is a leaf,
         # it is a composite operator with a name, or it is a general composite
         # operator.
-        if op.is_leaf():
+        if self.is_leaf():
             # Leafs are represented by their strings.
-            return str(op)
-        elif op._name is not None:
+            return str(self)
+        elif self._name is not None:
             # Composite operators that have been given a name (possibly
             # with a goal of simple identification of an error)
-            return op._name
+            return self._name
 
         # General operator. Split into its parts by recursion.
-        tree = op.tree
+        tree = self.tree
 
         child_str = [child._parse_readable() for child in tree.children]
 
         is_func = False
+        operator_str = None
 
         if tree.op == Operation.add:
             operator_str = "+"
@@ -458,20 +480,17 @@ class Operator:
             operator_str = "*"
         elif tree.op == Operation.div:
             operator_str = "/"
-        elif tree.op in [Operation.evaluate, Operation.apply]:
-            # TODO: This has not really been tested.
+        elif tree.op in [Operation.evaluate, Operation.apply, Operation.blackbox]:
             is_func = True
-        else:
-            # TODO: This corresponds to unknown (to EK) cases.
-            print("Have not implemented string parsing of this operator")
 
         if is_func:
-            # TODO: Not sure what to write here
-            msg = f"{child_str[0]} evaluated on ("
-            for child in range(1, len(child_str)):
-                msg += f"{child_str[child]}, "
-
+            msg = f"{child_str[0]}("
+            msg += ', '.join([f"{child}" for child in child_str[1:]])
             msg += ")"
+            return msg
+        elif operator_str is None:
+            msg = "UNKNOWN parsing for operation on: "
+            msg += ', '.join([f"{child}" for child in child_str])
             return msg
         else:
             # TODO: Should we try to give parantheses here?
@@ -518,7 +537,7 @@ class Operator:
         nx.draw(G, with_labels=True)
         plt.show()
 
-    ### Below here are method for overloading aritmethic operators
+    ### Below here are method for overloading arithmetic operators
 
     def __mul__(self, other):
         children = self._parse_other(other)
@@ -563,7 +582,7 @@ class Operator:
                 at the previous time step.
 
         Returns:
-            An Ad-array representation of the residual and Jacbobian. Note that the Jacobian
+            An Ad-array representation of the residual and Jacobian. Note that the Jacobian
                 matrix need not be invertible, or ever square; this depends on the operator.
 
         """
@@ -660,7 +679,7 @@ class Operator:
         # the Jacobian columns must stay the same to preserve all cross couplings
         # in the derivatives).
 
-        # Dictionary which mapps from Ad variable ids to Ad_array.
+        # Dictionary which maps from Ad variable ids to Ad_array.
         self._ad: Dict[int, pp.ad.Ad_array] = {}
 
         # Loop over all variables, restrict to an Ad array corresponding to
@@ -985,7 +1004,7 @@ class Variable(Operator):
 
 
 class MergedVariable(Variable):
-    """Ad representation of a collection of variables that invidiually live on separate
+    """Ad representation of a collection of variables that individually live on separate
     grids of interfaces, but which it is useful to treat jointly.
 
     Conversion of the variables into numerical value should be done with respect to the
@@ -1029,7 +1048,7 @@ class MergedVariable(Variable):
         # not to have any fractures.
         self._no_variables = len(variables) == 0
 
-        # Take the name from the first variabe.
+        # Take the name from the first variable.
         if self._no_variables:
             self._name = "no_sub_variables"
         else:
@@ -1140,6 +1159,11 @@ class Function(Operator):
         raise RuntimeError("Functions should only be evaluated")
 
     def __call__(self, *args):
+        """
+        Call to operator object with 'args' as children.
+
+        The children are passed as arguments to the callable passed at instantiation.        
+        """
         children = [self, *args]
         op = Operator(tree=Tree(self._operation, children=children))
         return op
@@ -1155,7 +1179,7 @@ class Function(Operator):
         The real work will be done by combining the function with arguments, during
         parsing of an operator tree.
 
-        Pameteres:
+        Parameters:
             gb (pp.GridBucket): Mixed-dimensional grid. Not used, but it is needed as
                 input to be compatible with parse methods for other operators.
 
@@ -1183,6 +1207,99 @@ class ApplicableOperator(Function):
         children = [self, *args]
         op = Operator(tree=Tree(Operation.apply, children=children))
         return op
+
+
+class BlackboxOperator(Function, abc.ABC):
+    """ Ad representation for a 'black box' operation using Ad variables.
+    
+    Like the pp.ad.Function, it maps pp.ad.Ad_array objects onto a new one,
+    only this time the resulting values are not analytically represented,
+    but provided by abstract methods 'blackbox_val' and 'blackbox_jac'.
+
+    The intended use it to provide Operators which 
+    (for an arbitrary callable (black box) passed at instantiation)
+        - evaluate the black box function
+        - but approximate the true Jacobian.
+
+    This is an abstract base class, meaning 
+        - :method:`~porepy.numerics.ad.operators.BlackboxOperator.blackbox_val`
+        - :method:`~porepy.numerics.ad.operators.BlackboxOperator.blackbox_jac`
+    have to be overwritten and implemented the call to the black box evaluation.
+    The Ad_array representatives of the arguments when calling this instance,
+    will be passed to above methods as arguments.
+    """
+
+    def __init__(self,
+    func: Callable, name: str, vector_conform: Optional[bool] = False):
+        """ Constructor
+
+        :param func: (black box) function providing values.
+        :type func: Callable
+        :param name: name of this black box operator.
+        :type name: str
+        :param vector_conform: flags whether the blackbox function can take vectors as arguments or not
+        :type vector_conform: bool
+        """
+        super().__init__(func, name)
+        self._operation = Operation.blackbox
+        self._vector_conform = vector_conform
+
+    def __repr__(self) -> str:
+        return f"AD Black Box Operator with name {self._name}"
+    
+    def blackbox_val(self, *args) -> np.array:
+        """
+        Evaluates the black box function using values of Ad_array instances
+        passed as arguments
+
+        :param args: tuple of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
+        :type args: tuple
+
+        :return: resulting values of this operation
+        :rtype: numpy.array
+        """
+        # get values of argument Ad_arrays.
+        vals = (arg.val for arg in args)
+
+        if self._vector_conform:
+            # if the black box is flagged as conform for vector operations, feed vectors
+            return self.func(*vals)
+        else:
+            # if not vector-conform, feed element-wise
+            return np.array([self.func(*vals_i) for vals_i in zip(*vals)])
+
+    @abc.abstractmethod
+    def blackbox_jac(self, *args) -> sps.spmatrix:
+        """
+        Abstract method to provide the Jacobian of this operator.
+        Arguments passed will be Ad_array objects representing the operators
+        passed at call to this instance.
+
+        :param args: tuple of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
+        :type args: tuple
+
+        :return: resulting Jacobian of this operation
+        :rtype: scipy.sparse.spmatrix
+        """
+        pass
+
+
+class FixedLApproximation(BlackboxOperator):
+    """
+    Approximates the Jacobian of the black box using the L-scheme with a fixed value.
+    """
+
+    def __init__(self, L: float,  func: Callable, name: str, vector_conform: Optional[bool] = False):
+        super().__init__(func, name, vector_conform)
+        self._L = float(L)
+
+    def blackbox_jac(self, *args) -> sps.spmatrix:
+        """ The approximate jacobian is identity times L.
+        Where this block appears, depends on the total dofs.
+        """
+        for arg in args:
+            print(arg.jac)
+        print("bb out")
 
 
 class SecondOrderTensorAd(SecondOrderTensor, Operator):
