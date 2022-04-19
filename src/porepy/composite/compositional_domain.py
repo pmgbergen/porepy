@@ -418,15 +418,13 @@ class CompositionalDomain:
         :type initial_values: List[numpy.ndarray]
         """
 
-        # create a copy to avoid issues in case there is another manipulated reference to the values
-        vals = [arr.copy() for arr in initial_values]
-
-        for grid_data, vals in zip(self.cd.gb, vals):
+        for grid_data, val in zip(self.gb, initial_values):
             data = grid_data[1]  # get data out (grid, data) tuple
             if pp.STATE not in data:
                 data[pp.STATE] = {}
             if pp.ITERATE not in data[pp.STATE]:
                 data[pp.STATE][pp.ITERATE] = {}
 
-            data[pp.STATE][self.omf_var] = vals
-            data[pp.STATE][pp.ITERATE][self.omf_var] = vals
+            # create a copy to avoid issues in case there is another manipulated reference to the values
+            data[pp.STATE][self.omf_var] = np.copy(val)
+            data[pp.STATE][pp.ITERATE][self.omf_var] = np.copy(val)
