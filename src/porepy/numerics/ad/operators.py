@@ -26,7 +26,8 @@ __all__ = [
     "Variable",
     "MergedVariable",
     "Function",
-    "BlackboxOperator"
+    "BlackboxOperator",
+    "FixedLScheme",
 ]
 
 # Short hand for typing
@@ -1237,7 +1238,7 @@ class BlackboxOperator(Function, abc.ABC):
         :type func: Callable
         :param name: name of this black box operator.
         :type name: str
-        :param vector_conform: flags whether the blackbox function can take vectors as arguments or not
+        :param vector_conform: flags whether the black box function can take vectors as arguments or not
         :type vector_conform: bool
         """
         super().__init__(func, name)
@@ -1255,7 +1256,7 @@ class BlackboxOperator(Function, abc.ABC):
         :param args: tuple of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
         :type args: tuple
 
-        :return: resulting values of this operation
+        :return: black box results
         :rtype: numpy.array
         """
         # get values of argument Ad_arrays.
@@ -1272,34 +1273,69 @@ class BlackboxOperator(Function, abc.ABC):
     def blackbox_jac(self, *args) -> sps.spmatrix:
         """
         Abstract method to provide the Jacobian of this operator.
-        Arguments passed will be Ad_array objects representing the operators
-        passed at call to this instance.
+        Passed arguments will be Ad_array objects representing the operators
+        passed during call to this instance.
+
+        NOTE: When constructing a properly sized Jacobian, mind the
+        model variables not included among the arguments.
+        They must be represented with zero-blocks.
 
         :param args: tuple of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
         :type args: tuple
 
-        :return: resulting Jacobian of this operation
+        :return: approximated Jacobian of this black box function with proper dimensions.
         :rtype: scipy.sparse.spmatrix
         """
         pass
 
 
-class FixedLApproximation(BlackboxOperator):
+class FixedLScheme(BlackboxOperator):
     """
-    Approximates the Jacobian of the black box using the L-scheme with a fixed value.
+    Approximates the Jacobian of the black box using the L-scheme
+    with a fixed value per dependency.
     """
 
-    def __init__(self, L: float,  func: Callable, name: str, vector_conform: Optional[bool] = False):
+    def __init__(self,
+    L: Union[list, float], 
+    func: Callable, name: str,
+    vector_conform: Optional[bool] = False):
+        """ Constructor.
+        
+        The L-multiplyer for the L-scheme can be passed for every argument of the
+        black box function specifically using a list.
+        The order in the list has to mach the order of arguments when calling
+        this instance.
+
+        :param L: multiplyer for identity for L-scheme
+        :type L: float / List[float]
+        """
         super().__init__(func, name, vector_conform)
-        self._L = float(L)
+        # check and format input for further use
+        if isinstance(L, list):
+            self._L = [float(l) for l in L]
+        else:
+            self._L = [float(L)]
 
     def blackbox_jac(self, *args) -> sps.spmatrix:
         """ The approximate jacobian is identity times L.
-        Where this block appears, depends on the total dofs.
+        
+        Where the respective blocks appears,
+        depends on the total dofs and the order of arguments passed during the
+        call to this instance.
         """
-        for arg in args:
-            print(arg.jac)
-        print("bb out")
+        # the Jacobian of a (Merged) Variable is already a properly sized block identity
+        if len(args)>=1:
+            jac = args[0].jac * self._L[0]
+
+            # summing identity blocks for each dependency
+            if len(args) > 1:
+                # TODO think about exception handling in case not enough L-values were provided initially
+                for arg, L in zip(args[1:], self._L[1:]):
+                    jac += arg.jac * L
+        else: # TODO assert zero as scalar will cause no type errors with other operators
+            jac = 0.
+
+        return jac
 
 
 class SecondOrderTensorAd(SecondOrderTensor, Operator):
