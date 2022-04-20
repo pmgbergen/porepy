@@ -431,7 +431,7 @@ def differentiable_mpfa(
     # Get hold of the underlying flux discretization.
     base_flux = base_discr.flux.evaluate(dof_manager)
     # The Jacobian matrix should have the same size as the base.
-    block_jac = sps.csr_matrix(base_flux.shape)
+    block_jac = sps.csr_matrix((base_flux.shape[0], dof_manager.num_dofs()))
 
     # The differentiation of transmissibilities with respect to permeability is
     # implemented as a loop over all grids. It could be possible to gather all grid
@@ -539,10 +539,9 @@ def differentiable_mpfa(
         # Face half face transmissibility differentiated w.r.t. permeability
         d_t_d_k = sps.dia_matrix((normals_over_distance, 0), shape=(sz, sz))
 
-        # Potential for this grid (Could also be retrieved using potential.evaluate?)
-        potential_value = dof_manager.assemble_variable(
-            grids=[g], variables=[var_name], from_iterate=True
-        )
+        # Potential for this grid
+        potential_value = cells_of_grid * potential.val
+        
         # Create matrix and multiply into Jacobian
         grad_p = sps.diags(
             pp.fvutils.scalar_divergence(g).T * potential_value,
