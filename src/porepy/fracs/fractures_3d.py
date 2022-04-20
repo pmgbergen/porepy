@@ -803,19 +803,19 @@ class FractureNetwork3d(object):
                 if poly_ind in constraints:
                     in_frac_occurences_by_constraints[edge_ind] += 1
 
-        # Count the number of occurences that are not caused by a constraint
+        # Count the number of occurrences that are not caused by a constraint
         num_occ_not_by_constraints = (
             in_frac_occurences - in_frac_occurences_by_constraints
         )
 
-        # If all but one occurence of a line internal to a polygon is caused by
+        # If all but one occurrence of a line internal to a polygon is caused by
         # constraints, this is likely a fracture.
         auxiliary_line = num_occ_not_by_constraints == 1
 
         # .. However, the line may also be caused by a T- or L-intersection
         auxiliary_line[some_boundary_edge] = False
         # The edge tags for internal lines were set accordingly in self._classify_edges.
-        # Update to auxiliray line if this was really what we had.
+        # Update to auxiliary line if this was really what we had.
         edge_tags[auxiliary_line] = Tags.AUXILIARY_LINE.value
 
         # .. and we're done with edges (until someone defines a new special case)
