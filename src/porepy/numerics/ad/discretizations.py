@@ -541,7 +541,7 @@ def differentiable_mpfa(
 
         # Potential for this grid
         potential_value = cells_of_grid * potential.val
-        
+
         # Create matrix and multiply into Jacobian
         grad_p = sps.diags(
             pp.fvutils.scalar_divergence(g).T * potential_value,
