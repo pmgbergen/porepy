@@ -422,7 +422,37 @@ class Operator:
             return results[0].apply(*results[1:])
 
         elif tree.op == Operation.div:
-            return results[0] / results[1]
+            # Some care is needed here, to account for cases where item in the results
+            # array is a numpy array
+            if isinstance(results[0], pp.ad.Ad_array):
+                # If the first item is an Ad array, the implementation of the forward
+                # mode should take care of everything.
+                return results[0] / results[1]
+            elif isinstance(results[0], np.ndarray):
+                # The first array is a numpy array, and numpy's implementation of
+                # division will be invoked.
+                if isinstance(results[1], np.ndarray):
+                    # Both items are numpy arrays, everything is fine.
+                    return results[0] / results[1]
+                elif isinstance(results[1], pp.ad.Ad_array):
+                    # Numpy cannot deal with division with an Ad_array. Instead multiply
+                    # with the inverse of results[1] (this is equivalent, and makes
+                    # numpy happy). The return from numpy will be a new array (data type
+                    # object) with the actual Ad_array as the first item. Exactly why
+                    # numpy functions in this way is not clear to EK.
+                    return (results[0] * results[1] ** -1)[0]
+                else:
+                    # Not sure what this will cover, but results[1] being a float etc.
+                    # could end up here (and is easily covered).
+                    raise NotImplementedError(
+                        "Encountered a case not covered when dividing Ad objects"
+                    )
+            else:
+                # This case could include results[0] being a float, or different numbers,
+                # which again should be easy to cover.
+                raise NotImplementedError(
+                    "Encountered a case not covered when dividing Ad objects"
+                )
 
         else:
             raise ValueError("Should not happen")
