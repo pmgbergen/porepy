@@ -432,7 +432,7 @@ class Operator:
         else:
             raise ValueError("Should not happen")
     
-    def _get_error_message(operation: str, tree, results: list) -> str:
+    def _get_error_message(self, operation: str, tree, results: list) -> str:
         # Helper function to format error message
         msg_0 = tree.children[0]._parse_readable()
         msg_1 = tree.children[1]._parse_readable()
