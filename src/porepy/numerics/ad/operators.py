@@ -4,7 +4,6 @@ import copy
 import abc
 from enum import Enum
 from itertools import count
-from multiprocessing.sharedctypes import Value
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
@@ -27,7 +26,7 @@ __all__ = [
     "MergedVariable",
     "Function",
     "BlackboxOperator",
-    "FixedLScheme",
+    "FunctionLJac",
 ]
 
 # Short hand for typing
@@ -36,14 +35,12 @@ GridLike = Union[pp.Grid, Edge]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
 Operation = Enum(
-    "Operation", ["void",
-                  "add", "sub", "mul", "div",
-                  "evaluate", "localeval", "apply", "blackbox"]
+    "Operation", ["void", "add", "sub", "mul", "div", "evaluate", "blackbox"]
 )
 
 
 def _get_shape(mat):
-    """ Get shape of a numpy.ndarray or the Jacobian of Ad_array"""
+    """Get shape of a numpy.ndarray or the Jacobian of Ad_array"""
     if isinstance(mat, (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)):
         return mat.jac.shape
     else:
@@ -252,7 +249,7 @@ class Operator:
     def set_name(self, name: str) -> None:
         self._name = name
 
-    def parse(self, gb) -> Any:
+    def parse(self, gb: pp.GridBucket) -> Any:
         """Translate the operator into a numerical expression.
         Subclasses that represent atomic operators (leaves in a tree-representation of
         an operator) should override this method to retutrn e.g. a number, an array or a
@@ -396,7 +393,37 @@ class Operator:
                 raise ValueError(msg) from exc
 
         elif tree.op == Operation.div:
-            return results[0] / results[1]
+            # Some care is needed here, to account for cases where item in the results
+            # array is a numpy array
+            if isinstance(results[0], pp.ad.Ad_array):
+                # If the first item is an Ad array, the implementation of the forward
+                # mode should take care of everything.
+                return results[0] / results[1]
+            elif isinstance(results[0], np.ndarray):
+                # The first array is a numpy array, and numpy's implementation of
+                # division will be invoked.
+                if isinstance(results[1], np.ndarray):
+                    # Both items are numpy arrays, everything is fine.
+                    return results[0] / results[1]
+                elif isinstance(results[1], pp.ad.Ad_array):
+                    # Numpy cannot deal with division with an Ad_array. Instead multiply
+                    # with the inverse of results[1] (this is equivalent, and makes
+                    # numpy happy). The return from numpy will be a new array (data type
+                    # object) with the actual Ad_array as the first item. Exactly why
+                    # numpy functions in this way is not clear to EK.
+                    return (results[0] * results[1] ** -1)[0]
+                else:
+                    # Not sure what this will cover, but results[1] being a float etc.
+                    # could end up here (and is easily covered).
+                    raise NotImplementedError(
+                        "Encountered a case not covered when dividing Ad objects"
+                    )
+            else:
+                # This case could include results[0] being a float, or different numbers,
+                # which again should be easy to cover.
+                raise NotImplementedError(
+                    "Encountered a case not covered when dividing Ad objects"
+                )
 
         elif tree.op == Operation.evaluate:
             # This is a function, which should have at least one argument
@@ -409,21 +436,17 @@ class Operator:
             try:
                 val = blackbox.blackbox_val(*results[1:])
                 jac = blackbox.blackbox_jac(*results[1:])
-            except Exception as exc:  
+            except Exception as exc:
                 # TODO specify what can go wrong here (Exception type)
                 msg = "Ad parsing: Error evaluating black box operator:\n"
                 msg += blackbox._parse_readable()
                 raise ValueError(msg) from exc
             return Ad_array(val, jac)
 
-        elif tree.op == Operation.apply:
-            assert len(results) > 1
-            return results[0].apply(*results[1:])
-
         else:
             raise ValueError("Should not happen")
-    
-    def _get_error_message(operation: str, tree, results: list) -> str:
+
+    def _get_error_message(self, operation: str, tree, results: list) -> str:
         # Helper function to format error message
         msg_0 = tree.children[0]._parse_readable()
         msg_1 = tree.children[1]._parse_readable()
@@ -481,21 +504,20 @@ class Operator:
             operator_str = "*"
         elif tree.op == Operation.div:
             operator_str = "/"
-        elif tree.op in [Operation.evaluate, Operation.apply, Operation.blackbox]:
+        elif tree.op == Operation.evaluate:
             is_func = True
 
         if is_func:
             msg = f"{child_str[0]}("
-            msg += ', '.join([f"{child}" for child in child_str[1:]])
+            msg += ", ".join([f"{child}" for child in child_str[1:]])
             msg += ")"
             return msg
         elif operator_str is None:
-            msg = "UNKNOWN parsing for operation on: "
-            msg += ', '.join([f"{child}" for child in child_str])
+            msg = "UNKNOWN parsing of operation on: "
+            msg += ", ".join([f"{child}" for child in child_str])
             return msg
         else:
-            # TODO: Should we try to give parantheses here?
-            return f"{child_str[0]} {operator_str} {child_str[1]}"
+            return f"({child_str[0]} {operator_str} {child_str[1]})"
 
     def _ravel_scipy_matrix(self, results):
         # In some cases, parsing may leave what is essentially an array, but with the
@@ -1136,7 +1158,7 @@ class Function(Operator):
 
     """
 
-    def __init__(self, func: Callable, name: str, local=False):
+    def __init__(self, func: Callable, name: str):
         """Initialize a function.
 
         Parameters:
@@ -1147,7 +1169,7 @@ class Function(Operator):
         """
         self.func = func
         self._name = name
-        self._operation = Operation.evaluate if not local else Operation.localeval
+        self._operation = Operation.evaluate
         self._set_tree()
 
     def __mul__(self, other):
@@ -1163,7 +1185,7 @@ class Function(Operator):
         """
         Call to operator object with 'args' as children.
 
-        The children are passed as arguments to the callable passed at instantiation.        
+        The children are passed as arguments to the callable passed at instantiation.
         """
         children = [self, *args]
         op = Operator(tree=Tree(self._operation, children=children))
@@ -1191,38 +1213,19 @@ class Function(Operator):
         return self
 
 
-class ApplicableOperator(Function):
-    """Ad representation of operator providing method 'apply'.
-    This class is meant as base class.
-    """
-
-    def __init__(self) -> None:
-        """Initialization empty."""
-        pass
-
-    def __repr__(self) -> str:
-        s = "AD applicable operator."
-        return s
-
-    def __call__(self, *args):
-        children = [self, *args]
-        op = Operator(tree=Tree(Operation.apply, children=children))
-        return op
-
-
 class BlackboxOperator(Function, abc.ABC):
-    """ Ad representation for a 'black box' operation using Ad variables.
-    
+    """Ad representation for a 'black box' operation using Ad variables.
+
     Like the pp.ad.Function, it maps pp.ad.Ad_array objects onto a new one,
     only this time the resulting values are not analytically represented,
     but provided by abstract methods 'blackbox_val' and 'blackbox_jac'.
 
-    The intended use it to provide Operators which 
+    The intended use it to provide Operators which
     (for an arbitrary callable (black box) passed at instantiation)
         - evaluate the black box function
         - but approximate the true Jacobian.
 
-    This is an abstract base class, meaning 
+    This is an abstract base class, meaning
         - :method:`~porepy.numerics.ad.operators.BlackboxOperator.blackbox_val`
         - :method:`~porepy.numerics.ad.operators.BlackboxOperator.blackbox_jac`
     have to be overwritten and implemented the call to the black box evaluation.
@@ -1230,15 +1233,17 @@ class BlackboxOperator(Function, abc.ABC):
     will be passed to above methods as arguments.
     """
 
-    def __init__(self,
-    func: Callable, name: str, vector_conform: Optional[bool] = False):
-        """ Constructor
+    def __init__(
+        self, func: Callable, name: str, vector_conform: Optional[bool] = False
+    ):
+        """Constructor
 
         :param func: (black box) function providing values.
         :type func: Callable
         :param name: name of this black box operator.
         :type name: str
-        :param vector_conform: flags whether the black box function can take vectors as arguments or not
+        :param vector_conform: flags whether the black box function can take
+            vectors as arguments or not
         :type vector_conform: bool
         """
         super().__init__(func, name)
@@ -1247,7 +1252,7 @@ class BlackboxOperator(Function, abc.ABC):
 
     def __repr__(self) -> str:
         return f"AD Black Box Operator with name {self._name}"
-    
+
     def blackbox_val(self, *args) -> np.array:
         """
         Evaluates the black box function using values of Ad_array instances
@@ -1289,18 +1294,21 @@ class BlackboxOperator(Function, abc.ABC):
         pass
 
 
-class FixedLScheme(BlackboxOperator):
+class FunctionLJac(BlackboxOperator):
     """
     Approximates the Jacobian of the black box using the L-scheme
     with a fixed value per dependency.
     """
 
-    def __init__(self,
-    L: Union[list, float], 
-    func: Callable, name: str,
-    vector_conform: Optional[bool] = False):
-        """ Constructor.
-        
+    def __init__(
+        self,
+        L: Union[list, float],
+        func: Callable,
+        name: str,
+        vector_conform: Optional[bool] = False,
+    ):
+        """Constructor.
+
         The L-multiplyer for the L-scheme can be passed for every argument of the
         black box function specifically using a list.
         The order in the list has to mach the order of arguments when calling
@@ -1312,28 +1320,29 @@ class FixedLScheme(BlackboxOperator):
         super().__init__(func, name, vector_conform)
         # check and format input for further use
         if isinstance(L, list):
-            self._L = [float(l) for l in L]
+            self._L = [float(val) for val in L]
         else:
             self._L = [float(L)]
 
     def blackbox_jac(self, *args) -> sps.spmatrix:
-        """ The approximate jacobian is identity times L.
-        
+        """The approximate jacobian is identity times L.
+
         Where the respective blocks appears,
         depends on the total dofs and the order of arguments passed during the
         call to this instance.
         """
         # the Jacobian of a (Merged) Variable is already a properly sized block identity
-        if len(args)>=1:
+        if len(args) >= 1:
             jac = args[0].jac * self._L[0]
 
             # summing identity blocks for each dependency
             if len(args) > 1:
-                # TODO think about exception handling in case not enough L-values were provided initially
+                # TODO think about exception handling in case not enough
+                # L-values were provided initially
                 for arg, L in zip(args[1:], self._L[1:]):
                     jac += arg.jac * L
-        else: # TODO assert zero as scalar will cause no type errors with other operators
-            jac = 0.
+        else:  # TODO assert zero as scalar will cause no type errors with other operators
+            jac = 0.0
 
         return jac
 
