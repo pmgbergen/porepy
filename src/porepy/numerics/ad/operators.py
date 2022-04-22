@@ -31,15 +31,11 @@ Edge = Tuple[pp.Grid, pp.Grid]
 GridLike = Union[pp.Grid, Edge]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
-Operation = Enum(
-    "Operation", ["void",
-                  "add", "sub", "mul", "div",
-                  "evaluate"]
-)
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate"])
 
 
 def _get_shape(mat):
-    """ Get shape of a numpy.ndarray or the Jacobian of Ad_array"""
+    """Get shape of a numpy.ndarray or the Jacobian of Ad_array"""
     if isinstance(mat, (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)):
         return mat.jac.shape
     else:
@@ -431,7 +427,7 @@ class Operator:
 
         else:
             raise ValueError("Should not happen")
-    
+
     def _get_error_message(self, operation: str, tree, results: list) -> str:
         # Helper function to format error message
         msg_0 = tree.children[0]._parse_readable()
@@ -495,12 +491,12 @@ class Operator:
 
         if is_func:
             msg = f"{child_str[0]}("
-            msg += ', '.join([f"{child}" for child in child_str[1:]])
+            msg += ", ".join([f"{child}" for child in child_str[1:]])
             msg += ")"
             return msg
         elif operator_str is None:
             msg = "UNKNOWN parsing of operation on: "
-            msg += ', '.join([f"{child}" for child in child_str])
+            msg += ", ".join([f"{child}" for child in child_str])
             return msg
         else:
             return f"({child_str[0]} {operator_str} {child_str[1]})"
@@ -1171,7 +1167,7 @@ class Function(Operator):
         """
         Call to operator object with 'args' as children.
 
-        The children are passed as arguments to the callable passed at instantiation.        
+        The children are passed as arguments to the callable passed at instantiation.
         """
         children = [self, *args]
         op = Operator(tree=Tree(self._operation, children=children))
