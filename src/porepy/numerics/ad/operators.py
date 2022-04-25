@@ -34,9 +34,7 @@ Edge = Tuple[pp.Grid, pp.Grid]
 GridLike = Union[pp.Grid, Edge]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
-Operation = Enum(
-    "Operation", ["void", "add", "sub", "mul", "div", "evaluate", "blackbox"]
-)
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate", "blackbox"])
 
 
 def _get_shape(mat):
