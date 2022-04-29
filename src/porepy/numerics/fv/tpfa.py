@@ -221,7 +221,7 @@ class Tpfa(pp.FVElliptic):
         v_face = np.zeros(g.num_faces)
         # On Dirichlet faces, simply recover boundary condition
         v_face[bnd.is_dir] = 1
-        # On Neumann faces, the, use half-transmissibilities
+        # On Neumann faces, use half-transmissibilities
         v_face[bnd.is_neu] = -1 / t_full[bnd.is_neu]
         v_cell[bnd.is_neu[fi]] = 1
 
