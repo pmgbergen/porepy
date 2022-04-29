@@ -736,7 +736,6 @@ class ParameterArray(Operator):
         array_keyword: str,
         grids: Optional[List[pp.Grid]] = None,
         edges: Optional[List[Edge]] = None,
-        matrix_representation: bool = False,
         name: Optional[str] = None,
     ):
         """Construct a wrapper for parameter arrays for a set of subdomains.
