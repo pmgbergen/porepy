@@ -393,17 +393,19 @@ class ContactMechanics(AbstractModel):
         """
         self.create_grid()
         self._Nd = self.gb.dim_max()
-        self._set_parameters()
         self._assign_variables()
         if self._use_ad:
             self._assign_ad_variables()
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(self.gb)
+        self._initial_condition()
+        self._set_parameters()
         self._assign_discretizations()
         # Once we have defined all discretizations, it's time to instantiate an
         # equation manager (needs to know which terms it should treat)
         if not self._use_ad:
             self.assembler: pp.Assembler = pp.Assembler(self.gb, self.dof_manager)
 
-        self._initial_condition()
         self._discretize()
         self._initialize_linear_solver()
 
