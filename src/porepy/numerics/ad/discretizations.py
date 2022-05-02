@@ -384,7 +384,7 @@ def differentiable_mpfa(
     perm_argument: pp.ad.Ad_array,
     potential: pp.ad.Ad_array,
     grid_list: List[pp.Grid],
-    bc: Dict[pp.Grid, pp.BoundaryCondition],
+    bc: Dict[pp.Grid, Dict],
     base_discr: Union[pp.ad.MpfaAd, pp.ad.TpfaAd],
     dof_manager: pp.DofManager,
     var_name: str,
@@ -406,7 +406,8 @@ def differentiable_mpfa(
             the permeability depends.
         potential (pp.ad.Variable, evaluation of a pp.ad.Variable): Variable that enters
             the diffusion law (pressure, say).
-        bc (pp.BoundaryCondition): Dictionary with grids as keys and bc objects as items.
+        bc (dict): Dictionary with grids as keys and a dictionary containing bc objects
+            and bc values (keys to inner dictionary are "type" and "values").
         base_discr: Tpfa or Mpfa discretization (Ad), gol which we want to approximate
             the transmissibility matrix.
         dof_manager (pp.DofManager): Needed to evaluate Ad operators.
@@ -439,6 +440,7 @@ def differentiable_mpfa(
     # the effort. However, to avoid evaluating the permeability function multiple times,
     # we precompute it here
     global_permeability = perm_function(perm_argument).evaluate(dof_manager)
+    g: pp.Grid
     for g in grid_list:
         # The first few lines are pasted from the standard Tpfa implementation
         fi, ci, sgn = sps.find(g.cell_faces)
@@ -521,9 +523,7 @@ def differentiable_mpfa(
         ).tocsr()
 
         # Compute the two factors of dT_face/dt_i (see definition and explanation above).
-        inverse_sum_squared = (
-            sum_cell_face_pair_to_face * ((1 / t_one_sided.val))
-        ) ** 2
+        inverse_sum_squared = (sum_cell_face_pair_to_face * (1 / t_one_sided.val)) ** 2
 
         face_transmissibility_squared = sps.dia_matrix(
             (1 / inverse_sum_squared, 0), shape=(g.num_faces, g.num_faces)
@@ -547,21 +547,48 @@ def differentiable_mpfa(
             pp.fvutils.scalar_divergence(g).T * potential_value,
             shape=(g.num_faces, g.num_faces),
         )
+
         # Compose chain rule for T(t(K(u)). k_one_sided.jac is dK/du.
         jac = d_transmissibility_d_t * d_t_d_k * k_one_sided.jac
+
         # One half of the product rule applied to (T grad p). The other half
         # is base_flux * potential.jac as added below this loop.
-        jac = grad_p * jac
-        # Eliminate values on Neumann boundaries.
-        # FIXME: we should a corresponding operation for Dirichlet.
-        is_neu = bc[g].is_neu
-        pp.matrix_operations.zero_rows(jac, np.where(is_neu)[0])
+        grad_p_jac = grad_p * jac
+
+        # Boundary conditions
+        # Dirichlet values are weighted with the transmissibility on the
+        # boundary face.
+
+        # Create a copy of the Jacobian at the Dirichlet faces
+        is_dir = bc[g]["type"].is_dir
+        jac_dir = sps.csr_matrix(jac.shape)
+        row, col, data = sps.find(jac)
+        active_rows = np.isin(row, np.where(is_dir)[0])
+        # Sign corresponds to gradient
+        jac_dir = sps.csr_matrix(
+            (-data[active_rows], (row[active_rows], col[active_rows])), shape=jac.shape
+        )
+
+        # See tpfa discretization for the following treatment of values
+        sort_id = np.argsort(g.cell_faces[is_dir, :].indices)
+        bndr_sgn = (g.cell_faces[is_dir, :]).data[sort_id]
+        bc_values = bc[g]["values"].copy()
+        bc_values[is_dir] = bndr_sgn * bc_values[is_dir]
+        bc_value_mat = sps.diags(bc_values, shape=(g.num_faces, g.num_faces))
+
+        # Dirichlet face contribution from boundary values:
+        jac_bound = bc_value_mat * jac_dir
+
+        # Eliminate values from the grad_p Jacobian product on Neumann boundaries.
+        pp.matrix_operations.zero_rows(grad_p_jac, np.where(bc[g]["type"].is_neu)[0])
 
         # Prolong this Jacobian to the full set of faces and add.
-        block_jac += projections.face_prolongation([g]).evaluate(dof_manager) * jac
+        face_prolongation = projections.face_prolongation([g]).evaluate(dof_manager)
+        block_jac += face_prolongation * grad_p_jac
+        block_jac += face_prolongation * jac_bound
 
     # Second part of product rule, applied to the potential. This is the standard part of
-    # a Mpfa (Tpfa) discretization
+    # a Mpfa or Tpfa discretization
     block_jac += base_flux * potential.jac
 
     # The value of the flux is the standard mpfa/tpfa expression.
