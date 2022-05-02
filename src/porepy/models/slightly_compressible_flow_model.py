@@ -20,8 +20,8 @@ class _AdVariables(pp.models.incompressible_flow_model._AdVariables):
 
 class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleFlow):
     """This class extends the Incompressible flow model by including a
-    cummulative term expressed through pressure and a constant compressibility
-    coefficient. For a full documenation refer to the parent class.
+    cumulative term expressed through pressure and a constant compressibility
+    coefficient. For a full documentation refer to the parent class.
 
     The simulation starts at time t=0.
 
@@ -82,14 +82,14 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         """
         return np.ones(g.num_cells)
 
-    def _assign_discretizations(self) -> None:
+    def _assign_equations(self) -> None:
         """Upgrade incompressible flow equations to slightly compressible
             by adding the accumulation term.
 
         Time derivative is approximated with Implicit Euler time stepping.
         """
 
-        super()._assign_discretizations()
+        super()._assign_equations()
 
         # Collection of subdomains
         subdomains: List[pp.Grid] = [g for g, _ in self.gb]
