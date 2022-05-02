@@ -5,8 +5,6 @@ from typing import Dict, List
 
 import numpy as np
 
-import porepy as pp
-
 module_sections = ["geometry", "gridding"]
 
 

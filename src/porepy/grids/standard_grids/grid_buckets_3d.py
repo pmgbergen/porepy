@@ -21,7 +21,8 @@ def single_horizontal(mesh_args=None, x_coords=None, y_coords=None, simplex=True
         mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If
                         the optional values of "mesh_size_bound" and "mesh_size_min" are
                         not provided, these are set by utils.set_mesh_sizes.
-                    For cartesian grids: ndarray containing number of cells in x, y and z direction.                        direction.
+                    For cartesian grids: ndarray containing number of cells in x, y and z
+                        direction.
         x_coords (list): Contains the two x coordinates of the four fracture corner points.
             If not, the coordinates will be set to [0, 1].
         y_coords (list): Contains the two y coordinates of the four fracture corner points.
