@@ -31,9 +31,15 @@ Edge = Tuple[pp.Grid, pp.Grid]
 GridLike = Union[pp.Grid, Edge]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
-Operation = Enum(
-    "Operation", ["void", "add", "sub", "mul", "evaluate", "div", "localeval", "apply"]
-)
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate"])
+
+
+def _get_shape(mat):
+    """Get shape of a numpy.ndarray or the Jacobian of Ad_array"""
+    if isinstance(mat, (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)):
+        return mat.jac.shape
+    else:
+        return mat.shape
 
 
 class Operator:
@@ -218,7 +224,7 @@ class Operator:
         the tree of this operator, using data from gb.
 
         IMPLEMENTATION NOTE: The discretizations was identified at initialization of
-        Expression - it is now done here to accomodate updates (?) and
+        Expression - it is now done here to accommodate updates (?) and
 
         """
         unique_discretizations: Dict[
@@ -238,7 +244,7 @@ class Operator:
     def set_name(self, name: str) -> None:
         self._name = name
 
-    def parse(self, gb) -> Any:
+    def parse(self, gb: pp.GridBucket) -> Any:
         """Translate the operator into a numerical expression.
         Subclasses that represent atomic operators (leaves in a tree-representation of
         an operator) should override this method to retutrn e.g. a number, an array or a
@@ -299,37 +305,6 @@ class Operator:
         tree = op.tree
         results = [self._parse_operator(child, gb) for child in tree.children]
 
-        def get_shape(mat):
-            # Get shape of a matrix
-            if isinstance(mat, (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)):
-                return mat.jac.shape
-            else:
-                return mat.shape
-
-        def error_message(operation):
-            # Helper function to format error message
-            msg_0 = self._parse_readable(tree.children[0])
-            msg_1 = self._parse_readable(tree.children[1])
-
-            nl = "\n"
-            msg = (
-                f"Ad parsing: Error when {operation}\n"
-                + "  "
-                + msg_0
-                + nl
-                + "with"
-                + nl
-                + "  "
-                + msg_1
-                + nl
-            )
-
-            msg += (
-                f"Matrix sizes are {get_shape(results[0])} and "
-                f"{get_shape(results[1])}"
-            )
-            return msg
-
         # Combine the results
         if tree.op == Operation.add:
             # To add we need two objects
@@ -346,7 +321,7 @@ class Operator:
             try:
                 return results[0] + results[1]
             except ValueError as exc:
-                msg = error_message("adding")
+                msg = self._get_error_message("adding", tree, results)
                 raise ValueError(msg) from exc
 
         elif tree.op == Operation.sub:
@@ -368,7 +343,7 @@ class Operator:
             try:
                 return factor * (results[0] - results[1])
             except ValueError as exc:
-                msg = error_message("subtracting")
+                msg = self._get_error_message("subtracting", tree, results)
                 raise ValueError(msg) from exc
 
         elif tree.op == Operation.mul:
@@ -409,17 +384,8 @@ class Operator:
                     )
 
                 else:
-                    msg = error_message("multiplying")
+                    msg = self._get_error_message("multiplying", tree, results)
                 raise ValueError(msg) from exc
-
-        elif tree.op == Operation.evaluate:
-            # This is a function, which should have at least one argument
-            assert len(results) > 1
-            return results[0].func(*results[1:])
-
-        elif tree.op == Operation.apply:
-            assert len(results) > 1
-            return results[0].apply(*results[1:])
 
         elif tree.op == Operation.div:
             # Some care is needed here, to account for cases where item in the results
@@ -454,32 +420,65 @@ class Operator:
                     "Encountered a case not covered when dividing Ad objects"
                 )
 
+        elif tree.op == Operation.evaluate:
+            # This is a function, which should have at least one argument
+            assert len(results) > 1
+            return results[0].func(*results[1:])
+
         else:
             raise ValueError("Should not happen")
 
-    def _parse_readable(self, op: "Operator") -> str:
-        # Make a human-readable error message related to a parsing error.
-        # NOTE: The exact formatting should be considered work in progress,
-        # in particular when it comes to function evaluation.
+    def _get_error_message(self, operation: str, tree, results: list) -> str:
+        # Helper function to format error message
+        msg_0 = tree.children[0]._parse_readable()
+        msg_1 = tree.children[1]._parse_readable()
+
+        nl = "\n"
+        msg = (
+            f"Ad parsing: Error when {operation}\n"
+            + "  "
+            + msg_0
+            + nl
+            + "with"
+            + nl
+            + "  "
+            + msg_1
+            + nl
+        )
+
+        msg += (
+            f"Matrix sizes are {_get_shape(results[0])} and "
+            f"{_get_shape(results[1])}"
+        )
+        return msg
+
+    def _parse_readable(self) -> str:
+        """
+        Make a human-readable error message related to a parsing error.
+        NOTE: The exact formatting should be considered work in progress,
+        in particular when it comes to function evaluation.
+        """
 
         # There are three cases to consider: Either the operator is a leaf,
         # it is a composite operator with a name, or it is a general composite
         # operator.
-        if op.is_leaf():
+        if self.is_leaf():
             # Leafs are represented by their strings.
-            return str(op)
-        elif op._name is not None:
+            return str(self)
+        elif self._name is not None:
             # Composite operators that have been given a name (possibly
             # with a goal of simple identification of an error)
-            return op._name
+            return self._name
 
         # General operator. Split into its parts by recursion.
-        tree = op.tree
+        tree = self.tree
 
         child_str = [child._parse_readable() for child in tree.children]
 
         is_func = False
+        operator_str = None
 
+        # readable representations of known operations
         if tree.op == Operation.add:
             operator_str = "+"
         elif tree.op == Operation.sub:
@@ -488,24 +487,25 @@ class Operator:
             operator_str = "*"
         elif tree.op == Operation.div:
             operator_str = "/"
-        elif tree.op in [Operation.evaluate, Operation.apply]:
-            # TODO: This has not really been tested.
+        # function evaluations have their own readable representation
+        elif tree.op == Operation.evaluate:
             is_func = True
-        else:
-            # TODO: This corresponds to unknown (to EK) cases.
-            print("Have not implemented string parsing of this operator")
+        # for unknown operations, 'operator_str' remains None
 
+        # error message for function evaluations
         if is_func:
-            # TODO: Not sure what to write here
-            msg = f"{child_str[0]} evaluated on ("
-            for child in range(1, len(child_str)):
-                msg += f"{child_str[child]}, "
-
+            msg = f"{child_str[0]}("
+            msg += ", ".join([f"{child}" for child in child_str[1:]])
             msg += ")"
             return msg
+        # if operation is unknown, a new error will be raised to raise awareness
+        elif operator_str is None:
+            msg = "UNKNOWN parsing of operation on: "
+            msg += ", ".join([f"{child}" for child in child_str])
+            raise NotImplementedError(msg)
+        # error message for known Operations
         else:
-            # TODO: Should we try to give parantheses here?
-            return f"{child_str[0]} {operator_str} {child_str[1]}"
+            return f"({child_str[0]} {operator_str} {child_str[1]})"
 
     def _ravel_scipy_matrix(self, results):
         # In some cases, parsing may leave what is essentially an array, but with the
@@ -548,7 +548,7 @@ class Operator:
         nx.draw(G, with_labels=True)
         plt.show()
 
-    ### Below here are method for overloading aritmethic operators
+    ### Below here are method for overloading arithmetic operators
 
     def __mul__(self, other):
         children = self._parse_other(other)
@@ -593,7 +593,7 @@ class Operator:
                 at the previous time step.
 
         Returns:
-            An Ad-array representation of the residual and Jacbobian. Note that the Jacobian
+            An Ad-array representation of the residual and Jacobian. Note that the Jacobian
                 matrix need not be invertible, or ever square; this depends on the operator.
 
         """
@@ -690,7 +690,7 @@ class Operator:
         # the Jacobian columns must stay the same to preserve all cross couplings
         # in the derivatives).
 
-        # Dictionary which mapps from Ad variable ids to Ad_array.
+        # Dictionary which maps from Ad variable ids to Ad_array.
         self._ad: Dict[int, pp.ad.Ad_array] = {}
 
         # Loop over all variables, restrict to an Ad array corresponding to
@@ -1015,7 +1015,7 @@ class Variable(Operator):
 
 
 class MergedVariable(Variable):
-    """Ad representation of a collection of variables that invidiually live on separate
+    """Ad representation of a collection of variables that individually live on separate
     grids of interfaces, but which it is useful to treat jointly.
 
     Conversion of the variables into numerical value should be done with respect to the
@@ -1059,7 +1059,7 @@ class MergedVariable(Variable):
         # not to have any fractures.
         self._no_variables = len(variables) == 0
 
-        # Take the name from the first variabe.
+        # Take the name from the first variable.
         if self._no_variables:
             self._name = "no_sub_variables"
         else:
@@ -1146,7 +1146,7 @@ class Function(Operator):
 
     """
 
-    def __init__(self, func: Callable, name: str, local=False):
+    def __init__(self, func: Callable, name: str):
         """Initialize a function.
 
         Parameters:
@@ -1157,7 +1157,7 @@ class Function(Operator):
         """
         self.func = func
         self._name = name
-        self._operation = Operation.evaluate if not local else Operation.localeval
+        self._operation = Operation.evaluate
         self._set_tree()
 
     def __mul__(self, other):
@@ -1170,6 +1170,11 @@ class Function(Operator):
         raise RuntimeError("Functions should only be evaluated")
 
     def __call__(self, *args):
+        """
+        Call to operator object with 'args' as children.
+
+        The children are passed as arguments to the callable passed at instantiation.
+        """
         children = [self, *args]
         op = Operator(tree=Tree(self._operation, children=children))
         return op
@@ -1185,7 +1190,7 @@ class Function(Operator):
         The real work will be done by combining the function with arguments, during
         parsing of an operator tree.
 
-        Pameteres:
+        Parameters:
             gb (pp.GridBucket): Mixed-dimensional grid. Not used, but it is needed as
                 input to be compatible with parse methods for other operators.
 
@@ -1194,25 +1199,6 @@ class Function(Operator):
 
         """
         return self
-
-
-class ApplicableOperator(Function):
-    """Ad representation of operator providing method 'apply'.
-    This class is meant as base class.
-    """
-
-    def __init__(self) -> None:
-        """Initialization empty."""
-        pass
-
-    def __repr__(self) -> str:
-        s = "AD applicable operator."
-        return s
-
-    def __call__(self, *args):
-        children = [self, *args]
-        op = Operator(tree=Tree(Operation.apply, children=children))
-        return op
 
 
 class SecondOrderTensorAd(SecondOrderTensor, Operator):
