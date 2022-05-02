@@ -212,7 +212,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     def _set_scalar_parameters(self) -> None:
         tensor_scale = self.scalar_scale / self.length_scale**2
-        kappa = 1 * tensor_scale
         mass_weight = 1 * self.scalar_scale
         for g, d in self.gb:
             specific_volume = self._specific_volume(g)
@@ -693,6 +692,9 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             normal_proj = pp.ad.Matrix(sps.csr_matrix((0, 0)))
 
         ad.local_fracture_coord_transformation_normal = normal_proj
+        # Facilitate updates of dt. self.time_step_ad.time_step._value must be updated
+        # if time steps are changed.
+        ad.time_step = pp.ad.Scalar(self.time_step, "time step")
 
     def _force_balance_equation(
         self,
@@ -796,10 +798,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         mass_discr = pp.ad.MassMatrixAd(self.scalar_parameter_key, subdomains)
 
         # Flow parameters
-
-        # Facilitate updates of dt. self.time_step_ad.time_step._value must be updated
-        # if time steps are changed.
-        ad.time_step = pp.ad.Scalar(self.time_step, "time step")
 
         flow_source = pp.ad.ParameterArray(
             param_keyword=self.scalar_parameter_key,
@@ -907,8 +905,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         )
         return interface_flow_eq
 
-    def _biot_terms_flow(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
-        """Biot terms, div(u) and stabilization
+    def _div_u(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        """Divergence of u
 
 
         Parameters
@@ -918,9 +916,9 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         Returns
         -------
-        biot_terms : pp.ad.Operator
-            Ad operator representing d/dt div(u) and stabilization terms of the
-            Biot flow equation in the matrix.
+        div_u_terms : pp.ad.Operator
+            Ad operator representing the d/dt div(u) term of the Biot flow equation in
+            the matrix.
 
         """
 
@@ -930,9 +928,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             grids=subdomains,
             mat_dict_keyword=self.scalar_parameter_key,
         )
-        stabilization_discr = pp.ad.BiotStabilizationAd(
-            self.scalar_parameter_key, subdomains
-        )
+
         biot_alpha = pp.ad.ParameterMatrix(
             self.scalar_parameter_key,
             array_keyword="biot_alpha",
@@ -972,13 +968,34 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             matrix_div_u + external_boundary_div_u + internal_boundary_div_u
         )
         div_u_terms.set_name("div_u")
+        return div_u_terms
 
+    def _biot_terms_flow(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        """Biot terms, div(u) and stabilization
+
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Matrix subdomains, expected to have length=1.
+
+        Returns
+        -------
+        biot_terms : pp.ad.Operator
+            Ad operator representing d/dt div(u) and stabilization terms of the
+            Biot flow equation in the matrix.
+
+        """
+        div_u_terms: pp.ad.Operator = self._div_u(subdomains)
+        stabilization_discr = pp.ad.BiotStabilizationAd(
+            self.scalar_parameter_key, subdomains
+        )
         # The stabilization term is also defined on a time increment, but only
         # considers the matrix subdomain and no boundary contributions.
         stabilization_term: pp.ad.Operator = (
             stabilization_discr.stabilization
-            * ad.subdomain_projections_scalar.cell_restriction(subdomains)
-            * (ad.pressure - ad.pressure.previous_timestep())
+            * self._ad.subdomain_projections_scalar.cell_restriction(subdomains)
+            * (self._ad.pressure - self._ad.pressure.previous_timestep())
         )
         stabilization_term.set_name("Biot stabilization")
 
@@ -1227,8 +1244,14 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         super()._initial_condition()
         g = self._nd_grid()
         d = self.gb.node_props(g)
-        params = d[pp.PARAMETERS][self.mechanics_parameter_key]
-        params["bc_values_previous_timestep"] = self._bc_values_mechanics(g)
+        pp.initialize_data(
+            g,
+            d,
+            self.mechanics_parameter_key,
+            {
+                "bc_values_previous_timestep": self._bc_values_mechanics(g),
+            },
+        )
 
     def _save_mechanical_bc_values(self) -> None:
         """
@@ -1261,7 +1284,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         if self._use_ad:
             self._eq_manager.discretize(self.gb)
         else:
-            # Discretization is a bit cumbersome, as the Biot discetization removes the
+            # Discretization is a bit cumbersome, as the Biot discretization removes the
             # one-to-one correspondence between discretization objects and blocks in
             # the matrix.
             # First, Discretize with the biot class
@@ -1313,7 +1336,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             We will therefore pass here, and pay the price of long computation times.
             """
             self.linear_solver = "direct"
-
+        elif solver == "pypardiso":
+            self.linear_solver = "pypardiso"
         else:
             raise ValueError("unknown linear solver " + solver)
 

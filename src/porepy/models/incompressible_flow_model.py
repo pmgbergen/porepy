@@ -69,14 +69,15 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.exporter = pp.Exporter(
             self.gb, self.params["file_name"], folder_name=self.params["folder_name"]
         )
-        self._set_parameters()
-        self._assign_variables()
 
+        self._assign_variables()
         self._create_dof_and_eq_manager()
         self._create_ad_variables()
-
-        self._assign_discretizations()
         self._initial_condition()
+
+        self._set_parameters()
+
+        self._assign_equations()
 
         self._export()
         self._discretize()
@@ -140,7 +141,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
             # Vector source/gravity zero by default
             gravity = self._vector_source(mg)
-            data_edge = pp.initialize_data(
+            pp.initialize_data(
                 e,
                 data_edge,
                 self.parameter_key,
@@ -258,7 +259,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
             [(e, self.mortar_variable) for e in edge_list]
         )
 
-    def _assign_discretizations(self) -> None:
+    def _assign_equations(self) -> None:
         """Define equations through discretizations.
 
         Assigns a Laplace/Darcy problem discretized using Mpfa on all subdomains with
@@ -360,16 +361,15 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         subdomains : List[pp.Grid]
             Subdomains for which fluid fluxes are defined, normally all.
 
-        Note:
-            The ad flux discretization used here is stored for consistency with
-            self._interface_flow_equations, where self._ad.flux_discretization
-            is applied.
-
         Returns
         -------
         flux : pp.ad.Operator
             Flux on ad form.
 
+        Note:
+            The ad flux discretization used here is stored for consistency with
+            self._interface_flow_equations, where self._ad.flux_discretization
+            is applied.
         """
         bc = pp.ad.ParameterArray(
             self.parameter_key,
