@@ -521,6 +521,76 @@ def test_variable_combinations(grids, variables):
                 assert expr.jac.shape[1] == dof_manager.num_dofs()
 
 
+@pytest.mark.parametrize("operator_class, constructor_kwargs",
+[("FunctionLJac", ({"L": [1., 0.]}, {"L": [0., 2.]}))])
+def test_approx_jac_operators(operator_class, constructor_kwargs):
+    """
+    Tests derived classes of 'ApproxJacFunction' if they are able to solve
+    a specific non-linear problem.
+    
+    The test is designed to accept the name of the operator class and constructor arguments,
+    which are estimated to solve the below problem.
+
+    After standard tests on dimensions, values and compatibility, 
+    the ability of the operator to solve the problem is tested.
+    
+    """
+    # single domain for test
+    gbs = pp.GridBucket()
+    g = pp.CartGrid([2,2])
+    gbs.add_nodes([g])
+    gbs.compute_geometry()
+
+    # mD domain for test
+    coord_point = np.array([[0.2, 0.8],
+                            [0.5, 0.5]])
+    indices_point = np.array([[0], 
+                              [1]])
+    domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
+    fracture_network = pp.FractureNetwork2d(coord_point, indices_point, domain)
+    mesh_args = {'mesh_size_frac': 0.3}
+    gbmd = fracture_network.mesh(mesh_args)
+    gbmd.compute_geometry()
+
+    # Will plot the network
+    fracture_network.plot()
+
+    # Will plot gb
+    pp.plot_grid(gbs, figsize = (10, 10))
+    pp.plot_grid(gbmd, figsize = (10, 10))
+
+    operator_cls = getattr(pp.ad, operator_class)
+
+    ### test on single grid
+    # creating variables
+    gb = gbs
+    for g, d in gb:
+        d[pp.STATE] = {}
+        d[pp.PRIMARY_VARIABLES] = {}
+        for var in ["x", "y"]:
+            d[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
+            d[pp.STATE][var] = np.random.rand(g.num_cells)
+
+    dof_manager = pp.DofManager(gb)
+    eq_manager = pp.ad.EquationManager(gb, dof_manager)
+
+    for g, _ in gb:
+        ad_vars = [eq_manager.variable(g, "x"), eq_manager.variable(g, "y")]
+        x = eq_manager.merge_variables([(g, "x")])
+        x = eq_manager.merge_variables([(g, "y")])
+
+    line = lambda x, y: y - x
+    circle = lambda x, y: x**2 + y**2 - 5
+
+    line_f = pp.ad.Function(line, "line_exact")
+    circle_f = pp.ad.Function(circle, "circle_exact")
+
+    line_bb = operator_cls(**constructor_kwargs[0],
+                           func=line, name="line_bb", vector_conform=False)
+    circle_bb = operator_cls(**constructor_kwargs[1],
+                             func=circle, name="circle_bb", vector_conform=False)
+        
+
 def test_ad_discretization_class():
     # Test of the mother class of all discretizations (pp.ad.Discretization)
 

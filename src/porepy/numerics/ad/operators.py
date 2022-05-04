@@ -25,8 +25,8 @@ __all__ = [
     "Variable",
     "MergedVariable",
     "Function",
-    "BlackboxOperator",
-    "FunctionLJac",
+    "ApproxJacFunction",
+    "LJacFunction",
 ]
 
 # Short hand for typing
@@ -433,7 +433,7 @@ class Operator:
             blackbox = results[0]
             try:
                 val = blackbox.blackbox_val(*results[1:])
-                jac = blackbox.blackbox_jac(*results[1:])
+                jac = blackbox.approx_jac(*results[1:])
             except Exception as exc:
                 # TODO specify what can go wrong here (Exception type)
                 msg = "Ad parsing: Error evaluating black box operator:\n"
@@ -1211,12 +1211,13 @@ class Function(Operator):
         return self
 
 
-class BlackboxOperator(Function, abc.ABC):
-    """Ad representation for a 'black box' operation using Ad variables.
+class ApproxJacFunction(Function, abc.ABC):
+    """Ad representation for a 'black box' operation using Ad variables,
+    where an approximation of the Jacobian needs to be implemented.
 
     Like the pp.ad.Function, it maps pp.ad.Ad_array objects onto a new one,
     only this time the resulting values are not analytically represented,
-    but provided by abstract methods 'blackbox_val' and 'blackbox_jac'.
+    but provided by abstract methods 'blackbox_val' and 'approx_jac'.
 
     The intended use it to provide Operators which
     (for an arbitrary callable (black box) passed at instantiation)
@@ -1225,7 +1226,7 @@ class BlackboxOperator(Function, abc.ABC):
 
     This is an abstract base class, meaning
         - :method:`~porepy.numerics.ad.operators.BlackboxOperator.blackbox_val`
-        - :method:`~porepy.numerics.ad.operators.BlackboxOperator.blackbox_jac`
+        - :method:`~porepy.numerics.ad.operators.BlackboxOperator.approx_jac`
     have to be overwritten and implemented the call to the black box evaluation.
     The Ad_array representatives of the arguments when calling this instance,
     will be passed to above methods as arguments.
@@ -1238,7 +1239,7 @@ class BlackboxOperator(Function, abc.ABC):
 
         :param func: (black box) function providing values.
         :type func: Callable
-        :param name: name of this black box operator.
+        :param name: name of this operator.
         :type name: str
         :param vector_conform: flags whether the black box function can take
             vectors as arguments or not
@@ -1249,7 +1250,7 @@ class BlackboxOperator(Function, abc.ABC):
         self._vector_conform = vector_conform
 
     def __repr__(self) -> str:
-        return f"AD Black Box Operator with name {self._name}"
+        return f"AD ApproxJac Operator with name {self._name}"
 
     def blackbox_val(self, *args) -> np.array:
         """
@@ -1273,7 +1274,7 @@ class BlackboxOperator(Function, abc.ABC):
             return np.array([self.func(*vals_i) for vals_i in zip(*vals)])
 
     @abc.abstractmethod
-    def blackbox_jac(self, *args) -> sps.spmatrix:
+    def approx_jac(self, *args) -> sps.spmatrix:
         """
         Abstract method to provide the Jacobian of this operator.
         Passed arguments will be Ad_array objects representing the operators
@@ -1292,7 +1293,7 @@ class BlackboxOperator(Function, abc.ABC):
         pass
 
 
-class FunctionLJac(BlackboxOperator):
+class LJacFunction(ApproxJacFunction):
     """
     Approximates the Jacobian of the black box using the L-scheme
     with a fixed value per dependency.
@@ -1322,7 +1323,7 @@ class FunctionLJac(BlackboxOperator):
         else:
             self._L = [float(L)]
 
-    def blackbox_jac(self, *args) -> sps.spmatrix:
+    def approx_jac(self, *args) -> sps.spmatrix:
         """The approximate jacobian is identity times L.
 
         Where the respective blocks appears,
