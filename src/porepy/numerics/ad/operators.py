@@ -494,6 +494,7 @@ class Operator:
         is_func = False
         operator_str = None
 
+        # readable representations of known operations
         if tree.op == Operation.add:
             operator_str = "+"
         elif tree.op == Operation.sub:
@@ -502,18 +503,23 @@ class Operator:
             operator_str = "*"
         elif tree.op == Operation.div:
             operator_str = "/"
+        # function evaluations have their own readable representation
         elif tree.op == Operation.evaluate:
             is_func = True
+        # for unknown operations, 'operator_str' remains None
 
+        # error message for function evaluations
         if is_func:
             msg = f"{child_str[0]}("
             msg += ", ".join([f"{child}" for child in child_str[1:]])
             msg += ")"
             return msg
+        # if operation is unknown, a new error will be raised to raise awareness
         elif operator_str is None:
             msg = "UNKNOWN parsing of operation on: "
             msg += ", ".join([f"{child}" for child in child_str])
-            return msg
+            raise NotImplementedError(msg)
+        # error message for known Operations
         else:
             return f"({child_str[0]} {operator_str} {child_str[1]})"
 
