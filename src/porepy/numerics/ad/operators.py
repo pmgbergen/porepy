@@ -1,7 +1,7 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
-import copy
 import abc
+import copy
 from enum import Enum
 from itertools import count
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -15,7 +15,7 @@ import porepy as pp
 from porepy.params.tensor import SecondOrderTensor
 
 from . import _ad_utils
-from .forward_mode import initAdArrays, Ad_array
+from .forward_mode import Ad_array, initAdArrays
 
 __all__ = [
     "Operator",
@@ -1260,7 +1260,7 @@ class ApproxJacFunction(Function, abc.ABC):
     def __repr__(self) -> str:
         return f"AD ApproxJac Operator with name {self._name}"
 
-    def blackbox_val(self, *args) -> np.array:
+    def blackbox_val(self, *args) -> "np.ndarray":
         """
         Evaluates the black box function using values of Ad_array instances
         passed as arguments
@@ -1289,7 +1289,7 @@ class ApproxJacFunction(Function, abc.ABC):
             return np.array([self.func(*vals_i) for vals_i in zip(*vals)])
 
     @abc.abstractmethod
-    def approx_jac(self, *args) -> sps.spmatrix:
+    def approx_jac(self, *args) -> "sps.spmatrix":
         """
         Abstract method to provide the Jacobian of this operator.
         Passed arguments will be Ad_array objects representing the operators
@@ -1338,7 +1338,7 @@ class LJacFunction(ApproxJacFunction):
         else:
             self._L = [float(L)]
 
-    def approx_jac(self, *args) -> sps.spmatrix:
+    def approx_jac(self, *args) -> "sps.spmatrix":
         """The approximate jacobian is identity times L.
 
         Where the respective blocks appears,
