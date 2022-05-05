@@ -34,7 +34,7 @@ Edge = Tuple[pp.Grid, pp.Grid]
 GridLike = Union[pp.Grid, Edge]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
-Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate", "blackbox"])
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate", "approximate"])
 
 
 def _get_shape(mat):
@@ -428,16 +428,16 @@ class Operator:
             assert len(results) > 1
             return results[0].func(*results[1:])
 
-        elif tree.op == Operation.blackbox:
+        elif tree.op == Operation.approximate:
             assert len(results) > 1
-            blackbox = results[0]
+            blackbox_op = results[0]
             try:
-                val = blackbox.blackbox_val(*results[1:])
-                jac = blackbox.approx_jac(*results[1:])
+                val = blackbox_op.blackbox_val(*results[1:])
+                jac = blackbox_op.approx_jac(*results[1:])
             except Exception as exc:
                 # TODO specify what can go wrong here (Exception type)
                 msg = "Ad parsing: Error evaluating black box operator:\n"
-                msg += blackbox._parse_readable()
+                msg += blackbox_op._parse_readable()
                 raise ValueError(msg) from exc
             return Ad_array(val, jac)
 
@@ -504,7 +504,7 @@ class Operator:
         elif tree.op == Operation.div:
             operator_str = "/"
         # function evaluations have their own readable representation
-        elif tree.op == Operation.evaluate:
+        elif tree.op in [Operation.evaluate, Operation.approximate]:
             is_func = True
         # for unknown operations, 'operator_str' remains None
 
@@ -1252,7 +1252,7 @@ class ApproxJacFunction(Function, abc.ABC):
         :type vector_conform: bool
         """
         super().__init__(func, name)
-        self._operation = Operation.blackbox
+        self._operation = Operation.approximate
         self._vector_conform = vector_conform
 
     def __repr__(self) -> str:
