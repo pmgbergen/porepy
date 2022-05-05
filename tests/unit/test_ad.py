@@ -850,25 +850,29 @@ class AdArrays(unittest.TestCase):
 
     def test_power_advar_scalar(self):
         a = Ad_array(2, 3)
-        b = a ** 2
+        b = a**2
         self.assertTrue(b.val == 4 and b.jac == 12)
 
     def test_power_advar_advar(self):
         a = Ad_array(4, 4)
         b = Ad_array(-8, -12)
-        c = a ** b
+        c = a**b
         jac = -(2 + 3 * np.log(4)) / 16384
-        self.assertTrue(np.allclose(c.val, 4 ** -8) and np.allclose(c.jac, jac))
+        self.assertTrue(np.allclose(c.val, 4**-8) and np.allclose(c.jac, jac))
 
     def test_rpower_advar_scalar(self):
+        # Make an Ad_array with value 2 and derivative 3.
         a = Ad_array(2, 3)
-        b = 2 ** a
+        b = 2**a
         self.assertTrue(b.val == 4 and b.jac == 12 * np.log(2))
+
+        c = 2 ** (-a)
+        self.assertTrue(c.val == 1 / 4 and c.jac == 2 ** (-2) * np.log(2) * (-3))
 
     def test_rpower_advar_vector_scalar(self):
         J = sps.csc_matrix(np.array([[1, 2], [2, 3], [0, 1]]))
         a = Ad_array(np.array([1, 2, 3]), J)
-        b = 3 ** a
+        b = 3**a
         bJac = np.array(
             [
                 [3 * np.log(3) * 1, 3 * np.log(3) * 2],
