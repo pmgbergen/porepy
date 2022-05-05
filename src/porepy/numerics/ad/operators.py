@@ -1277,6 +1277,13 @@ class ApproxJacFunction(Function, abc.ABC):
             return self.func(*vals)
         else:
             # if not vector-conform, feed element-wise
+
+            # TODO this displays some special behavior when val-arrays have different lengths:
+            # it returns None-like things for every iteration more then shortest length
+            # These Nones are ignored for some reason by the function call, as well as by the
+            # array constructor.
+            # If a mortar var and a subdomain var are given as args,
+            # then the lengths will be different
             return np.array([self.func(*vals_i) for vals_i in zip(*vals)])
 
     @abc.abstractmethod

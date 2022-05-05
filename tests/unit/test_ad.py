@@ -522,26 +522,111 @@ def test_variable_combinations(grids, variables):
 
 
 @pytest.mark.parametrize("operator_class, constructor_kwargs",
-[("FunctionLJac", ({"L": [1., 0.]}, {"L": [0., 2.]}))])
+[("LJacFunction", ({"L": [-1., 0.]}, {"L": [0., 2.*1.816]}))])
 def test_approx_jac_operators(operator_class, constructor_kwargs):
     """
-    Tests derived classes of 'ApproxJacFunction' if they are able to solve
-    a specific non-linear problem.
-    
-    The test is designed to accept the name of the operator class and constructor arguments,
-    which are estimated to solve the below problem.
+    1. Test: test of if a certain operator can solve the following nonlinear problem
 
-    After standard tests on dimensions, values and compatibility, 
-    the ability of the operator to solve the problem is tested.
+    Find x, y s.t.
+        y-x = 0
+        y**2 + x**2 - r = 0
+    for r in [1., 1.25, 1.5, 1.75]
+    with initial guess
+        x_0 = y_0 = r / (1 + 0.2**2) + 0.1
     
+    2. Test: test of dimensions compatibility for a mixed-dimensional domain with mortar grids
+    but without mortar variables
     """
-    # single domain for test
+    # get class reference
+    operator_cls = getattr(pp.ad, operator_class)
+    ############ single domain for convergence test
     gbs = pp.GridBucket()
     g = pp.CartGrid([2,2])
     gbs.add_nodes([g])
     gbs.compute_geometry()
 
-    # mD domain for test
+    # Functions for equations
+    line = lambda x, y: y - x
+
+    radii = np.array([1. + i*.25 for i in range(gbs.num_cells())])
+    circle_ = lambda x, y: x**2 + y**2
+
+    # creating variables
+    for g, d in gbs:
+        d[pp.STATE] = {}
+        d[pp.STATE][pp.ITERATE] = {}
+        d[pp.PRIMARY_VARIABLES] = {}
+
+        d[pp.PRIMARY_VARIABLES].update({"x": {"cells": 1}})
+        d[pp.PRIMARY_VARIABLES].update({"y": {"cells": 1}})
+
+    dof_manager = pp.DofManager(gbs)
+    eq_manager = pp.ad.EquationManager(gbs, dof_manager)
+
+    for g, _ in gbs:
+        _ = [eq_manager.variable(g, "x"), eq_manager.variable(g, "y")]
+        x = eq_manager.merge_variables([(g, "x")])
+        y = eq_manager.merge_variables([(g, "y")])
+
+    # Function for setting and resetting initial values. Returns the global initial state
+    def reset_values(gb, eq):
+        # initial guess is intersection with line with slope s, with a shift in y=x direction
+        s = 0.2
+        shift = 0.1 * radii/radii
+        x_init = radii / np.sqrt(1+s**2) + shift
+        y_init = radii / np.sqrt(1+s**2) + shift
+
+        for g, d in gb:
+            d[pp.STATE]["x"] = np.copy(x_init)
+            d[pp.STATE][pp.ITERATE]["x"] = np.copy(x_init)
+            d[pp.STATE]["y"] = np.copy(y_init)
+            d[pp.STATE][pp.ITERATE]["y"] = np.copy(y_init)
+
+        # Get current global vector using the identity
+        # will be used as starting point for iterations
+        identity = lambda x: x
+        identity_op = pp.ad.Function(identity, "identity")
+        eq.equations = {"identity_x": identity_op(x), "identity_y": identity_op(y)}
+        _, b0 = eq.assemble()
+
+        return (-1)*np.copy(b0)
+
+    # Setting equations with approximating operators
+    Z = reset_values(gbs, eq_manager)
+
+    line_a = operator_cls(**constructor_kwargs[0],
+                           func=line, name="line_a", vector_conform=False)(x,y)
+
+    circle_a_ = operator_cls(**constructor_kwargs[1],
+                             func=circle_, name="circle_a", vector_conform=False)(x,y)
+    circle_a = circle_a_  - radii**2
+
+    eq_manager.equations = {"line":  line_a, "circle": circle_a}
+    iterations = "NOT CONVERGED"
+    res_norm = None
+
+    for i in range(4000):
+
+        A, b = eq_manager.assemble()
+
+        res_norm = np.linalg.norm(b)
+        if res_norm <= 1.e-10:
+            iterations = i
+            break
+
+        dz = sps.linalg.spsolve(A, b)
+
+        Z += dz
+        dof_manager.distribute_variable(Z)
+        dof_manager.distribute_variable(Z, to_iterate=True)
+
+    assert iterations != "NOT CONVERGED"
+
+    ############ mD domain for test of dimensions
+    # this grid has in total 200 cell DOFs
+    # 88 cells in the 2D domain,
+    # 4 cells in the 1D domain,
+    # 8x2 cells on the Mortar grid
     coord_point = np.array([[0.2, 0.8],
                             [0.5, 0.5]])
     indices_point = np.array([[0], 
@@ -552,44 +637,48 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
     gbmd = fracture_network.mesh(mesh_args)
     gbmd.compute_geometry()
 
-    # Will plot the network
-    fracture_network.plot()
-
-    # Will plot gb
-    pp.plot_grid(gbs, figsize = (10, 10))
-    pp.plot_grid(gbmd, figsize = (10, 10))
-
-    operator_cls = getattr(pp.ad, operator_class)
-
-    ### test on single grid
     # creating variables
-    gb = gbs
-    for g, d in gb:
+    for g, d in gbmd:
         d[pp.STATE] = {}
+        d[pp.STATE][pp.ITERATE] = {}
         d[pp.PRIMARY_VARIABLES] = {}
-        for var in ["x", "y"]:
-            d[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
-            d[pp.STATE][var] = np.random.rand(g.num_cells)
 
-    dof_manager = pp.DofManager(gb)
-    eq_manager = pp.ad.EquationManager(gb, dof_manager)
+        d[pp.PRIMARY_VARIABLES].update({"x": {"cells": 1}})
+        d[pp.PRIMARY_VARIABLES].update({"y": {"cells": 1}})
 
-    for g, _ in gb:
-        ad_vars = [eq_manager.variable(g, "x"), eq_manager.variable(g, "y")]
-        x = eq_manager.merge_variables([(g, "x")])
-        x = eq_manager.merge_variables([(g, "y")])
+        d[pp.STATE]["x"] = np.ones(g.num_cells)
+        d[pp.STATE][pp.ITERATE]["x"] = np.ones(g.num_cells)
+        d[pp.STATE]["y"] = np.ones(g.num_cells)
+        d[pp.STATE][pp.ITERATE]["y"] = np.ones(g.num_cells)
 
-    line = lambda x, y: y - x
-    circle = lambda x, y: x**2 + y**2 - 5
+    # Then for the edges
+    for _, d in gbmd.edges():
+        if d["mortar_grid"].codim == 2:
+            continue
+        else:
+            d[pp.PRIMARY_VARIABLES] = {"mortar_x": {"cells": 1}}
+            d[pp.PRIMARY_VARIABLES].update({"mortar_y": {"cells": 1}})
 
-    line_f = pp.ad.Function(line, "line_exact")
-    circle_f = pp.ad.Function(circle, "circle_exact")
+    dof_manager = pp.DofManager(gbmd)
+    eq_manager = pp.ad.EquationManager(gbmd, dof_manager)
 
-    line_bb = operator_cls(**constructor_kwargs[0],
-                           func=line, name="line_bb", vector_conform=False)
-    circle_bb = operator_cls(**constructor_kwargs[1],
-                             func=circle, name="circle_bb", vector_conform=False)
-        
+    x = eq_manager.merge_variables([(g, "x") for g, _ in gbmd])
+    y = eq_manager.merge_variables([(g, "y") for g, _ in gbmd])
+    mortar_x = eq_manager.merge_variables([(e, "mortar_x") for e,_ in gbmd.edges()])
+    mortar_y = eq_manager.merge_variables([(e, "mortar_y") for e,_ in gbmd.edges()])
+
+    initial_values = np.ones(dof_manager.num_dofs())
+    dof_manager.distribute_variable(initial_values)
+
+    multiply = lambda x,y : x*y
+    op = pp.ad.LJacFunction([3.,4], multiply, "bb-multip")(x, y)
+
+    op_ad = op.evaluate(dof_manager)
+    # test of dimension
+    assert op_ad.val.shape == (92,)  # 92 is the total number of subdomain cells
+    assert op_ad.jac.shape == (92,200)  # 200 is the total number of DOFS ( 92x2 + 8x2 )
+    # test of values
+    assert np.allclose(1., op_ad.val)
 
 def test_ad_discretization_class():
     # Test of the mother class of all discretizations (pp.ad.Discretization)
