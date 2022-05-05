@@ -6,10 +6,7 @@ import numpy as np
 
 import porepy as pp
 
-module_sections = ["geometry"]
 
-
-@pp.time_logger(sections=module_sections)
 def force_point_collinearity(pts):
     """
     Given a set of points, return them aligned on a line.
@@ -34,7 +31,6 @@ def force_point_collinearity(pts):
     return pts[:, 0, np.newaxis] * (1 - dist) + pts[:, end, np.newaxis] * dist
 
 
-@pp.time_logger(sections=module_sections)
 def map_grid(g, tol=1e-5, R=None):
     """If a 2d or a 1d grid is passed, the function return the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
@@ -96,7 +92,6 @@ def map_grid(g, tol=1e-5, R=None):
     return cell_centers, face_normals, face_centers, R, dim, nodes
 
 
-@pp.time_logger(sections=module_sections)
 def sort_points_on_line(pts, tol=1e-5):
     """
     Return the indexes of the point according to their position on a line.
@@ -128,7 +123,6 @@ def sort_points_on_line(pts, tol=1e-5):
     return np.argsort(p[active_dim])[0]
 
 
-@pp.time_logger(sections=module_sections)
 def project_points_to_line(p, tol=1e-4):
     """Project a set of colinear points onto a line.
 
@@ -181,7 +175,6 @@ def project_points_to_line(p, tol=1e-4):
     return sorted_coord, rot, active_dimension, sort_ind
 
 
-@pp.time_logger(sections=module_sections)
 def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_planar=True):
     """Project the points on a plane using local coordinates.
 
@@ -205,7 +198,7 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_plana
         reference = [0, 0, 1]
 
     if normal is None:
-        normal = compute_normal(pts, check=check_planar, tol=tol)
+        normal = compute_normal(pts, tol=tol)
     else:
         normal = np.asarray(normal)
         normal = normal.flatten() / np.linalg.norm(normal)
@@ -225,7 +218,6 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_plana
     return rotation_matrix(angle, vect)
 
 
-@pp.time_logger(sections=module_sections)
 def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
     """Project the points on a line using local coordinates.
 
@@ -262,7 +254,6 @@ def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
     return rotation_matrix(angle, vect)
 
 
-@pp.time_logger(sections=module_sections)
 def rotation_matrix(a, vect):
     """Compute the rotation matrix about a vector by an angle using the matrix
     form of Rodrigues formula.
@@ -294,7 +285,6 @@ def rotation_matrix(a, vect):
     )
 
 
-@pp.time_logger(sections=module_sections)
 def normal_matrix(pts=None, normal=None):
     """Compute the normal projection matrix of a plane.
 
@@ -321,7 +311,6 @@ def normal_matrix(pts=None, normal=None):
     return np.tensordot(normal, normal, axes=0)
 
 
-@pp.time_logger(sections=module_sections)
 def tangent_matrix(pts=None, normal=None):
     """Compute the tangential projection matrix of a plane.
 
@@ -341,8 +330,7 @@ def tangent_matrix(pts=None, normal=None):
     return np.eye(3) - normal_matrix(pts, normal)
 
 
-@pp.time_logger(sections=module_sections)
-def compute_normal(pts, check=True, tol=1e-5):
+def compute_normal(pts, tol=1e-5):
     """Compute the normal of a set of points. The sign of the normal is arbitary
 
     The algorithm assume that the points lie on a plane.
@@ -361,25 +349,27 @@ def compute_normal(pts, check=True, tol=1e-5):
     normal = np.cross(pts[:, 0] - pts[:, 1], pts[:, 2] - pts[:, 1])
     count = 0
     max_count = pts.shape[1] - 3
-    while np.allclose(normal, np.zeros(3)) and count <= max_count and check:
+    while count <= max_count:
         count += 1
         normal = np.cross(pts[:, 0] - pts[:, 1], np.mean(pts, axis=1) - pts[:, 2])
         pts = pts[:, 1:]
-    if check and np.allclose(normal, np.zeros(3), tol):
+
+        if not np.allclose(normal, np.zeros(3)):
+            break
+
+    if np.allclose(normal, np.zeros(3), tol):
         raise RuntimeError(
             "Unable to calculate normal from point set. Are all points collinear?"
         )
     return normal / np.linalg.norm(normal)
 
 
-@pp.time_logger(sections=module_sections)
 def compute_normals_1d(pts):
     t = compute_tangent(pts)
     n = np.array([t[1], -t[0], 0]) / np.sqrt(t[0] ** 2 + t[1] ** 2)
     return np.r_["1,2,0", n, np.dot(rotation_matrix(np.pi / 2.0, t), n)]
 
 
-@pp.time_logger(sections=module_sections)
 def compute_tangent(pts, check=True):
     """Compute a tangent vector of a set of points.
 
@@ -399,7 +389,7 @@ def compute_tangent(pts, check=True):
     # is nonzero
     tangent = pts - mean_pts
     # Find the point that is furthest away from the mean point
-    max_ind = np.argmax(np.sum(tangent ** 2, axis=0))
+    max_ind = np.argmax(np.sum(tangent**2, axis=0))
     tangent = tangent[:, max_ind]
     if check:
         assert not np.allclose(tangent, np.zeros(3))

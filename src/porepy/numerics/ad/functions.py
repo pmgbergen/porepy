@@ -172,7 +172,7 @@ def tan(var):
 def arcsin(var):
     if isinstance(var, Ad_array):
         val = np.arcsin(var.val)
-        jac = var.diagvec_mul_jac((1 - var.val ** 2) ** (-0.5))
+        jac = var.diagvec_mul_jac((1 - var.val**2) ** (-0.5))
         return Ad_array(val, jac)
     else:
         return np.arcsin(var)
@@ -181,7 +181,7 @@ def arcsin(var):
 def arccos(var):
     if isinstance(var, Ad_array):
         val = np.arccos(var.val)
-        jac = var.diagvec_mul_jac(-((1 - var.val ** 2) ** (-0.5)))
+        jac = var.diagvec_mul_jac(-((1 - var.val**2) ** (-0.5)))
         return Ad_array(val, jac)
     else:
         return np.arccos(var)
@@ -190,7 +190,7 @@ def arccos(var):
 def arctan(var):
     if isinstance(var, Ad_array):
         val = np.arctan(var.val)
-        jac = var.diagvec_mul_jac((var.val ** 2 + 1) ** (-1))
+        jac = var.diagvec_mul_jac((var.val**2 + 1) ** (-1))
         return Ad_array(val, jac)
     else:
         return np.arctan(var)
@@ -227,7 +227,7 @@ def tanh(var):
 def arcsinh(var):
     if isinstance(var, Ad_array):
         val = np.arcsinh(var.val)
-        jac = var.diagvec_mul_jac((var.val ** 2 + 1) ** (-0.5))
+        jac = var.diagvec_mul_jac((var.val**2 + 1) ** (-0.5))
         return Ad_array(val, jac)
     else:
         return np.arcsinh(var)
@@ -247,7 +247,7 @@ def arccosh(var):
 def arctanh(var):
     if isinstance(var, Ad_array):
         val = np.arctanh(var.val)
-        jac = var.diagvec_mul_jac((1 - var.val ** 2) ** (-1))
+        jac = var.diagvec_mul_jac((1 - var.val**2) ** (-1))
         return Ad_array(val, jac)
     else:
         return np.arctanh(var)
@@ -291,7 +291,7 @@ def heaviside_smooth(var, eps: float = 1e-3):
     if isinstance(var, Ad_array):
         val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(var.val * eps ** (-1)))
         jac = var.diagvec_mul_jac(
-            np.pi ** (-1) * eps * (eps ** 2 + var.val ** 2) ** (-1)
+            np.pi ** (-1) * eps * (eps**2 + var.val**2) ** (-1)
         )
         return Ad_array(val, jac)
     else:

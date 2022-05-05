@@ -195,10 +195,10 @@ def test_add_one_well_with_matrix() -> None:
         assert np.allclose(mg.mortar_to_secondary_int().todense(), 1)
         known = np.array(
             [
-                0.29166667,
-                0.0,
-                0.0,
                 0.175,
+                0.0,
+                0.0,
+                0.29166667,
                 0.0,
                 0.0,
                 0.0,
@@ -222,3 +222,6 @@ def test_add_one_well_with_matrix() -> None:
             ]
         )
         assert np.allclose(mg.mortar_to_primary_int().A.flatten(), known)
+
+
+test_add_one_well_with_matrix()

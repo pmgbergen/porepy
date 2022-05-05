@@ -216,11 +216,11 @@ class ContactMechanics(AbstractModel):
         difference_in_iterates_mech = np.sum((u_mech_now - u_mech_prev) ** 2)
         difference_from_init_mech = np.sum((u_mech_now - u_mech_init) ** 2)
 
-        u_j_norm = np.sum(u_j_now ** 2)
+        u_j_norm = np.sum(u_j_now**2)
         difference_in_iterates_j = np.sum((u_j_now - u_j_prev) ** 2)
         difference_from_init_j = np.sum((u_j_now - u_j_init) ** 2)
 
-        contact_norm = np.sum(contact_now ** 2)
+        contact_norm = np.sum(contact_now**2)
         difference_in_iterates_contact = np.sum((contact_now - contact_prev) ** 2)
         difference_from_init_contact = np.sum((contact_now - contact_init) ** 2)
 
@@ -280,7 +280,7 @@ class ContactMechanics(AbstractModel):
         if self._use_ad:
             A, b = self._eq_manager.assemble()
         else:
-            A, b = self.assembler.assemble_matrix_rhs()
+            A, b = self.assembler.assemble_matrix_rhs()  # type: ignore
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
             f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min"
@@ -462,7 +462,7 @@ class ContactMechanics(AbstractModel):
                         "bc": self._bc_type(g),
                         "bc_values": self._bc_values(g),
                         "source": self._body_force(g),
-                        "fourth_order_tensor": self._stress_tensor(g),
+                        "fourth_order_tensor": self._stiffness_tensor(g),
                     },
                 )
 
@@ -627,7 +627,7 @@ class ContactMechanics(AbstractModel):
         c_num_t = np.kron(tangential_vals, np.ones(g.dim))
         return c_num_n, c_num_t
 
-    def _stress_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
+    def _stiffness_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
         """Fourth order stress tensor.
 
 
@@ -1151,8 +1151,6 @@ class ContactMechanics(AbstractModel):
 
         Parameters
         ----------
-        contact_force : pp.ad.MergedVariable
-            Ad contact force variable.
         fracture_subdomains : List[pp.Grid]
             List of fracture grids.
 
