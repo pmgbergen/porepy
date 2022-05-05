@@ -168,7 +168,7 @@ class GridTree:
 
     def subdomain_neighbors(
         self, node: pp.Grid, only_higher: bool = False, only_lower: bool = False
-    ) -> np.ndarray:
+    ) -> List[pp.Grid]:
         """Get neighbors of a node in the graph.
         
         FIXME: Method name is unclear, should really be 'subdomain_neighbors_of_subdomain',
@@ -199,19 +199,16 @@ class GridTree:
             elif edge[1] == node:
                 neigh.append(edge[0])
 
-        neigh_arr = np.array(neigh)
         if not only_higher and not only_lower:
-            return neigh_arr
+            return neigh
         elif only_higher and only_lower:
             raise ValueError("Cannot return both only higher and only lower")
         elif only_higher:
             # Find the neighbours that are higher dimensional
-            is_high = np.array([w.dim > node.dim for w in neigh_arr])
-            return neigh_arr[is_high]
+            return [g for g in neigh if g.dim > node.dim]
         else:
             # Find the neighbours that are higher dimensional
-            is_low = np.array([w.dim < node.dim for w in neigh_arr])
-            return neigh_arr[is_low]
+            return [g for g in neigh if g.dim < node.dim]
 
     # ------------ Getters for grids
 
@@ -543,7 +540,7 @@ class GridTree:
         else:
             ng = new_grids  # type: ignore
 
-        if np.any([i is j for i in ng for j in list(self._nodes.keys())]):
+        if any([i is j for i in ng for j in list(self._nodes.keys())]):
             raise ValueError("Grid already defined in bucket")
         for grid in ng:
             self._nodes[grid] = {}
