@@ -521,8 +521,10 @@ def test_variable_combinations(grids, variables):
                 assert expr.jac.shape[1] == dof_manager.num_dofs()
 
 
-@pytest.mark.parametrize("operator_class, constructor_kwargs",
-[("LJacFunction", ({"L": [-1., 0.]}, {"L": [0., 2.*1.816]}))])
+@pytest.mark.parametrize(
+    "operator_class, constructor_kwargs",
+    [("LJacFunction", ({"L": [-1.0, 0.0]}, {"L": [0.0, 2.0 * 1.816]}))],
+)
 def test_approx_jac_operators(operator_class, constructor_kwargs):
     """
     1. Test: test of if a certain operator can solve the following nonlinear problem
@@ -533,7 +535,7 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
     for r in [1., 1.25, 1.5, 1.75]
     with initial guess
         x_0 = y_0 = r / (1 + 0.2**2) + 0.1
-    
+
     2. Test: test of dimensions compatibility for a mixed-dimensional domain with mortar grids
     but without mortar variables
     """
@@ -541,14 +543,14 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
     operator_cls = getattr(pp.ad, operator_class)
     ############ single domain for convergence test
     gbs = pp.GridBucket()
-    g = pp.CartGrid([2,2])
+    g = pp.CartGrid([2, 2])
     gbs.add_nodes([g])
     gbs.compute_geometry()
 
     # Functions for equations
     line = lambda x, y: y - x
 
-    radii = np.array([1. + i*.25 for i in range(gbs.num_cells())])
+    radii = np.array([1.0 + i * 0.25 for i in range(gbs.num_cells())])
     circle_ = lambda x, y: x**2 + y**2
 
     # creating variables
@@ -572,9 +574,9 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
     def reset_values(gb, eq):
         # initial guess is intersection with line with slope s, with a shift in y=x direction
         s = 0.2
-        shift = 0.1 * radii/radii
-        x_init = radii / np.sqrt(1+s**2) + shift
-        y_init = radii / np.sqrt(1+s**2) + shift
+        shift = 0.1 * radii / radii
+        x_init = radii / np.sqrt(1 + s**2) + shift
+        y_init = radii / np.sqrt(1 + s**2) + shift
 
         for g, d in gb:
             d[pp.STATE]["x"] = np.copy(x_init)
@@ -589,19 +591,21 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
         eq.equations = {"identity_x": identity_op(x), "identity_y": identity_op(y)}
         _, b0 = eq.assemble()
 
-        return (-1)*np.copy(b0)
+        return (-1) * np.copy(b0)
 
     # Setting equations with approximating operators
     Z = reset_values(gbs, eq_manager)
 
-    line_a = operator_cls(**constructor_kwargs[0],
-                           func=line, name="line_a", vector_conform=False)(x,y)
+    line_a = operator_cls(
+        **constructor_kwargs[0], func=line, name="line_a", vector_conform=False
+    )(x, y)
 
-    circle_a_ = operator_cls(**constructor_kwargs[1],
-                             func=circle_, name="circle_a", vector_conform=False)(x,y)
-    circle_a = circle_a_  - radii**2
+    circle_a_ = operator_cls(
+        **constructor_kwargs[1], func=circle_, name="circle_a", vector_conform=False
+    )(x, y)
+    circle_a = circle_a_ - radii**2
 
-    eq_manager.equations = {"line":  line_a, "circle": circle_a}
+    eq_manager.equations = {"line": line_a, "circle": circle_a}
     iterations = "NOT CONVERGED"
     res_norm = None
 
@@ -610,7 +614,7 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
         A, b = eq_manager.assemble()
 
         res_norm = np.linalg.norm(b)
-        if res_norm <= 1.e-10:
+        if res_norm <= 1.0e-10:
             iterations = i
             break
 
@@ -627,13 +631,11 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
     # 88 cells in the 2D domain,
     # 4 cells in the 1D domain,
     # 8x2 cells on the Mortar grid
-    coord_point = np.array([[0.2, 0.8],
-                            [0.5, 0.5]])
-    indices_point = np.array([[0], 
-                              [1]])
-    domain = {'xmin': 0, 'xmax': 1, 'ymin': 0, 'ymax': 1}
+    coord_point = np.array([[0.2, 0.8], [0.5, 0.5]])
+    indices_point = np.array([[0], [1]])
+    domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
     fracture_network = pp.FractureNetwork2d(coord_point, indices_point, domain)
-    mesh_args = {'mesh_size_frac': 0.3}
+    mesh_args = {"mesh_size_frac": 0.3}
     gbmd = fracture_network.mesh(mesh_args)
     gbmd.compute_geometry()
 
@@ -664,21 +666,25 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
 
     x = eq_manager.merge_variables([(g, "x") for g, _ in gbmd])
     y = eq_manager.merge_variables([(g, "y") for g, _ in gbmd])
-    mortar_x = eq_manager.merge_variables([(e, "mortar_x") for e,_ in gbmd.edges()])
-    mortar_y = eq_manager.merge_variables([(e, "mortar_y") for e,_ in gbmd.edges()])
+    # mortar_x = eq_manager.merge_variables([(e, "mortar_x") for e, _ in gbmd.edges()])
+    # mortar_y = eq_manager.merge_variables([(e, "mortar_y") for e, _ in gbmd.edges()])
 
     initial_values = np.ones(dof_manager.num_dofs())
     dof_manager.distribute_variable(initial_values)
 
-    multiply = lambda x,y : x*y
-    op = pp.ad.LJacFunction([3.,4], multiply, "bb-multip")(x, y)
+    multiply = lambda x, y: x * y
+    op = pp.ad.LJacFunction([3.0, 4], multiply, "bb-multip")(x, y)
 
     op_ad = op.evaluate(dof_manager)
     # test of dimension
     assert op_ad.val.shape == (92,)  # 92 is the total number of subdomain cells
-    assert op_ad.jac.shape == (92,200)  # 200 is the total number of DOFS ( 92x2 + 8x2 )
+    assert op_ad.jac.shape == (
+        92,
+        200,
+    )  # 200 is the total number of DOFS ( 92x2 + 8x2 )
     # test of values
-    assert np.allclose(1., op_ad.val)
+    assert np.allclose(1.0, op_ad.val)
+
 
 def test_ad_discretization_class():
     # Test of the mother class of all discretizations (pp.ad.Discretization)
@@ -924,7 +930,7 @@ class AdArrays(unittest.TestCase):
         A = sps.csc_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
 
         f = A * a + b
-        jac = A * Ja + Jb
+        # jac = A * Ja + Jb
 
         self.assertTrue(np.all(f.val == [15, 33, 51]))
         self.assertTrue(np.sum(f.full_jac() != A * Ja + Jb) == 0)
@@ -987,10 +993,10 @@ class AdArrays(unittest.TestCase):
         self.assertTrue(c.val == 2 and np.allclose(c.jac, 1))
 
     def test_full_jac(self):
-        J1 = sps.csc_matrix(
-            np.array([[1, 3, 5], [1, 5, 1], [6, 2, 4], [2, 4, 1], [6, 2, 1]])
-        )
-        J2 = sps.csc_matrix(np.array([[1, 2], [2, 5], [6, 0], [9, 9], [45, 2]]))
+        # J1 = sps.csc_matrix(
+        #     np.array([[1, 3, 5], [1, 5, 1], [6, 2, 4], [2, 4, 1], [6, 2, 1]])
+        # )
+        # J2 = sps.csc_matrix(np.array([[1, 2], [2, 5], [6, 0], [9, 9], [45, 2]]))
         J = np.array(
             [
                 [1, 3, 5, 1, 2],
