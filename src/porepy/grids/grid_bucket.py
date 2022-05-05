@@ -83,17 +83,6 @@ class GridTree:
 
     # --------- Iterators -------------------------
 
-    def __iter__(self) -> Generator[Tuple[pp.Grid, Dict], None, None]:
-        """Iterator over the nodes in the GridTree.
-
-        Yields:
-            grid (pp.Grid): The grid associated with a node.
-            data (dict): The dictionary storing all information in this node.
-
-        """
-        for grid, data in self._nodes.items():
-            yield grid, data
-
     def nodes(self) -> Generator[Tuple[pp.Grid, Dict], None, None]:
         """Iterator over the nodes in the GridTree.
 
