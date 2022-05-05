@@ -293,7 +293,8 @@ class MortarProjections(Operator):
         if len(edges) > 0:
             for e in edges:
                 g_primary, g_secondary = e
-                mg: pp.MortarGrid = gb.edge_props(e, "mortar_grid")
+                mg = gb.edge_props(e, "mortar_grid")
+                assert isinstance(mg, pp.MortarGrid)  # Appease mypy
                 if (g_primary.dim != mg.dim + mg.codim) or g_secondary.dim != mg.dim:
                     # This will correspond to DD of sorts; we could handle this
                     # by using cell_projections for g_primary and/or
@@ -438,6 +439,7 @@ class MortarProjections(Operator):
         mats = []
         for e in edges:
             mg = gb.edge_props(e, "mortar_grid")
+            assert isinstance(mg, pp.MortarGrid)  # Appease mypy
             mats.append(mg.sign_of_mortar_sides(nd))
         if len(edges) == 0:
             self.sign_of_mortar_sides = Matrix(
@@ -582,8 +584,8 @@ class Divergence(Operator):
         nf = 0
         nc = 0
         for g in self.grids:
-            nf += g.num_faces * g.dim
-            nc += g.num_cells * g.dim
+            nf += g.num_faces * self.dim
+            nc += g.num_cells * self.dim
         s += f"The total size of the matrix is ({nc}, {nf})\n"
 
         return s

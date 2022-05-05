@@ -211,7 +211,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             pp.initialize_data(mg, d, self.mechanics_parameter_key)
 
     def _set_scalar_parameters(self) -> None:
-        tensor_scale = self.scalar_scale / self.length_scale ** 2
+        tensor_scale = self.scalar_scale / self.length_scale**2
         kappa = 1 * tensor_scale
         mass_weight = 1 * self.scalar_scale
         for g, d in self.gb:
@@ -343,7 +343,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
         return np.zeros(g.num_faces)
 
-    def _stress_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
+    def _stiffness_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
         """Stress tensor parameter, unitary Lame parameters.
 
 
@@ -734,6 +734,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         for e in interfaces:
             mg = self.gb.edge_props(e, "mortar_grid")
+            assert isinstance(mg, pp.MortarGrid)  # Appease mypy
 
             faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
             sgn, _ = g_primary.signs_and_cells_of_boundary_faces(

@@ -1176,7 +1176,7 @@ class Mpsa(Discretization):
 
         # Number of unknowns around a vertex: nd^2 per cell that share the vertex
         # for pressure gradients, and one per cell (cell center pressure)
-        num_grad_unknowns = nd ** 2 * num_cell_nodes
+        num_grad_unknowns = nd**2 * num_cell_nodes
 
         # The most expensive field is the storage of igrad, which is block diagonal
         # with num_grad_unknowns sized blocks. The number of elements is the square
@@ -1188,14 +1188,14 @@ class Mpsa(Discretization):
         # The discretization of Hook's law will require nd^2 (that is, a gradient)
         # per sub-face per dimension
         num_sub_face = g.face_nodes.sum()
-        hook_size = nd * num_sub_face * nd ** 2
+        hook_size = nd * num_sub_face * nd**2
 
         # Balancing of stresses will require 2*nd**2 (gradient on both sides)
         # fields per sub-face per dimension
-        nk_grad_size = 2 * nd * num_sub_face * nd ** 2
+        nk_grad_size = 2 * nd * num_sub_face * nd**2
         # Similarly, pressure continuity requires 2 * (nd+1) (gradient on both
         # sides, and cell center pressures) numbers
-        pr_cont_size = 2 * (nd ** 2 + 1) * num_sub_face * nd
+        pr_cont_size = 2 * (nd**2 + 1) * num_sub_face * nd
 
         total_size = igrad_size + hook_size + nk_grad_size + pr_cont_size
 
@@ -1422,10 +1422,10 @@ class Mpsa(Discretization):
         # Then row and columns for stiffness matrix. There are nd^2 elements in
         # the gradient operator, and so the structure is somewhat different from
         # the normal vectors
-        _, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd ** 2))
-        sum_blocksz = np.cumsum(blocksz ** 2)
+        _, cc = np.meshgrid(subcell_topology.subhfno, np.arange(nd**2))
+        sum_blocksz = np.cumsum(blocksz**2)
         cc += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0] ** 2, blocksz)
-        ind_ptr_c = np.hstack((np.arange(0, cc.size, nd ** 2), cc.size))
+        ind_ptr_c = np.hstack((np.arange(0, cc.size, nd**2), cc.size))
 
         # Splitt stiffness matrix into symmetric and anti-symmatric part
         sym_tensor, asym_tensor = self._split_stiffness_matrix(constit)

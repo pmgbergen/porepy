@@ -250,7 +250,7 @@ class AbstractModel:
         else:
             raise ValueError("Have not conisdered this type of unknown vector")
 
-        norm = np.sqrt(np.reshape(val ** 2, (nd, nc), order="F") * g.cell_volumes)
+        norm = np.sqrt(np.reshape(val**2, (nd, nc), order="F") * g.cell_volumes)
 
         return np.sum(norm)
 

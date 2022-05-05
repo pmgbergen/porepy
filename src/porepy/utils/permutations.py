@@ -1,11 +1,7 @@
 """ Utility function for permutation of numbers.
 """
-import porepy as pp
-
-module_sections = ["utils"]
 
 
-@pp.time_logger(sections=module_sections)
 def multinary_permutations(base, length):
     """
     Define a generator over all numbers of a certain length for a number system
@@ -37,7 +33,7 @@ def multinary_permutations(base, length):
 
     # There are in total base ** length numbers to be covered, these need to be
     # rewritten into the base number system
-    for iter1 in range(base ** length):
+    for iter1 in range(base**length):
 
         # Array to store the multi-d index of the current index
         bit_val = [0] * length
