@@ -41,7 +41,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         params (dict): Dictionary of parameters used to control the solution procedure.
             Some frequently used entries are file and folder names for export,
             mesh sizes...
-        gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
+        gb (pp.GridTree): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
         convergence_status (bool): Whether the non-linear iterations has converged.
         linear_solver (str): Specification of linear solver. Only known permissible

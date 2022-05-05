@@ -74,7 +74,7 @@ class ContactMechanics(AbstractModel):
             discretizations for the friction problem.
         params (dict): Dictionary of parameters used to control the solution procedure.
             Default parameters are set in AbstractModel
-        gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
+        gb (pp.GridTree): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
         convergence_status (bool): Whether the non-linear iterations has converged.
         linear_solver (str): Specification of linear solver. Only known permissible

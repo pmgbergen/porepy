@@ -109,7 +109,7 @@ def test_pick_propagation_face_conforming_propagation(generate):
     on the tips of the lower-dimensional grid. Thus, the test probes the function
     _pick_propagation_faces() in ConformingFracturePropagation.
 
-    The overall idea of the test is to give a GridBucket, and a sequence of target
+    The overall idea of the test is to give a GridTree, and a sequence of target
     faces in g_h to be split, based on face indices. For each target face, the
     closest (by distance) of the tip faces in g_l is found, and tagged for propagation.
     We then call the function to be tested to identify the face in g_h which should be
@@ -422,7 +422,7 @@ class FaceSplittingHostGrid(unittest.TestCase):
     #### Helpers below
 
     def _verify(self, gb, split, cc, fc, cv, new_cell_volumes, new_fc, num_nodes):
-        # Check that the geometry of a (propagated) GridBucket corresponds to a given
+        # Check that the geometry of a (propagated) GridTree corresponds to a given
         # known geometry.
 
         gh = gb.grids_of_dimension(gb.dim_max())[0]

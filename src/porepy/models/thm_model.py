@@ -86,7 +86,7 @@ class THM(pp.ContactMechanicsBiot):
 
         params (dict): Dictionary of parameters used to control the solution procedure.
         viz_folder_name (str): Folder for visualization export.
-        gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
+        gb (pp.GridTree): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
         convergence_status (bool): Whether the non-linear iterations has converged.
         linear_solver (str): Specification of linear solver. Only known permissible

@@ -24,7 +24,7 @@ class EquationManagerSetup:
         g1 = pp.CartGrid([3, 1])
         g2 = pp.CartGrid([4, 1])
 
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         gb.add_nodes([g1, g2])
 
         d1 = gb.node_props(g1)

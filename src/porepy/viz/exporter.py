@@ -95,7 +95,7 @@ class Fields:
 class Exporter:
     def __init__(
         self,
-        grid: Union[pp.Grid, pp.GridBucket],
+        grid: Union[pp.Grid, pp.GridTree],
         file_name: str,
         folder_name: Optional[str] = None,
         **kwargs,
@@ -125,7 +125,7 @@ class Exporter:
             save.write_vtu({"conc": conc}, time_step=i)
         save.write_pvd(steps*deltaT)
 
-        if you need to export the state of variables as stored in the GridBucket:
+        if you need to export the state of variables as stored in the GridTree:
         save = Exporter(gb, "solution", folder_name="results")
         # export the field stored in data[pp.STATE]["pressure"]
         save.write_vtu(gb, ["pressure"])
@@ -143,12 +143,12 @@ class Exporter:
 
         """
 
-        if isinstance(grid, pp.GridBucket):
-            self.is_GridBucket = True
-            self.gb: pp.GridBucket = grid
+        if isinstance(grid, pp.GridTree):
+            self.is_GridTree = True
+            self.gb: pp.GridTree = grid
 
         else:
-            self.is_GridBucket = False
+            self.is_GridTree = False
             self.grid: pp.Grid = grid  # type: ignore
 
         self.file_name = file_name
@@ -161,7 +161,7 @@ class Exporter:
 
         self.cell_id_key = "cell_id"
 
-        if self.is_GridBucket:
+        if self.is_GridTree:
             # Fixed-dimensional grids to be included in the export. We include
             # all but the 0-d grids
             self.dims = np.setdiff1d(self.gb.all_dims(), [0])
@@ -201,7 +201,7 @@ class Exporter:
         data: Optional[Union[Dict, List[str]]] = None,
         time_dependent: bool = False,
         time_step: int = None,
-        grid: Optional[Union[pp.Grid, pp.GridBucket]] = None,
+        grid: Optional[Union[pp.Grid, pp.GridTree]] = None,
     ) -> None:
         """
         Interface function to export the grid and additional data with meshio.
@@ -226,7 +226,7 @@ class Exporter:
         if self.fixed_grid and grid is not None:
             raise ValueError("Inconsistency in exporter setting")
         elif not self.fixed_grid and grid is not None:
-            if self.is_GridBucket:
+            if self.is_GridTree:
                 self.gb = grid  # type: ignore
             else:
                 self.grid = grid  # type: ignore
@@ -243,7 +243,7 @@ class Exporter:
         if time_step is not None:
             self._exported_time_step_file_names.append(time_step)
 
-        if self.is_GridBucket:
+        if self.is_GridTree:
             self._export_gb(data, time_step)  # type: ignore
         else:
             self._export_g(data, time_step)  # type: ignore
@@ -290,7 +290,7 @@ class Exporter:
         o_file.write(header)
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
-        if self.is_GridBucket:
+        if self.is_GridTree:
             for time, fn in zip(timestep, file_extension):
                 for dim in self.dims:
                     o_file.write(
@@ -326,10 +326,10 @@ class Exporter:
         self._write(fields, name, self.meshio_geom)
 
     def _export_gb(self, data: List[str], time_step: float) -> None:
-        """Export the entire GridBucket and additional data to vtu.
+        """Export the entire GridTree and additional data to vtu.
 
         Parameters:
-            data (List[str]): Data to be exported in addition to default GridBucket data.
+            data (List[str]): Data to be exported in addition to default GridTree data.
             time_step (float) : Time step, to be appended at the vtu output file.
         """
         # Convert data to list, or provide an empty list
@@ -458,7 +458,7 @@ class Exporter:
                         values.append(self.gb.edge_props(edge, pp.STATE)[field.name])
                     else:
                         for side, _ in mg.side_grids.items():
-                            # Convert edge to tuple to be compatible with GridBucket
+                            # Convert edge to tuple to be compatible with GridTree
                             # data structure
                             values.append(self.gb.edge_props(edge, field.name)[side])
 
@@ -817,7 +817,7 @@ class Exporter:
         meshio.write(file_name, meshio_grid_to_export, binary=self.binary)
 
     def _update_meshio_geom(self):
-        if self.is_GridBucket:
+        if self.is_GridTree:
             for dim in self.dims:
                 g = self.gb.get_grids(lambda g: g.dim == dim)
                 self.meshio_geom[dim] = self._export_grid(g, dim)

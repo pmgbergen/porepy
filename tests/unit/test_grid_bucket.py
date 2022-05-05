@@ -1,4 +1,4 @@
-""" Various tests of GridBucket functionality. Covers getters and setters, topologial
+""" Various tests of GridTree functionality. Covers getters and setters, topologial
 information on the bucket, and pickling and unpickling of buckets.
 """
 import unittest
@@ -35,7 +35,7 @@ class MockGrid(pp.Grid):
 
 class TestBucket(unittest.TestCase):
     def simple_bucket(self, num_grids):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
 
         [gb.add_nodes(MockGrid()) for i in range(num_grids)]
 
@@ -48,7 +48,7 @@ class TestBucket(unittest.TestCase):
     # ----- Tests of adding nodes and edges ----- #
     def test_add_nodes(self):
         # Simply add grid. Should work.
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         gb.add_nodes(MockGrid())
         gb.add_nodes(MockGrid())
 
@@ -60,7 +60,7 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(ValueError, gb.add_nodes, g)
 
     def test_add_edge(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g0 = MockGrid(0)
         g1 = MockGrid(1)
         g3 = MockGrid(3)
@@ -76,7 +76,7 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(ValueError, gb.add_edge, (g0, g3), None)
 
     def test_dimension_ordering_edges(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid(1)
         g2 = MockGrid(2)
         gb.add_nodes(g1)
@@ -86,7 +86,7 @@ class TestBucket(unittest.TestCase):
         for e, _ in gb.edges():
             self.assertTrue(e[0].dim >= e[1].dim)
 
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         gb.add_nodes(g1)
         gb.add_nodes(g2)
         gb.add_edge([g2, g1], None)
@@ -96,7 +96,7 @@ class TestBucket(unittest.TestCase):
 
     def test_node_neighbor_no_dim(self):
         # Test node neighbors, not caring about dimensions
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         g3 = MockGrid()
@@ -117,7 +117,7 @@ class TestBucket(unittest.TestCase):
 
     def test_node_neighbor_with_dim(self):
         # Test node neighbors, using dim keywords
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid(1)
         g2 = MockGrid(2)
         g3 = MockGrid(3)
@@ -144,7 +144,7 @@ class TestBucket(unittest.TestCase):
 
     # ------ Test of iterators ------*
     def test_node_edge_iterators(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid(1)
         g2 = MockGrid(2)
         g3 = MockGrid(3)
@@ -183,7 +183,7 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(not g in gb)
 
     def test_contains_edge(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid(1)
         g2 = MockGrid(2)
         g3 = MockGrid(3)
@@ -219,7 +219,7 @@ class TestBucket(unittest.TestCase):
                 self.assertTrue(p in d.keys())
 
     def test_add_selective_node_props(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         gb.add_nodes(g1)
@@ -250,7 +250,7 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(ValueError, gb.add_node_props, "node_number")
 
     def test_overwrite_node_props(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         gb.add_nodes(g1)
         key = "foo"
@@ -266,7 +266,7 @@ class TestBucket(unittest.TestCase):
     # -------------- Tests for add_edge_props
 
     def test_add_single_edge_prop(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         gb.add_nodes(g1)
@@ -280,7 +280,7 @@ class TestBucket(unittest.TestCase):
 
     def test_add_single_edge_prop_reverse_order(self):
         # Add property when reverting the order of the grid_pair
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         gb.add_nodes(g1)
@@ -294,7 +294,7 @@ class TestBucket(unittest.TestCase):
             self.assertTrue("a" in d.keys())
 
     def test_add_multiple_edge_props(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         gb.add_nodes(g1)
@@ -309,7 +309,7 @@ class TestBucket(unittest.TestCase):
                 self.assertTrue(p in d.keys())
 
     def test_add_selective_edge_props(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         g3 = MockGrid()
@@ -343,7 +343,7 @@ class TestBucket(unittest.TestCase):
                 self.assertTrue(not p1 in d.keys())
 
     def test_overwrite_edge_props(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         gb.add_nodes(g1)
@@ -365,7 +365,7 @@ class TestBucket(unittest.TestCase):
 
     def test_set_get_node_props_single_grid(self):
 
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         gb.add_nodes(g1)
         d = {"a": 1, "b": 2, "c": 3}
@@ -388,7 +388,7 @@ class TestBucket(unittest.TestCase):
 
     def test_set_get_edge_props(self):
 
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         g3 = MockGrid()
@@ -420,7 +420,7 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(KeyError, gb.edge_props, edge=[g1, g3], key="a")
 
     def test_update_nodes(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         gb.add_nodes(g1)
@@ -452,7 +452,7 @@ class TestBucket(unittest.TestCase):
     def test_diameter(self):
         g1 = MockGrid(1, 2)
         g2 = MockGrid(2, 3)
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         gb.add_nodes(g1)
         gb.add_nodes(g2)
 
@@ -460,7 +460,7 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(gb.diameter(lambda g: g.dim == 1) == 2)
 
     def test_bounding_box(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = pp.CartGrid([1, 1, 1])
         g1.nodes = np.random.random((g1.dim, g1.num_nodes))
         g2 = pp.CartGrid([1, 1, 1])
@@ -487,7 +487,7 @@ class TestBucket(unittest.TestCase):
 
         g1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
         g2 = MockGrid(dim=2, num_cells=3, num_faces=7, num_nodes=3)
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         gb.add_nodes([g1, g2])
 
         self.assertTrue(gb.num_cells() == (g1.num_cells + g2.num_cells))
@@ -500,7 +500,7 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(gb.num_nodes(l) == g1.num_nodes)
 
     def test_num_graph_nodes_edges(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid(1)
         g2 = MockGrid(2)
         g3 = MockGrid(3)
@@ -516,7 +516,7 @@ class TestBucket(unittest.TestCase):
 
         g1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
         g2 = MockGrid(dim=2, num_cells=3, num_faces=7, num_nodes=3)
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         gb.add_nodes([g1, g2])
         gb.__str__()
         gb.__repr__()
@@ -544,7 +544,7 @@ class TestBucket(unittest.TestCase):
                 self.assertTrue(not p in d.keys())
 
     def test_remove_selective_node_props(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = MockGrid()
         g2 = MockGrid()
         gb.add_nodes(g1)
@@ -571,7 +571,7 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(ValueError, gb.remove_node_props, "node_number")
 
     def test_cell_volumes(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = pp.CartGrid([1, 1, 1])
         g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
         g1.compute_geometry()
@@ -588,7 +588,7 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(np.all(g1.cell_volumes == gb.cell_volumes(cond)))
 
     def test_cell_centers(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = pp.CartGrid([1, 1, 1])
         g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
         g1.compute_geometry()
@@ -604,7 +604,7 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(np.all(g1.cell_centers == gb.cell_centers(cond)))
 
     def test_face_centers(self):
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         g1 = pp.CartGrid([1, 1, 1])
         g1.nodes += 0.1 * np.random.random((g1.dim, g1.num_nodes))
         g1.compute_geometry()

@@ -575,12 +575,12 @@ class ColoumbContact(
 
 
 def set_projections(
-    gb: pp.GridBucket, edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None
+    gb: pp.GridTree, edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None
 ) -> None:
     """Define a local coordinate system, and projection matrices, for all
     grids of co-dimension 1.
 
-    The function adds one item to the data dictionary of all GridBucket edges
+    The function adds one item to the data dictionary of all GridTree edges
     that neighbors a co-dimension 1 grid, defined as:
         key: tangential_normal_projection, value: pp.TangentialNormalProjection
             provides projection to the surface of the lower-dimensional grid

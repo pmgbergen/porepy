@@ -5,7 +5,7 @@ The module contains the following groups of tests:
 
     TestGridMappings1d: In practice tests of pp.match_grids.match_1d().
 
-    TestReplaceHigherDimensionalGridInGridBucket: Test the method replace_grids in a
+    TestReplaceHigherDimensionalGridInGridTree: Test the method replace_grids in a
         grid bucket, applied to the highest-dimensional grid. In practice, this only
         applies to 2d domains, since replacement of 3d grids is not supported.
 
@@ -118,8 +118,8 @@ class TestGridMappings1d(unittest.TestCase):
         self.assertTrue(np.allclose(mat_h_2_g.col, np.array([0, 1, 2, 3])))
 
 
-class TestReplaceHigherDimensionalGridInGridBucket(unittest.TestCase):
-    """Test of functionality to replace the higher-dimensional grid in a GridBucket.
+class TestReplaceHigherDimensionalGridInGridTree(unittest.TestCase):
+    """Test of functionality to replace the higher-dimensional grid in a GridTree.
 
     Since we do not support replacement of 3d grids, this test considers only a 2d domain
     with a single fracture, and replace the 2d grid with various perturbations etc. of

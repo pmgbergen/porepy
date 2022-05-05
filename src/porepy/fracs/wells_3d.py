@@ -226,7 +226,7 @@ class WellNetwork3d:
             size = self.parameters["mesh_size"]
         return size
 
-    def mesh(self, gb: pp.GridBucket) -> None:
+    def mesh(self, gb: pp.GridTree) -> None:
         """Produce grids for the network's wells and add to existing grid bucket.
 
         One grid is constructed for each subline extending between two fracture
@@ -439,7 +439,7 @@ def compute_well_fracture_intersections(
 
 
 def compute_well_rock_matrix_intersections(
-    gb: pp.GridBucket,
+    gb: pp.GridTree,
     cells: np.ndarray = None,
     min_length: float = 1e-10,
     tol: float = 1e-5,
@@ -450,7 +450,7 @@ def compute_well_rock_matrix_intersections(
     To speed up the geometrical computation we construct an ADTree.
 
     Parameters:
-        gb (pp.GridBucket): the grid bucket containing all the elements
+        gb (pp.GridTree): the grid bucket containing all the elements
         cells (np.ndarray, optional): a set of cells that might be considered to construct the
             ADTree. If it is not given the tree is constructed by using all the higher
             dimensional grid cells
@@ -648,7 +648,7 @@ def _intersection_segment_fracture(
     return segment_points, tags
 
 
-def _intersection_grid(point: np.ndarray, gb: pp.GridBucket) -> pp.PointGrid:
+def _intersection_grid(point: np.ndarray, gb: pp.GridTree) -> pp.PointGrid:
     """Make a point grid and add to gb.
 
     Parameters:
@@ -666,7 +666,7 @@ def _intersection_grid(point: np.ndarray, gb: pp.GridBucket) -> pp.PointGrid:
 
 
 def _add_fracture_2_intersection_edge(
-    g_l: pp.Grid, frac_num: int, gb: pp.GridBucket
+    g_l: pp.Grid, frac_num: int, gb: pp.GridTree
 ) -> None:
     """
     Does not check that the well lies _inside_ a fracture cell and not on the
@@ -685,7 +685,7 @@ def _add_fracture_2_intersection_edge(
 
 
 def _add_well_2_intersection_edge(
-    g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridBucket
+    g_l: pp.Grid, g_h: pp.Grid, gb: pp.GridTree
 ) -> None:
     cell_l = np.array([0], dtype=int)
     vec = g_h.face_centers - g_l.cell_centers
@@ -700,7 +700,7 @@ def _add_edge(
     dim: int,
     g_l: pp.Grid,
     g_h: pp.Grid,
-    gb: pp.GridBucket,
+    gb: pp.GridTree,
     primary_secondary_map: sps.coo_matrix,
 ) -> None:
     """Utility method to add an edge to the gb.
@@ -709,7 +709,7 @@ def _add_edge(
     Parameters:
         g_l: is the intersection point grid.
         g_h. represents fracture or well.
-        gb: GridBucket to which the edge will be added.
+        gb: GridTree to which the edge will be added.
         primary_secondary_map (sps.coo_matrix): Map between cells_l and either faces_h
             (codim=1) or cells_h (codim=2).
     """

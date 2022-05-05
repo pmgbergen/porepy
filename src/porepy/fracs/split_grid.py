@@ -394,7 +394,7 @@ def _update_face_cells(
             f_c._shape = (f_c._shape[0], f_c._shape[1] + face_id.size)
 
             # In cases where cells have been added to the lower-dimensional grid
-            # Note that this will not happen for construction of a GridBucket through
+            # Note that this will not happen for construction of a GridTree through
             # the standard workflow of post-processing a gmsh grid.
             if cell_id is not None:
                 # New cells have been added to gl. We will create a local

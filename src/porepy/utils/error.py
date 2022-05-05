@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 def grid_error(
-    gb: "pp.GridBucket",
-    gb_ref: "pp.GridBucket",
+    gb: "pp.GridTree",
+    gb_ref: "pp.GridTree",
     variable: List[str],
     variable_dof: List[int],
 ) -> dict:
@@ -23,7 +23,7 @@ def grid_error(
 
     Parameters
     ----------
-    gb, gb_ref : pp.GridBucket
+    gb, gb_ref : pp.GridTree
         Coarse and fine grid buckets, respectively
     variable : List[str]
         which variables to compute error over

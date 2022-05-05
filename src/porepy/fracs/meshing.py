@@ -16,7 +16,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
-from porepy.grids.grid_bucket import GridBucket
+from porepy.grids.grid_bucket import GridTree
 from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,8 @@ mortar_sides = mortar_grid.MortarSides
 
 def grid_list_to_grid_bucket(
     grids: List[List[pp.Grid]], time_tot: float = None, **kwargs
-) -> pp.GridBucket:
-    """Convert a list of grids to a full GridBucket.
+) -> pp.GridTree:
+    """Convert a list of grids to a full GridTree.
 
     The list can come from several mesh constructors, both simplex and
     structured approaches uses this in 2D and 3D.
@@ -47,7 +47,7 @@ def grid_list_to_grid_bucket(
         **kwargs: Passed on to subfunctions.
 
     Returns:
-        GridBucket: Final mixed-dimensional grid.
+        GridTree: Final mixed-dimensional grid.
 
     """
     # Tag tip faces
@@ -80,9 +80,9 @@ def grid_list_to_grid_bucket(
     return gb
 
 
-def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucket:
+def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridTree:
     """
-    Creates a cartesian fractured GridBucket in 2- or 3-dimensions.
+    Creates a cartesian fractured GridTree in 2- or 3-dimensions.
 
     Parameters
     ----------
@@ -99,9 +99,9 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
 
     Returns:
     -------
-    GridBucket: A complete bucket where all fractures are represented as
+    GridTree: A complete bucket where all fractures are represented as
         lower dim grids. The higher dim fracture faces are split in two,
-        and on the edges of the GridBucket graph the mapping from lower dim
+        and on the edges of the GridTree graph the mapping from lower dim
         cells to higher dim faces are stored as 'face_cells'. Each face is
         given boolean tags depending on the type:
            domain_boundary_faces: All faces that lie on the domain boundary
@@ -141,9 +141,9 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
 
 def tensor_grid(
     fracs: List[np.ndarray], x: np.ndarray, y=None, z=None, **kwargs
-) -> pp.GridBucket:
+) -> pp.GridTree:
     """
-    Creates a cartesian fractured GridBucket in 2- or 3-dimensions.
+    Creates a cartesian fractured GridTree in 2- or 3-dimensions.
 
     Parameters
     ----------
@@ -159,9 +159,9 @@ def tensor_grid(
 
     Returns:
     -------
-    GridBucket: A complete bucket where all fractures are represented as
+    GridTree: A complete bucket where all fractures are represented as
         lower dim grids. The higher dim fracture faces are split in two,
-        and on the edges of the GridBucket graph the mapping from lower dim
+        and on the edges of the GridTree graph the mapping from lower dim
         cells to higher dim faces are stored as 'face_cells'. Each face is
         given boolean tags depending on the type:
            domain_boundary_faces: All faces that lie on the domain boundary
@@ -367,7 +367,7 @@ def _nodes_per_face(g):
 
 def _assemble_in_bucket(grids, **kwargs):
     """
-    Create a GridBucket from a list of grids.
+    Create a GridTree from a list of grids.
     Parameters
     ----------
     grids: A list of lists of grids. Each element in the list is a list
@@ -379,12 +379,12 @@ def _assemble_in_bucket(grids, **kwargs):
 
     Returns
     -------
-    GridBucket: A GridBucket class where the mapping face_cells are given to
+    GridTree: A GridTree class where the mapping face_cells are given to
         each edge. face_cells maps from lower-dim cells to higher-dim faces.
     """
 
     # Create bucket
-    bucket = GridBucket()
+    bucket = GridTree()
     [bucket.add_nodes(g_d) for g_d in grids]
 
     # We now find the face_cell mapings.

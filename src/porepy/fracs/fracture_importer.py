@@ -307,11 +307,11 @@ def network_2d_from_csv(
         return network
 
 
-def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.GridBucket:
-    """Generate a GridBucket from a gmsh file.
+def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.GridTree:
+    """Generate a GridTree from a gmsh file.
 
     If the provided file is input for gmsh (.geo, not .msh), gmsh will be called
-    to generate the mesh before the GridBucket is constructed.
+    to generate the mesh before the GridTree is constructed.
 
     Parameters:
         file_name (str): Name of gmsh in and out file. Should have extsion .geo
@@ -320,7 +320,7 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.GridBucket:
         dim (int): Dimension of the problem. Should be 2 or 3.
 
     Returns:
-        GridBucket: Mixed-dimensional grid as contained in the gmsh file.
+        GridTree: Mixed-dimensional grid as contained in the gmsh file.
 
     """
 

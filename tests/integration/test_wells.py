@@ -25,7 +25,7 @@ def _generate_gb(fracture_indices: List[int], well_indices: List[int]):
         well_indices (list): which wells to use.
 
     Returns:
-        pp.GridBucket: grid bucket with matrix, fractures, wells and well-fracture
+        pp.GridTree: grid bucket with matrix, fractures, wells and well-fracture
             intersection grids + all interfaces
     """
     domain = pp.grids.standard_grids.utils.unit_domain(3)

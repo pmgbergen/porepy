@@ -12,7 +12,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.grids.grid_bucket import GridBucket
+from porepy.grids.grid_bucket import GridTree
 
 
 class SubcellTopology(object):
@@ -1543,7 +1543,7 @@ def compute_darcy_flux(
 
     if keyword_store is None:
         keyword_store = keyword
-    if not isinstance(gb, GridBucket) and not isinstance(gb, pp.GridBucket):
+    if not isinstance(gb, GridTree) and not isinstance(gb, pp.GridTree):
         parameter_dictionary = data[pp.PARAMETERS][keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:

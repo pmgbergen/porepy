@@ -1,6 +1,6 @@
 """
 Module to store the grid hiearchy formed by a set of fractures and their
-intersections in the form of a GridBucket.
+intersections in the form of a GridTree.
 
 """
 import itertools
@@ -25,7 +25,7 @@ from porepy.grids import mortar_grid
 from porepy.utils import setmembership
 
 
-class GridBucket:
+class GridTree:
     """
     Container for the hierarchy of grids formed by fractures and their
     intersections.
@@ -84,7 +84,7 @@ class GridBucket:
     # --------- Iterators -------------------------
 
     def __iter__(self) -> Generator[Tuple[pp.Grid, Dict], None, None]:
-        """Iterator over the nodes in the GridBucket.
+        """Iterator over the nodes in the GridTree.
 
         Yields:
             grid (pp.Grid): The grid associated with a node.
@@ -95,7 +95,7 @@ class GridBucket:
             yield grid, data
 
     def nodes(self) -> Generator[Tuple[pp.Grid, Dict], None, None]:
-        """Iterator over the nodes in the GridBucket.
+        """Iterator over the nodes in the GridTree.
 
         Identical functionality to self.__iter__(), but kept for consistency
         with self.edges()
@@ -110,7 +110,7 @@ class GridBucket:
 
     def edges(self) -> Generator[Tuple[Tuple[pp.Grid, pp.Grid], Dict], None, None]:
         """
-        Iterator over the edges in the GridBucket
+        Iterator over the edges in the GridTree
 
         Yields:
             edge (Tuple[pp.Grid, pp.Grid]):
@@ -126,7 +126,7 @@ class GridBucket:
         self,
     ) -> Generator[Tuple[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], Dict], None, None]:
         """
-        Iterator over the nodes and edges in the GridBucket
+        Iterator over the nodes and edges in the GridTree
 
         Yields:
             node_or_edge (Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]):
@@ -761,7 +761,7 @@ class GridBucket:
 
     def duplicate_without_dimension(
         self, dim: int
-    ) -> Tuple["GridBucket", Dict[str, Dict]]:
+    ) -> Tuple["GridTree", Dict[str, Dict]]:
         """
         Remove all the nodes of dimension dim and add new edges between their
         neighbors by calls to remove_node.
@@ -770,7 +770,7 @@ class GridBucket:
             dim (int): Dimension for which all grids should be removed.
 
         Returns:
-            pp.GridBucket: Copy of this GridBucket, with all grids of dimension dim
+            pp.GridTree: Copy of this GridTree, with all grids of dimension dim
                 removed, and new edges between the neighbors of removed grids.
             Dict: Information on removed grids. Keys:
                 "eliminated_nodes": List of all grids that were removed.
@@ -935,14 +935,14 @@ class GridBucket:
             if "mortar_grid" in data.keys():
                 data["mortar_grid"].compute_geometry()
 
-    def copy(self) -> "GridBucket":
+    def copy(self) -> "GridTree":
         """Make a shallow copy of the grid bucket. The underlying grids are not copied.
 
         Return:
-            pp.GridBucket: Copy of this GridBucket.
+            pp.GridTree: Copy of this GridTree.
 
         """
-        gb_copy: pp.GridBucket = GridBucket()
+        gb_copy: pp.GridTree = GridTree()
         gb_copy._nodes = self._nodes.copy()
         gb_copy._edges = self._edges.copy()
         return gb_copy
@@ -958,7 +958,7 @@ class GridBucket:
         """Replace grids and / or mortar grids in the mixed-dimensional grid.
 
         Parameters:
-            gb (GridBucket): To be updated.
+            gb (GridTree): To be updated.
             g_map (dictionary): Mapping between the old and new grids. Keys are
                 the old grids, and values are the new grids.
             mg_map (dictionary): Mapping between the old mortar grid and new
@@ -1201,7 +1201,7 @@ class GridBucket:
             cond: optional, predicate with a grid as input.
 
         Return:
-            cell_volumes (np.ndarray): The volume of all cells in the GridBucket
+            cell_volumes (np.ndarray): The volume of all cells in the GridTree
 
         """
         if cond is None:
@@ -1220,7 +1220,7 @@ class GridBucket:
             cond: optional, predicate with a grid as input.
 
         Return:
-            face_centers (ndArray): The face centers of all faces in the GridBucket.
+            face_centers (ndArray): The face centers of all faces in the GridTree.
         """
         if cond is None:
             cond = lambda g: True
@@ -1238,7 +1238,7 @@ class GridBucket:
             cond: optional, predicate with a grid as input.
 
         Return:
-            cell_centers (ndArray): The cell centers of all cells in the GridBucket.
+            cell_centers (ndArray): The cell centers of all cells in the GridTree.
 
         """
         if cond is None:
@@ -1258,7 +1258,7 @@ class GridBucket:
 
         Return:
             cell_volumes (np.ndarray): The cell volumes of all mortar cells in the
-                GridBucket.
+                GridTree.
 
         """
         if cond is None:

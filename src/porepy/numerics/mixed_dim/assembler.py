@@ -14,9 +14,9 @@ csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 
 GridVariableTerm = namedtuple("GridVariableTerm", ["grid", "row", "col", "term"])
 GridVariableTerm.__doc__ += (
-    "Combinations of grids variables and terms found in GridBucket"
+    "Combinations of grids variables and terms found in GridTree"
 )
-GridVariableTerm.grid.__doc__ = "Item in GridBucket. Can be node or edge."
+GridVariableTerm.grid.__doc__ = "Item in GridTree. Can be node or edge."
 GridVariableTerm.row.__doc__ = "Variable name of the row for this term."
 GridVariableTerm.col.__doc__ = (
     "Variable name of the column for this term. "
@@ -42,12 +42,12 @@ class Assembler:
     """
 
     def __init__(
-        self, gb: pp.GridBucket, dof_manager: Optional[pp.DofManager] = None
+        self, gb: pp.GridTree, dof_manager: Optional[pp.DofManager] = None
     ) -> None:
-        """Construct an assembler for a given GridBucket on a given set of variables.
+        """Construct an assembler for a given GridTree on a given set of variables.
 
         Parameters:
-            self.gb (pp.GridBucket): Mixed-dimensional grid where the equations are
+            self.gb (pp.GridTree): Mixed-dimensional grid where the equations are
                 discretized. The data dictionaries on nodes and edges should contain
                 variable and discretization information, see tutorial for details.
 
@@ -59,7 +59,7 @@ class Assembler:
 
         self._dof_manager = dof_manager
 
-        # Identify all variable couplings in the GridBucket, and assign degrees of
+        # Identify all variable couplings in the GridTree, and assign degrees of
         # freedom for each block.
         self._identify_variable_combinations()
 
@@ -74,7 +74,7 @@ class Assembler:
     def _variable_term_key(term: str, key_1: str, key_2: str, key_3: str = None) -> str:
         """Get the key-variable combination used to identify a specific term in the equation.
 
-        For nodes and internally to edges in the GridBucket (i.e. fixed-dimensional grids),
+        For nodes and internally to edges in the GridTree (i.e. fixed-dimensional grids),
         the variable name is formed by combining the name of one or two primary variables,
         and the name of term (all of which are defined in the data dictionary
         of this node / edge. As examples:
@@ -137,7 +137,7 @@ class Assembler:
               coupling.
             * Construct a system matrix that only consideres a subset of the variables
 
-              defined in the GridBucket data dictionary.
+              defined in the GridTree data dictionary.
             * Return either a single discretization matrix covering all variables and
               terms, or one matrix per term per variable. The latter is useful e.g. in
               operator splitting or time stepping schemes.
@@ -152,7 +152,7 @@ class Assembler:
         Parameters:
             filt (pp.assembler_filters.AssemblerFilter, optional): Filter to invoke
                 selected discretizations. Defaults to a PassAllFilter, which will
-                lead to discretization of all terms in the entire GridBucket.
+                lead to discretization of all terms in the entire GridTree.
             matrix_format (str, optional): Matrix format used for the system matrix.
                 Defaults to CSR.
             add_matrices (boolean, optional): If True, a single system matrix is added,
@@ -321,13 +321,13 @@ class Assembler:
         the mixed-dimensional grid.
 
         Discretization can be applied selectively to specific discretization objcets
-        in the GridBucket by passing an appropriate filter. See pp.assembler_filters
+        in the GridTree by passing an appropriate filter. See pp.assembler_filters
         for details, in particular the class ListFilter.
 
         Parameters:
             filt (pp.assembler_filters.AssemblerFilter, optional): Filter to invoke
                 selected discretizations. Defaults to a PassAllFilter, which will
-                lead to discretization of all terms in the entire GridBucket.
+                lead to discretization of all terms in the entire GridTree.
 
         """
         self._operate_on_gb("discretize", filt=filt)
@@ -342,7 +342,7 @@ class Assembler:
         Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]],
         None,
     ]:
-        """Helper method, loop over the GridBucket, identify nodes / edges
+        """Helper method, loop over the GridTree, identify nodes / edges
         variables and discretizations, and perform an operation on these.
 
         Implemented actions are discretization and assembly.
@@ -984,7 +984,7 @@ class Assembler:
 
         The function serves two purposes:
             1. Identify all variables and their discretizations defined on individual nodes
-               and edges in the GridBucket
+               and edges in the GridTree
 
         At the end of this function, self has been assigned variable_combinations.
         This is a list of strings that define all couplings ofvariables  found in the problem
@@ -1154,7 +1154,7 @@ class Assembler:
         self._grid_variable_term_combinations = grid_variable_term_combinations
 
     def update_dof_count(self) -> None:
-        """Update the count of degrees of freedom related to a GridBucket.
+        """Update the count of degrees of freedom related to a GridTree.
 
         The method loops thruogh the defined combinations of grids (standard or mortar)
         and variables, and updates the number of fine-scale degree of freedom for this
@@ -1350,7 +1350,7 @@ class Assembler:
         If no active variables are specified, returned all declared variables.
 
         Parameters:
-            d (dict): Data dictionary defined on a GridBucket node or edge
+            d (dict): Data dictionary defined on a GridTree node or edge
 
         Returns:
             dict: With variable names and information (#dofs of various kinds), as
@@ -1364,7 +1364,7 @@ class Assembler:
     def distribute_variable(
         self, values: np.ndarray, variable_names: Optional[List[str]] = None
     ) -> None:
-        """Distribute a vector to the nodes and edges in the GridBucket.
+        """Distribute a vector to the nodes and edges in the GridTree.
 
         The intended use is to split a multi-physics solution vector into its
         component parts.
@@ -1406,7 +1406,7 @@ class Assembler:
         names = [key[1] for key in self._dof_manager.block_dof.keys()]
         unique_vars = list(set(names))
         s = (
-            f"Assembler object on a GridBucket with {self.gb.num_graph_nodes()} "
+            f"Assembler object on a GridTree with {self.gb.num_graph_nodes()} "
             f"subdomains and {self.gb.num_graph_edges()} interfaces.\n"
             f"Total number of degrees of freedom: {self.num_dof()}\n"
             "Total number of subdomain and interface variables:"

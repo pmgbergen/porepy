@@ -72,9 +72,9 @@ def test_propagation(geometry, method):
     # the newly split grid. The test fails unless all discretization matrices generated
     # are identical.
     #
-    # NOTE: Only the highest-dimensional grid in the GridBucket is used.
+    # NOTE: Only the highest-dimensional grid in the GridTree is used.
 
-    # Get GridBucket and splitting schedule
+    # Get GridTree and splitting schedule
     gb, faces_to_split = geometry()
 
     g = gb.grids_of_dimension(gb.dim_max())[0]

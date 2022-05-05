@@ -393,7 +393,7 @@ def test_ad_variable_wrappers():
     )
 
     # Check evaluation when no state is passed to the parser, and information must
-    # instead be glued together from the GridBucket
+    # instead be glued together from the GridTree
     assert np.allclose(true_iterate[inds_var], var_ad.evaluate(dof_manager).val)
 
     # Evaluate the equation using the double iterate
@@ -452,8 +452,8 @@ def test_variable_combinations(grids, variables):
     # Test combinations of variables, and merged variables, on different grids.
     # Main check is if Jacobian matrices are of the right size.
 
-    # Make GridBucket, populate with necessary information
-    gb = pp.GridBucket()
+    # Make GridTree, populate with necessary information
+    gb = pp.GridTree()
     gb.add_nodes(grids)
     for g, d in gb:
         d[pp.STATE] = {}
