@@ -580,7 +580,7 @@ class TestGridExtrusionNd(unittest.TestCase):
         self.assertRaises(ValueError, pp.grid_extrusion.extrude_grid, g, z)
 
 
-class TestGridBucketExtrusion(unittest.TestCase):
+class TestGridTreeExtrusion(unittest.TestCase):
     def test_single_fracture(self):
 
         f = np.array([[1, 3], [1, 1]])

@@ -836,7 +836,7 @@ class ContactModel2d(ContactMechanics):
         g_1d = pp.Grid(1, frac_pt, fn_1d, cf_1d, "mock_1d_grid")
         g_1d.compute_geometry()
 
-        gb = pp.GridBucket()
+        gb = pp.GridTree()
         gb.add_nodes([g_2d, g_1d])
 
         # Construct mortar grid

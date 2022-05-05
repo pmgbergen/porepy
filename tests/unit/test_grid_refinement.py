@@ -138,7 +138,7 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
 be related to an early implementation of mortar functionality. The tests are
 disabled for now, but should be brought back to life at some point.
 
-class TestRefinementGridBucket(unittest.TestCase):
+class TestRefinementGridTree(unittest.TestCase):
     def test_refinement_grid_1d_in_gb_uniform_ratio_2(self):
         f1 = np.array([[0, 1], [.5, .5]])
         ratio = 2

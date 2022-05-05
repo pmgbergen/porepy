@@ -25,14 +25,14 @@ module_sections = ["grids", "gridding"]
 
 
 @pp.time_logger(sections=module_sections)
-def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket, Dict]:
-    """Extrude a GridBucket by extending all fixed-dimensional grids in the z-direction.
+def extrude_grid_bucket(gb: pp.GridTree, z: np.ndarray) -> Tuple[pp.GridTree, Dict]:
+    """Extrude a GridTree by extending all fixed-dimensional grids in the z-direction.
 
     In practice, the original grid bucket will be 2d, and the result is 3d.
 
-    The returned GridBucket is fully functional, including mortar grids on the gb edges.
+    The returned GridTree is fully functional, including mortar grids on the gb edges.
     The data dictionaries on nodes and edges are mainly empty. Data can be transferred from
-    the original GridBucket via the returned map between old and new grids.
+    the original GridTree via the returned map between old and new grids.
 
     Parameters:
         gb (pp.GridBukcet): Mixed-dimensional grid to be extruded. Should be 2d.
@@ -41,7 +41,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
             decreasing order, respectively.
 
     Returns:
-        gb (pp.GridBucket): Mixed-dimensional grid, 3d. The data dictionaries on nodes and
+        gb (pp.GridTree): Mixed-dimensional grid, 3d. The data dictionaries on nodes and
             edges are mostly empty.
         dict: Mapping from individual grids in the old bucket to the corresponding
             extruded grids in the new one. The dictionary values are a namedtuple with
@@ -50,8 +50,8 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
 
     """
 
-    # New GridBucket. to be filled in
-    gb_new: pp.GridBucket = pp.GridBucket()
+    # New GridTree. to be filled in
+    gb_new: pp.GridTree = pp.GridTree()
 
     # Data structure for mapping between old and new grids
     g_map = {}

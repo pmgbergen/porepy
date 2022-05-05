@@ -44,8 +44,8 @@ class AssemblerFilter(abc.ABC):
         assembler to implement partial discretization or assembly.
 
         Parameters:
-            grid: Grid-like quantity found in a pp.GridBucket.
-                Can be either a Grid (GridBucket node), an interface (a GridBucket
+            grid: Grid-like quantity found in a pp.GridTree.
+                Can be either a Grid (GridTree node), an interface (a GridTree
                 edge), or a combination of two neighboring grids and an interface.
             variables: List of variables.
             term: List of terms for discretization. See Assembler for further
@@ -74,8 +74,8 @@ class AllPassFilter(AssemblerFilter):
         assembler to implement partial discretization or assembly.
 
         Parameters:
-            grid: Grid-like quantity found in a pp.GridBucket.
-                Can be either a Grid (GridBucket node), an interface (a GridBucket
+            grid: Grid-like quantity found in a pp.GridTree.
+                Can be either a Grid (GridTree node), an interface (a GridTree
                 edge), or a combination of two neighboring grids and an interface.
             variables: A variable, or a list of variables.
             term: List of terms for discretizations. See Assembler for further
@@ -102,7 +102,7 @@ class ListFilter(AssemblerFilter):
     becomes an AllPassFilter.
 
     NOTE: If a list (say of grids) is given as an empty list, the filter will become
-    no-pass fliterThis is to cover cases where dimension-filtering on grids in a GridBucket
+    no-pass fliterThis is to cover cases where dimension-filtering on grids in a GridTree
     returns a empty list, which should result in no-pass, not all-pass behavior.
     The behavior for variable and term lists is similar.
 
@@ -112,8 +112,8 @@ class ListFilter(AssemblerFilter):
     terms (or reverse) is permissible.
 
     The generalized grids should be one of
-        i) grids: nodes in the GridBucket
-        ii) interfaces: (Grid, Grid) tuples, edges in the GridBucket.
+        i) grids: nodes in the GridTree
+        ii) interfaces: (Grid, Grid) tuples, edges in the GridTree.
         iii) couplings: (Grid, Grid, (Grid, Grid)) tuples, so an edge, together
             with its neighboring subdomains.
 
@@ -151,7 +151,7 @@ class ListFilter(AssemblerFilter):
         else:
             if len(grid_list) == 0:
                 # This is considered a no-pass filter.
-                # This will for instance be the case if a GridBucket is filtered
+                # This will for instance be the case if a GridTree is filtered
                 # on a dimension that is not present (will return an empty list)
 
                 self._grid_filter = return_false
@@ -190,8 +190,8 @@ class ListFilter(AssemblerFilter):
         See class documentation for how to use the filter.
 
         Parameters:
-            grid: Grid-like quantity found in a pp.GridBucket.
-                Can be either a Grid (GridBucket node), an interface (a GridBucket
+            grid: Grid-like quantity found in a pp.GridTree.
+                Can be either a Grid (GridTree node), an interface (a GridTree
                 edge), or a combination of two neighboring grids and an interface.
             variables: A variable, or a list of variables. A list will be passed
                 for off-diagonal terms (internal to nodes or edges), and for

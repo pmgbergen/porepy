@@ -240,7 +240,7 @@ class MortarProjections(Operator):
 
     def __init__(
         self,
-        gb: pp.GridBucket,
+        gb: pp.GridTree,
         grids: List[pp.Grid],
         edges: List[Edge],
         nd: int = 1,
@@ -248,11 +248,11 @@ class MortarProjections(Operator):
         """Construct mortar projection object.
 
         The projections will be ordered according to the ordering in grids, or the order
-        of the GridBucket iteration over grids. It is critical that the same ordering
+        of the GridTree iteration over grids. It is critical that the same ordering
         is used by other operators.
 
         Parameters:
-            gb (pp.GridBucket): Mixed-dimensional grid bucket.
+            gb (pp.GridTree): Mixed-dimensional grid bucket.
             grids (List of pp.Grid): List of grids for which the projections
                 should apply. The order of the grids in the list establishes the ordering of
                 the subdomain projections.
@@ -367,7 +367,7 @@ class MortarProjections(Operator):
                     )
                 )
         else:
-            # FIXME: The assumption here is that a GridBucket with a single grid
+            # FIXME: The assumption here is that a GridTree with a single grid
             # (no fractures) have been constructed. In this case, the projection
             # to primary should have g.num_faces rows, while there are no
             # secondary grids to project to. If the mortar projection is constructed
@@ -556,7 +556,7 @@ class Divergence(Operator):
         """Construct divergence operators for a set of subdomains.
 
         The operators will be ordered according to the ordering in grids, or the order
-        of the GridBucket iteration over grids. Iit is critical that the same ordering
+        of the GridTree iteration over grids. Iit is critical that the same ordering
         is used by other operators.
 
         IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be
@@ -596,12 +596,12 @@ class Divergence(Operator):
             s += f"named {self._name}"
         return s
 
-    def parse(self, gb: pp.GridBucket) -> sps.spmatrix:
+    def parse(self, gb: pp.GridTree) -> sps.spmatrix:
         """Convert the Ad expression into a divergence operators on all relevant grids,
         represented as a sparse block matrix.
 
         Pameteres:
-            gb (pp.GridBucket): Not used, but needed for compatibility with the general
+            gb (pp.GridTree): Not used, but needed for compatibility with the general
                 parsing method for Operators.
 
         Returns:
@@ -667,12 +667,12 @@ class BoundaryCondition(Operator):
     def __str__(self) -> str:
         return f"BC({self.keyword})"
 
-    def parse(self, gb: pp.GridBucket) -> np.ndarray:
+    def parse(self, gb: pp.GridTree) -> np.ndarray:
         """Convert the Ad expression into numerical values for the boundary conditions,
         in the form of an np.ndarray concatenated for all grids.
 
         Pameteres:
-            gb (pp.GridBucket): Mixed-dimensional grid. The boundary condition will be
+            gb (pp.GridTree): Mixed-dimensional grid. The boundary condition will be
                 taken from the data dictionaries with the relevant keyword.
 
         Returns:
@@ -706,7 +706,7 @@ class DirBC(Operator):
     def __repr__(self) -> str:
         return f"Dirichlet boundary data of size {self._bc.val.size}"
 
-    def parse(self, gb: pp.GridBucket):
+    def parse(self, gb: pp.GridTree):
 
         bc_val = self._bc.parse(gb)  # TODO Is this done anyhow already?
         keyword = self._bc.keyword
@@ -742,7 +742,7 @@ class ParameterArray(Operator):
         """Construct a wrapper for parameter arrays for a set of subdomains.
 
         The values of the parameter will be ordered according to the ordering
-        in grids, or the order of the GridBucket iteration over grids. It is
+        in grids, or the order of the GridTree iteration over grids. It is
         critical that the same ordering is used by other operators.
 
         IMPLEMENTATION NOTE: This class only takes care of parameter arrays. For
@@ -806,12 +806,12 @@ class ParameterArray(Operator):
     def __str__(self) -> str:
         return f"ParameterArray({self.param_keyword})({self.array_keyword})"
 
-    def parse(self, gb: pp.GridBucket) -> np.ndarray:
+    def parse(self, gb: pp.GridTree) -> np.ndarray:
         """Convert the Ad expression into numerical values for the scalar sources,
         in the form of an np.ndarray concatenated for all grids.
 
         Pameteres:
-            gb (pp.GridBucket): Mixed-dimensional grid. The boundary condition will be
+            gb (pp.GridTree): Mixed-dimensional grid. The boundary condition will be
                 taken from the data dictionaries with the relevant keyword.
 
         Returns:
@@ -842,12 +842,12 @@ class ParameterMatrix(ParameterArray):
     def __str__(self) -> str:
         return f"ParameterArray({self.param_keyword})({self.array_keyword})"
 
-    def parse(self, gb: pp.GridBucket) -> np.ndarray:
+    def parse(self, gb: pp.GridTree) -> np.ndarray:
         """Convert the Ad expression into numerical values for the scalar sources,
         in the form of an np.ndarray concatenated for all grids.
 
         Pameteres:
-            gb (pp.GridBucket): Mixed-dimensional grid. The boundary condition will be
+            gb (pp.GridTree): Mixed-dimensional grid. The boundary condition will be
                 taken from the data dictionaries with the relevant keyword.
 
         Returns:

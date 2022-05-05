@@ -468,7 +468,7 @@ def setup_discr_tpfa(gb, key="flow"):
 
 
 def create_dfn(gb, dim):
-    """given a GridBucket remove the higher dimensional node and
+    """given a GridTree remove the higher dimensional node and
     fix the internal mapping."""
     # remove the +1 and -2 dimensional grids with respect to the
     # considered dfn, and re-write the node number

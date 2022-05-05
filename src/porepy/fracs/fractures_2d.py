@@ -195,7 +195,7 @@ class FractureNetwork2d(object):
         clear_gmsh: bool = False,
         **kwargs,
     ):
-        """Create GridBucket (mixed-dimensional grid) for this fracture network.
+        """Create GridTree (mixed-dimensional grid) for this fracture network.
 
         Parameters:
             mesh_args: Arguments passed on to mesh size control
@@ -223,7 +223,7 @@ class FractureNetwork2d(object):
                 geometry before adding a new one. Defaults to False.
 
         Returns:
-            GridBucket: Mixed-dimensional mesh.
+            GridTree: Mixed-dimensional mesh.
 
         """
         if file_name is None:
@@ -284,7 +284,7 @@ class FractureNetwork2d(object):
         """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
 
-        NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
+        NOTE: Consider to use the mesh() function instead to get a ready GridTree.
 
         Parameters:
             mesh_args: Arguments passed on to mesh size control
@@ -299,7 +299,7 @@ class FractureNetwork2d(object):
                 the surrounding matrix) is created.
 
         Returns:
-            GridBucket: Mixed-dimensional mesh.
+            GridTree: Mixed-dimensional mesh.
 
         """
 

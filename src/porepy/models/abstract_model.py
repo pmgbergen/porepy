@@ -69,7 +69,7 @@ class AbstractModel:
         A unit square grid with no fractures is assigned by default.
 
         The method assigns the following attributes to self:
-            gb (pp.GridBucket): The produced grid bucket.
+            gb (pp.GridTree): The produced grid bucket.
             box (dict): The bounding box of the domain, defined through minimum and
                 maximum values in each dimension.
         """
@@ -80,7 +80,7 @@ class AbstractModel:
         )
         g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         g.compute_geometry()
-        self.gb: pp.GridBucket = pp.meshing._assemble_in_bucket([[g]])
+        self.gb: pp.GridTree = pp.meshing._assemble_in_bucket([[g]])
         # If fractures are present, it is advised to call
         # pp.contact_conditions.set_projections(self.gb)
 

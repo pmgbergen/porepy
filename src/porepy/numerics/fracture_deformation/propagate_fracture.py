@@ -22,7 +22,7 @@ from porepy.grids import mortar_grid
 module_sections = ["grids", "gridding", "numerics"]
 
 
-def propagate_fractures(gb: pp.GridBucket, faces: Dict[pp.Grid, np.ndarray]) -> None:
+def propagate_fractures(gb: pp.GridTree, faces: Dict[pp.Grid, np.ndarray]) -> None:
     """
     gb - grid bucket with matrix and fracture grids.
     faces_h - list of list of faces to be split in the highest-dimensional
@@ -772,7 +772,7 @@ def _append_node_tags(g, n_new_nodes):
 
 
 def _split_fracture_extension(
-    bucket: pp.GridBucket,
+    bucket: pp.GridTree,
     g_h: pp.Grid,
     g_l: pp.Grid,
     faces_h: np.ndarray,
@@ -830,7 +830,7 @@ def _split_fracture_extension(
         g_h, face_cell_list, faces_h, cells_l, g_l_ind, non_planar
     )
 
-    # Replace the face-cell relation on the GridBucket edge
+    # Replace the face-cell relation on the GridTree edge
     for e, f in zip(edges, face_cell_list):
         bucket.edge_props(e)["face_cells"] = f
 

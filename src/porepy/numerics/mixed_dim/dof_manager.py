@@ -33,8 +33,8 @@ class DofManager:
 
     Attributes:
         block_dof: Is a dictionary with keys that are either
-            Tuple[pp.Grid, variable_name: str] for nodes in the GridBucket, or
-            Tuple[Tuple[pp.Grid, pp.Grid], str] for edges in the GridBucket.
+            Tuple[pp.Grid, variable_name: str] for nodes in the GridTree, or
+            Tuple[Tuple[pp.Grid, pp.Grid], str] for edges in the GridTree.
 
             The values in block_dof are integers 0, 1, ..., that identify the block
             index of this specific grid (or edge) - variable combination.
@@ -45,11 +45,11 @@ class DofManager:
 
     """
 
-    def __init__(self, gb: pp.GridBucket) -> None:
+    def __init__(self, gb: pp.GridTree) -> None:
         """Set up a DofManager for a mixed-dimensional grid.
 
         Parameters:
-            gb (pp.GridBucket): GridBucket representing the mixed-dimensional grid.
+            gb (pp.GridTree): GridTree representing the mixed-dimensional grid.
 
         """
 
@@ -109,11 +109,11 @@ class DofManager:
 
     def grid_and_variable_to_dofs(self, g: GridLike, variable: str) -> np.ndarray:
         """Get the indices in the global system of variables associated with a
-        given node / edge (in the GridBucket sense) and a given variable.
+        given node / edge (in the GridTree sense) and a given variable.
 
         Parameters:
-            g (pp.Grid or pp.GridBucket edge): Either a grid or an edge in the
-                GridBucket.
+            g (pp.Grid or pp.GridTree edge): Either a grid or an edge in the
+                GridTree.
            variable (str): Name of a variable.
 
         Returns:
@@ -132,7 +132,7 @@ class DofManager:
         return_str: bool = False,
     ) -> Dict | str:
         """Get the range of indices in the global system of variables
-        associated with combinations of nodes / edges (in the GridBucket sense)
+        associated with combinations of nodes / edges (in the GridTree sense)
         and variables.
 
         This function is intended mainly for inquiries into the ordering of blocks
@@ -141,7 +141,7 @@ class DofManager:
         the output.
 
         Parameters:
-            grids (pp.Grid or pp.GridBucket edge): List of grids, edges (in the GridBucket)
+            grids (pp.Grid or pp.GridTree edge): List of grids, edges (in the GridTree)
                 or combinations of the two. If not provided, all grids and edges that are
                 assigned variables will be considered.
             variables (str): Name of variables. If not provided, all variables assigned
@@ -321,7 +321,7 @@ class DofManager:
         matrix_format: csc_or_csr_matrix = sps.csr_matrix,
     ) -> Union[np.ndarray, Tuple[np.ndarray, csc_or_csr_matrix]]:
         """Get the indices in the global system of variables given as input on all
-        nodes and edges (in the GridBucket sense).
+        nodes and edges (in the GridTree sense).
 
         This method is primarily intended used when equations are assembled with an
         Assembler object. If you use the newer Ad framework (recommended), the
@@ -379,7 +379,7 @@ class DofManager:
         additive: bool = False,
         to_iterate: bool = False,
     ) -> None:
-        """Distribute a vector to the nodes and edges in the GridBucket.
+        """Distribute a vector to the nodes and edges in the GridTree.
 
         The intended use is to split a multi-physics solution vector into its
         component parts.
@@ -450,7 +450,7 @@ class DofManager:
         from_iterate: bool = False,
     ) -> np.ndarray:
         """Assemble a vector from the variable state stored in nodes and edges in
-        the GridBucket.
+        the GridTree.
 
         Parameters:
             grids (list of grids or grid tuples (interfaces), optional): Names of the

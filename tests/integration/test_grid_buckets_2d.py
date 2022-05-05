@@ -10,7 +10,7 @@ import numpy as np
 import porepy as pp
 
 
-class TestGridBuckets(unittest.TestCase):
+class TestGridTrees(unittest.TestCase):
     """Various tests for the utility methods to generate standard geometries.
 
     Note that the tests in part are based on hard-coded 'known' information on the
