@@ -584,8 +584,8 @@ class Divergence(Operator):
         nf = 0
         nc = 0
         for g in self.grids:
-            nf += g.num_faces * g.dim
-            nc += g.num_cells * g.dim
+            nf += g.num_faces * self.dim
+            nc += g.num_cells * self.dim
         s += f"The total size of the matrix is ({nc}, {nf})\n"
 
         return s

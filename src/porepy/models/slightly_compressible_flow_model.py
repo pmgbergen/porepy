@@ -51,11 +51,11 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         # attributes
         if isinstance(params, type(None)):
-            self.end_time = self.params.get("end_time", float(1))
-            self.time_step = self.params.get("time_step", float(1))
-        else:
             self.end_time = float(1)
             self.time_step = float(1)
+        else:
+            self.end_time = self.params.get("end_time", float(1))
+            self.time_step = self.params.get("time_step", float(1))
 
         self.time = float(0)
         self.time_index = 0

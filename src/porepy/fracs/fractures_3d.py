@@ -22,7 +22,6 @@ from .gmsh_interface import GmshData3d, GmshWriter, Tags
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
-module_sections = ["gridding"]
 
 
 class Fracture(object):
@@ -190,7 +189,7 @@ class Fracture(object):
         Add a point to the polygon with ccw sorting enforced.
 
         Always run a test to check that the points are still planar. By
-        @pp.time_logger(sections=module_sections)
+
         default, a check of convexity is also performed, however, this can be
         turned off to speed up simulations (the test uses sympy, which turns
         out to be slow in many cases).
@@ -637,7 +636,7 @@ class FractureNetwork3d(object):
             dfn (boolean, optional): If True, a DFN mesh (of the network, but not
                 the surrounding matrix) is created.
             file_name (str, optional): Name of file used to communicate with gmsh.
-                @pp.time_logger(sections=module_sections)
+
                 defaults to gmsh_frac_file. The gmsh configuration file will be
                 file_name.geo, while the mesh is dumped to file_name.msh.
             constraints (np.array): Index list of elements in the fracture list that
@@ -718,7 +717,7 @@ class FractureNetwork3d(object):
             dfn (boolean, optional): If True, a DFN mesh (of the network, but not
                 the surrounding matrix) is created.
             file_name (str, optional): Name of file used to communicate with gmsh.
-                @pp.time_logger(sections=module_sections)
+
                 defaults to gmsh_frac_file. The gmsh configuration file will be
                 file_name.geo, while the mesh is dumped to file_name.msh.
             constraints (np.array): Index list of elements in the fracture list that
@@ -2438,7 +2437,7 @@ class FractureNetwork3d(object):
             mesh_size_min: Minimal mesh size; we will make no attempts to
                 enforce even smaller mesh sizes upon Gmsh.
             mesh_size_bound (optional): Boundary mesh size. Will be added to the points
-                @pp.time_logger(sections=module_sections)
+
                 defining the boundary, unless there are any fractures in the
                 immediate vicinity influencing the size. In other words,
                 mesh_size_bound is the boundary point equivalent of
@@ -2935,7 +2934,7 @@ class FractureNetwork3d(object):
             file_name (str): File name.
         """
         # function to write a numpy matrix as string
-        @pp.time_logger(sections=module_sections)
+
         def to_file(p):
             return "\n\t\t".join(" ".join(map(str, x)) for x in p)
 
@@ -2992,7 +2991,6 @@ class FractureNetwork3d(object):
 
         rot = pp.map_geometry.project_plane_matrix(frac.p)
 
-        @pp.time_logger(sections=module_sections)
         def rot_translate(pts):
             # Convenience method to translate and rotate a point.
             return rot.dot(pts - cp)
