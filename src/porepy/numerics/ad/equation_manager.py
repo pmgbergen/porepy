@@ -78,23 +78,28 @@ class EquationManager:
         self.row_block_indices_last_assembled: Optional[np.ndarray]
 
         self.update_equations(equations, secondary_variables)
-        
 
-    def update_equations(self,
-    equations: Optional[Dict[str, "pp.ad.Operator"]] = None,
-    secondary_variables: Optional[Sequence["pp.ad.Variable"]] = None,
+    def update_equations(
+        self,
+        equations: Optional[Dict[str, "pp.ad.Operator"]] = None,
+        secondary_variables: Optional[Sequence["pp.ad.Variable"]] = None,
     ) -> None:
         """
         Update the equations and declaration of secondary variables.
-        
-        NOTE VL: this code was originally in the constructor of the 'EquationManager'.
-        By putting it in a separate (public) method, this class becomes more flexible for a kind-of dynamical approach to setting up models.
-        Backwards-compatibility is maintained by simply calling this method at the end of the constructor.
 
-        :param equations: a dictionary with equation names (str) as keys and :class:`~porepy.ad.operators.Operator` as values representing a root point equation
+        NOTE VL: this code was originally in the constructor of the 'EquationManager'.
+        By putting it in a separate (public) method, this class becomes more flexible for a
+        kind-of dynamical approach to setting up models.
+        Backwards-compatibility is maintained by simply calling this method at the end
+        of the constructor.
+
+        :param equations: a dictionary with equation names (str) as keys and
+            :class:`~porepy.ad.operators.Operator` as values representing a root point equation
         :type equations: dict
 
-        :param secondary_variables: list of :class:`~porepy.ad.operators.Variable` or :class:`~porepy.ad.operators.MergedVariable` to be considered secondary in the equations
+        :param secondary_variables: list of :class:`~porepy.ad.operators.Variable` or
+            :class:`~porepy.ad.operators.MergedVariable` to be considered secondary
+            in the equations
         :type secondary_variables: List
         """
 
