@@ -98,7 +98,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Time
         self.time: float = 0
-        self.time_step: float = self.params.get("end_time", 1.0)
+        self.time_step: float = self.params.get("time_step", 1.0)
         self.end_time: float = self.params.get("end_time", 1.0)
 
         # Temperature
