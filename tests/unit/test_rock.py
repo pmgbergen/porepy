@@ -26,7 +26,7 @@ class TestRock(unittest.TestCase):
         for prop, value in vars(R).items():
             if prop == "POISSON_RATIO":
                 self.assertTrue(np.allclose(value, 0.25))
-            if prop == "YOUNG_MODULUS":
+            elif prop == "YOUNG_MODULUS":
                 self.assertTrue(np.allclose(value, 2.5))
             else:
                 self.assertTrue(np.allclose(value, 1))
