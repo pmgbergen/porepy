@@ -16,6 +16,6 @@ numba >= 0.53.0
 gmsh
 flake8
 mypy
-black == 22.1.0
+black == 22.3.0
 isort
 typing_extensions

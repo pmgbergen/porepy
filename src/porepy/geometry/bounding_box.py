@@ -5,8 +5,6 @@ from typing import Dict, List
 
 import numpy as np
 
-module_sections = ["geometry", "gridding"]
-
 
 def from_points(pts, overlap=0):
     """Obtain a bounding box for a point cloud.

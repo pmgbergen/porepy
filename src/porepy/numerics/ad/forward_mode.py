@@ -91,24 +91,84 @@ class Ad_array:
 
     def __pow__(self, other):
         if not isinstance(other, Ad_array):
-            val = self.val**other
-            jac = self.diagvec_mul_jac(other * self.val ** (other - 1))
+            if isinstance(other, int) or isinstance(other, np.integer):
+                # Standard ints and numpy scalars of integer format can be converted to
+                # float in a standard way
+                val = self.val ** float(other)
+                jac = self.diagvec_mul_jac(other * self.val ** float(other - 1))
+            elif isinstance(other, np.ndarray) and np.issubdtype(
+                other.dtype, np.integer
+            ):
+                # Numpy arrays of integer format are converted using np.astype
+                val = self.val ** other.astype(float)
+                jac = self.diagvec_mul_jac(
+                    other * self.val ** (other.astype(float) - 1)
+                )
+            else:
+                # Other should be a float, or have float data type; raising to the power
+                # of other should anyhow be fine. If there are more special cases not
+                # yet hit upon, an error message will be given here.
+                val = self.val**other
+                jac = self.diagvec_mul_jac(other * self.val ** (other - 1))
+
         else:
-            val = self.val**other.val
-            jac = self.diagvec_mul_jac(
-                other.val * self.val ** (other.val - 1)
-            ) + other.diagvec_mul_jac(self.val**other.val * np.log(self.val))
+            if isinstance(other.val, np.ndarray):
+                # We know that other.val is a numpy array, so conversion can be done
+                # using np.astype. We do this independent of the format of other; this
+                # may add a slight cost, but the code becomes less complex.
+                val = self.val ** other.val.astype(float)
+                jac = self.diagvec_mul_jac(
+                    other.val * self.val ** (other.val.astype(float) - 1)
+                ) + other.diagvec_mul_jac(
+                    self.val ** other.val.astype(float) * np.log(self.val)
+                )
+            else:
+                # Other.val is presumably an float or an int, but who knows what else
+                # numpy can throw at us. Make an assertion to make the code safe.
+                assert isinstance(other.val, (float, int))
+                val = self.val ** float(other.val)
+                jac = self.diagvec_mul_jac(
+                    other.val * self.val ** (float(other.val) - 1)
+                ) + other.diagvec_mul_jac(
+                    self.val ** float(other.val) * np.log(self.val)
+                )
+
         return Ad_array(val, jac)
 
     def __rpow__(self, other):
         if isinstance(other, Ad_array):
             raise ValueError("Somthing went horrible wrong, should have called __pow__")
-        val = other**self.val
-        jac = self.diagvec_mul_jac(other**self.val * np.log(other))
+
+        # Convert self.val to float to avoid errors if self.val contains negative integers
+        if isinstance(self.val, np.ndarray):
+            val = other ** (self.val.astype(float))
+            jac = self.diagvec_mul_jac(
+                other ** (self.val.astype(float)) * np.log(other)
+            )
+        elif isinstance(self.val, int):
+            val = other ** float(self.val)
+            jac = self.diagvec_mul_jac(other ** float(self.val) * np.log(other))
+        else:
+            val = other**self
+            jac = self.diagvec_mul_jac(other**self.val * np.log(other))
         return Ad_array(val, jac)
 
     def __truediv__(self, other):
-        return self * other**-1
+        # A bit of work is needed here: Python (or numpy?) does not allow for negative
+        # powers of integers, but it is allowed for floats. This leads to some special
+        # cases that are treated below.
+        if isinstance(other, int) or isinstance(other, np.integer):
+            # Standard ints and numpy scalars of integer format can be converted to
+            # float in a standard way
+            return self * float(other) ** -1
+        elif isinstance(other, np.ndarray) and np.issubdtype(other.dtype, np.integer):
+            # Numpy arrays of integer format are converted using np.astype
+            return self * other.astype(float) ** -1
+        else:
+            # Other should be a float, or have float data type; raising to the power of
+            # other should anyhow be fine. If there are more special cases not yet hit
+            # upon, an error message will be given here.
+            return self * (other**-1)
 
     def __neg__(self):
         b = self.copy()
