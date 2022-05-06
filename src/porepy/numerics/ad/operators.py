@@ -1,5 +1,6 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
+import abc
 import copy
 from enum import Enum
 from itertools import count
@@ -14,7 +15,7 @@ import porepy as pp
 from porepy.params.tensor import SecondOrderTensor
 
 from . import _ad_utils
-from .forward_mode import initAdArrays
+from .forward_mode import Ad_array, initAdArrays
 
 __all__ = [
     "Operator",
@@ -24,6 +25,8 @@ __all__ = [
     "Variable",
     "MergedVariable",
     "Function",
+    "ApproxJacFunction",
+    "LJacFunction",
 ]
 
 # Short hand for typing
@@ -31,7 +34,9 @@ Edge = Tuple[pp.Grid, pp.Grid]
 GridLike = Union[pp.Grid, Edge]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
-Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate"])
+Operation = Enum(
+    "Operation", ["void", "add", "sub", "mul", "div", "evaluate", "approximate"]
+)
 
 
 def _get_shape(mat):
@@ -425,6 +430,19 @@ class Operator:
             assert len(results) > 1
             return results[0].func(*results[1:])
 
+        elif tree.op == Operation.approximate:
+            assert len(results) > 1
+            blackbox_op = results[0]
+            try:
+                val = blackbox_op.blackbox_val(*results[1:])
+                jac = blackbox_op.approx_jac(*results[1:])
+            except Exception as exc:
+                # TODO specify what can go wrong here (Exception type)
+                msg = "Ad parsing: Error evaluating black box operator:\n"
+                msg += blackbox_op._parse_readable()
+                raise ValueError(msg) from exc
+            return Ad_array(val, jac)
+
         else:
             raise ValueError("Should not happen")
 
@@ -488,7 +506,7 @@ class Operator:
         elif tree.op == Operation.div:
             operator_str = "/"
         # function evaluations have their own readable representation
-        elif tree.op == Operation.evaluate:
+        elif tree.op in [Operation.evaluate, Operation.approximate]:
             is_func = True
         # for unknown operations, 'operator_str' remains None
 
@@ -1199,6 +1217,148 @@ class Function(Operator):
 
         """
         return self
+
+
+class ApproxJacFunction(Function, abc.ABC):
+    """Ad representation for a 'black box' operation using Ad variables,
+    where an approximation of the Jacobian needs to be implemented.
+
+    Like the pp.ad.Function, it maps pp.ad.Ad_array objects onto a new one,
+    only this time the resulting values are not analytically represented,
+    but provided by abstract methods 'blackbox_val' and 'approx_jac'.
+
+    The intended use it to provide Operators which
+    (for an arbitrary callable (black box) passed at instantiation)
+        - evaluate the black box function
+        - but approximate the true Jacobian.
+
+    This is an abstract base class, meaning
+        - :method:`~porepy.numerics.ad.operators.BlackboxOperator.blackbox_val`
+        - :method:`~porepy.numerics.ad.operators.BlackboxOperator.approx_jac`
+    have to be overwritten and implemented the call to the black box evaluation.
+    The Ad_array representatives of the arguments when calling this instance,
+    will be passed to above methods as arguments.
+    """
+
+    def __init__(
+        self, func: Callable, name: str, vector_conform: Optional[bool] = False
+    ):
+        """Constructor
+
+        :param func: (black box) function providing values.
+        :type func: Callable
+        :param name: name of this operator.
+        :type name: str
+        :param vector_conform: flags whether the black box function can take
+            vectors as arguments or not
+        :type vector_conform: bool
+        """
+        super().__init__(func, name)
+        self._operation = Operation.approximate
+        self._vector_conform = vector_conform
+
+    def __repr__(self) -> str:
+        return f"AD ApproxJac Operator with name {self._name}"
+
+    def blackbox_val(self, *args) -> "np.ndarray":
+        """
+        Evaluates the black box function using values of Ad_array instances
+        passed as arguments
+
+        :param args: tuple of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
+        :type args: tuple
+
+        :return: black box results
+        :rtype: numpy.array
+        """
+        # get values of argument Ad_arrays.
+        vals = (arg.val for arg in args)
+
+        if self._vector_conform:
+            # if the black box is flagged as conform for vector operations, feed vectors
+            return self.func(*vals)
+        else:
+            # if not vector-conform, feed element-wise
+
+            # TODO this displays some special behavior when val-arrays have different lengths:
+            # it returns None-like things for every iteration more then shortest length
+            # These Nones are ignored for some reason by the function call, as well as by the
+            # array constructor.
+            # If a mortar var and a subdomain var are given as args,
+            # then the lengths will be different
+            return np.array([self.func(*vals_i) for vals_i in zip(*vals)])
+
+    @abc.abstractmethod
+    def approx_jac(self, *args) -> "sps.spmatrix":
+        """
+        Abstract method to provide the Jacobian of this operator.
+        Passed arguments will be Ad_array objects representing the operators
+        passed during call to this instance.
+
+        NOTE: When constructing a properly sized Jacobian, mind the
+        model variables not included among the arguments.
+        They must be represented with zero-blocks.
+
+        :param args: tuple of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
+        :type args: tuple
+
+        :return: approximated Jacobian of this black box function with proper dimensions.
+        :rtype: scipy.sparse.spmatrix
+        """
+        pass
+
+
+class LJacFunction(ApproxJacFunction):
+    """
+    Approximates the Jacobian of the black box using the L-scheme
+    with a fixed value per dependency.
+    """
+
+    def __init__(
+        self,
+        L: Union[list, float],
+        func: Callable,
+        name: str,
+        vector_conform: Optional[bool] = False,
+    ):
+        """Constructor.
+
+        The L-multiplyer for the L-scheme can be passed for every argument of the
+        black box function specifically using a list.
+        The order in the list has to mach the order of arguments when calling
+        this instance.
+
+        :param L: multiplyer for identity for L-scheme
+        :type L: float / List[float]
+        """
+        super().__init__(func, name, vector_conform)
+        # check and format input for further use
+        if isinstance(L, list):
+            self._L = [float(val) for val in L]
+        else:
+            self._L = [float(L)]
+
+    def approx_jac(self, *args) -> "sps.spmatrix":
+        """The approximate jacobian is identity times L.
+
+        Where the respective blocks appears,
+        depends on the total dofs and the order of arguments passed during the
+        call to this instance.
+        """
+        # the Jacobian of a (Merged) Variable is already a properly sized block identity
+        if len(args) >= 1:
+            jac = args[0].jac * self._L[0]
+
+            # summing identity blocks for each dependency
+            if len(args) > 1:
+                # TODO think about exception handling in case not enough
+                # L-values were provided initially
+                for arg, L in zip(args[1:], self._L[1:]):
+                    jac += arg.jac * L
+        else:  # TODO assert zero as scalar will cause no type errors with other operators
+            jac = 0.0
+
+        return jac
 
 
 class SecondOrderTensorAd(SecondOrderTensor, Operator):
