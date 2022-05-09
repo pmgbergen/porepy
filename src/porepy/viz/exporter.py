@@ -12,6 +12,7 @@ import os
 import sys
 from typing import Dict, Generator, Iterable, List, Optional, Tuple, Union
 from xml.etree import ElementTree as ET
+from collections import namedtuple
 
 import meshio
 import numpy as np
@@ -24,33 +25,8 @@ from porepy.viz.type_test import *
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
-class Field:
-    """
-    Internal class to store information for the data to export.
-    """
-
-    def __init__(self, name: str, values: Optional[np.ndarray] = None) -> None:
-        # name of the field
-        self.name = name
-        self.values = values
-
-    def __repr__(self) -> str:
-        """
-        Repr function
-        """
-        return self.name + " - values: " + str(self.values)
-
-    def check(self, values: Optional[np.ndarray], g: pp.Grid) -> None:
-        """
-        Consistency checks making sure the field self.name is filled and has
-        the right dimension.
-        """
-        if values is None:
-            raise ValueError(
-                "Field " + str(self.name) + " must be filled. It can not be None"
-            )
-        if np.atleast_2d(values).shape[1] != g.num_cells:
-            raise ValueError("Field " + str(self.name) + " has wrong dimension.")
+# Object type to store data to export.
+Field = namedtuple('Field', ['name', 'values'])
 
 class Exporter:
     # TODO DOC
@@ -737,8 +713,7 @@ class Exporter:
                 # If data has been found, append data to list after stacking
                 # values for different entities
                 if values:
-                    field = Field(key)
-                    field.values = np.hstack(values)
+                    field = Field(key, np.hstack(values))
                     fields.append(field)
 
             # Print data for the particular dimension. Since geometric
@@ -1772,7 +1747,14 @@ class Exporter:
                         values.append(self.gb.node_props(g, pp.STATE)[field.name])
                     else:
                         values.append(self.gb.node_props(g, field.name))
-                    field.check(values[-1], g)
+                    # Check whether the latest value is valid and has size correpsonding to
+                    # the grid size.
+                    if values[-1] is None:
+                        raise ValueError(
+                            "Field " + str(field.name) + " must be filled. It can not be None."
+                        )
+                    if np.atleast_2d(values[-1]).shape[1] != g.num_cells:
+                        raise ValueError("Field " + str(field.name) + " has wrong dimension.")
                 field.values = np.hstack(values)
 
             if self.meshio_geom[dim] is not None:
