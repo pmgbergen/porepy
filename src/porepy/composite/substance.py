@@ -7,7 +7,6 @@ from __future__ import annotations
 import abc
 
 import porepy as pp
-from porepy.composite.compositional_domain import CompositionalDomain
 
 from ._composite_utils import COMPUTATIONAL_VARIABLES
 
@@ -60,7 +59,7 @@ class Substance(abc.ABC):
 
     """
 
-    def __init__(self, computational_domain: CompositionalDomain) -> None:
+    def __init__(self, computational_domain: "pp.composite.CompositionalDomain") -> None:
         """Abstract base class constructor. Initiates component-related AD-variables.
         Contains symbolic names of associated model variables.
 

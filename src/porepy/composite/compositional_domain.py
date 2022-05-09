@@ -78,16 +78,16 @@ class CompositionalDomain:
         self._pressure_var: str = COMPUTATIONAL_VARIABLES["pressure"]
         self._enthalpy_var: str = COMPUTATIONAL_VARIABLES["enthalpy"]
 
-        for grid, _ in self.gb:
-            self._material_subdomains.update(
-                {grid: MaterialSubdomain(grid, pp.composite.UnitSolid(self))}
-            )
-
         ## PUBLIC
         self.gb: pp.GridBucket = gridbucket
         self.INITIAL_EQUILIBRIUM: bool = False
         self.pressure: pp.ad.MergedVariable = self(self._pressure_var)
         self.enthalpy: pp.ad.MergedVariable = self(self._enthalpy_var)
+
+        for grid, _ in self.gb:
+            self._material_subdomains.update(
+                {grid: MaterialSubdomain(grid, pp.composite.UnitSolid(self))}
+            )
 
     def __str__(self) -> str:
         """Returns string representation of instance,

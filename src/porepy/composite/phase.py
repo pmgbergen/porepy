@@ -8,8 +8,6 @@ from typing import Dict, Iterator, List, Union
 import numpy as np
 
 import porepy as pp
-from porepy.composite.compositional_domain import CompositionalDomain
-from porepy.composite.substance import FluidSubstance, Substance
 
 from ._composite_utils import COMPUTATIONAL_VARIABLES, STATES_OF_MATTER
 
@@ -64,10 +62,10 @@ class PhaseField(abc.ABC):
     """
 
     """ For a computational domain (keys), contains a list of present phases (values). """
-    __phase_instances: Dict[CompositionalDomain, list] = dict()
+    __phase_instances: Dict["pp.composite.CompositionalDomain", list] = dict()
 
     def __new__(
-        cls, name: str, computational_domain: CompositionalDomain
+        cls, name: str, computational_domain: "pp.composite.CompositionalDomain"
     ) -> PhaseField:
         """
         Declarator.
@@ -90,7 +88,8 @@ class PhaseField(abc.ABC):
         PhaseField.__phase_instances[computational_domain].append(name)
         return super().__new__(cls)
 
-    def __init__(self, name: str, computational_domain: CompositionalDomain) -> None:
+    def __init__(self, name: str,
+        computational_domain: "pp.composite.CompositionalDomain") -> None:
         """
         Base class constructor. Initiates phase-related AD-variables.
 
@@ -110,14 +109,14 @@ class PhaseField(abc.ABC):
 
         ## PRIVATE
         self._name = str(name)
-        self._anticipated_substances: List[Substance] = list()
+        self._anticipated_substances: List["pp.composite.Substance"] = list()
 
         # Instantiate saturation variable
         self.cd(self.saturation_var, {"cells": 1})
         # Instantiate phase molar fraction variable
         self.cd(self.molar_fraction_var, {"cells": 1})
 
-    def __iter__(self) -> Iterator[Substance]:
+    def __iter__(self) -> Iterator["pp.composite.Substance"]:
         """
         Iterator over substances present in phase.
         The first substance will always be the solvent passed at instantiation.
@@ -182,7 +181,8 @@ class PhaseField(abc.ABC):
         """
         return COMPUTATIONAL_VARIABLES["phase_molar_fraction"] + "_" + self.name
 
-    def add_substance(self, substances: Union[List[Substance], Substance]) -> None:
+    def add_substance(self,
+        substances: Union[List["pp.composite.Substance"], "pp.composite.Substance"]) -> None:
         """
         Adds substances which are anticipated in this phase.
 
@@ -194,7 +194,7 @@ class PhaseField(abc.ABC):
         :type substances: :class:`~porepy.composite.substance.Substance`
         """
 
-        if isinstance(substances, Substance):
+        if isinstance(substances, pp.composite.Substance):
             substances = [substances]
 
         for subst in substances:
@@ -408,8 +408,8 @@ class PhysicalState(PhaseField):
     def __init__(
         self,
         name: str,
-        computational_domain: CompositionalDomain,
-        solvent: FluidSubstance,
+        computational_domain: "pp.composite.CompositionalDomain",
+        solvent: "pp.composite.FluidSubstance",
         state_of_matter: str,
     ) -> None:
         """
@@ -436,7 +436,7 @@ class PhysicalState(PhaseField):
         self.add_substance(solvent)
 
         ## PRIVATE
-        self._solvent: FluidSubstance = solvent
+        self._solvent: "pp.composite.FluidSubstance" = solvent
         self._state = state_of_matter
 
     # ------------------------------------------------------------------------------
