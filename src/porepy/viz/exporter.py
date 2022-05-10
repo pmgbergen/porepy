@@ -628,9 +628,8 @@ class Exporter:
                 # define the type of cell we are currently saving
                 cell_type_raw = "polygon" + str(nodes_loc.shape[1])
 
-                default_type = "polygon"
                 # Map to triangle/quad if relevant, or simple polygon for general cells.
-                cell_type = polygon_map.get(cell_type_raw, default_type)
+                cell_type = polygon_map.get(cell_type_raw, cell_type_raw)
                 # if the cell type is not present, then add it
                 if cell_type not in cell_to_nodes:
                     cell_to_nodes[cell_type] = np.atleast_2d(nodes_loc[0] + pts_pos)
@@ -639,6 +638,7 @@ class Exporter:
                     cell_to_nodes[cell_type] = np.vstack(
                         (cell_to_nodes[cell_type], nodes_loc[0] + pts_pos)
                     )
+
                     cell_id[cell_type] += [cell_pos]
                 cell_pos += 1
 
@@ -650,7 +650,8 @@ class Exporter:
         meshio_cell_id = np.empty(num_block, dtype=object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
+            cell_type_ = "polygon" if "polygon" in cell_type else cell_type
+            meshio_cells[block] = meshio.CellBlock(cell_type_, cell_block.astype(int))
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         return meshio_pts, meshio_cells, meshio_cell_id
