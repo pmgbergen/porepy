@@ -12,7 +12,6 @@ import unittest
 import numpy as np
 import porepy as pp
 
-
 class MeshioExporterTest(unittest.TestCase):
     def __init__(self, methodName="runTest"):
         unittest.TestCase.__init__(self, methodName)
@@ -32,9 +31,9 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
 
-        with open(self.folder + self.file_name + ".vtu", "r") as content_file:
+        with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_1d_grid_vtu())
 
@@ -46,9 +45,9 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
 
-        with open(self.folder + self.file_name + ".vtu", "r") as content_file:
+        with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_2d_simplex_grid_vtu())
 
@@ -60,9 +59,9 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
 
-        with open(self.folder + self.file_name + ".vtu", "r") as content_file:
+        with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_2d_cart_grid_vtu())
 
@@ -76,9 +75,9 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
 
-        with open(self.folder + self.file_name + ".vtu", "r") as content_file:
+        with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_2d_polytop_grid_vtu())
 
@@ -90,9 +89,9 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
 
-        with open(self.folder + self.file_name + ".vtu", "r") as content_file:
+        with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_3d_simplex_grid_vtu())
 
@@ -104,9 +103,9 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
 
-        with open(self.folder + self.file_name + ".vtu", "r") as content_file:
+        with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_3d_cart_grid_vtu())
 
@@ -122,12 +121,13 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu({"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector})
+        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
 
-        with open(self.folder + self.file_name + ".vtu", "r") as content_file:
+        with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_grid_3d_polytop_grid_vtu())
 
+    # NOTE: Suggest removing this test.
     def test_gb_1(self):
         gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
@@ -153,9 +153,10 @@ class MeshioExporterTest(unittest.TestCase):
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_1_grid_2_vtu())
 
-        with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
-            content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_1_mortar_grid_vtu())
+        # The interface contains only implicit/constant data which is currently not exported.
+        #with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
+        #    content = self.sliceout(content_file.read())
+        #self.assertTrue(content == self._gb_1_mortar_grid_vtu())
 
     def test_gb_2(self):
         gb, _ = pp.grid_buckets_2d.two_intersecting(
@@ -197,6 +198,8 @@ class MeshioExporterTest(unittest.TestCase):
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_2_mortar_grid_1_vtu())
 
+    # NOTE: This test is not directly testing Exporter, but the capability to export networks.
+    # Is this a used capability? If not, suggest removing the test and the corresponding capability.
     def test_fractures_2d(self):
         p = np.array([[0, 2, 1, 2, 1], [0, 0, 0, 1, 2]])
         e = np.array([[0, 2, 3], [1, 3, 4]])
@@ -218,6 +221,8 @@ class MeshioExporterTest(unittest.TestCase):
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._test_fractures_2d_vtu())
 
+    # NOTE: This test is not directly testing Exporter, but the capability to export networks.
+    # Is this a used capability? If not, suggest removing the test and the corresponding capability.
     def test_fractures_3d(self):
         f_1 = pp.Fracture(np.array([[0, 1, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]))
         f_2 = pp.Fracture(
@@ -308,12 +313,6 @@ class MeshioExporterTest(unittest.TestCase):
 1.00000000000e+00
 1.00000000000e+00
 1.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-1
-1
-1
 
 </DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
@@ -565,27 +564,6 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 2.00000000000e+00
 2.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
 
 </DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
@@ -879,25 +857,6 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-
-</DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
 0
 1
@@ -1014,11 +973,6 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 2.00000000000e+00
 2.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-2
-2
 
 </DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
@@ -2871,171 +2825,6 @@ class MeshioExporterTest(unittest.TestCase):
 3.00000000000e+00
 3.00000000000e+00
 3.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
 
 </DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
@@ -6563,73 +6352,6 @@ class MeshioExporterTest(unittest.TestCase):
 3.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-
-</DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
 0
 1
@@ -7388,14 +7110,6 @@ class MeshioExporterTest(unittest.TestCase):
 3.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-3
-3
-3
-3
-3
-
-</DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
 3
 1
@@ -7484,34 +7198,6 @@ class MeshioExporterTest(unittest.TestCase):
 1.00000000000e+00
 1.00000000000e+00
 1.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-1
-1
-1
-1
-
-</DataArray>
-<DataArray type="Int64" Name="grid_node_number" format="ascii">
-1
-1
-1
-1
-
-</DataArray>
-<DataArray type="Int64" Name="is_mortar" format="ascii">
-0
-0
-0
-0
-
-</DataArray>
-<DataArray type="Int64" Name="mortar_side" format="ascii">
-0
-0
-0
-0
 
 </DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
@@ -7806,82 +7492,6 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-
-</DataArray>
-<DataArray type="Int64" Name="grid_node_number" format="ascii">
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-
-</DataArray>
-<DataArray type="Int64" Name="is_mortar" format="ascii">
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-
-</DataArray>
-<DataArray type="Int64" Name="mortar_side" format="ascii">
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-
-</DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
 0
 1
@@ -7992,17 +7602,6 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-1
-1
-1
-1
-1
-1
-1
-1
-
-</DataArray>
 <DataArray type="Int64" Name="grid_edge_number" format="ascii">
 0
 0
@@ -8104,10 +7703,10 @@ class MeshioExporterTest(unittest.TestCase):
 4
 4
 5
-4
-5
 6
 7
+8
+9
 
 </DataArray>
 <DataArray type="Int64" Name="offsets" format="ascii">
@@ -8158,42 +7757,6 @@ class MeshioExporterTest(unittest.TestCase):
 1.00000000000e+00
 1.00000000000e+00
 1.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-1
-1
-1
-1
-1
-1
-
-</DataArray>
-<DataArray type="Int64" Name="grid_node_number" format="ascii">
-1
-1
-1
-1
-2
-2
-
-</DataArray>
-<DataArray type="Int64" Name="is_mortar" format="ascii">
-0
-0
-0
-0
-0
-0
-
-</DataArray>
-<DataArray type="Int64" Name="mortar_side" format="ascii">
-0
-0
-0
-0
-0
-0
 
 </DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
@@ -8496,82 +8059,6 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-2
-
-</DataArray>
-<DataArray type="Int64" Name="grid_node_number" format="ascii">
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-
-</DataArray>
-<DataArray type="Int64" Name="is_mortar" format="ascii">
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-
-</DataArray>
-<DataArray type="Int64" Name="mortar_side" format="ascii">
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-0
-
-</DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
 0
 1
@@ -8678,22 +8165,22 @@ class MeshioExporterTest(unittest.TestCase):
 4
 4
 5
-4
-5
-5
 6
 7
-8
-8
-9
+7
 8
 9
 10
-11
 10
 11
 12
 13
+14
+15
+16
+17
+18
+19
 
 </DataArray>
 <DataArray type="Int64" Name="offsets" format="ascii">
@@ -8756,66 +8243,6 @@ class MeshioExporterTest(unittest.TestCase):
 0.00000000000e+00
 0.00000000000e+00
 0.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-
-</DataArray>
-<DataArray type="Int64" Name="grid_edge_number" format="ascii">
-0
-0
-0
-0
-0
-0
-0
-0
-1
-1
-1
-1
-
-</DataArray>
-<DataArray type="Int64" Name="is_mortar" format="ascii">
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-
-</DataArray>
-<DataArray type="Int64" Name="mortar_side" format="ascii">
-1
-1
-1
-1
-2
-2
-2
-2
-1
-1
-2
-2
 
 </DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
