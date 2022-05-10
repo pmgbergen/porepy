@@ -650,6 +650,8 @@ class Exporter:
         meshio_cell_id = np.empty(num_block, dtype=object)
 
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
+            # remove the number of nodes associated to the polygon since meshio requires only
+            # the keyword "polygon" for polygons
             cell_type_ = "polygon" if "polygon" in cell_type else cell_type
             meshio_cells[block] = meshio.CellBlock(cell_type_, cell_block.astype(int))
             meshio_cell_id[block] = np.array(cell_id[cell_type])
