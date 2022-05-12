@@ -8,7 +8,7 @@ Functions:
 
 """
 
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple
 
 import numpy as np
 
@@ -56,7 +56,7 @@ COMPUTATIONAL_VARIABLES: Dict[str, str] = {
 This influences the parameters for physical attributes, as well as the class
 :class:`~porepy.composite.phase.PhysicalState`.
 """
-STATES_OF_MATTER: Tuple[str] = ("solid", "liquid", "gas")
+STATES_OF_MATTER: Tuple = ("solid", "liquid", "gas")
 
 """
 Universal molar gas constant.
@@ -70,32 +70,27 @@ def create_merged_variable(
     gb: pp.GridBucket,
     dof_info: Dict[str, int],
     variable_name: str,
-) -> Tuple[pp.ad.MergedVariable, Union[None, pp.ad.MergedVariable]]:
+) -> "pp.ad.MergedVariable":
     """
     Creates domain-wide merged variables for a given grid bucket.
     Stores information about the variable in the data dictionary associated with each
     subdomain.
-    The key :data:`porepy.PRIMARY_VARIABLES` and given variable names are used for storage.
-
-    For creating a variable without values on mortar grids, leave the argument
-    `mortar_variable_name` as `None`.
 
     :param gb: grid bucket representing the whole computational domain
-    :type gb: :class:`porepy.GridBucket`
+    :type gb: :class:`~porepy.GridBucket`
     :param dof_info: number of DOFs per grid element (e.g. cells, faces, nodes)
     :type dof_info: dict
     :param variable_name: name given to variable, used as keyword for storage
     :type variable_name: str
 
-    :return: Returns a 2-tuple containing the new objects. The second object will be None,
-    if no mortar variable name is specified.
-    :rtype: tuple(2)
+    :return: Returns a new MergedVariable
+    :rtype: :class:`~pore.ad.MergedVariable`
     """
     # creating variables on each subdomain
     variables = list()
     for g, d in gb:
         # store DOF information about variable
-        if pp.PRIMARY_VARIABLES not in d:
+        if pp.PRIMARY_VARIABLES not in d.keys():
             d[pp.PRIMARY_VARIABLES] = dict()
 
         d[pp.PRIMARY_VARIABLES].update({variable_name: dof_info})
@@ -113,13 +108,12 @@ def create_merged_variable(
         d[pp.STATE][pp.ITERATE].update({variable_name: np.zeros(g.num_cells)})
         # TODO for variables with not only cell values, above is wrong/incomplete
 
-    # returns a merged variable on whole grid bucket
     return pp.ad.MergedVariable(variables)
 
 
 def create_merged_mortar_variable(
     gb: pp.GridBucket, dof_info: Dict[str, int], mortar_variable_name: str
-) -> pp.ad.MergedVariable:
+) -> "pp.ad.MergedVariable":
     """
     Creates domain-wide mortar variables for a given grid bucket.
     Stores information about the variable in the data dictionary associated with each

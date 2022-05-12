@@ -3,4 +3,6 @@ In the current setting, we expect these substances to only appear in liquid or g
 i.e. they are associated with the flow.
 """
 
-__all__ = []
+from typing import List
+
+__all__: List[str] = []
