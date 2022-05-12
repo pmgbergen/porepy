@@ -2,4 +2,6 @@
 In the current setting, we expect these substances to only appear in the solid, immobile phase,
 """
 
-__all__ = []
+from typing import List
+
+__all__: List[str] = []

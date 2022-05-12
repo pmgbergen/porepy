@@ -9,9 +9,7 @@ from porepy.composite.substance import SolidSubstance
 
 from ._composite_utils import COMPUTATIONAL_VARIABLES
 
-__all__ = [
-    "MaterialSubdomain"
-]
+__all__ = ["MaterialSubdomain"]
 
 
 class MaterialSubdomain:
@@ -59,7 +57,7 @@ class MaterialSubdomain:
         out = "Material subdomain made of " + self.substance.name + " on grid:\n"
         return out + str(self.grid)
 
-    def base_porosity(self) -> pp.ad.Array:
+    def base_porosity(self) -> "pp.ad.Operator":
         """
         :return: AD representation of the base porosity
         :rtype: :class:`~porepy.numerics.ad.operators.Array`
@@ -68,7 +66,7 @@ class MaterialSubdomain:
 
         return pp.ad.Array(arr)
 
-    def base_permeability(self) -> pp.ad.Array:
+    def base_permeability(self) -> "pp.ad.Operator":
         """
         :return: AD representation of the base permeability
         :rtype: :class:`~porepy.numerics.ad.operators.Array`
@@ -81,7 +79,7 @@ class MaterialSubdomain:
     ### HEURISTIC LAWS NOTE all heuristic laws can be modularized somewhere and referenced here
     # ------------------------------------------------------------------------------
 
-    def porosity(self, law: str, *args, **kwargs) -> pp.ad.Operator:
+    def porosity(self, law: str, *args, **kwargs) -> "pp.ad.Operator":
         """
         Currently supported heuristic laws (values for 'law'):
             - 'pressure':      expects one positional argument in 'args', namely the reference
@@ -112,4 +110,35 @@ class MaterialSubdomain:
             raise NotImplementedError(
                 "Unknown 'law' keyword for subdomain porosity.: %s \n" % (law)
                 + "Available: 'pressure,'"
+            )
+
+    def relative_permeability(self, law: str, *args, **kwargs) -> "pp.ad.Operator":
+        """
+        Currently supported heuristic laws (values for 'law'):
+            - 'brooks_corey':   Brook-Corey model TODO finish
+            - 'quadratic':      quadratic power law for saturation
+
+        Inherit this class and overwrite this method if you want to implement special models
+        for the relative permeability.
+        Use positional arguments 'args' and keyword arguments 'kwargs' to provide arguments
+        for the heuristic law.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [-] (fractional)
+
+        :param law: name of the law to be applied (see valid values above)
+        :type law: str
+
+        :return: relative permeability using the respectie law
+        :rtype: :class:`~porepy.ad.operators.Operator`
+        """
+        law = str(law)
+        if law == "quadratic":
+            return pp.ad.Function(
+                lambda S: S**2, "rel-perm-%s-%s" % (law, self.name)
+            )(self.saturation)
+        else:
+            raise NotImplementedError(
+                "Unknown 'law' keyword for rel.Perm.: %s \n" % (law)
+                + "Available: 'quadratic,'"
             )

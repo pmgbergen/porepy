@@ -3,10 +3,7 @@
 from ._composite_utils import IDEAL_GAS_CONSTANT
 from .substance import FluidSubstance, SolidSubstance
 
-__all__ = [
-    "SimpleFluid",
-    "UnitSolid"
-]
+__all__ = ["SimpleFluid", "UnitSolid"]
 
 
 class SimpleFluid(FluidSubstance):

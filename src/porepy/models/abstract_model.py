@@ -38,10 +38,7 @@ class AbstractModel:
     """
 
     def __init__(self, params: Optional[Dict] = None):
-        if params is None:
-            self.params = {}
-        else:
-            self.params = params
+
         if params is None:
             params = {}
         default_params = {

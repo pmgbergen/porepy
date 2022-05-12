@@ -106,7 +106,7 @@ class EquationManager:
         self._set_variables(self.gb)
 
         if equations is None:
-            self.equations: Dict[str, pp.ad.Operator] = {}
+            self.equations = {}
         else:
             self.equations = equations
 
@@ -152,7 +152,7 @@ class EquationManager:
 
         # Start index for blocks corresponding to rows of the different equations.
         # Defaults to None, will be overwritten by assembly methods.
-        self.row_block_indices_last_assembled: Optional[np.ndarray] = None
+        self.row_block_indices_last_assembled = None
 
     def merge_variables(
         self, grid_var: Sequence[Tuple[GridLike, str]]
