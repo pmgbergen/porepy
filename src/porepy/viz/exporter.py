@@ -695,10 +695,12 @@ class Exporter:
         for dim in dims:
             # Define the file name depending on data type
             if is_subdomain_data:
-                file_name = self._make_file_name(self.file_name, time_step, dim)
+                file_name = self._make_file_name(
+                    self.file_name, time_step, dim
+                )
             elif is_interface_data:
-                file_name = self._make_file_name_mortar(
-                    self.file_name, time_step=time_step, dim=dim
+                file_name = self._make_file_name(
+                    self.file_name + "_mortar_", time_step, dim
                 )
 
             # Append folder name to file name
@@ -766,14 +768,14 @@ class Exporter:
         for dim in self.dims:
             if self.meshio_geom[dim] is not None:
                 o_file.write(
-                    fm % self._make_file_name(self.file_name, time_step, dim=dim)
+                    fm % self._make_file_name(self.file_name, time_step, dim)
                 )
 
         # Same for mortar grids.
         for dim in self.m_dims:
             if self.m_meshio_geom[dim] is not None:
                 o_file.write(
-                    fm % self._make_file_name_mortar(self.file_name, dim, time_step)
+                    fm % self._make_file_name(self.file_name + "_mortar_", time_step, dim)
                 )
 
         o_file.write("</Collection>\n" + "</VTKFile>")
@@ -1529,47 +1531,57 @@ class Exporter:
             self.m_meshio_geom[dim] = self._export_grid(mg, dim)
 
     def _make_folder(self, folder_name: Optional[str] = None, name: str = "") -> str:
+        """Auxiliary method setting up potentially non-existent folder structure.
+
+        Parameters:
+            folder_name (Optional[str]): name of the folder
+            name (str): prefix of the name of the files to be written
+
+        Returns:
+            str: complete path to the files to be written.
+        """
+
+        # If no folder_name is prescribed, the files will be stored in the
+        # same folder.
         if folder_name is None:
             return name
 
+        # Set up folder structure if not existent.
         if not os.path.exists(folder_name):
             os.makedirs(folder_name)
+
+        # Return full path.
         return os.path.join(folder_name, name)
 
     def _make_file_name(
         self,
         file_name: str,
-        time_step: Optional[float] = None,
+        time_step: Optional[Union[float,int]] = None,
         dim: Optional[int] = None,
         extension: str = ".vtu",
     ) -> str:
+        """Auxiliary method to setting up file name.
 
-        padding = self.padding
-        if dim is None:  # normal grid
-            if time_step is None:
-                return file_name + extension
-            else:
-                time = str(time_step).zfill(padding)
-                return file_name + "_" + time + extension
-        else:  # part of a grid bucket
-            if time_step is None:
-                return file_name + "_" + str(dim) + extension
-            else:
-                time = str(time_step).zfill(padding)
-                return file_name + "_" + str(dim) + "_" + time + extension
+        The final name is build as combination of a prescribed prefix,
+        and possibly the dimension of underlying grid and time (step)
+        the related data is associated to.
 
-    def _make_file_name_mortar(
-        self, file_name: str, dim: int, time_step: Optional[float] = None
-    ) -> str:
+        Parameters:
+            file_name (str): prefix of the name of file to be exported
+            time_step (Optional[Union[float int]]): time or time step (index)
+            dim (Optional[int]): dimension of the exported grid
+            extension (str): extension of the file, typically file ending
+                defining the format
 
-        # we keep the order as in _make_file_name
-        assert dim is not None
+        Returns:
+            str: complete name of file
+        """
 
-        extension = ".vtu"
-        file_name = file_name + "_mortar_"
-        padding = self.padding
-        if time_step is None:
-            return file_name + str(dim) + extension
-        else:
-            time = str(time_step).zfill(padding)
-            return file_name + str(dim) + "_" + time + extension
+        # Define non-empty time step extension including zero padding.
+        time_extension = "" if time_step is None else "_" + str(time_step).zfill(self.padding)
+
+        # Define non-empty dim extension
+        dim_extension = "" if dim is None else "_" + str(dim)
+
+        # Combine prefix and extensions to define the complete name
+        return file_name + dim_extension + time_extension + extension
