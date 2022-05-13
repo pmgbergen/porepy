@@ -20,8 +20,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from porepy.viz.type_test import *
-
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
@@ -392,6 +390,75 @@ class Exporter:
 
             return value
 
+        # Auxiliary functions for type checking
+        
+        def isinstance_interface(e: Tuple[pp.Grid, pp.Grid]) -> bool:
+            """
+            Implementation of isinstance(e, Tuple[pp.Grid, pp.Grid]).
+            """
+            return (
+                isinstance(e, tuple) and
+                len(e) == 2 and 
+                isinstance(e[0], pp.Grid) and
+                isinstance(e[1], pp.Grid)
+            )
+
+        def isinstance_Tuple_subdomain_str(t: Tuple[Union[pp.Grid, List[pp.Grid]], str]) -> bool:
+            # TODO flip the order
+            """
+            Implementation of isinstance(t, Tuple[Union[pp.Grid, List[pp.Grid]], str]).
+
+            Detects data input of type (g1, "name) and ([g1, g2, ...], "name"),
+            where g1, g2, ... are subdomains.
+            """
+            # Implementation of isinstance(Tuple[pp.Grid, str], t)
+            types = list(map(type, t))
+            if isinstance(t[0], pp.Grid) and types[1:] == [str]:
+                return True
+            # Implementation of isinstance(Tuple[List[pp.Grid], str], t)
+            elif types == [list, str]:
+                return all([isinstance(g, pp.Grid) for g in t[0]])
+            else:
+                return False
+
+        def isinstance_Tuple_interface_str(t: Tuple[Union[Tuple[pp.Grid, pp.Grid], List[Tuple[pp.Grid, pp.Grid]]], str]) -> bool:
+            # TODO flip the order
+            """
+            Implementation of isinstance(t, Tuple[Union[Edge, List[Edge]], str]).
+
+            Detects data input of type (e1, "name) and ([e1, e2, ...], "name"),
+            where e1, e2, ... are interfaces.
+            """
+            # Implementation of isinstance(t, Tuple[Tuple[pp.Grid, pp.Grid], str])
+            if list(map(type, t)) == [tuple, str]:
+                return isinstance_interface(t[0])
+            # Implementation of isinstance(t, Tuple[List[Tuple[pp.Grid, pp.Grid]], str])
+            elif list(map(type, t)) == [list, str]:
+                return all([isinstance_interface(g) for g in pt[0]])
+            else:
+                return False
+
+        def isinstance_Tuple_subdomain_str_array(t: Tuple[pp.Grid, str, np.ndarray]) -> bool:
+            """
+            Implementation of isinstance(t, Tuple[pp.Grid, str, np.ndarray]).
+            """
+            types = list(map(type, t))
+            return isinstance(t[0], pp.Grid) and types[1:] == [str, np.ndarray]
+
+        def isinstance_Tuple_interface_str_array(t: Tuple[Tuple[pp.Grid, pp.Grid], str, np.ndarray]) -> bool:
+            """
+            Implementation of isinstance(t, Tuple[Interface, str, np.ndarray]).
+            """
+            return list(map(type, t)) == [tuple, str, np.ndarray] and isinstance_interface(t[0])
+
+        def isinstance_Tuple_str_array(pt) -> bool:
+            """
+            Implementation if isinstance(pt, Tuple[str, np.ndarray].
+            Detects data input of type ("name", value).
+            """
+            # Check whether the tuple is of length 2 and has the right types.
+            return list(map(type, pt)) == [str, np.ndarray]
+
         # Loop over all data points and convert them collect them in the format
         # (grid/edge, key, data) for single grids etc.
         for pt in data:
@@ -438,13 +505,14 @@ class Exporter:
                 if not has_key:
                     raise ValueError(f"No data with provided key {key} present in the grid bucket.")
 
-            # Case 2a: Data provided by a tuple ([g], key) where [g] is a single grid
-            # or a list of grids.Idea: Collect the data only among the grids specified.
-            elif isTupleOf_entity_str(pt, entity="node"):
+            # Case 2a: Data provided by a tuple (g, key).
+            # Here, g is a single grid or a list of grids.
+            # Idea: Collect the data only among the grids specified.
+            elif isinstance_Tuple_subdomain_str(pt):
 
                 # By construction, the first component contains grids.
                 # Unify by converting the first component to a list
-                grids: List[pp.Grid] = pt[0] if isinstance(pt[0], list) else [pt[0]] 
+                grids: List[pp.Grid] = pt[0] # if isinstance(pt[0], list) else [pt[0]] 
 
                 # By construction, the second component contains a key.
                 key: str = pt[1]
@@ -456,7 +524,8 @@ class Exporter:
                     d = self.gb.node_props(g) # TODO type
 
                     # Make sure the data exists.
-                    assert(pp.STATE in d and key in d[pp.STATE])
+                    if not (pp.STATE in d and key in d[pp.STATE]):
+                        raise ValueError("No state with prescribed key available on selected grids.")
 
                     # Fetch data and convert to vectorial format if suitable
                     value: np.ndarray = toVectorFormat(d[pp.STATE][key], g)
@@ -464,9 +533,10 @@ class Exporter:
                     # Add data point in correct format to collection
                     subdomain_data[(g, key)] = value
 
-            # Case 2b: Data provided by a tuple ([e], key) where [e] is a single edge
-            # or a list of edges. Idea: Collect the data only among the grids specified.
-            elif isTupleOf_entity_str(pt, entity="edge"):
+            # Case 2b: Data provided by a tuple (e, key)
+            # Here, e is a single edge or a list of edges.
+            # Idea: Collect the data only among the grids specified.
+            elif isinstance_Tuple_interface_str(pt):
 
                 # By construction, the first component contains grids.
                 # Unify by converting the first component to a list
@@ -491,23 +561,17 @@ class Exporter:
                     # Add data point in correct format to collection
                     interface_data[(e, key)] = value
 
-            # TODO include this case at all? It is currently kept as close to the previous use case.
+            # Case 3: Data provided by a tuple (key, data).
+            # This case is only well-defined, if the grid bucket contains
+            # only a single grid.
+            # Idea: Extract the unique grid and continue as in Case 2.
+            elif isinstance_Tuple_str_array(pt):
 
-            # Case 3: Data provided by a tuple (key, data). Here, the grid is
-            # implicitly is addressed. This only works if there is just a single
-            # grid. Idea: Extract the unique grid and continue as in Case 2.
-            elif isTupleOf_str_array(pt):
                 # Fetch the correct grid. This option is only supported for grid buckets containing a single grid.
-
-                # Collect all grids
                 grids: List[pp.Grid] = [g for g, _ in self.gb.nodes()]
-
-                # Make sure there exists only a single grid
+                g: pp.Grid = grids[0]
                 if not len(grids)==1:
                     raise ValueError(f"The data type used for {pt} is only supported if the grid bucket only contains a single grid.")
-
-                # Extract the unique grid
-                g = grids[0]
 
                 # Fetch remaining ingredients required to define node data element
                 key: str = pt[0]
@@ -516,9 +580,9 @@ class Exporter:
                 # Add data point in correct format to collection
                 subdomain_data[(g, key)] = value
 
-            # Case 4a: Data provided as tuple (g, key, data). Idea: Since this is
-            # already the desired format, process naturally.
-            elif isTupleOf_entity_str_array(pt, entity = "node"):
+            # Case 4a: Data provided as tuple (g, key, data).
+            # Idea: Since this is already the desired format, process naturally.
+            elif isinstance_Tuple_subdomain_str_array(pt):
                 # Data point in correct format
                 g: pp.Grid = pt[0]
                 key: str = pt[1]
@@ -527,9 +591,9 @@ class Exporter:
                 # Add data point in correct format to collection
                 subdomain_data[(g, key)] = value
 
-            # Case 4b: Data provided as tuple (e, key, data). Idea: Since this is
-            # already the desired format, process naturally.
-            elif isTupleOf_entity_str_array(pt, entity = "edge"):
+            # Case 4b: Data provided as tuple (e, key, data).
+            # Idea: Since this is already the desired format, process naturally.
+            elif isinstance_Tuple_interface_str_array(pt):
                 # Data point in correct format
                 e: Interface = pt[0]
                 key: str = pt[1]
