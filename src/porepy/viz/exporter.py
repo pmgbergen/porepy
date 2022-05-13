@@ -114,16 +114,14 @@ class Exporter:
             gb (Union[pp.Grid, pp.Gridbucket]): grid or gridbucket containing all
                 mesh information to be exported.
             file_name (str): basis for file names used for storing the output
-            folder_name (str, optional): folder, all files are stored in
-            kwargs: Optional keywords. 1. fixed_grid (boolean) to control whether
-                the grid(bucket) may be redfined; 2. binary (boolena) to control
-                whether the output is using binary or non binary format;
-                3. reuse_data (boolean) to control whether geometrical data is
-                reused from the previous time step when printing to file.
+            folder_name (str, optional): folder name, all files are stored in
+            kwargs (optional): Optional keywords;
+                'fixed_grid' (boolean) to control whether the grid(bucket) may be redfined;
+                'binary' (boolean) controling whether data is stored in binary format;
+                'reuse_data' (boolean) controling whether geometrical data is
+                reused from the previous time step when exporting to file.
 
         """
-        # TODO what is the right format for describing kwargs?
-
         # Exporter is operating on grid buckets. If a grid is provided, convert to a grid bucket.
         if isinstance(gb, pp.Grid):
             self.gb = pp.GridBucket()
