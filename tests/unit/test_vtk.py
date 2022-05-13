@@ -31,7 +31,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
+        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -45,7 +45,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
+        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -59,7 +59,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
+        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -75,7 +75,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
+        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -89,7 +89,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
+        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -103,7 +103,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
+        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -121,7 +121,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
         save = pp.Exporter(g, self.file_name, self.folder, binary=False)
-        save.write_vtu([(g, "dummy_scalar", dummy_scalar), (g, "dummy_vector", dummy_vector)])
+        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
