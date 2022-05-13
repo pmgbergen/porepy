@@ -73,11 +73,13 @@ class Exporter:
 
     """
 
-    # Short cuts for some typing used in Exporter
-    Edge = Tuple[pp.Grid, pp.Grid]
+    # Introduce types used below
+
+    # Interface between subdomains
+    Interface = Tuple[pp.Grid, pp.Grid]
     
-    # Allowed data structures to define node data
-    NodeDataInput = Union[
+    # Allowed data structures to define data on subdomains
+    SubdomainDataInput = Union[
         str,
         Tuple[Union[pp.Grid, List[pp.Grid]], str],
         Tuple[pp.Grid, str, np.ndarray],
@@ -85,19 +87,19 @@ class Exporter:
     ]
     
     # Allowed data structures to define edge data
-    EdgeDataInput = Union[
+    InterfaceDataInput = Union[
         str,
-        Tuple[Union[Edge, List[Edge]], str],
-        Tuple[Edge, str, np.ndarray],
+        Tuple[Union[Interface, List[Interface]], str],
+        Tuple[Interface, str, np.ndarray],
         Tuple[str, np.ndarray],
     ]
     
     # Altogether allowed data structures to define data
-    DataInput = Union[NodeDataInput, EdgeDataInput]
+    DataInput = Union[SubdomainDataInput, InterfaceDataInput]
     
     # Data structure in which data is stored
-    NodeData = Dict[Tuple[pp.Grid, str], np.ndarray]
-    EdgeData = Dict[Tuple[Edge, str], np.ndarray]
+    SubdomainData = Dict[Tuple[pp.Grid, str], np.ndarray]
+    InterfaceData = Dict[Tuple[Interface, str], np.ndarray]
 
     def __init__(
         self,
@@ -260,17 +262,24 @@ class Exporter:
         if time_step is not None:
             self._exported_time_step_file_names.append(time_step)
 
-        # Convert provided data to the most general type: NodeDataBaseType
+        # Convert provided data to the most general type: SubdomainDataBaseType
         # Also sort wrt. whether data is associated to nodes or edges.
-        node_data, edge_data = self._unify_data(data)
+        subdomain_data, interface_data = self._unify_data(data)
 
         # Add geometrical info for nodes and edges
-        node_data = self._add_extra_node_data(node_data)
-        edge_data = self._add_extra_edge_data(edge_data)
+        # TODO
+        reuse_data = self._reuse_data and self._prev_exported_time_step is not None
+        if reuse_data:
+            subdomain_data = self._add_extra_subdomain_data(subdomain_data)
+            interface_data = self._add_extra_interface_data(interface_data)
+        #subdomain_data = self._add_extra_subdomain_data(subdomain_data)
+        #interface_data = self._add_extra_interface_data(interface_data)
 
         # Export data and treat node and edge data separately
-        self._export_data(node_data, time_step)
-        self._export_data(edge_data, time_step)
+        if subdomain_data:
+            self._export_data(subdomain_data, time_step)
+        if interface_data:
+            self._export_data(interface_data, time_step)
 
         # Export pvd
         file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
@@ -337,7 +346,7 @@ class Exporter:
 
     def _unify_data(
             self, data: Optional[Union[DataInput, List[DataInput]]] = None,
-        ) -> Tuple[NodeData, EdgeData]:
+        ) -> Tuple[SubdomainData, InterfaceData]:
         """Bring data in unified format to be further used in the export.
         
         The routine has two goals: Splitting data into node and edge data,
@@ -350,7 +359,7 @@ class Exporter:
                 of grids/edges.
                 
         Returns:
-            Tuple[NodeData, EdgeData]: Node and edge data decomposed and
+            Tuple[SubdomainData, InterfaceData]: Subdomain and edge data decomposed and
                 brought into unified format.
         """
 
@@ -362,8 +371,8 @@ class Exporter:
             data = [data]
 
         # Initialize container for data associated to nodes
-        node_data: Dict[NodeDataKey, np.ndarray] = dict()
-        edge_data: Dict[EdgeDataKey, np.ndarray] = dict()
+        subdomain_data: Dict[SubdomainDataKey, np.ndarray] = dict()
+        interface_data: Dict[InterfaceDataKey, np.ndarray] = dict()
 
         # Auxiliary function transforming scalar ranged values
         # to vector ranged values when suitable.
@@ -411,7 +420,7 @@ class Exporter:
                         value: np.ndarray = toVectorFormat(d[pp.STATE][key], g)
 
                         # Add data point in correct format to the collection
-                        node_data[(g, key)] = value
+                        subdomain_data[(g, key)] = value
 
                 # Try to find the key in the data dictionary associated to edges
                 for e, d in self.gb.edges():
@@ -424,7 +433,7 @@ class Exporter:
                         value: np.ndarray = toVectorFormat(d[pp.STATE][key], mg) # TODO g?
 
                         # Add data point in correct format to the collection
-                        edge_data[(e, key)] = value
+                        interface_data[(e, key)] = value
 
                 # Make sure the key exists
                 if not has_key:
@@ -454,7 +463,7 @@ class Exporter:
                     value: np.ndarray = toVectorFormat(d[pp.STATE][key], g)
 
                     # Add data point in correct format to collection
-                    node_data[(g, key)] = value
+                    subdomain_data[(g, key)] = value
 
             # Case 2b: Data provided by a tuple ([e], key) where [e] is a single edge
             # or a list of edges. Idea: Collect the data only among the grids specified.
@@ -462,7 +471,7 @@ class Exporter:
 
                 # By construction, the first component contains grids.
                 # Unify by converting the first component to a list
-                edges: Union[Edge, List[Edge]] = pt[0] if isinstance(pt[0], list) else [pt[0]]
+                edges: Union[Interface, List[Interface]] = pt[0] if isinstance(pt[0], list) else [pt[0]]
 
                 # By construction, the second component contains a key.
                 key: str = pt[1]
@@ -481,7 +490,7 @@ class Exporter:
                     value: np.ndarray = toVectorFormat(d[pp.STATE][key], mg)
 
                     # Add data point in correct format to collection
-                    edge_data[(e, key)] = value
+                    interface_data[(e, key)] = value
 
             # TODO include this case at all? It is currently kept as close to the previous use case.
 
@@ -506,7 +515,7 @@ class Exporter:
                 value: np.ndarray = toVectorFormat(pt[1], g)
 
                 # Add data point in correct format to collection
-                node_data[(g, key)] = value
+                subdomain_data[(g, key)] = value
 
             # Case 4a: Data provided as tuple (g, key, data). Idea: Since this is
             # already the desired format, process naturally.
@@ -517,65 +526,70 @@ class Exporter:
                 value: np.ndarray = toVectorFormat(pt[2], g)
 
                 # Add data point in correct format to collection
-                node_data[(g, key)] = value
+                subdomain_data[(g, key)] = value
 
             # Case 4b: Data provided as tuple (e, key, data). Idea: Since this is
             # already the desired format, process naturally.
             elif isTupleOf_entity_str_array(pt, entity = "edge"):
                 # Data point in correct format
-                e: Edge = pt[0]
+                e: Interface = pt[0]
                 key: str = pt[1]
                 d = self.gb.edge_props(e) # TODO type
                 mg = d["mortar_grid"]
                 value: np.ndarray = toVectorFormat(pt[2], mg)
 
                 # Add data point in correct format to collection
-                edge_data[(e, key)] = value
+                interface_data[(e, key)] = value
 
             else:
                 raise ValueError(f"The provided data type used for {pt} is not supported.")
 
-        return node_data, edge_data
+        return subdomain_data, interface_data
 
-    def _add_extra_node_data(self, node_data: NodeData) -> NodeData:
-        """Enahnce node data with geometrical information.
+    def _add_extra_subdomain_data(self, subdomain_data: SubdomainData) -> SubdomainData:
+        """Enhance subdomain data with geometrical information.
 
         Parameters:
-            node_data (NodeData, optional): data contains which will be
+            subdomain_data (SubdomainData, optional): data contains which will be
                 enhanced
 
         Returns:
-            NodeData: previous node_data with additional information on
+            SubdomainData: previous subdomain_data with additional information on
                 the grid dimension, mortar side and whether the grid is
                 mortar.
         """
         # All extra fields to be added to the data container
-        self._extra_node_data = ["grid_dim", "is_mortar", "mortar_side"]
+        self._extra_subdomain_data = ["grid_dim", "is_mortar", "mortar_side"]
 
         # Add info by direct assignment
         for g, d in self.gb.nodes():
             ones = np.ones(g.num_cells, dtype=int)
-            node_data[(g, "grid_dim")] = g.dim * ones
-            #node_data[(g, "grid_node_number")] = d["node_number"] * ones # TODO?
-            node_data[(g, "is_mortar")] = 0 * ones
-            node_data[(g, "mortar_side")] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
+            subdomain_data[(g, "grid_dim")] = g.dim * ones
+            #subdomain_data[(g, "grid_node_number")] = d["node_number"] * ones # TODO?
+            subdomain_data[(g, "is_mortar")] = 0 * ones
+            subdomain_data[(g, "mortar_side")] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
 
-        return node_data
+        #TODO include here?
+        #cell_id = meshio_geom[2]
+        ## add also the cells ids
+        #cell_data.update({self.cell_id_key: cell_id})
 
-    def _add_extra_edge_data(self, edge_data: EdgeData) -> EdgeData:
+        return subdomain_data
+
+    def _add_extra_interface_data(self, interface_data: InterfaceData) -> InterfaceData:
         """Enahnce edge data with geometrical information.
 
         Parameters:
-            edge_data (EdgeData, optional): data contains which will be
+            interface_data (InterfaceData, optional): data contains which will be
                 enhanced
 
         Returns:
-            EdgeData: previous edge_data with additional information on
+            InterfaceData: previous interface_data with additional information on
                 the grid dimension, the cell ids, the grid edge number,
                 mortar side and whether the grid is mortar.
         """
         # All extra fields to be added to the data container
-        self._extra_edge_data = ["grid_dim", "cell_id", "grid_edge_number", "is_mortar", "mortar_side"]
+        self._extra_interface_data = ["grid_dim", "cell_id", "grid_edge_number", "is_mortar", "mortar_side"]
 
         # Add info by direct assignment - have to take into account values on both sides
         # TODO can't we do this more explicit and by that shorter and simpler?
@@ -585,11 +599,11 @@ class Exporter:
             mg = d["mortar_grid"]
 
             # Construct empty arrays for all extra edge data
-            edge_data[(e, "grid_dim")] = np.empty(0, dtype=int)
-            edge_data[(e, "cell_id")] = np.empty(0, dtype=int)
-            edge_data[(e, "grid_edge_number")] = np.empty(0, dtype=int)
-            edge_data[(e, "is_mortar")] = np.empty(0, dtype=int)
-            edge_data[(e, "mortar_side")] = np.empty(0, dtype=int)
+            interface_data[(e, "grid_dim")] = np.empty(0, dtype=int)
+            interface_data[(e, "cell_id")] = np.empty(0, dtype=int)
+            interface_data[(e, "grid_edge_number")] = np.empty(0, dtype=int)
+            interface_data[(e, "is_mortar")] = np.empty(0, dtype=int)
+            interface_data[(e, "mortar_side")] = np.empty(0, dtype=int)
 
             # Assign extra edge data by collecting values on both sides.
             mg_num_cells = 0
@@ -597,52 +611,52 @@ class Exporter:
                 ones = np.ones(g.num_cells, dtype=int)
 
                 # Grid dimension of the mortar grid
-                edge_data[(e, "grid_dim")] = np.hstack(
+                interface_data[(e, "grid_dim")] = np.hstack(
                     (
-                        edge_data[(e, "grid_dim")],
+                        interface_data[(e, "grid_dim")],
                         g.dim * ones
                     )
                 )
 
                 # Cell ids of the mortar grid
-                edge_data[(e, "cell_id")] = np.hstack(
+                interface_data[(e, "cell_id")] = np.hstack(
                     (
-                        edge_data[(e, "cell_id")],
+                        interface_data[(e, "cell_id")],
                         np.arange(g.num_cells, dtype=int) + mg_num_cells
                     )
                 )
 
                 # Grid edge number of each edge
-                edge_data[(e, "grid_edge_number")] = np.hstack(
+                interface_data[(e, "grid_edge_number")] = np.hstack(
                     (
-                        edge_data[(e, "grid_edge_number")],
+                        interface_data[(e, "grid_edge_number")],
                         d["edge_number"] * ones
                     )
                 )
 
                 # Whether the edge is mortar
-                edge_data[(e, "is_mortar")] = np.hstack(
+                interface_data[(e, "is_mortar")] = np.hstack(
                     (
-                        edge_data[(e, "is_mortar")],
+                        interface_data[(e, "is_mortar")],
                         ones
                     )
                 )
 
                 # Side of the mortar
-                edge_data[(e, "mortar_side")] = np.hstack(
+                interface_data[(e, "mortar_side")] = np.hstack(
                     (
-                        edge_data[(e, "mortar_side")],
+                        interface_data[(e, "mortar_side")],
                         side.value * ones
                     )
                 )
 
                 mg_num_cells += g.num_cells
 
-        return edge_data
+        return interface_data
 
     def _export_data(
             self,
-            data: Union[NodeData, EdgeData],
+            data: Union[SubdomainData, InterfaceData],
             time_step: int
         ) -> None:
         """Routine for collecting data associated to a single grid dimension
@@ -653,34 +667,36 @@ class Exporter:
         for interfaces.
 
         Parameters:
-            data (Union[NodeData, EdgeData]): Node or edge data. The routine
+            data (Union[SubdomainData, InterfaceData]): Subdomain or edge data. The routine
                 notices itself of which type the data is and proceeds
                 accordingly.
             time_step (int): time_step to be used to append the file name.
         """
-        # Deterimine whether data corresponds to node or edge data.
-        # Node data and edge data will be treated differently throughout
+        # Deterimine whether data corresponds to subdomain or interface data.
+        # Subdomain data and interface data will be treated differently throughout
         # the export procedure.
-        is_node_data = all([isTupleOf_entity_str(pt, entity="node") for pt in data])
-        is_edge_data = all([isTupleOf_entity_str(pt, entity="edge") for pt in data])
-        if not is_node_data and not is_edge_data:
-            raise ValueError("data has to be consistently either of node or edge data type.")
+        is_subdomain_data = all([isTupleOf_entity_str(pt, entity="node") for pt in data])
+        is_interface_data = all([isTupleOf_entity_str(pt, entity="edge") for pt in data])
+        if not is_subdomain_data and not is_interface_data:
+            raise ValueError("data has to be consistently either of subdomain or interface data type.")
 
         # Collect unique keys, and for unique sorting, sort by alphabet
         keys = list(set([key for _,key in data]))
         keys.sort()
 
-        # Fetch the dimnensions to be traversed. For nodes, fetch the dimensions
-        # of the available grids, and for edges fetch the dimensions of the available
+        time_0 = 0
+
+        # Fetch the dimnensions to be traversed. For subdomains, fetch the dimensions
+        # of the available grids, and for interfaces fetch the dimensions of the available
         # mortar grids.
-        dims = self.dims if is_node_data else self.m_dims
+        dims = self.dims if is_subdomain_data else self.m_dims
 
         # Collect the data and extra data in a single stack for each dimension
         for dim in dims:
             # Define the file name depending on data type
-            if is_node_data:
+            if is_subdomain_data:
                 file_name = self._make_file_name(self.file_name, time_step, dim)
-            elif is_edge_data:
+            elif is_interface_data:
                 file_name = self._make_file_name_mortar(
                     self.file_name, time_step=time_step, dim=dim
                 )
@@ -689,12 +705,12 @@ class Exporter:
             file_name = self._make_folder(self.folder_name, file_name)
 
             # Get all geometrical entities of dimension dim: subdomains
-            # with correct grid dimension for node data, and interfaces
+            # with correct grid dimension for subdomain data, and interfaces
             # with correct mortar grid dimension for edge data.
             entities: Union[List[pp.Grid], List[Tuple[pp.Grid, pp.Grid]]] = []
-            if is_node_data:
+            if is_subdomain_data:
                 entities = self.gb.get_grids(lambda g: g.dim == dim)
-            elif is_edge_data:
+            elif is_interface_data:
                 entities = [e for e, d in self.gb.edges() if d["mortar_grid"].dim == dim]
 
             # Construct the list of fields represented on this dimension.
@@ -717,8 +733,8 @@ class Exporter:
                     fields.append(field)
 
             # Print data for the particular dimension. Since geometric
-            # info is required distinguish between node and edge data.
-            meshio_geom = self.meshio_geom[dim] if is_node_data else self.m_meshio_geom[dim]
+            # info is required distinguish between subdomain and interface data.
+            meshio_geom = self.meshio_geom[dim] if is_subdomain_data else self.m_meshio_geom[dim]
             if meshio_geom is not None:
                 self._write(fields, file_name, meshio_geom)
 
@@ -1312,7 +1328,7 @@ class Exporter:
         )
 
         # Exclude/block fixed geometric data as grid points and connectivity information
-        # by removing fields mesh and extra node/edge data from meshio_grid_to_export.
+        # by removing fields mesh and extra subdomain/interface data from meshio_grid_to_export.
         # Do this only if explicitly asked in init and if a suitable previous time step
         # had been exported already. This data will be copied to the final VTKFile
         # from a reference file from this previous time step.
@@ -1323,14 +1339,14 @@ class Exporter:
         # Write mesh information and data to VTK format.
         meshio.write(file_name, meshio_grid_to_export, binary=self.binary)
 
-        # Include the fixed mesh data and the extra node/edge data by copy
+        # Include the fixed mesh data and the extra subdomain/interface data by copy
         # if remove earlier from meshio_grid_to_export.
         if to_copy_prev_exported_data:
             self._copy_fixed_mesh_data(file_name)
 
-    def _remove_fixed_mesh_data(self, meshio_grid: meshio._mesh.Mesh) -> meshio._mesh.Mesh:
-        """Remove points, cells, and cell data related to the extra node and
-        edge data from given meshio_grid.
+    def _stash_extra_data(self, meshio_grid: meshio._mesh.Mesh) -> meshio._mesh.Mesh:
+        """Remove points, cells, and cell data related to the extra subdomain and
+        interface data from given meshio_grid.
 
         Auxiliary routine in _write.
 
@@ -1365,7 +1381,7 @@ class Exporter:
         """Given two VTK files (in xml format), transfer all fixed geometric
         info from a reference to a new file.
 
-        This includes Piece, Points, Cells, and extra node and edge data.
+        This includes Piece, Points, Cells, and extra subdomain and interface data.
 
         Parameters:
             file_name(str): Incomplete VTK file, to be completed.
@@ -1604,7 +1620,7 @@ class Exporter:
 
             # Require a grid bucket. Thus, convert grid -> grid bucket.
             if isinstance(gb, pp.Grid):
-                # Create a new grid bucket solely with a single grid as nodes.
+                # Create a new grid bucket solely with a single grid as subdomains
                 self.gb = pp.GridBucket()
                 self.gb.add_nodes(gb) 
 
@@ -1694,39 +1710,39 @@ class Exporter:
 
         # TODO simplify
 
-        # Extract data which is contained in nodes (and not edges).
-        # IMPLEMENTATION NOTE: We need a unique set of keywords for node_data. The simpler
+        # Extract data which is attached to subdomains (and not inerfaces).
+        # IMPLEMENTATION NOTE: We need a unique set of keywords for subdomain_data. The simpler
         # option would have been to  gather all keys and uniquify by converting to a set,
         # and then back to a list. However, this will make the ordering of the keys random,
         # and it turned out that this complicates testing (see tests/unit/test_vtk).
         # It was therefore considered better to use a more complex loop which
         # (seems to) guarantee a deterministic ordering of the keys.
-        node_data = list()
+        subdomain_data = list()
         # For each element in data, apply a brute force approach and check whether there
-        # exists a data dictionary associated to a node which contains a state variable
+        # exists a data dictionary associated to a subdomain which contains a state variable
         # with same key. If so, add the key and move on to the next key.
         for key in data:
             for _, d in self.gb.nodes():
                 if pp.STATE in d and key in d[pp.STATE]:
-                    node_data.append(key)
-                    # After successfully identifying data contained in nodes, break the loop
-                    # over nodes to avoid any unintended repeated listing of key.
+                    subdomain_data.append(key)
+                    # After successfully identifying data contained in subdomains, break the loop
+                    # over subdomains to avoid any unintended repeated listing of key.
                     break
 
         # Transfer data to fields.
         # TODO Field structure required here? or can we use something standard in Python?
         # Collect all provided keywords and 
-        node_fields: List[Field] = []
-        if len(node_data) > 0:
-            node_fields.extend([Field(d) for d in node_data])
+        subdomain_fields: List[Field] = []
+        if len(subdomain_data) > 0:
+            subdomain_fields.extend([Field(d) for d in subdomain_data])
 
-        # Include consider the grid_bucket node data
-        extra_node_names = ["grid_dim", "grid_node_number", "is_mortar", "mortar_side"]
-        extra_node_fields = [Field(name) for name in extra_node_names]
-        node_fields.extend(extra_node_fields)
+        # Include consider the grid_bucket subdomain data
+        extra_subdomain_names = ["grid_dim", "grid_node_number", "is_mortar", "mortar_side"]
+        extra_subdomain_fields = [Field(name) for name in extra_subdomain_names]
+        subdomain_fields.extend(extra_subdomain_fields)
 
         self.gb.assign_node_ordering(overwrite_existing=False)
-        self.gb.add_node_props(extra_node_names)
+        self.gb.add_node_props(extra_subdomain_names)
         # fill the extra data
         for g, d in self.gb:
             ones = np.ones(g.num_cells, dtype=int)
@@ -1739,7 +1755,7 @@ class Exporter:
         for dim in self.dims:
             file_name = self._make_file_name(self.file_name, time_step, dim)
             file_name = self._make_folder(self.folder_name, file_name)
-            for field in node_fields:
+            for field in subdomain_fields:
                 grids = self.gb.get_grids(lambda g: g.dim == dim)
                 values = []
                 for g in grids:
@@ -1758,33 +1774,33 @@ class Exporter:
                 field.values = np.hstack(values)
 
             if self.meshio_geom[dim] is not None:
-                self._write(node_fields, file_name, self.meshio_geom[dim])
+                self._write(subdomain_fields, file_name, self.meshio_geom[dim])
 
-        self.gb.remove_node_props(extra_node_names)
+        self.gb.remove_node_props(extra_subdomain_names)
 
         # Extract data which is contained in edges (and not nodes).
-        # IMPLEMENTATION NOTE: See the above loop to construct node_data for an explanation
-        # of this elaborate construction of `edge_data`
-        edge_data = list()
+        # IMPLEMENTATION NOTE: See the above loop to construct subdomain_data for an explanation
+        # of this elaborate construction of `interface_data`
+        interface_data = list()
         for key in data:
             for _, d in self.gb.edges():
                 if pp.STATE in d and key in d[pp.STATE]:
-                    edge_data.append(key)
+                    interface_data.append(key)
                     # After successfully identifying data contained in edges, break the loop
                     # over edges to avoid any unintended repeated listing of key.
                     break
 
         # Transfer data to fields.
-        edge_fields: List[Field] = []
-        if len(edge_data) > 0:
-            edge_fields.extend([Field(d) for d in edge_data])
+        interface_fields: List[Field] = []
+        if len(interface_data) > 0:
+            interface_fields.extend([Field(d) for d in interface_data])
 
         # consider the grid_bucket edge data
-        extra_edge_names = ["grid_dim", "grid_edge_number", "is_mortar", "mortar_side"]
-        extra_edge_fields = [Field(name) for name in extra_edge_names]
-        edge_fields.extend(extra_edge_fields)
+        extra_interface_names = ["grid_dim", "grid_edge_number", "is_mortar", "mortar_side"]
+        extra_interface_fields = [Field(name) for name in extra_interface_names]
+        interface_fields.extend(extra_interface_fields)
 
-        self.gb.add_edge_props(extra_edge_names)
+        self.gb.add_edge_props(extra_interface_names)
         # fill the extra data
         for _, d in self.gb.edges():
             d["grid_dim"] = {}
@@ -1816,7 +1832,7 @@ class Exporter:
                 e for e, d in self.gb.edges() if cond(d)
             ]
 
-            for field in edge_fields:
+            for field in interface_fields:
                 values = []
                 for mg, edge in zip(mgs, edges):
                     if field.name in data:
@@ -1830,10 +1846,10 @@ class Exporter:
                 field.values = np.hstack(values)
 
             if self.m_meshio_geom[dim] is not None:
-                self._write(edge_fields, file_name, self.m_meshio_geom[dim])
+                self._write(interface_fields, file_name, self.m_meshio_geom[dim])
 
         file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
         file_name = self._make_folder(self.folder_name, file_name)
         self._export_pvd_gb(file_name, time_step)
 
-        self.gb.remove_edge_props(extra_edge_names)
+        self.gb.remove_edge_props(extra_interface_names)
