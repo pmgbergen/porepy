@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import warnings
-from typing import Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.composite.material_subdomain import MaterialSubdomain
 
 from ._composite_utils import COMPUTATIONAL_VARIABLES, create_merged_variable
+from .material_subdomain import MaterialSubdomain
 from .phase import PhaseField
 
 __all__ = ["Composition"]
@@ -60,6 +60,11 @@ class Composition:
         self.eq_manager: "pp.ad.EquationManager" = pp.ad.EquationManager(
             gb, self.dof_manager
         )
+        # store phase equilibria equations for each substance name (key)
+        # equations are stored in dicts per substance (key: equ name, value: operator)
+        self.phase_equilibrium_equations: Dict[
+            str, Dict[str, "pp.ad.Operator"]
+        ] = dict()
 
         ## PRIVATE
         # set containing all present substances
@@ -88,8 +93,8 @@ class Composition:
         self._temperature: "pp.ad.MergedVariable" = create_merged_variable(
             gb, {"cells": 1}, self._temperature_var
         )
-        # store subsystem components for faster assembly
-        self._equilibrium_subsystem: dict = dict()
+        # store subsystem components (references) for faster assembly
+        self._phase_equilibrium_subsystem: dict = dict()
         self._saturation_flash_subsystem: dict = dict()
         self._isenthalpic_flash_subsystem: dict = dict()
 
@@ -106,14 +111,21 @@ class Composition:
         Concatenates the string representation of the underlying gridbucket.
         """
 
-        out = "Compositional flow with "
+        out = "Composition with "
 
-        out += "\nand %s phases:\n" % (str(len(self._present_phases)))
+        out += "\n%s phases:\n" % (str(self.num_phases))
 
         for phase_name in [phase.name for phase in self._present_phases]:
             out += phase_name + "\n"
 
-        out += "\non gridbucket \n"
+        out += "\n%s substances:\n" % (str(self.num_substances))
+
+        for substance_name in [
+            substance.name for substance in self._present_substances
+        ]:
+            out += substance_name + "\n"
+
+        out += "\non gridbucket\n"
 
         return out + str(self.gb)
 
@@ -142,6 +154,25 @@ class Composition:
         :rtype: int
         """
         return len(self._present_substances)
+
+    @property
+    def num_phase_equilibrium_equations(self) -> Dict[str, int]:
+        """Returns a dict containing the number of necessary phase equilibrium equations
+        per substance.
+        The number is based on the number of phases in which a substance is present i.e.,
+        if substance c is present in n_p(c) phases, we need n_p(c) - 1 equilibrium equations.
+
+        :return: dictionary with substance names as keys and equation numbers as values
+        :rtype: dict
+        """
+        equ_nums = dict()
+
+        for substance in self._present_substances:
+            equ_nums.update(
+                {substance.name: len(self._phases_per_substance[substance]) - 1}
+            )
+
+        return equ_nums
 
     @property
     def subdomains(
@@ -199,12 +230,16 @@ class Composition:
         :return: overall molar density of the composition using the caloric relation.
         :rtype: :class:`~porepy.numerics.ad.operators.MergedVariable`
         """
-        density = 0.0
-        for phase in self:
-            density += phase.saturation * phase.molar_density(
-                self.pressure, self.enthalpy
-            )
-        return density
+        rho = [
+            phase.saturation * phase.molar_density(self.pressure, self.enthalpy)
+            for phase in self
+        ]
+        # density = 0.0
+        # for phase in self:
+        #     density += phase.saturation * phase.molar_density(
+        #         self.pressure, self.enthalpy
+        #     )
+        return sum(rho)
 
     def assign_material_to_grid(
         self, grid: "pp.Grid", substance: "pp.composite.SolidSubstance"
@@ -263,6 +298,82 @@ class Composition:
                 self._present_phases.append(phase)
 
         self._resolve_composition()
+
+    def add_phase_equilibrium_equation(
+        self,
+        substance: "pp.composite.Substance",
+        equation: "pp.ad.Operator",
+        equ_name: str,
+    ) -> None:
+        """Adds a phase equilibrium equation for closing the system.
+
+        This is modularized and for now it is completely up to the modeler to assure
+        a non-singular system of equations.
+
+        NOTE: Make sure the equation is such, that the right-hand-side is zero and the passed
+        operator represent the left-hand-side
+        NOTE: Make sure the name is unique. Unknown behavior else.
+
+        For the number of necessary equations see
+        :method:`~porepy.composite.composition.Composition.num_phase_equilibrium_equations`.
+
+        :param substance: Substance instance present in the composition
+        :type substance: :class:`~porepy.composite.substance.Substance`
+        :param equation: AD Operator representing the equation s.t. the right-hand-side is 0
+        :type equation: :class:`~porepy.ad.Operator`
+        :param equ_name: name of the given equation
+        :type equ_name: str
+        """
+
+        if substance in self._present_substances:
+            raise_error = False
+            eq_num_max = self.num_phase_equilibrium_equations[substance.name]
+            eq_num_is = len(self.phase_equilibrium_equations[substance.name])
+            # if not enough equations available, add it
+            if eq_num_is < eq_num_max:
+                self.phase_equilibrium_equations[substance.name].update(
+                    {equ_name: equation}
+                )
+            # if enough are available, check if one is replacable (same name)
+            elif eq_num_is == eq_num_max:
+                if equ_name in self.phase_equilibrium_equations[substance.name].keys():
+                    self.phase_equilibrium_equations[substance.name].update(
+                        {equ_name: equation}
+                    )
+                else:
+                    raise_error = True
+            else:
+                raise_error = True
+            # if the supposed number of equation would be violated, raise an error
+            if raise_error:
+                raise RuntimeError(
+                    "Maximal number of phase equilibria equations "
+                    + "for substance %s (%i) exceeded." % (substance.name, eq_num_max)
+                )
+        else:
+            raise ValueError(
+                "Substance '%s' not present in composition." % (substance.name)
+            )
+
+    def remove_phase_equilibrium_equation(
+        self, equ_name: str
+    ) -> Union[None, "pp.ad.Operator"]:
+        """Removes the equation with name 'equ_name'.
+
+        :param equ_name: name of the equation passed to
+            :method:`~porepy.composit.Composition.add_phase_equilibrium_equation`
+        :type equ_name: str
+
+        :return: If the equation name is valid, returns the las operator found under this name.
+            Returns None otherwise
+        """
+        operator = None
+        for substance in self._present_substances:
+            operator = self.phase_equilibrium_equations[substance.name].pop(
+                equ_name, None
+            )
+
+        return operator
 
     def set_initial_state(
         self,
@@ -351,8 +462,6 @@ class Composition:
                     + str(grid)
                 )
 
-        # TODO isenthalpic flash
-
     def phases_of_substance(
         self, substance: "pp.composite.Substance"
     ) -> Tuple[PhaseField, ...]:
@@ -391,24 +500,20 @@ class Composition:
 
         self._calculate_initial_molar_phase_fractions()
         self._calculate_initial_overall_substance_fractions()
+        self._check_num_phase_equilibrium_equations()
 
         # setting of equations and subsystems
         equations = dict()
-        equilibrium_subsystem = {
+        subset: Any
+        subsystem_dict: Dict[str, list] = {
             "equations": list(),
             "vars": list(),
             "var_names": list(),
         }
-        saturation_flash_subsystem = {
-            "equations": list(),
-            "vars": list(),
-            "var_names": list(),
-        }
-        isenthalpic_flash_subsystem = {
-            "equations": list(),
-            "vars": list(),
-            "var_names": list(),
-        }
+        # deep copies
+        phase_equilibrium_subsystem = dict(subsystem_dict)
+        saturation_flash_subsystem = dict(subsystem_dict)
+        isenthalpic_flash_subsystem = dict(subsystem_dict)
 
         ### EQUILIBRIUM CALCULATIONS
         # num_substances overall fraction equations
@@ -416,9 +521,11 @@ class Composition:
         for c, substance in enumerate(self._present_substances):
             name = "overall_substance_fraction_%s" % (substance.name)
             equations.update({name: subset[c]})
-            equilibrium_subsystem["equations"].append(name)
-            equilibrium_subsystem["vars"].append(substance.overall_fraction)
-            equilibrium_subsystem["var_names"].append(substance.overall_fraction_var)
+            phase_equilibrium_subsystem["equations"].append(name)
+            phase_equilibrium_subsystem["vars"].append(substance.overall_fraction)
+            phase_equilibrium_subsystem["var_names"].append(
+                substance.overall_fraction_var
+            )
 
         # num_phases - 1 substance in phase sum equations
         subset = self.substance_in_phase_sum_equations()
@@ -426,18 +533,22 @@ class Composition:
         for i in range(self.num_phases - 1):
             name = "substance_in_phase_sum_%s_%s" % (phases[i].name, phases[i + 1].name)
             equations.update({name: subset[i]})
-            equilibrium_subsystem["equations"].append(name)
+            phase_equilibrium_subsystem["equations"].append(name)
 
-        # num_substances * (num_phases - 1) fugacity equations
-        # TODO
+        # num_substances * (num_phases(of substance) - 1) phase equilibrium equations
+        for substance in self._present_substances:
+            for equ_name in self.phase_equilibrium_equations[substance.name]:
+                equation = self.phase_equilibrium_equations[substance.name][equ_name]
+                equations.update({equ_name: equation})
+                phase_equilibrium_subsystem["equations"].append(equ_name)
 
         # adding substance fractions in phases to subsystem
         for substance in self._present_substances:
             for phase in self._phases_per_substance[substance]:
-                equilibrium_subsystem["vars"].append(
+                phase_equilibrium_subsystem["vars"].append(
                     substance.fraction_in_phase(phase.name)
                 )
-                equilibrium_subsystem["var_names"].append(
+                phase_equilibrium_subsystem["var_names"].append(
                     substance.fraction_in_phase_var(phase.name)
                 )
 
@@ -445,13 +556,13 @@ class Composition:
         equ = self.molar_phase_fraction_sum()
         name = "molar_phase_fraction_sum"
         equations.update({name: equ})
-        equilibrium_subsystem["equations"].append(name)
+        phase_equilibrium_subsystem["equations"].append(name)
         for phase in self:
-            equilibrium_subsystem["vars"].append(phase.molar_fraction)
-            equilibrium_subsystem["var_names"].append(phase.molar_fraction_var)
+            phase_equilibrium_subsystem["vars"].append(phase.molar_fraction)
+            phase_equilibrium_subsystem["var_names"].append(phase.molar_fraction_var)
 
         # store respective subsystem
-        self._equilibrium_subsystem = equilibrium_subsystem
+        self._phase_equilibrium_subsystem = phase_equilibrium_subsystem
 
         ### SATURATION FLASH
         # num_phases saturation fraction equations for saturation flash calculations
@@ -467,7 +578,7 @@ class Composition:
 
         ### ISENTHALPIC FLASH
         # 1 isenthalpic equation for isenthalpic flash
-        equ = self.isenthalpic_flash()
+        equ = self.isenthalpic_flash_equation()
         name = "isenthalpic_flash"
         equations.update({name: equ})
         # store respective subsystem
@@ -496,7 +607,7 @@ class Composition:
         :return: True if all calculations are successful, False otherwise
         :rtype: bool
         """
-        equilibrium = self.compute_equilibrium()
+        equilibrium = self.compute_phase_equilibrium()
         saturations = self.saturation_flash()
         isenthalpic = self.isenthalpic_flash()
 
@@ -509,10 +620,16 @@ class Composition:
     ### Equilibrium and flash calculations
     # -----------------------------------------------------------------------------------------
 
-    def compute_equilibrium(
+    def compute_phase_equilibrium(
         self, max_iterations: int = 100, eps: float = 1.0e-10
     ) -> bool:
         """Computes the equilibrium using the following equations:
+            - overall substance fraction equations (num_substances)
+            - fugacity equations (num_substances * (num_phases -1))
+            - substance fraction in phase unity equations (num_phases - 1)
+            - molar phase fraction unity equation (1)
+
+        Equilibrium for fixed pressure and enthalpy is assumed.
 
         :param max_iterations: set maximal number for Newton iterations
         :type max_iterations: int
@@ -522,31 +639,15 @@ class Composition:
         :return: True if successful, False otherwise
         :rtype: bool
         """
-        equ_names = list()
-        variables = list()
-        var_names = list()
-
-        # overall substance fraction equations
-        for substance in self._present_substances:
-            equ_names.append("overall_substance_fraction_%s" % (substance.name))
-            variables.append(substance.overall_fraction)
-            var_names.append(substance.overall_fraction_var)
-
-        # phase fraction sum
-        phases = list()
-        for phase in self:
-            equ_names.append("molar_phase_fraction_sum")
-            variables.append(phase.molar_fraction)
-            var_names.append(phase.molar_fraction_var)
-            phases.append(phase)
-
-        # substance in phase sum equations
-        for i in range(self.num_phases - 1):
-            name = "substance_in_phase_sum_%s_%s" % (phases[i].name, phases[i + 1].name)
-            equ_names.append(name)
+        # get objects defining the subsystem
+        subsystem = self._phase_equilibrium_subsystem
 
         return self._subsystem_newton(
-            equ_names, variables, var_names, max_iterations, eps
+            subsystem["equations"],
+            subsystem["vars"],
+            subsystem["var_names"],
+            max_iterations,
+            eps,
         )
 
     def saturation_flash(self, max_iterations: int = 100, eps: float = 1.0e-10) -> bool:
@@ -615,7 +716,7 @@ class Composition:
 
         return equation
 
-    def overall_substance_fraction_equations(self) -> List["pp.ad.Operator"]:
+    def overall_substance_fraction_equations(self) -> List["pp.ad.MergedVariable"]:
         """Returns num_substances equations representing the definition of the
         overall component fraction.
         The order of equations per substance equals the order of substances as they appear in
@@ -669,9 +770,13 @@ class Composition:
             phase_j = phases[i + 1]
 
             # sum_c chi_ci
-            sum_i = sum([substance.fraction_in_phase(phase_i) for substance in phase_i])
+            sum_i = sum(
+                [substance.fraction_in_phase(phase_i.name) for substance in phase_i]
+            )
             # sum_c chi_cj
-            sum_j = sum([substance.fraction_in_phase(phase_j) for substance in phase_j])
+            sum_j = sum(
+                [substance.fraction_in_phase(phase_j.name) for substance in phase_j]
+            )
             # sum_c chi_ci - sum_c chi_cj
             equations.append(sum_i - sum_j)
 
@@ -698,8 +803,28 @@ class Composition:
         return equations
 
     def isenthalpic_flash_equation(self) -> "pp.ad.Operator":
-        """Returns an operator representing the isenthalpic flash equation."""
-        pass
+        """Returns an operator representing the isenthalpic flash equation.
+
+        rho(p,h) * h = sum_e s_e * rho_e(p,h) * h_e(p, h, T)
+
+        We still express densities in terms of p, h since density is not supposed to change
+        during the flash calculation. This leads to solely the phase enthalpies being dependent
+        on temperature.
+        """
+        # rho(p, h, s_e) * h
+        equ = self.composit_density * self._enthalpy
+
+        for phase in self._present_phases:
+            # - s_e * rho_e(p,h) * h_e(p,h,T)
+            equ -= (
+                phase.saturation
+                * phase.molar_density(self._pressure, self._enthalpy)
+                * phase.enthalpy(
+                    self._pressure, self._enthalpy, temperature=self._temperature
+                )
+            )
+
+        return equ
 
     # -----------------------------------------------------------------------------------------
     ### private methods
@@ -785,6 +910,27 @@ class Composition:
                     + str(grid)
                 )
 
+    def _check_num_phase_equilibrium_equations(self) -> None:
+        """Checks whether enough phase equilibria equations were passed.
+        Raises en error if not.
+        """
+
+        missing_num = 0
+
+        for substance in self._present_substances:
+            # should-be-number
+            equ_num = self.num_phase_equilibrium_equations[substance.name]
+            # summing discrepancy
+            missing_num += equ_num - len(
+                self.phase_equilibrium_equations[substance.name].keys()
+            )
+
+        if missing_num > 0:
+            raise RuntimeError(
+                "Missing %i phase equilibria equations to initialize the composition."
+                % (missing_num)
+            )
+
     def _resolve_composition(self) -> None:
         """Analyzes the composition, i.e. presence of substances in phases.
         Information about substances which are anticipated in multiple phases is stored.
@@ -808,6 +954,10 @@ class Composition:
 
         self._present_substances = unique_substances
         self._phases_per_substance = phases_per_substance
+
+        for substance in unique_substances:
+            if substance.name not in self.phase_equilibrium_equations.keys():
+                self.phase_equilibrium_equations.update({substance.name: dict()})
 
         # update DOFs since new unknowns were introduced
         self.dof_manager.update_dofs()
@@ -862,5 +1012,12 @@ class Composition:
                     self.dof_manager.distribute_variable(X[X != 0], variables=var_names)
                     success = True
                     break
+
+        # if not successful, replace iterate values with initial state values
+        if not success:
+            X = self.dof_manager.assemble_variable(variables=var_names)
+            self.dof_manager.distribute_variable(
+                X[X != 0], variables=var_names, to_iterate=True
+            )
 
         return success

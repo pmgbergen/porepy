@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 import warnings
-from typing import Dict, Generator, List, Union
+from typing import Dict, Generator, List, Optional, Union
 
 import numpy as np
 
@@ -366,7 +366,8 @@ class PhaseField(abc.ABC):
     def enthalpy(
         self,
         pressure: "pp.ad.Operator",
-        enthalpy: "pp.ad.Operator",
+        composit_enthalpy: "pp.ad.Operator",
+        temperature: Optional[Union["pp.ad.Operator", None]] = None,
     ) -> "pp.ad.Operator":
         """
         Abstract physical quantity, dependent on thermodynamic state and the composition.
@@ -376,13 +377,19 @@ class PhaseField(abc.ABC):
         NOTE: See Gibb's rule for compositions, the enthalpy of a phase in a composition with
         a global variable, should depend only on pressure and composition.
 
+        NOTE: For the isenthalpic flash, this function will be called additionally with
+        temperature as a variable.
+        If temperature is not NONE, a temperature-dependent enthalpy operator must be returned.
+
         Math. Dimension:        scalar
         Phys.Dimension:         [J / mol / K]
 
         :param pressure: global pressure variable
-        :type pressure: :class:`~porepy.ad.MergedVariable`
-        :param enthalpy: global enthalpy variable
-        :type enthalpy: :class:`~porepy.ad.MergedVariable`
+        :type pressure: :class:`~porepy.ad.Operator`
+        :param composit_enthalpy: global enthalpy variable
+        :type composit_enthalpy: :class:`~porepy.ad.Operator`
+        :param temperature: (optional) global temperature variable for the isenthalpic flash
+        :type temperature: :class:`~porepy.ad.Operator`
 
         :return: specific molar enthalpy of the phase
         :rtype: :class:`~porepy.ad.operators.Operator`
