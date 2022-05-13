@@ -204,7 +204,7 @@ class Exporter:
         data: Optional[Union[DataInput, List[DataInput]]] = None,
         time_dependent: Optional[bool] = False, # TODO in use? e.g., when not each time step is printed? or is time_step usually used?
         time_step: Optional[int] = None,
-        gb: Optional[Union[pp.Grid, pp.GridBucket]] = None, # TODO what if it is none?
+        gb: Optional[Union[pp.Grid, pp.GridBucket]] = None,
     ) -> None:
         """
         Interface function to export the grid and additional data with meshio.
@@ -221,7 +221,7 @@ class Exporter:
             time_dependent (boolean, optional): If False, file names will
                 not be appended with an index that markes the time step.
                 Can be overwritten by giving a value to time_step; if not,
-                the file names will subsequently be ending with 0, 1, etc.
+                the file names will subsequently be ending with 1, 2, etc.
             time_step (int, optional): will be used ass eppendic to define
                 the file corresponding to this specific time step.
             gb (Union[pp.Grid, pp.Gridbucket], optional): grid or gridbucket
@@ -255,14 +255,14 @@ class Exporter:
             time_step = self._time_step_counter
             self._time_step_counter += 1
 
-        # If the problem is time dependent (with specified or automatic time step index)
-        # add the time step to the exported files
+        # If time step is prescribed, store it.
         if time_step is not None:
             self._exported_time_step_file_names.append(time_step)
 
-        # Convert provided data to the most general type: SubdomainDataBaseType
-        # Also sort wrt. whether data is associated to nodes or edges.
-        subdomain_data, interface_data = self._unify_data(data)
+        # Preprocessing step with two main goals:
+        # 1. Sort wrt. whether data is associated to subdomains or interfaces.
+        # 2. Unify data type.
+        subdomain_data, interface_data = self._sort_and_unify_data(data)
 
         # Add geometrical info for nodes and edges
         # TODO
@@ -275,14 +275,14 @@ class Exporter:
 
         # Export data and treat node and edge data separately
         if subdomain_data:
-            self._export_data(subdomain_data, time_step)
+            self._export_data_vtu(subdomain_data, time_step, "subdomain data")
         if interface_data:
-            self._export_data(interface_data, time_step)
+            self._export_data_vtu(interface_data, time_step, "interface data")
 
-        # Export pvd
+        # Export grid bucket to pvd format
         file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
-        file_name = self._make_folder(self.folder_name, file_name)
-        self._export_pvd_gb(file_name, time_step)
+        file_name = self._append_folder_name(self.folder_name, file_name)
+        self._export_gb_pvd(file_name, time_step)
 
         # Update previous time step used for export to be used in the next application.
         if time_step is not None:
@@ -319,7 +319,7 @@ class Exporter:
 
         assert file_extension is not None  # make mypy happy
 
-        o_file = open(self._make_folder(self.folder_name, self.file_name) + ".pvd", "w")
+        o_file = open(self._append_folder_name(self.folder_name, self.file_name) + ".pvd", "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
         header = (
@@ -342,14 +342,15 @@ class Exporter:
 
     # Some auxiliary routines used in write_vtu()
 
-    def _unify_data(
+    def _sort_and_unify_data(
             self, data: Optional[Union[DataInput, List[DataInput]]] = None,
         ) -> Tuple[SubdomainData, InterfaceData]:
-        """Bring data in unified format to be further used in the export.
+        """
+        Preprocess data.
         
-        The routine has two goals: Splitting data into node and edge data,
-        as well as transforming all data to be exported into dictionaries
-        of the format {(grid/edge, key): value)}.
+        The routine has two goals:
+        1. Splitting data into subdomain and interface data.
+        2. Unify the data format into tuples of grid/edge, name, data array.
         
         Parameters:
             data (Union[DataInput, List[DataInput]], optional): data
@@ -652,65 +653,59 @@ class Exporter:
 
         return interface_data
 
-    def _export_data(
+    def _export_data_vtu(
             self,
             data: Union[SubdomainData, InterfaceData],
-            time_step: int
+            time_step: int,
+            data_type: str,
         ) -> None:
-        """Routine for collecting data associated to a single grid dimension
+        """
+        Collect data associated to a single grid dimension
         and passing further to the final writing routine.
         
         For each fixed dimension, all subdomains of that dimension and the data
-        related to that subdomains will be exported simultaneously. The same
-        for interfaces.
+        related to that subdomains will be exported simultaneously.
+        The same for interfaces.
 
         Parameters:
             data (Union[SubdomainData, InterfaceData]): Subdomain or edge data. The routine
                 notices itself of which type the data is and proceeds
                 accordingly.
-            time_step (int): time_step to be used to append the file name.
+            time_step (int): time_step to be used to append the file name
+            data_type (str): has to be "subdomain data" or "interface data" indicating the
+                type of the data.
         """
-        # Deterimine whether data corresponds to subdomain or interface data.
-        # Subdomain data and interface data will be treated differently throughout
-        # the export procedure.
-        is_subdomain_data = all([isTupleOf_entity_str(pt, entity="node") for pt in data])
-        is_interface_data = all([isTupleOf_entity_str(pt, entity="edge") for pt in data])
-        if not is_subdomain_data and not is_interface_data:
-            raise ValueError("data has to be consistently either of subdomain or interface data type.")
-
-        # Collect unique keys, and for unique sorting, sort by alphabet
-        keys = list(set([key for _,key in data]))
-        keys.sort()
-
-        time_0 = 0
+        # Determine whether data corresponds to subdomain or interface data.
+        assert(data_type in ["subdomain data", "interface data"])
+        is_subdomain_data = data_type == "subdomain data"
 
         # Fetch the dimnensions to be traversed. For subdomains, fetch the dimensions
         # of the available grids, and for interfaces fetch the dimensions of the available
         # mortar grids.
         dims = self.dims if is_subdomain_data else self.m_dims
 
+        # Define file name (extend in case of interface data)
+        file_name_base: str = self.file_name if is_subdomain_data else self.file_name  + "_mortar_"
+        # Append folder name to file name base
+        file_name_base: str = self._append_folder_name(self.folder_name, file_name_base)
+
+        # Collect unique keys, and for unique sorting, sort by alphabet
+        keys = list(set([key for _,key in data]))
+        keys.sort()
+
         # Collect the data and extra data in a single stack for each dimension
         for dim in dims:
-            # Define the file name depending on data type
-            if is_subdomain_data:
-                file_name = self._make_file_name(
-                    self.file_name, time_step, dim
-                )
-            elif is_interface_data:
-                file_name = self._make_file_name(
-                    self.file_name + "_mortar_", time_step, dim
-                )
-
-            # Append folder name to file name
-            file_name = self._make_folder(self.folder_name, file_name)
+            # Define the file name
+            file_name: str = self._make_file_name(file_name_base, time_step, dim)
 
             # Get all geometrical entities of dimension dim: subdomains
             # with correct grid dimension for subdomain data, and interfaces
             # with correct mortar grid dimension for edge data.
+            # TODO update and simplify when new GridTree structure is in place. 
             entities: Union[List[pp.Grid], List[Tuple[pp.Grid, pp.Grid]]] = []
             if is_subdomain_data:
                 entities = self.gb.get_grids(lambda g: g.dim == dim)
-            elif is_interface_data:
+            else:
                 entities = [e for e, d in self.gb.edges() if d["mortar_grid"].dim == dim]
 
             # Construct the list of fields represented on this dimension.
@@ -738,7 +733,7 @@ class Exporter:
             if meshio_geom is not None:
                 self._write(fields, file_name, meshio_geom)
 
-    def _export_pvd_gb(self, file_name: str, time_step: int) -> None:
+    def _export_gb_pvd(self, file_name: str, time_step: int) -> None:
         """Routine to export to pvd format and collect all data scattered over
         several files for distinct grid dimensions.
 
@@ -1535,13 +1530,13 @@ class Exporter:
         # Write updates to file
         tree.write(file_name)
 
-    def _make_folder(self, folder_name: Optional[str] = None, name: str = "") -> str:
+    def _append_folder_name(self, folder_name: Optional[str] = None, name: str = "") -> str:
         """
         Auxiliary method setting up potentially non-existent folder structure and
         setting up a path for exporting.
 
         Parameters:
-            folder_name (Optional[str]): name of the folder
+            folder_name (str, optional): name of the folder
             name (str): prefix of the name of the files to be written
 
         Returns:
@@ -1576,8 +1571,8 @@ class Exporter:
 
         Parameters:
             file_name (str): prefix of the name of file to be exported
-            time_step (Optional[Union[float int]]): time or time step (index)
-            dim (Optional[int]): dimension of the exported grid
+            time_step (Union[float int], optional): time or time step (index)
+            dim (int, optional): dimension of the exported grid
             extension (str): extension of the file, typically file ending
                 defining the format
 
