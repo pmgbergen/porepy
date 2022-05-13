@@ -839,7 +839,7 @@ class ParameterMatrix(ParameterArray):
     """
 
     def __str__(self) -> str:
-        return f"ParameterArray({self.param_keyword})({self.array_keyword})"
+        return f"ParameterMatrix({self.param_keyword})({self.array_keyword})"
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
         """Convert the Ad expression into numerical values for the scalar sources,
