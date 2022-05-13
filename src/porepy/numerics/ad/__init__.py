@@ -9,17 +9,17 @@ etc.
 __all__ = []
 
 from . import (
+    functions,
     discretizations,
     equation_manager,
     forward_mode,
-    functions,
     grid_operators,
     operators,
 )
-from .discretizations import *
 from .equation_manager import *
 from .forward_mode import *
 from .functions import *
+from .discretizations import *
 from .grid_operators import *
 from .operators import *
 
