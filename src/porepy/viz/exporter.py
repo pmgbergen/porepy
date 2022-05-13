@@ -158,15 +158,13 @@ class Exporter:
         num_m_dims = self.m_dims.size
         self.m_meshio_geom = dict(zip(self.m_dims, [tuple()] * num_m_dims))  # type: ignore
 
-        # Check if numba is installed
-        self._has_numba: bool = "numba" in sys.modules
-
         # Generate geometrical information in meshio format
         self._update_meshio_geom()
 
         # Counter for time step. Will be used to identify files of individual time step,
         # unless this is overridden by optional parameters in write
         self._time_step_counter: int = 0
+
         # Storage for file name extensions for time steps
         self._exported_time_step_file_names: List[int] = []
 
@@ -180,6 +178,11 @@ class Exporter:
         # Parameter to be used in several occasions for adding time stamps.
         self.padding = 6
 
+        # Require numba
+        if "numba" not in sys.modules:
+            raise NotImplementedError("The sorting algorithm requires numba to be installed.")
+
+    # TODO isn't this method obsolete?
     def change_name(self, file_name: str) -> None:
         """
         Change the root name of the files, useful when different keywords are
@@ -230,15 +233,12 @@ class Exporter:
         # (bucket) has not been characterized as fixed.
         if self.fixed_grid and gb is not None:
             raise ValueError("Inconsistency in exporter setting")
-
         elif not self.fixed_grid and gb is not None:
-
             # Require a grid bucket. Thus, convert grid -> grid bucket.
             if isinstance(gb, pp.Grid):
                 # Create a new grid bucket solely with a single grid as nodes.
                 self.gb = pp.GridBucket()
                 self.gb.add_nodes(gb) 
-
             else:
                 self.gb = gb
 
@@ -1044,10 +1044,7 @@ class Exporter:
                     cfn = np.ravel(cfn_indices, order="F").reshape(n,-1).T
 
                     # Sort faces for each cell such that they form a chain. Use a function
-                    # compiled with Numba. Currently, no alternative is provided when Numba
-                    # is not installed. This step is the bottleneck of this routine.
-                    if not self._has_numba:
-                        raise NotImplementedError("The sorting algorithm requires numba to be installed.")
+                    # compiled with Numba. This step is the bottleneck of this routine.
                     cfn = self._sort_point_pairs_numba(cfn).astype(int)
 
                     # For each cell pick the sorted nodes such that they form a chain and thereby
