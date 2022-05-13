@@ -781,6 +781,27 @@ class Exporter:
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
 
+    def _update_meshio_geom(self) -> None:
+        """
+        Auxiliary method upating internal copies of the grids. Merely asks for
+        exporting grids.
+        """
+        # Subdomains
+        for dim in self.dims:
+            # Get grids with dimension dim
+            g = self.gb.get_grids(lambda g: g.dim == dim)
+            # Export and store
+            self.meshio_geom[dim] = self._export_grid(g, dim)
+
+        # Interfaces
+        for dim in self.m_dims:
+            # Extract the mortar grids for dimension dim
+            mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
+            # It contains the mortar grids "unrolled" by sides
+            mg = np.array([g for m in mgs for _, g in m.side_grids.items()])
+            # Export and store
+            self.m_meshio_geom[dim] = self._export_grid(mg, dim)
+
     def _export_grid(
         self, gs: Iterable[pp.Grid], dim: int
     ) -> Union[None, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
@@ -1508,30 +1529,21 @@ class Exporter:
 
         # Loop over all extra data to check whether it is included in the reference
         # file. If so, copy it.
-        for key in extra_node_edge_names:
+        for key in extra_data:
             ref_data_array = fetch_data_array(ref_vtkfile, key, check_existence=False)
             new_data_array = fetch_data_array(new_vtkfile, key, check_existence=False)
+
             # Copy data only if it is included in the reference file, but not the current.
             if ref_data_array is not None and new_data_array is None:
                 new_cell_data.append(ref_data_array)
-        
+       
         # Write updates to file
         tree.write(file_name)
 
-    def _update_meshio_geom(self):
-        for dim in self.dims:
-            g = self.gb.get_grids(lambda g: g.dim == dim)
-            self.meshio_geom[dim] = self._export_grid(g, dim)
-
-        for dim in self.m_dims:
-            # extract the mortar grids for dimension dim
-            mgs = self.gb.get_mortar_grids(lambda g: g.dim == dim)
-            # it contains the mortar grids "unrolled" by sides
-            mg = np.array([g for m in mgs for _, g in m.side_grids.items()])
-            self.m_meshio_geom[dim] = self._export_grid(mg, dim)
-
     def _make_folder(self, folder_name: Optional[str] = None, name: str = "") -> str:
-        """Auxiliary method setting up potentially non-existent folder structure.
+        """
+        Auxiliary method setting up potentially non-existent folder structure and
+        setting up a path for exporting.
 
         Parameters:
             folder_name (Optional[str]): name of the folder
@@ -1560,7 +1572,8 @@ class Exporter:
         dim: Optional[int] = None,
         extension: str = ".vtu",
     ) -> str:
-        """Auxiliary method to setting up file name.
+        """
+        Auxiliary method to setting up file name.
 
         The final name is build as combination of a prescribed prefix,
         and possibly the dimension of underlying grid and time (step)
