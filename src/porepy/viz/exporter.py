@@ -76,26 +76,19 @@ class Exporter:
     # Interface between subdomains
     Interface = Tuple[pp.Grid, pp.Grid]
     
-    # Allowed data structures to define data on subdomains
-    SubdomainDataInput = Union[
+    # Altogether allowed data structures to define data
+    DataInput = Union[
         str,
+        # Subdomain specific data types
         Tuple[Union[pp.Grid, List[pp.Grid]], str],
         Tuple[pp.Grid, str, np.ndarray],
         Tuple[str, np.ndarray],
-    ]
-    
-    # Allowed data structures to define edge data
-    InterfaceDataInput = Union[
-        str,
+        # Interface specific data types
         Tuple[Union[Interface, List[Interface]], str],
         Tuple[Interface, str, np.ndarray],
-        Tuple[str, np.ndarray],
     ]
     
-    # Altogether allowed data structures to define data
-    DataInput = Union[SubdomainDataInput, InterfaceDataInput]
-    
-    # Data structure in which data is stored
+    # Data structure in which data is stored after preprocessing
     SubdomainData = Dict[Tuple[pp.Grid, str], np.ndarray]
     InterfaceData = Dict[Tuple[Interface, str], np.ndarray]
 
