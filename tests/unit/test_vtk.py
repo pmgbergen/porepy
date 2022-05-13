@@ -198,6 +198,51 @@ class MeshioExporterTest(unittest.TestCase):
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_2_mortar_grid_1_vtu())
 
+    def test_gb_3(self):
+        gb, _ = pp.grid_buckets_2d.two_intersecting(
+            [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+        )
+        gb.add_node_props(["dummy_scalar", "dummy_vector"])
+
+        for g, d in gb:
+            pp.set_state(
+                d,
+                {
+                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
+                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+                },
+            )
+
+        for e, d in gb.edges():
+            g = d["mortar_grid"]
+            pp.set_state(
+                d,
+                {
+                    "dummy_scalar": np.zeros(g.num_cells),
+                    "unique_dummy_scalar": np.zeros(g.num_cells),
+                },
+            )
+
+        subdomains_1d = gb.get_grids(lambda g: g.dim==1).tolist()
+        subdomains_2d = gb.get_grids(lambda g: g.dim==2).tolist()
+        g_2d = subdomains_2d[0]
+        interfaces = [e for e, d in gb.edges() if d["mortar_grid"].dim == 1]
+
+        save = pp.Exporter(gb, self.file_name, self.folder, binary=False)
+        save.write_vtu([(subdomains_1d, "dummy_scalar"), "dummy_vector", "unique_dummy_scalar", (g_2d, "cc", g_2d.cell_centers)])
+
+        with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
+            content = self.sliceout(content_file.read())
+        self.assertTrue(content == self._gb_3_grid_1_vtu())
+
+        with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
+            content = self.sliceout(content_file.read())
+        self.assertTrue(content == self._gb_3_grid_2_vtu())
+
+        with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
+            content = self.sliceout(content_file.read())
+        self.assertTrue(content == self._gb_3_mortar_grid_1_vtu())
+
     # NOTE: This test is not directly testing Exporter, but the capability to export networks.
     # Is this a used capability? If not, suggest removing the test and the corresponding capability.
     def test_fractures_2d(self):
@@ -8230,6 +8275,637 @@ class MeshioExporterTest(unittest.TestCase):
 0.00000000000e+00
 
 </DataArray>
+<DataArray type="Float64" Name="unique_dummy_scalar" format="ascii">
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+
+</DataArray>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>
+"""
+
+    def _gb_3_grid_1_vtu(self):
+        return """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
+<!--This file was created by -->
+<UnstructuredGrid>
+<Piece NumberOfPoints="10" NumberOfCells="6">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
+1.00000000000e+00
+5.00000000000e-01
+-5.55111512313e-17
+7.50000000000e-01
+5.00000000000e-01
+-2.77555756156e-17
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+2.50000000000e-01
+5.00000000000e-01
+2.77555756156e-17
+0.00000000000e+00
+5.00000000000e-01
+5.55111512313e-17
+5.00000000000e-01
+7.50000000000e-01
+-2.77555756156e-17
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+2.50000000000e-01
+2.77555756156e-17
+
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+1
+2
+3
+4
+4
+5
+6
+7
+8
+9
+
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
+8
+10
+12
+
+</DataArray>
+<DataArray type="Int64" Name="types" format="ascii">
+3
+3
+3
+3
+3
+3
+
+</DataArray>
+</Cells>
+<CellData>
+<DataArray type="Float64" Name="dummy_scalar" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+
+</DataArray>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>
+"""
+
+    def _gb_3_grid_2_vtu(self):
+        return """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
+<!--This file was created by -->
+<UnstructuredGrid>
+<Piece NumberOfPoints="32" NumberOfCells="16">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+2.50000000000e-01
+0.00000000000e+00
+0.00000000000e+00
+5.00000000000e-01
+0.00000000000e+00
+0.00000000000e+00
+7.50000000000e-01
+0.00000000000e+00
+0.00000000000e+00
+1.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+2.50000000000e-01
+0.00000000000e+00
+2.50000000000e-01
+2.50000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+2.50000000000e-01
+0.00000000000e+00
+7.50000000000e-01
+2.50000000000e-01
+0.00000000000e+00
+1.00000000000e+00
+2.50000000000e-01
+0.00000000000e+00
+0.00000000000e+00
+5.00000000000e-01
+0.00000000000e+00
+0.00000000000e+00
+5.00000000000e-01
+0.00000000000e+00
+2.50000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+2.50000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+7.50000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+7.50000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+1.00000000000e+00
+5.00000000000e-01
+0.00000000000e+00
+1.00000000000e+00
+5.00000000000e-01
+0.00000000000e+00
+0.00000000000e+00
+7.50000000000e-01
+0.00000000000e+00
+2.50000000000e-01
+7.50000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+7.50000000000e-01
+0.00000000000e+00
+7.50000000000e-01
+7.50000000000e-01
+0.00000000000e+00
+1.00000000000e+00
+7.50000000000e-01
+0.00000000000e+00
+0.00000000000e+00
+1.00000000000e+00
+0.00000000000e+00
+2.50000000000e-01
+1.00000000000e+00
+0.00000000000e+00
+5.00000000000e-01
+1.00000000000e+00
+0.00000000000e+00
+7.50000000000e-01
+1.00000000000e+00
+0.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+0.00000000000e+00
+
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+5
+6
+1
+1
+6
+7
+2
+2
+7
+8
+3
+3
+8
+9
+4
+5
+10
+12
+6
+6
+12
+14
+7
+7
+15
+18
+8
+8
+18
+20
+9
+11
+22
+23
+13
+13
+23
+24
+16
+17
+24
+25
+19
+19
+25
+26
+21
+22
+27
+28
+23
+23
+28
+29
+24
+24
+29
+30
+25
+25
+30
+31
+26
+
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="ascii">
+4
+8
+12
+16
+20
+24
+28
+32
+36
+40
+44
+48
+52
+56
+60
+64
+
+</DataArray>
+<DataArray type="Int64" Name="types" format="ascii">
+9
+9
+9
+9
+9
+9
+9
+9
+9
+9
+9
+9
+9
+9
+9
+9
+
+</DataArray>
+</Cells>
+<CellData>
+<DataArray type="Float64" Name="cc" NumberOfComponents="3" format="ascii">
+1.25000000000e-01
+1.25000000000e-01
+0.00000000000e+00
+3.75000000000e-01
+1.25000000000e-01
+0.00000000000e+00
+6.25000000000e-01
+1.25000000000e-01
+0.00000000000e+00
+8.75000000000e-01
+1.25000000000e-01
+0.00000000000e+00
+1.25000000000e-01
+3.75000000000e-01
+0.00000000000e+00
+3.75000000000e-01
+3.75000000000e-01
+0.00000000000e+00
+6.25000000000e-01
+3.75000000000e-01
+0.00000000000e+00
+8.75000000000e-01
+3.75000000000e-01
+0.00000000000e+00
+1.25000000000e-01
+6.25000000000e-01
+0.00000000000e+00
+3.75000000000e-01
+6.25000000000e-01
+0.00000000000e+00
+6.25000000000e-01
+6.25000000000e-01
+0.00000000000e+00
+8.75000000000e-01
+6.25000000000e-01
+0.00000000000e+00
+1.25000000000e-01
+8.75000000000e-01
+0.00000000000e+00
+3.75000000000e-01
+8.75000000000e-01
+0.00000000000e+00
+6.25000000000e-01
+8.75000000000e-01
+0.00000000000e+00
+8.75000000000e-01
+8.75000000000e-01
+0.00000000000e+00
+
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii">
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+
+</DataArray>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>
+"""
+
+    def _gb_3_mortar_grid_1_vtu(self):
+        return """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
+<!--This file was created by -->
+<UnstructuredGrid>
+<Piece NumberOfPoints="20" NumberOfCells="12">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
+1.00000000000e+00
+5.00000000000e-01
+-5.55111512313e-17
+7.50000000000e-01
+5.00000000000e-01
+-2.77555756156e-17
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+2.50000000000e-01
+5.00000000000e-01
+2.77555756156e-17
+0.00000000000e+00
+5.00000000000e-01
+5.55111512313e-17
+1.00000000000e+00
+5.00000000000e-01
+-5.55111512313e-17
+7.50000000000e-01
+5.00000000000e-01
+-2.77555756156e-17
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+2.50000000000e-01
+5.00000000000e-01
+2.77555756156e-17
+0.00000000000e+00
+5.00000000000e-01
+5.55111512313e-17
+5.00000000000e-01
+7.50000000000e-01
+-2.77555756156e-17
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+2.50000000000e-01
+2.77555756156e-17
+5.00000000000e-01
+7.50000000000e-01
+-2.77555756156e-17
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+5.00000000000e-01
+2.50000000000e-01
+2.77555756156e-17
+
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+1
+2
+3
+4
+4
+5
+6
+7
+7
+8
+9
+10
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
+8
+10
+12
+14
+16
+18
+20
+22
+24
+
+</DataArray>
+<DataArray type="Int64" Name="types" format="ascii">
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+
+</DataArray>
+</Cells>
+<CellData>
 <DataArray type="Float64" Name="unique_dummy_scalar" format="ascii">
 0.00000000000e+00
 0.00000000000e+00
