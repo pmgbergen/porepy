@@ -66,9 +66,9 @@ class MeshioExporterTest(unittest.TestCase):
         self.assertTrue(content == self._single_grid_2d_cart_grid_vtu())
 
     def test_single_grid_2d_polytop(self):
-        g = pp.CartGrid([3, 2], [1] * 2)
+        g = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
         g.compute_geometry()
-        pp.coarsening.generate_coarse_grid(g, [0, 0, 1, 0, 1, 1])
+        pp.coarsening.generate_coarse_grid(g, [0, 1, 3, 3, 1, 1, 2, 2])
         g.compute_geometry()
 
         dummy_scalar = np.ones(g.num_cells) * g.dim
@@ -932,16 +932,13 @@ class MeshioExporterTest(unittest.TestCase):
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
 <UnstructuredGrid>
-<Piece NumberOfPoints="12" NumberOfCells="2">
+<Piece NumberOfPoints="9" NumberOfCells="4">
 <Points>
 <DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
 0.00000000000e+00
 0.00000000000e+00
 0.00000000000e+00
-3.33333333333e-01
-0.00000000000e+00
-0.00000000000e+00
-6.66666666667e-01
+5.00000000000e-01
 0.00000000000e+00
 0.00000000000e+00
 1.00000000000e+00
@@ -950,10 +947,7 @@ class MeshioExporterTest(unittest.TestCase):
 0.00000000000e+00
 5.00000000000e-01
 0.00000000000e+00
-3.33333333333e-01
 5.00000000000e-01
-0.00000000000e+00
-6.66666666667e-01
 5.00000000000e-01
 0.00000000000e+00
 1.00000000000e+00
@@ -962,10 +956,7 @@ class MeshioExporterTest(unittest.TestCase):
 0.00000000000e+00
 1.00000000000e+00
 0.00000000000e+00
-3.33333333333e-01
-1.00000000000e+00
-0.00000000000e+00
-6.66666666667e-01
+5.00000000000e-01
 1.00000000000e+00
 0.00000000000e+00
 1.00000000000e+00
@@ -977,36 +968,42 @@ class MeshioExporterTest(unittest.TestCase):
 <Cells>
 <DataArray type="Int64" Name="connectivity" format="ascii">
 0
+1
 4
-8
-9
+4
 5
-6
-2
+8
+7
 1
 2
-6
 5
-9
-10
-11
-7
+4
+0
 3
+6
+7
+4
 
 </DataArray>
 <DataArray type="Int64" Name="offsets" format="ascii">
-8
+3
+7
+11
 16
 
 </DataArray>
 <DataArray type="Int64" Name="types" format="ascii">
-7
+5
+9
+9
 7
 
 </DataArray>
 </Cells>
 <CellData>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
+2.00000000000e+00
+2.00000000000e+00
 2.00000000000e+00
 2.00000000000e+00
 
@@ -1018,10 +1015,18 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 2.00000000000e+00
 2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
+2.00000000000e+00
 
 </DataArray>
 <DataArray type="Int64" Name="cell_id" format="ascii">
 0
+2
+3
 1
 
 </DataArray>
