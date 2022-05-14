@@ -19,7 +19,7 @@ equations.
 
 Equation scaling: For monolithic solution of coupled systems, the condition number of
 the global matrix may become a severe restriction. To alleviate this, the model is set
-up with three scaling parameters. length_scaling allows to solve on a unit size domain,
+up with three scaling parameters. length_scaling allows solving on a unit size domain,
 and result interpretation on e.g. a kilometer scale. pressure_scale and temperature_scale
 may be used to solve for scaled pressure (p_scaled = p_physical/pressure_scale) and
 temperature. For typical reservoir conditions, choosing a large (e.g. 1e6) pressure_scale
@@ -44,7 +44,7 @@ module_sections = ["models", "numerics"]
 
 
 class THM(pp.ContactMechanicsBiot):
-    """This is a shell class for poro-elastic contact mechanics problems.
+    """This is a shell class for poroelastic contact mechanics problems.
 
     Setting up such problems requires a lot of boilerplate definitions of variables,
     parameters and discretizations. This class is intended to provide a standardized
@@ -60,20 +60,20 @@ class THM(pp.ContactMechanicsBiot):
 
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
-            including in Paraview export.
+            including in ParaView export.
         mortar_displacement_variable (str): Name assigned to the displacement variable
             on the fracture walls. Will be used throughout the simulations, including in
-            Paraview export.
+            ParaView export.
         contact_traction_variable (str): Name assigned to the variable for contact
             forces in the fracture. Will be used throughout the simulations, including
-            in Paraview export.
+            in ParaView export.
         scalar_variable (str): Name assigned to the pressure variable. Will be used
-            throughout the simulations, including in Paraview export.
+            throughout the simulations, including in ParaView export.
         temperature_variable (str): Name assigned to the temperature variable. Will be used
-            throughout the simulations, including in Paraview export.
+            throughout the simulations, including in ParaView export.
         mortar scalar_variable (str): Name assigned to the interface scalar variable
             representing flux between grids. Will be used throughout the simulations,
-            including in Paraview export.
+            including in ParaView export.
 
         mechanics_parameter_key (str): Keyword used to define parameters and
             discretizations for the mechanics problem.
@@ -88,7 +88,7 @@ class THM(pp.ContactMechanicsBiot):
         viz_folder_name (str): Folder for visualization export.
         gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
-        convergence_status (bool): Whether the non-linear iterations has converged.
+        convergence_status (bool): Whether the non-linear iterations have converged.
         linear_solver (str): Specification of linear solver. Only known permissible
             value is 'direct'
         scalar_scale (float): Scaling coefficient for the pressure variable. Can be used
@@ -104,7 +104,6 @@ class THM(pp.ContactMechanicsBiot):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
@@ -138,7 +137,6 @@ class THM(pp.ContactMechanicsBiot):
         # temperature mechanics coupling
         self.mechanics_temperature_parameter_key: str = "mech_temperature"
 
-    @pp.time_logger(sections=module_sections)
     def before_newton_iteration(self) -> None:
         """Re-discretize the nonlinear terms"""
         self.compute_fluxes()
@@ -150,7 +148,6 @@ class THM(pp.ContactMechanicsBiot):
         filt = pp.assembler_filters.ListFilter(term_list=terms)
         self.assembler.discretize(filt=filt)
 
-    @pp.time_logger(sections=module_sections)
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
@@ -181,7 +178,6 @@ class THM(pp.ContactMechanicsBiot):
         # Stress contribution from the scalar variable
         d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * T
 
-    @pp.time_logger(sections=module_sections)
     def compute_fluxes(self) -> None:
         """Compute the fluxes in the mixed-dimensional grid from the current state of
         the pressure variables.
@@ -197,7 +193,6 @@ class THM(pp.ContactMechanicsBiot):
             from_iterate=True,
         )
 
-    @pp.time_logger(sections=module_sections)
     def _set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -206,7 +201,6 @@ class THM(pp.ContactMechanicsBiot):
         self._set_temperature_parameters()
         self._set_mechanics_parameters()
 
-    @pp.time_logger(sections=module_sections)
     def _set_mechanics_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -225,10 +219,9 @@ class THM(pp.ContactMechanicsBiot):
                     },
                 )
 
-    @pp.time_logger(sections=module_sections)
     def _set_scalar_parameters(self) -> None:
         """Set parameters for the pressure / mass conservation equation."""
-        # Most values are handled as if this was a poro-elastic problem
+        # Most values are handled as if this was a poroelastic problem
         super()._set_scalar_parameters()
         for g, d in self.gb:
             t2s_coupling = (
@@ -243,7 +236,6 @@ class THM(pp.ContactMechanicsBiot):
                 {"mass_weight": t2s_coupling, "time_step": self.time_step},
             )
 
-    @pp.time_logger(sections=module_sections)
     def _set_temperature_parameters(self) -> None:
         """Parameters for the temperature equation."""
         tensor_scale: float = (
@@ -311,7 +303,7 @@ class THM(pp.ContactMechanicsBiot):
             # specific volumes
             normal_diffusivity *= v_h
 
-            data_edge = pp.initialize_data(
+            pp.initialize_data(
                 e,
                 data_edge,
                 self.temperature_parameter_key,
@@ -320,36 +312,30 @@ class THM(pp.ContactMechanicsBiot):
                 },
             )
 
-    @pp.time_logger(sections=module_sections)
     def _bc_type_temperature(self, g: pp.Grid) -> pp.BoundaryCondition:
         # Define boundary regions
         all_bf, *_ = self._domain_boundary_sides(g)
         # Define boundary condition on faces
         return pp.BoundaryCondition(g, all_bf, "dir")
 
-    @pp.time_logger(sections=module_sections)
     def _bc_values_temperature(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_faces)
 
-    @pp.time_logger(sections=module_sections)
     def _source_temperature(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_cells)
 
-    @pp.time_logger(sections=module_sections)
     def _biot_beta(self, g: pp.Grid) -> float:
         """
         TM coupling coefficient
         """
         return 1.0
 
-    @pp.time_logger(sections=module_sections)
     def _scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
         """
         TH coupling coefficient
         """
         return -1.0
 
-    @pp.time_logger(sections=module_sections)
     def _assign_variables(self) -> None:
         """
         Assign primary variables to the nodes and edges of the grid bucket.
@@ -369,16 +355,15 @@ class THM(pp.ContactMechanicsBiot):
                 }
             )
 
-    @pp.time_logger(sections=module_sections)
     def _assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
-        Note the attribute subtract_fracture_pressure: Indicates whether or not to
+        Note the attribute subtract_fracture_pressure: Indicates whether to
         subtract the fracture pressure contribution for the contact traction. This
         should not be done if the scalar variable is temperature.
         """
-        # Call parent class for disrcetizations for the poro-elastic system.
+        # Call parent class for discretizations for the poroelastic system.
         super()._assign_discretizations()
 
         # What remains is terms related to temperature
@@ -432,11 +417,10 @@ class THM(pp.ContactMechanicsBiot):
                             "diffusion": diff_disc_t,
                             self.advection_term: adv_disc_t,
                             "mass": mass_disc_t,
-                            # Also the stabilization term from Biot
                             "stabilization": stabilization_disc_t,
                             "source": source_disc_t,
                         },
-                        # grad T term in the momentuum equation
+                        # grad T term in the momentum equation
                         var_d + "_" + var_t: {"grad_p": grad_t_disc},
                         # div u term in the energy equation
                         var_t + "_" + var_d: {"div_u": div_u_disc_t},
@@ -518,7 +502,6 @@ class THM(pp.ContactMechanicsBiot):
                     }
                 )
 
-    @pp.time_logger(sections=module_sections)
     def _initial_condition(self) -> None:
         """
         In addition to the values set by the parent class, we set initial value for the
@@ -531,9 +514,8 @@ class THM(pp.ContactMechanicsBiot):
 
         for e, d in self.gb.edges():
             mg = d["mortar_grid"]
-            d = pp.initialize_data(e, d, key, {"darcy_flux": np.zeros(mg.num_cells)})
+            pp.initialize_data(e, d, key, {"darcy_flux": np.zeros(mg.num_cells)})
 
-    @pp.time_logger(sections=module_sections)
     def _save_mechanical_bc_values(self) -> None:
         """
         The div_u term uses the mechanical bc values for both current and previous time
@@ -553,7 +535,6 @@ class THM(pp.ContactMechanicsBiot):
             key_t
         ]["bc_values"].copy()
 
-    @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
         """Discretize all terms"""
         if not hasattr(self, "dof_manager"):
@@ -564,7 +545,7 @@ class THM(pp.ContactMechanicsBiot):
         tic = time.time()
         logger.info("Discretize")
 
-        # Discretization is a bit cumbersome, as the Biot discetization removes the
+        # Discretization is a bit cumbersome, as the Biot discretization removes the
         # one-to-one correspondence between discretization objects and blocks in the matrix.
         # First, Discretize with the biot class
         self._discretize_biot()
@@ -621,7 +602,6 @@ class THM(pp.ContactMechanicsBiot):
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
-    @pp.time_logger(sections=module_sections)
     def _copy_biot_discretizations(self) -> None:
         """The Biot discretization is designed to discretize a single term of the
         grad_p type. It should not be difficult to generalize this, but pending such
