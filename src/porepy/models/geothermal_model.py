@@ -14,17 +14,18 @@ import scipy.sparse as sps
 import scipy.sparse.linalg as spla
 
 
-class CompositionalFLow(pp.models.abstract_model.AbstractModel):
-    """ Non-isothermal and non-isobaric flow consisting of multiple phases and components.
+class GeothermalModel(pp.models.abstract_model.AbstractModel):
+    """ Non-isothermal and non-isobaric flow consisting of water in liquid in vapor phase
+    and salt in liquid phase.
 
-    Represents the mathematical model of compositional flow with phase change in molar formulation.
-    Physical phase change model given by k-value approach.
+    The phase equilibria equations for water are given using fugacities (k-values).
 
     Public properties:
-        - gb : :class:`~porepy.grids.grid_bucket.GridBucket` Grid object for simulation (3:1 cartesian grid by default)
-        - cd : :class:`~porepy.composite.computational_domain.ComputationalDomain` based on 'gb'
-        - box: 'dict' containing 'xmax','xmin' as keys and the respective bounding box values. Hold also for 'y' and 'z'
-
+        - gb : :class:`~porepy.grids.grid_bucket.GridBucket`
+          Grid object for simulation (3:1 cartesian grid by default)
+        - composition : :class:`~porepy.composite.composition.Composition`
+        - box: 'dict' containing 'xmax','xmin' as keys and the respective bounding box values.
+          Hold also for 'y' and 'z'.
     """
 
     def __init__(self, params: Dict) -> None:
@@ -40,13 +41,13 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         """
         super().__init__(params)
 
+        # PUBLIC
         # create default grid bucket for this model
         self.gb: pp.GridBucket
         self.box: Dict = dict()
         self.create_grid()
 
-        # public properties
-        self.cd = pp.composite.CompositionalDomain(self.gb)
+        self.composition = pp.composite.Composition(self.gb)
         # these two will be instantiated only during the prepare_simulation method
         self.eq_manager: pp.ad.EquationManager
         self.dof_manager: pp.DofManager
@@ -55,11 +56,6 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         self._grids = [g for g, _ in self.gb]
         # list of edges as ordered in GridBucket
         self._edges = [e for e, _ in self.gb.edges()]
-
-        # variable holding all involved component instances
-        self._components = list() 
-        # variable holding all involved fluid phases
-        self._fluid_phases = list()
 
         # model-specific input. below hardcoded values are up for modularization
         self._water_source_quantity = 55555.5  # mol in 1 cubic meter (1 mol of liquid water is approx 1.8xe-5 m^3)
@@ -119,12 +115,10 @@ class CompositionalFLow(pp.models.abstract_model.AbstractModel):
         refinement = 4
         phys_dims = [3, 1]
         n_cells = [i * refinement for i in phys_dims]
-        g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
-        self.box: Dict = pp.geometry.bounding_box.from_points(
-            np.array([[0, 0], phys_dims]).T
-        )
+        g = pp.CartGrid(n_cells, phys_dims)
+        self.box = pp.geometry.bounding_box.from_points(np.array([[0, 0], phys_dims]).T)
         g.compute_geometry()
-        self.gb: pp.GridBucket = pp.meshing._assemble_in_bucket([[g]])
+        self.gb = pp.meshing._assemble_in_bucket([[g]])
 
     def prepare_simulation(self) -> None:
         """
