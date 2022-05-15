@@ -66,7 +66,11 @@ class MaterialSubdomain:
     # ------------------------------------------------------------------------------
 
     def porosity(
-        self, law: str, pressure: "pp.ad.MergedVariable", enthalpy: "pp.ad.MergedVariable", **kwargs
+        self,
+        law: str,
+        pressure: "pp.ad.MergedVariable",
+        enthalpy: "pp.ad.MergedVariable",
+        **kwargs,
     ) -> "pp.ad.Operator":
         """
         Currently supported heuristic laws (values for 'law'):
@@ -96,7 +100,9 @@ class MaterialSubdomain:
                 + "Available: 'pressure,'"
             )
 
-    def relative_permeability(self, law: str, saturation: "pp.ad.MergedVariable", **kwargs) -> "pp.ad.Operator":
+    def relative_permeability(
+        self, law: str, saturation: "pp.ad.MergedVariable", **kwargs
+    ) -> "pp.ad.Operator":
         """
         Currently supported heuristic laws (values for 'law'):
             - 'quadratic':      quadratic power law for saturation
