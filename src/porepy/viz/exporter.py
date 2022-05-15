@@ -26,6 +26,11 @@ logger = logging.getLogger(__name__)
 # Object type to store data to export.
 Field = namedtuple('Field', ['name', 'values'])
 
+# Object for managing meshio-relevant data, as well as a container
+# for its storage, taking dimensions as inputs.
+Meshio_Geom = namedtuple('Meshio_Geom', ['pts', 'connectivity', 'cell_ids'])
+MD_Meshio_Geom = Dict[int, Meshio_Geom]
+
 class Exporter:
     # TODO DOC
     """
@@ -141,13 +146,13 @@ class Exporter:
         # meshio format. Include all but the 0-d grids
         self.dims = np.setdiff1d(self.gb.all_dims(), [0])
         num_dims = self.dims.size
-        self.meshio_geom = dict(zip(self.dims, [tuple()] * num_dims))  # type: ignore
+        self.meshio_geom: MD_Meshio_Geom = dict(zip(self.dims, [tuple()] * num_dims))
 
         # Generate infrastructure for storing fixed-dimensional mortar grids
         # in meshio format.
         self.m_dims = np.unique([d["mortar_grid"].dim for _, d in self.gb.edges()])
         num_m_dims = self.m_dims.size
-        self.m_meshio_geom = dict(zip(self.m_dims, [tuple()] * num_m_dims))  # type: ignore
+        self.m_meshio_geom: MD_Meshio_Geom = dict(zip(self.m_dims, [tuple()] * num_m_dims))
 
         # Generate geometrical information in meshio format
         self._update_meshio_geom()
@@ -626,7 +631,7 @@ class Exporter:
             subdomain_data[(g, "mortar_side")] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
 
         #TODO include here?
-        #cell_id = meshio_geom[2]
+        #cell_id = meshio_geom.cell_ids
         ## add also the cells ids
         #cell_data.update({self.cell_id_key: cell_id})
 
@@ -816,6 +821,7 @@ class Exporter:
         # Include the grids of all dimensions, but only if the grids of this
         # dimension are included in the vtk export
         for dim in self.dims:
+            # TODO in the current setting, is it at all possible to have meshio_geom None?
             if self.meshio_geom[dim] is not None:
                 o_file.write(
                     fm % self._make_file_name(self.file_name, time_step, dim)
@@ -823,6 +829,7 @@ class Exporter:
 
         # Same for mortar grids.
         for dim in self.m_dims:
+            # TODO in the current setting, is it at all possible to have meshio_geom None?
             if self.m_meshio_geom[dim] is not None:
                 o_file.write(
                     fm % self._make_file_name(self.file_name + "_mortar_", time_step, dim)
@@ -946,7 +953,7 @@ class Exporter:
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         # Return final meshio data: points, cell (connectivity), cell ids
-        return meshio_pts, meshio_cells, meshio_cell_id
+        return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _simplex_cell_to_nodes(
         self,
@@ -1137,7 +1144,7 @@ class Exporter:
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         # Return final meshio data: points, cell (connectivity), cell ids
-        return meshio_pts, meshio_cells, meshio_cell_id
+        return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _sort_point_pairs_numba(self, lines: np.ndarray) -> np.ndarray:
         """
@@ -1458,24 +1465,48 @@ class Exporter:
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
         # Return final meshio data: points, cell (connectivity), cell ids
-        return meshio_pts, meshio_cells, meshio_cell_id
+        return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
-    def _write(self, fields: Iterable[Field], file_name: str, meshio_geom) -> None:
+    def _write(
+        self,
+        fields: Iterable[Field],
+        file_name: str,
+        meshio_geom: Meshio_Geom,
+    ) -> None:
+        """
+        Interface to meshio for exporting.
 
+        Export geometrical mesh information and cell data. Also manage
+        the reuse of data.
+
+        Parameters:
+            fields (iterable, Field): fields which shall be exported
+            file_name (str): name of final file of export
+            meshio_geom (Meshio_Geom): Namedtuple of points,
+                connectivity information, and cell ids in
+                meshio format.
+
+                for a single dimension
+        """
+        # TODO adapt doc on reuse
+
+        # Initialize empty cell data dictinary
         cell_data = {}
 
-        # we need to split the data for each group of geometrically uniform cells
-        cell_id = meshio_geom[2]
-        num_block = cell_id.size
-
+        # Split the data for each group of geometrically uniform cells
+        # Utilize meshio_geom for this.
         for field in fields:
+
+            # FIXME as implemented now, field.values should never be None.
             if field.values is None:
                 continue
 
-            # for each field create a sub-vector for each geometrically uniform group of cells
+            # For each field create a sub-vector for each geometrically uniform group of cells
+            num_block = meshio_geom.cell_ids.size
             cell_data[field.name] = np.empty(num_block, dtype=object)
-            # fill up the data
-            for block, ids in enumerate(cell_id):
+
+            # Fill up the data
+            for block, ids in enumerate(meshio_geom.cell_ids):
                 if field.values.ndim == 1:
                     cell_data[field.name][block] = field.values[ids]
                 elif field.values.ndim == 2:
@@ -1483,12 +1514,15 @@ class Exporter:
                 else:
                     raise ValueError
 
+        # TODO move to extra_subdomain_data
         # add also the cells ids
-        cell_data.update({self.cell_id_key: cell_id})
+        reuse_data = self._reuse_data and self._prev_exported_time_step is not None
+        if not reuse_data:
+            cell_data.update({self.cell_id_key: meshio_geom.cell_ids})
 
         # create the meshio object
         meshio_grid_to_export = meshio.Mesh(
-            meshio_geom[0], meshio_geom[1], cell_data=cell_data
+            meshio_geom.pts, meshio_geom.connectivity, cell_data=cell_data
         )
 
         # Exclude/block fixed geometric data as grid points and connectivity information
