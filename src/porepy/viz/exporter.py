@@ -742,7 +742,7 @@ class Exporter:
         dims = self.dims if is_subdomain_data else self.m_dims
 
         # Define file name (extend in case of interface data)
-        file_name_base: str = self.file_name if is_subdomain_data else self.file_name  + "_mortar_"
+        file_name_base: str = self.file_name if is_subdomain_data else self.file_name  + "_mortar"
         # Append folder name to file name base
         file_name_base: str = self._append_folder_name(self.folder_name, file_name_base)
 
