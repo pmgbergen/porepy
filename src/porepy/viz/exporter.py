@@ -156,6 +156,7 @@ class Exporter:
 
         # Generate geometrical information in meshio format
         self._update_meshio_geom()
+        self._update_constant_mesh_data()
 
         # Counter for time step. Will be used to identify files of individual time step,
         # unless this is overridden by optional parameters in write
@@ -170,6 +171,10 @@ class Exporter:
         # general file name is replaces and/or the geometrical data is not
         # constant over single time steps.
         self._prev_exported_time_step: Union[int, type(None)] = None
+
+        # Reference to the last time step used for exporting constant data. 
+        self._time_step_counter_constant_data: int = 0
+        self._exported_constant_data_up_to_date: bool = False
 
         # Parameter to be used in several occasions for adding time stamps.
         self.padding = 6
@@ -240,6 +245,7 @@ class Exporter:
 
             # Update geometrical info in meshio format for the updated grid
             self._update_meshio_geom()
+            self._update_constant_mesh_data()
 
             # Reset control parameter for the reuse of fixed data in the
             # write routine, so the updated mesh is used for further export.
@@ -260,24 +266,38 @@ class Exporter:
         # 2. Unify data type.
         subdomain_data, interface_data = self._sort_and_unify_data(data)
 
-        # Add geometrical info for nodes and edges
-        # TODO
-        reuse_data = self._reuse_data and self._prev_exported_time_step is not None
-        if reuse_data:
-            subdomain_data = self._add_extra_subdomain_data(subdomain_data)
-            interface_data = self._add_extra_interface_data(interface_data)
-        #subdomain_data = self._add_extra_subdomain_data(subdomain_data)
-        #interface_data = self._add_extra_interface_data(interface_data)
+        ## Add geometrical info for nodes and edges
+        ## TODO move somewhere else? or include an extra routine, and always execute after performing _update_meshio_geom
+        #reuse_data = self._reuse_data and self._prev_exported_time_step is not None
+        #if reuse_data:
+        #    subdomain_data = self._add_extra_subdomain_data(subdomain_data)
+        #    interface_data = self._add_extra_interface_data(interface_data)
+        ##subdomain_data = self._add_extra_subdomain_data(subdomain_data)
+        ##interface_data = self._add_extra_interface_data(interface_data)
 
-        # Export data and treat node and edge data separately
+        # Export subdomain and interface data to vtu format if existing
         if subdomain_data:
-            self._export_data_vtu(subdomain_data, time_step, "subdomain data")
+            self._export_data_vtu(subdomain_data, time_step)
         if interface_data:
-            self._export_data_vtu(interface_data, time_step, "interface data")
+            self._export_data_vtu(interface_data, time_step, interface_data = True)
+
+        # Export constant data to vtu when outdated
+        if not self._exported_constant_data_up_to_date:
+            self._export_data_vtu(self._constant_subdomain_data, time_step, constant_data = True)
+            self._export_data_vtu(self._constant_interface_data, time_step, constant_data = True, interface_data = True)
+
+            # Store the time step counter for later reference (required for pvd files)
+            self._time_step_counter_constant_data = time_step
+
+            # Identify the constant data as fixed. Has the effect that
+            # the constant data won't be exported if not the mesh is updated
+            # or new constant data is added.
+            self._exported_constant_data_up_to_date = True
 
         # Export grid bucket to pvd format
         file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
         file_name = self._append_folder_name(self.folder_name, file_name)
+        # TODO include the constant data in _export_gb_pvd
         self._export_gb_pvd(file_name, time_step)
 
         # Update previous time step used for export to be used in the next application.
@@ -715,11 +735,122 @@ class Exporter:
 
         return interface_data
 
+    def _update_constant_mesh_data(self) -> None:
+        """
+        Construct/update subdomain and interface data related with geometry and topology.
+
+        The data is identified as constant data. The final containers, stored as
+        attributes _constant_subdomain_data and _constant_interface_data, have
+        the same format as the output of _sort_and_unify_data.
+        """
+#        # All extra fields to be added to the data container
+#        self._extra_subdomain_data = ["grid_dim", "is_mortar", "mortar_side"]
+#        # TODO include cell_ids, grid_node_number?
+#        # TODO is this list used anywhere?
+
+        # Identify change in constant data. Has the effect that
+        # the constant data container will be exported at the 
+        # next application of write_vtu().
+        self._exported_constant_data_up_to_date: bool = False
+
+        # Initialize container for constant subdomain data
+        if not hasattr(self, "_constant_subdomain_data"):
+            self._constant_subdomain_data = dict()
+
+        # TODO include cell_id and grid_node_number
+        # Add mesh related, constant subdomain data by direct assignment
+        for g, d in self.gb.nodes():
+            ones = np.ones(g.num_cells, dtype=int)
+            #self._constant_subdomain_data[(g, "cell_id")] = ...
+            self._constant_subdomain_data[(g, "grid_dim")] = g.dim * ones
+            #self._constant_subdomain_data[(g, "grid_node_number")] = d["node_number"] * ones # TODO?
+            self._constant_subdomain_data[(g, "is_mortar")] = 0 * ones
+            self._constant_subdomain_data[(g, "mortar_side")] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
+
+        #TODO include here?
+        #cell_id = meshio_geom.cell_ids
+        ## add also the cells ids
+        #cell_data.update({self.cell_id_key: cell_id})
+
+        # Similarly for interface data
+
+#        # All extra fields to be added to the data container
+#        self._extra_interface_data = ["grid_dim", "cell_id", "grid_edge_number", "is_mortar", "mortar_side"]
+#        # TODO is this used anywhere?
+
+        # Initialize container for constant interface data
+        if not hasattr(self, "_constant_interface_data"):
+            self._constant_interface_data = dict()
+
+        # TODO can't we do this more explicit and by that shorter and simpler?
+        # Add mesh related, constant interface data by direct assignment.
+        for e, d in self.gb.edges():
+
+            # Fetch mortar grid
+            mg = d["mortar_grid"]
+
+            # Construct empty arrays for all extra edge data
+            self._constant_interface_data[(e, "grid_dim")] = np.empty(0, dtype=int)
+            self._constant_interface_data[(e, "cell_id")] = np.empty(0, dtype=int)
+            self._constant_interface_data[(e, "grid_edge_number")] = np.empty(0, dtype=int)
+            self._constant_interface_data[(e, "is_mortar")] = np.empty(0, dtype=int)
+            self._constant_interface_data[(e, "mortar_side")] = np.empty(0, dtype=int)
+
+            # Initialize offset
+            mg_num_cells = 0
+
+            # Assign extra edge data by collecting values on both sides.
+            for side, g in mg.side_grids.items():
+                ones = np.ones(g.num_cells, dtype=int)
+
+                # Grid dimension of the mortar grid
+                self._constant_interface_data[(e, "grid_dim")] = np.hstack(
+                    (
+                        self._constant_interface_data[(e, "grid_dim")],
+                        g.dim * ones
+                    )
+                )
+
+                # Cell ids of the mortar grid
+                self._constant_interface_data[(e, "cell_id")] = np.hstack(
+                    (
+                        self._constant_interface_data[(e, "cell_id")],
+                        np.arange(g.num_cells, dtype=int) + mg_num_cells
+                    )
+                )
+
+                # Grid edge number of each edge
+                self._constant_interface_data[(e, "grid_edge_number")] = np.hstack(
+                    (
+                        self._constant_interface_data[(e, "grid_edge_number")],
+                        d["edge_number"] * ones
+                    )
+                )
+
+                # Whether the edge is mortar
+                self._constant_interface_data[(e, "is_mortar")] = np.hstack(
+                    (
+                        self._constant_interface_data[(e, "is_mortar")],
+                        ones
+                    )
+                )
+
+                # Side of the mortar
+                self._constant_interface_data[(e, "mortar_side")] = np.hstack(
+                    (
+                        self._constant_interface_data[(e, "mortar_side")],
+                        side.value * ones
+                    )
+                )
+
+                # Update offset
+                mg_num_cells += g.num_cells
+
     def _export_data_vtu(
             self,
             data: Union[SubdomainData, InterfaceData],
             time_step: int,
-            data_type: str,
+            **kwargs,
         ) -> None:
         """
         Collect data associated to a single grid dimension
@@ -727,29 +858,38 @@ class Exporter:
         
         For each fixed dimension, all subdomains of that dimension and the data
         related to that subdomains will be exported simultaneously.
-        The same for interfaces.
+        Analogously for interfaces.
 
         Parameters:
-            data (Union[SubdomainData, InterfaceData]): Subdomain or edge data. The routine
-                notices itself of which type the data is and proceeds
-                accordingly.
+            data (Union[SubdomainData, InterfaceData]): Subdomain or interface data.
             time_step (int): time_step to be used to append the file name
-            data_type (str): has to be "subdomain data" or "interface data" indicating the
-                type of the data.
+            kwargs (optional): Optional keywords;
+                'interface_data' (boolean) indicates whether data is associated to
+                an interface, default is False;
+                'constant_data' (boolean) indicates whether data is treated as
+                constant in time, default is False.
         """
-        # Determine whether data corresponds to subdomain or interface data.
-        assert(data_type in ["subdomain data", "interface data"])
-        is_subdomain_data = data_type == "subdomain data"
+        # Check for optional keywords
+        self.interface_data: bool = kwargs.pop("interface_data", False)
+        self.constant_data: bool = kwargs.pop("constant_data", False)
+        if kwargs:
+            msg = "_export_data_vtu got unexpected keyword argument '{}'"
+            raise TypeError(msg.format(kwargs.popitem()[0]))
 
         # Fetch the dimnensions to be traversed. For subdomains, fetch the dimensions
         # of the available grids, and for interfaces fetch the dimensions of the available
         # mortar grids.
+        is_subdomain_data: bool = not self.interface_data
         dims = self.dims if is_subdomain_data else self.m_dims
 
-        # Define file name (extend in case of interface data)
-        file_name_base: str = self.file_name if is_subdomain_data else self.file_name  + "_mortar"
+        # Define file name base
+        file_name_base: str = self.file_name
+        # Extend in case of constant data
+        file_name_base += "_constant" if self.constant_data else ""
+        # Extend in case of interface data
+        file_name_base += "_mortar" if self.interface_data else ""
         # Append folder name to file name base
-        file_name_base: str = self._append_folder_name(self.folder_name, file_name_base)
+        file_name_base = self._append_folder_name(self.folder_name, file_name_base)
 
         # Collect unique keys, and for unique sorting, sort by alphabet
         keys = list(set([key for _,key in data]))
@@ -757,12 +897,12 @@ class Exporter:
 
         # Collect the data and extra data in a single stack for each dimension
         for dim in dims:
-            # Define the file name
+            # Define the full file name
             file_name: str = self._make_file_name(file_name_base, time_step, dim)
 
-            # Get all geometrical entities of dimension dim: subdomains
-            # with correct grid dimension for subdomain data, and interfaces
-            # with correct mortar grid dimension for edge data.
+            # Get all geometrical entities of dimension dim:
+            # subdomains with correct grid dimension for subdomain data, and
+            # interfaces with correct mortar grid dimension for interface data.
             # TODO update and simplify when new GridTree structure is in place. 
             entities: Union[List[pp.Grid], List[Tuple[pp.Grid, pp.Grid]]] = []
             if is_subdomain_data:
