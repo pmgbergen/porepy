@@ -150,3 +150,22 @@ def create_merged_mortar_variable(
             )
 
     return pp.ad.MergedVariable(mortar_variables)
+
+
+class ConvergenceError(Exception):
+    """ Error class to be raised when numerical algorithms do not converge. """
+
+    def __init__(self, *args) -> None:
+        """Constructor for catching arguments passed by the error stack."""
+        if args:
+            self._msg = args[0]
+        else:
+            self._msg = None
+
+    def __str__(self) -> str:
+        """Construct the actual error message."""
+
+        if self._msg:
+            return "ConvergenceError: %s" % (str(self._msg))
+        else:
+            return "ConvergenceError."
