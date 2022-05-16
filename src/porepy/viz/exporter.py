@@ -266,15 +266,6 @@ class Exporter:
         # 2. Unify data type.
         subdomain_data, interface_data = self._sort_and_unify_data(data)
 
-        ## Add geometrical info for nodes and edges
-        ## TODO move somewhere else? or include an extra routine, and always execute after performing _update_meshio_geom
-        #reuse_data = self._reuse_data and self._prev_exported_time_step is not None
-        #if reuse_data:
-        #    subdomain_data = self._add_extra_subdomain_data(subdomain_data)
-        #    interface_data = self._add_extra_interface_data(interface_data)
-        ##subdomain_data = self._add_extra_subdomain_data(subdomain_data)
-        ##interface_data = self._add_extra_interface_data(interface_data)
-
         # Export subdomain and interface data to vtu format if existing
         if subdomain_data:
             self._export_data_vtu(subdomain_data, time_step)
@@ -627,114 +618,6 @@ class Exporter:
 
         return subdomain_data, interface_data
 
-    def _add_extra_subdomain_data(self, subdomain_data: SubdomainData) -> SubdomainData:
-        """Enhance subdomain data with geometrical information.
-
-        Parameters:
-            subdomain_data (SubdomainData, optional): data contains which will be
-                enhanced
-
-        Returns:
-            SubdomainData: previous subdomain_data with additional information on
-                the grid dimension, mortar side and whether the grid is
-                mortar.
-        """
-        # All extra fields to be added to the data container
-        self._extra_subdomain_data = ["grid_dim", "is_mortar", "mortar_side"]
-
-        # Add info by direct assignment
-        for g, d in self.gb.nodes():
-            ones = np.ones(g.num_cells, dtype=int)
-            subdomain_data[(g, "grid_dim")] = g.dim * ones
-            #subdomain_data[(g, "grid_node_number")] = d["node_number"] * ones # TODO?
-            subdomain_data[(g, "is_mortar")] = 0 * ones
-            subdomain_data[(g, "mortar_side")] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
-
-        #TODO include here?
-        #cell_id = meshio_geom.cell_ids
-        ## add also the cells ids
-        #cell_data.update({self.cell_id_key: cell_id})
-
-        return subdomain_data
-
-    def _add_extra_interface_data(self, interface_data: InterfaceData) -> InterfaceData:
-        """Enahnce edge data with geometrical information.
-
-        Parameters:
-            interface_data (InterfaceData, optional): data contains which will be
-                enhanced
-
-        Returns:
-            InterfaceData: previous interface_data with additional information on
-                the grid dimension, the cell ids, the grid edge number,
-                mortar side and whether the grid is mortar.
-        """
-        # All extra fields to be added to the data container
-        self._extra_interface_data = ["grid_dim", "cell_id", "grid_edge_number", "is_mortar", "mortar_side"]
-
-        # Add info by direct assignment - have to take into account values on both sides
-        # TODO can't we do this more explicit and by that shorter and simpler?
-        for e, d in self.gb.edges():
-
-            # Fetch mortar grid
-            mg = d["mortar_grid"]
-
-            # Construct empty arrays for all extra edge data
-            interface_data[(e, "grid_dim")] = np.empty(0, dtype=int)
-            interface_data[(e, "cell_id")] = np.empty(0, dtype=int)
-            interface_data[(e, "grid_edge_number")] = np.empty(0, dtype=int)
-            interface_data[(e, "is_mortar")] = np.empty(0, dtype=int)
-            interface_data[(e, "mortar_side")] = np.empty(0, dtype=int)
-
-            # Assign extra edge data by collecting values on both sides.
-            mg_num_cells = 0
-            for side, g in mg.side_grids.items():
-                ones = np.ones(g.num_cells, dtype=int)
-
-                # Grid dimension of the mortar grid
-                interface_data[(e, "grid_dim")] = np.hstack(
-                    (
-                        interface_data[(e, "grid_dim")],
-                        g.dim * ones
-                    )
-                )
-
-                # Cell ids of the mortar grid
-                interface_data[(e, "cell_id")] = np.hstack(
-                    (
-                        interface_data[(e, "cell_id")],
-                        np.arange(g.num_cells, dtype=int) + mg_num_cells
-                    )
-                )
-
-                # Grid edge number of each edge
-                interface_data[(e, "grid_edge_number")] = np.hstack(
-                    (
-                        interface_data[(e, "grid_edge_number")],
-                        d["edge_number"] * ones
-                    )
-                )
-
-                # Whether the edge is mortar
-                interface_data[(e, "is_mortar")] = np.hstack(
-                    (
-                        interface_data[(e, "is_mortar")],
-                        ones
-                    )
-                )
-
-                # Side of the mortar
-                interface_data[(e, "mortar_side")] = np.hstack(
-                    (
-                        interface_data[(e, "mortar_side")],
-                        side.value * ones
-                    )
-                )
-
-                mg_num_cells += g.num_cells
-
-        return interface_data
-
     def _update_constant_mesh_data(self) -> None:
         """
         Construct/update subdomain and interface data related with geometry and topology.
@@ -743,46 +626,39 @@ class Exporter:
         attributes _constant_subdomain_data and _constant_interface_data, have
         the same format as the output of _sort_and_unify_data.
         """
-#        # All extra fields to be added to the data container
-#        self._extra_subdomain_data = ["grid_dim", "is_mortar", "mortar_side"]
-#        # TODO include cell_ids, grid_node_number?
-#        # TODO is this list used anywhere?
-
         # Identify change in constant data. Has the effect that
         # the constant data container will be exported at the 
         # next application of write_vtu().
         self._exported_constant_data_up_to_date: bool = False
 
+        # Define constant subdomain data related to the mesh
+
         # Initialize container for constant subdomain data
         if not hasattr(self, "_constant_subdomain_data"):
             self._constant_subdomain_data = dict()
 
-        # TODO include cell_id and grid_node_number
+        # Initialize offset
+        g_num_cells: int = 0
+
         # Add mesh related, constant subdomain data by direct assignment
         for g, d in self.gb.nodes():
             ones = np.ones(g.num_cells, dtype=int)
-            #self._constant_subdomain_data[(g, "cell_id")] = ...
+            self._constant_subdomain_data[(g, "cell_id")] = np.arange(g.num_cells, dtype=int) + g_num_cells
             self._constant_subdomain_data[(g, "grid_dim")] = g.dim * ones
-            #self._constant_subdomain_data[(g, "grid_node_number")] = d["node_number"] * ones # TODO?
+            if "node_number" in d:
+                self._constant_subdomain_data[(g, "grid_node_number")] = d["node_number"] * ones
             self._constant_subdomain_data[(g, "is_mortar")] = 0 * ones
             self._constant_subdomain_data[(g, "mortar_side")] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
 
-        #TODO include here?
-        #cell_id = meshio_geom.cell_ids
-        ## add also the cells ids
-        #cell_data.update({self.cell_id_key: cell_id})
+            # Update offset
+            g_num_cells += g.num_cells
 
-        # Similarly for interface data
-
-#        # All extra fields to be added to the data container
-#        self._extra_interface_data = ["grid_dim", "cell_id", "grid_edge_number", "is_mortar", "mortar_side"]
-#        # TODO is this used anywhere?
+        # Define constant interface data related to the mesh
 
         # Initialize container for constant interface data
         if not hasattr(self, "_constant_interface_data"):
             self._constant_interface_data = dict()
 
-        # TODO can't we do this more explicit and by that shorter and simpler?
         # Add mesh related, constant interface data by direct assignment.
         for e, d in self.gb.edges():
 
@@ -797,7 +673,7 @@ class Exporter:
             self._constant_interface_data[(e, "mortar_side")] = np.empty(0, dtype=int)
 
             # Initialize offset
-            mg_num_cells = 0
+            mg_num_cells: int = 0
 
             # Assign extra edge data by collecting values on both sides.
             for side, g in mg.side_grids.items():
