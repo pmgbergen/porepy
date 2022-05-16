@@ -5,13 +5,16 @@ Does not involve chemical reactions.
 Large parts of this code are attributed to EK and his prototype of the reactive multiphase model.
 VL refactored the model for usage with the composite submodule.
 """
+
 from __future__ import annotations
-from typing import Dict, List, Tuple, Union, Optional
+from typing import Dict, List, Tuple, Optional
 
 import porepy as pp
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
+
+from ..composite._composite_utils import ConvergenceError
 
 
 class GeothermalModel(pp.models.abstract_model.AbstractModel):
@@ -41,72 +44,56 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         """
         super().__init__(params)
 
-        # PUBLIC
+        ### PUBLIC
         # create default grid bucket for this model
         self.gb: pp.GridBucket
         self.box: Dict = dict()
         self.create_grid()
 
-        self.composition = pp.composite.Composition(self.gb)
-        # these two will be instantiated only during the prepare_simulation method
-        self.eq_manager: pp.ad.EquationManager
-        self.dof_manager: pp.DofManager
-        
-        # list of grids as ordered in GridBucket
-        self._grids = [g for g, _ in self.gb]
-        # list of edges as ordered in GridBucket
-        self._edges = [e for e, _ in self.gb.edges()]
-
-        # model-specific input. below hardcoded values are up for modularization
-        self._water_source_quantity = 55555.5  # mol in 1 cubic meter (1 mol of liquid water is approx 1.8xe-5 m^3)
-        self._water_source_pressure = 3.
-        self._water_source_temperature = 293.15  # 20°C water source
-        self._conductive_boundary_temperature = 383.15  # 110°C southern boundary temperature (D-BC)
-        self._outflow_flux = 1.  # N-BC eastern boundary
-
-        ## Representation of variables
-
-        # main primary variables are global pressure, global enthalpy
-        # and component overall fractions
-        self.pressure_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["pressure"]
-        self.enthalpy_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["enthalpy"]
-        self.component_overall_fraction_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["component_overall_fraction"]
-
-        # other primary variables are component molar fractions per phase,
-        # saturations (phase volumetric fractions) and phase molar fractions
-        self.component_molar_fraction_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["component_fraction_in_phase"]
-        self.saturation_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["saturation"]
-        self.phase_molar_fraction_variable: str = pp.composite.COMPUTATIONAL_VARIABLES["phase_molar_fraction"]        
-
-        ## Parameter keywords
+        # Parameter keywords
         self.flow_parameter_key: str = "flow"
         self.upwind_parameter_key: str = "upwind"
         self.mass_parameter_key: str = "mass"
         self.energy_parameter_key: str = "energy"
 
-    @property
-    def num_components(self) -> int:
-        """
-        :return: number of components in model
-        :rtype: int
-        """
-        return len(self._components)
-    
-    @property
-    def num_fluid_phases(self) -> int:
-        """
-        :return: number of fluid phases in model
-        :rtype: int
-        """
-        return len(self._fluid_phases)
+        ### GEOTHERMAL MODEL SET UP TODO
+        self.composition = pp.composite.Composition(self.gb)
 
-    @property
-    def num_solid_phases(self) -> int:
-        """
-        :return: number of (immobile) solid phases. Currently returns always zero (in hindsight on future extensions)
-        :rtype: int
-        """
-        return 0
+        # Use the managers from the composition so that the Schur complement can be made
+        self.eqm: pp.ad.EquationManager = self.composition.eq_manager
+        self.dofm: pp.DofManager = self.composition.dof_manager
+        
+        ### PRIVATE
+        # list of primary equations
+        self._prim_equ: List[str] = list()
+        # list of primary variables
+        self._prim_var: List["pp.ad.MergedVariable"] = list()
+        # list of names of primary variables (same order as above)
+        self._prim_var_names: List[str] = list()
+        # list of grids as ordered in GridBucket
+        self._grids = [g for g, _ in self.gb]
+        # list of edges as ordered in GridBucket
+        self._edges = [e for e, _ in self.gb.edges()]
+        # maximal number of iterations for flash and equilibrium calculations
+        self._max_iter = 100
+        # residual tolerance for flash and equilibrium calculations
+        self._iter_eps = 1e-10
+
+        ## model-specific input. NOTE hardcoded values are up for modularization
+        # mol in 1 cubic meter (1 mol of liquid water is approx 1.8xe-5 m^3)
+        # 0 mol salt source
+        self._source_quantity = [55555.5, 0.]
+        # enthalpy of water from source. TODO get physical value here
+        # zero enthalpy from zero salt source
+        self._source_enthalpy = [10., 0.]
+        # 110°C temperature for D-BC for conductive flux
+        self._conductive_boundary_temperature = 383.15
+        # flux for N-BC
+        self._outflow_flux = 1.
+        # base porosity for grid
+        self._base_porosity = 1.
+        # base permeability for grid
+        self._base_permeability = 1.
 
     def create_grid(self) -> None:
         """ Assigns a cartesian grid as computational domain.
@@ -133,29 +120,22 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
                     - porosity
                     - permeability
                     - aperture
-            - initiates EQ and DOF managers
+                - computes initial equilibrium of composition
             - sets the model equations using :module:`porepy.ad`
                 - discretizes the equations
         """
 
-        # Exporter initialization must be done after grid creation.
+        # Exporter initialization for saving results
         self.exporter = pp.Exporter(
             self.gb, self.params["file_name"], folder_name=self.params["folder_name"]
         )
         
         self._set_up()
-
-        # instantiate Equation- and DofManager
-        self.dof_manager = pp.DofManager(self.gb)
-        self.eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager)
-
-        # NOTE if the initial conditions are not in equilibrium, it needs to be iterated prior to simulation
         self._initial_condition()
-
-        # Set and discretize equations
         self._assign_equations()
 
-        self._discretize()
+        # after everything has been set, discretize
+        self.eqm.discretize(self.gb)
 
 #------------------------------------------------------------------------------
 ### SIMULATION related methods and implementation of abstract methods
@@ -292,76 +272,29 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         return sps.coo_matrix((data, (rows, cols)), shape=(nrows, ncols)).tocsr()
 
     def _solve_secondary_equations(self):
-        """Solve the cell-wise non-linear equilibrium problem of secondary variables
-        and equations.
+        """Starts equilibrium computations and consequently flash calculations.
+            1. Equilibrium
+            2. Saturation Flash
+            3. Isenthalpic Flash
 
-        This is a simplest possible approach, using Newton's method, with a primitive
-        implementation to boot. This should be improved at some point, however, approaches
-        tailored to the specific system at hand, and/or outsourcing to dedicated libraries
-        are probably preferrable.
+        Throws an error if one of them fails to converge.
         """
-        # Equation manager for the secondary equations
-        sec_man = self._secondary_equation_manager
 
-        # The non-linear system will be solved with Newton's method. However, to get the
-        # assembly etc. correctly, the updates during iterations should be communicated
-        # to the data storage in the GridBucket. With the PorePy data model, this is
-        # most conveniently done by the DofManager's method to distribute variables.
-        # This method again can be tailored to target specific grids and variables,
-        # but for simplicity, we create a prolongation matrix to the full set of equations
-        # and use the resulting vector.
-        prolongation = self._prolongation_matrix(self._secondary_variables())
+        converged = self.composition.compute_phase_equilibrium(self._max_iter, self._iter_eps)
+        if not converged:
+            raise ConvergenceError("Equilibrium Calculations did not converge.")
 
-        max_iters = 100
-        i = 0
-        while i < max_iters:
-            A, b = sec_man.assemble()
-            if np.linalg.norm(b) < 1e-10:
-                break
-            x = spla.spsolve(A, b)
-            full_x = prolongation * x
-            self.dof_manager.distribute_variable(full_x, additive=True, to_iterate=True)
+        converged = self.composition.saturation_flash(self._max_iter, self._iter_eps)
+        if not converged:
+            raise ConvergenceError("Saturation Flash did not converge.")
 
-            i += 1
-        if i == max_iters:
-            raise ValueError("Newton for local systems failed to converge.")
-
-    def _discretize(self) -> None:
-        """Discretize all terms"""
-        self._eq_manager.discretize(self.gb)
+        converged = self.composition.isenthalpic_flash(self._max_iter, self._iter_eps)
+        if not converged:
+            raise ConvergenceError("Isenthalpic Flash did not converge.")
 
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear."""
         return True
-
-    def _primary_variables(self) -> List[pp.ad.MergedVariable]:
-        """Get a list of the primary variables of the system on AD form.
-
-        This will be the pressure and n-1 of the total molar fractions.
-
-        """
-        # The primary variables are the pressure and all but one of the total
-        # molar fractions.
-        # Represent primary variables by their AD format, since this is what is needed
-        # to interact with the EquationManager.
-        primary_variables = [self._ad.pressure] + self._ad.component[:-1]
-        return primary_variables
-
-    def _secondary_variables(self) -> List[pp.ad.MergedVariable]:
-        """Get a list of secondary variables of the system on AD form.
-
-        This will the final total molar fraction, phase molar fraction, component
-        mole fractions, and saturations.
-        """
-        # The secondary variables are the final molar fraction, saturations, phase
-        # mole fractions and component phases.
-        secondary_variables = (
-            [self._ad.component[-1]]
-            + self._ad.saturation
-            + self._ad.phase_mole_fraction
-            + list(self._ad.component_phase.values())
-        )
-        return secondary_variables
 
 #------------------------------------------------------------------------------
 ### SET-UP
@@ -369,41 +302,27 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
 
     #### collective set-up method
     def _set_up(self) -> None:
-        """Set default parameters needed in the simulations.
+        """Set model components including
+            - source terms,
+            - boundary values,
+            - permeability tensor
 
-        Many of the functions here may change in the future, partly to allow for more
-        general descriptions of fluid and rock properties. Also, overriding some of
-        the constitutive laws may lead to different parameters being needed.
+        A modularization of the solid skeleton properties is still missing.
         """
         
         for g, d, mat_sd in self.cd:
 
             bc, bc_vals = self._BC_unitary_transport_flux(g)
+            # unitary source
+            source = self._unitary_source(g)
 
-            # TODO get enthalpy of inflow substance at given pressure and temperature
-            inflow_enthalpy = 1.
-
-            mass_source = self._unitary_source(g) * self._water_source_quantity
-            enthalpy_source = np.copy(mass_source) * inflow_enthalpy
-
-            # specific volume and aperture are related to other physics.
-            # This has to stay like this for now.
-            # specific_volume = self._specific_volume(g)
-
-            # transmissibility coefficients for the mpfa
+            # transmissibility coefficients for the MPFA
             transmissability = pp.SecondOrderTensor(
-                mat_sd.base_permeability() # * specific_volume
+                self._base_permeability
             )
 
             # No gravity
-            gravity = np.zeros((self.gb.dim_max(), g.num_cells))
-            # With gravity FIXME WIP
-            # gravity = np.array([0.,0.,-9.98])
-            # gravity_glob = list()
-            # for phase in self.cd.Phases:
-            #     gravity_glob.append(phase.mass_phase_density() * gravity.copy())
-            
-            # gravity_glob = np.vstack(gravity_glob).T.ravel("F")
+            # vector_source = np.zeros((self.gb.dim_max(), g.num_cells))
 
             # TODO split flow parameters into parameters per component (different sources)
             pp.initialize_data(
@@ -415,13 +334,13 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
                     "bc_values": bc_vals,
                     "source": mass_source,  
                     "second_order_tensor": transmissability,
-                    "vector_source": gravity.ravel("F"),
+                    # "vector_source": vector_source.ravel("F"),
                     "ambient_dimension": self.gb.dim_max(),
                 },
             )
              # Mass weight parameter. Same for all phases
             pp.initialize_data(
-                g, d, self.mass_parameter_key, {"mass_weight": mat_sd.base_porosity() # * specific_volume
+                g, d, self.mass_parameter_key, {"mass_weight": self._base_porosity
                 }
             )
 
@@ -446,9 +365,9 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
                     },
                 )
 
-        # Assign diffusivity in the normal direction of the fractures.
+        # For now we consider only a single domain
         for e, data_edge in self.gb.edges():
-            raise NotImplementedError("Only single grid for now")
+            raise NotImplementedError("Mixed dimensional case not yet available.")
 
     ### Initial Conditions
 
@@ -477,34 +396,84 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
 
     ### Boundary Conditions
 
+    def _bc_advective_flux(self):
+        """Advective flux"""
+
+    def _bc_unitary_flux(
+        self, g: "pp.Grid", side: str, bc_type: Optional[str] = "neu"
+    ) -> Tuple[pp.BoundaryCondition, np.ndarray]:
+        """BC objects for unitary flux on specified grid side.
+
+        :param g: grid representing subdomain on which BCs are imposed
+        :type g: :class:`~porepy.grids.grid.Grid`
+        :param side: side with non-zero values ('west', 'north', 'east', 'south')
+        :type side: str
+        :param bc_type: (default='neu') defines the type of the eastside BC.
+            Currently only Dirichlet and Neumann BC are supported
+        :type bc_type: str
+        
+        :return: :class:`~porepy.params.bc.BoundaryCondition` instance and respective values
+        :rtype: Tuple[porepy.BoundaryCondition, numpy.ndarray]
+        """
+
+        side = str(side)
+        if side == "west":
+            _, _, idx, *_ = self._domain_boundary_sides(g)
+        if side == "north":
+            _, _, _, idx, *_ = self._domain_boundary_sides(g)
+        if side == "east":
+            _, idx, *_ = self._domain_boundary_sides(g)
+        if side == "south":
+            _, _, _, _, idx,*_ = self._domain_boundary_sides(g)
+        else:
+            raise ValueError(
+                "Unknown grid side '%s' for unitary flux. Use 'west', 'north',..." % (side)
+                )
+
+        # non-zero on chosen side, the rest is zero-Neumann by default
+        bc = pp.BoundaryCondition(g, idx, bc_type)
+
+        # homogeneous BC
+        vals = np.zeros(g.num_faces)
+        # unitary on chosen side
+        vals[idx] = 1.
+
+        return (bc, vals)
+
     def _BC_unitary_transport_flux(self, g: pp.Grid, bc_type: Optional[str] = "neu"
     )-> Tuple[pp.BoundaryCondition, np.ndarray]:
         """        
-        BC objects for unitary flux. Currently only the east side allows boundary a non-zero flux
+        BC objects for unitary flux.
+        Currently only the east side allows boundary a non-zero flux
 
-        Phys. Dimensions of CONVECTIVE MASS FLUX:
+        Phys. Dimensions of ADVECTIVE MASS FLUX:
             - Dirichlet conditions: [Pa] = [N / m^2] = [kg / m^1 / s^2]
-            - Neumann conditions: [mol / m^2 s] = [(mol / m^3) * (m^3 / m^2 s)]  (molar density * Darcy flux)
+            - Neumann conditions: [mol / m^2 s] = [(mol / m^3) * (m^3 / m^2 s)] 
+              (molar density * Darcy flux)
         
-        Phys. Dimensions of CONVECTIVE ENTHALPY FLUX:
+        Phys. Dimensions of ADVECTIVE ENTHALPY FLUX:
             - Dirichlet conditions: [K] (temperature)
             - Neumann conditions: [J m^3 / m^2 s] (density * specific enthalpy * Darcy flux)
-        NOTE: Enthalpy flux BCs need some more thoughts. Isn't it unrealistic to assume the temperature or enthalpy of the outflowing fluid is known?
-        That BC would influence our physical setting and it's actually our goal to find out how warm the water will be at the outflow.
-        NOTE: DC-BC for enthalpy might be tricky if pressure is given as DC-BC for convective mass flux at the same time (h = h(T,p))
 
         Phys. Dimensions of FICK's LAW OF DIFFUSION:
             - Dirichlet conditions: [-] (molar, fractional: constant substance concentration at boundary) 
             - Neumann conditions: [mol / m^2 s]  (same as regular mass flux)
-        NOTE: Does the type of BC have to be the same for convective and diffusive flux? Or is anything else nonphysical?
+
+        NOTE: Enthalpy flux BCs need some more thoughts.
+        Isn't it unrealistic to assume the temperature or enthalpy of the outflowing fluid is
+        known?
+        That BC would influence our physical setting and it's actually our goal to find out
+        how warm the water will be at the outflow.
+        NOTE: BC has to be defined for all fluxes separately.
 
 
         :param g: grid representing subdomain on which BCs are imposed
         :type g: :class:`~porepy.grids.grid.Grid`
-        :param bc_type: (default='neu') defines the type of the eastside BC. Currently only Dirichlet and Neumann BC are supported
+        :param bc_type: (default='neu') defines the type of the eastside BC.
+            Currently only Dirichlet and Neumann BC are supported
         :type bc_type: str
         
-        :return: Returns the :class:`~porepy.params.bc.BoundaryCondition` object and respective values.
+        :return: :class:`~porepy.params.bc.BoundaryCondition` instance and respective values
         :rtype: Tuple[porepy.BoundaryCondition, numpy.ndarray]
         """
         _, east_bf, *_ = self._domain_boundary_sides(g)
@@ -562,59 +531,18 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
 
         return vals
 
-#------------------------------------------------------------------------------
-### MATHEMATICAL MODEL equation methods
-#------------------------------------------------------------------------------
+    #------------------------------------------------------------------------------------------
+    ### MODEL EQUATIONS: Transport and Energy Balance
+    #------------------------------------------------------------------------------------------
 
     def _assign_equations(self) -> None:
-        """Method to set all equations."""
+        """Method to set transport equations per substance and 1 global energy equations."""
 
         # balance equations
         self._set_mass_balance_equations()
         self._set_energy_balance_equation()            
 
-        # Equilibrium equations
-        self._phase_equilibrium_equations()
-
-        # Closing equations (unitarity conditions and definitions)
-        self._overall_molar_fraction_sum_equations()
-        self._component_phase_sum_equations()
-        self._phase_mole_fraction_sum_equation()
-        self._saturation_definition_equation()
-
-        # Now that all equations are set, we define sets of primary and secondary
-        # equations, and similar with variables. These will be used to represent
-        # the systems to be solved globally (transport equations) and locally
-        # (equilibrium equations).
-        # Create a separate EquationManager for the secondary variables and equations.
-        # This set of secondary equations will still contain the primary variables,
-        # but their derivatives will not be computed in the construction of the
-        # Jacobian matrix (strictly speaking, derivatives will be computed, then dropped).
-        # Thus, the secondary manager can be used to solve the local (to cells) systems
-        # describing equilibrium.
-
-        # Get the secondary variables of the system.
-        secondary_variables = self._secondary_variables()
-
-        # Ad hoc approach to get the names of the secondary equations. This is not beautiful.
-        secondary_equation_names = [
-            name
-            for name in list(self.eq_manager.equations.keys())
-            if name[:12] != "Mass_balance"
-        ]
-
-        self._secondary_equation_manager = self.eq_manager.subsystem_equation_manager(
-            secondary_equation_names, secondary_variables
-        )
-
-        # Also store the name of the primary variables, we will need this to construct
-        # the global linear system later on.
-        # FIXME: Should we also store secondary equation names, for symmetry reasons?
-        self._primary_equation_names = list(
-            set(self.eq_manager.equations.keys()).difference(secondary_equation_names)
-        )
-
-    #### Balance equations
+        # TODO store primary equations, vars and var names
 
     def _set_mass_balance_equations(self) -> None:
         """Set transport equations"""
@@ -702,22 +630,21 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
                     component_flux[i] += darcy_j * (
                         upwind.upwind * (rho_j * self._ad.component_phase[i, j])
                     )
-    def _single_phase_darcy(self) -> pp.ad.Operator:
-        """Discretize single-phase Darcy's law using Mpfa.
 
-        Override method, e.g., to use Tpfa instead.
+    def _darcy_flux(self, pressure: "pp.ad.MergedVariable") -> "pp.ad.Operator":
+        """MPFA discretization of darcy potential for given pressure variable.
 
-        Returns
-        -------
-        darcy : TYPE
-            DESCRIPTION.
+        :param pressure: a pressure variable
+        :type pressure: :class:`~porepy.ad.MergedVariable`
 
+        :return: MPFA discretization including boundary conditions
+        :rtype: :class:`~porepy.ad.Operator`
         """
         mpfa = pp.ad.MpfaAd(self.flow_parameter_key, self._grids)
 
         bc = pp.ad.ParameterArray(self.flow_parameter_key, "bc_values", grids=self._grids)
 
-        darcy = mpfa.flux * self._ad.pressure + mpfa.bound_flux * bc
+        darcy = mpfa.flux * pressure + mpfa.bound_flux * bc
         return darcy
 
     def _upstream(self, phase_ind: int) -> pp.ad.Operator:
@@ -730,193 +657,9 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
 
         return upwind.upwind * rp
 
-    #### Equilibrium equations
-
-    def _phase_equilibrium_equations(self) -> None:
-        """Define equations for phase equilibrium and assign to the EquationManager.
-
-        For the moment, no standard 'simplest' model is implemented - this may change
-        in the future.
-        """
-        if self.num_fluid_phases > 1:
-            raise NotImplementedError(
-                "Fluid phase equilibrium must be calculated in subproblem"
-            )
-
-    def _overall_molar_fraction_sum_equations(self) -> None:
-        """
-        Set equation zeta_i = \sum_j chi_ij * xi_j
-        """
-        eq_manager = self._eq_manager
-
-        for i in range(self.num_components):
-
-            phase_sum_i = sum(
-                [
-                    self._ad.component_phase[i, j] * self._ad.phase_mole_fraction[j]
-                    for j in range(self.num_fluid_phases)
-                    if self._component_present_in_phase[i, j]
-                ]
-            )
-
-            eq = self._ad.component[i] - phase_sum_i
-            eq_manager.equations[f"Overall_comp_phase_comp_{i}"] = eq
-
-    def _component_phase_sum_equations(self) -> None:
-        """Force the component phases to sum to unity for all components.
-
-        \sum_i x_i,0 = \sum_i x_ij, j=1,..
-        """
-        eq_manager = self._eq_manager
-
-        def _comp_sum(j: int) -> pp.ad.Operator:
-            return sum(
-                [
-                    self._ad.component_phase[i, j]
-                    for i in range(self.num_components)
-                    if self._component_present_in_phase[i, j]
-                ]
-            )
-
-        sum_0 = _comp_sum(0)
-
-        for j in range(1, self.num_fluid_phases):
-            sum_j = _comp_sum(j)
-            eq_manager.equations[f"Comp_phase_sum_{j}"] = sum_0 - sum_j
-
-    def _phase_mole_fraction_sum_equation(self) -> None:
-        """Force mole fractions to sum to unity
-
-        sum_j v_j = 1
-
-        """
-        eq = sum(
-            [self._ad.phase_mole_fraction[j] for j in range(self.num_fluid_phases)]
-        )
-        unity = pp.ad.Array(np.ones(self.gb.num_cells()))
-        self._eq_manager.equations["Phase_mole_fraction_sum"] = eq - unity
-
-    def _saturation_definition_equation(self) -> None:
-        """Relation between saturations and phase mole fractions"""
-        weighted_saturation = [
-            self._ad.saturation[j] * self._density(j)
-            for j in range(self.num_fluid_phases)
-        ]
-
-        for j in range(self.num_fluid_phases):
-            eq = self._ad.phase_mole_fraction[j] - weighted_saturation[j] / sum(
-                weighted_saturation
-            )
-            self._eq_manager.equations[f"saturation_definition_{j}"] = eq
-
-#------------------------------------------------------------------------------
-### CONSTITUTIVE LAWS
-#------------------------------------------------------------------------------
-
-    def _rel_perm(self, j: int) -> pp.ad.Operator:
-        """Get the relative permeability for a given phase.
-
-        The implemented function is a quadratic Brooks-Corey function. Override to
-        use a different function.
-
-        IMPLEMENTATION NOTE: The data structure for relative permeabilities may change
-        substantially in the future. Specifically, hysteretic effects and heterogeneities
-        may require separate classes for flow functions.
-
-        Parameters:
-            j (int): Index of the phase.
-
-        Returns:
-            pp.ad.Operator: Relative permeability of the given phase.
-
-        """
-        sat = self._ad.saturation[j]
-        # Brooks-Corey function
-        return pp.ad.Function(lambda x: x ** 2, "Rel. perm. liquid")(sat)
-
-    def _density(
-        self, j: Optional[int] = None, prev_time: Optional[bool] = False
-    ) -> pp.ad.Operator:
-        """Get the density of a specified phase, or a saturation-weighted sum over
-        all phases.
-
-        Optionally, the density can be evaluated at the previous time step.
-
-        The implemented function is that of a slightly compressible fluid. Override
-        to use different functions, including functions calculated from external
-        packages.
-
-        FIXME: Should this be a public function?
-
-        Parameters:
-            j (int, optional): Index of the target phase. If not provided, a saturation
-                weighted mean density will be returned.
-            prev_time (bool, optional): If True, the density is evaluated at the previous
-             time step. Defaults to False.
-
-        Returns:
-            pp.ad.Operator: Ad representation of the density.
-
-        """
-        if j is None:
-            average = sum(
-                [
-                    self._density(j, prev_time) * self._ad.saturation[j]
-                    for j in range(self.num_fluid_phases)
-                ]
-            )
-            return average
-
-        # Set some semi-random values for densities here. These could be set in the
-        # set_parameter method (will give more flexibility), or the density could be
-        # provided as a separate function / class (perhaps better suited to accomodate
-        # external libraries)
-        base_pressure = 1
-        base_density = [1000, 800]
-        compressibility = [1e-6, 1e-5]
-
-        var = self._ad.pressure.previous_timestep() if prev_time else self._ad.pressure
-        return pp.ad.Function(
-            lambda p: base_density[j] * (1 + compressibility[j] * (p - base_pressure)),
-            f"Density_phase_{j}",
-        )(var)
-
-    def _phase_enthalpy(self, phase_ind:int) -> pp.ad.Operator:
-        """ Returns the phase-related partial enthalpy.
-
-        NOTE: the structure of this quantity will change in future.
-        Will be given by a different class most likely.
-        
-        Parameters:
-            phase_ind (int): Index of the phase.
-
-        Returns:
-            pp.ad.Operator: Relative permeability of the given phase.
-        """
-
-        if phase_ind == 0:
-            phase_enthalpy = lambda x: x
-        elif phase_ind == 1:
-            phase_enthalpy = lambda x: x
-        else:
-            raise RuntimeError("Phase enthalpy index out of range.")
-
-        return pp.ad.Function(phase_enthalpy, f"Phase_enthalpy_{phase_ind}")(self._ad.pressure)
-    
-    def _phase_viscosity(self, phase_ind:int) -> pp.ad.Array:
-        """ Returns the phase viscosity.
-        Returns currently only the unitary values for all phases.
-
-        NOTE: the structure of this quantity will change in future.
-        Will be given by a different class most likely.
-        
-        Parameters:
-            j (int): Index of the phase.
-
-        Returns:
-            pp.ad.Array: Relative permeability of the given phase.
-        """
-        return pp.ad.Array(np.ones(self.gb.num_cells()))
+    #------------------------------------------------------------------------------------------
+    ### CONSTITUTIVE LAWS
+    #------------------------------------------------------------------------------------------
 
     def _aperture(self, g: pp.Grid) -> np.ndarray:
         """
