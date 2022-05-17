@@ -1680,7 +1680,7 @@ class Exporter:
     def _make_file_name(
         self,
         file_name: str,
-        time_step: Optional[Union[float,int]] = None,
+        time_step: Optional[int] = None,
         dim: Optional[int] = None,
         extension: str = ".vtu",
     ) -> str:
