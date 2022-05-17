@@ -187,10 +187,35 @@ class Exporter:
         """
         self.file_name = file_name
 
-        # Reset control parameter for the reuse of fixed data in the write routine.
-        # One could consider also allowing to reuse data from files with different
-        # names, but at the moment a more light-weight variant has been chosen.
-        self._prev_exported_time_step = None
+    def add_constant_data(
+        self,
+        data: Optional[Union[DataInput, List[DataInput]]] = None,
+        ) -> None:
+        """
+        Collect constant data (after unifying). And later export to own files.
+
+        Parameters:
+            data (Union[DataInput, List[DataInput]], optional): node and
+                edge data, prescribed through strings, or tuples of
+                grids/edges, keys and values. If not provided only
+                geometical infos are exported.
+        """
+        # Identify change in constant data. Has the effect that
+        # the constant data container will be exported at the 
+        # next application of write_vtu().
+        self._exported_constant_data_up_to_date: bool = False
+
+        # Preprocessing of the user-defined constant data
+        # Has two main goals:
+        # 1. Sort wrt. whether data is associated to subdomains or interfaces.
+        # 2. Unify data type.
+        subdomain_data, interface_data = self._sort_and_unify_data(data)
+
+        # Add the user-defined data to the containers for constant data.
+        for key, value in subdomain_data.items():
+            self._constant_subdomain_data[key] = value.copy()
+        for key, value in interface_data.items():
+            self._constant_interface_data[key] = value.copy()
 
     def write_vtu(
         self,
