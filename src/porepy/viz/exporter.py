@@ -113,8 +113,12 @@ class Exporter:
             file_name (str): basis for file names used for storing the output
             folder_name (str, optional): folder name, all files are stored in
             kwargs (optional): Optional keywords;
-                'fixed_grid' (boolean) to control whether the grid(bucket) may be redfined;
-                'binary' (boolean) controling whether data is stored in binary format.
+                'fixed_grid' (boolean) to control whether the grid(bucket) may be redfined
+                (default True);
+                'binary' (boolean) controling whether data is stored in binary format
+                (default True);
+                'export_constants_separately' (boolean) controling whether
+                constant data is exported in separate files (default True).
         """
         # Exporter is operating on grid buckets. If a grid is provided, convert to a grid bucket.
         if isinstance(gb, pp.Grid):
@@ -132,12 +136,10 @@ class Exporter:
         # Check for optional keywords
         self.fixed_grid: bool = kwargs.pop("fixed_grid", True)
         self.binary: bool = kwargs.pop("binary", True)
+        self.export_constants_separately: bool = kwargs.pop("export_constants_separately", True)
         if kwargs:
             msg = "Exporter() got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
-
-        # Hard code keywords
-        self.cell_id_key = "cell_id"
 
         # Generate infrastructure for storing fixed-dimensional grids in
         # meshio format. Include all but the 0-d grids
@@ -252,24 +254,46 @@ class Exporter:
         # 2. Unify data type.
         subdomain_data, interface_data = self._sort_and_unify_data(data)
 
+        # Export constant data to separate or standard files
+        if self.export_constants_separately:
+            # Export constant data to vtu when outdated
+            if not self._exported_constant_data_up_to_date:
+                # Export constant subdomain data to vtu
+                self._export_data_vtu(
+                    self._constant_subdomain_data,
+                    time_step,
+                    constant_data = True
+                )
+
+                # Export constant interface data to vtu
+                self._export_data_vtu(
+                    self._constant_interface_data,
+                    time_step,
+                    constant_data = True,
+                    interface_data = True
+                )
+
+                # Store the time step counter for later reference
+                # (required for pvd files)
+                self._time_step_counter_constant_data = time_step
+
+                # Identify the constant data as fixed. Has the effect
+                # that the constant data won't be exported if not the
+                # mesh is updated or new constant data is added.
+                self._exported_constant_data_up_to_date = True
+        else:
+            # Append constant subdomain and interface data to the
+            # standard containers for subdomain and interface data.
+            for key, value in self._constant_subdomain_data.items():
+                subdomain_data[key] = value.copy()
+            for key, value in self._constant_interface_data.items():
+                interface_data[key] = value.copy()
+
         # Export subdomain and interface data to vtu format if existing
         if subdomain_data:
             self._export_data_vtu(subdomain_data, time_step)
         if interface_data:
             self._export_data_vtu(interface_data, time_step, interface_data = True)
-
-        # Export constant data to vtu when outdated
-        if not self._exported_constant_data_up_to_date:
-            self._export_data_vtu(self._constant_subdomain_data, time_step, constant_data = True)
-            self._export_data_vtu(self._constant_interface_data, time_step, constant_data = True, interface_data = True)
-
-            # Store the time step counter for later reference (required for pvd files)
-            self._time_step_counter_constant_data = time_step
-
-            # Identify the constant data as fixed. Has the effect that
-            # the constant data won't be exported if not the mesh is updated
-            # or new constant data is added.
-            self._exported_constant_data_up_to_date = True
 
         # Export grid bucket to pvd format
         file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
@@ -631,21 +655,15 @@ class Exporter:
         if not hasattr(self, "_constant_subdomain_data"):
             self._constant_subdomain_data = dict()
 
-        # Initialize offset
-        g_num_cells: int = 0
-
         # Add mesh related, constant subdomain data by direct assignment
         for g, d in self.gb.nodes():
             ones = np.ones(g.num_cells, dtype=int)
-            self._constant_subdomain_data[(g, "cell_id")] = np.arange(g.num_cells, dtype=int) + g_num_cells
+            self._constant_subdomain_data[(g, "cell_id")] = np.arange(g.num_cells, dtype=int)
             self._constant_subdomain_data[(g, "grid_dim")] = g.dim * ones
             if "node_number" in d:
                 self._constant_subdomain_data[(g, "grid_node_number")] = d["node_number"] * ones
             self._constant_subdomain_data[(g, "is_mortar")] = 0 * ones
             self._constant_subdomain_data[(g, "mortar_side")] = pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
-
-            # Update offset
-            g_num_cells += g.num_cells
 
         # Define constant interface data related to the mesh
 
@@ -845,6 +863,32 @@ class Exporter:
                 o_file.write(
                     fm % self._make_file_name(self.file_name + "_mortar_", time_step, dim)
                 )
+
+        # If constant data is exported to separate vtu files, also include
+        # these here. The procedure is similar to the above, but the file names
+        # incl. the relevant time step has to be adjusted.
+        if self.export_constants_separately:
+            # Constant subdomain data.
+            for dim in self.dims:
+                if self.meshio_geom[dim] is not None:
+                    o_file.write(
+                        fm % self._make_file_name(
+                            self.file_name + "_constant",
+                            self._time_step_counter_constant_data,
+                            dim
+                        )
+                    )
+
+            # Constant interface data.
+            for dim in self.m_dims:
+                if self.m_meshio_geom[dim] is not None:
+                    o_file.write(
+                        fm % self._make_file_name(
+                            self.file_name + "_constant_mortar_",
+                            self._time_step_counter_constant_data,
+                            dim
+                        )
+                    )
 
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
@@ -1519,9 +1563,6 @@ class Exporter:
                     cell_data[field.name][block] = field.values[:, ids].T
                 else:
                     raise ValueError
-
-        # Add constant cell_ids. To be entirely moved to constant data soon.
-        cell_data.update({self.cell_id_key: meshio_geom.cell_ids})
 
         # Create the meshio object
         meshio_grid_to_export = meshio.Mesh(

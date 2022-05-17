@@ -30,7 +30,13 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_scalar = np.ones(g.num_cells) * g.dim
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        save = pp.Exporter(g, self.file_name, self.folder, binary=False)
+        save = pp.Exporter(
+            g,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
@@ -44,7 +50,13 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_scalar = np.ones(g.num_cells) * g.dim
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        save = pp.Exporter(g, self.file_name, self.folder, binary=False)
+        save = pp.Exporter(
+            g,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
@@ -58,7 +70,13 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_scalar = np.ones(g.num_cells) * g.dim
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        save = pp.Exporter(g, self.file_name, self.folder, binary=False)
+        save = pp.Exporter(
+            g,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
@@ -74,7 +92,13 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_scalar = np.ones(g.num_cells) * g.dim
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        save = pp.Exporter(g, self.file_name, self.folder, binary=False)
+        save = pp.Exporter(
+            g,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
@@ -88,7 +112,13 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_scalar = np.ones(g.num_cells) * g.dim
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        save = pp.Exporter(g, self.file_name, self.folder, binary=False)
+        save = pp.Exporter(
+            g,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
@@ -102,7 +132,13 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_scalar = np.ones(g.num_cells) * g.dim
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        save = pp.Exporter(g, self.file_name, self.folder, binary=False)
+        save = pp.Exporter(
+            g,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
@@ -120,7 +156,13 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_scalar = np.ones(g.num_cells) * g.dim
         dummy_vector = np.ones((3, g.num_cells)) * g.dim
 
-        save = pp.Exporter(g, self.file_name, self.folder, binary=False)
+        save = pp.Exporter(
+            g,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
@@ -142,7 +184,13 @@ class MeshioExporterTest(unittest.TestCase):
                 },
             )
 
-        save = pp.Exporter(gb, self.file_name, self.folder, binary=False)
+        save = pp.Exporter(
+            gb,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
         save.write_vtu(["dummy_scalar", "dummy_vector"])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
@@ -153,11 +201,11 @@ class MeshioExporterTest(unittest.TestCase):
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._gb_1_grid_2_vtu())
 
-        # The interface contains only implicit/constant data which is currently not exported.
-        #with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
-        #    content = self.sliceout(content_file.read())
-        #self.assertTrue(content == self._gb_1_mortar_grid_vtu())
+        with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
+            content = self.sliceout(content_file.read())
+        self.assertTrue(content == self._gb_1_mortar_grid_vtu())
 
+    # TODO Do we need this test if we have the subsequent one?
     def test_gb_2(self):
         gb, _ = pp.grid_buckets_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
@@ -183,7 +231,13 @@ class MeshioExporterTest(unittest.TestCase):
                 },
             )
 
-        save = pp.Exporter(gb, self.file_name, self.folder, binary=False)
+        save = pp.Exporter(
+            gb,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
         save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
@@ -228,8 +282,19 @@ class MeshioExporterTest(unittest.TestCase):
         g_2d = subdomains_2d[0]
         interfaces = [e for e, d in gb.edges() if d["mortar_grid"].dim == 1]
 
-        save = pp.Exporter(gb, self.file_name, self.folder, binary=False)
-        save.write_vtu([(subdomains_1d, "dummy_scalar"), "dummy_vector", "unique_dummy_scalar", (g_2d, "cc", g_2d.cell_centers)])
+        save = pp.Exporter(
+            gb,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
+        save.write_vtu([
+            (subdomains_1d, "dummy_scalar"),
+            "dummy_vector",
+            "unique_dummy_scalar",
+            (g_2d, "cc", g_2d.cell_centers)
+        ])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -342,6 +407,12 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 1.00000000000e+00
 1.00000000000e+00
@@ -360,10 +431,22 @@ class MeshioExporterTest(unittest.TestCase):
 1.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 1
-2
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -533,6 +616,27 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 2.00000000000e+00
 2.00000000000e+00
@@ -611,25 +715,67 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -832,6 +978,25 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 2.00000000000e+00
 2.00000000000e+00
@@ -902,23 +1067,61 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -1001,6 +1204,13 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+2
+3
+1
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 2.00000000000e+00
 2.00000000000e+00
@@ -1023,11 +1233,25 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 2
-3
-1
+2
+2
+2
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -2223,6 +2447,171 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 3.00000000000e+00
 3.00000000000e+00
@@ -2877,169 +3266,499 @@ class MeshioExporterTest(unittest.TestCase):
 3.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
-2
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-28
-29
-30
-31
-32
-33
-34
-35
-36
-37
-38
-39
-40
-41
-42
-43
-44
-45
-46
-47
-48
-49
-50
-51
-52
-53
-54
-55
-56
-57
-58
-59
-60
-61
-62
-63
-64
-65
-66
-67
-68
-69
-70
-71
-72
-73
-74
-75
-76
-77
-78
-79
-80
-81
-82
-83
-84
-85
-86
-87
-88
-89
-90
-91
-92
-93
-94
-95
-96
-97
-98
-99
-100
-101
-102
-103
-104
-105
-106
-107
-108
-109
-110
-111
-112
-113
-114
-115
-116
-117
-118
-119
-120
-121
-122
-123
-124
-125
-126
-127
-128
-129
-130
-131
-132
-133
-134
-135
-136
-137
-138
-139
-140
-141
-142
-143
-144
-145
-146
-147
-148
-149
-150
-151
-152
-153
-154
-155
-156
-157
-158
-159
-160
-161
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -4086,6 +4805,73 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 3.00000000000e+00
 3.00000000000e+00
@@ -4348,71 +5134,205 @@ class MeshioExporterTest(unittest.TestCase):
 3.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
-2
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-28
-29
-30
-31
-32
-33
-34
-35
-36
-37
-38
-39
-40
-41
-42
-43
-44
-45
-46
-47
-48
-49
-50
-51
-52
-53
-54
-55
-56
-57
-58
-59
-60
-61
-62
-63
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+3
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -5080,6 +6000,14 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+3
+1
+2
+0
+4
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 3.00000000000e+00
 3.00000000000e+00
@@ -5106,12 +6034,28 @@ class MeshioExporterTest(unittest.TestCase):
 3.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 3
-1
-2
+3
+3
+3
+3
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
 0
-4
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -5174,6 +6118,13 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 1.00000000000e+00
 1.00000000000e+00
@@ -5196,11 +6147,32 @@ class MeshioExporterTest(unittest.TestCase):
 1.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 1
-2
-3
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="grid_node_number" format="ascii">
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -5418,6 +6390,25 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 2.00000000000e+00
 2.00000000000e+00
@@ -5488,23 +6479,80 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+
+</DataArray>
+<DataArray type="Int64" Name="grid_node_number" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -5564,14 +6612,14 @@ class MeshioExporterTest(unittest.TestCase):
 3
 3
 4
-4
-5
 5
 6
 6
 7
 7
 8
+8
+9
 
 </DataArray>
 <DataArray type="Int64" Name="offsets" format="ascii">
@@ -5598,6 +6646,28 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+
+</DataArray>
+<DataArray type="Int64" Name="grid_dim" format="ascii">
+1
+1
+1
+1
+1
+1
+1
+1
+
+</DataArray>
 <DataArray type="Int64" Name="grid_edge_number" format="ascii">
 0
 0
@@ -5629,17 +6699,6 @@ class MeshioExporterTest(unittest.TestCase):
 2
 2
 2
-
-</DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
-2
-3
-4
-5
-6
-7
 
 </DataArray>
 </CellData>
@@ -5725,6 +6784,15 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+0
+1
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 1.00000000000e+00
 1.00000000000e+00
@@ -5755,13 +6823,40 @@ class MeshioExporterTest(unittest.TestCase):
 1.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
+<DataArray type="Int64" Name="grid_dim" format="ascii">
+1
+1
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="grid_node_number" format="ascii">
+1
+1
+1
 1
 2
-3
-4
-5
+2
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -5985,6 +7080,25 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 2.00000000000e+00
 2.00000000000e+00
@@ -6055,23 +7169,80 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+
+</DataArray>
+<DataArray type="Int64" Name="grid_node_number" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -6211,6 +7382,21 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+0
+1
+2
+3
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 0.00000000000e+00
 0.00000000000e+00
@@ -6226,6 +7412,66 @@ class MeshioExporterTest(unittest.TestCase):
 0.00000000000e+00
 
 </DataArray>
+<DataArray type="Int64" Name="grid_dim" format="ascii">
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="grid_edge_number" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+1
+1
+1
+1
+2
+2
+2
+2
+1
+1
+2
+2
+
+</DataArray>
 <DataArray type="Float64" Name="unique_dummy_scalar" format="ascii">
 0.00000000000e+00
 0.00000000000e+00
@@ -6239,21 +7485,6 @@ class MeshioExporterTest(unittest.TestCase):
 0.00000000000e+00
 0.00000000000e+00
 0.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
 
 </DataArray>
 </CellData>
@@ -6339,6 +7570,15 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+0
+1
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="ascii">
 1.00000000000e+00
 1.00000000000e+00
@@ -6369,13 +7609,40 @@ class MeshioExporterTest(unittest.TestCase):
 1.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
+<DataArray type="Int64" Name="grid_dim" format="ascii">
+1
+1
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="grid_node_number" format="ascii">
+1
+1
+1
 1
 2
-3
-4
-5
+2
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -6650,6 +7917,25 @@ class MeshioExporterTest(unittest.TestCase):
 0.00000000000e+00
 
 </DataArray>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+
+</DataArray>
 <DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii">
 2.00000000000e+00
 2.00000000000e+00
@@ -6701,23 +7987,80 @@ class MeshioExporterTest(unittest.TestCase):
 2.00000000000e+00
 
 </DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
+<DataArray type="Int64" Name="grid_dim" format="ascii">
 2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+2
+
+</DataArray>
+<DataArray type="Int64" Name="grid_node_number" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
 
 </DataArray>
 </CellData>
@@ -6857,6 +8200,81 @@ class MeshioExporterTest(unittest.TestCase):
 </DataArray>
 </Cells>
 <CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+4
+5
+6
+7
+0
+1
+2
+3
+
+</DataArray>
+<DataArray type="Int64" Name="grid_dim" format="ascii">
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="grid_edge_number" format="ascii">
+0
+0
+0
+0
+0
+0
+0
+0
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+1
+1
+1
+1
+2
+2
+2
+2
+1
+1
+2
+2
+
+</DataArray>
 <DataArray type="Float64" Name="unique_dummy_scalar" format="ascii">
 0.00000000000e+00
 0.00000000000e+00
@@ -6870,21 +8288,6 @@ class MeshioExporterTest(unittest.TestCase):
 0.00000000000e+00
 0.00000000000e+00
 0.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
 
 </DataArray>
 </CellData>
