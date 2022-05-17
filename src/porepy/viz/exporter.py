@@ -162,10 +162,13 @@ class Exporter:
         self._time_step_counter: int = 0
 
         # Storage for file name extensions for time steps
-        self._exported_time_step_file_names: List[int] = []
+        self._exported_timesteps: List[int] = []
 
-        # Reference to the last time step used for exporting constant data. 
-        self._time_step_counter_constant_data: int = 0
+        # Reference to the last time step used for exporting constant data.
+        self._time_step_constants: int = 0
+        # Storage for file name extensions for time steps, regarding constant data.
+        self._exported_timesteps_constants: List[int] = []
+        # Identifier for whether constant data is up-to-date.
         self._exported_constant_data_up_to_date: bool = False
 
         # Parameter to be used in several occasions for adding time stamps.
@@ -175,7 +178,6 @@ class Exporter:
         if "numba" not in sys.modules:
             raise NotImplementedError("The sorting algorithm requires numba to be installed.")
 
-    # TODO isn't this method obsolete?
     def change_name(self, file_name: str) -> None:
         """
         Change the root name of the files, useful when different keywords are
@@ -220,7 +222,7 @@ class Exporter:
     def write_vtu(
         self,
         data: Optional[Union[DataInput, List[DataInput]]] = None,
-        time_dependent: Optional[bool] = False, # TODO in use? e.g., when not each time step is printed? or is time_step usually used?
+        time_dependent: Optional[bool] = False,
         time_step: Optional[int] = None,
         gb: Optional[Union[pp.Grid, pp.GridBucket]] = None,
     ) -> None:
@@ -272,7 +274,7 @@ class Exporter:
 
         # If time step is prescribed, store it.
         if time_step is not None:
-            self._exported_time_step_file_names.append(time_step)
+            self._exported_timesteps.append(time_step)
 
         # Preprocessing step with two main goals:
         # 1. Sort wrt. whether data is associated to subdomains or interfaces.
@@ -300,12 +302,15 @@ class Exporter:
 
                 # Store the time step counter for later reference
                 # (required for pvd files)
-                self._time_step_counter_constant_data = time_step
+                self._time_step_constant_data = time_step
 
                 # Identify the constant data as fixed. Has the effect
                 # that the constant data won't be exported if not the
                 # mesh is updated or new constant data is added.
                 self._exported_constant_data_up_to_date = True
+
+            # Store the timestep refering to the origin of the constant data
+            self._exported_timesteps_constants.append(self._time_step_constant_data)
         else:
             # Append constant subdomain and interface data to the
             # standard containers for subdomain and interface data.
@@ -323,13 +328,11 @@ class Exporter:
         # Export grid bucket to pvd format
         file_name = self._make_file_name(self.file_name, time_step, extension=".pvd")
         file_name = self._append_folder_name(self.folder_name, file_name)
-        # TODO include the constant data in _export_gb_pvd
         self._export_gb_pvd(file_name, time_step)
 
-    # TODO does not contain all keywords as in write_vtu. make consistent?
     def write_pvd(
         self,
-        timestep: np.ndarray,
+        times: np.ndarray,
         file_extension: Optional[Union[np.ndarray, List[int]]] = None,
     ) -> None:
         """
@@ -340,22 +343,37 @@ class Exporter:
         We assume that the VTU associated files are in the same folder.
 
         Parameters:
-        timestep: numpy of times to be exported. These will be the time associated with
-            indivdiual time steps in, say, Paraview. By default, the times will be
-            associated with the order in which the time steps were exported. This can
-            be overridden by the file_extension argument.
+        times (np.ndarray): array of times to be exported. These will be the times
+            associated with indivdiual time steps in, say, Paraview. By default,
+            the times will be associated with the order in which the time steps were
+            exported. This can be overridden by the file_extension argument.
         file_extension (np.array-like, optional): End of file names used in the export
             of individual time steps, see self.write_vtu(). If provided, it should have
             the same length as time. If not provided, the file names will be picked
             from those used when writing individual time steps.
-
         """
         if file_extension is None:
-            file_extension = self._exported_time_step_file_names
+            file_extension = self._exported_timesteps
+            file_extension_constants = self._exported_timesteps_constants
+            indices = [self._exported_timesteps.index(e) for e in file_extension]
+            file_extension_constants = [self._exported_timesteps_constants[i] for i in indices]
         elif isinstance(file_extension, np.ndarray):
             file_extension = file_extension.tolist()
 
-        assert file_extension is not None  # make mypy happy
+            # Make sure that the inputs are consistent
+            assert(len(file_extension) == times.shape[0])
+
+            # Extract the time steps related to constant data and
+            # complying with file_extension. Implicitly test wheter
+            # file_extension is a subset of _exported_timesteps.
+            indices = [self._exported_timesteps.index(e) for e in file_extension]
+            file_extension_constants = [self._exported_timesteps_constants[i] for i in indices]
+
+        # Make mypy happy
+        assert file_extension is not None
+
+        # Perform the same procedure as in _export_gb_pvd
+        # but looping over all designated time steps.
 
         o_file = open(self._append_folder_name(self.folder_name, self.file_name) + ".pvd", "w")
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
@@ -369,11 +387,51 @@ class Exporter:
         o_file.write(header)
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
-        for time, fn in zip(timestep, file_extension):
+        for time, fn, fn_constants in zip(
+            times,
+            file_extension,
+            file_extension_constants
+        ):
+            # Go through all possible data types, analogously to
+            # _export_gb_pvd.
+
+            # Subdomain data
             for dim in self.dims:
-                o_file.write(
-                    fm % (time, self._make_file_name(self.file_name, fn, dim))
-                )
+                if self.meshio_geom[dim] is not None:
+                    o_file.write(
+                        fm % (time, self._make_file_name(self.file_name, fn, dim))
+                    )
+                    
+            # Interface data.
+            for dim in self.m_dims:
+                if self.m_meshio_geom[dim] is not None:
+                    o_file.write(
+                        fm % (time, self._make_file_name(self.file_name + "_mortar", fn, dim))
+                    )
+
+            # Constant data.
+            if self.export_constants_separately:
+                # Constant subdomain data.
+                for dim in self.dims:
+                    if self.meshio_geom[dim] is not None:
+                        o_file.write(
+                            fm % (time, self._make_file_name(
+                                self.file_name + "_constant",
+                                fn_constants,
+                                dim
+                            ))
+                        )
+
+                # Constant interface data.
+                for dim in self.m_dims:
+                    if self.m_meshio_geom[dim] is not None:
+                        o_file.write(
+                            fm % (time, self._make_file_name(
+                                self.file_name + "_constant_mortar",
+                                fn_constants,
+                                dim
+                            ))
+                        )
 
         o_file.write("</Collection>\n" + "</VTKFile>")
         o_file.close()
@@ -874,19 +932,18 @@ class Exporter:
         o_file.write(header)
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
 
-        # Include the grids of all dimensions, but only if the grids of this
-        # dimension are included in the vtk export
+        # Subdomain data.
         for dim in self.dims:
             if self.meshio_geom[dim] is not None:
                 o_file.write(
                     fm % self._make_file_name(self.file_name, time_step, dim)
                 )
 
-        # Same for mortar grids.
+        # Interface data.
         for dim in self.m_dims:
             if self.m_meshio_geom[dim] is not None:
                 o_file.write(
-                    fm % self._make_file_name(self.file_name + "_mortar_", time_step, dim)
+                    fm % self._make_file_name(self.file_name + "_mortar", time_step, dim)
                 )
 
         # If constant data is exported to separate vtu files, also include
@@ -899,7 +956,7 @@ class Exporter:
                     o_file.write(
                         fm % self._make_file_name(
                             self.file_name + "_constant",
-                            self._time_step_counter_constant_data,
+                            self._time_step_constants,
                             dim
                         )
                     )
@@ -909,8 +966,8 @@ class Exporter:
                 if self.m_meshio_geom[dim] is not None:
                     o_file.write(
                         fm % self._make_file_name(
-                            self.file_name + "_constant_mortar_",
-                            self._time_step_counter_constant_data,
+                            self.file_name + "_constant_mortar",
+                            self._time_step_constants,
                             dim
                         )
                     )
@@ -1561,9 +1618,7 @@ class Exporter:
             file_name (str): name of final file of export
             meshio_geom (Meshio_Geom): Namedtuple of points,
                 connectivity information, and cell ids in
-                meshio format.
-
-                for a single dimension
+                meshio format (for a single dimension).
         """
         # Initialize empty cell data dictinary
         cell_data = {}
@@ -1572,7 +1627,7 @@ class Exporter:
         # Utilize meshio_geom for this.
         for field in fields:
 
-            # FIXME as implemented now, field.values should never be None.
+            # TODO RM? as implemented now, field.values should never be None.
             if field.values is None:
                 continue
 
