@@ -45,7 +45,7 @@ class Exporter:
     Optional arguments in kwargs:
     fixed_grid: (optional) in a time dependent simulation specify if the
         grid changes in time or not. The default is True.
-    binary: export in binary format, default is True.
+    binary: (optional) export in binary format, default is True.
 
     How to use:
     If you need to export a single grid:
@@ -83,6 +83,7 @@ class Exporter:
     
     # Altogether allowed data structures to define data
     DataInput = Union[
+        # Keys for states
         str,
         # Subdomain specific data types
         Tuple[Union[pp.Grid, List[pp.Grid]], str],
@@ -338,7 +339,8 @@ class Exporter:
         
         The routine has two goals:
         1. Splitting data into subdomain and interface data.
-        2. Unify the data format into tuples of grid/edge, name, data array.
+        2. Unify the data format. Store data in dictionaries, with keys given by
+            grids/edges and names, and values given by the data arrays.
         
         Parameters:
             data (Union[DataInput, List[DataInput]], optional): data
@@ -364,7 +366,8 @@ class Exporter:
         # Auxiliary function transforming scalar ranged values
         # to vector ranged values when suitable.
         def toVectorFormat(value: np.ndarray, g: pp.Grid) -> np.ndarray:
-            """Check wether the value array has the right dimension correpsonding
+            """
+            Check wether the value array has the right dimension corresponding
             to the grid size. If possible, translate the value to a vectorial
             object, But do nothing if the data naturally can be interpreted as
             scalar data.
@@ -394,7 +397,6 @@ class Exporter:
             )
 
         def isinstance_Tuple_subdomain_str(t: Tuple[Union[pp.Grid, List[pp.Grid]], str]) -> bool:
-            # TODO flip the order
             """
             Implementation of isinstance(t, Tuple[Union[pp.Grid, List[pp.Grid]], str]).
 
@@ -412,7 +414,6 @@ class Exporter:
                 return False
 
         def isinstance_Tuple_interface_str(t: Tuple[Union[Tuple[pp.Grid, pp.Grid], List[Tuple[pp.Grid, pp.Grid]]], str]) -> bool:
-            # TODO flip the order
             """
             Implementation of isinstance(t, Tuple[Union[Edge, List[Edge]], str]).
 
@@ -450,10 +451,13 @@ class Exporter:
             return list(map(type, pt)) == [str, np.ndarray]
 
         # Loop over all data points and convert them collect them in the format
-        # (grid/edge, key, data) for single grids etc.
+        # (grid/edge, key, data) for single grids etc. and store them in two
+        # dictionaries with keys (grid/egde, key) and value given by data.
+        # Distinguish here between subdomain and interface data and store
+        # accordingly.
         for pt in data:
 
-            # Allow for different cases. Distinguish each case separately
+            # Allow for different cases. Distinguish each case separately.
 
             # Case 1: Data provided by the key of a field only - could be both node
             # and edge data. Idea: Collect all data corresponding to grids and edges
@@ -466,7 +470,7 @@ class Exporter:
                 # Fetch grids and interfaces as well as data associated to the key
                 has_key = False
 
-                # Try to find the key in the data dictionary associated to nodes
+                # Try to find the key in the data dictionary associated to subdomains
                 for g, d in self.gb.nodes():
                     if pp.STATE in d and key in d[pp.STATE]:
                         # Mark the key as found
@@ -478,7 +482,7 @@ class Exporter:
                         # Add data point in correct format to the collection
                         subdomain_data[(g, key)] = value
 
-                # Try to find the key in the data dictionary associated to edges
+                # Try to find the key in the data dictionary associated to interfaces
                 for e, d in self.gb.edges():
                     if pp.STATE in d and key in d[pp.STATE]:
                         # Mark the key as found
@@ -486,7 +490,7 @@ class Exporter:
 
                         # Fetch data and convert to vectorial format if suggested by the size
                         mg = d["mortar_grid"]
-                        value: np.ndarray = toVectorFormat(d[pp.STATE][key], mg) # TODO g?
+                        value: np.ndarray = toVectorFormat(d[pp.STATE][key], mg)
 
                         # Add data point in correct format to the collection
                         interface_data[(e, key)] = value
@@ -502,7 +506,9 @@ class Exporter:
 
                 # By construction, the first component contains grids.
                 # Unify by converting the first component to a list
-                grids: List[pp.Grid] = pt[0] # if isinstance(pt[0], list) else [pt[0]] 
+                grids: List[pp.Grid] = (
+                    pt[0] if isinstance(pt[0], list) else [pt[0]]
+                )
 
                 # By construction, the second component contains a key.
                 key: str = pt[1]
@@ -511,11 +517,12 @@ class Exporter:
                 for g in grids:
 
                     # Fetch the data dictionary containing the data value
-                    d = self.gb.node_props(g) # TODO type
+                    d = self.gb.node_props(g)
 
                     # Make sure the data exists.
                     if not (pp.STATE in d and key in d[pp.STATE]):
-                        raise ValueError("No state with prescribed key available on selected grids.")
+                        raise ValueError(f"""No state with prescribed key {key}
+                            available on selected subdomains.""")
 
                     # Fetch data and convert to vectorial format if suitable
                     value: np.ndarray = toVectorFormat(d[pp.STATE][key], g)
@@ -530,7 +537,9 @@ class Exporter:
 
                 # By construction, the first component contains grids.
                 # Unify by converting the first component to a list
-                edges: Union[Interface, List[Interface]] = pt[0] if isinstance(pt[0], list) else [pt[0]]
+                edges: Union[Interface, List[Interface]] = (
+                    pt[0] if isinstance(pt[0], list) else [pt[0]]
+                )
 
                 # By construction, the second component contains a key.
                 key: str = pt[1]
@@ -539,10 +548,12 @@ class Exporter:
                 for e in edges:
 
                     # Fetch the data dictionary containing the data value
-                    d = self.gb.edge_props(e) # TODO type
+                    d = self.gb.edge_props(e)
 
                     # Make sure the data exists.
-                    assert(pp.STATE in d and key in d[pp.STATE])
+                    if not (pp.STATE in d and key in d[pp.STATE]):
+                        raise ValueError(f"""No state with prescribed key {key}
+                            available on selected interfaces.""")
 
                     # Fetch data and convert to vectorial format if suitable
                     mg = d["mortar_grid"]
@@ -557,11 +568,13 @@ class Exporter:
             # Idea: Extract the unique grid and continue as in Case 2.
             elif isinstance_Tuple_str_array(pt):
 
-                # Fetch the correct grid. This option is only supported for grid buckets containing a single grid.
+                # Fetch the correct grid. This option is only supported for grid
+                # buckets containing a single grid.
                 grids: List[pp.Grid] = [g for g, _ in self.gb.nodes()]
                 g: pp.Grid = grids[0]
                 if not len(grids)==1:
-                    raise ValueError(f"The data type used for {pt} is only supported if the grid bucket only contains a single grid.")
+                    raise ValueError(f"""The data type used for {pt} is only
+                        supported if the grid bucket only contains a single grid.""")
 
                 # Fetch remaining ingredients required to define node data element
                 key: str = pt[0]
@@ -587,7 +600,7 @@ class Exporter:
                 # Data point in correct format
                 e: Interface = pt[0]
                 key: str = pt[1]
-                d = self.gb.edge_props(e) # TODO type
+                d = self.gb.edge_props(e)
                 mg = d["mortar_grid"]
                 value: np.ndarray = toVectorFormat(pt[2], mg)
 
@@ -770,7 +783,6 @@ class Exporter:
             # Construct the list of fields represented on this dimension.
             fields: List[Field] = []
             for key in keys:
-
                 # Collect the values associated to all entities
                 values = []
                 for e in entities:
@@ -778,7 +790,10 @@ class Exporter:
                         values.append(data[(e,key)])
 
                 # Require data for all or none entities of that dimension.
-                assert(len(values) in [0, len(entities)])
+                # FIXME: By changing the export strategy, this could be fixed.
+                if len(values) not in [0, len(entities)]:
+                    raise ValueError(f"""Insufficient amount of data provided for
+                        key {key} on dimension {dim}.""")
 
                 # If data has been found, append data to list after stacking
                 # values for different entities
@@ -786,14 +801,15 @@ class Exporter:
                     field = Field(key, np.hstack(values))
                     fields.append(field)
 
-            # Print data for the particular dimension. Since geometric
-            # info is required distinguish between subdomain and interface data.
+            # Print data for the particular dimension. Since geometric info
+            # is required distinguish between subdomain and interface data.
             meshio_geom = self.meshio_geom[dim] if is_subdomain_data else self.m_meshio_geom[dim]
             if meshio_geom is not None:
                 self._write(fields, file_name, meshio_geom)
 
     def _export_gb_pvd(self, file_name: str, time_step: int) -> None:
-        """Routine to export to pvd format and collect all data scattered over
+        """
+        Routine to export to pvd format and collect all data scattered over
         several files for distinct grid dimensions.
 
         Parameters:
