@@ -4,11 +4,9 @@ In the current setting, we expect these substances to only appear in the solid, 
 
 from typing import List
 
-from .substance import SolidSubstance
+from ..substance import SolidSubstance
 
-__all__: List[str] = [
-    "NaCl_simple"
-]
+__all__: List[str] = ["NaCl_simple"]
 
 
 class NaCl_simple(SolidSubstance):

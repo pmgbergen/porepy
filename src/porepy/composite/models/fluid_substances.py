@@ -3,15 +3,13 @@ In the current setting, we expect these substances to only appear in liquid or g
 i.e. they are associated with the flow.
 """
 
-import iapws
-
 from typing import List
 
-from .substance import FluidSubstance
+import iapws
 
-__all__: List[str] = [
-    "H20_iapws"
-]
+from ..substance import FluidSubstance
+
+__all__: List[str] = ["H20_iapws"]
 
 
 class H20_iapws(FluidSubstance):

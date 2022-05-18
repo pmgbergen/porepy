@@ -171,20 +171,9 @@ from porepy.numerics.fracture_deformation.conforming_propagation import (
     ConformingFracturePropagation,
 )
 
-# Related to models and solvers
+# Related solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.linear_solvers import LinearSolver
-from porepy.models.run_models import (
-    run_stationary_model,
-    run_time_dependent_model,
-)
-
-from porepy.models.contact_mechanics_model import ContactMechanics
-from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
-from porepy.models.thm_model import THM
-from porepy.models.incompressible_flow_model import IncompressibleFlow
-from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
-from porepy.models.geothermal_model import CompositionalFLow
 
 # from porepy.numerics.ad.equation_manager import Equation, EquationManager
 from porepy.numerics import ad
@@ -212,3 +201,16 @@ from porepy.utils.default_domains import (
 
 # composite submodule. VL: it will have a lot elements, keep it bundled as pp.composite
 from . import composite
+
+# Models
+from porepy.models.run_models import (
+    run_stationary_model,
+    run_time_dependent_model,
+)
+
+from porepy.models.contact_mechanics_model import ContactMechanics
+from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
+from porepy.models.thm_model import THM
+from porepy.models.incompressible_flow_model import IncompressibleFlow
+from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
+from porepy.models.geothermal_model import GeothermalModel

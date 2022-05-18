@@ -153,7 +153,7 @@ def create_merged_mortar_variable(
 
 
 class ConvergenceError(Exception):
-    """ Error class to be raised when numerical algorithms do not converge. """
+    """Error class to be raised when numerical algorithms do not converge."""
 
     def __init__(self, *args) -> None:
         """Constructor for catching arguments passed by the error stack."""
