@@ -1,9 +1,11 @@
 """ Contains the SimpleFluid and UnitSolid substances. """
 
-from ._composite_utils import IDEAL_GAS_CONSTANT
-from .substance import FluidSubstance, SolidSubstance
+from typing import List
 
-__all__ = ["SimpleFluid", "UnitSolid"]
+from .._composite_utils import IDEAL_GAS_CONSTANT
+from ..substance import FluidSubstance, SolidSubstance
+
+__all__: List[str] = ["SimpleFluid", "UnitSolid"]
 
 
 class SimpleFluid(FluidSubstance):

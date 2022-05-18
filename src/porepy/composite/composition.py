@@ -12,6 +12,7 @@ import porepy as pp
 
 from ._composite_utils import COMPUTATIONAL_VARIABLES, create_merged_variable
 from .material_subdomain import MaterialSubdomain
+from .models.unit_substance import UnitSolid
 from .phase import PhaseField
 
 __all__ = ["Composition"]
@@ -100,7 +101,7 @@ class Composition:
 
         for grid, _ in self.gb:
             self._material_subdomains.update(
-                {grid: MaterialSubdomain(grid, pp.composite.UnitSolid(self.gb))}
+                {grid: MaterialSubdomain(grid, UnitSolid(self.gb))}
             )
 
         self.dof_manager.update_dofs()
@@ -187,6 +188,14 @@ class Composition:
             yield (grid, data, self._material_subdomains[grid])
 
     @property
+    def substances(self) -> Tuple["pp.composite.Substance"]:
+        """
+        :return: substances present in phases
+        :rtype: tuple
+        """
+        return tuple(self._present_substances)
+
+    @property
     def pressure(self) -> "pp.ad.MergedVariable":
         """(Global) pressure. Primary variable in the compositional flow.
         Given per cell
@@ -224,16 +233,29 @@ class Composition:
         """
         return self._temperature
 
-    @property
-    def composit_density(self) -> "pp.ad.Operator":
+    def composit_density(
+        self, previous_timestep: Optional[bool] = False
+    ) -> Union["pp.ad.Operator", int, float]:
         """
+        :param previous_timestep: indicator which values for variables should be used
+        :type previous_timestep: bool
+
         :return: overall molar density of the composition using the caloric relation.
         :rtype: :class:`~porepy.numerics.ad.operators.MergedVariable`
         """
-        rho = [
-            phase.saturation * phase.molar_density(self.pressure, self.enthalpy)
-            for phase in self
-        ]
+        if previous_timestep:
+            rho = [
+                phase.saturation.previous_timestep()
+                * phase.molar_density(
+                    self.pressure.previous_timestep(), self.enthalpy.previous_timestep()
+                )
+                for phase in self
+            ]
+        else:
+            rho = [
+                phase.saturation * phase.molar_density(self.pressure, self.enthalpy)
+                for phase in self
+            ]
         # density = 0.0
         # for phase in self:
         #     density += phase.saturation * phase.molar_density(

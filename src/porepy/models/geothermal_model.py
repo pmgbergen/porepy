@@ -58,11 +58,24 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
 
         ### GEOTHERMAL MODEL SET UP TODO
         self.composition = pp.composite.Composition(self.gb)
+        
+        self.primary_subsystem: Dict[str, list] = {
+            "equations": ["overall_component_fraction_sum"],
+            "vars": [self.composition.pressure, self.composition.enthalpy],
+            "var_names": [self.composition._pressure_var, self.composition._enthalpy_var]
+        }
+        for substance in self.composition.substances:
+            self.primary_subsystem["vars"].append(substance.overall_fraction)
+            self.primary_subsystem["var_names"].append(substance.overall_fraction_var)
 
         # Use the managers from the composition so that the Schur complement can be made
         self.eqm: pp.ad.EquationManager = self.composition.eq_manager
         self.dofm: pp.DofManager = self.composition.dof_manager
-        
+
+        self.eqm.equations.update({
+            "overall_component_fraction_sum": self.composition.overall_component_fractions_sum()
+        })
+
         ### PRIVATE
         # list of primary equations
         self._prim_equ: List[str] = list()
@@ -79,21 +92,26 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         # residual tolerance for flash and equilibrium calculations
         self._iter_eps = 1e-10
 
-        ## model-specific input. NOTE hardcoded values are up for modularization
-        # mol in 1 cubic meter (1 mol of liquid water is approx 1.8xe-5 m^3)
-        # 0 mol salt source
-        self._source_quantity = [55555.5, 0.]
-        # enthalpy of water from source. TODO get physical value here
-        # zero enthalpy from zero salt source
-        self._source_enthalpy = [10., 0.]
+        ## model-specific input.
+        self._source_quantity = {
+            "H20_iapws": 55555.5, # mol in 1 m^3 (1 mol of liquid water is approx 1.8xe-5 m^3)
+            "NaCl": 0. # only water is pumped into the system
+        }
+        self._source_enthalpy = {
+            "H20_iapws": 10., # TODO get physical value here
+            "NaCl": 0. # no new salt enters the system
+        }
         # 110°C temperature for D-BC for conductive flux
         self._conductive_boundary_temperature = 383.15
         # flux for N-BC
-        self._outflow_flux = 1.
+        self._outflow_flux = 4000. # if less mole flow out than pumped in, pressure rises
         # base porosity for grid
         self._base_porosity = 1.
         # base permeability for grid
         self._base_permeability = 1.
+
+        # time step size
+        self._dt = 1.
 
     def create_grid(self) -> None:
         """ Assigns a cartesian grid as computational domain.
@@ -131,10 +149,10 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         )
         
         self._set_up()
-        self._initial_condition()
-        self._assign_equations()
+        self._set_mass_balance_equations()
+        self._set_energy_balance_equation() 
 
-        # after everything has been set, discretize
+        # NOTE this can be optimized. Some component need to be discretized only once.
         self.eqm.discretize(self.gb)
 
 #------------------------------------------------------------------------------
@@ -310,58 +328,97 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         A modularization of the solid skeleton properties is still missing.
         """
         
-        for g, d, mat_sd in self.cd:
-
-            bc, bc_vals = self._BC_unitary_transport_flux(g)
-            # unitary source
+        for g, d in self.gb:
+            
             source = self._unitary_source(g)
+            unit_tensor = pp.SecondOrderTensor(1.)
+            # TODO must-have parameter?
+            zero_vector_source = np.zeros((self.gb.dim_max(), g.num_cells))
 
-            # transmissibility coefficients for the MPFA
-            transmissability = pp.SecondOrderTensor(
-                self._base_permeability
-            )
-
-            # No gravity
-            # vector_source = np.zeros((self.gb.dim_max(), g.num_cells))
-
-            # TODO split flow parameters into parameters per component (different sources)
-            pp.initialize_data(
-                g,
-                d,
-                self.flow_parameter_key,
-                {
-                    "bc": bc,
-                    "bc_values": bc_vals,
-                    "source": mass_source,  
-                    "second_order_tensor": transmissability,
-                    # "vector_source": vector_source.ravel("F"),
-                    "ambient_dimension": self.gb.dim_max(),
-                },
-            )
-             # Mass weight parameter. Same for all phases
+            ### Mass weight parameter. Same for all balance equations
             pp.initialize_data(
                 g, d, self.mass_parameter_key, {"mass_weight": self._base_porosity
                 }
             )
 
-            # NOTE EK: Seen from the upstream discretization, the Darcy velocity is a
-            # parameter, although it is a derived quantity from the flow discretization
-            # point of view. We will set a value for this in the initialization, to
-            # increase the chances the user remembers to set compatible flux and
-            # pressure.
-
-            # NOTE VL: below should be done per component, not phase, since we have an equation per component.
-
-            for j in range(self.num_fluid_phases):
-                bc = self._bc_type_transport(g, j)
-                bc_values = self._bc_values_transport(g, j)
+            ### Mass parameters per substance
+            
+            for i, substance in enumerate(self.composition.substances):
                 pp.initialize_data(
                     g,
                     d,
-                    f"{self.upwind_parameter_key}_{j}",
+                    "%s_%s" % (self.mass_parameter_key, substance.name),
+                    {
+                        "source": np.copy(source * self._source_quantity[i]),  
+                    },
+                )
+
+            ### Darcy flow parameters per PhaseField
+            # TODO VL is this necessary per phase? global pressure formulation
+            bc, bc_vals = self._bc_advective_flux(g)
+            transmissibility = pp.SecondOrderTensor(
+                self._base_permeability
+            )
+            for i, phase in enumerate(self.composition):
+                # parameters for MPFA
+                pp.initialize_data(
+                    g,
+                    d,
+                    "%s_%s" % (self.flow_parameter_key, phase.name),
                     {
                         "bc": bc,
-                        "bc_values": bc_values,
+                        "bc_values": bc_vals,
+                        "second_order_tensor": transmissibility,
+                        "vector_source": np.copy(zero_vector_source.ravel("F")),
+                        "ambient_dimension": self.gb.dim_max(),
+                    },
+                )
+                # parameters for upwinding
+                pp.initialize_data(
+                    g,
+                    d,
+                    "%s_%s" % (self.upwind_parameter_key, phase.name),
+                    {
+                        "bc": bc,
+                        "bc_values": bc_vals,
+                        "darcy_flux": np.zeros(g.num_faces) # Upwinding expects an initial flux
+                    },
+                )
+
+            ### Energy parameters for global energy equation
+            bc, bc_vals = self._bc_conductive_flux(g)
+            # enthalpy sources due to substance mass source
+            param_dict = dict()
+            for i, substance in enumerate(self.composition.substances):
+                param_dict.update({
+                    "source_%s" % (substance.name): np.copy(source * self._source_enthalpy[i])
+                })
+            # other enthalpy sources e.g., hot skeleton
+            param_dict.update({
+                "source": np.copy(source * 0.)
+            })
+            # MPFA parameters for conductive BC
+            param_dict.update({
+                "bc": bc,
+                "bc_values": bc_vals,
+                "second_order_tensor": unit_tensor,
+                "vector_source": np.copy(zero_vector_source.ravel("F")),
+                "ambient_dimension": self.gb.dim_max(),
+            })
+            pp.initialize_data(
+                    g,
+                    d,
+                    self.energy_parameter_key,
+                    param_dict,
+                )
+            # parameters for upwinding
+            pp.initialize_data(
+                    g,
+                    d,
+                    "%s_%s" % (self.upwind_parameter_key, self.energy_parameter_key),
+                    {
+                        "bc": bc,
+                        "bc_values": bc_vals,
                     },
                 )
 
@@ -369,35 +426,56 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         for e, data_edge in self.gb.edges():
             raise NotImplementedError("Mixed dimensional case not yet available.")
 
-    ### Initial Conditions
-
-    def _initial_condition(self):
-        """Set initial conditions: Homogeneous for all variables except the pressure.
-        Also feed a zero Darcy flux to the upwind discretization.
-        """
-        # This will set homogeneous conditions for all variables
-        super()._initial_condition()
-
-        for g, d in self.gb:
-            d[pp.STATE][self.pressure_variable][:] = 1
-            d[pp.STATE][pp.ITERATE][self.pressure_variable][:] = 1
-
-            # intrinsic energy in [joule/moles]
-            d[pp.STATE][self.enthalpy_variable][:] = 1  
-            d[pp.STATE][pp.ITERATE][self.enthalpy_variable][:] = 1
-
-            # Careful here: Use the same variable to store the Darcy flux for all phases.
-            # This is okay in this case, but do not do so for other variables.
-            darcy = np.zeros(g.num_faces)
-            for j in range(self.num_fluid_phases):
-                d[pp.PARAMETERS][f"{self.upwind_parameter_key}_{j}"][
-                    "darcy_flux"
-                ] = darcy
-
     ### Boundary Conditions
 
-    def _bc_advective_flux(self):
-        """Advective flux"""
+    def _bc_advective_flux(self, g: "pp.Grid") -> Tuple[pp.BoundaryCondition, np.ndarray]:
+        """BC for advective flux (Darcy). Override for modifications.
+
+        Phys. Dimensions of ADVECTIVE MASS FLUX:
+            - Dirichlet conditions: [Pa] = [N / m^2] = [kg / m^1 / s^2]
+            - Neumann conditions: [mol / m^2 s] = [(mol / m^3) * (m^3 / m^2 s)] 
+                (molar density * Darcy flux)
+        
+        Phys. Dimensions of ADVECTIVE ENTHALPY FLUX:
+            - Dirichlet conditions: [K] (temperature)
+            - Neumann conditions: [J m^3 / m^2 s] (density * specific enthalpy * Darcy flux)
+
+        Phys. Dimensions of FICK's LAW OF DIFFUSION:
+            - Dirichlet conditions: [-] (molar, fractional: constant concentration at boundary) 
+            - Neumann conditions: [mol / m^2 s] 
+              (same as advective flux)
+
+        NOTE: Enthalpy flux D-BCs need some more thoughts.
+        Isn't it unrealistic to assume the temperature or enthalpy of the outflowing fluid is
+        known?
+        That BC would influence our physical setting and it's actually our goal to find out
+        how warm the water will be at the outflow.
+        NOTE: BC has to be defined for all fluxes separately.
+        """
+        bc, vals = self._bc_unitary_flux(g, "east", "neu")
+        return (bc, vals * self._outflow_flux)
+    
+    def _bc_diff_disp_flux(self, g: "pp.Grid") -> Tuple[pp.BoundaryCondition, np.ndarray]:
+        """BC for diffusive-dispersive flux (Darcy). Override for modifications.
+
+        Phys. Dimensions of FICK's LAW OF DIFFUSION:
+            - Dirichlet conditions: [-] (molar, fractional: constant concentration at boundary) 
+            - Neumann conditions: [mol / m^2 s] 
+              (same as advective flux)
+        """
+        bc, vals = self._bc_unitary_flux(g, "east", "neu")
+        return (bc, vals * self._outflow_flux)
+    
+    def _bc_conductive_flux(self, g: "pp.Grid") -> Tuple[pp.BoundaryCondition, np.ndarray]:
+        """ Conductive BC for Fourier flux in energy equation. Override for modifications.
+        
+        Phys. Dimensions of CONDUCTIVE HEAT FLUX:
+            - Dirichlet conditions: [K] (temperature)
+            - Neumann conditions: [J m^3 / m^2 s] (density * specific enthalpy * Darcy flux)
+              (same as convective enthalpy flux)
+        """
+        bc, vals = self._bc_unitary_flux(g, "south", "dir")
+        return (bc, vals * self._conductive_boundary_temperature)
 
     def _bc_unitary_flux(
         self, g: "pp.Grid", side: str, bc_type: Optional[str] = "neu"
@@ -440,75 +518,6 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
 
         return (bc, vals)
 
-    def _BC_unitary_transport_flux(self, g: pp.Grid, bc_type: Optional[str] = "neu"
-    )-> Tuple[pp.BoundaryCondition, np.ndarray]:
-        """        
-        BC objects for unitary flux.
-        Currently only the east side allows boundary a non-zero flux
-
-        Phys. Dimensions of ADVECTIVE MASS FLUX:
-            - Dirichlet conditions: [Pa] = [N / m^2] = [kg / m^1 / s^2]
-            - Neumann conditions: [mol / m^2 s] = [(mol / m^3) * (m^3 / m^2 s)] 
-              (molar density * Darcy flux)
-        
-        Phys. Dimensions of ADVECTIVE ENTHALPY FLUX:
-            - Dirichlet conditions: [K] (temperature)
-            - Neumann conditions: [J m^3 / m^2 s] (density * specific enthalpy * Darcy flux)
-
-        Phys. Dimensions of FICK's LAW OF DIFFUSION:
-            - Dirichlet conditions: [-] (molar, fractional: constant substance concentration at boundary) 
-            - Neumann conditions: [mol / m^2 s]  (same as regular mass flux)
-
-        NOTE: Enthalpy flux BCs need some more thoughts.
-        Isn't it unrealistic to assume the temperature or enthalpy of the outflowing fluid is
-        known?
-        That BC would influence our physical setting and it's actually our goal to find out
-        how warm the water will be at the outflow.
-        NOTE: BC has to be defined for all fluxes separately.
-
-
-        :param g: grid representing subdomain on which BCs are imposed
-        :type g: :class:`~porepy.grids.grid.Grid`
-        :param bc_type: (default='neu') defines the type of the eastside BC.
-            Currently only Dirichlet and Neumann BC are supported
-        :type bc_type: str
-        
-        :return: :class:`~porepy.params.bc.BoundaryCondition` instance and respective values
-        :rtype: Tuple[porepy.BoundaryCondition, numpy.ndarray]
-        """
-        _, east_bf, *_ = self._domain_boundary_sides(g)
-
-        # heterogeneous on west side, BoundaryCondition object automatically assumes  Neumann for rest
-        bc = pp.BoundaryCondition(g, east_bf, bc_type)
-
-        # homogeneous Neumann BC
-        vals = np.zeros(g.num_faces)
-        # Constant, unitary D-BC on eastside
-        vals[east_bf] = 1.
-
-        return (bc, vals)
-
-    def _BC_unitary_conductive_flux(self, g: pp.Grid, bc_type: Optional[str] = "neu"
-    )-> Tuple[pp.BoundaryCondition, np.ndarray]:
-        """
-        BC object for unitary, conductive flux. Currently only non-zero BC at southside assumed.
-
-        Phys. Dimensions of CONDUCTIVE HEAT FLUX:
-            - Dirichlet conditions: [K] (temperature)
-            - Neumann conditions: [J m^3 / m^2 s] (density * specific enthalpy * Darcy flux) (same as convective flux)
-        """
-        _, _, _, _, south_bf,*_ = self._domain_boundary_sides(g)
-
-        # heterogeneous on west side, BoundaryCondition object automatically assumes  Neumann for rest
-        bc = pp.BoundaryCondition(g, south_bf, bc_type)
-
-        # homogeneous Neumann BC
-        vals = np.zeros(g.num_faces)
-        # Constant, unitary D-BC on eastside
-        vals[south_bf] = 1.
-
-        return (bc, vals)
-
     #### Source terms
 
     def _unitary_source(self, g: pp.Grid) -> np.array:
@@ -532,82 +541,76 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         return vals
 
     #------------------------------------------------------------------------------------------
-    ### MODEL EQUATIONS: Transport and Energy Balance
-    #------------------------------------------------------------------------------------------
-
-    def _assign_equations(self) -> None:
-        """Method to set transport equations per substance and 1 global energy equations."""
-
-        # balance equations
-        self._set_mass_balance_equations()
-        self._set_energy_balance_equation()            
-
-        # TODO store primary equations, vars and var names
+    ### MODEL EQUATIONS: Mass and Energy Balance
+    #------------------------------------------------------------------------------------------           
 
     def _set_mass_balance_equations(self) -> None:
-        """Set transport equations"""
-        # TODO treat case of single component system specially!
-        darcy = self._single_phase_darcy()
+        """Set mass balance equations per substance"""
 
-        component_flux = [0 for i in range(self.num_components)]
-
-        for j in range(self.num_fluid_phases):
-            rp = self._rel_perm(j)
-            visc = self._phase_viscosity(j)
-
-            upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{j}", self._grids)
-
-            rho_j = self._density(j)
-
-            darcy_j = (upwind.upwind * rp / visc) * darcy
-
-            for i in range(self.num_components):
-                if self._component_present_in_phase[i, j]:
-                    component_flux[i] += darcy_j * (
-                        upwind.upwind * (rho_j * self._ad.component_phase[i, j])
-                    )
-        
         mass = pp.ad.MassMatrixAd(self.mass_parameter_key, self._grids)
+        comp = self.composition
+        upwind: Dict[str, "pp.ad.UpwindAd"] = dict()
+        upwind_bc: Dict[str: "pp.ad.ParameterArray"] = dict()
+        div = pp.ad.Divergence(grids=self._grids, name="Divergence")
 
-        dt = 1
+        # store the upwind discretization per phase
+        for phase in comp:
+            keyword = "%s_%s" % (self.upwind_parameter_key, phase.name)
+            upwind.update({
+                phase.name: pp.ad.UpwindAd(keyword, self._grids)
+            })
+            upwind_bc.update({
+                phase.name: pp.ad.ParameterArray(keyword, "bc_values", self._grids)
+            })
 
-        rho_tot = self._density()
-        rho_tot_prev_time = self._density(prev_time=True)
-
-        div = pp.ad.Divergence(self._grids, dim=1, name="Divergence")
-
-        component_mass_balance: List[pp.ad.Operator()] = []
-
-        g = self.gb.grids_of_dimension(self.gb.dim_max())[0]
-
-        for i in range(self.num_components):
-            # Boundary conditions
-            bc = pp.ad.ParameterArray(  # Not sure about this part - should there also be a phase-wise boundary condition?
-                param_keyword=upwind.keyword, array_keyword="bc_values", grids=[g]
-            )
-            # The advective flux is the sum of the internal (computed in flux_{i} above)
-            # and the boundary condition
-            # FIXME: We need to account for both Neumann and Dirichlet boundary conditions,
-            # and likely do some filtering.
-            adv_flux = component_flux[i] + upwind.bound_transport_neu * bc
-
-            z_i = self._ad.component[i]
+        for subst in self.composition.substances:
             # accumulation term
-            accum = (
-                mass.mass
-                * (z_i / rho_tot - z_i.previous_timestep() / rho_tot_prev_time)
-                / dt
+            accumulation = (
+                mass.mass / self._dt * (
+                    subst.overall_fraction * comp.composit_density() -
+                    subst.overall_fraction.previous_timestep() * comp.composit_density(True)
+                )
             )
 
-            # Append to set of conservation equations
-            component_mass_balance.append(accum + div * adv_flux)
+            # advection per phase
+            advection = list()
+            for phase in comp.phases_of_substance(subst):
 
-        for i, eq in enumerate(component_mass_balance):
-            self._eq_manager.equations[f"Mass_balance_component{i}"] = eq
+                # Advective term due to pressure potential per phase in which subst is present
+                darcy_flux = self._darcy_flux(comp.pressure, phase)
+                # TODO add rel perm
+                darcy_scalar = (
+                    phase.molar_density(comp.pressure, comp.enthalpy) *
+                    subst.fraction_in_phase(phase) /
+                    phase.viscosity(comp.pressure, comp.enthalpy)
+                )
+                upwind_p = upwind[phase.name]
+                upwind_p_bc = upwind_bc[phase.name]
+
+                adv_p = (
+                    (upwind_p.upwind * darcy_scalar) * darcy_flux +
+                    upwind.bound_transport_neu * upwind_p_bc # TODO Dirichlet BC?
+                )
+                advection.append(adv_p)
+
+            # total advection
+            advection = sum(advection)
+
+            # source term
+            keyword = "%s_%s" % (self.mass_parameter_key, subst.name)
+            source = pp.ad.ParameterArray(keyword, "source", grids=self._grids)
+
+            ### MASS BALANCE PER COMPONENT
+            # TODO check for minus in advection
+            equ_subst = accumulation + div * advection - source
+            equ_name  = "mass_balance_%s" % (subst.name)
+            self.eqm.equations.update({
+                equ_name: equ_subst
+            })
+            self.primary_subsystem["equations"].append(equ_name)
 
     def _set_energy_balance_equation(self) -> None:
-        """ Sets the global enthalpy balance equation.
-        """
+        """Sets the global energy balance equation in terms of enthalpy."""
 
         darcy = self._single_phase_darcy()
 
@@ -631,54 +634,48 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
                         upwind.upwind * (rho_j * self._ad.component_phase[i, j])
                     )
 
-    def _darcy_flux(self, pressure: "pp.ad.MergedVariable") -> "pp.ad.Operator":
-        """MPFA discretization of darcy potential for given pressure variable.
+    def _darcy_flux(
+        self, pressure: "pp.ad.MergedVariable", phase: "pp.composite.PhaseField"
+    ) -> "pp.ad.Operator":
+        """MPFA discretization of Darcy potential for given pressure and phase.
 
         :param pressure: a pressure variable
         :type pressure: :class:`~porepy.ad.MergedVariable`
+        :param phase: phase for generalized Darcy flux
+        :type phase: :class:`~porepy.composite.PhaseField`
 
         :return: MPFA discretization including boundary conditions
         :rtype: :class:`~porepy.ad.Operator`
         """
-        mpfa = pp.ad.MpfaAd(self.flow_parameter_key, self._grids)
-
-        bc = pp.ad.ParameterArray(self.flow_parameter_key, "bc_values", grids=self._grids)
-
-        darcy = mpfa.flux * pressure + mpfa.bound_flux * bc
-        return darcy
-
-    def _upstream(self, phase_ind: int) -> pp.ad.Operator:
-        # Not sure we need this one, but it may be convenient if we want to override this
-        # (say, for countercurrent flow).
-
-        upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{phase_ind}", self._grids)
-
-        rp = self._rel_perm(phase_ind)
-
-        return upwind.upwind * rp
+        keyword = "%s_%s" % (self.flow_parameter_key, phase.name)
+        mpfa = pp.ad.MpfaAd(keyword, self._grids)
+        # bc = pp.ad.ParameterArray(keyword, "bc_values", grids=self._grids)
+        bc = pp.ad.BoundaryCondition(keyword, self._grids)
+        # TODO Dirichlet BC?
+        return mpfa.flux * pressure + mpfa.bound_flux * bc
 
     #------------------------------------------------------------------------------------------
     ### CONSTITUTIVE LAWS
     #------------------------------------------------------------------------------------------
 
-    def _aperture(self, g: pp.Grid) -> np.ndarray:
-        """
-        Aperture is a characteristic thickness of a cell, with units [m].
-        1 in matrix, thickness of fractures and "side length" of cross-sectional
-        area/volume (or "specific volume") for intersections of dimension 1 and 0.
-        See also specific_volume.
-        """
-        aperture = np.ones(g.num_cells)
-        if g.dim < self.gb.dim_max():
-            aperture *= 0.1
-        return aperture
+    # def _aperture(self, g: pp.Grid) -> np.ndarray:
+    #     """
+    #     Aperture is a characteristic thickness of a cell, with units [m].
+    #     1 in matrix, thickness of fractures and "side length" of cross-sectional
+    #     area/volume (or "specific volume") for intersections of dimension 1 and 0.
+    #     See also specific_volume.
+    #     """
+    #     aperture = np.ones(g.num_cells)
+    #     if g.dim < self.gb.dim_max():
+    #         aperture *= 0.1
+    #     return aperture
 
-    def _specific_volume(self, g: pp.Grid) -> np.ndarray:
-        """
-        The specific volume of a cell accounts for the dimension reduction and has
-        dimensions [m^(Nd - d)].
-        Typically equals 1 in Nd, the aperture in codimension 1 and the square/cube
-        of aperture in dimension 1 and 0.
-        """
-        a = self._aperture(g)
-        return np.power(a, self.gb.dim_max() - g.dim)
+    # def _specific_volume(self, g: pp.Grid) -> np.ndarray:
+    #     """
+    #     The specific volume of a cell accounts for the dimension reduction and has
+    #     dimensions [m^(Nd - d)].
+    #     Typically equals 1 in Nd, the aperture in codimension 1 and the square/cube
+    #     of aperture in dimension 1 and 0.
+    #     """
+    #     a = self._aperture(g)
+    #     return np.power(a, self.gb.dim_max() - g.dim)
