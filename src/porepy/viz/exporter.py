@@ -32,7 +32,6 @@ Meshio_Geom = namedtuple('Meshio_Geom', ['pts', 'connectivity', 'cell_ids'])
 MD_Meshio_Geom = Dict[int, Meshio_Geom]
 
 class Exporter:
-    # TODO DOC
     """
     Class for exporting data to vtu files.
 
@@ -46,34 +45,43 @@ class Exporter:
     fixed_grid: (optional) in a time dependent simulation specify if the
         grid changes in time or not. The default is True.
     binary: (optional) export in binary format, default is True.
+    export_constants_separately: (optional) export constants in separate files
+        to potentially reduce memory footprint, default is True.
 
     How to use:
-    If you need to export a single grid:
+
+    The Exporter allows for various way to express which state variables,
+    on which grids, and which extra data should be exported. A thorough
+    demonstration is available as a dedicated tutorial. Check out
+    tutorials/exporter.ipynb.
+
+    Here, merely a brief demonstration of the use of Exporter is presented.
+
+    If you need to export the state with key "pressure" on a single grid:
     save = Exporter(g, "solution", folder_name="results")
-    save.write_vtu({"cells_id": cells_id, "pressure": pressure})
+    save.write_vtu(["pressure"])
 
-    In a time loop:
+    In a time loop, if you need to export states with keys "pressure" and
+    "displacement" stored in a grid bucket.
     save = Exporter(gb, "solution", folder_name="results")
     while time:
-        save.write_vtu({"conc": conc}, time_step=i)
-    save.write_pvd(steps*deltaT)
+        save.write_vtu(["pressure", "displacement"], time_step=i)
+    save.write_pvd(times)
 
-    if you need to export the state of variables as stored in the GridBucket:
-    save = Exporter(gb, "solution", folder_name="results")
-    # export the field stored in data[pp.STATE]["pressure"]
-    save.write_vtu(gb, ["pressure"])
-
-    In a time loop:
-    while time:
-        save.write_vtu(["conc"], time_step=i)
-    save.write_pvd(steps*deltaT)
+    where times, is a list of actual times (not time steps), associated
+    to the previously exported time steps. 
+    
+    In general, pvd files gather data exported in separate files, including
+    data on differently dimensioned grids, constant data, and finally time steps.
+    
+    
+    deltaT is a scalar, denoting the time step size, and steps
 
     In the case of different keywords, change the file name with
     "change_name".
 
     NOTE: the following names are reserved for data exporting: grid_dim,
-    is_mortar, mortar_side, cell_id
-
+    is_mortar, mortar_side, cell_id, grid_node_number, grid_edge_number
     """
 
     # Introduce types used below
@@ -178,6 +186,7 @@ class Exporter:
         if "numba" not in sys.modules:
             raise NotImplementedError("The sorting algorithm requires numba to be installed.")
 
+    # TODO in use by anyone?
     def change_name(self, file_name: str) -> None:
         """
         Change the root name of the files, useful when different keywords are
