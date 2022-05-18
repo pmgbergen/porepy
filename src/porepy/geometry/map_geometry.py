@@ -206,7 +206,7 @@ def project_plane_matrix(pts, normal=None, tol=1e-5, reference=None, check_plana
     if check_planar:
         assert pp.geometry_property_checks.points_are_planar(pts, normal, tol)
 
-    reference = np.asarray(reference, dtype=np.float)
+    reference = np.asarray(reference, dtype=float)
     angle = np.arccos(np.dot(normal, reference))
     vect = np.array(
         [
@@ -266,7 +266,7 @@ def rotation_matrix(a, vect):
     matrix: np.ndarray, 3x3, the rotation matrix.
 
     NOTE: If vect is a zero vector, the returned rotation matrix will be the
-    identify matrix.
+    identity matrix.
 
     """
     if np.allclose(vect, np.zeros(3)):
@@ -331,7 +331,7 @@ def tangent_matrix(pts=None, normal=None):
 
 
 def compute_normal(pts, tol=1e-5):
-    """Compute the normal of a set of points. The sign of the normal is arbitary
+    """Compute the normal of a set of points. The sign of the normal is arbitrary
 
     The algorithm assume that the points lie on a plane.
     Three non-aligned points are required.
