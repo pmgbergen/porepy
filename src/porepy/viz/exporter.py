@@ -1280,8 +1280,9 @@ class Exporter:
         # For each cell_type store the connectivity pattern cell_to_nodes for
         # the corresponding cells with ids from cell_id.
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-            # Meshio does not accept polygon{n} cell types if it does not
-            # correspeond to a special geometric object.
+
+            # Meshio requires the keyword "polgon" for general polygons. 
+            # Thus, remove the number of nodes associated to polygons.
             cell_type_meshio_format = "polygon" if "polygon" in cell_type else cell_type
             meshio_cells[block] = meshio.CellBlock(
                 cell_type_meshio_format,

@@ -13,7 +13,7 @@ All other functions are helpers.
 
 """
 from collections import namedtuple
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -127,7 +127,7 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         ).tocsc()
 
         # Define the new edge
-        new_edge: List[pp.Grid] = [gh_new, gl_new]
+        new_edge: Tuple[pp.Grid, pp.Grid] = (gh_new, gl_new)
         # Add to new gb, together with the new face-cell map
         gb_new.add_edge(new_edge, face_cells_new)
 

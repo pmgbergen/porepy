@@ -1,66 +1,76 @@
-"""
-Module contains various functions to find overlaps between grid cells.
+"""Module contains various functions to find overlaps between grid cells.
+
+The module is primarily intended used for replacing indivdiual grids in the GridBucket,
+which should be done via the GridBucket method replace_grids(). That is, the methods
+herein should as a rule not be invoked directly.
 """
 import logging
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
+from typing_extensions import Literal
 
 import porepy as pp
 from porepy.grids.structured import TensorGrid
 from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
 logger = logging.getLogger(__name__)
-module_sections = ["grids", "gridding"]
 
 
-@pp.time_logger(sections=module_sections)
-def match_1d(new_1d: pp.Grid, old_1d: pp.Grid, tol: float):
+def match_1d(
+    new_g: pp.Grid,
+    old_g: pp.Grid,
+    tol: float,
+    scaling: Optional[Literal["averaged", "integrated"]] = None,
+) -> sps.spmatrix:
     """Obtain mappings between the cells of non-matching 1d grids.
 
-    The function constructs an refined 1d grid that consists of all nodes
-    of at least one of the input grids.
+    The overlaps are identified as a sparse matrix which maps from cells in the old to
+    the new grid.
 
     It is asumed that the two grids are aligned, with common start and
     endpoints.
 
-    Implementation note: It should be possible to avoid old_1d, by extracting
-    points from a 2D grid that lie along the line defined by g_1d.
-    However, if g_2d is split along a fracture, the nodes will be
-    duplicated. We should then return two grids, probably based on the
-    coordinates of the cell centers. sounds cool.
-
     Parameters:
-         new_1d (grid): First grid to be matched
-         old_1d (grid): Second grid to be matched.
-         tol (double): Tolerance used to filter away false overlaps caused by
+        new_g (pp.Grid). Target grid for the mapping. Should have dimension 1.
+        old_g (pp.Grid). Original grid. Should have dimension 1.
+        tol (float): Tolerance used to filter away false overlaps caused by
              numerical errors. Should be scaled relative to the cell size.
+        scaling (str, optional): Control weights of the returned matrix, see return
+            values for specification.
 
     Returns:
-         np.array: Ratio of cell volume in the common grid and the original grid.
-         np.array: Mapping between cell numbers in common and first input
-              grid.
-         np.array: Mapping between cell numbers in common and second input
-              grid.
+        sps.spmatrix: Mapping from the cells in the old to the new grid. The values in
+            the matrix depend on the parameter scaling: If set to 'averaged', a mapping
+            fit for intensive quantities (e.g., pressure) is returned (all rows sum to
+            unity). If set to 'integrated', the matrix is a mapping for extensive
+            quantities (column sum is 1). If not provided, the matrix elements are 1
+            for cell-pairs (new and old grid) that overlap; overlaps with areas less
+            than the parameter tol will be ignored.
 
     """
     # Cell-node relation between grids - we know there are two nodes per cell
-    cell_nodes1 = new_1d.cell_nodes()
-    cell_nodes2 = old_1d.cell_nodes()
-    nodes1 = pp.utils.mcolon.mcolon(cell_nodes1.indptr[0:-1], cell_nodes1.indptr[1:])
-    nodes2 = pp.utils.mcolon.mcolon(cell_nodes2.indptr[0:-1], cell_nodes2.indptr[1:])
+    cell_nodes_new = new_g.cell_nodes()
+    cell_nodes_old = old_g.cell_nodes()
+    nodes_new = pp.utils.mcolon.mcolon(
+        cell_nodes_new.indptr[0:-1], cell_nodes_new.indptr[1:]
+    )
+    nodes_old = pp.utils.mcolon.mcolon(
+        cell_nodes_old.indptr[0:-1], cell_nodes_old.indptr[1:]
+    )
 
     # Reshape so that the nodes of cells are stored columnwise
-    lines1 = cell_nodes1.indices[nodes1].reshape((2, -1), order="F")
-    lines2 = cell_nodes2.indices[nodes2].reshape((2, -1), order="F")
+    lines_new = cell_nodes_new.indices[nodes_new].reshape((2, -1), order="F")
+    lines_old = cell_nodes_old.indices[nodes_old].reshape((2, -1), order="F")
 
-    p1 = new_1d.nodes
-    p2 = old_1d.nodes
+    p_new = new_g.nodes
+    p_old = old_g.nodes
 
-    # Compute the intersection between the two tessalations.
+    # Compute the intersection between the two tesselations.
     # intersect is a list, every list member is a tuple with overlapping
     # cells in grid 1 and 2, and their common area.
-    intersect = pp.intersections.line_tesselation(p1, p2, lines1, lines2)
+    intersect = pp.intersections.line_tesselation(p_new, p_old, lines_new, lines_old)
 
     num = len(intersect)
     new_g_ind = np.zeros(num, dtype=int)
@@ -71,36 +81,58 @@ def match_1d(new_1d: pp.Grid, old_1d: pp.Grid, tol: float):
         new_g_ind[ind] = i[0]
         old_g_ind[ind] = i[1]
         weights[ind] = i[2]
-    weights /= old_1d.cell_volumes[old_g_ind]
 
-    # Remove zero weight intersections
-    mask = weights > tol
-    new_g_ind = new_g_ind[mask]
-    old_g_ind = old_g_ind[mask]
-    weights = weights[mask]
+    # The weights as computed from the intersection algorithm gives the volumes of the
+    # intersected cells. Depending on the specified scaling, the weights should be
+    # modified.
+    if scaling == "averaged":
+        weights /= new_g.cell_volumes[new_g_ind]
+    elif scaling == "integrated":
+        weights /= old_g.cell_volumes[old_g_ind]
+    elif scaling is None:
+        mask = weights > tol
+        new_g_ind = new_g_ind[mask]
+        old_g_ind = old_g_ind[mask]
+        weights = np.ones_like(new_g_ind)
 
-    return weights, new_g_ind, old_g_ind
+    return sps.coo_matrix(
+        (weights, (new_g_ind, old_g_ind)), shape=(new_g.num_cells, old_g.num_cells)
+    ).tocsr()
 
 
-@pp.time_logger(sections=module_sections)
-def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
+def match_2d(
+    new_g: pp.Grid,
+    old_g: pp.Grid,
+    tol: float,
+    scaling: Optional[Literal["averaged", "integrated"]] = None,
+) -> sps.spmatrix:
     """Match two simplex tessalations to identify overlapping cells.
 
-    The overlaps are identified by the cell index of the two overlapping cells,
-    and their weighted common area.
+    The overlaps are identified as a sparse matrix which maps from cells in the old to
+    the new grid.
+
+    It is asumed that the two grids are aligned, with common start and
+    endpoints.
 
     Parameters:
-        new_g: simplex grid of dimension 2.
-        old_g: simplex grid of dimension 2.
+        new_g (pp.Grid). Target grid for the mapping. Should have dimension 1.
+        old_g (pp.Grid). Original grid. Should have dimension 1.
+        tol (float): Tolerance used to filter away false overlaps caused by
+             numerical errors. Should be scaled relative to the cell size.
+        scaling (str, optional): Control weights of the returned matrix, see return
+            values for specification.
 
     Returns:
-        np.array: Ratio of cell volume in the common grid and the original grid.
-        np.array: Index of overlapping cell in the first grid.
-        np.array: Index of overlapping cell in the second grid.
+        sps.spmatrix: Mapping from the cells in the old to the new grid. The values in
+            the matrix depends on the parameter scaling: If set to 'averaged', a mapping
+            fit for intensive quantities (e.g., pressure) is returned (all rows sum to
+            unity). If set to 'integrated', the matrix is a mapping for extensive
+            quantities (column sum is 1). If not provided, the matrix elements are 1
+            for cell-pairs (new and old grid) that overlap; overlaps with areas less
+            than the parameter tol will be ignored.
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def proj_pts(p, cc, normal):
         """Project points to the 2d plane defined by normal and center them around cc"""
         rot = pp.map_geometry.project_plane_matrix(p - cc, normal)
@@ -135,13 +167,30 @@ def match_2d(new_g: pp.Grid, old_g: pp.Grid, tol: float):
         old_g_ind[ind] = i[1]
         weights[ind] = i[2]
 
-    weights /= old_g.cell_volumes[old_g_ind]
-    return weights, new_g_ind, old_g_ind
+    # The weights as computed from the intersection algorithm gives the volumes of the
+    # intersected cells. Depending on the specified scaling, the weights should be
+    # modified.
+    if scaling == "averaged":
+        weights /= new_g.cell_volumes[new_g_ind]
+    elif scaling == "integrated":
+        weights /= old_g.cell_volumes[old_g_ind]
+    elif scaling is None:
+        mask = weights > tol
+        new_g_ind = new_g_ind[mask]
+        old_g_ind = old_g_ind[mask]
+        weights = np.ones_like(new_g_ind)
+
+    return sps.coo_matrix(
+        (weights, (new_g_ind, old_g_ind)), shape=(new_g.num_cells, old_g.num_cells)
+    ).tocsr()
 
 
-@pp.time_logger(sections=module_sections)
 def match_grids_along_1d_mortar(
-    mg: pp.MortarGrid, g_new: pp.Grid, g_old: pp.Grid, tol: float
+    mg: pp.MortarGrid,
+    g_new: pp.Grid,
+    g_old: pp.Grid,
+    tol: float,
+    scaling: Literal["averaged", "integrated"],
 ) -> sps.csr_matrix:
     """Match the faces of two 2d grids along a 1d mortar grid.
 
@@ -157,15 +206,22 @@ def match_grids_along_1d_mortar(
         g_old (pp.Grid): Old 2d grid. Dimension 2. The mappings in mg from mortar to
             primary should be set for this grid.
         tol (double): Tolerance used in comparison of geometric quantities.
+        scaling (str, optional): Control weights of the returned matrix, see return
+            values for specification.
+
+    Returns:
+        sps.csr_matrix: Matrix that can be used to update mg._primary_to_mortar_int by
+            right multiplication; essentially a mapping from the new to the old grid.
 
     Raises:
         ValueError: If the matching procedure goes wrong.
 
-    Returns:
-        sps.csr_matrix: Matrix that can be used to update mg._primary_to_mortar_int.
-
     """
+    # IMPLEMENTATION NOTE: Contrary to the related methods match_1d/match_2d, the
+    # scaling argument is not permitted to be None in this function. This is by design,
+    # it is less clear how to realize such a scaling in this case.
 
+    # IMPLEMENTATION NOTE:
     # The algorithm is technical, partly because we also need to differ between
     # the left and right side of the segment, as these will belong to different
     # mortar grids.
@@ -184,7 +240,6 @@ def match_grids_along_1d_mortar(
     # points, is based on a geometric tolerance. For very fine, or bad, grids
     # this may give trouble.
 
-    @pp.time_logger(sections=module_sections)
     def cells_from_faces(g, fi):
         # Find cells of faces, specified by face indices fi.
         # It is assumed that fi is on the boundary, e.g. there is a single
@@ -199,7 +254,6 @@ def match_grids_along_1d_mortar(
 
         return ci[ind_map]
 
-    @pp.time_logger(sections=module_sections)
     def create_1d_from_nodes(nodes):
         # From a set of nodes, create a 1d grid. duplicate nodes are removed
         # and we verify that the nodes are indeed colinear
@@ -213,7 +267,6 @@ def match_grids_along_1d_mortar(
         g.compute_geometry()
         return g, sort_ind
 
-    @pp.time_logger(sections=module_sections)
     def nodes_of_faces(g, fi):
         # Find nodes of a set of faces.
         f = np.zeros(g.num_faces)
@@ -221,7 +274,6 @@ def match_grids_along_1d_mortar(
         nodes = np.where(g.face_nodes * f > 0)[0]
         return nodes
 
-    @pp.time_logger(sections=module_sections)
     def face_to_cell_map(g_2d, g_1d, loc_faces, loc_nodes):
         # Match faces in a 2d grid and cells in a 1d grid by identifying
         # face-nodes and cell-node relations.
@@ -237,7 +289,7 @@ def match_grids_along_1d_mortar(
         # Mapping from global (2d) indices to the local indices used in 1d
         # grid. This also account for a sorting of the nodes, so that the
         # nodes.
-        ind_map = np.zeros(g_2d.num_faces)
+        ind_map = np.zeros(g_2d.num_faces, dtype=int)
         ind_map[loc_nodes] = np.arange(loc_nodes.size)
         # Face-node in local indices
         fn_loc = ind_map[fn_loc]
@@ -298,15 +350,14 @@ def match_grids_along_1d_mortar(
     # Then virtual 1d grid for the new grid. This is a bit more involved,
     # since we need to identify the nodes by their coordinates.
     # This part will be prone to rounding errors, in particular for
-    # bad cell shapes.
+    # badly shaped cells.
     nodes_new = g_new.nodes
 
     # Represent the 1d line by its start and end point, as pulled
     # from the old 1d grid (known coordinates)
-    # Find distance from the
+    # Find distance from the nodes to the line defined by the mortar grid.
     dist, _ = pp.distances.points_segments(nodes_new, start, end)
-    # Look for points in the new grid with a small distance to the
-    # line
+    # Look for points in the new grid with a small distance to the line.
     hit = np.argwhere(dist.ravel() < tol).reshape((1, -1))[0]
 
     # Depending on geometric tolerance and grid quality, hit
@@ -342,8 +393,10 @@ def match_grids_along_1d_mortar(
 
     for so, sn in zip(both_sides_old, both_sides_new):
 
-        if sn.size == 0 or so.size == 0:
+        if len(sn) == 0 or len(so) == 0:
+            # EK: Not sure how this would happen
             continue
+
         # Pick out faces along boundary in old grid, uniquify nodes, and
         # define auxiliary grids
         loc_faces_old = faces_on_boundary_old[so]
@@ -380,19 +433,24 @@ def match_grids_along_1d_mortar(
         cols = np.arange(rows.size)
         face_to_cell_old = sps.coo_matrix((np.ones(rows.size), (rows, cols)))
 
-        # Mapping between cells in 1d grid
-        weights, new_cells, old_cells = match_1d(g_aux_new, g_aux_old, tol)
-        between_cells = sps.csr_matrix((weights, (old_cells, new_cells)))
+        # Mapping between cells in 1d grid.
+        # Note the order here: The old grid is the target (we want a mapping from the
+        # new to the old grid).
+        between_cells = match_1d(g_aux_old, g_aux_new, tol, scaling)
 
         # From faces to cell in new grid
         rows = face_to_cell_map(
             g_new, g_aux_new, loc_faces_new, loc_nodes_new[sort_ind_new]
         )
         cols = np.arange(rows.size)
-        cell_to_face_new = sps.coo_matrix((np.ones(rows.size), (rows, cols)))
+        face_to_cell_new = sps.coo_matrix((np.ones(rows.size), (rows, cols)))
 
-        face_map_segment = face_to_cell_old * between_cells * cell_to_face_new
+        # Composite mapping from faces in new 2d grid to faces in old 2d grid.
+        # Only faces on the boundary of the 1d grid.
+        face_map_segment = face_to_cell_old * between_cells * face_to_cell_new
 
+        # Extend face-map to go from all faces in the new grid to all faces in the
+        # old one.
         face_map = face_map_old.T * face_map_segment * face_map_new
 
         matrix += face_map
@@ -400,7 +458,6 @@ def match_grids_along_1d_mortar(
     return matrix.tocsr()
 
 
-@pp.time_logger(sections=module_sections)
 def gb_refinement(
     gb: pp.GridBucket, gb_ref: pp.GridBucket, tol: float = 1e-8, mode: str = "nested"
 ):
@@ -466,7 +523,6 @@ def gb_refinement(
         gb.set_node_prop(grid=g, key="coarse_fine_cell_mapping", val=mapping)
 
 
-@pp.time_logger(sections=module_sections)
 def structured_refinement(
     g: pp.Grid, g_ref: pp.Grid, point_in_poly_tol=1e-8
 ) -> sps.csc_matrix:
@@ -586,7 +642,7 @@ def structured_refinement(
             polygon = nodes[:, nodes_idx]
             test_points = cells_ref[:, test_cells_ptr]
             in_poly = pp.geometry_property_checks.point_in_polygon(
-                poly=polygon, p=test_points, tol=point_in_poly_tol
+                poly=polygon, p=test_points
             )
 
         elif g.dim == 3:
@@ -597,7 +653,9 @@ def structured_refinement(
             node_coords = nodes[:, nodes_idx]
 
             ids = np.arange(num_nodes)
-            polyhedron = [node_coords[:, ids != i] for i in np.arange(num_nodes)]
+            polyhedron: np.ndarray = np.array(
+                [node_coords[:, ids != i] for i in np.arange(num_nodes)]
+            )
             # Test only points not inside another polyhedron.
             test_points = cells_ref[:, test_cells_ptr]
             in_poly = pp.geometry_property_checks.point_in_polyhedron(

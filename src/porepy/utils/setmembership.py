@@ -161,7 +161,7 @@ def unique_columns_tol(mat, tol=1e-8):
         # Loop over all points, check if it is already represented in the kept list
         for i in range(1, num_cols):
             d = np.sum((mat[i] - mat[keep]) ** 2, axis=1)
-            condition = d < tol ** 2
+            condition = d < tol**2
 
             if np.any(condition):
                 # We will not keep this point
