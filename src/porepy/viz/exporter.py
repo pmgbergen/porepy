@@ -153,13 +153,11 @@ class Exporter:
         # Generate infrastructure for storing fixed-dimensional grids in
         # meshio format. Include all but the 0-d grids
         self.dims = np.setdiff1d(self.gb.all_dims(), [0])
-        num_dims = self.dims.size
         self.meshio_geom: MD_Meshio_Geom = dict()
 
         # Generate infrastructure for storing fixed-dimensional mortar grids
         # in meshio format.
         self.m_dims = np.unique([d["mortar_grid"].dim for _, d in self.gb.edges()])
-        num_m_dims = self.m_dims.size
         self.m_meshio_geom: MD_Meshio_Geom = dict()
 
         # Generate geometrical information in meshio format
@@ -658,7 +656,7 @@ class Exporter:
                 grids: List[pp.Grid] = pt[0] if isinstance(pt[0], list) else [pt[0]]
 
                 # By construction, the second component contains a key.
-                key= pt[1]
+                key = pt[1]
 
                 # Loop over grids and fetch the states corresponding to the key
                 for g in grids:
