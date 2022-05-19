@@ -967,7 +967,7 @@ class Biot(pp.Mpsa):
         # Sub-cell wise trace of strain tensor: One row per sub-cell
         row, col = np.meshgrid(np.arange(cell_node_blocks.shape[1]), trace)
         # Adjust the columns to hit each sub-cell
-        incr = np.cumsum(nd ** 2 * np.ones(cell_node_blocks.shape[1])) - nd ** 2
+        incr = np.cumsum(nd**2 * np.ones(cell_node_blocks.shape[1])) - nd**2
         col += incr.astype("int32")
 
         # Integrate the trace over the sub-cell, that is, distribute the cell

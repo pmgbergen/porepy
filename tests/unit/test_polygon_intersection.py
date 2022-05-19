@@ -1579,6 +1579,5 @@ class TestPolygonPolyhedronIntersection(unittest.TestCase):
         self.assertTrue(inds.size == 0)
 
 
-TestPolygonPolyhedronIntersection().test_polyhedron_in_same_plane_overlapping_segment()
-# if __name__ == "__main__":
-#    unittest.main()
+if __name__ == "__main__":
+    unittest.main()

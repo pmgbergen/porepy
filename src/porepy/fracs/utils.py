@@ -9,10 +9,8 @@ import porepy as pp
 
 # Module level logger
 logger = logging.getLogger(__name__)
-module_sections = ["gridding"]
 
 
-@pp.time_logger(sections=module_sections)
 def fracture_length_2d(pts, edges):
     """Find the length of 2D fracture traces.
 
@@ -33,7 +31,6 @@ def fracture_length_2d(pts, edges):
     return length
 
 
-@pp.time_logger(sections=module_sections)
 def uniquify_points(pts, edges, tol):
     """Uniquify a set of points by merging almost coinciding coordinates.
 

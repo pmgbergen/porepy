@@ -197,7 +197,8 @@ class MortarGrid:
         if tol is None:
             tol = self.tol
 
-        split_matrix = {}
+        # Build mappings for integrated and averaged quantities separately.
+        split_matrix_int, split_matrix_avg = {}, {}
 
         # For each side we compute the mapping between the old and the new mortar
         # grids, we store them in a dictionary with SideTag as key.
@@ -210,39 +211,68 @@ class MortarGrid:
                 # Nothing to do
                 return
             elif g.dim == 1:
-                split_matrix[side] = _split_matrix_1d(g, new_g, tol)
+                # The mapping between grids will be left-multiplied by the existing
+                # mapping from primary to mortar. Therefore, we construct mappings
+                # from the old to the new grid.
+                mat_avg = pp.match_grids.match_1d(new_g, g, tol, scaling="averaged")
+                mat_int = pp.match_grids.match_1d(new_g, g, tol, scaling="integrated")
             elif g.dim == 2:
-                split_matrix[side] = _split_matrix_2d(g, new_g, tol)
+                mat_avg = pp.match_grids.match_2d(new_g, g, tol, scaling="averaged")
+                mat_int = pp.match_grids.match_2d(new_g, g, tol, scaling="integrated")
             else:
                 # No 3d mortar grid
                 raise ValueError
+
+            # Store values
+            split_matrix_avg[side] = mat_avg
+            split_matrix_int[side] = mat_int
 
         # In the case of different side ordering between the input data and the
         # stored we need to remap it. The resulting matrix will be a block
         # diagonal matrix, where in each block we have the mapping between the
         # (relative to side) old grid and the new one.
-        matrix_blocks: np.ndarray = np.empty(
+        matrix_blocks_avg: np.ndarray = np.empty(
+            (self.num_sides(), self.num_sides()), dtype=object
+        )
+        matrix_blocks_int: np.ndarray = np.empty(
             (self.num_sides(), self.num_sides()), dtype=object
         )
 
         # Loop on all the side grids, if not given an identity matrix is
         # considered
         for pos, (side, g) in enumerate(self.side_grids.items()):
-            matrix_blocks[pos, pos] = split_matrix.get(side, sps.identity(g.num_cells))
+            matrix_blocks_avg[pos, pos] = split_matrix_avg.get(
+                side, sps.identity(g.num_cells)
+            )
+            matrix_blocks_int[pos, pos] = split_matrix_int.get(
+                side, sps.identity(g.num_cells)
+            )
 
-        # Once the global matrix is constructed the new low_to_mortar_int and
-        # high_to_mortar_int maps are updated.
-        matrix: sps.spmatrix = sps.bmat(matrix_blocks)
+        # Once the global matrix is constructed the new primary_to_mortar_int and
+        # secondary_to_mortar_int maps are updated.
+        matrix_avg: sps.spmatrix = sps.bmat(matrix_blocks_avg)
+        matrix_int: sps.spmatrix = sps.bmat(matrix_blocks_int)
 
+        # We need to update mappings from both primary and secondary.
         # Use optimized storage to minimize memory consumption.
-        self._secondary_to_mortar_int: sps.spmatrix = (
+        self._primary_to_mortar_avg: sps.spmatrix = (
             pp.matrix_operations.optimized_compressed_storage(
-                matrix * self._secondary_to_mortar_int
+                matrix_avg * self._primary_to_mortar_avg
             )
         )
         self._primary_to_mortar_int: sps.spmatrix = (
             pp.matrix_operations.optimized_compressed_storage(
-                matrix * self._primary_to_mortar_int
+                matrix_int * self._primary_to_mortar_int
+            )
+        )
+        self._secondary_to_mortar_avg: sps.spmatrix = (
+            pp.matrix_operations.optimized_compressed_storage(
+                matrix_avg * self._secondary_to_mortar_avg
+            )
+        )
+        self._secondary_to_mortar_int: sps.spmatrix = (
+            pp.matrix_operations.optimized_compressed_storage(
+                matrix_int * self._secondary_to_mortar_int
             )
         )
 
@@ -259,8 +289,11 @@ class MortarGrid:
         self._check_mappings()
 
     def update_secondary(self, new_g: pp.Grid, tol: float = None) -> None:
-        """
-        Update the _secondary_to_mortar_int map when the lower dimensional grid is changed.
+        """Update the mappings between Mortar and secondary grid when the latter is changed.
+
+        NOTE: This function assumes that the secondary grid is only updated once: A change
+        from matching to non-matching between the mortar and secondary grids is okay,
+        but replacing a non-matching secondary grid with another one will not work.
 
         Parameter:
             new_g (pp.Grid): The new secondary grid.
@@ -273,46 +306,65 @@ class MortarGrid:
 
         if self.dim != new_g.dim:
             raise NotImplementedError(
-                """update_ssecondary() is only implemented when the secondary
+                """update_secondary() is only implemented when the secondary
                 grid has the same dimension as the mortar grid"""
             )
 
-        split_matrix = {}
+        # Build mappings for integrated and averaged quantities separately.
+        split_matrix_avg, split_matrix_int = {}, {}
 
         # For each side we compute the mapping between the new lower dimensional
-        # grid and the mortar grid, we store them in a dictionary with SideTag as key.
+        # grid and the mortar grid, we store them in a dictionary with MortarSide as key.
+        # IMPLEMENTATION NOTE: The loop, and some of the complexity below, is necessary
+        # to allow for different grids on the mortar sides (if more than one). It is
+        # not clear that our full implementation supports this (no obvious weak points),
+        # but AFAIK, it has never been tested, but we will keep the generality for now.
         for side, g in self.side_grids.items():
             if g.dim != new_g.dim:
                 raise ValueError("Grid dimension has to be the same")
 
             if self.dim == 0:
-                # Nothing to do
+                # Nothing to do, all 0d grids are matching
                 return
             elif self.dim == 1:
-                split_matrix[side] = _split_matrix_1d(g, new_g, tol).T
+                # We need to map from the new to the old grid.
+                # See below for ideas of how to allow for updating the secondary grid
+                # more than once.
+                mat_avg = pp.match_grids.match_1d(g, new_g, tol, scaling="averaged")
+                mat_int = pp.match_grids.match_1d(g, new_g, tol, scaling="integrated")
             elif self.dim == 2:
-                split_matrix[side] = _split_matrix_2d(g, new_g, tol).T
+                mat_avg = pp.match_grids.match_2d(g, new_g, tol, scaling="averaged")
+                mat_int = pp.match_grids.match_2d(g, new_g, tol, scaling="integrated")
             else:
                 # No 3d mortar grid
                 raise ValueError
 
+            split_matrix_avg[side] = mat_avg
+            split_matrix_int[side] = mat_int
         # In the case of different side ordering between the input data and the
         # stored we need to remap it. The resulting matrix will be a block
         # matrix, where in each block we have the mapping between the
         # (relative to side) the new grid and the mortar grid.
-        matrix = np.empty((self.num_sides(), 1), dtype=object)
+        matrix_avg = np.empty((self.num_sides(), 1), dtype=object)
+        matrix_int = np.empty((self.num_sides(), 1), dtype=object)
 
         for pos, (side, _) in enumerate(self.side_grids.items()):
-            matrix[pos, 0] = split_matrix[side]
+            matrix_avg[pos] = split_matrix_avg[side]
+            matrix_int[pos] = split_matrix_int[side]
 
-        # Update the secondary_to_mortar_int map. No need to update the primary_to_mortar_int.
-        self._secondary_to_mortar_int = sps.bmat(matrix, format="csc")
+        # IMPLEMENTATION NOTE: To allow for replacing the secondary grid more than once,
+        # it is necessary to replace the line above into an update of the mapping from
+        # secondary (not only overwriting as we do now). That should be possible, but
+        # requires more thinking.
+        self._secondary_to_mortar_avg = sps.bmat(matrix_avg, format="csc")
+        self._secondary_to_mortar_int = sps.bmat(matrix_int, format="csc")
+
         # Update other mappings to and from secondary
         self._set_projections(primary=False)
 
         self._check_mappings()
 
-    def update_primary(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None):
+    def update_primary(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None) -> None:
         """
 
         Update the _primary_to_mortar_int map when the primary (higher-dimensional) grid is
@@ -323,6 +375,7 @@ class MortarGrid:
             g_old (pp.Grid): The old primary grid.
             tol (double, optional): Tolerance used for matching the new and old grids.
                 Defaults to self.tol.
+
         """
         # IMPLEMENTATION NOTE: The signature of this method is different from
         # update_secondary(), since the latter must also take care of for the side grids.
@@ -355,12 +408,18 @@ class MortarGrid:
 
             shape = (g_old.num_faces, g_new.num_faces)
             matrix_DIJ = (np.ones(old_faces.shape), (old_faces, new_faces))
-            split_matrix = sps.csc_matrix(matrix_DIJ, shape=shape)
+            split_matrix_int = sps.csc_matrix(matrix_DIJ, shape=shape)
+            split_matrix_avg = split_matrix_int.copy()
 
         elif self.dim == 1:
-            # The case is conceptually similar to 0d, but quite a bit more technical
-            split_matrix = pp.match_grids.match_grids_along_1d_mortar(
-                self, g_new, g_old, tol
+            # The case is conceptually similar to 0d, but quite a bit more technical,
+            # (see implementation of the called function).
+            # Separate mappings for averaged and integrated quantities.
+            split_matrix_avg = pp.match_grids.match_grids_along_1d_mortar(
+                self, g_new, g_old, tol, scaling="averaged"
+            )
+            split_matrix_int = pp.match_grids.match_grids_along_1d_mortar(
+                self, g_new, g_old, tol, scaling="integrated"
             )
 
         else:  # should be mg.dim == 2
@@ -369,7 +428,9 @@ class MortarGrid:
             raise NotImplementedError("Have not yet implemented this.")
 
         # Update mappings to and from the primary grid
-        self._primary_to_mortar_int = self._primary_to_mortar_int * split_matrix
+        self._primary_to_mortar_int = self._primary_to_mortar_int * split_matrix_int
+        self._primary_to_mortar_avg = self._primary_to_mortar_avg * split_matrix_avg
+
         self._set_projections(secondary=False)
         self._check_mappings()
 
@@ -493,22 +554,6 @@ class MortarGrid:
                 Size: g_secondary.num_cells x mortar_grid.num_cells.
         """
         return self._convert_to_vector_variable(self._secondary_to_mortar_avg, nd)
-
-    def _row_sum_scaling_matrix(self, mat):
-        # Helper method to construct projection matrices.
-        row_sum = mat.sum(axis=1).A.ravel()
-
-        if np.all(row_sum == 1):
-            # If only unit scalings, no need to do anything
-            return mat
-
-        # Profiling showed that scaling with a csc matrix is quicker than a diagonal
-        # matrix. Savings both in construction (!) and multiplication.
-        sz = row_sum.size
-        indptr = np.arange(sz + 1)
-        ind = np.arange(sz)
-        scaling = sps.csc_matrix((1.0 / row_sum, ind, indptr), shape=(sz, sz))
-        return scaling * mat
 
     # IMPLEMENTATION NOTE: The reverse projections, from mortar to primary/secondary are
     # found by taking transposes, and switching average and integration (since we are
@@ -766,6 +811,8 @@ class MortarGrid:
                 (data.astype(float), (cells, primary_f)), shape=shape_primary
             )
         )
+        self._primary_to_mortar_avg = self._primary_to_mortar_int.copy()
+
         self._secondary_to_mortar_int = (
             pp.matrix_operations.optimized_compressed_storage(
                 sps.csc_matrix(
@@ -773,6 +820,7 @@ class MortarGrid:
                 )
             )
         )
+        self._secondary_to_mortar_avg = self._secondary_to_mortar_int.copy()
 
     def _set_projections(self, primary: bool = True, secondary: bool = True) -> None:
         """Set projections to and from primary from the current state of
@@ -781,11 +829,6 @@ class MortarGrid:
 
         # IMPLEMENTATION NOTE: Use optimized storage to minimize memory consumption.
         if primary:
-            self._primary_to_mortar_avg = (
-                pp.matrix_operations.optimized_compressed_storage(
-                    self._row_sum_scaling_matrix(self._primary_to_mortar_int)
-                )
-            )
             self._mortar_to_primary_int = (
                 pp.matrix_operations.optimized_compressed_storage(
                     self._primary_to_mortar_avg.T
@@ -798,11 +841,6 @@ class MortarGrid:
             )
 
         if secondary:
-            self._secondary_to_mortar_avg = (
-                pp.matrix_operations.optimized_compressed_storage(
-                    self._row_sum_scaling_matrix(self._secondary_to_mortar_int)
-                )
-            )
             self._mortar_to_secondary_int = (
                 pp.matrix_operations.optimized_compressed_storage(
                     self._secondary_to_mortar_avg.T
@@ -813,48 +851,3 @@ class MortarGrid:
                     self._secondary_to_mortar_int.T
                 )
             )
-
-
-def _split_matrix_1d(g_old: pp.Grid, g_new: pp.Grid, tol: float) -> sps.spmatrix:
-    """
-    By calling matching grid the function compute the cell mapping between two
-    different grids.
-
-    It is asumed that the two grids are aligned, with common start and
-    endpoints. However, their nodes can be ordered in oposite directions.
-
-    Parameters:
-        g_old (Grid): the first (old) grid.
-        g_new (Grid): the second (new) grid.
-        tol (double): Tolerance in the matching of the grids
-
-    Return:
-        csr matrix: representing the cell mapping. The entries are the relative
-            cell measure between the two grids.
-
-    """
-    weights, new_cells, old_cells = pp.match_grids.match_1d(g_new, g_old, tol)
-    shape = (g_new.num_cells, g_old.num_cells)
-    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
-
-
-def _split_matrix_2d(g_old: pp.Grid, g_new: pp.Grid, tol: float) -> sps.spmatrix:
-    """
-    By calling matching grid the function compute the cell mapping between two
-    different grids.
-
-    It is asumed that the two grids have common boundary.
-
-    Parameters:
-        g_old (Grid): the first (old) grid.
-        g_new (Grid): the second (new) grid.
-        tol (double): Tolerance in the matching of the grids
-
-    Return:
-        csr matrix: representing the cell mapping. The entries are the relative
-            cell measure between the two grids.
-
-    """
-    weights, new_cells, old_cells = pp.match_grids.match_2d(g_new, g_old, tol)
-    shape = (g_new.num_cells, g_old.num_cells)
-    return sps.csr_matrix((weights, (new_cells, old_cells)), shape=shape)
