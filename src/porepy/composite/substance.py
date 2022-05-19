@@ -5,7 +5,7 @@ used in this framework.
 from __future__ import annotations
 
 import abc
-from typing import Dict
+from typing import Dict, Optional
 
 import porepy as pp
 
@@ -133,7 +133,7 @@ class Substance(abc.ABC):
     def fraction_in_phase(self, phase_name: str) -> "pp.ad.MergedVariable":
         """As a fractional quantity, all values are between 0 and 1.
 
-        :param phase_name: Name of the  :class:`~porepy.composig.PhaseField` for which
+        :param phase_name: Name of the  :class:`~porepy.composit.PhaseField` for which
         the fractions are requested
         :type phase_name: str
 
@@ -172,7 +172,9 @@ class Substance(abc.ABC):
     ### SCALAR ATTRIBUTES (dependent on thermodynamic state)
     # ------------------------------------------------------------------------------
 
-    def mass_density(self, *args, **kwargs) -> float:
+    def mass_density(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+    ) -> float:
         """
         Uses the molar mass and molar density to compute the mass density.
 
@@ -182,10 +184,12 @@ class Substance(abc.ABC):
         :return: mass density of the component
         :rtype: float
         """
-        return self.molar_mass() * self.molar_density(*args, **kwargs)
+        return self.molar_mass() * self.molar_density(pressure, enthalpy, temperature)
 
     @abc.abstractmethod
-    def molar_density(self) -> float:
+    def molar_density(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+    ) -> float:
         """
         Math. Dimension:        scalar
         Phys. Dimension:        [mol / m^3]
@@ -196,7 +200,9 @@ class Substance(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def Fick_diffusivity(self, *args, **kwargs) -> float:
+    def Fick_diffusivity(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+    ) -> float:
         """
         Math. Dimension:        scalar
         Phys. Dimension:        m^2 / s
@@ -207,10 +213,12 @@ class Substance(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def thermal_conductivity(self, *args, **kwargs) -> float:
+    def thermal_conductivity(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+    ) -> float:
         """
         Math. Dimension:        scalar
-        Phys. Dimension:        [W / m / s]
+        Phys. Dimension:        [W / m / K]
 
         :return: thermal conductivity of the substance
         :rtype: float
@@ -229,10 +237,12 @@ class FluidSubstance(Substance):
     """
 
     @abc.abstractmethod
-    def dynamic_viscosity(self, *args, **kwargs) -> float:
+    def dynamic_viscosity(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+    ) -> float:
         """
         Math. Dimension:        scalar
-        Phys. Dimension:        [kg / m / s]
+        Phys. Dimension:        [Pa s] = [kg / m / s]
 
         :return: dynamic viscosity of the fluid
         :rtype: float
@@ -277,3 +287,16 @@ class SolidSubstance(Substance):
         :rtype: float
         """
         pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def poro_reference_pressure() -> float:
+        """
+        Constant value.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [Pa]
+
+        :return: reference pressure for i.e. linear pressure law for porosity
+        :rtype: float
+        """

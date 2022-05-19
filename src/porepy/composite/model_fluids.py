@@ -3,17 +3,17 @@ In the current setting, we expect these substances to only appear in liquid or g
 i.e. they are associated with the flow.
 """
 
-from typing import List
+from typing import List, Optional
 
-import iapws
+from iapws import IAPWS95
 
-from .substance import FluidSubstance
 from ._composite_utils import IDEAL_GAS_CONSTANT
+from .substance import FluidSubstance
 
-__all__: List[str] = ["SimpleFluid", "H20_iapws"]
+__all__: List[str] = ["IdealFluid", "H20_iapws"]
 
 
-class SimpleFluid(FluidSubstance):
+class IdealFluid(FluidSubstance):
     """
     Represents the academic example fluid with all properties constant and unitary.
 
@@ -30,15 +30,15 @@ class SimpleFluid(FluidSubstance):
         return 1.0
 
     def molar_density(
-        self, state_of_matter: str, pressure: float, temperature: float, *args, **kwargs
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
     ) -> float:
-
-        if state_of_matter in ("liquid", "solid"):
-            return 1.0
-        elif state_of_matter == "gas":
+        if temperature:
             return pressure / (IDEAL_GAS_CONSTANT * temperature)
         else:
-            raise ValueError("Unsupported state of matter: '%s'" % (state_of_matter))
+            temperature = (enthalpy - pressure) / self.molar_heat_capacity(
+                pressure, enthalpy, temperature
+            )
+            return pressure / (IDEAL_GAS_CONSTANT * temperature)
 
     def Fick_diffusivity(self, *args, **kwargs) -> float:
         return 1.0
@@ -49,6 +49,51 @@ class SimpleFluid(FluidSubstance):
     def dynamic_viscosity(self, *args, **kwargs) -> float:
         return 1.0
 
+    def molar_heat_capacity(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+    ) -> float:
+        return 1.0
+
 
 class H20_iapws(FluidSubstance):
-    pass
+    
+    @staticmethod
+    def molar_mass() -> float:
+        """ Taken from https://pubchem.ncbi.nlm.nih.gov/compound/water ."""
+        return 0.018015
+
+    def molar_density(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+        ) -> float:
+        if temperature:
+            water = IAPWS95(P=pressure, T=temperature)
+        else:
+            water = IAPWS95(P=pressure, h=enthalpy)
+        # this is a bit ugly, considering the parent class method for mass density...
+        # but that is what iapws got
+        return water.rho / self.molar_mass()
+    
+    def Fick_diffusivity(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+        ) -> float:
+        return 0.42 # TODO fix this, this is random
+
+    def thermal_conductivity(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+        ) -> float:
+        if temperature:
+            water = IAPWS95(P=pressure, T=temperature)
+        else:
+            water = IAPWS95(P=pressure, h=enthalpy)
+
+        return water.k
+
+    def dynamic_viscosity(
+        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
+        ) -> float:
+        if temperature:
+            water = IAPWS95(P=pressure, T=temperature)
+        else:
+            water = IAPWS95(P=pressure, h=enthalpy)
+
+        return water.mu

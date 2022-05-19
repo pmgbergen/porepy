@@ -30,6 +30,7 @@ __all__ = [
     "ApproxJacFunction",
     "LJacFunction",
     "ADWrapper",
+    "SecondOrderTensorAd",
 ]
 
 # Short hand for typing
