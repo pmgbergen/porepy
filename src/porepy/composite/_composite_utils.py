@@ -7,8 +7,9 @@ Functions:
     - create_merged_variable_on_gb
 
 """
+from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -67,7 +68,7 @@ IDEAL_GAS_CONSTANT: float = 8.31446261815324
 
 
 def create_merged_variable(
-    gb: pp.GridBucket,
+    gb: "pp.GridBucket",
     dof_info: Dict[str, int],
     variable_name: str,
 ) -> "pp.ad.MergedVariable":
@@ -112,7 +113,7 @@ def create_merged_variable(
 
 
 def create_merged_mortar_variable(
-    gb: pp.GridBucket, dof_info: Dict[str, int], mortar_variable_name: str
+    gb: "pp.GridBucket", dof_info: Dict[str, int], mortar_variable_name: str
 ) -> "pp.ad.MergedVariable":
     """
     Creates domain-wide mortar variables for a given grid bucket.
@@ -150,6 +151,16 @@ def create_merged_mortar_variable(
             )
 
     return pp.ad.MergedVariable(mortar_variables)
+
+
+def operator_sum(operators: List["pp.ad.Operator"]) -> "pp.ad.Operator":
+    """This function is just for surpassing Typing error when using built-in sum().
+    """
+    out = operators[0]
+    if len(operators) > 1:
+        for op in operators[1:]:
+            out += op
+    return out
 
 
 class ConvergenceError(Exception):

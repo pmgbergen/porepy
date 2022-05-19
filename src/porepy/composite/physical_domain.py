@@ -8,14 +8,14 @@ import numpy as np
 
 import porepy as pp
 
-from .models.unit_substance import UnitSolid
+from .model_solids import UnitSolid
 
 __all__ = ["PhysicalSubdomain", "PhysicalDomain"]
 
 
 class PhysicalSubdomain:
     """
-    Class representing a physical extension of :class:`~porepy.Grid`.
+    Class representing a physical wrapper of :class:`~porepy.Grid`.
 
     It combines the physical properties of substances with
     the space discretization of the geometry.
@@ -23,14 +23,20 @@ class PhysicalSubdomain:
     In future, this class can also serve as the single point of implementation
     for heuristic laws.
 
-    NOTE: We assume currently only a single substance. Mixed substance Domains remain a
-    question for future development.
+    NOTE: We assume currently only a single substance.
+
+    Currently supported heuristic laws for RELATIVE PERMEABILITY:
+        - 'quadratic': quadratic power law for saturation
+    
+    Currently supported heuristic laws for POROSITY:
+        - 'linear_pressure': linear pressure law
     """
 
     def __init__(
-        self, grid: "pp.Grid", substances: "pp.composite.SolidSubstance"
+        self, grid: "pp.Grid", substances: "pp.composite.SolidSubstance",
+        rel_perm_law: str
     ) -> None:
-        """Constructor stores the parameters for future access.
+        """Constructor using geometrical and substance information.
 
         :param grid: the discretization for which variables and substance parameter arrays
             should be provided
@@ -42,9 +48,11 @@ class PhysicalSubdomain:
         self.grid: pp.Grid = grid
         self.substance: "pp.composite.SolidSubstance" = substances
 
+        self.rel_perm_law = str(rel_perm_law)
+
     def __str__(self) -> str:
         """String representation combining information about geometry and material."""
-        out = "Material subdomain made of %s on grid:\n" % (self.substance.name)
+        out = "Physical subdomain made of %s on grid:\n" % (self.substance.name)
         return out + str(self.grid)
 
     def base_porosity(self) -> "pp.ad.Operator":
@@ -56,14 +64,14 @@ class PhysicalSubdomain:
 
         return pp.ad.Array(arr)
 
-    def base_permeability(self) -> "pp.ad.Operator":
+    def base_permeability(self) -> "pp.ad.SecondOrderTensorAd":
         """
         :return: AD representation of the base permeability
-        :rtype: :class:`~porepy.numerics.ad.operators.Array`
+        :rtype: :class:`~porepy.numerics.ad.operators.SecondOrderTensorAd`
         """
         arr = np.ones(self.grid.num_cells) * self.substance.base_permeability()
 
-        return pp.ad.Array(arr)
+        return pp.ad.SecondOrderTensorAd(self.substance.base_permeability())
 
     # ------------------------------------------------------------------------------
     ### HEURISTIC LAWS NOTE all heuristic laws can be modularized somewhere and referenced here
@@ -71,10 +79,8 @@ class PhysicalSubdomain:
 
     def porosity(
         self,
-        law: str,
-        pressure: "pp.ad.MergedVariable",
-        enthalpy: "pp.ad.MergedVariable",
-        **kwargs,
+        pressure: "pp.ad.Variable",
+        enthalpy: "pp.ad.Variable",
     ) -> "pp.ad.Operator":
         """
         Currently supported heuristic laws (values for 'law'):
@@ -93,9 +99,13 @@ class PhysicalSubdomain:
 
         law = str(law)
         if law == "pressure":
-            p_ref = kwargs["reference_pressure"]
+
+            p_ref = self.substance.poro_reference_pressure()
+            phi_0 = self.substance.base_porosity()
+            poro_law = lambda p: phi_0 * (p - p_ref)
+
             return pp.ad.Function(
-                lambda p: self.substance.base_porosity() * (p - p_ref),
+                poro_law,
                 "porosity-%s-%s" % (law, self.substance.name),
             )(pressure)
         else:
@@ -105,23 +115,13 @@ class PhysicalSubdomain:
             )
 
     def relative_permeability(
-        self, law: str, saturation: "pp.ad.MergedVariable", **kwargs
+        self, saturation: "pp.ad.Variable"
     ) -> "pp.ad.Operator":
         """
-        Currently supported heuristic laws (values for 'law'):
-            - 'quadratic':      quadratic power law for saturation
-
-        Inherit this class and overwrite this method if you want to implement special models
-        for the relative permeability.
-        Use keyword arguments 'kwargs' to provide arguments for the heuristic law.
-
         Math. Dimension:        scalar
         Phys. Dimension:        [-] (fractional)
 
-        :param law: name of the law to be applied (see valid values above)
-        :type law: str
-
-        :return: relative permeability using the respectie law
+        :return: relative permeability using the law specified at instantiation
         :rtype: :class:`~porepy.ad.operators.Operator`
         """
         law = str(law)
@@ -137,44 +137,59 @@ class PhysicalSubdomain:
 
 
 class PhysicalDomain:
+    """Physical representation of the domain. Provides functionalities to combine
+    the AD framework and physical properties of respective subdomains.
+
+    Assign :class:`~porepy.composite.UnitSolid` as default material for each subdomain at
+    instantiation.
+
+    Combines permeability and porosity properties into global entities.
+    """
+
     def __init__(self, gb: "pp.GridBucket") -> None:
+        """
+        :param gb: geometric representation of the computational domain
+        :type gb: :class:`~porepy.GridBucket`
+        """
         ### PUBLIC
         self.gb: "pp.GridBucket" = gb
         # key: grid, value: MaterialSubdomain
-        self._physical_subdomains: Dict[
-            "pp.Grid", "pp.composite.MaterialSubdomain"
-        ] = dict()
+        self._physical_subdomains: Dict["pp.Grid", PhysicalSubdomain] = dict()
 
         for grid, _ in self.gb:
             self._physical_subdomains.update(
                 {grid: PhysicalSubdomain(grid, UnitSolid(self.gb))}
             )
 
-    @property
-    def subdomains(
-        self,
-    ) -> Tuple[Tuple[pp.Grid, dict, PhysicalSubdomain]]:
-        """Returns a sequence of grids, data dictionaries and respective Subdomains.
-        Similar to the iterator of :class:`~porepy.grids.grid_bucket.GridBucket`,
-        only here the respective MaterialDomain is added as a third component in the yielded
-        tuple.
+    def __str(self) -> str:
+        """Adds information to the string representation of the gridbucket."""
+        
+        out = "Physical subdomain made of \n"
+        materials = [subdomain.substance for subdomain in self._physical_subdomains.values()]
+        out += ", ".join(set(materials))
+        out += "\n on grid bucker:\n" + str(self.gb)
+        return out
+
+    def get_physical_subdomain(self, grid: "pp.Grid") -> PhysicalSubdomain:
+        """Returns the physical representation of a subdomain.
+
+        :param grid: grid in this domain's grid bucket
+        :type: :class:`~porepy.grids.grid.Grid`
+
+        :return: assigned physical subdomain
+        :rtype: :class:`porepy.composite.PhysicalSubdomain`
         """
-        for grid, data in self.gb:
-            yield (grid, data, self._physical_subdomains[grid])
+        return self._physical_subdomains[grid]
 
     def assign_material_to_grid(
         self, grid: "pp.Grid", substance: "pp.composite.SolidSubstance"
     ) -> None:
         """
         Assigns a material to a grid i.e., creates an instance of
-        :class:`~porepy.composite.material_subdomain.MaterialSubdomain`
-        Replaces the default material subdomain instantiated in the constructor using the
-        :class:`~porepy.composite.unit_substances.UnitSolid`.
+        :class:`~porepy.composite.PhysicalSubdomain`
+        Replaces the previous instance.
 
-        You can use the iterator of this instance's
-        :class:`~porepy.grids.grid_bucket.GridBucket` to assign substances to grids.
-
-        :param grid: a sub grid present in the gridbucket passed at instantiation
+        :param grid: a sub grid present in the grid bucket passed at instantiation
         :type grid: :class:`~porepy.grids.grid.Grid`
 
         :param substance: the substance to be associated with the subdomain

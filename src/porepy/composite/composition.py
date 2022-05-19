@@ -165,7 +165,7 @@ class Composition:
         return equ_nums
 
     @property
-    def substances(self) -> Tuple["pp.composite.Substance"]:
+    def substances(self) -> Tuple["pp.composite.Substance", ...]:
         """
         :return: substances present in phases
         :rtype: tuple
