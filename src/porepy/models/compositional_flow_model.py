@@ -14,10 +14,8 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
 
-from ..composite._composite_utils import ConvergenceError
 
-
-class GeothermalModel(pp.models.abstract_model.AbstractModel):
+class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
     """ Non-isothermal and non-isobaric flow consisting of water in liquid in vapor phase
     and salt in liquid phase.
 
@@ -45,6 +43,14 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         super().__init__(params)
 
         ### PUBLIC
+        # time step size
+        self.dt: float = 1.
+        # maximal number of iterations for flash and equilibrium calculations
+        self.max_iter_equilibrium: int = 100
+        # residual tolerance for flash and equilibrium calculations
+        self.tolerance_equilibrium = 1e-10
+        # residual tolerance for the balance equations
+        self.tolerance_balance_equations = 1e-10
         # create default grid bucket for this model
         self.gb: pp.GridBucket
         self.box: Dict = dict()
@@ -87,10 +93,6 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         self._grids = [g for g, _ in self.gb]
         # list of edges as ordered in GridBucket
         self._edges = [e for e, _ in self.gb.edges()]
-        # maximal number of iterations for flash and equilibrium calculations
-        self._max_iter = 100
-        # residual tolerance for flash and equilibrium calculations
-        self._iter_eps = 1e-10
 
         ## model-specific input.
         self._source_quantity = {
@@ -109,9 +111,6 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         self._base_porosity = 1.
         # base permeability for grid
         self._base_permeability = 1.
-
-        # time step size
-        self._dt = 1.
 
     def create_grid(self) -> None:
         """ Assigns a cartesian grid as computational domain.
@@ -160,117 +159,132 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
 #------------------------------------------------------------------------------
 
     def before_newton_loop(self) -> None:
-        """Method to be called before entering the non-linear solver, thus at the start
-        of a new time step.
-
-        """
+        """Resets the iteration counter and convergence status."""
         self.convergence_status = False
         self._nonlinear_iteration = 0
 
     def before_newton_iteration(self) -> None:
-        """
-        Solves the algebraic part of the system. Computes saturation and isenthalpic flash.
-        """
-        self._solve_secondary_equations()
+        """Does nothing currently."""
+        pass
 
     def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
         """
         Distributes solution of iteration additively to the iterate state of the variables.
-        Increases the iteration counter
+        Increases the iteration counter.
 
-        :param solution_vector: solution to linear system of current iteration
+        :param solution_vector: solution to global linear system of current iteration
         :type solution_vector: numpy.ndarray
         """
         self._nonlinear_iteration += 1
-        # TODO distribute to only primary variables
         self.dofm.distribute_variable(
-            values=solution_vector, additive=True, to_iterate=True
+            values=solution_vector,
+            variables=self.primary_subsystem["vars"],
+            additive=True, to_iterate=True
         )
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
-        """Method to be called after every non-linear iteration.
-
-        Possible usage is to distribute information on the solution, visualization, etc.
-
-        Parameters:
-            np.array: The new solution state, as computed by the non-linear solver.
-
+        """Distributes the values from the iterate state to the the state (for next time step).
+        Exports the results.
         """
-        solution = self.dof_manager.assemble_variable(from_iterate=True)
+        # solution = self.dofm.assemble_variable(
+        #     variables=self.primary_subsystem["vars"], from_iterate=True
+        # )
 
-        self.assembler.distribute_variable(solution)
-        self.convergence_status = True
+        self.dofm.distribute_variable(solution, variables=self.primary_subsystem["vars"])
         self._export()
 
     def after_newton_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
-        if self._is_nonlinear_problem():
-            raise ValueError("Newton iterations did not converge")
-        else:
-            raise ValueError("Tried solving singular matrix for the linear problem.")
+        """Does nothing currently."""
+        pass
 
     def after_simulation(self) -> None:
-        """TODO is anything necessary here?"""
+        """Does nothing currently."""
         pass
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-        """Assemble the linearized system, described by the current state of the model,
-        solve and return the new solution vector.
-
-        Parameters:
-            tol (double): Target tolerance for the linear solver. May be used for
-                inexact approaches.
-
-        Returns:
-            np.array: Solution vector.
-
+        """APerforms a Newton step for the whole system in a monolithic way, by constructing
+        a Schur complement using the equilibrium equations and non-primary variables.
+        
+        :return: If converged, returns the solution. Until then, returns the update.
+        :rtype: numpy.ndarray
         """
-        """Use a direct solver for the linear system."""
 
-        eq_manager = self._eq_manager
-
-        # Inverter for the Schur complement system. We have an inverter for block
-        # diagnoal systems ready but I never got around to actually using it (this
-        # is not difficult to do).
+        # TODO Eirik mentioned an inverter for block-diagonal systems?
         inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
 
-        primary_equations = [
-            self._eq_manager[name] for name in self._primary_equation_names
-        ]
-        primary_variables = self._primary_variables()
-
-        # This forms the Jacobian matrix and residual for the primary variables,
-        # where the secondary variables are first discretized according to their
-        # current state, and the eliminated using a Schur complement technique.
-        A_red, b_red = eq_manager.assemble_schur_complement_system(
-            primary_equations=primary_equations,
-            primary_variables=primary_variables,
+        # Schur complement elimination of non-primary variables and equations
+        A_red, b_red = self.eqm.assemble_schur_complement_system(
+            primary_equations=self.primary_subsystem["equations"],
+            primary_variables=self.primary_subsystem["vars"],
             inverter=inverter,
         )
+        res_norm = np.linalg.norm(b_red)
+        if res_norm < tol:
+            self.convergence_status = True
+            x = self.dofm.assemble_variable(
+                    variables=self.primary_subsystem["vars"], from_iterate=True
+                )
+            return x
 
-        # Direct solver for the global linear system. Again, this is simple but efficient
-        # for sufficiently small problems.
-        x = sps.linalg.spsolve(A_red, b_red)
+        # TODO direct solver only nice to small systems
+        dx = spla.spsolve(A_red, b_red)
 
-        # Prolongation from the primary to the full set of variables
-        prolongation = self._prolongation_matrix(primary_variables)
+        # Prolongation of primary variables to global dimensions
+        # prolongation = self._prolongation_matrix(self.primary_subsystem["vars"])
+        # x = prolongation * x
 
-        x_full = prolongation * x
+        return dx
 
-        return x_full
+    def solve_equilibrium(
+        self, max_iter: Optional[int] = 100, tol: Optional[float] = 1e-10
+        ) -> bool:
+        """Starts equilibrium computations and consequently flash calculations.
+            1. Equilibrium
+            2. Saturation Flash
+            3. Isenthalpic Flash
 
-    def _prolongation_matrix(self, variables) -> sps.spmatrix:
-        # Construct mappings from subsects of variables to the full set.
-        nrows = self.dof_manager.num_dofs()
+        Prints a message if one of them fails to converge.
+
+        :param max_iter: maximal number of iterations for Newton solver
+        :type max_iter: int
+        :param tol: tolerance for Newton residual
+        :type tol: float
+
+        :return: True if successful, False otherwise
+        :rtype: bool
+        """
+        equilibrium = self.composition.compute_phase_equilibrium(max_iter, tol)
+        saturations = self.composition.saturation_flash(max_iter, tol)
+        isenthalpic = self.composition.isenthalpic_flash(max_iter, tol)
+
+        if equilibrium and saturations and isenthalpic:
+            return True
+        else:
+            if not equilibrium:
+                print("Equilibrium Calculations did not converge.")
+            if not saturations:
+                print("Saturation Flash did not converge.")
+            if not isenthalpic:
+                print("Isenthalpic Flash did not converge.")
+            return False
+
+    def _prolongation_matrix(self, variables: List["pp.ad.MergedVariable"]) -> sps.spmatrix:
+        """ Returns the prolongation matrix for mapping the reduced variable
+        (by Schur complement) to global dimensions.
+        Credits to EK.
+        """
+        # Construct mappings from subsets of variables to the full set.
+        nrows = self.dofm.num_dofs()
         rows = np.unique(
             np.hstack(
                 # The use of private variables here indicates that something is wrong
                 # with the data structures. Todo..
                 [
-                    self.dof_manager.grid_and_variable_to_dofs(s._g, s._name)
+                    self.dofm.grid_and_variable_to_dofs(s._g, s._name)
                     for var in variables
                     for s in var.sub_vars
                 ]
@@ -281,27 +295,6 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         data = np.ones(ncols)
 
         return sps.coo_matrix((data, (rows, cols)), shape=(nrows, ncols)).tocsr()
-
-    def _solve_secondary_equations(self):
-        """Starts equilibrium computations and consequently flash calculations.
-            1. Equilibrium
-            2. Saturation Flash
-            3. Isenthalpic Flash
-
-        Throws an error if one of them fails to converge.
-        """
-
-        converged = self.composition.compute_phase_equilibrium(self._max_iter, self._iter_eps)
-        if not converged:
-            raise ConvergenceError("Equilibrium Calculations did not converge.")
-
-        converged = self.composition.saturation_flash(self._max_iter, self._iter_eps)
-        if not converged:
-            raise ConvergenceError("Saturation Flash did not converge.")
-
-        converged = self.composition.isenthalpic_flash(self._max_iter, self._iter_eps)
-        if not converged:
-            raise ConvergenceError("Isenthalpic Flash did not converge.")
 
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear."""
@@ -547,7 +540,7 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         for subst in self.composition.substances:
             # accumulation term
             accumulation = (
-                mass.mass / self._dt * (
+                mass.mass / self.dt * (
                     subst.overall_fraction * cp.composit_density() -
                     subst.overall_fraction.previous_timestep() *
                     cp.composit_density(prev_time=True)
@@ -597,7 +590,7 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
 
         # accumulation term
         accumulation = (
-            mass.mass / self._dt * (
+            mass.mass / self.dt * (
                 cp.enthalpy * cp.composit_density() -
                 cp.enthalpy.previous_timestep() * cp.composit_density(True)
             )

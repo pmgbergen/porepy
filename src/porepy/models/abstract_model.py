@@ -204,7 +204,6 @@ class AbstractModel:
             raise NotImplementedError
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
         """Assemble the linearized system, described by the current state of the model,
         solve and return the new solution vector.

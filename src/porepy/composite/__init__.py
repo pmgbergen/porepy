@@ -4,22 +4,17 @@ Define compositional flow models using available substances.
 
 __all__ = []
 
-from . import composition, material_subdomain, models, phase, substance
+from . import composition, model_fluids, model_phases, model_solids, phase, substance
 from .composition import *
-from .material_subdomain import *
-from .models import fluid_substances, phase_models, solid_substances, unit_substance
-from .models.fluid_substances import *
-from .models.phase_models import *
-from .models.solid_substances import *
-from .models.unit_substance import *
+from .model_fluids import *
+from .model_phases import *
+from .model_solids import *
 from .phase import *
 from .substance import *
 
 __all__.extend(composition.__all__)
-__all__.extend(material_subdomain.__all__)
-__all__.extend(models.fluid_substances.__all__)
-__all__.extend(models.phase_models.__all__)
-__all__.extend(models.solid_substances.__all__)
-__all__.extend(models.unit_substance.__all__)
+__all__.extend(model_fluids.__all__)
+__all__.extend(model_phases.__all__)
+__all__.extend(model_solids.__all__)
 __all__.extend(phase.__all__)
 __all__.extend(substance.__all__)

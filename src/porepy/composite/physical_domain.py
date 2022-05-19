@@ -1,17 +1,19 @@
-""" Contains the class representing a computational subdomain.
-"""
+"""Contains a class representing physical properties."""
+
 from __future__ import annotations
+
+from typing import Dict, Tuple
 
 import numpy as np
 
 import porepy as pp
 
-from .substance import SolidSubstance
+from .models.unit_substance import UnitSolid
 
-__all__ = ["MaterialSubdomain"]
+__all__ = ["PhysicalSubdomain", "PhysicalDomain"]
 
 
-class MaterialSubdomain:
+class PhysicalSubdomain:
     """
     Class representing a physical extension of :class:`~porepy.Grid`.
 
@@ -25,7 +27,9 @@ class MaterialSubdomain:
     question for future development.
     """
 
-    def __init__(self, grid: pp.Grid, substances: SolidSubstance) -> None:
+    def __init__(
+        self, grid: "pp.Grid", substances: "pp.composite.SolidSubstance"
+    ) -> None:
         """Constructor stores the parameters for future access.
 
         :param grid: the discretization for which variables and substance parameter arrays
@@ -36,7 +40,7 @@ class MaterialSubdomain:
         """
 
         self.grid: pp.Grid = grid
-        self.substance: SolidSubstance = substances
+        self.substance: "pp.composite.SolidSubstance" = substances
 
     def __str__(self) -> str:
         """String representation combining information about geometry and material."""
@@ -130,3 +134,53 @@ class MaterialSubdomain:
                 "Unknown 'law' keyword for rel.Perm.: %s \n" % (law)
                 + "Available: 'quadratic,'"
             )
+
+
+class PhysicalDomain:
+    def __init__(self, gb: "pp.GridBucket") -> None:
+        ### PUBLIC
+        self.gb: "pp.GridBucket" = gb
+        # key: grid, value: MaterialSubdomain
+        self._physical_subdomains: Dict[
+            "pp.Grid", "pp.composite.MaterialSubdomain"
+        ] = dict()
+
+        for grid, _ in self.gb:
+            self._physical_subdomains.update(
+                {grid: PhysicalSubdomain(grid, UnitSolid(self.gb))}
+            )
+
+    @property
+    def subdomains(
+        self,
+    ) -> Tuple[Tuple[pp.Grid, dict, PhysicalSubdomain]]:
+        """Returns a sequence of grids, data dictionaries and respective Subdomains.
+        Similar to the iterator of :class:`~porepy.grids.grid_bucket.GridBucket`,
+        only here the respective MaterialDomain is added as a third component in the yielded
+        tuple.
+        """
+        for grid, data in self.gb:
+            yield (grid, data, self._physical_subdomains[grid])
+
+    def assign_material_to_grid(
+        self, grid: "pp.Grid", substance: "pp.composite.SolidSubstance"
+    ) -> None:
+        """
+        Assigns a material to a grid i.e., creates an instance of
+        :class:`~porepy.composite.material_subdomain.MaterialSubdomain`
+        Replaces the default material subdomain instantiated in the constructor using the
+        :class:`~porepy.composite.unit_substances.UnitSolid`.
+
+        You can use the iterator of this instance's
+        :class:`~porepy.grids.grid_bucket.GridBucket` to assign substances to grids.
+
+        :param grid: a sub grid present in the gridbucket passed at instantiation
+        :type grid: :class:`~porepy.grids.grid.Grid`
+
+        :param substance: the substance to be associated with the subdomain
+        :type substance: :class:`~porepy.composite.substance.SolidSubstance`
+        """
+        if grid in self.gb.get_grids():
+            self._physical_subdomains.update({grid: PhysicalSubdomain(grid, substance)})
+        else:
+            raise KeyError("Argument 'grid' not among grids in GridBucket.")

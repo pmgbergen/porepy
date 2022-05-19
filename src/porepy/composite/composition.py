@@ -11,8 +11,6 @@ import scipy.sparse as sps
 import porepy as pp
 
 from ._composite_utils import COMPUTATIONAL_VARIABLES, create_merged_variable
-from .material_subdomain import MaterialSubdomain
-from .models.unit_substance import UnitSolid
 from .phase import PhaseField
 
 __all__ = ["Composition"]
@@ -76,10 +74,6 @@ class Composition:
         ] = dict()
         # instances of added phases
         self._present_phases: List[PhaseField] = list()
-        # key: grid, value: MaterialSubdomain
-        self._material_subdomains: Dict[
-            "pp.Grid", "pp.composite.MaterialSubdomain"
-        ] = dict()
 
         # initiate system-wide primary variables
         self._pressure_var: str = COMPUTATIONAL_VARIABLES["pressure"]
@@ -98,11 +92,6 @@ class Composition:
         self._phase_equilibrium_subsystem: dict = dict()
         self._saturation_flash_subsystem: dict = dict()
         self._isenthalpic_flash_subsystem: dict = dict()
-
-        for grid, _ in self.gb:
-            self._material_subdomains.update(
-                {grid: MaterialSubdomain(grid, UnitSolid(self.gb))}
-            )
 
         self.dof_manager.update_dofs()
 
@@ -176,24 +165,21 @@ class Composition:
         return equ_nums
 
     @property
-    def subdomains(
-        self,
-    ) -> Generator[Tuple[pp.Grid, dict, "pp.composite.MaterialSubdomain"], None, None]:
-        """Returns an Iterator over all grids of this domain.
-        Similar to the iterator of :class:`~porepy.grids.grid_bucket.GridBucket`,
-        only here the respective MaterialDomain is added as a third component in the yielded
-        tuple.
-        """
-        for grid, data in self.gb:
-            yield (grid, data, self._material_subdomains[grid])
-
-    @property
     def substances(self) -> Tuple["pp.composite.Substance"]:
         """
         :return: substances present in phases
         :rtype: tuple
         """
         return tuple(self._present_substances)
+
+    @property
+    def subsystem(self) -> Dict[str, List]:
+        """Returns the subsystem representing the phase equilibrium calculations.
+        - 'equations' : names of respective equations in the equation manager
+        - 'vars' : list of MergedVariables associated with the subsystem
+        - 'var_names' : names of above MergedVariable instances
+        """
+        return self._phase_equilibrium_subsystem
 
     @property
     def pressure(self) -> "pp.ad.MergedVariable":
@@ -262,29 +248,6 @@ class Composition:
         #         self.pressure, self.enthalpy
         #     )
         return sum(rho)
-
-    def assign_material_to_grid(
-        self, grid: "pp.Grid", substance: "pp.composite.SolidSubstance"
-    ) -> None:
-        """
-        Assigns a material to a grid i.e., creates an instance of
-        :class:`~porepy.composite.material_subdomain.MaterialSubdomain`
-        Replaces the default material subdomain instantiated in the constructor using the
-        :class:`~porepy.composite.unit_substances.UnitSolid`.
-
-        You can use the iterator of this instance's
-        :class:`~porepy.grids.grid_bucket.GridBucket` to assign substances to grids.
-
-        :param grid: a sub grid present in the gridbucket passed at instantiation
-        :type grid: :class:`~porepy.grids.grid.Grid`
-
-        :param substance: the substance to be associated with the subdomain
-        :type substance: :class:`~porepy.composite.substance.SolidSubstance`
-        """
-        if grid in self.gb.get_grids():
-            self._material_subdomains.update({grid: MaterialSubdomain(grid, substance)})
-        else:
-            raise KeyError("Argument 'grid' not among grids in GridBucket.")
 
     def add_phase(self, phases: Union[List[PhaseField], PhaseField]) -> None:
         """

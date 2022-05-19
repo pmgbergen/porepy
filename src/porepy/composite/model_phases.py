@@ -4,9 +4,9 @@ from typing import List
 
 import iapws
 
-from ..phase import PhaseField
-from .fluid_substances import H20_iapws
-from .solid_substances import NaCl_simple
+from .phase import PhaseField
+from .model_fluids import H20_iapws
+from .model_solids import NaCl_simple
 
 __all__: List[str] = ["SaltWater_iapws", "WaterVapor_iapws"]
 
