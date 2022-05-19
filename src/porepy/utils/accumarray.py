@@ -2,12 +2,7 @@ from itertools import product
 
 import numpy as np
 
-import porepy as pp
 
-module_sections = ["utils"]
-
-
-@pp.time_logger(sections=module_sections)
 def accum(accmap, a, func=None, size=None, fill_value=0, dtype=None):
     """
     An accumulation function similar to Matlab's `accumarray` function.

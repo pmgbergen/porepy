@@ -73,7 +73,7 @@ BAR = 100000 * PASCAL
 ATMOSPHERIC_PRESSURE = 101325 * PASCAL
 
 
-GRAVITY_ACCELERATION = 9.80665 * METER / SECOND ** 2
+GRAVITY_ACCELERATION = 9.80665 * METER / SECOND**2
 
 # Temperature
 CELSIUS = 1.0
@@ -83,9 +83,9 @@ def CELSIUS_to_KELVIN(celsius):
     return celsius + 273.15
 
 
-def KELKIN_to_CELSIUS(kelvin):
+def KELVIN_to_CELSIUS(kelvin):
     return kelvin - 273.15
 
 
 # Force
-NEWTON = KILOGRAM * METER / SECOND ** 2
+NEWTON = KILOGRAM * METER / SECOND**2
