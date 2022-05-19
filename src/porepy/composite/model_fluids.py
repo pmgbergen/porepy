@@ -1,11 +1,16 @@
-""" Contains the SimpleFluid and UnitSolid substances. """
+""" Contains concrete substances for the fluid phases in the porous medium.
+In the current setting, we expect these substances to only appear in liquid or gaseous form.
+i.e. they are associated with the flow.
+"""
 
 from typing import List
 
-from .._composite_utils import IDEAL_GAS_CONSTANT
-from ..substance import FluidSubstance, SolidSubstance
+import iapws
 
-__all__: List[str] = ["SimpleFluid", "UnitSolid"]
+from .substance import FluidSubstance
+from ._composite_utils import IDEAL_GAS_CONSTANT
+
+__all__: List[str] = ["SimpleFluid", "H20_iapws"]
 
 
 class SimpleFluid(FluidSubstance):
@@ -45,31 +50,5 @@ class SimpleFluid(FluidSubstance):
         return 1.0
 
 
-class UnitSolid(SolidSubstance):
-    """
-    Represent the academic unit solid, with constant unitary properties.
-    Intended usage is testing, debugging and demonstration.
-
-    For a proper documentation of all properties, see parent class.
-    """
-
-    @staticmethod
-    def molar_mass() -> float:
-        return 1.0
-
-    def molar_density(self, *args, **kwargs) -> float:
-        return 1.0
-
-    @staticmethod
-    def base_porosity() -> float:
-        return 1.0
-
-    @staticmethod
-    def base_permeability() -> float:
-        return 1.0
-
-    def Fick_diffusivity(self, *args, **kwargs) -> float:
-        return 1.0
-
-    def thermal_conductivity(self, *args, **kwargs) -> float:
-        return 1.0
+class H20_iapws(FluidSubstance):
+    pass

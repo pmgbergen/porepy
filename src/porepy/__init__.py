@@ -213,4 +213,4 @@ from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.thm_model import THM
 from porepy.models.incompressible_flow_model import IncompressibleFlow
 from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
-from porepy.models.geothermal_model import GeothermalModel
+from porepy.models.compositional_flow_model import CompositionalFlowModel
