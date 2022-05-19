@@ -234,16 +234,16 @@ class Composition:
         return self._temperature
 
     def composit_density(
-        self, previous_timestep: Optional[bool] = False
+        self, prev_time: Optional[bool] = False
     ) -> Union["pp.ad.Operator", int, float]:
         """
-        :param previous_timestep: indicator which values for variables should be used
-        :type previous_timestep: bool
+        :param prev_time: indicator to use values at previous time step
+        :type prev_time: bool
 
         :return: overall molar density of the composition using the caloric relation.
         :rtype: :class:`~porepy.numerics.ad.operators.MergedVariable`
         """
-        if previous_timestep:
+        if prev_time:
             rho = [
                 phase.saturation.previous_timestep()
                 * phase.molar_density(
