@@ -168,29 +168,22 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         self._nonlinear_iteration = 0
 
     def before_newton_iteration(self) -> None:
-        """Method to be called at the start of every non-linear iteration.
-
-        Solve the non-linear problem formed by the secondary equations. Put this in a
-        separate function, since this is surely something that should be streamlined
-        to the characteristics of each problem.
-
+        """
+        Solves the algebraic part of the system. Computes saturation and isenthalpic flash.
         """
         self._solve_secondary_equations()
 
     def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
         """
-        Extract parts of the solution for current iterate.
+        Distributes solution of iteration additively to the iterate state of the variables.
+        Increases the iteration counter
 
-        The iterate solutions in d[pp.STATE][pp.ITERATE] are updated for the
-        mortar displacements and contact traction are updated.
-        Method is a tailored copy from assembler.distribute_variable.
-
-        Parameters:
-            solution_vector (np.array): solution vector for the current iterate.
-
+        :param solution_vector: solution to linear system of current iteration
+        :type solution_vector: numpy.ndarray
         """
         self._nonlinear_iteration += 1
-        self.dof_manager.distribute_variable(
+        # TODO distribute to only primary variables
+        self.dofm.distribute_variable(
             values=solution_vector, additive=True, to_iterate=True
         )
 
@@ -220,7 +213,7 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
             raise ValueError("Tried solving singular matrix for the linear problem.")
 
     def after_simulation(self) -> None:
-        """Run at the end of simulation. Can be used for cleaup etc."""
+        """TODO is anything necessary here?"""
         pass
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
@@ -332,7 +325,7 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
             
             source = self._unitary_source(g)
             unit_tensor = pp.SecondOrderTensor(1.)
-            # TODO must-have parameter?
+            # TODO is this a must-have parameter?
             zero_vector_source = np.zeros((self.gb.dim_max(), g.num_cells))
 
             ### Mass weight parameter. Same for all balance equations
@@ -548,61 +541,47 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
         """Set mass balance equations per substance"""
 
         mass = pp.ad.MassMatrixAd(self.mass_parameter_key, self._grids)
-        comp = self.composition
-        upwind: Dict[str, "pp.ad.UpwindAd"] = dict()
-        upwind_bc: Dict[str: "pp.ad.ParameterArray"] = dict()
+        cp = self.composition
         div = pp.ad.Divergence(grids=self._grids, name="Divergence")
-
-        # store the upwind discretization per phase
-        for phase in comp:
-            keyword = "%s_%s" % (self.upwind_parameter_key, phase.name)
-            upwind.update({
-                phase.name: pp.ad.UpwindAd(keyword, self._grids)
-            })
-            upwind_bc.update({
-                phase.name: pp.ad.ParameterArray(keyword, "bc_values", self._grids)
-            })
 
         for subst in self.composition.substances:
             # accumulation term
             accumulation = (
                 mass.mass / self._dt * (
-                    subst.overall_fraction * comp.composit_density() -
-                    subst.overall_fraction.previous_timestep() * comp.composit_density(True)
+                    subst.overall_fraction * cp.composit_density() -
+                    subst.overall_fraction.previous_timestep() *
+                    cp.composit_density(prev_time=True)
                 )
             )
 
             # advection per phase
             advection = list()
-            for phase in comp.phases_of_substance(subst):
+            for phase in cp.phases_of_substance(subst):
 
                 # Advective term due to pressure potential per phase in which subst is present
-                darcy_flux = self._darcy_flux(comp.pressure, phase)
+                kw = "%s_%s" % (self.flow_parameter_key, phase.name)
+                darcy_flux = self._mpfa_flux(kw, cp.pressure)
                 # TODO add rel perm
                 darcy_scalar = (
-                    phase.molar_density(comp.pressure, comp.enthalpy) *
+                    phase.molar_density(cp.pressure, cp.enthalpy) *
                     subst.fraction_in_phase(phase) /
-                    phase.viscosity(comp.pressure, comp.enthalpy)
+                    phase.viscosity(cp.pressure, cp.enthalpy)
                 )
-                upwind_p = upwind[phase.name]
-                upwind_p_bc = upwind_bc[phase.name]
 
-                adv_p = (
-                    (upwind_p.upwind * darcy_scalar) * darcy_flux +
-                    upwind.bound_transport_neu * upwind_p_bc # TODO Dirichlet BC?
-                )
+                adv_p = self._upwind(kw, darcy_scalar, darcy_flux, "neu")
+
                 advection.append(adv_p)
 
             # total advection
             advection = sum(advection)
 
-            # source term
+            # rhs source term
             keyword = "%s_%s" % (self.mass_parameter_key, subst.name)
             source = pp.ad.ParameterArray(keyword, "source", grids=self._grids)
 
             ### MASS BALANCE PER COMPONENT
-            # TODO check for minus in advection
-            equ_subst = accumulation + div * advection - source
+            # TODO check minus in front of div terms
+            equ_subst = accumulation - div * advection - source
             equ_name  = "mass_balance_%s" % (subst.name)
             self.eqm.equations.update({
                 equ_name: equ_subst
@@ -612,48 +591,119 @@ class GeothermalModel(pp.models.abstract_model.AbstractModel):
     def _set_energy_balance_equation(self) -> None:
         """Sets the global energy balance equation in terms of enthalpy."""
 
-        darcy = self._single_phase_darcy()
+        mass = pp.ad.MassMatrixAd(self.mass_parameter_key, self._grids)
+        cp = self.composition
+        div = pp.ad.Divergence(grids=self._grids, name="Divergence")
 
-        # redundant 
-        # rp = [self._rel_perm(j) for j in range(self.num_fluid_phases)]
+        # accumulation term
+        accumulation = (
+            mass.mass / self._dt * (
+                cp.enthalpy * cp.composit_density() -
+                cp.enthalpy.previous_timestep() * cp.composit_density(True)
+            )
+        )
 
-        component_flux = [0 for i in range(self.num_components)]
+        # advection per phase
+        advection = list()
+        for phase in cp:
 
-        for j in range(self.num_fluid_phases):
-            rp = self._rel_perm(j)
+            # Advective term due to pressure potential per phase
+            kw = "%s_%s" % (self.flow_parameter_key, phase.name)
+            darcy_flux = self._mpfa_flux(kw, cp.pressure)
+            # TODO add rel perm
+            darcy_scalar = (
+                cp.composit_density() *
+                phase.enthalpy(cp.pressure, cp.enthalpy) /
+                phase.viscosity(cp.pressure, cp.enthalpy)
+            )
 
-            upwind = pp.ad.UpwindAd(f"{self.upwind_parameter_key}_{j}", self._grids)
+            adv_p = self._upwind(kw, darcy_scalar, darcy_flux, "neu")
 
-            rho_j = self._density(j)
+            advection.append(adv_p)
 
-            darcy_j = (upwind.upwind * rp) * darcy
+        # total advection
+        advection = sum(advection)
 
-            for i in range(self.num_components):
-                if self._component_present_in_phase[i, j]:
-                    component_flux[i] += darcy_j * (
-                        upwind.upwind * (rho_j * self._ad.component_phase[i, j])
-                    )
+        # conduction term
+        heat_scalar = list()
+        for phase in cp:
+            heat_scalar.append(
+                phase.saturation * phase.thermal_conductivity(cp.pressure, cp.enthalpy)
+            )
+        heat_scalar = mass * sum(heat_scalar)
 
-    def _darcy_flux(
-        self, pressure: "pp.ad.MergedVariable", phase: "pp.composite.PhaseField"
+        heat_flux = self._mpfa_flux(self.energy_parameter_key, cp.temperature)
+
+        kw = "%s_%s" % (self.upwind_parameter_key, self.energy_parameter_key)
+        conduction = self._upwind(kw, heat_scalar, heat_flux, "dir")
+
+        # source term
+        # rock enthalpy source
+        source = pp.ad.ParameterArray(self.energy_parameter_key, "source", grids=self._grids)
+        # enthalpy source due to mass source
+        for subst in cp.substances:
+            kw = "source_%s" % (subst.name)
+            source += pp.ad.ParameterArray(kw, "source", grids=self._grids)
+
+        ### GLOBAL ENERGY
+        # TODO check minus in front of div terms
+        equ_subst = accumulation - div * advection - div * conduction - source
+        equ_name  = "energy_balance"
+        self.eqm.equations.update({
+            equ_name: equ_subst
+        })
+        self.primary_subsystem["equations"].append(equ_name)
+    
+    def _mpfa_flux(
+        self, keyword: str, potential: "pp.ad.MergedVariable"
     ) -> "pp.ad.Operator":
         """MPFA discretization of Darcy potential for given pressure and phase.
 
-        :param pressure: a pressure variable
-        :type pressure: :class:`~porepy.ad.MergedVariable`
-        :param phase: phase for generalized Darcy flux
-        :type phase: :class:`~porepy.composite.PhaseField`
+        :param keyword: keyword to access data necessary for :class:`~porepy.ad.MpfaAd`
+        :type keyword: str
+        :param potential: a variable whose gradient causes the flux
+        :type potential: :class:`~porepy.ad.MergedVariable`
 
         :return: MPFA discretization including boundary conditions
         :rtype: :class:`~porepy.ad.Operator`
         """
-        keyword = "%s_%s" % (self.flow_parameter_key, phase.name)
         mpfa = pp.ad.MpfaAd(keyword, self._grids)
         # bc = pp.ad.ParameterArray(keyword, "bc_values", grids=self._grids)
         bc = pp.ad.BoundaryCondition(keyword, self._grids)
-        # TODO Dirichlet BC?
-        return mpfa.flux * pressure + mpfa.bound_flux * bc
+        # TODO mixed BC?
+        return mpfa.flux * potential + mpfa.bound_flux * bc
 
+    def _upwind(
+        self, keyword: str, scalar: "pp.ad.Operator", flux: "pp.ad.Operator", bc_type: str
+    ) -> "pp.ad.Operator":
+        """Applies upwinding to a combination of scalar and flux term in AD.
+
+        :param keyword: keyword to access data necessary for :class:`~porepy.ad.MpfaAd`
+        :type keyword: str
+        :param scalar: scalar part of the flux term
+        :type scalar: :class:`~porepy.ad.Operator`
+        :param scalar: vectorial part of the flux term
+        :type scalar: :class:`~porepy.ad.Operator`
+
+        :return: AD representation of the upwinded flux term
+        :rtype: :class:`~porepy.ad.Operator`
+        """
+        bc_type = str(bc_type)
+        upwind = pp.ad.UpwindAd(keyword, self._grids)
+        # upwind_T_bc = pp.ad.ParameterArray(kw, "bc_values", self._grids)
+        upwind_bc = pp.ad.BoundaryCondition(keyword, self._grids)
+
+        result = (upwind.upwind * scalar) * flux 
+
+        # TODO mixed BC?
+        if bc_type == "neu":
+            result += upwind.bound_transport_neu * upwind_bc
+        elif bc_type == "dir":
+            result += upwind.bound_transport_dir * upwind_bc
+        else:
+            raise NotImplementedError("Unknown BC type '%s' for upwinding." % (bc_type))
+
+        return result
     #------------------------------------------------------------------------------------------
     ### CONSTITUTIVE LAWS
     #------------------------------------------------------------------------------------------
