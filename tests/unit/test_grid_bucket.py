@@ -67,13 +67,13 @@ class TestBucket(unittest.TestCase):
         gb.add_nodes(g0)
         gb.add_nodes(g1)
         gb.add_nodes(g3)
-        gb.add_edge([g0, g1], None)
-        gb.add_edge([g1, g3], None)
+        gb.add_edge((g0, g1), None)
+        gb.add_edge((g1, g3), None)
 
         # Should not be able to add existing edge
-        self.assertRaises(ValueError, gb.add_edge, [g0, g1], None)
+        self.assertRaises(ValueError, gb.add_edge, (g0, g1), None)
         # Should not be able to add couplings three dimensions appart
-        self.assertRaises(ValueError, gb.add_edge, [g0, g3], None)
+        self.assertRaises(ValueError, gb.add_edge, (g0, g3), None)
 
     def test_dimension_ordering_edges(self):
         gb = pp.GridBucket()
@@ -630,6 +630,7 @@ def test_pickle_bucket():
     gb_read = pickle.load(open(fn, "rb"))
 
     test_utils.compare_grid_buckets(gb, gb_read)
+
 
 if __name__ == "__main__":
     unittest.main()

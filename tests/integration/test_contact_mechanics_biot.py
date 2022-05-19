@@ -1,5 +1,5 @@
 """
-Integration tests for the Biot modell, with and without contact mechanics.
+Integration tests for the Biot model, with and without contact mechanics.
 
 We have the full Biot equations in the matrix, and mass conservation and contact
 conditions in the fracture. For the contact mechanical part of this
@@ -319,10 +319,6 @@ class TestContactMechanicsBiot(unittest.TestCase):
         m_ref.subtract_fracture_pressure = False
         u_mortar_ref, contact_force_ref, fracture_pressure_ref = self._solve(m_ref)
 
-        gb = m_ref.gb
-        g = gb.grids_of_dimension(m_ref._Nd)[0]
-        d = gb.node_props(g)
-
         m = SetupContactMechanicsBiot()
         m.subtract_fracture_pressure = False
         m.uy_south = -0.001
@@ -341,7 +337,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
 class SetupContactMechanicsBiot(
     tests.common.contact_mechanics_examples.ProblemDataTime, model.ContactMechanicsBiot
 ):
-    def __init__(self):
+    def __init__(self, params={"use_ad": True}):
 
         self.mesh_args = {
             "mesh_size_frac": 0.5,
@@ -349,7 +345,7 @@ class SetupContactMechanicsBiot(
             "mesh_size_bound": 0.5,
         }
 
-        super().__init__()
+        super().__init__(params)
 
         self.ux_south = 0
         self.uy_south = 0
@@ -361,15 +357,16 @@ class SetupContactMechanicsBiot(
         self.zero_tol = 1e-8
         self.fix_only_bottom = False
 
-    def _set_mechanics_parameters(self):
-        super()._set_mechanics_parameters()
-        for g, d in self.gb:
-            if g.dim == self._Nd - 1:
-                d[pp.PARAMETERS][self.mechanics_parameter_key]["dilation_angle"] = (
-                    np.pi / 6
-                )
-            p_ref = self.p_reference * np.ones(g.num_cells)
-            d[pp.PARAMETERS][self.mechanics_parameter_key]["p_reference"] = p_ref
+
+    def _dilation_angle(self, g):
+        """Nonzero dilation angle.
+        """
+        vals = np.pi / 6 * np.ones(g.num_cells)
+        return vals
+
+    def _reference_scalar(self, g: pp.Grid):
+        return self.p_reference * np.ones(g.num_cells)
+
 
     def _bc_values_scalar(self, g):
         """

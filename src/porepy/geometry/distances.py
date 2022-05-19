@@ -7,10 +7,7 @@ import numpy as np
 
 import porepy as pp
 
-module_sections = ["geometry"]
 
-
-@pp.time_logger(sections=module_sections)
 def segment_set(start, end):
     """Compute distance and closest points between sets of line segments.
 
@@ -48,7 +45,6 @@ def segment_set(start, end):
     return d, cp
 
 
-@pp.time_logger(sections=module_sections)
 def segment_segment_set(start, end, start_set, end_set):
     """Compute distance and closest points between a segment and a set of
     segments.
@@ -91,7 +87,7 @@ def segment_segment_set(start, end, start_set, end_set):
     dot_2_2 = dot(d2, d2)
     dot_1_starts = dot(d1, d_starts)
     dot_2_starts = dot(d2, d_starts)
-    discr = dot_1_1 * dot_2_2 - dot_1_2 ** 2
+    discr = dot_1_1 * dot_2_2 - dot_1_2**2
 
     # Variable used to fine almost parallel lines. Sensitivity to this value has not
     # been tested.
@@ -178,7 +174,6 @@ def segment_segment_set(start, end, start_set, end_set):
     return np.sqrt(np.sum(np.power(dist, 2), axis=0)), cp1, cp2
 
 
-@pp.time_logger(sections=module_sections)
 def points_segments(p, start, end):
     """Compute distances between points and line segments.
 
@@ -228,7 +223,7 @@ def points_segments(p, start, end):
             # Project the vectors from start to point onto the line, and compute
             # relative length
             v = p[:, pi].reshape((-1, 1)) - start
-            proj = np.sum(v * line, axis=0) / lengths ** 2
+            proj = np.sum(v * line, axis=0) / lengths**2
 
             # Projections with length less than zero have the closest point at
             # start
@@ -274,7 +269,6 @@ def points_segments(p, start, end):
     return d, cp
 
 
-@pp.time_logger(sections=module_sections)
 def point_pointset(p, pset, exponent=2):
     """
     Compute distance between a point and a set of points.
@@ -310,7 +304,6 @@ def point_pointset(p, pset, exponent=2):
     )
 
 
-@pp.time_logger(sections=module_sections)
 def pointset(p, max_diag=False):
     """Compute mutual distance between all points in a point set.
 
@@ -339,7 +332,6 @@ def pointset(p, max_diag=False):
     return d
 
 
-@pp.time_logger(sections=module_sections)
 def points_polygon(p, poly, tol=1e-5):
     """Compute distance from points to a polygon. Also find closest point on
     the polygon.
@@ -428,7 +420,6 @@ def points_polygon(p, poly, tol=1e-5):
     return d, cp, in_poly
 
 
-@pp.time_logger(sections=module_sections)
 def segments_polygon(start, end, poly, tol=1e-5):
     """Compute the distance from line segments to a polygon.
 
@@ -567,7 +558,6 @@ def segments_polygon(start, end, poly, tol=1e-5):
     return d, cp
 
 
-@pp.time_logger(sections=module_sections)
 def segment_overlap_segment_set(
     start, end, start_set, end_set, return_indices=False, tol=1e-5
 ):

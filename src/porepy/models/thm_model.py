@@ -247,7 +247,7 @@ class THM(pp.ContactMechanicsBiot):
     def _set_temperature_parameters(self) -> None:
         """Parameters for the temperature equation."""
         tensor_scale: float = (
-            self.temperature_scale / self.length_scale ** 2 / self.T_0_Kelvin
+            self.temperature_scale / self.length_scale**2 / self.T_0_Kelvin
         )
         kappa: float = 1 * tensor_scale
         heat_capacity = 1
