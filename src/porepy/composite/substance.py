@@ -5,7 +5,7 @@ used in this framework.
 from __future__ import annotations
 
 import abc
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import porepy as pp
 
@@ -16,10 +16,15 @@ __all__ = ["Substance", "FluidSubstance", "SolidSubstance"]
 
 class Substance(abc.ABC):
     """
-    Abstract base class for pure substances, providing abstract physical propertis
+    Abstract base class for pure substances, providing abstract physical properties
     which need to be implemented for concrete child classes to work in PorePy.
 
     Provides and manages substance-related AD-variables.
+
+    Turns every Substance child class into a singleton, such that there is only one object
+    containing all variables and properties, which can be instantiated in multiple
+    model phases.
+    This assures that all phases access "the same" substance.
 
     Instantiated AD variables are provided as properties, as well as the names under which
     they are stored in the grid data dictionary.
@@ -46,7 +51,13 @@ class Substance(abc.ABC):
     """
 
     """ For a grid bucket (keys), contains a list of present substances (values). """
-    __substance_instances: Dict["pp.GridBucket", list] = dict()
+    __substances_per_gb: Dict["pp.GridBucket", List[str]] = dict()
+
+    """ For a name (keys), contains the singleton (subtance instance). """
+    __susbtance_instances: Dict[str, Substance] = dict()
+
+    """ Flags if a singleton has been re-instantiated in order to skip the initialization. """
+    __singleton_accessed: bool = False
 
     def __new__(cls, gb: "pp.GridBucket") -> Substance:
         """
@@ -55,16 +66,18 @@ class Substance(abc.ABC):
         of the name as a key.
         """
         name = str(cls.__name__)
-        if gb in Substance.__substance_instances.keys():
-            if name in Substance.__substance_instances[gb]:
-                raise RuntimeError(
-                    "Substance with name '" + name + "' already present in \n" + str(gb)
-                )
+        if gb in Substance.__substances_per_gb.keys():
+            if name in Substance.__substances_per_gb[gb]:
+                # flag that the singleton has been accessed and return it.
+                Substance.__singleton_accessed = True
+                return Substance.__susbtance_instances[name]
         else:
-            Substance.__substance_instances.update({gb: list()})
+            Substance.__substances_per_gb.update({gb: list()})
 
-        Substance.__substance_instances[gb].append(name)
-        return super().__new__(cls)
+        Substance.__substances_per_gb[gb].append(name)
+        new_instance = super().__new__(cls)
+        Substance.__susbtance_instances.update({name: new_instance})
+        return new_instance
 
     def __init__(self, gb: "pp.GridBucket") -> None:
         """Abstract base class constructor. Initiates component-related AD-variables.
@@ -74,6 +87,11 @@ class Substance(abc.ABC):
         :type gb:
             :class:`~porepy.grids.grid_bucket.GridBucket`
         """
+        # skipping re-instantiation if class if __new__ returned the previous reference
+        if Substance.__singleton_accessed:
+            Substance.__singleton_accessed = False
+            return
+        
         super().__init__()
 
         ## PUBLIC

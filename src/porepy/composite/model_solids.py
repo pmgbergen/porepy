@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from .substance import SolidSubstance
 
-__all__: List[str] = ["UnitSolid", "Salt_simple"]
+__all__: List[str] = ["UnitSolid", "NaCl"]
 
 
 class UnitSolid(SolidSubstance):
@@ -49,7 +49,7 @@ class UnitSolid(SolidSubstance):
         return 1.
 
 
-class Salt_simple(SolidSubstance):
+class NaCl(SolidSubstance):
     """ A mix of
     https://en.wikipedia.org/wiki/Sodium_chloride 
     and

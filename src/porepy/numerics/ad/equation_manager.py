@@ -70,11 +70,11 @@ class EquationManager:
         self.dof_manager: pp.DofManager = dof_manager
 
         # Inform mypy about variables, and then set them by a dedicated method.
-        self.variables: Dict[GridLike, Dict[str, "pp.ad.Variable"]]
+        self.variables: Dict[GridLike, Dict[str, "pp.ad.Variable"]] = dict()
 
         # declare public attributes to be set when updating equations
-        self.equations: Dict[str, pp.ad.Operator]
-        self.secondary_variables: List["pp.ad.Variable"]
+        self.equations: Dict[str, pp.ad.Operator] = dict()
+        self.secondary_variables: List["pp.ad.Variable"] = list()
         self.row_block_indices_last_assembled: Optional[np.ndarray]
 
         self.update_equations(equations, secondary_variables)
@@ -106,9 +106,9 @@ class EquationManager:
         self._set_variables(self.gb)
 
         if equations is None:
-            self.equations = {}
-        else:
-            self.equations = equations
+            equations = dict()
+
+        self.equations.update(equations)
 
         # Define secondary variables.
         # Note that secondary variables will be present in self.variables; the exclusion
@@ -567,16 +567,22 @@ class EquationManager:
         variables = {}
         for g, d in gb:
             variables[g] = {}
-            for var, info in d[pp.PRIMARY_VARIABLES].items():
-                variables[g][var] = operators.Variable(var, info, grids=[g])
+            if pp.PRIMARY_VARIABLES in d.keys():
+                for var, info in d[pp.PRIMARY_VARIABLES].items():
+                    variables[g][var] = operators.Variable(var, info, grids=[g])
+            else:
+                d.update({pp.PRIMARY_VARIABLES: dict()})
 
         for e, d in gb.edges():
             variables[e] = {}
             num_cells = d["mortar_grid"].num_cells
-            for var, info in d[pp.PRIMARY_VARIABLES].items():
-                variables[e][var] = operators.Variable(
-                    var, info, edges=[e], num_cells=num_cells
-                )
+            if pp.PRIMARY_VARIABLES in d.keys():
+                for var, info in d[pp.PRIMARY_VARIABLES].items():
+                    variables[e][var] = operators.Variable(
+                        var, info, edges=[e], num_cells=num_cells
+                    )
+            else:
+                d.update({pp.PRIMARY_VARIABLES: dict()})
 
         self.variables = variables
 

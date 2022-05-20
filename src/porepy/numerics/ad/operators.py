@@ -2,6 +2,7 @@
 """
 import abc
 import copy
+import numbers
 from enum import Enum
 from functools import partial
 from itertools import count
@@ -403,10 +404,10 @@ class Operator:
                 # If the first item is an Ad array, the implementation of the forward
                 # mode should take care of everything.
                 return results[0] / results[1]
-            elif isinstance(results[0], np.ndarray):
+            elif isinstance(results[0], (np.ndarray, sps.spmatrix)):
                 # The first array is a numpy array, and numpy's implementation of
                 # division will be invoked.
-                if isinstance(results[1], np.ndarray):
+                if isinstance(results[1], (np.ndarray, numbers.Real)):
                     # Both items are numpy arrays, everything is fine.
                     return results[0] / results[1]
                 elif isinstance(results[1], pp.ad.Ad_array):

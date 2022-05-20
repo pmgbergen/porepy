@@ -10,7 +10,7 @@ from iapws import IAPWS95
 from ._composite_utils import IDEAL_GAS_CONSTANT
 from .substance import FluidSubstance
 
-__all__: List[str] = ["IdealFluid", "H20_iapws"]
+__all__: List[str] = ["IdealFluid", "H2O"]
 
 
 class IdealFluid(FluidSubstance):
@@ -55,7 +55,7 @@ class IdealFluid(FluidSubstance):
         return 1.0
 
 
-class H20_iapws(FluidSubstance):
+class H2O(FluidSubstance):
     
     @staticmethod
     def molar_mass() -> float:
