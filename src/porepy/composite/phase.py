@@ -276,8 +276,9 @@ class PhaseField(abc.ABC):
 
     def mass_density(
         self,
-        pressure: "pp.ad.Operator",
-        enthalpy: "pp.ad.Operator",
+        pressure: "pp.ad.MergedVariable",
+        enthalpy: "pp.ad.MergedVariable",
+        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
     ) -> "pp.ad.Operator":
         """
         Uses the  molar mass values in combination with the molar fractions in this phase
@@ -308,7 +309,7 @@ class PhaseField(abc.ABC):
             weight += substance.molar_mass() * substance.fraction_in_phase(self.name)
 
         # Multiply the mass weight with the molar density and return the operator
-        return weight * self.molar_density(pressure, enthalpy)
+        return weight * self.molar_density(pressure, enthalpy, temperature=temperature)
 
     # ------------------------------------------------------------------------------
     ### Abstract, phase-related physical properties
@@ -317,8 +318,9 @@ class PhaseField(abc.ABC):
     @abc.abstractmethod
     def molar_density(
         self,
-        pressure: "pp.ad.Operator",
-        enthalpy: "pp.ad.Operator",
+        pressure: "pp.ad.MergedVariable",
+        enthalpy: "pp.ad.MergedVariable",
+        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
     ) -> "pp.ad.Operator":
         """
         Abstract physical property, dependent on thermodynamic state and the composition.
@@ -332,6 +334,8 @@ class PhaseField(abc.ABC):
         :type pressure: :class:`~porepy.ad.MergedVariable`
         :param enthalpy: global enthalpy variable
         :type enthalpy: :class:`~porepy.ad.MergedVariable`
+        :param temperature: (optional) if passed, the temperature based value must be returned.
+        :type temperature: :class:`~porepy.ad.MergedVariable`
 
         :return: molar density of the phase
         :rtype: :class:`~porepy.ad.Operator`
@@ -339,35 +343,11 @@ class PhaseField(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def viscosity(
-        self,
-        pressure: "pp.ad.Operator",
-        enthalpy: "pp.ad.Operator",
-    ) -> "pp.ad.Operator":
-        """
-        Abstract physical property, dependent on thermodynamic state and the composition.
-        The composition variables (molar fractions of present substances) can be accessed
-        by reference.
-
-        Math. Dimension:        scalar
-        Phys. Dimension:        [kg / m / s]
-
-        :param pressure: global pressure variable
-        :type pressure: :class:`~porepy.ad.MergedVariable`
-        :param enthalpy: global enthalpy variable
-        :type enthalpy: :class:`~porepy.ad.MergedVariable`
-
-        :return: dynamic viscosity of the phase
-        :rtype: :class:`~porepy.ad.operators.Operator`
-        """
-        pass
-
-    @abc.abstractmethod
     def enthalpy(
         self,
-        pressure: "pp.ad.Operator",
-        composit_enthalpy: "pp.ad.Operator",
-        temperature: Optional[Union["pp.ad.Operator", None]] = None,
+        pressure: "pp.ad.MergedVariable",
+        composit_enthalpy: "pp.ad.MergedVariable",
+        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
     ) -> "pp.ad.Operator":
         """
         Abstract physical quantity, dependent on thermodynamic state and the composition.
@@ -397,10 +377,34 @@ class PhaseField(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def dynamic_viscosity(
+        self,
+        pressure: "pp.ad.MergedVariable",
+        enthalpy: "pp.ad.MergedVariable"
+    ) -> "pp.ad.Operator":
+        """
+        Abstract physical property, dependent on thermodynamic state and the composition.
+        The composition variables (molar fractions of present substances) can be accessed
+        by reference.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [kg / m / s]
+
+        :param pressure: global pressure variable
+        :type pressure: :class:`~porepy.ad.MergedVariable`
+        :param enthalpy: global enthalpy variable
+        :type enthalpy: :class:`~porepy.ad.MergedVariable`
+
+        :return: dynamic viscosity of the phase
+        :rtype: :class:`~porepy.ad.operators.Operator`
+        """
+        pass
+
+    @abc.abstractmethod
     def thermal_conductivity(
         self,
-        pressure: "pp.ad.Operator",
-        enthalpy: "pp.ad.Operator",
+        pressure: "pp.ad.MergedVariable",
+        enthalpy: "pp.ad.MergedVariable"
     ) -> "pp.ad.Operator":
         """
         Abstract physical property, dependent on thermodynamic state and composition.

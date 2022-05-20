@@ -92,6 +92,7 @@ class Composition:
         self._phase_equilibrium_subsystem: dict = dict()
         self._saturation_flash_subsystem: dict = dict()
         self._isenthalpic_flash_subsystem: dict = dict()
+        self._isothermal_flash_subsystem: dict = dict()
 
         self.dof_manager.update_dofs()
 
@@ -220,11 +221,15 @@ class Composition:
         return self._temperature
 
     def composit_density(
-        self, prev_time: Optional[bool] = False
-    ) -> Union["pp.ad.Operator", int, float]:
+        self,
+        prev_time: Optional[bool] = False,
+        temperature: Union["pp.ad.MergedVariable", None] = None
+    ) -> "pp.ad.Operator":
         """
-        :param prev_time: indicator to use values at previous time step
+        :param prev_time: (optional) indicator to use values at previous time step
         :type prev_time: bool
+        :param temperature: if passed, calculates temperature based phase enthalpies
+        :type temperature: :class:`~porepy.ad.MergedVariable`
 
         :return: overall molar density of the composition using the caloric relation.
         :rtype: :class:`~porepy.numerics.ad.operators.MergedVariable`
@@ -233,23 +238,23 @@ class Composition:
             rho = [
                 phase.saturation.previous_timestep()
                 * phase.molar_density(
-                    self.pressure.previous_timestep(), self.enthalpy.previous_timestep()
+                    self.pressure.previous_timestep(),
+                    self.enthalpy.previous_timestep(),
+                    temperature=temperature
                 )
                 for phase in self
             ]
         else:
             rho = [
-                phase.saturation * phase.molar_density(self.pressure, self.enthalpy)
+                phase.saturation * phase.molar_density(
+                    self.pressure, self.enthalpy, temperature=temperature
+                )
                 for phase in self
             ]
-        # density = 0.0
-        # for phase in self:
-        #     density += phase.saturation * phase.molar_density(
-        #         self.pressure, self.enthalpy
-        #     )
+
         return sum(rho)
 
-    def add_phase(self, phases: Union[List[PhaseField], PhaseField]) -> None:
+    def add_phases(self, phases: Union[List[PhaseField], PhaseField]) -> None:
         """
         Adds the phases to the compositional flow.
         Resolves the composition of the flow (which substance appears in which phase).
@@ -425,8 +430,7 @@ class Composition:
 
             # loop over next level: fractions per phase (per grid)
             # this throws an error if there are values missing for a phase (or too many given)
-            phases = [phase for phase in self]
-            for phase, values in zip(phases, saturations[idx]):
+            for phase, values in zip(self, saturations[idx]):
 
                 # convert homogenous fractions to values per cell
                 if isinstance(values, float):
@@ -446,6 +450,30 @@ class Composition:
                     "Initial saturations do not sum up to 1. on each cell on grid:\n"
                     + str(grid)
                 )
+
+        # compute the initial enthalpy using an isothermal flash
+        name = "isothermal_flash"
+        eq = self.isothermal_flash_equation()
+
+        self.eq_manager.equations.update({name: eq})
+
+        isothermal_flash_subsystem: Dict[str, list] = {
+            "equations": list(),
+            "vars": list(),
+            "var_names": list(),
+        }
+        isothermal_flash_subsystem["equations"].append("isothermal_flash")
+        isothermal_flash_subsystem["vars"].append(self._enthalpy)
+        isothermal_flash_subsystem["var_names"].append(self._enthalpy_var)
+        
+        self._isothermal_flash_subsystem = isothermal_flash_subsystem
+
+        success = self.isothermal_flash()
+
+        if not success:
+            raise RuntimeError("Isothermal flash calculations failed!"
+            + "Pressure: %s\n Temperature: %s\n Saturations: %s"
+            % (str(pressure), str(temperature), str(saturations)))
 
     def phases_of_substance(
         self, substance: "pp.composite.Substance"
@@ -490,15 +518,21 @@ class Composition:
         # setting of equations and subsystems
         equations = dict()
         subset: Any
-        subsystem_dict: Dict[str, list] = {
+        phase_equilibrium_subsystem: Dict[str, list] = {
             "equations": list(),
             "vars": list(),
             "var_names": list(),
         }
-        # deep copies
-        phase_equilibrium_subsystem = dict(subsystem_dict)
-        saturation_flash_subsystem = dict(subsystem_dict)
-        isenthalpic_flash_subsystem = dict(subsystem_dict)
+        saturation_flash_subsystem: Dict[str, list] = {
+            "equations": list(),
+            "vars": list(),
+            "var_names": list(),
+        }
+        isenthalpic_flash_subsystem: Dict[str, list] = {
+            "equations": list(),
+            "vars": list(),
+            "var_names": list(),
+        }
 
         ### EQUILIBRIUM CALCULATIONS
         # num_substances overall fraction equations
@@ -507,10 +541,6 @@ class Composition:
             name = "overall_substance_fraction_%s" % (substance.name)
             equations.update({name: subset[c]})
             phase_equilibrium_subsystem["equations"].append(name)
-            phase_equilibrium_subsystem["vars"].append(substance.overall_fraction)
-            phase_equilibrium_subsystem["var_names"].append(
-                substance.overall_fraction_var
-            )
 
         # num_phases - 1 substance in phase sum equations
         subset = self.substance_in_phase_sum_equations()
@@ -580,7 +610,7 @@ class Composition:
 
         return success
 
-    def do_calculations(self) -> bool:
+    def do_calculations(self, max_iterations: int = 100, tol: float = 1.0e-10) -> bool:
         """Performs the following calculations:
             - the initial equilibrium
             - initial saturations flash
@@ -589,12 +619,17 @@ class Composition:
         This step is put in a separate method in case this class gets inherited.
         NOTE VL: All computations here can be parallelized since they are local (per cell).
 
+        :param max_iterations: set maximal number for Newton iterations
+        :type max_iterations: int
+        :param tol: tolerance for Newton residual
+        :type tol: float
+
         :return: True if all calculations are successful, False otherwise
         :rtype: bool
         """
-        equilibrium = self.compute_phase_equilibrium()
-        saturations = self.saturation_flash()
-        isenthalpic = self.isenthalpic_flash()
+        equilibrium = self.compute_phase_equilibrium(max_iterations, tol)
+        saturations = self.saturation_flash(max_iterations, tol)
+        isenthalpic = self.isenthalpic_flash(max_iterations, tol)
 
         if equilibrium and saturations and isenthalpic:
             return True
@@ -606,7 +641,7 @@ class Composition:
     # -----------------------------------------------------------------------------------------
 
     def compute_phase_equilibrium(
-        self, max_iterations: int = 100, eps: float = 1.0e-10
+        self, max_iterations: int = 100, tol: float = 1.0e-10
     ) -> bool:
         """Computes the equilibrium using the following equations:
             - overall substance fraction equations (num_substances)
@@ -618,8 +653,8 @@ class Composition:
 
         :param max_iterations: set maximal number for Newton iterations
         :type max_iterations: int
-        :param eps: tolerance for Newton residual
-        :type eps: float
+        :param tol: tolerance for Newton residual
+        :type tol: float
 
         :return: True if successful, False otherwise
         :rtype: bool
@@ -632,18 +667,18 @@ class Composition:
             subsystem["vars"],
             subsystem["var_names"],
             max_iterations,
-            eps,
+            tol,
         )
 
-    def saturation_flash(self, max_iterations: int = 100, eps: float = 1.0e-10) -> bool:
+    def saturation_flash(self, max_iterations: int = 100, tol: float = 1.0e-10) -> bool:
         """Performs a flash calculation using
         :method:`~porepy.composite.CompositionaFlow.saturation_fraction_equations` in order to
         obtain saturation values.
 
         :param max_iterations: set maximal number for Newton iterations
         :type max_iterations: int
-        :param eps: tolerance for Newton residual
-        :type eps: float
+        :param tol: tolerance for Newton residual
+        :type tol: float
 
         :return: True if successful, False otherwise
         :rtype: bool
@@ -656,18 +691,18 @@ class Composition:
             subsystem["vars"],
             subsystem["var_names"],
             max_iterations,
-            eps,
+            tol,
         )
 
     def isenthalpic_flash(
-        self, max_iterations: int = 100, eps: float = 1.0e-10
+        self, max_iterations: int = 100, tol: float = 1.0e-10
     ) -> bool:
         """Performs an isenthalpic flash to obtain temperature values.
 
         :param max_iterations: set maximal number for Newton iterations
         :type max_iterations: int
-        :param eps: tolerance for Newton residual
-        :type eps: float
+        :param tol: tolerance for Newton residual
+        :type tol: float
 
         :return: True if successful, False otherwise
         :rtype: bool
@@ -680,9 +715,59 @@ class Composition:
             subsystem["vars"],
             subsystem["var_names"],
             max_iterations,
-            eps,
+            tol,
         )
 
+    def isothermal_flash(
+        self, max_iterations: int = 100, tol: float = 1.0e-10
+    ) -> bool:
+        """Performs an isothermal flash to obtain the molar enthalpy of the composition.
+
+        :param max_iterations: set maximal number for Newton iterations
+        :type max_iterations: int
+        :param tol: tolerance for Newton residual
+        :type tol: float
+
+        :return: True if successful, False otherwise
+        :rtype: bool
+        """
+        # get objects defining the subsystem
+        # subsystem = self._isothermal_flash_subsystem
+
+        # return self._subsystem_newton(
+        #     subsystem["equations"],
+        #     subsystem["vars"],
+        #     subsystem["var_names"],
+        #     max_iterations,
+        #     tol,
+        # )
+        equ = list()
+        for phase in self._present_phases:
+            # - s_e * rho_e(p,h) * h_e(p,h,T)
+            equ.append(
+                phase.saturation
+                * phase.molar_density(
+                    self._pressure, self._enthalpy, temperature=self._temperature
+                )
+                * phase.enthalpy(
+                    self._pressure, self._enthalpy, temperature=self._temperature
+                )
+            )
+        equ = sum(equ) / self.composit_density(temperature=self._temperature)
+        h = equ.evaluate(self.dof_manager).val
+
+        dof = self.dof_manager.dof_var([self._enthalpy_var])
+        # X = self.dof_manager.assemble_variable()
+        X = np.zeros(self.dof_manager.num_dofs())
+        X[dof] = h
+        
+        self.dof_manager.distribute_variable(X, variables=[self._enthalpy_var])
+        self.dof_manager.distribute_variable(
+            X, variables=[self._enthalpy_var], to_iterate=True
+        )
+
+        return True
+    
     # -----------------------------------------------------------------------------------------
     ### Model equations
     # -----------------------------------------------------------------------------------------
@@ -693,7 +778,7 @@ class Composition:
         sum_c zeta_c - 1 = 0
         """
         # -1
-        equation = -1.0 * np.ones(self.gb.num_cells())
+        equation = pp.ad.Array(-1.0 * np.ones(self.gb.num_cells()))
 
         for substance in self._present_substances:
             # + zeta_c
@@ -731,7 +816,7 @@ class Composition:
         sum_e xi_e -1 = 0
         """
         # -1
-        equation = -1.0 * np.ones(self.gb.num_cells())
+        equation = pp.ad.Array(-1.0 * np.ones(self.gb.num_cells()))
 
         for phase in self:
             # + xi_e
@@ -777,7 +862,7 @@ class Composition:
 
         for phase in self:
             # xi_e * (sum_j s_j rho_j)
-            equation = phase.molar_fraction * self.composit_density
+            equation = phase.molar_fraction * self.composit_density()
             # - s_e * rho_e
             equation -= phase.saturation * phase.molar_density(
                 self.pressure, self.enthalpy
@@ -790,14 +875,38 @@ class Composition:
     def isenthalpic_flash_equation(self) -> "pp.ad.Operator":
         """Returns an operator representing the isenthalpic flash equation.
 
-        rho(p,h) * h = sum_e s_e * rho_e(p,h) * h_e(p, h, T)
+        rho(p,h) * h = sum_e s_e * rho_e(p,h) * h_e(p, T)
 
         We still express densities in terms of p, h since density is not supposed to change
         during the flash calculation. This leads to solely the phase enthalpies being dependent
         on temperature.
         """
         # rho(p, h, s_e) * h
-        equ = self.composit_density * self._enthalpy
+        equ = self.composit_density() * self._enthalpy
+
+        for phase in self._present_phases:
+            # - s_e * rho_e(p,h) * h_e(p,h,T)
+            equ -= (
+                phase.saturation
+                * phase.molar_density(self._pressure, self._enthalpy)
+                * phase.enthalpy(
+                    self._pressure, self._enthalpy, temperature=self._temperature
+                )
+            )
+
+        return equ
+    
+    def isothermal_flash_equation(self) -> "pp.ad.Operator":
+        """Returns an operator representing the isothermal flash equation for calculating the
+        global specific molar entropy.
+
+        rho(p,T) * h = sum_e s_e * rho_e(p,T) * h_e(p,T)
+
+        We express phase enthalpies in terms of p, T since they are not supposed to change
+        during the flash calculation. This leads to a simpler form of the equation.
+        """
+        # rho(p, h, s_e) * h
+        equ = self.composit_density() * self._enthalpy
 
         for phase in self._present_phases:
             # - s_e * rho_e(p,h) * h_e(p,h,T)
@@ -828,21 +937,24 @@ class Composition:
             molar_fraction = (
                 phase.saturation
                 * phase.molar_density(self.pressure, self.enthalpy)
-                / self.composit_density
+                / self.composit_density()
             )
             # evaluate the AD expression and get the values
             # this is a global DOF vector and has therefor many zeros
             molar_fraction = molar_fraction.evaluate(self.dof_manager).val
-            molar_fraction = molar_fraction[molar_fraction != 0.0]
 
             molar_fraction_sum += molar_fraction
 
+            dof = self.dof_manager.dof_var([phase.molar_fraction_var])
+            X = self.dof_manager.assemble_variable()
+            X[dof] = molar_fraction
+
             # distribute values to respective variable
             self.dof_manager.distribute_variable(
-                molar_fraction, variables=[phase.saturation_var]
+                X, variables=[phase.molar_fraction_var]
             )
             self.dof_manager.distribute_variable(
-                molar_fraction, variables=[phase.saturation_var], to_iterate=True
+                X, variables=[phase.molar_fraction_var], to_iterate=True
             )
 
         # assert the fractional character (sum equals 1) in each cell
@@ -856,7 +968,7 @@ class Composition:
     def _calculate_initial_overall_substance_fractions(self) -> None:
         """Name is self-explanatory.
 
-        These calculations have to be done everytime everytime new initial values are set.
+        These calculations have to be done every time new initial values are set.
         """
         for grid, data in self.gb:
 
@@ -914,6 +1026,7 @@ class Composition:
             raise RuntimeError(
                 "Missing %i phase equilibria equations to initialize the composition."
                 % (missing_num)
+                + "\nNeed:\n%s" % (str(self.num_phase_equilibrium_equations))
             )
 
     def _resolve_composition(self) -> None:
@@ -974,6 +1087,8 @@ class Composition:
         """
         success = False
 
+        # X = self.dof_manager.assemble_variable()
+
         A, b = self.eq_manager.assemble_subsystem(equations, variables)
 
         if np.linalg.norm(b) <= eps:
@@ -983,12 +1098,17 @@ class Composition:
 
                 dx = sps.linalg.spsolve(A, b)
 
+                dof = self.dof_manager.dof_var(var_names)
+                X = np.zeros(self.dof_manager.num_dofs())
+                X[dof] = dx
+
                 self.dof_manager.distribute_variable(
-                    dx, variables=var_names, additive=True, to_iterate=True
+                    X, variables=var_names, additive=True, to_iterate=True
                 )
 
                 A, b = self.eq_manager.assemble_subsystem(equations, variables)
-
+                # print(A.todense())
+                # print(np.linalg.cond(A.todense()))
                 if np.linalg.norm(b) <= eps:
                     # setting state to newly found solution
                     X = self.dof_manager.assemble_variable(
@@ -1000,9 +1120,7 @@ class Composition:
 
         # if not successful, replace iterate values with initial state values
         if not success:
-            X = self.dof_manager.assemble_variable(variables=var_names)
-            self.dof_manager.distribute_variable(
-                X[X != 0], variables=var_names, to_iterate=True
-            )
+            X = self.dof_manager.assemble_variable()
+            self.dof_manager.distribute_variable(X, to_iterate=True)
 
         return success
