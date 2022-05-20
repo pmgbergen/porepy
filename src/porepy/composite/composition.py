@@ -30,10 +30,6 @@ class Composition:
 
     Public attributes:
         - 'gb': GridBucket for which the CompositionalDomain was initiated
-        - 'INITIAL_EQUILIBRIUM': bool. Flagged false if composition changes.
-                                 Only flagged True after initial equilibrium is computed,
-                                 i.e. after initial variables were set.
-                                 DO NOT flag this bool yourself as you please.
         - 'pressure': MergedVariable representing the global pressure
         - 'enthalpy': MergedVariable representing the global enthalpy
 
@@ -54,7 +50,6 @@ class Composition:
 
         ## PUBLIC
         self.gb: "pp.GridBucket" = gb
-        self.INITIAL_EQUILIBRIUM: bool = False
         self.dof_manager: "pp.DofManager" = pp.DofManager(gb)
         self.eq_manager: "pp.ad.EquationManager" = pp.ad.EquationManager(
             gb, self.dof_manager
@@ -94,7 +89,7 @@ class Composition:
         self._isenthalpic_flash_subsystem: dict = dict()
         self._isothermal_flash_subsystem: dict = dict()
 
-        self.dof_manager.update_dofs()
+        # self.dof_manager.update_dofs()
 
     def __str__(self) -> str:
         """Returns string representation of instance,
@@ -451,30 +446,6 @@ class Composition:
                     + str(grid)
                 )
 
-        # compute the initial enthalpy using an isothermal flash
-        name = "isothermal_flash"
-        eq = self.isothermal_flash_equation()
-
-        self.eq_manager.equations.update({name: eq})
-
-        isothermal_flash_subsystem: Dict[str, list] = {
-            "equations": list(),
-            "vars": list(),
-            "var_names": list(),
-        }
-        isothermal_flash_subsystem["equations"].append("isothermal_flash")
-        isothermal_flash_subsystem["vars"].append(self._enthalpy)
-        isothermal_flash_subsystem["var_names"].append(self._enthalpy_var)
-        
-        self._isothermal_flash_subsystem = isothermal_flash_subsystem
-
-        success = self.isothermal_flash()
-
-        if not success:
-            raise RuntimeError("Isothermal flash calculations failed!"
-            + "Pressure: %s\n Temperature: %s\n Saturations: %s"
-            % (str(pressure), str(temperature), str(saturations)))
-
     def phases_of_substance(
         self, substance: "pp.composite.Substance"
     ) -> Tuple[PhaseField, ...]:
@@ -500,9 +471,6 @@ class Composition:
         to set the rest.
 
         Flag `initial_calc` as True to compute the initial calculations
-        If successful, flags this instance by setting
-        :data:`~~porepy.compostie.compositional_domain.CompositionalDomain.INITIAL_EQUILIBRIUM`
-        true.
 
         :param initial_calc: flag for computing initial calculations
         :type initial_calc: bool
@@ -510,29 +478,42 @@ class Composition:
         :return: Always True, if no initial calculations are done. Otherwise result of calc.
         :rtype: bool
         """
+        # at this point we assume all DOFs are defined and we reset the following
+        # to get correct DOF mappins
+        self.dof_manager = pp.DofManager(self.gb)
+        self.eq_manager = pp.ad.EquationManager(
+            self.gb, self.dof_manager
+        )
+
+        # setting of equations and subsystems
+        equations = dict()
+        subset: Any
+        isothermal_flash_subsystem: Dict[str, list] = self._get_subsystem_dict()
+        phase_equilibrium_subsystem: Dict[str, list] = self._get_subsystem_dict()
+        saturation_flash_subsystem: Dict[str, list] = self._get_subsystem_dict()
+        isenthalpic_flash_subsystem: Dict[str, list] = self._get_subsystem_dict()
 
         self._calculate_initial_molar_phase_fractions()
         self._calculate_initial_overall_substance_fractions()
         self._check_num_phase_equilibrium_equations()
 
-        # setting of equations and subsystems
-        equations = dict()
-        subset: Any
-        phase_equilibrium_subsystem: Dict[str, list] = {
-            "equations": list(),
-            "vars": list(),
-            "var_names": list(),
-        }
-        saturation_flash_subsystem: Dict[str, list] = {
-            "equations": list(),
-            "vars": list(),
-            "var_names": list(),
-        }
-        isenthalpic_flash_subsystem: Dict[str, list] = {
-            "equations": list(),
-            "vars": list(),
-            "var_names": list(),
-        }
+        ### ISOTHERMAL FLASH
+        # compute the initial enthalpy using an isothermal flash
+        name = "isothermal_flash"
+        eq = self.isothermal_flash_equation()
+
+        equations.update({name: eq})
+
+        isothermal_flash_subsystem["equations"].append("isothermal_flash")
+        isothermal_flash_subsystem["vars"].append(self._enthalpy)
+        isothermal_flash_subsystem["var_names"].append(self._enthalpy_var)
+        
+        self._isothermal_flash_subsystem = isothermal_flash_subsystem
+
+        success = self.isothermal_flash()
+
+        if not success:
+            raise RuntimeError("Isothermal flash calculations failed!")
 
         ### EQUILIBRIUM CALCULATIONS
         # num_substances overall fraction equations
@@ -757,7 +738,6 @@ class Composition:
         h = equ.evaluate(self.dof_manager).val
 
         dof = self.dof_manager.dof_var([self._enthalpy_var])
-        # X = self.dof_manager.assemble_variable()
         X = np.zeros(self.dof_manager.num_dofs())
         X[dof] = h
         
@@ -946,7 +926,7 @@ class Composition:
             molar_fraction_sum += molar_fraction
 
             dof = self.dof_manager.dof_var([phase.molar_fraction_var])
-            X = self.dof_manager.assemble_variable()
+            X = np.zeros(self.dof_manager.num_dofs())
             X[dof] = molar_fraction
 
             # distribute values to respective variable
@@ -1058,8 +1038,7 @@ class Composition:
                 self.phase_equilibrium_equations.update({substance.name: dict()})
 
         # update DOFs since new unknowns were introduced
-        self.dof_manager.update_dofs()
-        self.INITIAL_EQUILIBRIUM = False
+        # self.dof_manager.update_dofs()
 
     def _subsystem_newton(
         self,
@@ -1087,9 +1066,12 @@ class Composition:
         """
         success = False
 
-        # X = self.dof_manager.assemble_variable()
+        X = self.dof_manager.assemble_variable()
 
         A, b = self.eq_manager.assemble_subsystem(equations, variables)
+        print(A.todense())
+        print(np.linalg.cond(A.todense()))
+        print(X)
 
         if np.linalg.norm(b) <= eps:
             success = True
@@ -1114,7 +1096,7 @@ class Composition:
                     X = self.dof_manager.assemble_variable(
                         variables=var_names, from_iterate=True
                     )
-                    self.dof_manager.distribute_variable(X[X != 0], variables=var_names)
+                    self.dof_manager.distribute_variable(X, variables=var_names)
                     success = True
                     break
 
@@ -1124,3 +1106,11 @@ class Composition:
             self.dof_manager.distribute_variable(X, to_iterate=True)
 
         return success
+
+    def _get_subsystem_dict(self) -> Dict[str, list]:
+        """Returns a template for subsystem dictionaries."""
+        return {
+            "equations": list(),
+            "vars": list(),
+            "var_names": list(),
+        }

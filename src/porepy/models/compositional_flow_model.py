@@ -92,7 +92,13 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         
         self.composition.initialize_composition()
 
-        name = "overall_component_fraction_sum"
+        # Use the managers from the composition so that the Schur complement can be made
+        self.eqm: pp.ad.EquationManager = self.composition.eq_manager
+        self.dofm: pp.DofManager = self.composition.dof_manager
+        # self.dofm.update_dofs()
+
+        # set the first primary equation, sum over all overall substance fractions
+        name = "overall_substance_fraction_sum"
         self.primary_subsystem: Dict[str, list] = {
             "equations": [name],
             "vars": [self.composition.pressure, self.composition.enthalpy],
@@ -104,11 +110,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         for substance in self.composition.substances:
             self.primary_subsystem["vars"].append(substance.overall_fraction)
             self.primary_subsystem["var_names"].append(substance.overall_fraction_var)
-
-        # Use the managers from the composition so that the Schur complement can be made
-        self.eqm: pp.ad.EquationManager = self.composition.eq_manager
-        self.dofm: pp.DofManager = self.composition.dof_manager
-        self.dofm.update_dofs()
 
         self.eqm.equations.update(
             {name: self.composition.overall_component_fractions_sum()}
@@ -151,7 +152,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         Overwrites the instance variables 'gb'.
         """
         refinement = 1
-        phys_dims = [3, 1]
+        phys_dims = [1, 1]
         n_cells = [i * refinement for i in phys_dims]
         g = pp.CartGrid(n_cells, phys_dims)
         self.box = pp.geometry.bounding_box.from_points(np.array([[0, 0], phys_dims]).T)
@@ -189,6 +190,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             "equations" : self.primary_subsystem["equations"] + self.composition.subsystem["equations"],
             "vars": self.primary_subsystem["vars"] + self.composition.subsystem["vars"]
         }
+
+        # Re-setting the equation manager to get rid of the flash variables and their equations
         self.eqm = self.eqm.subsystem_equation_manager(
             no_flash_subsystem["equations"], no_flash_subsystem["vars"]
         )
@@ -231,10 +234,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Distributes the values from the iterate state to the the state (for next time step).
         Exports the results.
         """
-        # solution = self.dofm.assemble_variable(
-        #     variables=self.primary_subsystem["vars"], from_iterate=True
-        # )
-
         self.dofm.distribute_variable(
             solution, variables=self.primary_subsystem["vars"]
         )
