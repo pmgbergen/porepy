@@ -230,7 +230,7 @@ class Biot(pp.Mpsa):
             self.mass_matrix_key, None
         )
 
-        # Define which of the matrices should be conisdered cell and face quantities,
+        # Define which of the matrices should be considered cell and face quantities,
         # vector and scalar.
         scalar_cell_right = [
             self.grad_p_matrix_key,
