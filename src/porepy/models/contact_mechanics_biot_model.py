@@ -41,7 +41,7 @@ class ContactMechanicsBiotAdObjects(
 
 
 class ContactMechanicsBiot(pp.ContactMechanics):
-    """This is a shell class for poro-elastic contact mechanics problems.
+    """This is a shell class for poroelastic contact mechanics problems.
 
     Setting up such problems requires a lot of boilerplate definitions of variables,
     parameters and discretizations. This class is intended to provide a standardized
@@ -77,7 +77,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         viz_folder_name (str): Folder for visualization export.
         gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
-        convergence_status (bool): Whether the non-linear iterations has converged.
+        convergence_status (bool): Whether the non-linear iterations have converged.
         linear_solver (str): Specification of linear solver. Only known permissible
             value is 'direct'
         scalar_scale (float): Scaling coefficient for the scalar variable. Can be used
@@ -98,7 +98,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Time
         self.time: float = 0
-        self.time_step: float = self.params.get("end_time", 1.0)
+        self.time_step: float = self.params.get("time_step", 1.0)
         self.end_time: float = self.params.get("end_time", 1.0)
 
         # Temperature
@@ -111,7 +111,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         self.scalar_scale: float = 1.0
         self.length_scale: float = 1.0
 
-        # Whether or not to subtract the fracture pressure contribution for the contact
+        # Whether to subtract the fracture pressure contribution for the contact
         # traction. This should be done if the scalar variable is pressure, but not for
         # temperature. See assign_discretizations
         self.subtract_fracture_pressure: bool = True
@@ -165,7 +165,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Is it correct there is no contribution from the global boundary conditions?
 
-    # Methods for setting parametrs etc.
+    # Methods for setting parameters etc.
 
     def _set_parameters(self) -> None:
         """
@@ -212,7 +212,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     def _set_scalar_parameters(self) -> None:
         tensor_scale = self.scalar_scale / self.length_scale**2
-        kappa = 1 * tensor_scale
         mass_weight = 1 * self.scalar_scale
         for g, d in self.gb:
             specific_volume = self._specific_volume(g)
@@ -259,7 +258,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             # and therefore need to be weighted by the corresponding
             # specific volumes
             normal_diffusivity *= v_h
-            data_edge = pp.initialize_data(
+            pp.initialize_data(
                 e,
                 data_edge,
                 self.scalar_parameter_key,
@@ -433,7 +432,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
         The specific volume of a cell accounts for the dimension reduction and has
         dimensions [m^(Nd - d)].
-        Typically equals 1 in Nd, the aperture in codimension 1 and the square/cube
+        Typically, equals 1 in Nd, the aperture in codimension 1 and the square/cube
         of aperture in codimensions 2 and 3.
         """
         a = self._aperture(g)
@@ -443,7 +442,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
-        Note the attribute subtract_fracture_pressure: Indicates whether or not to
+        Note the attribute subtract_fracture_pressure: Indicates whether to
         subtract the fracture pressure contribution for the contact traction. This
         should not be done if the scalar variable is temperature.
         """
@@ -625,24 +624,11 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         super()._assign_equations()
 
         # Now, assign the two flow equations not present in the parent model.
-
-        gb, ad = self.gb, self._ad
-
-        # g_primary: pp.Grid = gb.grids_of_dimension(Nd)[0]
-        # g_frac: List[pp.Grid] = gb.grids_of_dimension(Nd - 1).tolist()
         subdomains: List[pp.Grid] = [g for g, _ in self.gb]
 
-        interfaces = [e for e, d in gb.edges() if d["mortar_grid"].codim == 1]
+        interfaces = [e for e, d in self.gb.edges() if d["mortar_grid"].codim == 1]
 
-        # Primary variables on Ad form
-        ad.pressure: pp.ad.Variable = self._eq_manager.merge_variables(
-            [(g, self.scalar_variable) for g in subdomains]
-        )
-        ad.interface_flux: pp.ad.Variable = self._eq_manager.merge_variables(
-            [(e, self.mortar_scalar_variable) for e in interfaces]
-        )
         # Construct equations
-
         subdomain_flow_eq: pp.ad.Operator = self._subdomain_flow_equation(subdomains)
         interface_flow_eq: pp.ad.Operator = self._interface_flow_equation(interfaces)
         # Assign equations to manager
@@ -908,7 +894,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         return interface_flow_eq
 
     def _biot_terms_flow(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
-        """Biot terms, div(u) and stabilization
+        """Biot terms, div(u) and stabilization.
 
 
         Parameters
@@ -922,8 +908,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             Ad operator representing d/dt div(u) and stabilization terms of the
             Biot flow equation in the matrix.
 
-        """
 
+        """
         ad = self._ad
         div_u_discr = pp.ad.DivUAd(
             self.mechanics_parameter_key,
@@ -981,7 +967,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             * (ad.pressure - ad.pressure.previous_timestep())
         )
         stabilization_term.set_name("Biot stabilization")
-
         biot_terms: pp.ad.Operator = div_u_terms + stabilization_term
         return biot_terms
 
@@ -1000,16 +985,22 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         volume_change : pp.ad.Operator
             Volume change term for the fracture subdomains as an ad operator.
 
+        TODO: Extend to intersections
         """
+        ad = self._ad
+        interface_displacement_prev = ad.interface_displacement.previous_timestep()
+        interface_displacement = ad.interface_displacement
+        rotated_jumps: pp.ad.Operator = (
+            ad.subdomain_projections_vector.cell_restriction(subdomains)
+            * ad.mortar_projections_vector.mortar_to_secondary_avg
+            * ad.mortar_projections_vector.sign_of_mortar_sides
+            * (interface_displacement - interface_displacement_prev)
+        )
+
         discr = pp.ad.MassMatrixAd(self.mechanics_parameter_key, subdomains)
         # Neglects intersections
         volume_change: pp.ad.Operator = (
-            discr.mass
-            * self._ad.local_fracture_coord_transformation_normal
-            * (
-                self._displacement_jump(subdomains)
-                - self._displacement_jump(subdomains, previous_timestep=True)
-            )
+            discr.mass * self._ad.normal_component_frac * rotated_jumps
         )
         return volume_change
 
@@ -1022,16 +1013,15 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         subdomains : List[pp.Grid]
             Subdomains for which fluid fluxes are defined, normally all.
 
-        Note:
-            The ad flux discretization used here is stored for consistency with
-            self._interface_flow_equations, where self._ad.flux_discretization
-            is applied.
-
         Returns
         -------
         flux : pp.ad.Operator
             Flux on ad form.
 
+        Note:
+            The ad flux discretization used here is stored for consistency with
+            self._interface_flow_equation, where self._ad.flux_discretization
+            is applied.
         """
         bc = pp.ad.ParameterArray(
             self.scalar_parameter_key,
@@ -1166,8 +1156,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         Parameters:
             solution (array): solution of current iteration.
-            solution (array): solution of previous iteration.
-            solution (array): initial solution (or from beginning of time step).
+            prev_solution (array): solution of previous iteration.
+            init_solution (array): initial solution (or from beginning of time step).
             nl_params (dictionary): assumed to have the key nl_convergence_tol whose
                 value is a float.
         """
@@ -1261,7 +1251,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         if self._use_ad:
             self._eq_manager.discretize(self.gb)
         else:
-            # Discretization is a bit cumbersome, as the Biot discetization removes the
+            # Discretization is a bit cumbersome, as the Biot discretization removes the
             # one-to-one correspondence between discretization objects and blocks in
             # the matrix.
             # First, Discretize with the biot class
@@ -1297,25 +1287,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     self.assembler.discretize(filt=filt)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
-
-    def _initialize_linear_solver(self) -> None:
-
-        solver = self.params.get("linear_solver", "direct")
-
-        if solver == "direct":
-            """In theory, it should be possible to instruct SuperLU to reuse the
-            symbolic factorization from one iteration to the next. However, it seems
-            the scipy wrapper around SuperLU has not implemented the necessary
-            functionality, as discussed in
-
-                https://github.com/scipy/scipy/issues/8227
-
-            We will therefore pass here, and pay the price of long computation times.
-            """
-            self.linear_solver = "direct"
-
-        else:
-            raise ValueError("unknown linear solver " + solver)
 
     def _discretize_biot(self, update_after_geometry_change: bool = False) -> None:
         """
