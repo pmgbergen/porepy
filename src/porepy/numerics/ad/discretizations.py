@@ -92,9 +92,11 @@ class BiotAd(Discretization):
 
     """
 
-    def __init__(self, keyword: str, grids: List[pp.Grid]) -> None:
+    def __init__(
+        self, keyword: str, grids: List[pp.Grid], flow_keyword: str = "flow"
+    ) -> None:
         self.grids = grids
-        self._discretization = pp.Biot(keyword)
+        self._discretization = pp.Biot(keyword, flow_keyword)
         self._name = "BiotMpsa"
 
         self.keyword = keyword
