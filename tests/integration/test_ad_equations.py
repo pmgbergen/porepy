@@ -7,9 +7,10 @@ import pytest
 import porepy as pp
 import numpy as np
 
+from typing import Union
+
 
 def test_md_flow():
-
     # Three fractures, will create intersection lines and point
     frac_1 = np.array([[2, 4, 4, 2], [3, 3, 3, 3], [0, 0, 6, 6]])
     frac_2 = np.array([[3, 3, 3, 3], [2, 4, 4, 2], [0, 0, 6, 6]])
@@ -133,7 +134,7 @@ def test_md_flow():
     assert np.max(np.abs(b - b_ref)) < 1e-10
 
 
-# Below are grid buckte generators to be used for tests of contact-mechanics models
+# Below are grid bucket generators to be used for tests of contact-mechanics models
 
 
 def _single_fracture_2d():
@@ -198,6 +199,21 @@ class ContactModel(pp.ContactMechanics):
         self.gb = self._grid_meth()
 
 
+def create_grid(model):
+    np.random.seed(0)
+    model.gb = model._grid_meth()
+    xn = model.gb.grids_of_dimension(model.gb.dim_max())[0].nodes
+    box = {
+        "xmin": xn[0].min(),
+        "xmax": xn[0].max(),
+        "ymin": xn[1].min(),
+        "ymax": xn[0].max(),
+    }
+    if model.gb.dim_max() == 3:
+        box.update({"zmin": xn[2].min(), "zmax": xn[2].max()})
+    model.box = box
+
+
 class BiotContactModel(pp.ContactMechanicsBiot):
     def __init__(self, param, grid_meth):
         ## NB: tests should be with and without subtract_fracture_pressure
@@ -205,8 +221,6 @@ class BiotContactModel(pp.ContactMechanicsBiot):
         # Make initial states random?
         # Biot alpha should vary
         super().__init__(param)
-        self.time_step = 0.5
-        self.end_time = 1
         self._grid_meth = grid_meth
 
     def _bc_values_scalar(self, g):
@@ -235,21 +249,67 @@ class BiotContactModel(pp.ContactMechanicsBiot):
         return val.ravel("f")
 
     def create_grid(self):
-        np.random.seed(0)
-        self.gb = self._grid_meth()
-        xn = self.gb.grids_of_dimension(self.gb.dim_max())[0].nodes
-        box = {
-            "xmin": xn[0].min(),
-            "xmax": xn[0].max(),
-            "ymin": xn[1].min(),
-            "ymax": xn[0].max(),
-        }
-        if self.gb.dim_max() == 3:
-            box.update({"zmin": xn[2].min(), "zmax": xn[2].max()})
-        self.box = box
+        create_grid(self)
 
 
-def _compare_solutions(m0, m1, tol=1e-5):
+class THMModel(pp.THM):
+    def __init__(self, param, grid_meth):
+        super().__init__(param)
+        self._grid_meth = grid_meth
+
+    def _scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
+        """
+        TH coupling coefficient.
+
+        Higher coefficients make assembler version take even more of iterations.
+        """
+        return -1.0e-3
+
+    def _source_scalar(self, g):
+        if g.dim == self._Nd - 1:
+            val = 1.0
+        else:
+            val = 0.0
+        return val * g.cell_volumes
+
+    def _source_temperature(self, g):
+        if g.dim == self._Nd - 1:
+            val = 1.0
+        else:
+            val = 0.0
+        return val * g.cell_volumes
+
+    def create_grid(self):
+        create_grid(self)
+
+    def _biot_beta(self, g: pp.Grid) -> Union[float, np.ndarray]:
+        """
+        TM coupling coefficient
+        """
+        if g.dim == self._Nd - 1:
+            val = 1
+        else:
+            val = 0.3
+        if self._use_ad:
+            return val * np.ones(g.num_cells)
+        else:
+            return val
+
+    def _biot_alpha(self, g: pp.Grid) -> Union[float, np.ndarray]:
+        """
+        TM coupling coefficient
+        """
+        if g.dim == self._Nd - 1:
+            val = 1
+        else:
+            val = 0.2
+        if self._use_ad:
+            return val * np.ones(g.num_cells)
+        else:
+            return val
+
+
+def _compare_solutions(m0, m1, tol=1e-7):
     """Safe comparison of solutions without assumptions of identical dof ordering.
 
     We loop over block_dof keys, i.e. combinations of grid_like and variable names,
@@ -288,9 +348,14 @@ def _compare_solutions(m0, m1, tol=1e-5):
                 )
                 if found:
                     sol0 = m0.gb.edge_props(grid_like)[pp.STATE][var]
-                    sol1 = d1[pp.STATE][var]
-
-                    assert np.linalg.norm(sol0 - sol1) < tol
+                    if var == getattr(
+                        m0, "mortar_temperature_advection_variable", "foo"
+                    ):
+                        # Reformulation; the advective flux is time integrated in
+                        # non-ad but not in ad.
+                        sol1 = d1[pp.STATE][var] * m1.time_step
+                    else:
+                        sol1 = d1[pp.STATE][var]
                     break
         else:
             for g1, d1 in m1.gb:
@@ -298,24 +363,11 @@ def _compare_solutions(m0, m1, tol=1e-5):
                 if found:
                     sol0 = m0.gb.node_props(grid_like)[pp.STATE][var]
                     sol1 = d1[pp.STATE][var]
-                    print(np.linalg.norm(sol1 - sol0))
-                    assert np.linalg.norm(sol0 - sol1) < tol
                     break
         assert found
-    # Compare them for each combination of subdomain/interface and variable,
-    # as the ordering of global dofs might vary.
-    # state_as = model_as.dof_manager.assemble_variable(from_iterate=False)
-    # state_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
-
-    # for t0, t1 in zip(model_as.dof_manager.block_dof.keys(), model_ad.dof_manager.block_dof.keys()):
-    #     # This is intended as a check that the subdomain and variable ordering
-    #     # is the same for both models:
-    #     assert(t0[1]==t1[1])
-    #     assert(model_as.dof_manager.block_dof[t0]==model_ad.dof_manager.block_dof[t1])
-    #     # Then
-    #     ind0 = model_as.dof_manager.grid_and_variable_to_dofs(t0[0], t0[1])
-    #     ind1 = model_ad.dof_manager.grid_and_variable_to_dofs(t1[0], t1[1])
-    #     assert np.linalg.norm(state_as[ind0] - state_ad[ind1]) < tol
+        diff = sol1 - sol0
+        norm = np.linalg.norm(diff)
+        assert norm < tol
 
 
 def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
@@ -352,27 +404,20 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
     prev_sol_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     init_sol_ad = prev_sol_ad.copy()
 
-    tol = 1e-10
+    tol = 1e-15
 
     iteration_counter = 0
 
-    while iteration_counter <= 20 and (not is_converged_as or not is_converged_ad):
+    while iteration_counter <= 15 and (not is_converged_as or not is_converged_ad):
         # Re-discretize the nonlinear term
         model_as.before_newton_iteration()
         model_ad.before_newton_iteration()
-
-        A_as, b_as = model_as.assembler.assemble_matrix_rhs()
-        A_ad, b_ad = model_ad._eq_manager.assemble()
-
-        #
-        # row_ind_force_balance = np.hstack((np.arange(311, 335), np.arange(343, 367), np.arange(375, 399)))
 
         # Solve linear system
         sol_as = model_as.assemble_and_solve_linear_system(tol)
         sol_ad = model_ad.assemble_and_solve_linear_system(tol)
         model_as.after_newton_iteration(sol_as)
         model_ad.after_newton_iteration(sol_ad)
-        #  breakpoint()
 
         e_as, is_converged_as, _ = model_as.check_convergence(
             sol_as, prev_sol_as, init_sol_as, {"nl_convergence_tol": tol}
@@ -380,7 +425,6 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
         e_ad, is_converged_ad, is_diverged = model_ad.check_convergence(
             sol_ad, prev_sol_ad, init_sol_ad, {"nl_convergence_tol": tol}
         )
-
         prev_sol_as = sol_as.copy()
         prev_sol_ad += sol_ad
         iteration_counter += 1
@@ -388,15 +432,13 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
             model_as.after_newton_convergence(sol_as, [], iteration_counter)
             model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
     # Check that both models have converged, just to be on the safe side
-    assert iteration_counter < 20
+    assert iteration_counter < 15
     assert is_converged_as and is_converged_ad
     # Solutions should be identical.
-    #   breakpoint()
     _compare_solutions(model_as, model_ad)
 
 
 def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
-
     model_as.prepare_simulation()
     model_as.before_newton_loop()
 
@@ -447,13 +489,33 @@ def test_contact_mechanics(grid_method):
     ],
 )
 def test_contact_mechanics_biot(grid_method):
-    model_as = BiotContactModel({}, grid_method)
+    params = {"time_step": 0.5, "end_time": 1}
+    model_as = BiotContactModel(params.copy(), grid_method)
 
-    model_ad = BiotContactModel({}, grid_method)
+    model_ad = BiotContactModel(params, grid_method)
     model_ad._use_ad = True
     model_ad.params["use_ad"] = True
 
     _timestep_stepwise_newton_with_comparison(model_as, model_ad)
 
 
-test_contact_mechanics_biot(_three_fractures_crossing_3d)
+@pytest.mark.parametrize(
+    "grid_method",
+    [
+        _single_fracture_2d,
+        _single_fracture_near_global_boundary_2d,
+        _two_fractures_2d,
+        _two_fractures_crossing_2d,
+        _single_fracture_3d,
+        _three_fractures_crossing_3d,
+    ],
+)
+def test_thm(grid_method):
+    params = {"time_step": 0.5e-0, "end_time": 1.0e-0}
+    model_as = THMModel(params.copy(), grid_method)
+
+    model_ad = THMModel(params, grid_method)
+    model_as._use_ad = False
+    model_as.params["use_ad"] = False
+
+    _timestep_stepwise_newton_with_comparison(model_as, model_ad)
