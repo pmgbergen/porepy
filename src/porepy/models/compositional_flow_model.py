@@ -80,16 +80,17 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             pressure=[1.], temperature=[1.], saturations=[[0.9, 0.1]]
         )
 
+        k_value = self.composition.pressure / (self.composition.enthalpy)
         k_value_water = (
             self.saltwater.water.fraction_in_phase(self.saltwater.name)
-            - 1. * self.saltwater.water.fraction_in_phase(self.watervapor.name)
+            - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name)
             )
 
         name = "k_value_%s" % (self.saltwater.water.name)
         self.composition.add_phase_equilibrium_equation(
             self.saltwater.water, k_value_water, name
         )
-        
+
         self.composition.initialize_composition()
 
         # Use the managers from the composition so that the Schur complement can be made
@@ -112,8 +113,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             self.primary_subsystem["var_names"].append(substance.overall_fraction_var)
 
         self.eqm.equations.update(
-            {name: self.composition.overall_component_fractions_sum()}
+            {name: self.composition.overall_substance_fractions_sum()}
         )
+
+        secondary_vars = list()
+        for phase in self.composition:
+            secondary_vars.append(phase.molar_fraction)
+            for substance in phase:
+                secondary_vars.append(substance.fraction_in_phase(phase.name))
+        self.primary_subsystem.update({"secondary_vars": secondary_vars})
 
         ### PRIVATE
         # list of primary equations
@@ -221,6 +229,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         :type solution_vector: numpy.ndarray
         """
         self._nonlinear_iteration += 1
+        solution_vector = (
+            self._prolongation_matrix(self.primary_subsystem["vars"]) * solution_vector
+        )
         self.dofm.distribute_variable(
             values=solution_vector,
             variables=self.primary_subsystem["vars"],
@@ -266,6 +277,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             primary_equations=self.primary_subsystem["equations"],
             primary_variables=self.primary_subsystem["vars"],
             inverter=inverter,
+            secondary_variables=self.primary_subsystem["secondary_vars"]
         )
 
         # A_red, b_red = self.eqm.assemble_subsystem(
@@ -281,6 +293,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             return x
 
         # TODO direct solver only nice to small systems
+        # print(A_red.todense())
+        # print(np.linalg.det(A_red.todense()))
+        # print(np.linalg.cond(A_red.todense()))
         dx = spla.spsolve(A_red, b_red)
 
         # Prolongation of primary variables to global dimensions
@@ -320,14 +335,17 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                 print("Isenthalpic Flash did not converge.")
             return False
 
-    def _prolongation_matrix(
-        self, variables: List["pp.ad.MergedVariable"]
-    ) -> sps.spmatrix:
-        """Returns the prolongation matrix for mapping the reduced variable
-        (by Schur complement) to global dimensions.
-        Credits to EK.
+    def _prolongation_matrix(self, variables: List["pp.ad.MergedVariable"]) -> sps.spmatrix:
+        """Constructs a prolongation mapping for a subspace of given variables to the
+        global vector.
+        Credits to EK
+        
+        :param variables: variables spanning the subspace
+        :type: :class:`~porepy.ad.MergedVariable`
+
+        :return: prolongation matrix
+        :rtype: scipy.sparse.spmatrix
         """
-        # Construct mappings from subsets of variables to the full set.
         nrows = self.dofm.num_dofs()
         rows = np.unique(
             np.hstack(
