@@ -740,7 +740,7 @@ class Composition:
         dof = self.dof_manager.dof_var([self._enthalpy_var])
         X = np.zeros(self.dof_manager.num_dofs())
         X[dof] = h
-        
+
         self.dof_manager.distribute_variable(X, variables=[self._enthalpy_var])
         self.dof_manager.distribute_variable(
             X, variables=[self._enthalpy_var], to_iterate=True
@@ -752,7 +752,7 @@ class Composition:
     ### Model equations
     # -----------------------------------------------------------------------------------------
 
-    def overall_component_fractions_sum(self) -> "pp.ad.Operator":
+    def overall_substance_fractions_sum(self) -> "pp.ad.Operator":
         """Returns 1 equation representing the unity of the overall component fractions.
 
         sum_c zeta_c - 1 = 0
@@ -1069,9 +1069,9 @@ class Composition:
         X = self.dof_manager.assemble_variable()
 
         A, b = self.eq_manager.assemble_subsystem(equations, variables)
-        print(A.todense())
-        print(np.linalg.cond(A.todense()))
-        print(X)
+        # print(A.todense())
+        # print(np.linalg.cond(A.todense()))
+        # print(X)
 
         if np.linalg.norm(b) <= eps:
             success = True
@@ -1079,18 +1079,14 @@ class Composition:
             for i in range(max_iterations):
 
                 dx = sps.linalg.spsolve(A, b)
-
-                dof = self.dof_manager.dof_var(var_names)
-                X = np.zeros(self.dof_manager.num_dofs())
-                X[dof] = dx
+                X = self._prolongation_matrix(variables) * dx
 
                 self.dof_manager.distribute_variable(
                     X, variables=var_names, additive=True, to_iterate=True
                 )
 
                 A, b = self.eq_manager.assemble_subsystem(equations, variables)
-                # print(A.todense())
-                # print(np.linalg.cond(A.todense()))
+
                 if np.linalg.norm(b) <= eps:
                     # setting state to newly found solution
                     X = self.dof_manager.assemble_variable(
@@ -1114,3 +1110,32 @@ class Composition:
             "vars": list(),
             "var_names": list(),
         }
+
+    def _prolongation_matrix(self, variables: List["pp.ad.MergedVariable"]) -> sps.spmatrix:
+        """Constructs a prolongation mapping for a subspace of given variables to the
+        global vector.
+        Credits to EK
+        
+        :param variables: variables spanning the subspace
+        :type: :class:`~porepy.ad.MergedVariable`
+
+        :return: prolongation matrix
+        :rtype: scipy.sparse.spmatrix
+        """
+        nrows = self.dof_manager.num_dofs()
+        rows = np.unique(
+            np.hstack(
+                # The use of private variables here indicates that something is wrong
+                # with the data structures. Todo..
+                [
+                    self.dof_manager.grid_and_variable_to_dofs(s._g, s._name)
+                    for var in variables
+                    for s in var.sub_vars
+                ]
+            )
+        )
+        ncols = rows.size
+        cols = np.arange(ncols)
+        data = np.ones(ncols)
+
+        return sps.coo_matrix((data, (rows, cols)), shape=(nrows, ncols)).tocsr()
