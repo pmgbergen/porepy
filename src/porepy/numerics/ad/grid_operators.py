@@ -522,7 +522,22 @@ class Trace(Operator):
                 # map back to cells.
                 inv_trace.append(div * face_projections[g].T)
             else:
-                raise NotImplementedError("kronecker")
+                # Use a similar procedure as above to compute
+                # trace and inv_trace for several components
+                eye_nd = sps.eye(self._nd)
+          
+                div = np.abs(pp.fvutils.scalar_divergence(g))
+          
+                # Expand div for several components
+                extended_div = sps.kron(div, eye_nd)
+                extended_cells = extended_div.T * cell_projections[g].T
+                extended_faces = extended_div * face_projections[g].T    
+            
+                # Values to return
+                trace.append(extended_cells)
+                inv_trace.append(extended_faces)
+            # end if-else   
+                
         # Stack both trace and inv_trace vertically to make them into mappings to
         # global quantities.
         # Wrap the stacked matrices into an Ad object

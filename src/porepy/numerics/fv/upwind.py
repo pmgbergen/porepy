@@ -218,10 +218,13 @@ class Upwind(pp.numerics.discretization.Discretization):
         matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
-
+        
+        # Number of componets 
+        num_components: int = parameter_dictionary.get("num_components", 1)
+        
         # Shortcut for point grids
         if g.dim == 0:
-            matrix_dictionary[self.upwind_matrix_key] = sps.csr_matrix((0, 1))
+            matrix_dictionary[self.upwind_matrix_key] = sps.csr_matrix((0, num_components))
             matrix_dictionary[self.bound_transport_dir_matrix_key] = sps.csr_matrix(
                 (0, 0)
             )
@@ -293,7 +296,7 @@ class Upwind(pp.numerics.discretization.Discretization):
 
         # Form and store disrcetization matrix
         # Expand the discretization matrix to more than one component
-        num_components: int = parameter_dictionary.get("num_components", 1)
+    
         matrix_dictionary[self.upwind_matrix_key] = sps.kron(
             upstream_mat, sps.eye(num_components)
         ).tocsr()

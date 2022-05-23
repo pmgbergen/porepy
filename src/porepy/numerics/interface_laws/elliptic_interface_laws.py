@@ -111,15 +111,21 @@ class RobinCoupling(
         parameter_dictionary_h: Dict = data_h[pp.PARAMETERS][self._primary_keyword]
         # Mortar data structure.
         mg: pp.MortarGrid = data_edge["mortar_grid"]
-
+        
+        # Number of components
+        num_comp = data_edge[pp.PARAMETERS][self.keyword].get("num_components", 1)
+        eye_comp = sps.eye(num_comp)
+        
         kn: Union[np.ndarray, float] = parameter_dictionary_edge["normal_diffusivity"]
         # If normal diffusivity is given as a constant, parse to np.array
         if not isinstance(kn, np.ndarray):
             kn *= np.ones(mg.num_cells)
 
         val: np.ndarray = mg.cell_volumes * kn
-        matrix_dictionary_edge[self.mortar_discr_matrix_key] = -sps.diags(val)
-
+        matrix_dictionary_edge[self.mortar_discr_matrix_key] = -sps.kron(
+            sps.diags(val), eye_comp
+            )
+        
         ## Vector source.
         # This contribution is last term of
         # lambda = -\int{\kappa_n [p_l - p_h +  a/2 g \cdot n]} dV,
@@ -191,7 +197,9 @@ class RobinCoupling(
 
         # On assembly, the outwards normals on the mortars will be multiplied by the
         # interface vector source.
-        matrix_dictionary_edge[self.mortar_vector_source_matrix_key] = mortar_normals
+        matrix_dictionary_edge[self.mortar_vector_source_matrix_key] = sps.kron(
+            mortar_normals, eye_comp
+            )
 
     def assemble_matrix(
         self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix

@@ -79,23 +79,30 @@ class Tpfa(pp.FVElliptic):
 
         # Ambient dimension of the grid
         vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
-
+        
+        # Number of components
+        num_components = parameter_dictionary.get("num_components", 1)
+        
         if g.dim == 0:
             # Short cut for 0d grids
-            matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix((0, g.num_cells))
+            matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix(
+                (0, g.num_cells * num_components)
+                )
             matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix((0, 0))
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix(
-                (0, g.num_cells)
+                (0, g.num_cells * num_components)
             )
             matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.csr_matrix(
                 (0, 0)
             )
             matrix_dictionary[self.vector_source_matrix_key] = sps.csr_matrix(
-                (0, g.num_cells * max(vector_source_dim, 1))
+                (0, g.num_cells * max(vector_source_dim, 1) * num_components)
             )
             matrix_dictionary[
                 self.bound_pressure_vector_source_matrix_key
-            ] = sps.csr_matrix((0, g.num_cells * max(vector_source_dim, 1)))
+            ] = sps.csr_matrix(
+                (0, g.num_cells * max(vector_source_dim, 1) * num_components)
+                )
             return None
 
         # Extract parameters
@@ -212,8 +219,9 @@ class Tpfa(pp.FVElliptic):
         ).tocsr()
 
         # Store the matrix in the right dictionary:
-        matrix_dictionary[self.flux_matrix_key] = flux
-        matrix_dictionary[self.bound_flux_matrix_key] = bound_flux
+        eye_comp = sps.eye(num_components)
+        matrix_dictionary[self.flux_matrix_key] = sps.kron(flux, eye_comp)
+        matrix_dictionary[self.bound_flux_matrix_key] = sps.kron(bound_flux, eye_comp)
 
         # Next, construct operator to reconstruct pressure on boundaries
         # Fields for data storage
@@ -231,8 +239,12 @@ class Tpfa(pp.FVElliptic):
         bound_pressure_face = sps.dia_matrix(
             (v_face, 0), (g.num_faces, g.num_faces)
         ).tocsr()
-        matrix_dictionary[self.bound_pressure_cell_matrix_key] = bound_pressure_cell
-        matrix_dictionary[self.bound_pressure_face_matrix_key] = bound_pressure_face
+        matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.kron(
+            bound_pressure_cell, eye_comp
+            )
+        matrix_dictionary[self.bound_pressure_face_matrix_key] = sps.kron(
+            bound_pressure_face, eye_comp
+            )
 
         # Discretization of vector source
         # e.g. gravity in Darcy's law
@@ -251,7 +263,9 @@ class Tpfa(pp.FVElliptic):
 
         vector_source = sps.coo_matrix((vals, (rows, cols))).tocsr()
 
-        matrix_dictionary[self.vector_source_matrix_key] = vector_source
+        matrix_dictionary[self.vector_source_matrix_key] = sps.kron(
+            vector_source, eye_comp
+            )
 
         # Gravity contribution to pressure reconstruction
         # The pressure difference is computed as the dot product between the
@@ -263,4 +277,4 @@ class Tpfa(pp.FVElliptic):
         ).tocsr()
         matrix_dictionary[
             self.bound_pressure_vector_source_matrix_key
-        ] = bound_pressure_vector_source
+        ] = sps.kron(bound_pressure_vector_source, eye_comp)

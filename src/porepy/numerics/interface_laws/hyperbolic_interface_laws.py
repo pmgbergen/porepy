@@ -70,7 +70,11 @@ class UpwindCoupling(
         )
 
         mg: pp.MortarGrid = data_edge["mortar_grid"]
-
+        
+        # Number of components
+        num_comp = data_edge[pp.PARAMETERS][self.keyword].get("num_components", 1)
+        eye_comp = sps.eye(num_comp)
+        
         # mapping from upper dim cellls to faces
         # The mortars always points from upper to lower, so we don't flip any
         # signs.
@@ -95,13 +99,20 @@ class UpwindCoupling(
         upwind_from_secondary = sps.diags(not_flag)
 
         flux = sps.diags(lam_flux)
-
-        matrix_dictionary[self.upwind_primary_matrix_key] = upwind_from_primary
-        matrix_dictionary[self.upwind_secondary_matrix_key] = upwind_from_secondary
-        matrix_dictionary[self.flux_matrix_key] = flux
+        # Expand all matrices, so they take several components into account
+        
+        matrix_dictionary[self.upwind_primary_matrix_key] = sps.kron(
+            upwind_from_primary, eye_comp
+            )
+        matrix_dictionary[self.upwind_secondary_matrix_key] = sps.kron(
+            upwind_from_secondary, eye_comp
+            )
+        matrix_dictionary[self.flux_matrix_key] = sps.kron(flux, eye_comp)
 
         # Identity matrix, to represent the mortar variable itself
-        matrix_dictionary[self.mortar_discr_matrix_key] = sps.eye(mg.num_cells)
+        matrix_dictionary[self.mortar_discr_matrix_key] = sps.kron(
+            sps.eye(mg.num_cells), eye_comp
+            )
 
     @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
