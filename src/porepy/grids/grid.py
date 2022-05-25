@@ -840,7 +840,9 @@ class Grid:
                 faces must be boundary faces.
 
         Returns:
-            (ndarray) the sign of the faces
+            np.ndarray: The sign of the faces. Will be +1 if the face normal vector
+                points out of the cell, -1 if the normal vector is pointing inwards.
+            np.ndarray: For each face, index of the cell next to the boundary.
 
         Raises:
             ValueError if a target face is internal.
