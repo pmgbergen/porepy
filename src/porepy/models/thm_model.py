@@ -640,6 +640,8 @@ class THM(pp.ContactMechanicsBiot):
             The equation on AD form.
 
         """
+        # The equation is the same as for the isothermal model, except that the temperature
+        # dependency in the density will give one more term.
         eq = super()._subdomain_flow_equation(subdomains)
         discr = pp.ad.MassMatrixAd(self.t2s_parameter_key, subdomains)
         eq += discr.mass * (
@@ -649,7 +651,6 @@ class THM(pp.ContactMechanicsBiot):
 
     def _heat_flux(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
         """Heat flux.
-
 
         Parameters
         ----------
@@ -667,16 +668,25 @@ class THM(pp.ContactMechanicsBiot):
             is applied.
         """
         ad = self._ad
+        # Discretization of advective flux
         upwind_ad = pp.ad.UpwindAd(self.temperature_parameter_key, subdomains)
+        # Discretization of the conductive flux
         flux_discr = pp.ad.MpfaAd(self.temperature_parameter_key, subdomains)
+
         # Store to ensure consistency in interface flux
         ad.heat_conduction_discretization = flux_discr
+
+        # (Fluid) enthalpy
         enthalpy = self._enthalpy(subdomains)
+
+        # Heat capacity of the fluid on the boundary. This is needed to transfer
+        # Dirichlet conditions (given in temperature) to an expression for enthalpy.
         heat_capacity_boundary = pp.ad.ParameterMatrix(
             self.temperature_parameter_key,
             "advection_weight_boundary",
             subdomains,
         )
+        # Boundary values, set either as enhtalpy fluxes, or temperature values.
         bc_values = pp.ad.ParameterArray(
             self.temperature_parameter_key,
             array_keyword="bc_values",
@@ -685,18 +695,22 @@ class THM(pp.ContactMechanicsBiot):
         fluid_flux = self._fluid_flux(subdomains)
 
         flux = (
+            # The conductive flux acts on temperature differences, not enthalpy.
             flux_discr.flux * ad.temperature
-            + fluid_flux * (upwind_ad.upwind * enthalpy)
-            + flux_discr.bound_flux * bc_values
+            + flux_discr.bound_flux * bc_values  # Conductive boundary fluxes
+            + fluid_flux * (upwind_ad.upwind * enthalpy)  # Advective flux
+            # Dirichlet boundary data is assumed to be given in temperature
             - upwind_ad.bound_transport_dir
             * fluid_flux
             * (heat_capacity_boundary * bc_values)
+            # Advective flux coming from lower-dimensional subdomains
             - upwind_ad.bound_transport_neu
             * (
                 ad.mortar_projections_scalar.mortar_to_primary_int
                 * ad.advective_interface_flux
                 + bc_values
             )
+            # Conductive flux from lower-dimensional subdomains
             + flux_discr.bound_flux
             * ad.mortar_projections_scalar.mortar_to_primary_int
             * ad.conductive_interface_flux
@@ -733,7 +747,9 @@ class THM(pp.ContactMechanicsBiot):
         div_scalar = pp.ad.Divergence(grids=subdomains)
         biot_accumulation_primary = self._biot_terms_heat([self._nd_grid()])
         heat_flux = self._heat_flux(subdomains)
-        # Accumulation term on the fractures.
+
+        # Accumulation term on all subdomains. Contributions from both pressure and
+        # temperature dependency in the density.
         accumulation_all = mass_discr.mass * (
             ad.temperature - ad.temperature.previous_timestep()
         ) + scalar_discr.mass * (
@@ -744,9 +760,13 @@ class THM(pp.ContactMechanicsBiot):
         eq = (
             ad.time_step
             * (
+                # Heat fluxes internal to the subdomain, and from lower-dimensional
+                # neighboring subdomains (see self._heat_flux())
                 div_scalar * heat_flux
+                # Conductive heat flux from higher-dimensional neighbors
                 - ad.mortar_projections_scalar.mortar_to_secondary_int
                 * ad.conductive_interface_flux
+                # Advective heat flux from higher-dimensional neighbors
                 - ad.mortar_projections_scalar.mortar_to_secondary_int
                 * ad.advective_interface_flux
             )
@@ -756,6 +776,7 @@ class THM(pp.ContactMechanicsBiot):
             - heat_source
         )
         if len(subdomains) > 1:
+            # Volume change term in the fracture.
             heat_capacity = pp.ad.ParameterMatrix(
                 self.temperature_parameter_key,
                 "heat_capacity",
@@ -768,6 +789,7 @@ class THM(pp.ContactMechanicsBiot):
                 ad.subdomain_projections_scalar.cell_prolongation(g_frac)
                 * accumulation_fracs
             )
+        eq.set_name("Subdomain energy balance")
 
         return eq
 
@@ -775,7 +797,6 @@ class THM(pp.ContactMechanicsBiot):
         self, interfaces: List[Tuple[pp.Grid, pp.Grid]]
     ):
         """Equation for conductive interface heat fluxes.
-
 
         Parameters
         ----------
@@ -798,6 +819,7 @@ class THM(pp.ContactMechanicsBiot):
         # Create list of subdomains. Ensure matrix grid is present so that bc
         # and vector_source_subdomains are consistent with ad.heat_conduction_discretization
         subdomains = [self._nd_grid()]
+        # All all subdomains, then uniquify the list
         for interface in interfaces:
             for sd in interface:
                 if sd not in subdomains:
@@ -886,7 +908,6 @@ class THM(pp.ContactMechanicsBiot):
     def _enthalpy(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
         """Ad representation of enthalpy.
 
-
         Parameters
         ----------
         subdomains : List[pp.Grid]
@@ -898,6 +919,8 @@ class THM(pp.ContactMechanicsBiot):
             enthalpy ad operator.
 
         """
+        # The enthalpy in this implementation is modeled as the product of tempearature
+        # and the heat capacity of the fluid.
         heat_capacity = pp.ad.ParameterMatrix(
             self.temperature_parameter_key,
             "advection_weight",
