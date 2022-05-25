@@ -377,8 +377,8 @@ class Operator:
                     # the standard method looks like a contradiction.
                     # Move this to a helper method if similar cases arise for other
                     # operations.
-                    msg_0 = self._parse_readable(tree.children[0])
-                    msg_1 = self._parse_readable(tree.children[1])
+                    msg_0 = tree.children[0]._parse_readable()
+                    msg_1 = tree.children[1]._parse_readable()
                     nl = "\n"
                     msg = (
                         "Error when right multiplying \n"
