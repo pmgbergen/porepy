@@ -39,11 +39,11 @@ DataInput = Union[
     # Keys for states
     str,
     # Subdomain specific data types
-    Tuple[Union[pp.Grid, List[pp.Grid]], str],
+    Tuple[List[pp.Grid], str],
     Tuple[pp.Grid, str, np.ndarray],
     Tuple[str, np.ndarray],
     # Interface specific data types
-    Tuple[Union[Interface, List[Interface]], str],
+    Tuple[List[Interface], str],
     Tuple[Interface, str, np.ndarray],
 ]
 
