@@ -11,7 +11,7 @@ import logging
 import os
 import sys
 from collections import namedtuple
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import meshio
 import numpy as np
@@ -94,9 +94,6 @@ class Exporter:
 
     In general, pvd files gather data exported in separate files, including
     data on differently dimensioned grids, constant data, and finally time steps.
-
-
-    deltaT is a scalar, denoting the time step size, and steps
 
     In the case of different keywords, change the file name with
     "change_name".
@@ -211,6 +208,10 @@ class Exporter:
                 edge data, prescribed through strings, or tuples of
                 grids/edges, keys and values. If not provided only
                 geometical infos are exported.
+
+                NOTE: The user has to make sure that each unique key has to
+                associated data values for all or no grids of each specific
+                dimension.
         """
         # Identify change in constant data. Has the effect that
         # the constant data container will be exported at the
@@ -248,6 +249,10 @@ class Exporter:
                 edge data, prescribed through strings, or tuples of
                 grids/edges, keys and values. If not provided only
                 geometical infos are exported.
+
+                NOTE: The user has to make sure that each unique key has to
+                associated data values for all or no grids of each specific
+                dimension.
             time_dependent (boolean, optional): If False, file names will
                 not be appended with an index that markes the time step.
                 Can be overwritten by giving a value to time_step; if not,
@@ -924,7 +929,9 @@ class Exporter:
                         values.append(data[(e, key)])
 
                 # Require data for all or none entities of that dimension.
-                # FIXME: By changing the export strategy, this could be fixed.
+                # NOTE: As implemented now, for any grid dimension and any prescribed
+                # key, one has to provide data for all available grids of that
+                # dimension.
                 if len(values) not in [0, len(entities)]:
                     raise ValueError(
                         f"""Insufficient amount of data provided for
@@ -1427,26 +1434,213 @@ class Exporter:
             cell ids in correct meshio format.
         """
 
-        # FIXME The current implementation on first sight could suggest that
-        # grids with varying cell types are allowed. However, this is not the
-        # case. Rewriting the code makeing this distinction more clear would
-        # allow for better overview.
-
         # Three different cell types will be distinguished: Tetrahedra, hexahedra,
         # and general polyhedra. meshio does not allow for a mix of cell types
-        # in 3d within a single grid. Thus, if a grid contains cells of varying
-        # types, all cells will be casted as polyhedra.
+        # in 3d within a single grid (and we export all 3d grids at once). Thus,
+        # if the 3d grids contains cells of varying types, all cells will be casted
+        # as polyhedra.
 
-        # Dictionaries storing cell->faces and cell->nodes connectivity
-        # information for all cell types. For the special meshio geometric
-        # types "tetra" and "hexahedron", cell->nodes will be used; the
-        # local node ordering for each cell has to comply with the convention
-        # in meshio. For the general "polyhedron" type, instead the connectivity
-        # will be described by prescribing cell->faces->nodes connectivity, i.e.,
-        # for each cell, all faces are listed, and for all these faces, its
-        # nodes are identified, ordered such that they describe a circular chain.
+        # Determine the cell types present among all grids.
+        cell_types: Set[str] = set()
+        for g in gs:
+
+            # The number of faces per cell wil be later used to determining
+            # the cell types
+            num_faces_per_cell = np.unique(g.cell_faces.getnnz(axis=0))
+
+            if num_faces_per_cell.shape[0] == 1:
+                n = num_faces_per_cell[0]
+                if n == 4:
+                    cell_types.add("tetra")
+                elif n == 6 and isinstance(g, pp.CartGrid):
+                    cell_types.add("hexahedron")
+                else:
+                    cell_types.add("polyhedron")
+            else:
+                cell_types.add("polyhedron")
+
+        # Use dedicated export for each grid type
+        if len(cell_types) == 1 and "tetra" in cell_types:
+            return self._export_simplex_3d(gs)
+        elif len(cell_types) == 1 and "hexahedron" in cell_types:
+            return self._export_hexahedron_3d(gs)
+        else:
+            return self._export_polyhedron_3d(gs)
+
+    def _export_simplex_3d(self, gs: Iterable[pp.Grid]) -> Meshio_Geom:
+        """
+        Export the geometrical data (point coordinates) and connectivity
+        information from 3d PorePy simplex grids to meshio.
+
+        Parameters:
+            gs (Iterable[pp.Grid]): 3d simplex grids.
+
+        Returns:
+            Meshio_Geom: Points, 3d cells (storing the connectivity), and
+            cell ids in correct meshio format.
+        """
+        # For the special meshio geometric type "tetra", cell->nodes will
+        # be used to store connectivity information. Each simplex has 4 nodes.
+        cell_to_nodes = np.empty((0, 4), dtype=int)
+
+        # Dictionary collecting all cell ids for each cell type.
+        cell_id: List[int] = []
+
+        # Data structure for storing node coordinates of all 3d grids.
+        num_pts = np.sum([g.num_nodes for g in gs])
+        meshio_pts = np.empty((num_pts, 3))  # type: ignore
+
+        # Initialize offsets. Required taking into account multiple 3d grids.
+        nodes_offset = 0
+        cell_offset = 0
+
+        # Treat each 3d grid separately.
+        for g in gs:
+
+            # Store node coordinates
+            sl = slice(nodes_offset, nodes_offset + g.num_nodes)
+            meshio_pts[sl, :] = g.nodes.T
+
+            # Identify all cells as tetrahedra.
+            cells = np.arange(g.num_cells)
+
+            # Add offset taking into account previous grids
+            cell_id += (cells + cell_offset).tolist()
+
+            # Determine local connectivity for all cells. Simplices are invariant
+            # under permuatations. Thus, no specific ordering of nodes is required.
+            cn_indices = self._simplex_cell_to_nodes(4, g, cells)
+
+            # Store cell-node connectivity, and add offset taking into account
+            # previous grids
+            cell_to_nodes = np.vstack((cell_to_nodes, cn_indices + nodes_offset))
+
+            # Update offset
+            nodes_offset += g.num_nodes
+            cell_offset += g.num_cells
+
+        # Initialize the meshio data structure for the connectivity and cell ids.
+        # There is only one cell type.
+        meshio_cells = np.empty(1, dtype=object)
+        meshio_cell_id = np.empty(1, dtype=object)
+        meshio_cells[0] = meshio.CellBlock("tetra", cell_to_nodes.astype(int))
+        meshio_cell_id[0] = np.array(cell_id)
+
+        # Return final meshio data: points, cell (connectivity), cell ids
+        return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
+
+    def _export_hexahedron_3d(self, gs: Iterable[pp.Grid]) -> Meshio_Geom:
+        """
+        Export the geometrical data (point coordinates) and connectivity
+        information from 3d PorePy hexahedron grids to meshio.
+
+        NOTE: Optimally, a StructuredGrid would be exported in this case.
+        However, meshio does solely handle unstructured grids and cannot
+        for instance write to *.vtr format.
+
+        Parameters:
+            gs (Iterable[pp.Grid]): 3d hexahedron grids.
+
+        Returns:
+            Meshio_Geom: Points, 3d cells (storing the connectivity), and
+            cell ids in correct meshio format.
+        """
+        # For the special meshio geometric type "hexahedron", cell->nodes will
+        # be used to store connectivity information. Each hexahedron has 8 nodes.
+        cell_to_nodes = np.empty((0, 8), dtype=int)
+
+        # Dictionary collecting all cell ids for each cell type.
+        cell_id: List[int] = []
+
+        # Data structure for storing node coordinates of all 3d grids.
+        num_pts = np.sum([g.num_nodes for g in gs])
+        meshio_pts = np.empty((num_pts, 3))  # type: ignore
+
+        # Initialize offsets. Required taking into account multiple 3d grids.
+        nodes_offset = 0
+        cell_offset = 0
+
+        # Treat each 3d grid separately.
+        for g in gs:
+
+            # Store node coordinates
+            sl = slice(nodes_offset, nodes_offset + g.num_nodes)
+            meshio_pts[sl, :] = g.nodes.T
+
+            # Identify all cells as tetrahedra.
+            cells = np.arange(g.num_cells)
+
+            # Add offset taking into account previous grids
+            cell_id += (cells + cell_offset).tolist()
+
+            # Determine local connectivity for all cells. Simplices are invariant
+            # under permuatations. Thus, no specific ordering of nodes is required.
+
+            # After all, the procedure is fairly similar to the treatment of
+            # tetra cells. Most of the following code is analogous to
+            # _simplex_cell_to_nodes(). However, for hexaedron cells the order
+            # of the nodes is important and has to be adjusted. Based on the
+            # specific definition of TensorGrids however, the node numbering
+            # can be hardcoded, which results in better performance compared
+            # to a modular procedure.
+
+            # Determine cell-node ptr
+            cn_indptr = (
+                g.cell_nodes().indptr[:-1]
+                if cells is None
+                else g.cell_nodes().indptr[cells]
+            )
+
+            # Collect the indptr to all nodes of the cell;
+            # each n-simplex cell contains n nodes
+            expanded_cn_indptr = np.vstack([cn_indptr + i for i in range(8)]).reshape(
+                -1, order="F"
+            )
+
+            # Detect all corresponding nodes by applying the expanded mask to indices
+            expanded_cn_indices = g.cell_nodes().indices[expanded_cn_indptr]
+
+            # Convert to right format.
+            cn_indices = np.reshape(expanded_cn_indices, (-1, 8), order="C")
+
+            # Reorder nodes to comply with the node numbering convention of meshio
+            # regarding hexahedron cells.
+            cn_indices = cn_indices[:, [0, 2, 6, 4, 1, 3, 7, 5]]
+
+            # Store cell-node connectivity, and add offset taking into account
+            # previous grids
+            cell_to_nodes = np.vstack((cell_to_nodes, cn_indices + nodes_offset))
+
+            # Update offset
+            nodes_offset += g.num_nodes
+            cell_offset += g.num_cells
+
+        # Initialize the meshio data structure for the connectivity and cell ids.
+        # There is only one cell type.
+        meshio_cells = np.empty(1, dtype=object)
+        meshio_cell_id = np.empty(1, dtype=object)
+        meshio_cells[0] = meshio.CellBlock("hexahedron", cell_to_nodes.astype(int))
+        meshio_cell_id[0] = np.array(cell_id)
+
+        # Return final meshio data: points, cell (connectivity), cell ids
+        return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
+
+    def _export_polyhedron_3d(self, gs: Iterable[pp.Grid]) -> Meshio_Geom:
+        """
+        Export the geometrical data (point coordinates) and connectivity
+        information from 3d PorePy polyhedron grids to meshio.
+
+        Parameters:
+            gs (Iterable[pp.Grid]): 3d polyhedron grids.
+
+        Returns:
+            Meshio_Geom: Points, 3d cells (storing the connectivity), and
+            cell ids in correct meshio format.
+        """
+        # For the general geometric type "polyhedron", cell->faces->nodes will
+        # be used to store connectivity information, which can become significantly
+        # larger than cell->nodes information used for special type grids.
         cell_to_faces: Dict[str, List[List[int]]] = {}
-        cell_to_nodes: Dict[str, np.ndarray] = {}
 
         # Dictionary collecting all cell ids for each cell type.
         cell_id: Dict[str, List[int]] = {}
@@ -1470,29 +1664,13 @@ class Exporter:
             # the cell types
             num_faces_per_cell = g.cell_faces.getnnz(axis=0)
 
-            # Loop over all available cell types and group cells of one type.
+            # Categorize all polyhedron cells by their number of faces.
+            # Each category will be treated separatrely allowing for using
+            # fitting datastructures.
             g_cell_map = dict()
             for n in np.unique(num_faces_per_cell):
 
-                # Define the cell type.
-                # Make sure that either all cells are identified as "tetra",
-                # "hexahedron", or "polyehdron". "tetra" grids have the unique
-                # property that all cells have 4 faces; "hexahdron" grids in
-                # PorePy are solely of CartGrid type, and all cells have 6
-                # faces (NOTE that coarsening a grid does not change its type,
-                # hence checking solely the type is not sufficient); all other
-                # grids will be identified as "polyehdron" grids, even if they
-                # contain single "tetra" cells.
-                if n == 4 and len(set(num_faces_per_cell)) == 1:
-                    cell_type = "tetra"
-                elif (
-                    isinstance(g, pp.CartGrid)
-                    and n == 6
-                    and len(set(num_faces_per_cell)) == 1
-                ):
-                    cell_type = "hexahedron"
-                else:
-                    cell_type = f"polyhedron{n}"
+                cell_type = f"polyhedron{n}"
 
                 # Find all cells with n faces, and store for later use
                 cells = np.nonzero(num_faces_per_cell == n)[0]
@@ -1509,158 +1687,52 @@ class Exporter:
             # treatment of special and general cell types and to conform
             # with array sizes (for polyhedra), treat each cell type
             # separately.
-            for n in np.unique(num_faces_per_cell):
+            for cell_type in g_cell_map.keys():
 
-                # Define the cell type as above
-                if n == 4 and len(set(num_faces_per_cell)) == 1:
-                    cell_type = "tetra"
-                elif (
-                    isinstance(g, pp.CartGrid)
-                    and n == 6
-                    and len(set(num_faces_per_cell)) == 1
-                ):
-                    cell_type = "hexahedron"
-                else:
-                    cell_type = f"polyhedron{n}"
+                # The general strategy is to define the connectivity as cell-face-nodes
+                # information, where the faces are defined by nodes. Hence, this
+                # information is significantly larger than the info provided for
+                # tetra cells. Here, we make use of the fact that g.face_nodes
+                # provides nodes ordered wrt. the right-hand rule.
 
-                # Special case: Tetrahedra
-                if cell_type == "tetra":
-                    # Since tetra is a meshio-known cell type, cell_to_nodes connectivity
-                    # information is provided, i.e., for each cell the nodes in the
-                    # meshio-defined local numbering of nodes is generated. Since tetra
-                    # is a simplex, the nodes do not need to be ordered in any specific
-                    # type, as the geometrical object is invariant under permutations.
+                # Fetch cells with n faces
+                cells = g_cell_map[cell_type]
 
-                    # Fetch tetra cells
-                    cells = g_cell_map[cell_type]
+                # Store short cuts to cell-face and face-node information
+                cf_indptr = g.cell_faces.indptr
+                cf_indices = g.cell_faces.indices
+                fn_indptr = g.face_nodes.indptr
+                fn_indices = g.face_nodes.indices
 
-                    # Tetrahedra are simplices and have a trivial connectivity.
-                    cn_indices = self._simplex_cell_to_nodes(4, g, cells)
-
-                    # Initialize data structure if not available yet
-                    if cell_type not in cell_to_nodes:
-                        cell_to_nodes[cell_type] = np.empty((0, 4), dtype=int)
-
-                    # Store cell-node connectivity, and add offset taking into account
-                    # previous grids
-                    cell_to_nodes[cell_type] = np.vstack(
-                        (cell_to_nodes[cell_type], cn_indices + nodes_offset)
-                    )
-
-                elif cell_type == "hexahedron":
-                    # NOTE: Optimally, a StructuredGrid would be exported in this case.
-                    # However, meshio does solely handle unstructured grids and cannot
-                    # for instance write to *.vtr format.
-
-                    # Similar to "tetra", "hexahedron" is a meshio-known cell type.
-                    # Thus, the local connectivity is prescribed by cell-nodes
-                    # information.
-
-                    # After all, the procedure is fairly similar to the treatment of
-                    # tetra cells. Most of the following code is analogous to
-                    # _simplex_cell_to_nodes(). However, for hexaedron cells the order
-                    # of the nodes is important and has to be adjusted. Based on the
-                    # specific definition of TensorGrids however, the node numbering
-                    # can be hardcoded, which results in better performance compared
-                    # to a modular procedure.
-
-                    # Need to sort the nodes according to the convention within meshio.
-                    # Fetch hexahedron cells
-                    cells = g_cell_map[cell_type]
-
-                    # Determine cell-node ptr
-                    cn_indptr = (
-                        g.cell_nodes().indptr[:-1]
-                        if cells is None
-                        else g.cell_nodes().indptr[cells]
-                    )
-
-                    # Collect the indptr to all nodes of the cell;
-                    # each n-simplex cell contains n nodes
-                    expanded_cn_indptr = np.vstack(
-                        [cn_indptr + i for i in range(8)]
-                    ).reshape(-1, order="F")
-
-                    # Detect all corresponding nodes by applying the expanded mask to indices
-                    expanded_cn_indices = g.cell_nodes().indices[expanded_cn_indptr]
-
-                    # Convert to right format.
-                    cn_indices = np.reshape(expanded_cn_indices, (-1, 8), order="C")
-
-                    # Reorder nodes to comply with the node numbering convention of meshio
-                    # regarding hexahedron cells.
-                    cn_indices = cn_indices[:, [0, 2, 6, 4, 1, 3, 7, 5]]
-
-                    # Initialize data structure if not available yet
-                    if cell_type not in cell_to_nodes:
-                        cell_to_nodes[cell_type] = np.empty((0, 8), dtype=int)
-
-                    # Store cell-node connectivity, and add offset taking into account
-                    # previous grids
-                    cell_to_nodes[cell_type] = np.vstack(
-                        (cell_to_nodes[cell_type], cn_indices + nodes_offset)
-                    )
-
-                else:
-                    # Identify remaining cells as polyhedra
-
-                    # The general strategy is to define the connectivity as cell-face
-                    # information, where the faces are defined by nodes. Hence, this
-                    # information is significantly larger than the info provided for
-                    # tetra cells. Here, we make use of the fact that g.face_nodes
-                    # provides nodes ordered wrt. the right-hand rule.
-
-                    # Fetch cells with n faces
-                    cells = g_cell_map[cell_type]
-
-                    # Store short cuts to cell-face and face-node information
-                    cf_indptr = g.cell_faces.indptr
-                    cf_indices = g.cell_faces.indices
-                    fn_indptr = g.face_nodes.indptr
-                    fn_indices = g.face_nodes.indices
-
-                    # Determine the cell-face connectivity (with faces described by their
-                    # nodes ordered such that they form a chain and are identified by the
-                    # face boundary. The final data format is a List[List[np.ndarray]].
-                    # The outer list, loops over all cells. Each cell entry contains a
-                    # list over faces, and each face entry is given by the face nodes.
-                    if cell_type not in cell_to_faces:
-                        cell_to_faces[cell_type] = []
-                    cell_to_faces[cell_type] += [
-                        [
-                            fn_indices[fn_indptr[f] : fn_indptr[f + 1]]  # nodes
-                            for f in cf_indices[
-                                cf_indptr[c] : cf_indptr[c + 1]
-                            ]  # faces
-                        ]
-                        for c in cells  # cells
+                # Determine the cell-face connectivity (with faces described by their
+                # nodes ordered such that they form a chain and are identified by the
+                # face boundary. The final data format is a List[List[np.ndarray]].
+                # The outer list, loops over all cells. Each cell entry contains a
+                # list over faces, and each face entry is given by the face nodes.
+                if cell_type not in cell_to_faces:
+                    cell_to_faces[cell_type] = []
+                cell_to_faces[cell_type] += [
+                    [
+                        fn_indices[fn_indptr[f] : fn_indptr[f + 1]]  # nodes
+                        for f in cf_indices[cf_indptr[c] : cf_indptr[c + 1]]  # faces
                     ]
+                    for c in cells  # cells
+                ]
 
             # Update offset
             nodes_offset += g.num_nodes
             cell_offset += g.num_cells
 
-        # Determine the total number of blocks. Recall that special cell types
-        # and general polyhedron{n} cells are stored differently.
-        num_special_blocks = len(cell_to_nodes)
-        num_polyhedron_blocks = len(cell_to_faces)
-        num_blocks = num_special_blocks + num_polyhedron_blocks
+        # Determine the total number of blocks / cell types.
+        num_blocks = len(cell_to_faces)
 
         # Initialize the meshio data structure for the connectivity and cell ids.
         meshio_cells = np.empty(num_blocks, dtype=object)
         meshio_cell_id = np.empty(num_blocks, dtype=object)
 
-        # Store cells with special cell types.
-        for block_s, (cell_type_s, cell_block_s) in enumerate(cell_to_nodes.items()):
-            meshio_cells[block_s] = meshio.CellBlock(
-                cell_type_s, cell_block_s.astype(int)
-            )
-            meshio_cell_id[block_s] = np.array(cell_id[cell_type_s])
-
-        # Store general polyhedra cells.
+        # Store the cells in meshio format
         for block, (cell_type, cell_block) in enumerate(cell_to_faces.items()):
             # Adapt the block number taking into account of previous cell types.
-            block += num_special_blocks
             meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
             meshio_cell_id[block] = np.array(cell_id[cell_type])
 
