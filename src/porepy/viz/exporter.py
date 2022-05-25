@@ -368,11 +368,6 @@ class Exporter:
         """
         if file_extension is None:
             file_extension = self._exported_timesteps
-            file_extension_constants = self._exported_timesteps_constants
-            indices = [self._exported_timesteps.index(e) for e in file_extension]
-            file_extension_constants = [
-                self._exported_timesteps_constants[i] for i in indices
-            ]
         elif isinstance(file_extension, np.ndarray):
             file_extension = file_extension.tolist()
 
@@ -380,16 +375,22 @@ class Exporter:
             assert isinstance(file_extension, list)
             assert len(file_extension) == times.shape[0]
 
-            # Extract the time steps related to constant data and
-            # complying with file_extension. Implicitly test wheter
-            # file_extension is a subset of _exported_timesteps.
+        # Make mypy happy
+        assert file_extension is not None
+
+        # Extract the time steps related to constant data and
+        # complying with file_extension. Implicitly test wheter
+        # file_extension is a subset of _exported_timesteps.
+        # Only if constant data has been exported.
+        include_constant_data = (
+            self.export_constants_separately
+            and len(self._exported_timesteps_constants) > 0
+        )
+        if include_constant_data:
             indices = [self._exported_timesteps.index(e) for e in file_extension]
             file_extension_constants = [
                 self._exported_timesteps_constants[i] for i in indices
             ]
-
-        # Make mypy happy
-        assert file_extension is not None
 
         # Perform the same procedure as in _export_gb_pvd
         # but looping over all designated time steps.
@@ -408,9 +409,8 @@ class Exporter:
         o_file.write(header)
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
-        for time, fn, fn_constants in zip(
-            times, file_extension, file_extension_constants
-        ):
+        # Gather all data, and assign the actual time.
+        for time, fn in zip(times, file_extension):
             # Go through all possible data types, analogously to
             # _export_gb_pvd.
 
@@ -432,8 +432,9 @@ class Exporter:
                         )
                     )
 
-            # Constant data.
-            if self.export_constants_separately:
+        # Optionally, do the same for constant data.
+        if include_constant_data:
+            for time, fn_constants in zip(times, file_extension_constants):
                 # Constant subdomain data.
                 for dim in self.dims:
                     if self.meshio_geom[dim] is not None:
