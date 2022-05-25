@@ -29,7 +29,7 @@ Field = namedtuple("Field", ["name", "values"])
 # Object for managing meshio-relevant data, as well as a container
 # for its storage, taking dimensions as inputs.
 Meshio_Geom = namedtuple("Meshio_Geom", ["pts", "connectivity", "cell_ids"])
-MD_Meshio_Geom = Dict[int, Meshio_Geom]
+MD_Meshio_Geom = Dict[int, Optional[Meshio_Geom]]
 
 # Interface between subdomains
 Interface = Tuple[pp.Grid, pp.Grid]
@@ -372,6 +372,7 @@ class Exporter:
             file_extension = file_extension.tolist()
 
             # Make sure that the inputs are consistent
+            assert isinstance(file_extension, list)
             assert len(file_extension) == times.shape[0]
 
             # Extract the time steps related to constant data and
@@ -463,7 +464,7 @@ class Exporter:
 
     def _sort_and_unify_data(
         self,
-        data: Optional[Union[DataInput, List[DataInput]]] = None,
+        data=None,  # ignore type which is essentially Union[DataInput, List[DataInput]]
     ) -> Tuple[SubdomainData, InterfaceData]:
         """
         Preprocess data.
@@ -498,7 +499,7 @@ class Exporter:
         # to vector ranged values when suitable.
         def toVectorFormat(value: np.ndarray, g: pp.Grid) -> np.ndarray:
             """
-            Check wether the value array has the right dimension corresponding
+            Check whether the value array has the right dimension corresponding
             to the grid size. If possible, translate the value to a vectorial
             object, But do nothing if the data naturally can be interpreted as
             scalar data.
@@ -529,42 +530,29 @@ class Exporter:
                 and isinstance(e[1], pp.Grid)
             )
 
-        def isinstance_Tuple_subdomain_str(
-            t: Tuple[Union[pp.Grid, List[pp.Grid]], str]
-        ) -> bool:
+        def isinstance_Tuple_subdomains_str(t: Tuple[List[pp.Grid], str]) -> bool:
             """
-            Implementation of isinstance(t, Tuple[Union[pp.Grid, List[pp.Grid]], str]).
+            Implementation of isinstance(t, Tuple[List[pp.Grid], str]).
 
-            Detects data input of type (g1, "name) and ([g1, g2, ...], "name"),
+            Detects data input of type ([g1, g2, ...], "name"),
             where g1, g2, ... are subdomains.
             """
-            # Implementation of isinstance(Tuple[pp.Grid, str], t)
-            types = list(map(type, t))
-            if isinstance(t[0], pp.Grid) and types[1:] == [str]:
-                return True
             # Implementation of isinstance(Tuple[List[pp.Grid], str], t)
-            elif types == [list, str]:
-                return all([isinstance(g, pp.Grid) for g in t[0]])
-            else:
-                return False
+            return list(map(type, t)) == [list, str] and all(
+                [isinstance(g, pp.Grid) for g in t[0]]
+            )
 
-        def isinstance_Tuple_interface_str(
-            t: Tuple[Union[Interface, List[Interface]], str]
-        ) -> bool:
+        def isinstance_Tuple_interfaces_str(t: Tuple[List[Interface], str]) -> bool:
             """
-            Implementation of isinstance(t, Tuple[Union[Edge, List[Edge]], str]).
+            Implementation of isinstance(t, Tuple[List[Interface], str]).
 
-            Detects data input of type (e1, "name) and ([e1, e2, ...], "name"),
+            Detects data input of type ([e1, e2, ...], "name"),
             where e1, e2, ... are interfaces.
             """
-            # Implementation of isinstance(t, Tuple[Tuple[pp.Grid, pp.Grid], str])
-            if list(map(type, t)) == [tuple, str]:
-                return isinstance_interface(t[0])
             # Implementation of isinstance(t, Tuple[List[Tuple[pp.Grid, pp.Grid]], str])
-            elif list(map(type, t)) == [list, str]:
-                return all([isinstance_interface(g) for g in pt[0]])
-            else:
-                return False
+            return list(map(type, t)) == [list, str] and all(
+                [isinstance_interface(g) for g in t[0]]
+            )
 
         def isinstance_Tuple_subdomain_str_array(
             t: Tuple[pp.Grid, str, np.ndarray]
@@ -649,11 +637,10 @@ class Exporter:
             # Case 2a: Data provided by a tuple (g, key).
             # Here, g is a single grid or a list of grids.
             # Idea: Collect the data only among the grids specified.
-            elif isinstance_Tuple_subdomain_str(pt):
+            elif isinstance_Tuple_subdomains_str(pt):
 
-                # By construction, the first component contains grids.
-                # Unify by converting the first component to a list
-                grids: List[pp.Grid] = pt[0] if isinstance(pt[0], list) else [pt[0]]
+                # By construction, the first component contains is a list of grids.
+                grids: List[pp.Grid] = pt[0]
 
                 # By construction, the second component contains a key.
                 key = pt[1]
@@ -678,15 +665,12 @@ class Exporter:
                     subdomain_data[(g, key)] = value
 
             # Case 2b: Data provided by a tuple (e, key)
-            # Here, e is a single edge or a list of edges.
+            # Here, e is a list of edges.
             # Idea: Collect the data only among the grids specified.
-            elif isinstance_Tuple_interface_str(pt):
+            elif isinstance_Tuple_interfaces_str(pt):
 
-                # By construction, the first component contains grids.
-                # Unify by converting the first component to a list
-                edges: Union[Interface, List[Interface]] = (
-                    pt[0] if isinstance(pt[0], list) else [pt[0]]
-                )
+                # By construction, the first component contains a list of interfaces.
+                edges: List[Interface] = pt[0]
 
                 # By construction, the second component contains a key.
                 key = pt[1]
@@ -895,7 +879,7 @@ class Exporter:
             msg = "_export_data_vtu got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
-        # Fetch the dimnensions to be traversed. For subdomains, fetch the dimensions
+        # Fetch the dimensions to be traversed. For subdomains, fetch the dimensions
         # of the available grids, and for interfaces fetch the dimensions of the available
         # mortar grids.
         is_subdomain_data: bool = not self.interface_data
@@ -923,9 +907,8 @@ class Exporter:
             # subdomains with correct grid dimension for subdomain data, and
             # interfaces with correct mortar grid dimension for interface data.
             # TODO update and simplify when new GridTree structure is in place.
-            entities: Union[List[pp.Grid], List[Tuple[pp.Grid, pp.Grid]]] = list()
             if is_subdomain_data:
-                entities = self.gb.get_grids(lambda g: g.dim == dim)
+                entities = self.gb.grids_of_dimension(dim).tolist()
             else:
                 entities = [
                     e for e, d in self.gb.edges() if d["mortar_grid"].dim == dim
@@ -1049,9 +1032,7 @@ class Exporter:
             # Export and store
             self.m_meshio_geom[dim] = self._export_grid(mg, dim)
 
-    def _export_grid(
-        self, gs: Iterable[pp.Grid], dim: int
-    ) -> Union[None, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    def _export_grid(self, gs: Iterable[pp.Grid], dim: int) -> Union[None, Meshio_Geom]:
         """
         Wrapper function to export grids of dimension dim. Calls the
         appropriate dimension specific export function.
@@ -1061,8 +1042,8 @@ class Exporter:
             dim (int): Dimension of the subdomains.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, cells (storing the
-                connectivity), and cell ids in correct meshio format.
+            Meshio_Geom: Points, cells (storing the connectivity), and cell ids
+            in correct meshio format.
         """
         if dim == 0:
             return None
@@ -1075,9 +1056,7 @@ class Exporter:
         else:
             raise ValueError(f"Unknown dimension {dim}")
 
-    def _export_1d(
-        self, gs: Iterable[pp.Grid]
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _export_1d(self, gs: Iterable[pp.Grid]) -> Meshio_Geom:
         """
         Export the geometrical data (point coordinates) and connectivity
         information from the 1d PorePy grids to meshio.
@@ -1086,8 +1065,8 @@ class Exporter:
             gs (Iterable[pp.Grid]): 1d grids.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 1d cells (storing the
-                connectivity), and cell ids in correct meshio format.
+            Meshio_Geom: Points, 1d cells (storing the connectivity),
+            and cell ids in correct meshio format.
         """
 
         # In 1d each cell is a line
@@ -1177,9 +1156,7 @@ class Exporter:
 
         return cn_indices
 
-    def _export_2d(
-        self, gs: Iterable[pp.Grid]
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _export_2d(self, gs: Iterable[pp.Grid]) -> Meshio_Geom:
         """
         Export the geometrical data (point coordinates) and connectivity
         information from the 2d PorePy grids to meshio.
@@ -1188,8 +1165,8 @@ class Exporter:
             gs (Iterable[pp.Grid]): 2d grids.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 2d cells (storing the
-                connectivity), and cell ids in correct meshio format.
+            Meshio_Geom: Points, 2d cells (storing the connectivity), and
+            cell ids in correct meshio format.
         """
 
         # Use standard names for simple object types: in this routine only triangle
@@ -1437,9 +1414,7 @@ class Exporter:
         # Run numba compiled function
         return _function_to_compile(lines)
 
-    def _export_3d(
-        self, gs: Iterable[pp.Grid]
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _export_3d(self, gs: Iterable[pp.Grid]) -> Meshio_Geom:
         """
         Export the geometrical data (point coordinates) and connectivity
         information from 3d PorePy grids to meshio.
@@ -1448,8 +1423,8 @@ class Exporter:
             gs (Iterable[pp.Grid]): 3d grids.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: Points, 3d cells (storing the
-                connectivity), and cell ids in correct meshio format.
+            Meshio_Geom: Points, 3d cells (storing the connectivity), and
+            cell ids in correct meshio format.
         """
 
         # FIXME The current implementation on first sight could suggest that
@@ -1676,9 +1651,11 @@ class Exporter:
         meshio_cell_id = np.empty(num_blocks, dtype=object)
 
         # Store cells with special cell types.
-        for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
-            meshio_cell_id[block] = np.array(cell_id[cell_type])
+        for block_s, (cell_type_s, cell_block_s) in enumerate(cell_to_nodes.items()):
+            meshio_cells[block_s] = meshio.CellBlock(
+                cell_type_s, cell_block_s.astype(int)
+            )
+            meshio_cell_id[block_s] = np.array(cell_id[cell_type_s])
 
         # Store general polyhedra cells.
         for block, (cell_type, cell_block) in enumerate(cell_to_faces.items()):
