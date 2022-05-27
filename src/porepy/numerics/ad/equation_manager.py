@@ -528,7 +528,7 @@ class EquationManager:
         # Create projection matrix. Uniquify indices here, both to sort (will preserve
         # the ordering of the unknowns given by the DofManager) and remove duplicates
         # (in case variables were specified more than once).
-        local_dofs = np.unique(np.hstack([i for i in inds]))
+        local_dofs = np.unique(np.hstack(inds))
         num_local_dofs = local_dofs.size
 
         return sps.coo_matrix(

@@ -68,19 +68,19 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### GEOTHERMAL MODEL SET UP
         self.composition = pp.composite.Composition(self.gb)
 
-        self.saltwater = pp.composite.SaltWater("saltwater", self.gb)
+        self.saltwater = pp.composite.SaltWater("brine", self.gb)
         self.saltwater.set_initial_fractions([[0.96, 0.04]])
 
-        self.watervapor = pp.composite.Water("watervapor", self.gb)
+        self.watervapor = pp.composite.Water("vapor", self.gb)
         self.watervapor.set_initial_fractions([[1.]])
 
         self.composition.add_phases([self.saltwater, self.watervapor])
 
         self.composition.set_initial_state(
-            pressure=[1.], temperature=[1.], saturations=[[0.9, 0.1]]
+            pressure=[1.], temperature=[50.], saturations=[[0.9, 0.1]]
         )
 
-        k_value = self.composition.pressure / (self.composition.enthalpy)
+        k_value = self.composition.pressure / 2.
         k_value_water = (
             self.saltwater.water.fraction_in_phase(self.saltwater.name)
             - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name)
@@ -137,11 +137,11 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         ## model-specific input.
         self._source_quantity = {
-            "H2O": 1.,  # mol in 1 m^3 (1 mol of liquid water is approx 1.8xe-5 m^3)
+            "H2O": 5.,  # mol in 1 m^3 (1 mol of liquid water is approx 1.8xe-5 m^3)
             "NaCl": 0.0,  # only water is pumped into the system
         }
         self._source_enthalpy = {
-            "H2O": 1.0,  # TODO get physical value here
+            "H2O": 5.0,  # TODO get physical value here
             "NaCl": 0.0,  # no new salt enters the system
         }
         # 110°C temperature for D-BC for conductive flux
@@ -321,8 +321,20 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         :rtype: bool
         """
         equilibrium = self.composition.compute_phase_equilibrium(max_iter, tol)
+        history = self.composition.newton_history[-1]
+        print("Equilibrium:\n    Success: %s\n    Iterations: %i\n    TRU: %i"
+        %
+        (str(history['success']), history['iterations'], history['trust']))
         saturations = self.composition.saturation_flash(max_iter, tol)
+        history = self.composition.newton_history[-1]
+        print("Saturation flash:\n    Success: %s\n    Iterations: %i\n    TRU: %i"
+        %
+        (str(history['success']), history['iterations'], history['trust']))
         isenthalpic = self.composition.isenthalpic_flash(max_iter, tol)
+        history = self.composition.newton_history[-1]
+        print("Isenthalpic flash:\n    Success: %s\n    Iterations: %i"
+        %
+        (str(history['success']), history['iterations']))
 
         if equilibrium and saturations and isenthalpic:
             return True
