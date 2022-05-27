@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import itertools
+from optparse import Option
 import sys
 from typing import Dict, List, Optional, Tuple, Union
+
+from sympy import SparseMatrix
 
 if sys.version[:3] < "3.8":
     from typing_extensions import Literal

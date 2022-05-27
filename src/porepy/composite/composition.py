@@ -1,6 +1,7 @@
 """ Contains the physical extension for :class:`~porepy.grids.grid_bucket.GridBucket`."""
 
 from __future__ import annotations
+from optparse import Option
 
 import warnings
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
@@ -59,6 +60,8 @@ class Composition:
         self.phase_equilibrium_equations: Dict[
             str, Dict[str, "pp.ad.Operator"]
         ] = dict()
+        # contains chronologically information about past applications of the Newton algorithm
+        self.newton_history: List[Dict[str, Any]] = list()
 
         ## PRIVATE
         # set containing all present substances
@@ -88,8 +91,8 @@ class Composition:
         self._saturation_flash_subsystem: dict = dict()
         self._isenthalpic_flash_subsystem: dict = dict()
         self._isothermal_flash_subsystem: dict = dict()
-
-        # self.dof_manager.update_dofs()
+        # defines the maximal number of Newton history entries
+        self._max_history = 200
 
     def __str__(self) -> str:
         """Returns string representation of instance,
@@ -649,6 +652,7 @@ class Composition:
             subsystem["var_names"],
             max_iterations,
             tol,
+            trust_region=True  #,eliminate_unitarity=COMPUTATIONAL_VARIABLES["phase_molar_fraction"]
         )
 
     def saturation_flash(self, max_iterations: int = 100, tol: float = 1.0e-10) -> bool:
@@ -673,6 +677,8 @@ class Composition:
             subsystem["var_names"],
             max_iterations,
             tol,
+            trust_region=True,
+            eliminate_unitarity=COMPUTATIONAL_VARIABLES["saturation"]
         )
 
     def isenthalpic_flash(
@@ -1047,8 +1053,26 @@ class Composition:
         var_names: List[str],
         max_iterations: int,
         eps: float,
+        trust_region: Optional[bool] = False,
+        eliminate_unitarity: Optional[str] = None,
+        elimination_criterion: Optional[str] = 'min'
     ) -> bool:
         """Performs Newton iterations on a specified subset of equations and variables.
+
+        Trust region update:
+            If the update would leave the trusted region of 0 and 1 (for fractional variables),
+            scales the update such that the largest offset-value gets scaled down to 0 or 1.
+            Scales the other uniformly.
+
+        Unitarity eliminitation:
+            For a given variable symbol x
+            (see :data:`~porepy.composite._composite_utils.COMPUTATIONAL_VARIABLES`)
+            assumes the constr of type 
+                sum_i x_i = 1
+            for all occurrences of x in `var_names`.
+            Constructs respective affine-linear projections and eliminates respective
+            columns and rows in the linear system of equations.
+            Eliminates the `x_i` fulfilling the given criterion `elimination_criterion`. 
 
         :param equations: names of equations in equation manager
         :type equations: List[str]
@@ -1060,32 +1084,118 @@ class Composition:
         :type max_iterations: int
         :param eps: tolerance for Newton residual
         :type eps: float
+        :param eps: if true, enforces a trust region of [0,1] for the variables
+        :type trust_region: bool
+        :param eliminate_unitarity: list of strings containing symbols of variables to be 
+            eliminated by the unitary constraint
+        :type eliminate_unitarity: list
+        :param elimination_criterion: choose from `['min', 'max']` to define which variable to 
+            eliminate during the unitarity elimination
+        :type elimination_criterion: str 
 
         :return: True if successful, False otherwise
         :rtype: bool
         """
         success = False
-
-        X = self.dof_manager.assemble_variable()
+        trust_region_updates = 0
 
         A, b = self.eq_manager.assemble_subsystem(equations, variables)
         # print(A.todense())
         # print(np.linalg.cond(A.todense()))
-        # print(X)
+        # print(self.dof_manager.assemble_variable())
+        if eliminate_unitarity:
+            # TODO name accessed using private attribute...
+            u_vars = [var for var in variables if eliminate_unitarity in var._name]
+            u_var_vals = [var.evaluate(self.dof_manager).val for var in u_vars]
+            avg_val = [np.sum(vals) / len(vals) for vals in u_var_vals]
+
+            if elimination_criterion == 'min':
+                to_eliminate = avg_val.index(min(avg_val))
+            elif elimination_criterion == 'max':
+                to_eliminate = avg_val.index(max(avg_val))
+            else: 
+                raise ValueError("Unknown criterion '%s' for unitarity elimination."
+                    %(str(elimination_criterion)))
+
+            # get variables for which an identity block is to be computed
+            other_vars = list(set(variables).difference(set(u_vars)))
+            eliminated_var = u_vars.pop(to_eliminate)
+            non_eliminated_vars = u_vars + other_vars
+            non_eliminated_var_names = [var._name for var in non_eliminated_vars]
+
+            expansion, affine = self._unitary_expansion(u_vars, eliminated_var, other_vars)
+            print(expansion.todense())
+            print(affine)
 
         if np.linalg.norm(b) <= eps:
             success = True
+            iter_fin = 0
         else:
             for i in range(max_iterations):
 
-                dx = sps.linalg.spsolve(A, b)
-                X = self._prolongation_matrix(variables) * dx
+                if eliminate_unitarity:
+                    b = expansion.T * (b - A * affine)
+                    A = expansion.T * A * expansion
+                    # print(A.todense())
 
-                self.dof_manager.distribute_variable(
-                    X, variables=var_names, additive=True, to_iterate=True
-                )
+                dx = sps.linalg.spsolve(A, b)
+
+                if eliminate_unitarity:
+                    dX = self._prolongation_matrix(non_eliminated_vars) * dx
+                else:
+                    dX = self._prolongation_matrix(variables) * dx
+                scaling = 1.
+
+                # trust region update for values between 0 and 1
+                # find values exceeding 1 and values below 0
+                # find scaling coefficients so that WHOLE update stays within 0 and 1
+                # choose minimal scaling coefficient and scale down update uniformly
+                if trust_region:
+                    
+                    if eliminate_unitarity:
+                        X = self.dof_manager.assemble_variable(
+                            variables=non_eliminated_var_names, from_iterate=True
+                        )
+                    else:
+                        X = self.dof_manager.assemble_variable(
+                            variables=var_names, from_iterate=True
+                        )
+
+                    X_preliminary = X + dX
+                    scale_positive = 1.
+                    scale_negative = 1.
+                    too_large = X_preliminary > 1.
+                    too_small = X_preliminary < 0.
+
+                    if np.any(too_large):
+                        max_idx = X_preliminary.argmax()
+                        # x + alpha dx = 1 <-> alpha = (1-x)/dx
+                        scale_positive = (1-X[max_idx]) / dX[max_idx]
+                    if np.any(too_small):
+                        min_idx = X_preliminary.argmin()
+                        # x + beta dx = 0 <-> beta = - x / dx
+                        scale_negative = - X[min_idx] / dX[min_idx]
+
+                    scaling = min([scale_positive, scale_negative])
+
+                    if scaling < 1.:
+                        trust_region_updates += 1
+
+                if eliminate_unitarity:
+                    X += scaling * dX
+                    X = self._prolongation_matrix(non_eliminated_vars).T * X
+                    X = expansion * X + affine
+                    X = self._prolongation_matrix(variables) * X
+                    self.dof_manager.distribute_variable(
+                        X, variables=var_names, to_iterate=True
+                        )
+                else:
+                    self.dof_manager.distribute_variable(
+                        scaling * dX, variables=var_names, additive=True, to_iterate=True
+                    )
 
                 A, b = self.eq_manager.assemble_subsystem(equations, variables)
+                print(self.dof_manager.assemble_variable(from_iterate=True))
 
                 if np.linalg.norm(b) <= eps:
                     # setting state to newly found solution
@@ -1094,12 +1204,23 @@ class Composition:
                     )
                     self.dof_manager.distribute_variable(X, variables=var_names)
                     success = True
+                    iter_fin = i
                     break
 
         # if not successful, replace iterate values with initial state values
         if not success:
             X = self.dof_manager.assemble_variable()
             self.dof_manager.distribute_variable(X, to_iterate=True)
+            iter_fin = max_iterations
+        # append history entry and delete old ones if necessary
+        self.newton_history.append({
+                        'variables': var_names,
+                        'iterations': iter_fin,
+                        'trust': trust_region_updates,
+                        'success': success
+                    })
+        if len(self.newton_history) > self._max_history:
+                    self.newton_history.pop(0)
 
         return success
 
@@ -1114,7 +1235,7 @@ class Composition:
     def _prolongation_matrix(self, variables: List["pp.ad.MergedVariable"]) -> sps.spmatrix:
         """Constructs a prolongation mapping for a subspace of given variables to the
         global vector.
-        Credits to EK
+        Credits to EK.
         
         :param variables: variables spanning the subspace
         :type: :class:`~porepy.ad.MergedVariable`
@@ -1126,7 +1247,7 @@ class Composition:
         rows = np.unique(
             np.hstack(
                 # The use of private variables here indicates that something is wrong
-                # with the data structures. Todo..
+                # with the data structures. TODO..
                 [
                     self.dof_manager.grid_and_variable_to_dofs(s._g, s._name)
                     for var in variables
@@ -1139,3 +1260,108 @@ class Composition:
         data = np.ones(ncols)
 
         return sps.coo_matrix((data, (rows, cols)), shape=(nrows, ncols)).tocsr()
+
+    def get_permutation_to_local(self, variables: Optional[List[str]]= None) -> "sps.spmatrix":
+        """Returns a permutation matrix grouping together 
+            1. cell-wise values
+            2. face-wise values
+            3. node-wise values
+        per node, then per edge in grid bucket.
+
+        :param variables: Returns the permutation matrix for a subsystem spanned by
+            given variable names
+        :type variables: List[str]
+
+        :return: permutation matrix
+        :rtype: scipy.sparse.spmatrix
+        """
+        pass
+
+    def _unitary_expansion(
+        self, vars: List["pp.ad.MergedVariable"], to_eliminate: "pp.ad.MergedVariable",
+        other_vars: Optional[List["pp.ad.MergedVariable"]] = []
+    ) -> Tuple["sps.spmatrix", "np.ndarray"]:
+        """ Returns the unitary expansion mapping for variables fulfilling the
+        unitary constraint.
+        The unitary expansion is an affine-linear mapping from n-1 to n variables which
+        fulfill
+            sum_i x_i = 1
+        The linear part contains the linear combination for the eliminated variable.
+        The affine part contains the 1.
+
+        Other variables can be included in the mapping. The map will contain an identity block
+        for them.
+        
+        NOTE: assumes cell-wise values for x_i
+
+        :param vars: names of variables fulfilling the unitary constraint.
+            DOES NOT contain the eliminated one
+        :type vars: List[:class:`~porepy.ad.MergedVariable`]
+        :param to_eliminate: variable to be eliminated
+        :type to_eliminate: :class:`~porepy.ad.MergedVariable`
+        :param other_vars: variables for which an identity block is to be included
+        :type other_vars: List[:class:`~porepy.ad.MergedVariable`]
+
+        :return: sparse linear matrix containing the linear combination and a vector for
+            the affine part of the map
+        :rtype: Tuple[scipy.sparse.spmatrix, numpy.ndarray]
+        """
+        linear_vals = list()
+        linear_rows = list()
+        linear_cols = list()
+        eliminated_dofs = dict()
+        # general dimension of the system
+        D = 0
+
+        affine = np.zeros(self.dof_manager.num_dofs())
+        subvars = self.eq_manager._variables_as_list(vars)
+        elim_subvars = self.eq_manager._variables_as_list([to_eliminate])
+        other_subvars = self.eq_manager._variables_as_list(other_vars)
+
+        # affine part for eliminated variable
+        for var in elim_subvars:
+            local_dofs = self.dof_manager.grid_and_variable_to_dofs(var._g, var._name)
+            affine[local_dofs] = 1.
+            eliminated_dofs[var._g] = local_dofs
+
+        # identity block plus unitary block for unitary variables
+        for var in subvars:
+            local_dofs = self.dof_manager.grid_and_variable_to_dofs(var._g, var._name)
+            num_local_dofs = local_dofs.size
+
+            linear_vals.append(np.ones(num_local_dofs))
+            linear_rows.append(local_dofs)
+            linear_cols.append(local_dofs)
+
+            linear_vals.append( -np.ones(num_local_dofs))
+            linear_rows.append(eliminated_dofs[var._g])
+            linear_cols.append(local_dofs)
+        
+        # identity block for other variables
+        for var in other_subvars:
+
+            local_dofs = self.dof_manager.grid_and_variable_to_dofs(var._g, var._name)
+            num_local_dofs = local_dofs.size
+
+            linear_vals.append(np.ones(num_local_dofs))
+            linear_rows.append(local_dofs)
+            linear_cols.append(local_dofs)
+
+        
+        linear_vals = np.hstack(linear_vals)
+        linear_cols = np.hstack(linear_cols)
+        linear_rows = np.hstack(linear_rows)
+        # slice through and remove rows with only zeros
+        linear = sps.coo_matrix((linear_vals, (linear_rows, linear_cols))).tocsr()
+        num_non_zeros = np.diff(linear.indptr)
+        linear =  linear[num_non_zeros != 0]
+        # slice through and remove columns with only zeros
+        linear = linear.tocsc()
+        num_non_zeros = np.diff(linear.indptr)
+        linear =  linear[:, num_non_zeros != 0]
+
+        # use a global projection to get the properly sliced affine part
+        projection = self.eq_manager._column_projection(subvars + elim_subvars + other_subvars)
+        affine = (affine.T * projection).T
+
+        return (linear , affine)
