@@ -47,7 +47,8 @@ class GridTree:
 
     def __init__(self) -> None:
         self._nodes: Dict[pp.Grid, Dict] = {}
-        self._edges: Dict[Tuple[pp.Grid, pp.Grid], Dict] = {}
+        self._edge_data: Dict[pp.MortarGrid, Dict] = {}
+        self._edge_to_node: Dict[pp.MortarGrid, Tuple[pp.Grid, pp.Grid]]
         self.name = "grid bucket"
 
     def __contains__(self, key: Any) -> bool:
@@ -93,7 +94,7 @@ class GridTree:
         for grid in self._nodes:
             yield grid
 
-    def interfaces(self) -> Generator[Tuple[pp.Grid, pp.Grid], None, None]:
+    def interfaces(self) -> Generator[pp.MortarGrid, None, None]:
         """
         Iterator over the MortarGrids belonging to interfaces in the GridTree.
 
@@ -104,12 +105,11 @@ class GridTree:
         for edge in self._edges:
             yield edge
 
-
     # ---------- Navigate within the graph --------
 
-    def subdomains_of_interface(self, edge: Tuple[pp.Grid, pp.Grid]) -> Tuple[pp.Grid, pp.Grid]:
+    def subdomains_of_interface(self, edge: pp.MortarGrid) -> Tuple[pp.Grid, pp.Grid]:
         """Obtain the subdomains of an interface.
-        
+
         FIXME: Consider intorducing only_higher, only_lower keywords.
 
         The nodes will be given in ascending order with respect their
@@ -145,11 +145,9 @@ class GridTree:
         else:
             return edge[1], edge[0]
 
-    def interfaces_of_subdomain(
-        self, node
-    ) -> Generator[Tuple[Tuple[pp.Grid, pp.Grid], Dict], None, None]:
+    def interfaces_of_subdomain(self, node) -> Generator[pp.MortarGrid, None, None]:
         """Iterator over the edges of the specific node.
-        
+
         FIXME: Consider intorducing only_higher, only_lower keywords.
 
         Parameters:
@@ -158,19 +156,18 @@ class GridTree:
         Yields:
             edge (Tuple[pp.Grid, pp.Grid]):
                 The edge (pair of grids) associated with an edge.
-            data (dict):
-                The dictionary storing all information in this edge.
 
         """
-        for edge, _ in self._edges.items():
-            if edge[0] == node or edge[1] == node:
-                yield edge, self.edge_props(edge)
+        for edge in self._edges:
+            node_pair = self._edge_to_node[edge]
+            if node_pair[0] == node or node_pair[1] == node:
+                yield edge
 
     def subdomain_neighbors(
         self, node: pp.Grid, only_higher: bool = False, only_lower: bool = False
     ) -> List[pp.Grid]:
         """Get neighbors of a node in the graph.
-        
+
         FIXME: Method name is unclear, should really be 'subdomain_neighbors_of_subdomain',
         but that is a mouthfull.
 
@@ -230,10 +227,10 @@ class GridTree:
         overwrite: bool = True,
     ) -> None:
         """Add a new property to existing nodes in the graph.
-        
+
         FIXME: Update documentation
-        
-        FIXME: Should we delete this 
+
+        FIXME: Should we delete this
 
         Properties can be added either to all nodes, or to selected nodes as
         specified by their grid. In the former case, all nodes will be assigned
@@ -283,7 +280,7 @@ class GridTree:
         overwrite: bool = True,
     ) -> None:
         """Associate a property with an edge.
-        
+
         FIXME: Should we delete this?
 
         Properties can be added either to all edges, or to selected edges as
@@ -318,7 +315,9 @@ class GridTree:
 
     # ------------ Getters for node and edge properties
 
-    def is_property_of_subdomain(self, grids: Iterable[pp.Grid], key: Any) -> List[bool]:
+    def is_property_of_subdomain(
+        self, grids: Iterable[pp.Grid], key: Any
+    ) -> List[bool]:
         """Test if a key exists in the data dictionary related to each of a list of nodes.
 
         Note: the property may contain None but the outcome of the test is
@@ -355,7 +354,9 @@ class GridTree:
         else:
             return self._nodes[grid][key]
 
-    def get_interface_data(self, edge: Tuple[pp.Grid, pp.Grid], key: Any = None) -> Dict:
+    def get_interface_data(
+        self, edge: Tuple[pp.Grid, pp.Grid], key: Any = None
+    ) -> Dict:
         """Getter for an edge properties of the bucket.
 
         Parameters:
@@ -404,7 +405,9 @@ class GridTree:
         """
         self._nodes[grid][key] = val
 
-    def set_interface_property(self, edge: Tuple[pp.Grid, pp.Grid], key: Any, val: Any) -> None:
+    def set_interface_property(
+        self, edge: Tuple[pp.Grid, pp.Grid], key: Any, val: Any
+    ) -> None:
         """Set the value of a property of a given interface.
 
         Values can also be set by accessing the data dictionary of the interface
@@ -437,7 +440,7 @@ class GridTree:
         self, keys: Union[Any, List[Any]], grids: Union[pp.Grid, List[pp.Grid]] = None
     ) -> None:
         """Remove property to existing subdomain in the GridTree.
-        
+
         FIXME: Property or properties? Applies to several methods.
 
         Properties can be removed either to all subdomains, or to selected
@@ -485,7 +488,7 @@ class GridTree:
         Properties can be removed either to all edges, or to selected edges as
         specified by their grid pair. In the former case, to all edges the property
         will be removed.
-        
+
         Parameters:
             keys (object or list of objects): Key to the property to be handled.
             edges (List of tuples of pp.Grid, optional): Edges to be removed the
@@ -546,7 +549,10 @@ class GridTree:
             self._nodes[grid] = {}
 
     def add_interface(
-        self, grids: Tuple[pp.Grid, pp.Grid], primary_secondary_map: sps.spmatrix
+        self,
+        mg: pp.MortarGrid,
+        grids: Tuple[pp.Grid, pp.Grid],
+        primary_secondary_map: sps.spmatrix,
     ) -> None:
         """
         Add an interface to the GridTree.
@@ -556,6 +562,7 @@ class GridTree:
         the ordering of the nodes is the same as in input grids.
 
         Parameters:
+            mg (pp.MortarGrid): MortarGrid for this
             grids (Tuple, len==2). Grids to be connected. Order is arbitrary.
             primary_secondary_map (sps.spmatrix): Identity mapping between cells in the
                 higher-dimensional grid and faces in the lower-dimensional
@@ -582,19 +589,24 @@ class GridTree:
             "face_cells": primary_secondary_map
         }  # {"primary_secondary_map": primary_secondary_map}
 
+        self._edge_data[mg] = data
+
         # The higher-dimensional grid is the first node of the edge.
+
         if grids[0].dim - 1 == grids[1].dim:
-            self._edges[(grids[0], grids[1])] = data
+            node_pair = (grids[0], grids[1])
         elif grids[0].dim == grids[1].dim - 1:
-            self._edges[(grids[1], grids[0])] = data
+            node_pair = (grids[1], grids[0])
         elif grids[0].dim - 2 == grids[1].dim:
-            self._edges[(grids[0], grids[1])] = data
+            node_pair = (grids[0], grids[1])
         elif grids[0].dim == grids[1].dim - 2:
-            self._edges[(grids[1], grids[0])] = data
+            node_pair = (grids[1], grids[0])
         elif grids[0].dim == grids[1].dim:
-            self._edges[(grids[0], grids[1])] = data
+            node_pair = (grids[0], grids[1])
         else:
             raise ValueError("Grid dimension mismatch")
+
+        self._edge_to_node[mg] = node_pair
 
     # --------- Remove and update nodes
 
@@ -647,7 +659,7 @@ class GridTree:
         Remove the node (and the edges it partakes in) and add new direct
         connections (gb edges) between each of the neighbor pairs. A node with
         n_neighbors neighbours gives rise to 1 + 2 + ... + n_neighbors-1 new edges.
-        
+
         FIXME: Can we delete this one?
 
         """
@@ -679,7 +691,7 @@ class GridTree:
         """
         Remove all the nodes of dimension dim and add new edges between their
         neighbors by calls to remove_node.
-        
+
         FIXME: Can we delete this one?
 
         Parameters:
@@ -828,7 +840,7 @@ class GridTree:
     def target_2_source_nodes(self, g_src, g_trg):
         """
         Find the local node mapping from a source grid to a target grid.
-        
+
         FIXME: Can we delete this one?
 
         target_2_source_nodes(..) returns the mapping from g_src -> g_trg such
@@ -919,7 +931,7 @@ class GridTree:
         Furthermore, grids are sorted with the lower-dimensional first and the
         higher-dimesnional last. To be consistent with this, the grid corresponding
         to the first axis of cell_cells is the first grid of the node sorting.
-        
+
         FIXME: This can be deleted if eliminate_subdomains is deleted.
 
         Parameters:
@@ -970,7 +982,7 @@ class GridTree:
     ) -> np.ndarray:
         """
         Loop on all the nodes and evaluate a function on each of them.
-        
+
         FIXME: can we delete this one?
 
         Parameter:
@@ -992,7 +1004,7 @@ class GridTree:
     ) -> sps.spmatrix:
         """
         Loop on all the edges and evaluate a function on each of them.
-        
+
         FIXME: Can we delete this?
 
         Parameter:
@@ -1035,7 +1047,7 @@ class GridTree:
         Compute the grid bucket diameter (mesh size), considering a loop on all
         the grids.  It is possible to specify a condition based on the grid to
         select some of them.
-        
+
         Parameter:
             cond: optional, predicate with a grid or a tuple of grids (an edge)
                 as input.

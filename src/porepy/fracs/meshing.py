@@ -8,7 +8,7 @@ generators etc.
 """
 import logging
 import time
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -55,19 +55,21 @@ def grid_list_to_grid_bucket(
     _tag_faces(grids, check_highest_dim)
     logger.info("Assemble in bucket")
     tm_bucket = time.time()
-    gb = _assemble_in_bucket(grids)
+    gb, node_pairs = _assemble_in_bucket(grids)
     logger.info("Done. Elapsed time " + str(time.time() - tm_bucket))
 
     logger.info("Compute geometry")
     tm_geom = time.time()
     gb.compute_geometry()
-    # Split the grids.
+
+    # Split faces and nodes in the grids of various dimensions
     logger.info("Done. Elapsed time " + str(time.time() - tm_geom))
     logger.info("Split fractures")
     tm_split = time.time()
     split_grid.split_fractures(gb, **kwargs)
     logger.info("Done. Elapsed time " + str(time.time() - tm_split))
 
+    #
     create_mortar_grids(gb, **kwargs)
 
     gb.assign_node_ordering()
@@ -368,6 +370,7 @@ def _nodes_per_face(g):
 def _assemble_in_bucket(grids, **kwargs):
     """
     Create a GridTree from a list of grids.
+
     Parameters
     ----------
     grids: A list of lists of grids. Each element in the list is a list
@@ -386,6 +389,8 @@ def _assemble_in_bucket(grids, **kwargs):
     # Create bucket
     bucket = GridTree()
     [bucket.add_nodes(g_d) for g_d in grids]
+
+    node_pairs: List[Tuple[Tuple[pp.Grid, pp.Grid], sps.spmatrix]] = []
 
     # We now find the face_cell mapings.
     for dim in range(len(grids) - 1):
@@ -495,21 +500,25 @@ def _assemble_in_bucket(grids, **kwargs):
                     ),
                     shape=(lg.num_cells, hg.num_faces),
                 )
-                # Define the new edge.
-                bucket.add_edge([hg, lg], face_cell_map)
+                # Add the pairing of subdomains and the cell-face map to the list
+                node_pairs.append((hg, lg), face_cell_map)
 
-    return bucket
+    return bucket, node_pairs
 
 
-def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
-
-    gb.add_edge_props("mortar_grid")
+def create_mortar_grids(
+    gb: pp.GridBucket,
+    subdomain_pairs: List[Tuple[Tuple[pp.Grid, pp.Grid], sps.spmatrix]],
+    ensure_matching_face_cell=True,
+    **kwargs
+):
     # loop on all the nodes and create the mortar grids
-    for e, d in gb.edges():
-        lg = gb.nodes_of_edge(e)[0]
-        # d['face_cells'].indices gives mappings into the lower dimensional
+    for item in subdomain_pairs:
+        subdomains, face_cells = item
+        hg, lg = subdomains
+        # face_cells.indices gives mappings into the lower dimensional
         # cells. Count the number of occurences for each cell.
-        num_sides = np.bincount(d["face_cells"].indices)
+        num_sides = np.bincount(face_cells.indices)
         # Each cell should be found either twice (think a regular fracture
         # that splits a higher dimensional mesh), or once (the lower end of
         # a T-intersection, or both ends of an L-intersection).
@@ -528,4 +537,6 @@ def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
         else:
             # the tag name is just a place-holder we assume left side
             side_g = {mortar_sides.LEFT_SIDE: lg.copy()}
-        d["mortar_grid"] = mortar_grid.MortarGrid(lg.dim, side_g, d["face_cells"])
+        mg = mortar_grid.MortarGrid(lg.dim, side_g, face_cells)
+
+        gb.add_interface(mg, subdomains, face_cells)
