@@ -60,24 +60,13 @@ class GridTree:
         Return:
             True if either key is a pp.Grid, and key is among the nodes of the graph
                 representation of this md-grid, *or* key is a 2-tuple, with both items
-                in self._nodes and the tuple is in self._edges.
+                in self._nodes and the tuple is in self._edge_data.
 
         """
         if isinstance(key, pp.Grid):
             return key in self._nodes
-        elif isinstance(key, tuple):
-            if (
-                len(key) == 2
-                and isinstance(key[0], pp.Grid)
-                and isinstance(key[1], pp.Grid)
-            ):
-                for edge, _ in self.edges():
-                    if (edge[0] == key[0] and edge[1] == key[1]) or (
-                        edge[1] == key[0] and edge[0] == key[1]
-                    ):
-                        return True
-                # None of the edges were a match
-                return False
+        elif isinstance(key, pp.MortarGrid):
+            return key in self._edge_data
 
         # Everything else is not in self.
         return False
@@ -102,12 +91,12 @@ class GridTree:
             interface (Tuple[pp.Grid, pp.Grid]):
 
         """
-        for edge in self._edges:
+        for edge in self._edge_data:
             yield edge
 
     # ---------- Navigate within the graph --------
 
-    def subdomains_of_interface(self, edge: pp.MortarGrid) -> Tuple[pp.Grid, pp.Grid]:
+    def subdomains_of_interface(self, mg: pp.MortarGrid) -> Tuple[pp.Grid, pp.Grid]:
         """Obtain the subdomains of an interface.
 
         FIXME: Consider intorducing only_higher, only_lower keywords.
@@ -126,7 +115,7 @@ class GridTree:
             pp.Grid: The second vertex of the edge.
 
         """
-
+        edge = self._edge_to_node[mg]
         if edge[0].dim == edge[1].dim:
             if not (
                 "node_number" in self._nodes[edge[0]]
@@ -134,7 +123,7 @@ class GridTree:
             ):
                 self.assign_node_ordering()
 
-            node_indexes = [self.node_props(grid, "node_number") for grid in edge]
+            node_indexes = [self.subdomain_data(grid, "node_number") for grid in edge]
             if node_indexes[0] < node_indexes[1]:
                 return edge[0], edge[1]
             else:
@@ -145,7 +134,20 @@ class GridTree:
         else:
             return edge[1], edge[0]
 
-    def interfaces_of_subdomain(self, node) -> Generator[pp.MortarGrid, None, None]:
+    def subdomain_pair_to_interface(
+        self, node_pair: Tuple[pp.Grid, pp.Grid]
+    ) -> pp.MortarGrid:
+        reverse_dict = {v: k for k, v in self._edge_to_node.items()}
+        if node_pair in reverse_dict:
+            return reverse_dict[node_pair]
+        elif node_pair[::-1] in reverse_dict:
+            return reverse_dict[node_pair[::-1]]
+        else:
+            raise KeyError("Unknown subdomain pair")
+
+    def interfaces_of_subdomain(
+        self, node: pp.Grid
+    ) -> Generator[pp.MortarGrid, None, None]:
         """Iterator over the edges of the specific node.
 
         FIXME: Consider intorducing only_higher, only_lower keywords.
@@ -158,7 +160,7 @@ class GridTree:
                 The edge (pair of grids) associated with an edge.
 
         """
-        for edge in self._edges:
+        for edge in self._edge_data:
             node_pair = self._edge_to_node[edge]
             if node_pair[0] == node or node_pair[1] == node:
                 yield edge
@@ -190,7 +192,7 @@ class GridTree:
         """
 
         neigh = []
-        for edge in self._edges.keys():
+        for mg, edge in self._edge_to_node.items():
             if edge[0] == node:
                 neigh.append(edge[1])
             elif edge[1] == node:
@@ -309,7 +311,7 @@ class GridTree:
 
         for key in keys:
             for edge in edges:
-                data = self.edge_props(edge)
+                data = self.interface_data(edge)
                 if overwrite or key not in data:
                     data[key] = None
 
@@ -336,8 +338,10 @@ class GridTree:
             found.append(key in self._nodes[grid])
         return found
 
-    def get_subdomain_data(self, grid: pp.Grid, key: Any = None) -> Any:
+    def subdomain_data(self, grid: pp.Grid, key: Any = None) -> Any:
         """Getter for a subdomain property of the GridTree.
+
+        FIXME: Should we delete the key and simply return the full data dictionary?
 
         Parameters:
             grid (pp.Grid): The grid associated with the node.
@@ -354,10 +358,10 @@ class GridTree:
         else:
             return self._nodes[grid][key]
 
-    def get_interface_data(
-        self, edge: Tuple[pp.Grid, pp.Grid], key: Any = None
-    ) -> Dict:
+    def interface_data(self, edge: pp.MortarGrid, key: Any = None) -> Dict:
         """Getter for an edge properties of the bucket.
+
+        FIXME: Should we delete the key and simply return the full data dictionary?
 
         Parameters:
             edge (Tuple of pp.Grid): The two grids making up the edge.
@@ -372,16 +376,12 @@ class GridTree:
             KeyError if the two grids do not form an edge.
 
         """
-        if tuple(edge) in list(self._edges.keys()):
+        if edge in self._edge_data:
             if key is None:
-                return self._edges[edge]
+                return self._edge_data[edge]
             else:
-                return self._edges[edge][key]
-        elif tuple(edge[::-1]) in list(self._edges.keys()):
-            if key is None:
-                return self._edges[(edge[1], edge[0])]
-            else:
-                return self._edges[(edge[1], edge[0])][key]
+                return self._edge_data[edge][key]
+
         else:
             raise KeyError("Unknown edge")
 
@@ -417,6 +417,8 @@ class GridTree:
         the edge. If the property has not been added, it will implicitly be
         generated.
 
+        FIXME: Can we delete this?
+
         Parameters:
             edge (2-tuple of grids): Grid pair identifying the interface.
             key (object): Key identifying the field to add.
@@ -442,6 +444,8 @@ class GridTree:
         """Remove property to existing subdomain in the GridTree.
 
         FIXME: Property or properties? Applies to several methods.
+
+        FIXME: Can we delete this?
 
         Properties can be removed either to all subdomains, or to selected
         subdomains as specified by their grid. In the former case, to all nodes
@@ -485,6 +489,8 @@ class GridTree:
         """
         Remove property to existing edges in the graph.
 
+        FIXME: Can we delete this?
+
         Properties can be removed either to all edges, or to selected edges as
         specified by their grid pair. In the former case, to all edges the property
         will be removed.
@@ -520,7 +526,7 @@ class GridTree:
 
         for key in keys:
             for edge in edges_processed:
-                data = self.edge_props(edge)
+                data = self.interface_data(edge)
                 if key in data:
                     del data[key]
 
@@ -580,14 +586,10 @@ class GridTree:
         if len(grids) != 2:
             raise ValueError("An edge should be specified by exactly two grids")
 
-        if tuple(grids) in list(self._edges.keys()) or grids[::-1] in list(
-            self._edges.keys()
-        ):
+        if mg in self._edge_data:
             raise ValueError("Cannot add existing edge")
 
-        data = {
-            "face_cells": primary_secondary_map
-        }  # {"primary_secondary_map": primary_secondary_map}
+        data = {"face_cells": primary_secondary_map}
 
         self._edge_data[mg] = data
 
@@ -621,13 +623,15 @@ class GridTree:
 
         del self._nodes[node]
 
-        edges_to_remove = []
-        for edge, _ in self.edges():
+        edges_to_remove: List[pp.MortarGrid] = []
+        for mg in self.interfaces():
+            edge = self._edge_to_node[mg]
             if edge[0] == node or edge[1] == node:
-                edges_to_remove.append(edge)
+                edges_to_remove.append(mg)
 
-        for edge in edges_to_remove:
-            del self._edges[edge]
+        for mg in edges_to_remove:
+            del self._edge_data[mg]
+            del self._edge_to_node[mg]
 
     def update_subdomains(self, mapping: Dict[pp.Grid, pp.Grid]) -> None:
         """
@@ -642,17 +646,14 @@ class GridTree:
             data = self._nodes[old]
             self._nodes[new] = data
             del self._nodes[old]
-            new_dict = {}
 
-            for edge, data in self._edges.items():
+            for mg, edge in self._edge_to_node.items():
                 if edge[0] == old:
-                    new_dict[(new, edge[1])] = data
+                    self._edge_to_node[mg] = (new, edge[1])
+                    del self._edge_to_node[mg]
                 elif edge[1] == old:
-                    new_dict[(edge[0], new)] = data
-                else:
-                    new_dict[edge] = data
-
-            self._edges = new_dict
+                    self._edge_to_node[mg] = (edge[0], new)
+                    del self._edge_to_node[mg]
 
     def eliminate_subdomain(self, node: pp.Grid) -> List[pp.Grid]:
         """
@@ -665,7 +666,7 @@ class GridTree:
         """
         # Identify neighbors
         neighbors: List[pp.Grid] = self.sort_multiple_nodes(
-            self.node_neighbors(node).tolist()
+            self.subdomain_neighbors(node).tolist()
         )
 
         n_neighbors = len(neighbors)
@@ -679,7 +680,7 @@ class GridTree:
                 self.add_edge((g0, g1), cell_cells)
 
         # Remove the node and update the ordering of the remaining nodes
-        node_number = self.node_props(node, "node_number")
+        node_number = self.subdomain_data(node, "node_number")
         self.remove_node(node)
         self.update_node_ordering(node_number)
 
@@ -710,12 +711,12 @@ class GridTree:
         """
 
         gb_copy = self.copy()
-        grids_of_dim = gb_copy.grids_of_dimension(dim)
-        grids_of_dim_old = self.grids_of_dimension(dim)
+        grids_of_dim = gb_copy.subdomains_of_dimension(dim)
+        grids_of_dim_old = self.subdomains_of_dimension(dim)
         # The node numbers are copied for each grid, so they can be used to
         # make sure we use the same grids (g and g_old) below.
-        nn_new = [gb_copy.node_props(g, "node_number") for g in grids_of_dim]
-        nn_old = [self.node_props(g, "node_number") for g in grids_of_dim_old]
+        nn_new = [gb_copy.subdomain_data(g, "node_number") for g in grids_of_dim]
+        nn_old = [self.subdomain_data(g, "node_number") for g in grids_of_dim_old]
         _, old_in_new = setmembership.ismember_rows(
             np.array(nn_new), np.array(nn_old), sort=False
         )
@@ -730,7 +731,7 @@ class GridTree:
             # the neighbours lists refer to the copy grids.
             g_old = grids_of_dim_old[old_in_new[i]]
             neighbours_dict[i] = neighbours
-            neighbours_dict_old[i] = self.node_neighbors(g_old)
+            neighbours_dict_old[i] = self.subdomain_neighbors(g_old)
             eliminated_nodes[i] = g_old
 
         elimination_data = {
@@ -743,7 +744,7 @@ class GridTree:
 
     # ---------- Functionality related to ordering of nodes
 
-    def assign_node_ordering(self, overwrite_existing: bool = True) -> None:
+    def assign_subdomain_ordering(self, overwrite_existing: bool = True) -> None:
         """
         Assign an ordering of the nodes in the graph, stored as the attribute
         'node_number'.
@@ -765,8 +766,8 @@ class GridTree:
 
         # Check whether 'node_number' is defined for the grids already.
         ordering_exists = True
-        for _, data in self:
-            if "node_number" not in data.keys():
+        for _, data in self._nodes:
+            if "node_number" not in data:
                 ordering_exists = False
         if ordering_exists and not overwrite_existing:
             return
@@ -774,7 +775,7 @@ class GridTree:
         counter = 0
         # Loop over grids in decreasing dimensions
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
-            for grid in self.grids_of_dimension(dim):
+            for grid in self.subdomains_of_dimension(dim):
                 data = self._nodes[grid]
                 # Get old value, issue warning if not equal to the new one.
                 num = data.get("node_number", -1)
@@ -784,9 +785,8 @@ class GridTree:
                 data["node_number"] = counter
                 counter += 1
 
-        self.add_edge_props("edge_number")
         counter = 0
-        for _, data in self.edges():
+        for _, data in self.interfaces():
             data["edge_number"] = counter
             counter += 1
 
@@ -805,8 +805,8 @@ class GridTree:
 
         # Loop over grids in decreasing dimensions
         for dim in range(self.dim_max(), self.dim_min() - 1, -1):
-            for g in self.grids_of_dimension(dim):
-                if not self.has_nodes_prop([g], "node_number"):
+            for g in self.subdomains_of_dimension(dim):
+                if "node_number" not in self._nodes[g]:
                     # It is not clear how severe this case is. For the moment,
                     # we give a warning, and hope the user knows what to do
                     warnings.warn("Tried to update node ordering where none exists")
@@ -831,9 +831,9 @@ class GridTree:
             sorted_nodes: The same nodes, sorted.
 
         """
-        assert self.has_nodes_prop(nodes, "node_number")
+        assert all(["node_number" in self._nodes[g] for g in nodes])
 
-        return sorted(nodes, key=lambda n: self.node_props(n, "node_number"))
+        return sorted(nodes, key=lambda n: self.subdomain_data(n, "node_number"))
 
     # ------------- Miscellaneous functions ---------
 
@@ -858,12 +858,11 @@ class GridTree:
 
     def compute_geometry(self) -> None:
         """Compute geometric quantities for the grids."""
-        for grid, _ in self:
+        for grid in self.subdomains():
             grid.compute_geometry()
 
-        for _, data in self.edges():
-            if "mortar_grid" in data.keys():
-                data["mortar_grid"].compute_geometry()
+        for mg in self.interfaces:
+            mg.compute_geometry()
 
     def copy(self) -> "GridTree":
         """Make a shallow copy of the grid bucket. The underlying grids are not copied.
@@ -874,10 +873,11 @@ class GridTree:
         """
         gb_copy: pp.GridTree = GridTree()
         gb_copy._nodes = self._nodes.copy()
-        gb_copy._edges = self._edges.copy()
+        gb_copy._edge_data = self._edge_data.copy()
+        gb_copy._edge_to_node = self._edge_to_node.copy()
         return gb_copy
 
-    def replace_grids(
+    def replace_subdomains(
         self,
         g_map: Optional[Dict[pp.Grid, pp.Grid]] = None,
         mg_map: Optional[
@@ -907,14 +907,13 @@ class GridTree:
         # update the grid bucket considering the new grids instead of the old one
         # valid only for physical grids and not for mortar grids
         if g_map is not None:
-            self.update_nodes(g_map)
+            self.update_subdomains(g_map)
         else:
             g_map = {}
 
         # refine the grids when specified
         for g_old, g_new in g_map.items():
-            for _, d in self.edges_of_node(g_new):
-                mg = d["mortar_grid"]
+            for mg in self.interfaces_of_subdomain(g_new):
                 if mg.dim == g_new.dim:
                     # update the mortar grid of the same dimension
                     mg.update_secondary(g_new, tol)
@@ -957,8 +956,8 @@ class GridTree:
         g0, g1 = self.nodes_of_edge((g0, g1))
 
         # Identify the faces connecting the neighbors to the grid to be removed
-        fc1 = self.edge_props((g0, g_l))
-        fc2 = self.edge_props((g1, g_l))
+        fc1 = self.interface_data((g0, g_l))
+        fc2 = self.interface_data((g1, g_l))
         _, faces_1 = fc1["face_cells"].nonzero()
         _, faces_2 = fc2["face_cells"].nonzero()
         # Extract the corresponding cells
@@ -994,8 +993,8 @@ class GridTree:
                 ordered by 'node_number'.
 
         """
-        values = np.empty(self.num_graph_nodes())
-        for g, d in self:
+        values = np.empty(self.num_subdomains())
+        for g, d in self._nodes.items():
             values[d["node_number"]] = fct(g, d)
         return values
 
@@ -1018,7 +1017,7 @@ class GridTree:
                 relative 'node_number'.
 
         """
-        i = np.zeros(len(self._edges), dtype=int)
+        i = np.zeros(len(self._edge_data), dtype=int)
         j = np.zeros(i.size, dtype=int)
         values = np.zeros(i.size)
 
@@ -1026,10 +1025,10 @@ class GridTree:
         idx = 0
         for e, data in self.edges():
             g_l, g_h = self.nodes_of_edge(e)
-            data_l, data_h = self.node_props(g_l), self.node_props(g_h)
+            data_l, data_h = self.subdomain_data(g_l), self.subdomain_data(g_h)
 
-            i[idx] = self.node_props(g_l, "node_number")
-            j[idx] = self.node_props(g_h, "node_number")
+            i[idx] = self.subdomain_data(g_l, "node_number")
+            j[idx] = self.subdomain_data(g_h, "node_number")
             values[idx] = fct(g_h, g_l, data_h, data_l, data)
             idx += 1
 
@@ -1062,8 +1061,8 @@ class GridTree:
 
         diam_mg = [
             np.amax(d["mortar_grid"].cell_diameters())
-            for e, d in self.edges()
-            if cond(e) and d.get("mortar_grid")
+            for mg in self._edge_data
+            if cond(mg)
         ]
 
         return np.amax(np.hstack((diam_g, diam_mg)))  # type: ignore
@@ -1074,8 +1073,8 @@ class GridTree:
         """
         Return the bounding box of the grid bucket.
         """
-        c_0s = np.empty((3, self.num_graph_nodes()))
-        c_1s = np.empty((3, self.num_graph_nodes()))
+        c_0s = np.empty((3, self.num_subdomains()))
+        c_1s = np.empty((3, self.num_subdomains()))
 
         for i, grid in enumerate(self._nodes.keys()):
             c_0s[:, i], c_1s[:, i] = grid.bounding_box()
@@ -1101,7 +1100,7 @@ class GridTree:
             int: Number of mono-dimensional grids and interfaces in the bucket.
 
         """
-        return self.num_graph_nodes() + self.num_graph_edges()
+        return self.num_subdomains() + self.num_interfaces()
 
     def dim_min(self) -> int:
         """
@@ -1125,7 +1124,7 @@ class GridTree:
             np.array: Active dimensions of the grids present in the hierarchy.
 
         """
-        return np.unique([grid.dim for grid, _ in self])
+        return np.unique([grid.dim for grid in self.subdomains()])
 
     def cell_volumes(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
@@ -1143,7 +1142,7 @@ class GridTree:
         if cond is None:
             cond = lambda g: True
         return np.hstack(
-            [grid.cell_volumes for grid, _ in self._nodes.items() if cond(grid)]
+            [grid.cell_volumes for grid in self.subdomains() if cond(grid)]
         )
 
     def face_centers(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
@@ -1161,7 +1160,7 @@ class GridTree:
         if cond is None:
             cond = lambda g: True
         return np.hstack(
-            [grid.face_centers for grid, _ in self._nodes.items() if cond(grid)]
+            [grid.face_centers for grid in self.subdomains() if cond(grid)]
         )
 
     def cell_centers(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
@@ -1201,13 +1200,7 @@ class GridTree:
             cond = lambda g: True
         if self.num_mortar_cells(cond) == 0:
             return np.array([])
-        return np.hstack(
-            [
-                data["mortar_grid"].cell_volumes
-                for edge, data in self.edges()
-                if cond(data["mortar_grid"])
-            ]
-        )
+        return np.hstack([mg.cell_volumes for mg in self.interfaces()() if cond(mg)])
 
     def num_cells(self, cond: Callable[[pp.Grid], bool] = None) -> int:
         """
@@ -1244,11 +1237,7 @@ class GridTree:
         if cond is None:
             cond = lambda g: True
         return np.sum(  # type: ignore
-            [
-                data["mortar_grid"].num_cells
-                for _, data in self.edges()
-                if data.get("mortar_grid") and cond(data["mortar_grid"])
-            ],
+            [mg.num_cells for mg in self.interfaces() if cond(mg)],
             dtype=int,
         )
 
@@ -1269,7 +1258,7 @@ class GridTree:
             cond = lambda g: True
 
         return np.sum(  # type: ignore
-            [grid.num_faces for grid in self._nodes.keys() if cond(grid)]
+            [grid.num_faces for grid in self.subdomains() if cond(grid)]
         )
 
     def num_nodes(self, cond: Callable[[pp.Grid], bool] = None) -> int:
@@ -1289,7 +1278,7 @@ class GridTree:
             cond = lambda g: True
 
         return np.sum(  # type: ignore
-            [grid.num_nodes for grid in self._nodes.keys() if cond(grid)]
+            [grid.num_nodes for grid in self.subdomains() if cond(grid)]
         )
 
     def num_subdomains(self):
@@ -1310,7 +1299,7 @@ class GridTree:
             int: Number of edges in the graph.
 
         """
-        return len(self._edges)
+        return len(self._edge_data)
 
     def num_subdomains_and_interfaces(self) -> int:
         """
@@ -1324,7 +1313,7 @@ class GridTree:
         return self.num_subdomains() + self.num_interfaces()
 
     def __str__(self) -> str:
-        max_dim = self.grids_of_dimension(self.dim_max())
+        max_dim = self.subdomains_of_dimension(self.dim_max())
         num_nodes = 0
         num_cells = 0
         for g in max_dim:
@@ -1339,7 +1328,7 @@ class GridTree:
         s += ". Nodes: " + str(num_nodes) + "\n"
         s += "In lower dimensions: \n"
         for dim in range(self.dim_max() - 1, self.dim_min() - 1, -1):
-            gl = self.grids_of_dimension(dim)
+            gl = self.subdomains_of_dimension(dim)
             num_nodes = 0
             num_cells = 0
             for g in gl:
@@ -1351,11 +1340,11 @@ class GridTree:
                 f"{num_cells} cells and {num_nodes} nodes. \n"
             )
 
-        s += f"Total number of interfaces: {self.num_graph_edges()}\n"
+        s += f"Total number of interfaces: {self.num_subdomains()}\n"
         for dim in range(self.dim_max(), self.dim_min(), -1):
             num_e = 0
-            for e, _ in self.edges():
-                if e[0].dim == dim:
+            for mg in self.interfaces():
+                if mg.dim == dim:
                     num_e += 1
 
             s += f"{num_e} interfaces between grids of dimension {dim} and {dim-1}\n"
@@ -1363,15 +1352,15 @@ class GridTree:
 
     def __repr__(self) -> str:
         s = (
-            f"Grid bucket containing {self.num_graph_nodes() } grids and "
-            f"{self.num_graph_edges()} interfaces\n"
+            f"Grid bucket containing {self.num_subdomains() } grids and "
+            f"{self.num_interfaces()} interfaces\n"
             f"Maximum dimension present: {self.dim_max()} \n"
             f"Minimum dimension present: {self.dim_min()} \n"
         )
 
         if self.num_subdomains() > 0:
             for dim in range(self.dim_max(), self.dim_min() - 1, -1):
-                gl = self.grids_of_dimension(dim)
+                gl = self.subdomains_of_dimension(dim)
                 nc = 0
                 for g in gl:
                     nc += g.num_cells
@@ -1382,10 +1371,10 @@ class GridTree:
             for dim in range(self.dim_max(), self.dim_min(), -1):
                 num_e = 0
                 num_mc = 0
-                for e, d in self.edges():
-                    if e[0].dim == dim:
+                for mg in self.interfaces():
+                    if mg.dim == dim:
                         num_e += 1
-                        num_mc += d["mortar_grid"].num_cells
+                        num_mc += mg.num_cells
 
                 s += (
                     f"{num_e} interfaces between grids of dimension {dim} and {dim-1}"
