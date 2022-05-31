@@ -15,9 +15,8 @@ from . import (
     functions,
     grid_operators,
     operator_functions,
-    operators
+    operators,
 )
-
 from .discretizations import *
 from .equation_manager import *
 from .forward_mode import *
