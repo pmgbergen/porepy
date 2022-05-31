@@ -427,7 +427,7 @@ class Operator:
                     jac = func_op.get_jacobian(*results[1:])
                 except Exception as exc:
                     # TODO specify what can go wrong here (Exception type)
-                    msg = "Ad parsing: Error evaluating black box operator:\n"
+                    msg = "Ad parsing: Error evaluating operator function:\n"
                     msg += func_op._parse_readable()
                     raise ValueError(msg) from exc
                 return Ad_array(val, jac)
