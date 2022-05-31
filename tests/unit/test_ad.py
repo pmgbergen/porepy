@@ -9,14 +9,13 @@ Tests for components of the Ad machinery. Specifically, the tests cover:
 """
 
 import unittest
-import pytest
 
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
-from porepy.numerics.ad.forward_mode import Ad_array
 import porepy as pp
-
+from porepy.numerics.ad.forward_mode import Ad_array
 
 ## Tests of the Ad grid operators.
 
@@ -523,8 +522,10 @@ def test_variable_combinations(grids, variables):
 
 @pytest.mark.parametrize(
     "operator_class, constructor_kwargs",
-    [("LJacFunction", ({"L": [-1.0, 0.0]}, {"L": [0.0, 2.0 * 1.816]})),
-     ("Function", ({}, {}))],
+    [
+        ("LJacFunction", ({"L": [-1.0, 0.0]}, {"L": [0.0, 2.0 * 1.816]})),
+        ("Function", ({}, {})),
+    ],
 )
 def test_operator_functions(operator_class, constructor_kwargs):
     """

@@ -1,10 +1,10 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
-import abc
+
 import copy
 from enum import Enum
 from itertools import count
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -17,23 +17,14 @@ from porepy.params.tensor import SecondOrderTensor
 from . import _ad_utils
 from .forward_mode import Ad_array, initAdArrays
 
-__all__ = [
-    "Operator",
-    "Matrix",
-    "Array",
-    "Scalar",
-    "Variable",
-    "MergedVariable"
-]
+__all__ = ["Operator", "Matrix", "Array", "Scalar", "Variable", "MergedVariable"]
 
 # Short hand for typing
 Edge = Tuple[pp.Grid, pp.Grid]
 GridLike = Union[pp.Grid, Edge]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
-Operation = Enum(
-    "Operation", ["void", "add", "sub", "mul", "div", "evaluate", "approximate"]
-)
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate"])
 
 
 def _get_shape(mat):

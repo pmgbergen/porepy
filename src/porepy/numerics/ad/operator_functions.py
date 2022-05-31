@@ -6,10 +6,9 @@ specified operator function type.
 """
 
 import abc
-
-from typing import Callable, List, Optional, Union, Tuple, Type
 from functools import partial
 from types import FunctionType
+from typing import Callable, List, Optional, Type, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -17,14 +16,14 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.ad.forward_mode import Ad_array
 
-from .operators import Operator, Operation, Tree
+from .operators import Operation, Operator, Tree
 
 __all__ = [
     "AbstractFunction",
     "AbstractJacFunction",
     "Function",
     "LJacFunction",
-    "ADmethod"
+    "ADmethod",
 ]
 
 ### BASE CLASSES ------------------------------------------------------------------------------
@@ -32,21 +31,21 @@ __all__ = [
 
 class AbstractFunction(Operator):
     """Abstract class for all operator functions.
-    
+
     Implements the callable-functionality and provides abstract methods
         - :method:`~porepy.numerics.ad.operator_functions.AbstractFunction.get_values`
         - :method:`~porepy.numerics.ad.operator_functions.AbstractFunction.get_jacobian`
-    
+
     The abstraction intends to provide means for approximating operators, where values are
     e.g. interpolated and the Jacobian is approximated using FD.
     """
-    
+
     def __init__(
         self,
         func: Callable,
         name: str,
-        is_vector_func: Optional[bool]=False,
-        is_adarray_func: Optional[bool]=False
+        is_vector_func: Optional[bool] = False,
+        is_adarray_func: Optional[bool] = False,
     ):
         """Constructor. Saves information about the passed callable.
         The passed callable is expected to take numerical information in some form and
@@ -55,7 +54,7 @@ class AbstractFunction(Operator):
         Important NOTE: flagging this instance with `is_adarray_func` will lead to a direct
         evaluation of the callable using Ad_array instances, effectively bypassing
         the abstract methods (but still leading to NotImplementedError if not implemented)
-        Might not be elegant, but we can put the old `Function` class this way in the same 
+        Might not be elegant, but we can put the old `Function` class this way in the same
         category/hierarchy.
 
         :param func: callable Python object representing the function
@@ -79,9 +78,9 @@ class AbstractFunction(Operator):
 
         ### PRIVATE
         self._name: str = name
-        self._operation: str = Operation.evaluate
+        self._operation: Operation = Operation.evaluate
         self._set_tree()
-    
+
     def __call__(self, *args):
         """
         Call to operator object with 'args' as children.
@@ -103,20 +102,24 @@ class AbstractFunction(Operator):
         return s
 
     def __mul__(self, other):
-        raise RuntimeError("ad.Operator functions should only be called, not multiplied.")
+        raise RuntimeError(
+            "ad.Operator functions should only be called, not multiplied."
+        )
 
     def __add__(self, other):
         raise RuntimeError("ad.Operator functions should only be called, not added.")
 
     def __sub__(self, other):
-        raise RuntimeError("ad.Operator functions should only be called, not subtracted.")
-    
+        raise RuntimeError(
+            "ad.Operator functions should only be called, not subtracted."
+        )
+
     def __div__(self, other):
         raise RuntimeError("ad.Operator functions should only be called, not divided.")
 
     def __truediv__(self, other):
         raise RuntimeError("ad.Operator functions should only be called, not divided.")
-    
+
     def parse(self, gb: "pp.GridBucket"):
         """Parsing to an numerical value.
 
@@ -133,7 +136,7 @@ class AbstractFunction(Operator):
         return self
 
     @abc.abstractmethod
-    def get_values(self, *args: Tuple[Ad_array, ...]) -> "np.ndarray":
+    def get_values(self, *args: "Ad_array") -> "np.ndarray":
         """
         Abstract method for evaluating the callable passed at instantiation.
 
@@ -141,12 +144,12 @@ class AbstractFunction(Operator):
         the call to this instance.
 
         The returned numpy array will be be set as 'val' argument for the AD array representing
-        this instance. 
+        this instance.
         """
         pass
 
     @abc.abstractmethod
-    def get_jacobian(self, *args: Tuple[Ad_array, ...]) -> "sps.spmatrix":
+    def get_jacobian(self, *args: "Ad_array") -> "sps.spmatrix":
         """
         Abstract method for evaluating the Jacobian of the callable passed at instantiation.
 
@@ -166,7 +169,7 @@ class AbstractJacFunction(AbstractFunction):
     """'Half'-abstract base class, for which a direct evaluation of the passed callable is
     implemented. Only the Jacobian has to be concretized / approximated."""
 
-    def get_values(self, *args: Tuple["Ad_array", ...]) -> "np.ndarray":
+    def get_values(self, *args: "Ad_array") -> "np.ndarray":
         """
         Evaluates the passed callable directly using values of Ad_array instances
         passed as arguments.
@@ -181,7 +184,7 @@ class AbstractJacFunction(AbstractFunction):
 
         # if the black box is flagged as conform for vector operations, feed vectors
         if self.is_vector_func:
-            
+
             return self.func(*vals)
         else:
             # if not vector-conform, feed element-wise
@@ -200,8 +203,9 @@ class AbstractJacFunction(AbstractFunction):
 
 class Function(AbstractFunction):
     """Ad representation of an analytically given function,
-    where it is expected that feeding the callable with Ad_arrays will directly give the result.
-    
+    where it is expected that feeding the callable with Ad_arrays directly will give
+    give the proper result.
+
     Here the values AND the Jacobian are obtained exactly by standard rules of differentiation.
 
     The intended use is as a wrapper for operations on pp.ad.Ad_array objects,
@@ -213,14 +217,16 @@ class Function(AbstractFunction):
     (due to the assumed, direct evaluation of result using the callable).
     """
 
-    def __init__(self, func: Callable, name: str, is_vector_func: Optional[bool]=True):
+    def __init__(
+        self, func: Callable, name: str, is_vector_func: Optional[bool] = True
+    ):
         super().__init__(func, name, is_vector_func, True)
-    
-    def get_values(self, *args: Tuple[Ad_array, ...]) -> "np.ndarray":
+
+    def get_values(self, *args: "Ad_array") -> "np.ndarray":
         result = self.func(*args)
         return result.val
-    
-    def get_jacobian(self, *args: Tuple[Ad_array, ...]) -> "np.ndarray":
+
+    def get_jacobian(self, *args: "Ad_array") -> "np.ndarray":
         result = self.func(*args)
         return result.jac
 
@@ -255,7 +261,7 @@ class LJacFunction(AbstractJacFunction):
         else:
             self._L = [float(L)]
 
-    def get_jacobian(self, *args) -> "sps.spmatrix":
+    def get_jacobian(self, *args: "Ad_array") -> "sps.spmatrix":
         """The approximate jacobian is identity times L.
 
         Where the respective blocks appears,
@@ -332,7 +338,7 @@ class ADmethod:
         :param func: decorated function object
         :type func: function
         :param ad_function_type: reference to the requested AD class (type not class instance!)
-        :type ad_function_type: :class:`~porepy.numerics.ad.operators.ApproximateJacobianFunction`
+        :type ad_function_type: Type[:class:`AbstractFunction`]
         :param operator_kwargs: keyword arguments to be passed when instantiating operator
         :type operator_kwargs: dict
         """
@@ -342,7 +348,7 @@ class ADmethod:
         self._explicit_init = func is None
         # reference to instance, to which the decorated bound method belongs, if any
         # if this remains None, then an unbound method was decorated
-        self._bound_to = None
+        self._bound_to: Union[None, object] = None
         # reference to operator type which should wrap the decorated method
         self._ad_func_type = ad_function_type
         # keyword arguments for call to constructor of operator type
