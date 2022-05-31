@@ -42,7 +42,7 @@ class Tpfa(pp.FVElliptic):
         parameter_dictionary contains the entries:
             second_order_tensor : (SecondOrderTensor) Permeability defined
                 cell-wise. This is the effective permeability, any scaling by
-                for intance apertures should be incorporated before calling
+                for instance apertures should be incorporated before calling
                 this function.
             bc : (BoundaryCondition) boundary conditions
             ambient_dimension: (int) Optional. Ambient dimension, used in the
@@ -81,7 +81,7 @@ class Tpfa(pp.FVElliptic):
         vector_source_dim: int = parameter_dictionary.get("ambient_dimension", g.dim)
 
         if g.dim == 0:
-            # Short cut for 0d grids
+            # Shortcut for 0d grids
             matrix_dictionary[self.flux_matrix_key] = sps.csr_matrix((0, g.num_cells))
             matrix_dictionary[self.bound_flux_matrix_key] = sps.csr_matrix((0, 0))
             matrix_dictionary[self.bound_pressure_cell_matrix_key] = sps.csr_matrix(
@@ -120,7 +120,7 @@ class Tpfa(pp.FVElliptic):
         left_sfi, ci_left, left_sgn = sps.find(g.cell_faces[fi_left])
         right_sfi, ci_right, right_sgn = sps.find(g.cell_faces[fi_right])
 
-        # Sort subface indices to not loose left to right periodic mapping
+        # Sort subface indices to not lose left to right periodic mapping
         # I.e., fi_left[i] maps to fi_right[i]
         I_left = np.argsort(left_sfi)
         I_right = np.argsort(right_sfi)
@@ -241,7 +241,7 @@ class Tpfa(pp.FVElliptic):
         # The discretization involves the transmissibilities, multiplied with the
         # distance between cell and face centers, and with the sgn adjustment (or else)
         # the vector source will point in the wrong direction in certain cases.
-        # See Starnoni et al 2020, WRR for details.
+        # See Starnoni et al. 2020, WRR for details.
         vals = (t[fi_periodic] * fc_cc * sgn_periodic)[:vector_source_dim].ravel("f")
 
         # Rows and cols are given by fi / ci, expanded to account for the vector source
