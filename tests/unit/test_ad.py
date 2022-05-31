@@ -9,14 +9,13 @@ Tests for components of the Ad machinery. Specifically, the tests cover:
 """
 
 import unittest
-import pytest
 
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
-from porepy.numerics.ad.forward_mode import Ad_array
 import porepy as pp
-
+from porepy.numerics.ad.forward_mode import Ad_array
 
 ## Tests of the Ad grid operators.
 
@@ -523,11 +522,14 @@ def test_variable_combinations(grids, variables):
 
 @pytest.mark.parametrize(
     "operator_class, constructor_kwargs",
-    [("LJacFunction", ({"L": [-1.0, 0.0]}, {"L": [0.0, 2.0 * 1.816]}))],
+    [
+        ("LJacFunction", ({"L": [-1.0, 0.0]}, {"L": [0.0, 2.0 * 1.816]})),
+        ("Function", ({}, {})),
+    ],
 )
-def test_approx_jac_operators(operator_class, constructor_kwargs):
+def test_operator_functions(operator_class, constructor_kwargs):
     """
-    1. Test: test of if a certain operator can solve the following nonlinear problem
+    1. Test: test of if a certain operator function can solve the following nonlinear problem
 
     Find x, y s.t.
         y-x = 0
@@ -597,11 +599,11 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
     Z = reset_values(gbs, eq_manager)
 
     line_a = operator_cls(
-        **constructor_kwargs[0], func=line, name="line_a", vector_conform=False
+        **constructor_kwargs[0], func=line, name="line_a", is_vector_func=False
     )(x, y)
 
     circle_a_ = operator_cls(
-        **constructor_kwargs[1], func=circle_, name="circle_a", vector_conform=False
+        **constructor_kwargs[1], func=circle_, name="circle_a", is_vector_func=False
     )(x, y)
     circle_a = circle_a_ - radii**2
 
@@ -673,7 +675,7 @@ def test_approx_jac_operators(operator_class, constructor_kwargs):
     dof_manager.distribute_variable(initial_values)
 
     multiply = lambda x, y: x * y
-    op = pp.ad.LJacFunction([3.0, 4], multiply, "bb-multip")(x, y)
+    op = operator_cls(**constructor_kwargs[0], func=multiply, name="bb-multip")(x, y)
 
     op_ad = op.evaluate(dof_manager)
     # test of dimension
