@@ -1,13 +1,11 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
-import abc
+
 import copy
 import numbers
 from enum import Enum
-from functools import partial
 from itertools import count
-from types import FunctionType
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -20,28 +18,14 @@ from porepy.params.tensor import SecondOrderTensor
 from . import _ad_utils
 from .forward_mode import Ad_array, initAdArrays
 
-__all__ = [
-    "Operator",
-    "Matrix",
-    "Array",
-    "Scalar",
-    "Variable",
-    "MergedVariable",
-    "Function",
-    "ApproxJacFunction",
-    "LJacFunction",
-    "ADWrapper",
-    "SecondOrderTensorAd",
-]
+__all__ = ["Operator", "Matrix", "Array", "Scalar", "Variable", "MergedVariable"]
 
 # Short hand for typing
 Edge = Tuple[pp.Grid, pp.Grid]
 GridLike = Union[pp.Grid, Edge]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
-Operation = Enum(
-    "Operation", ["void", "add", "sub", "mul", "div", "evaluate", "approximate"]
-)
+Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate"])
 
 
 def _get_shape(mat):
@@ -433,20 +417,21 @@ class Operator:
         elif tree.op == Operation.evaluate:
             # This is a function, which should have at least one argument
             assert len(results) > 1
-            return results[0].func(*results[1:])
+            func_op = results[0]
 
-        elif tree.op == Operation.approximate:
-            assert len(results) > 1
-            blackbox_op = results[0]
-            try:
-                val = blackbox_op.blackbox_val(*results[1:])
-                jac = blackbox_op.approx_jac(*results[1:])
-            except Exception as exc:
-                # TODO specify what can go wrong here (Exception type)
-                msg = "Ad parsing: Error evaluating black box operator:\n"
-                msg += blackbox_op._parse_readable()
-                raise ValueError(msg) from exc
-            return Ad_array(val, jac)
+            # if the callable can be fed with Ad_arrays, do it
+            if func_op.is_adarray_func:
+                return func_op.func(*results[1:])
+            else:
+                try:
+                    val = func_op.get_values(*results[1:])
+                    jac = func_op.get_jacobian(*results[1:])
+                except Exception as exc:
+                    # TODO specify what can go wrong here (Exception type)
+                    msg = "Ad parsing: Error evaluating operator function:\n"
+                    msg += func_op._parse_readable()
+                    raise ValueError(msg) from exc
+                return Ad_array(val, jac)
 
         else:
             raise ValueError("Should not happen")
@@ -511,7 +496,7 @@ class Operator:
         elif tree.op == Operation.div:
             operator_str = "/"
         # function evaluations have their own readable representation
-        elif tree.op in [Operation.evaluate, Operation.approximate]:
+        elif tree.op == Operation.evaluate:
             is_func = True
         # for unknown operations, 'operator_str' remains None
 
@@ -1160,212 +1145,6 @@ class MergedVariable(Variable):
         return s
 
 
-class Function(Operator):
-    """Ad representation of a function.
-
-    The intended use is as a wrapper for operations on pp.ad.Ad_array objects,
-    in forms which are not directly or easily expressed by the rest of the Ad
-    framework.
-
-    """
-
-    def __init__(self, func: Callable, name: str):
-        """Initialize a function.
-
-        Parameters:
-            func (Callable): Function which maps one or several Ad arrays to an
-                Ad array.
-            name (str): Name of the function.
-
-        """
-        self.func = func
-        self._name = name
-        self._operation = Operation.evaluate
-        self._set_tree()
-
-    def __mul__(self, other):
-        raise RuntimeError("Functions should only be evaluated")
-
-    def __add__(self, other):
-        raise RuntimeError("Functions should only be evaluated")
-
-    def __sub__(self, other):
-        raise RuntimeError("Functions should only be evaluated")
-
-    def __call__(self, *args):
-        """
-        Call to operator object with 'args' as children.
-
-        The children are passed as arguments to the callable passed at instantiation.
-        """
-        children = [self, *args]
-        op = Operator(tree=Tree(self._operation, children=children))
-        return op
-
-    def __repr__(self) -> str:
-        s = f"AD function with name {self._name}"
-
-        return s
-
-    def parse(self, gb):
-        """Parsing to an numerical value.
-
-        The real work will be done by combining the function with arguments, during
-        parsing of an operator tree.
-
-        Parameters:
-            gb (pp.GridBucket): Mixed-dimensional grid. Not used, but it is needed as
-                input to be compatible with parse methods for other operators.
-
-        Returns:
-            The object itself.
-
-        """
-        return self
-
-
-class ApproxJacFunction(Function, abc.ABC):
-    """Ad representation for a 'black box' operation using Ad variables,
-    where an approximation of the Jacobian needs to be implemented.
-
-    Like the pp.ad.Function, it maps pp.ad.Ad_array objects onto a new one,
-    only this time the resulting values are not analytically represented,
-    but provided by abstract methods 'blackbox_val' and 'approx_jac'.
-
-    The intended use it to provide Operators which
-    (for an arbitrary callable (black box) passed at instantiation)
-        - evaluate the black box function
-        - but approximate the true Jacobian.
-
-    This is an abstract base class, meaning
-        - :method:`~porepy.numerics.ad.operators.BlackboxOperator.blackbox_val`
-        - :method:`~porepy.numerics.ad.operators.BlackboxOperator.approx_jac`
-    have to be overwritten and implemented the call to the black box evaluation.
-    The Ad_array representatives of the arguments when calling this instance,
-    will be passed to above methods as arguments.
-    """
-
-    def __init__(
-        self, func: Callable, name: str, vector_conform: Optional[bool] = False
-    ):
-        """Constructor
-
-        :param func: (black box) function providing values.
-        :type func: Callable
-        :param name: name of this operator.
-        :type name: str
-        :param vector_conform: flags whether the black box function can take
-            vectors as arguments or not
-        :type vector_conform: bool
-        """
-        super().__init__(func, name)
-        self._operation = Operation.approximate
-        self._vector_conform = vector_conform
-
-    def __repr__(self) -> str:
-        return f"AD ApproxJac Operator with name {self._name}"
-
-    def blackbox_val(self, *args) -> "np.ndarray":
-        """
-        Evaluates the black box function using values of Ad_array instances
-        passed as arguments
-
-        :param args: tuple of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
-        :type args: tuple
-
-        :return: black box results
-        :rtype: numpy.array
-        """
-        # get values of argument Ad_arrays.
-        vals = (arg.val for arg in args)
-
-        if self._vector_conform:
-            # if the black box is flagged as conform for vector operations, feed vectors
-            return self.func(*vals)
-        else:
-            # if not vector-conform, feed element-wise
-
-            # TODO this displays some special behavior when val-arrays have different lengths:
-            # it returns None-like things for every iteration more then shortest length
-            # These Nones are ignored for some reason by the function call, as well as by the
-            # array constructor.
-            # If a mortar var and a subdomain var are given as args,
-            # then the lengths will be different
-            return np.array([self.func(*vals_i) for vals_i in zip(*vals)])
-
-    @abc.abstractmethod
-    def approx_jac(self, *args) -> "sps.spmatrix":
-        """
-        Abstract method to provide the Jacobian of this operator.
-        Passed arguments will be Ad_array objects representing the operators
-        passed during call to this instance.
-
-        NOTE: When constructing a properly sized Jacobian, mind the
-        model variables not included among the arguments.
-        They must be represented with zero-blocks.
-
-        :param args: tuple of :class:`~porepy.numerics.ad.forward_mode.Ad_array`
-        :type args: tuple
-
-        :return: approximated Jacobian of this black box function with proper dimensions.
-        :rtype: scipy.sparse.spmatrix
-        """
-        pass
-
-
-class LJacFunction(ApproxJacFunction):
-    """
-    Approximates the Jacobian of the black box using the L-scheme
-    with a fixed value per dependency.
-    """
-
-    def __init__(
-        self,
-        L: Union[list, float],
-        func: Callable,
-        name: str,
-        vector_conform: Optional[bool] = False,
-    ):
-        """Constructor.
-
-        The L-multiplyer for the L-scheme can be passed for every argument of the
-        black box function specifically using a list.
-        The order in the list has to mach the order of arguments when calling
-        this instance.
-
-        :param L: multiplyer for identity for L-scheme
-        :type L: float / List[float]
-        """
-        super().__init__(func, name, vector_conform)
-        # check and format input for further use
-        if isinstance(L, list):
-            self._L = [float(val) for val in L]
-        else:
-            self._L = [float(L)]
-
-    def approx_jac(self, *args) -> "sps.spmatrix":
-        """The approximate jacobian is identity times L.
-
-        Where the respective blocks appears,
-        depends on the total dofs and the order of arguments passed during the
-        call to this instance.
-        """
-        # the Jacobian of a (Merged) Variable is already a properly sized block identity
-        if len(args) >= 1:
-            jac = args[0].jac * self._L[0]
-
-            # summing identity blocks for each dependency
-            if len(args) > 1:
-                # TODO think about exception handling in case not enough
-                # L-values were provided initially
-                for arg, L in zip(args[1:], self._L[1:]):
-                    jac += arg.jac * L
-        else:  # TODO assert zero as scalar will cause no type errors with other operators
-            jac = 0.0
-
-        return jac
-
-
 class SecondOrderTensorAd(SecondOrderTensor, Operator):
     def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
         super().__init__(kxx, kyy, kzz, kxy, kxz, kyz)
@@ -1378,179 +1157,6 @@ class SecondOrderTensorAd(SecondOrderTensor, Operator):
 
     def parse(self, gb: pp.GridBucket) -> np.ndarray:
         return self.values
-
-
-class ADWrapper:
-    """
-    Automatic-Differentiation Wrapper.
-
-    (Decorator) Class for methods representing e.g., physical properties.
-    The decorated function is expected to take scalars/vectors and return a scalar/vector.
-    See example usage below.
-
-    The return value will be an AD operator of a type passed to the decorator.
-
-    For now, the intended use is for type
-        - :class:`~porepy.numerics.ad.operators.Function`,
-        - :class:`~porepy.numerics.ad.operators.ApproxJacFunction`,
-        - or of derived type.
-
-    EXAMPLE USAGE:
-    .. code-block:: python
-        import porepy as pp
-
-        # decorating class methods
-        class IdealGas:
-
-            @ADWrapper(ad_operator=pp.ad.LJacFunction, operators_args={"L"=[1,1]})
-            def density(self, p: float, T: float) -> float:
-                return p/T
-
-        # decorating function
-        @ADWrapper(ad_operator=pp.ad.Function)
-        def dummy_rel_perm(s):
-            return s
-
-    With above code, the density of an instance of 'IdealGas' can be called using
-    :class:`~porepy.numerics.ad.operators.MergedVariable` representing
-    pressure and temperature.
-    """
-
-    def __init__(
-        self,
-        func: FunctionType = None,
-        ad_operator: Type["pp.ad.Function"] = Function,
-        operator_kwargs: Optional[dict] = {},
-    ) -> None:
-        """
-        Decorator class constructor.
-        Saves information about the requested AD operator type and keyword arguments necessary
-        for its instantation.
-
-        :param func: decorated function object
-        :type func: function
-        :param ad_operator: reference to the requested AD class (type not class instance!)
-        :type ad_operator: :class:`~porepy.numerics.ad.operators.ApproximateJacobianFunction`
-        :param operator_kwargs: keyword arguments to be passed when instantiating operator
-        :type operator_kwargs: dict
-        """
-        # reference to decorated function object
-        self._func = func
-        # mark if decoration without explicit call to constructor
-        self._explicit_init = func is None
-        # reference to bound instance, to which the decorated bound method belongs
-        # if this remains None, then an unbound method was decorated
-        self._bound_to = None
-        # reference to operator type which should wrap the decorated method
-        self._ad_op = ad_operator
-        # keyword arguments for call to constructor of operator type
-        self._op_kwargs = operator_kwargs
-
-    def __call__(self, *args, **kwargs) -> Union["ADWrapper", "pp.ad.Operator"]:
-        """
-        Wrapper factory.
-        The decorated object is wrapped and/or evaluated here.
-
-        Dependent on whether the decorated function is a method belonging to a class,
-        or an unbound function, the wrapper will have a different signature.
-        If bound to a class instance, the wrapper will include a partial function, where the
-        instance of the class was already passed beforehand.
-        """
-        # if decorated without explicit init,
-        # the function is passed during a call to the decorator as first argument
-        if self._func is None:
-            self._func = args[0]
-
-        # if an explicit init was made,
-        # mimic a non-explicit init to get an object with descriptor protocol
-        if self._explicit_init:
-            # TODO VL: check if the ADWrapper instance which creates the one below
-            # gets properly de-referenced and deleted, or if it remains hidden in the memory
-            return ADWrapper(
-                func=self._func,
-                ad_operator=self._ad_op,
-                operator_kwargs=self._op_kwargs,
-            )
-
-        # without an explicit init, the first decorator itself replaces the decorated function
-        # This results in a call to ADWrapper.__call__ instead of
-        # a call to the decorated function
-
-        # when calling the decorator, distinguish between bound method call
-        # ('args' contains 'self' of the decorated instance) and an unbound function call
-        # (whatever 'args' and 'kwargs' contain, we pass it to the wrapper)
-        if self._bound_to is None:
-            wrapped_function = self.ad_wrapper(*args, **kwargs)
-        elif self._bound_to == args[0]:
-            wrapped_function = self.ad_wrapper(*args[1:], **kwargs)
-        else:
-            raise ValueError(
-                "Calling bound decorator "
-                + str(self)
-                + " with unknown instance "
-                + str(args[0])
-            )
-
-        return wrapped_function
-
-    def ad_wrapper(self, *args, **kwargs):
-        """
-        Actual wrapper function.
-        Constructs the necessary AD-Operator class and performs the evaluation.
-        """
-        # extra safety measure to ensure a a bound call is done to the right, binding instance.
-        # We pass only the binding instance referenced in the descriptor protocol.
-        if self._bound_to is None:
-            operator_func = self._func
-        else:
-            # partial evaluation of a bound function,
-            # since the AD operator has no reference to binding instance
-            operator_func = partial(self._func, self._bound_to)
-
-        # Resulting AD operator has a special name to mark its origin
-        if "name" not in self._op_kwargs.keys():
-            name = "Wrapped-ADWrapper:-"
-            name += (
-                str(self._ad_op.__qualname__)
-                + "-WRAPPING-"
-                + str(self._func.__qualname__)
-            )
-            self._op_kwargs.update({"name": name})
-
-        # calling the operator
-        wrapping_operator = self._ad_op(func=operator_func, **self._op_kwargs)
-
-        return wrapping_operator(*args, **kwargs)
-
-    def __get__(self, binding_instance, binding_type):
-        """
-        Descriptor protocol.
-
-        If this instance decorates a class method (and effectively replaces it), it is bound
-        to the class instance.
-
-        Every time this instance is syntactically accessed as an attribute of the
-        class instance, this getter is called and returns a partially evaluated call
-        to this instance. By calling this instance this way, we can pass a reference to the
-        class instance as an argument to __call__,
-        and consequently to the decorated class method.
-
-        The reason why this is necessary is due to the fact, that decorated functions and
-        class methods are always passed in unbound form to the decorator when the code is
-        evaluated.
-
-        :param binding_instance: instance for binding this object's call to it.
-        :type binding_instance: Any
-        :param binding_type: type variable of the binding instance
-        :type binding_type: type
-        """
-        # safe a reference to the binding instance
-        # TODO VL: introduce binding validation.
-        # Allow a binding only to objects constructed using the reserved keyword 'class'?
-        self._bound_to = binding_instance
-        # a call to the decorator is returned, not the decorator itself.
-        # This will trigger the function evaluation.
-        return partial(self.__call__, binding_instance)
 
 
 class Tree:
