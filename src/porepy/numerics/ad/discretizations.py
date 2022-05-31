@@ -23,7 +23,7 @@ Example:
 from __future__ import annotations
 
 import abc
-from typing import Dict, List, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -406,6 +406,9 @@ class DifferentiableFVAd:
         gb: pp.GridBucket,
         base_discr: Union[pp.ad.MpfaAd, pp.ad.TpfaAd],
         dof_manager: pp.DofManager,
+        permeability_function: Callable[[pp.ad.Variable], pp.ad.Ad_array],
+        permeability_argument: pp.ad.Variable,
+        potential: pp.ad.Variable,
         keyword: str,
     ) -> None:
         """Initialize the differentiable finite volume method.
@@ -416,6 +419,11 @@ class DifferentiableFVAd:
             base_discr: Tpfa or Mpfa discretization (Ad), gol which we want to
                 approximate the transmissibility matrix.
             dof_manager (pp.DofManager): Needed to evaluate Ad operators.
+            perm_function: returning permeability as an Ad_array given the perm_argument.
+            perm_argument: pp.ad.Variable representing the variable upon which perm_function
+                depends.
+            potential: pp.ad.Variable representation of potential for the flux law
+                flux=-K\grad(potential - vector_source)
 
         """
         self.grids = grid_list
@@ -424,30 +432,25 @@ class DifferentiableFVAd:
         self.dof_manager = dof_manager
         self.keyword = keyword
         self._subdomain_projections = pp.ad.SubdomainProjections(self.grids)
+        self._perm_function = pp.ad.Function(
+            permeability_function, "permeability_function"
+        )
+        self._perm_argument: pp.ad.Variable = permeability_argument
+        self._potential: pp.ad.Variable = potential
 
     def flux(
         self,
-        perm_function: pp.ad.Function,
-        perm_argument: pp.ad.Ad_array,
-        potential: pp.ad.Ad_array,
     ) -> pp.ad.Operator:
         """Flux from potential, BCs and vector sources.
-
-        Args:
-            perm_function: pp.ad.Function returning permeability given the perm_argument.
-            perm_argument: Ad_array representing the variable upon which perm_function depends.
-            potential: Potential for the flux law: flux=-K\grad(potential - vector_source)
 
         Returns:
             pp.ad.Operator representing the flux.
         """
         ad_func = pp.ad.Function(self._flux_function, "differentiated_flux")
-        return ad_func(perm_function, perm_argument, potential)
+        return ad_func(self._perm_argument, self._potential)
 
     def bound_pressure_face(
         self,
-        perm_function: pp.ad.Function,
-        perm_argument: pp.ad.Ad_array,
     ) -> pp.ad.Operator:
         """Boundary face contribution to pressure reconstruction.
 
@@ -459,11 +462,10 @@ class DifferentiableFVAd:
         ad_func = pp.ad.Function(
             self._bound_pressure_face_function, "differentiated_bound_pressure_face"
         )
-        return ad_func(perm_function, perm_argument)
+        return ad_func(self._perm_argument)
 
     def _flux_function(
         self,
-        perm_function: pp.ad.Function,
         perm_argument: pp.ad.Ad_array,
         potential: pp.ad.Ad_array,
     ) -> pp.ad.Ad_array:
@@ -498,7 +500,9 @@ class DifferentiableFVAd:
         # information in arrays as a preprocessing step, but that seems not to be worth
         # the effort. However, to avoid evaluating the permeability function multiple
         # times, we precompute it here
-        global_permeability = perm_function(perm_argument).evaluate(self.dof_manager)
+        global_permeability = self._perm_function(self._perm_argument).evaluate(
+            self.dof_manager
+        )
         g: pp.Grid
         for g in self.grids:
             transmissibility_jac, _ = self._transmissibility(g, global_permeability)
@@ -581,7 +585,6 @@ class DifferentiableFVAd:
 
     def _bound_pressure_face_function(
         self,
-        perm_function: pp.ad.Function,
         perm_argument: pp.ad.Ad_array,
     ) -> pp.ad.Ad_array:
         """The actual implementation of the
@@ -625,7 +628,9 @@ class DifferentiableFVAd:
         # information in arrays as a preprocessing step, but that seems not to be worth
         # the effort. However, to avoid evaluating the permeability function multiple
         # times, we precompute it here
-        global_permeability = perm_function(perm_argument).evaluate(self.dof_manager)
+        global_permeability = self._perm_function(perm_argument).evaluate(
+            self.dof_manager
+        )
 
         g: pp.Grid
         for g in self.grids:
