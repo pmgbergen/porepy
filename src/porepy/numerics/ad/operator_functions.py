@@ -182,7 +182,7 @@ class AbstractJacFunction(AbstractFunction):
         # get values of argument Ad_arrays.
         vals = (arg.val for arg in args)
 
-        # if the black box is flagged as conform for vector operations, feed vectors
+        # if the callable is flagged as conform for vector operations, feed vectors
         if self.is_vector_func:
 
             return self.func(*vals)
@@ -233,7 +233,7 @@ class Function(AbstractFunction):
 
 class LJacFunction(AbstractJacFunction):
     """
-    Approximates the Jacobian of the black box using the L-scheme
+    Approximates the Jacobian of the function using the L-scheme
     with a fixed value per dependency.
     """
 
@@ -246,8 +246,8 @@ class LJacFunction(AbstractJacFunction):
     ):
         """Constructor.
 
-        The L-multiplier for the L-scheme can be passed for every argument of the
-        black box function specifically using a list.
+        The L-multiplier for the L-scheme can be passed for every argument specifically
+        using a list.
         The order in the list has to mach the order of arguments when calling
         this instance.
 
