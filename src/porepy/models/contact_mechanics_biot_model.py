@@ -864,20 +864,9 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     subdomains.append(sd)
 
         ad = self._ad
-        flux_discr = ad.flux_discretization
+
         interface_discr = pp.ad.RobinCouplingAd(self.scalar_parameter_key, interfaces)
 
-        bc = pp.ad.ParameterArray(
-            self.scalar_parameter_key,
-            array_keyword="bc_values",
-            grids=subdomains,
-        )
-
-        vector_source_subdomains = pp.ad.ParameterArray(
-            param_keyword=self.scalar_parameter_key,
-            array_keyword="vector_source",
-            grids=subdomains,
-        )
         vector_source_interfaces = pp.ad.ParameterArray(
             param_keyword=self.scalar_parameter_key,
             array_keyword="vector_source",
@@ -885,14 +874,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         )
         # Construct primary (higher-dimensional) pressure
         # IMPLEMENTATION NOTE: this could possibly do with a sub-method
-        p_primary = (
-            flux_discr.bound_pressure_cell * ad.pressure
-            + flux_discr.bound_pressure_face
-            * ad.mortar_projections_scalar.mortar_to_primary_int
-            * ad.interface_flux
-            + flux_discr.bound_pressure_face * bc
-            + flux_discr.vector_source * vector_source_subdomains
-        )
+        p_primary = self._boundary_pressure(subdomains)
+
         # Project the two pressures to the interface and equate with \lambda
         interface_flow_eq: pp.ad.Operator = (
             interface_discr.mortar_discr
@@ -904,6 +887,29 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             + ad.interface_flux
         )
         return interface_flow_eq
+
+    def _boundary_pressure(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        flux_discr = self._ad.flux_discretization
+        bc = pp.ad.ParameterArray(
+            self.scalar_parameter_key,
+            array_keyword="bc_values",
+            grids=subdomains,
+        )
+
+        vector_source_subdomains = pp.ad.ParameterArray(
+            param_keyword=self.scalar_parameter_key,
+            array_keyword="vector_source",
+            grids=subdomains,
+        )
+        p_primary = (
+            flux_discr.bound_pressure_cell * self._ad.pressure
+            + flux_discr.bound_pressure_face
+            * self._ad.mortar_projections_scalar.mortar_to_primary_int
+            * self._ad.interface_flux
+            + flux_discr.bound_pressure_face * bc
+            + flux_discr.vector_source * vector_source_subdomains
+        )
+        return p_primary
 
     def _div_u(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
         """Divergence of u
