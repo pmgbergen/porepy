@@ -4,7 +4,7 @@ numpy
 scipy
 sympy
 matplotlib
-cython;platform_system=="Linux"
+cython
 future
 six
 shapely
