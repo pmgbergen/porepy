@@ -265,7 +265,7 @@ class LJacFunction(AbstractJacFunction):
         """The approximate jacobian is identity times L.
 
         Where the respective blocks appears,
-        depends on the total dofs and the order of arguments passed during the
+        depends on the total DOFs and the order of arguments passed during the
         call to this instance.
         """
         # the Jacobian of a (Merged) Variable is already a properly sized block identity
