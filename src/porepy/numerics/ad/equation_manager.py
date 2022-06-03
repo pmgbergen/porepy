@@ -249,14 +249,59 @@ class EquationManager:
         self.row_block_indices_last_assembled = np.array(ind_start)
 
         return A, rhs_cat
+    
+    # TODO I made this 
+    def assemble_rhs(
+        self,
+        state: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Assemble residual vector with respect to the current
+        state represented in self.gb.
+
+        Parameters:
+            state (np.ndarray, optional): State vector to assemble from. If not provided,
+                the default behavior of pp.ad.Expression.to_ad() will be followed.
+
+        Returns:
+            sps.spmatrix: Jacobian matrix corresponding to the current variable state,
+                as found in self.gb. The ordering of the equations is determined by
+                the ordering in self.equations (for rows) and self.dof_manager (for
+                columns).
+            np.ndarray: Residual vector corresponding to the current variable state,
+                as found in self.gb. Scaled with -1 (moved to rhs).
+
+        """
+        # Data structures for building the residual vector
+        rhs: List[np.ndarray] = []
+
+        # Keep track of first row index for each equation/block
+        ind_start: List[int] = [0]
+
+        # Iterate over equations, assemble.
+        for eq in self.equations.values():
+            ad = eq.evaluate(self.dof_manager, state)
+    
+            # Multiply by -1 to move to the rhs
+            rhs.append(-ad.val)
+            ind_start.append(ind_start[-1] + ad.val.size)
+     
+
+        # The right hand side vector. This should have contributions form both primary
+        # and secondary variables, thus no need to modify it before concatenation.
+        rhs_cat = np.hstack([vec for vec in rhs])
+
+        # Store information on start of each block
+        self.row_block_indices_last_assembled = np.array(ind_start)
+
+        return rhs_cat
 
     def assemble_subsystem(
         self,
         eq_names: Optional[Sequence[str]] = None,
         variables: Optional[
             Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
-        ] = None,
-    ) -> Tuple[sps.spmatrix, np.ndarray]:
+        ] = None
+        ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
         equations and variables.
 
