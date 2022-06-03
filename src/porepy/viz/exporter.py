@@ -34,7 +34,7 @@ MD_Meshio_Geom = Dict[int, Optional[Meshio_Geom]]
 # Interface between subdomains
 Interface = Tuple[pp.Grid, pp.Grid]
 
-# Altogether allowed data structures to define data for exporting
+# All allowed data structures to define data for exporting
 DataInput = Union[
     # Keys for states
     str,
@@ -89,7 +89,7 @@ class Exporter:
         save.write_vtu(["pressure", "displacement"], time_step=i)
     save.write_pvd(times)
 
-    where times, is a list of actual times (not time steps), associated
+    where times is a list of actual times (not time steps), associated
     to the previously exported time steps.
 
     In general, pvd files gather data exported in separate files, including
@@ -115,13 +115,13 @@ class Exporter:
             gb (Union[pp.Grid, pp.Gridbucket]): grid or gridbucket containing all
                 mesh information to be exported.
             file_name (str): basis for file names used for storing the output
-            folder_name (str, optional): folder name, all files are stored in
+            folder_name (str, optional): name of the folder in which files are stored
             kwargs (optional): Optional keywords;
                 'fixed_grid' (boolean) to control whether the grid(bucket) may be redfined
                 (default True);
-                'binary' (boolean) controling whether data is stored in binary format
+                'binary' (boolean) controlling whether data is stored in binary format
                 (default True);
-                'export_constants_separately' (boolean) controling whether
+                'export_constants_separately' (boolean) controlling whether
                 constant data is exported in separate files (default True).
         """
         # Exporter is operating on grid buckets. Convert to grid bucket if grid is provided.
@@ -209,7 +209,7 @@ class Exporter:
                 grids/edges, keys and values. If not provided only
                 geometical infos are exported.
 
-                NOTE: The user has to make sure that each unique key has to
+                NOTE: The user has to make sure that each unique key has
                 associated data values for all or no grids of each specific
                 dimension.
         """
@@ -248,16 +248,16 @@ class Exporter:
             data (Union[DataInput, List[DataInput]], optional): node and
                 edge data, prescribed through strings, or tuples of
                 grids/edges, keys and values. If not provided only
-                geometical infos are exported.
+                geometrical infos are exported.
 
-                NOTE: The user has to make sure that each unique key has to
+                NOTE: The user has to make sure that each unique key has
                 associated data values for all or no grids of each specific
                 dimension.
             time_dependent (boolean, optional): If False, file names will
-                not be appended with an index that markes the time step.
+                not be appended with an index that marks the time step.
                 Can be overwritten by giving a value to time_step; if not,
                 the file names will subsequently be ending with 1, 2, etc.
-            time_step (int, optional): will be used ass eppendic to define
+            time_step (int, optional): will be used as appendix to define
                 the file corresponding to this specific time step.
             gb (Union[pp.Grid, pp.Gridbucket], optional): grid or gridbucket
                 if it is not fixed and should be updated.
@@ -322,7 +322,7 @@ class Exporter:
                 # mesh is updated or new constant data is added.
                 self._exported_constant_data_up_to_date = True
 
-            # Store the timestep refering to the origin of the constant data
+            # Store the timestep referring to the origin of the constant data
             if self._time_step_constant_data:
                 self._exported_timesteps_constants.append(self._time_step_constant_data)
         else:
@@ -379,7 +379,7 @@ class Exporter:
         assert file_extension is not None
 
         # Extract the time steps related to constant data and
-        # complying with file_extension. Implicitly test wheter
+        # complying with file_extension. Implicitly test whether
         # file_extension is a subset of _exported_timesteps.
         # Only if constant data has been exported.
         include_constant_data = (
@@ -507,7 +507,7 @@ class Exporter:
             """
             Check whether the value array has the right dimension corresponding
             to the grid size. If possible, translate the value to a vectorial
-            object, But do nothing if the data naturally can be interpreted as
+            object, but do nothing if the data naturally can be interpreted as
             scalar data.
             """
             # Make some checks
@@ -645,7 +645,7 @@ class Exporter:
             # Idea: Collect the data only among the grids specified.
             elif isinstance_Tuple_subdomains_str(pt):
 
-                # By construction, the first component contains is a list of grids.
+                # By construction, the first component is a list of grids.
                 grids: List[pp.Grid] = pt[0]
 
                 # By construction, the second component contains a key.
@@ -672,7 +672,7 @@ class Exporter:
 
             # Case 2b: Data provided by a tuple (e, key)
             # Here, e is a list of edges.
-            # Idea: Collect the data only among the grids specified.
+            # Idea: Collect the data only among the specified interfaces.
             elif isinstance_Tuple_interfaces_str(pt):
 
                 # By construction, the first component contains a list of interfaces.
@@ -866,7 +866,7 @@ class Exporter:
         and passing further to the final writing routine.
 
         For each fixed dimension, all subdomains of that dimension and the data
-        related to that subdomains will be exported simultaneously.
+        related to those subdomains will be exported simultaneously.
         Analogously for interfaces.
 
         Parameters:
@@ -931,7 +931,7 @@ class Exporter:
 
                 # Require data for all or none entities of that dimension.
                 # NOTE: As implemented now, for any grid dimension and any prescribed
-                # key, one has to provide data for all available grids of that
+                # key, one has to provide data for all or none of the grids of that
                 # dimension.
                 if len(values) not in [0, len(entities)]:
                     raise ValueError(
@@ -992,7 +992,7 @@ class Exporter:
 
         # If constant data is exported to separate vtu files, also include
         # these here. The procedure is similar to the above, but the file names
-        # incl. the relevant time step has to be adjusted.
+        # incl. the relevant time step have to be adjusted.
         if self.export_constants_separately:
             # Constant subdomain data.
             for dim in self.dims:
@@ -1315,7 +1315,7 @@ class Exporter:
         # the corresponding cells with ids from cell_id.
         for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
 
-            # Meshio requires the keyword "polgon" for general polygons.
+            # Meshio requires the keyword "polygon" for general polygons.
             # Thus, remove the number of nodes associated to polygons.
             cell_type_meshio_format = "polygon" if "polygon" in cell_type else cell_type
             meshio_cells[block] = meshio.CellBlock(
@@ -1359,7 +1359,7 @@ class Exporter:
             # Retrieve number of chains and lines per chain from the shape.
             # Implicitly expect that all chains have the same length
             num_chains, chain_length = lines.shape
-            # Since for each chain lines includes two rows, take the half
+            # Since for each chain lines includes two rows, divide by two
             num_chains = int(num_chains / 2)
 
             # Initialize array of sorted lines to be the final output
@@ -1371,7 +1371,7 @@ class Exporter:
             found = np.zeros(chain_length)
             found[0] = 1
 
-            # Loop over chains and Consider each chain separately.
+            # Loop over chains and consider each chain separately.
             for c in range(num_chains):
                 # Initialize found making any line segment aside of the first a candidate
                 found[1:] = 0
@@ -1380,7 +1380,7 @@ class Exporter:
                 # line segment
                 prev = sorted_lines[2 * c + 1, 0]
 
-                # The sorting algorithm: Loop over all position in the chain to be set next.
+                # The sorting algorithm: Loop over all positions in the chain to be set next.
                 # Find the right candidate to be moved to this position and possibly flipped
                 # if needed. A candidate is identified as fitting if it contains one point
                 # equal to the current starting point. This algorithm uses a double loop,
@@ -1438,7 +1438,7 @@ class Exporter:
         # Three different cell types will be distinguished: Tetrahedra, hexahedra,
         # and general polyhedra. meshio does not allow for a mix of cell types
         # in 3d within a single grid (and we export all 3d grids at once). Thus,
-        # if the 3d grids contains cells of varying types, all cells will be casted
+        # if the 3d grids contains cells of varying types, all cells will be cast
         # as polyhedra.
 
         # Determine the cell types present among all grids.
@@ -1708,7 +1708,7 @@ class Exporter:
                 # Determine the cell-face connectivity (with faces described by their
                 # nodes ordered such that they form a chain and are identified by the
                 # face boundary. The final data format is a List[List[np.ndarray]].
-                # The outer list, loops over all cells. Each cell entry contains a
+                # The outer list loops over all cells. Each cell entry contains a
                 # list over faces, and each face entry is given by the face nodes.
                 if cell_type not in cell_to_faces:
                     cell_to_faces[cell_type] = []
@@ -1825,7 +1825,7 @@ class Exporter:
         """
         Auxiliary method to setting up file name.
 
-        The final name is build as combination of a prescribed prefix,
+        The final name is built as combination of a prescribed prefix,
         and possibly the dimension of underlying grid and time (step)
         the related data is associated to.
 
