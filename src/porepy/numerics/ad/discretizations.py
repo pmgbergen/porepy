@@ -530,13 +530,18 @@ class DifferentiableFVAd:
             # Create a copy of the Jacobian at the Dirichlet faces
             is_dir = params["bc"].is_dir
             is_neu = params["bc"].is_neu
-            # Sign corresponds to gradient under the assumption of outwards
-            # boundary normals
 
             # See tpfa discretization for the following treatment of values
             sort_id = np.argsort(g.cell_faces[is_dir, :].indices)
             bndr_sgn = (g.cell_faces[is_dir, :]).data[sort_id]
             bc_values = np.zeros(g.num_faces)
+            # Sign of this term:
+            # bndr_sgn is the gradient operation at the boundary.
+            # The minus ensues from moving the term from rhs to lhs
+            # Note: If you get confused by comparison to tpfa (where
+            # the term is negative on the rhs), confer
+            # fv_elliptic.assemble_rhs, where the sign is inverted,
+            # and accept my condolances. IS
             bc_values[is_dir] = -bndr_sgn * params["bc_values"][is_dir]
             bc_value_mat = sps.diags(bc_values, shape=(g.num_faces, g.num_faces))
 
@@ -553,7 +558,7 @@ class DifferentiableFVAd:
             flux_jac += face_prolongation * grad_p_jac
             flux_jac += face_prolongation * jac_bound
 
-            if "vector_source" in params:
+            if "vector_source" in params and g.dim > 0:
                 fi, ci, sgn, fc_cc = self._geometry_information(g)
                 vector_source = params["vector_source"]
                 vector_source_dim = params.get("ambient_dimension", g.dim)
