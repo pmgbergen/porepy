@@ -13,6 +13,7 @@ All other functions are helpers.
 
 """
 from __future__ import annotations
+
 from collections import namedtuple
 from typing import Any, Dict, Tuple
 
