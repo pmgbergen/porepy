@@ -13,7 +13,7 @@ Acknowledgements:
 from __future__ import annotations
 
 import itertools
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -104,7 +104,7 @@ class Grid:
     def __init__(
         self,
         dim: int,
-        nodes: np.ndarray,
+        nodes: np.ndarray[Any, np.dtype[np.float64]],
         face_nodes: sps.csc_matrix,
         cell_faces: sps.csc_matrix,
         name: str,
@@ -363,7 +363,7 @@ class Grid:
         b = xe2[:, cell_faces] - self.cell_centers[:, cellno]
 
         sub_volumes = 0.5 * np.abs(a[0] * b[1] - a[1] * b[0])
-        self.cell_volumes = np.bincount(cellno, weights=sub_volumes)
+        self.cell_volumes = np.bincount(cellno, weights=sub_volumes).astype(float)
 
         sub_centroids = (
             self.cell_centers[:, cellno] + 2 * self.face_centers[:, cell_faces]
