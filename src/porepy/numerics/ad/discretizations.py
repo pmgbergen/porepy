@@ -96,9 +96,11 @@ class BiotAd(Discretization):
 
     """
 
-    def __init__(self, keyword: str, grids: List[pp.Grid]) -> None:
+    def __init__(
+        self, keyword: str, grids: List[pp.Grid], flow_keyword: str = "flow"
+    ) -> None:
         self.grids = grids
-        self._discretization = pp.Biot(keyword)
+        self._discretization = pp.Biot(keyword, flow_keyword)
         self._name = "BiotMpsa"
 
         self.keyword = keyword
@@ -190,10 +192,10 @@ class ColoumbContactAd(Discretization):
         # Special treatment is needed to cover the case when the edge list happens to
         # be empty.
         if len(edges) > 0:
-            dim = np.unique([e[0].dim for e in edges])
+            dim = list(set([e[0].dim for e in edges]))
 
             low_dim_grids = [e[1] for e in edges]
-            if not dim.size == 1:
+            if not len(dim) == 1:
                 raise ValueError(
                     "Expected unique dimension of grids with contact problems"
                 )
@@ -225,10 +227,10 @@ class ContactTractionAd(Discretization):
         # Special treatment is needed to cover the case when the edge list happens to
         # be empty.
         if len(edges) > 0:
-            dim = np.unique([e[0].dim for e in edges])
+            dim = list(set([e[0].dim for e in edges]))
 
             low_dim_grids = [e[1] for e in edges]
-            if not dim.size == 1:
+            if not len(dim) == 1:
                 raise ValueError(
                     "Expected unique dimension of grids with contact problems"
                 )
@@ -240,7 +242,7 @@ class ContactTractionAd(Discretization):
             low_dim_grids = []
 
         self._discretization = pp.ContactTraction(
-            keyword, ambient_dimension=dim, discr_h=pp.Mpsa(keyword)
+            keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
         )
         self._name = "Simple ad contact"
         self.keyword = keyword
@@ -431,7 +433,8 @@ class DifferentiableFVAd:
         self._discretization = base_discr
         self.dof_manager = dof_manager
         self.keyword = keyword
-        self._subdomain_projections = pp.ad.SubdomainProjections(self.grids)
+        self._subdomain_projections = pp.ad.Subdomai
+        rojections(self.grids)
         self._perm_function = pp.ad.Function(
             permeability_function, "permeability_function"
         )

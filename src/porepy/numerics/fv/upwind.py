@@ -17,7 +17,7 @@ class Upwind(pp.numerics.discretization.Discretization):
     def __init__(self, keyword: str = "transport") -> None:
         self.keyword = keyword
 
-        # Keywords used to store matrix and right hand side in the matrix_dictionary
+        # Keywords used to store matrix and right-hand side in the matrix_dictionary
         self.upwind_matrix_key = "transport"
         self.bound_transport_dir_matrix_key = "rhs_dir"
         self.bound_transport_neu_matrix_key = "rhs_neu"
@@ -188,7 +188,6 @@ class Upwind(pp.numerics.discretization.Discretization):
         ----------
         g : grid, or a subclass, with geometry fields computed.
         data: dictionary to store the data.
-        d_name: (string) keyword for data field in data containing the dischages
 
         Return
         ------
@@ -249,7 +248,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         upstream_cell_ind[pos_flux] = cf_dense[0, pos_flux]
         upstream_cell_ind[neg_flux] = cf_dense[1, neg_flux]
 
-        # Make row and data arrays, preparing to make an coo-matrix for the upstream
+        # Make row and data arrays, preparing to make a coo-matrix for the upstream
         # cell-to-face map.
         row = np.arange(g.num_faces)
         values = np.ones(g.num_faces, dtype=int)
@@ -282,7 +281,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         values = np.delete(values, delete_ind)
         col = np.delete(upstream_cell_ind, delete_ind)
 
-        # Finally we can construct the upstream weighting matrix.
+        # Finally, we can construct the upstream weighting matrix.
         upstream_mat = sps.coo_matrix(
             (
                 values,
@@ -291,20 +290,20 @@ class Upwind(pp.numerics.discretization.Discretization):
             shape=(g.num_faces, g.num_cells),
         ).tocsr()
 
-        # Form and store disrcetization matrix
+        # Form and store discretization matrix
         # Expand the discretization matrix to more than one component
         num_components: int = parameter_dictionary.get("num_components", 1)
         matrix_dictionary[self.upwind_matrix_key] = sps.kron(
             upstream_mat, sps.eye(num_components)
         ).tocsr()
 
-        ## Boundary conditions
+        # Boundary conditions
         # Since the upwind discretization could be combined with a diffusion discretization
         # in an advection-diffusion equation, treatment of boundary conditions can be a
         # bit delicate, and the code should be used with some caution. The below
         # implementation follows the following steps:
         #
-        # 1) On Neumann boundaries the precribed boundary value should effectively
+        # 1) On Neumann boundaries the prescribed boundary value should effectively
         # be added to the adjacent cell, with the convention that influx (so
         # negative boundary value) should correspond to accumulation.
         # 2) On Dirichlet boundaries, we consider only inflow boundaries. Outflow boundaries
@@ -315,8 +314,6 @@ class Upwind(pp.numerics.discretization.Discretization):
         # applied (e.g. in self.assemble_matrix).
         sgn_div = pp.fvutils.scalar_divergence(g).sum(axis=0).A.squeeze()
 
-        row = np.hstack([neumann_ind, inflow_ind])
-        col = row
         # Need minus signs on both Neumann and Dirichlet data to ensure that accumulation
         # follows from negative fluxes.
         bc_discr_neu = sps.coo_matrix(
@@ -379,7 +376,7 @@ class Upwind(pp.numerics.discretization.Discretization):
         # Element-wise scalar products between the distance vectors and the
         # normals
         dist = np.einsum("ij,ij->j", dist_vector, g.face_normals[:, faces])
-        # Additionally we consider the phi (porosity) and the cell-mapping
+        # Additionally, we consider the phi (porosity) and the cell-mapping
         coeff = phi[cells]
         # deltaT is deltaX/darcy_flux with coefficient
         return np.amin(np.abs(np.divide(dist, darcy_flux[faces])) * coeff)
