@@ -601,7 +601,6 @@ class DifferentiableFVAd:
             perm_argument (pp.ad.Ad_array, evaluation of a pp.ad.Variable): Variable(s)
                 upon which the permeability depends.
 
-
         Returns:
             Ad_array: The flux, q, and its Jacobian matrix, where the latter accounts
                 for dependencies in the transmissibilities on cell center permeabilities.
@@ -639,7 +638,7 @@ class DifferentiableFVAd:
 
         g: pp.Grid
         for g in self.grids:
-            params = self.gb.node_props(g)[pp.PARAMETERS][self.keyword]
+            params: Dict = self.gb.node_props(g)[pp.PARAMETERS][self.keyword]
             transmissibility_jac, inverse_sum_squared = self._transmissibility(
                 g, global_permeability
             )
@@ -668,7 +667,7 @@ class DifferentiableFVAd:
         return bound_pressure
 
     def _geometry_information(
-        self, g
+        self, g: pp.Grid
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Utility function to retrieve geometry information.
 
@@ -688,8 +687,8 @@ class DifferentiableFVAd:
         return fi, ci, sgn, fc_cc
 
     def _transmissibility(
-        self, g, global_permeability: pp.ad.Ad_array
-    ) -> sps.csr_matrix:
+        self, g: pp.Grid, global_permeability: pp.ad.Ad_array
+    ) -> Union[sps.csr_matrix, np.ndarray]:
         """Compute Jacobian of a variable transmissibility.
 
         Args:
