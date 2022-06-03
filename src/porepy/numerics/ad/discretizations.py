@@ -23,8 +23,6 @@ Example:
 import abc
 from typing import List, Tuple, Union
 
-import numpy as np
-
 import porepy as pp
 
 from ._ad_utils import MergedOperator, wrap_discretization
@@ -188,10 +186,10 @@ class ColoumbContactAd(Discretization):
         # Special treatment is needed to cover the case when the edge list happens to
         # be empty.
         if len(edges) > 0:
-            dim = np.unique([e[0].dim for e in edges])
+            dim = list(set([e[0].dim for e in edges]))
 
             low_dim_grids = [e[1] for e in edges]
-            if not dim.size == 1:
+            if not len(dim) == 1:
                 raise ValueError(
                     "Expected unique dimension of grids with contact problems"
                 )
@@ -223,10 +221,10 @@ class ContactTractionAd(Discretization):
         # Special treatment is needed to cover the case when the edge list happens to
         # be empty.
         if len(edges) > 0:
-            dim = np.unique([e[0].dim for e in edges])
+            dim = list(set([e[0].dim for e in edges]))
 
             low_dim_grids = [e[1] for e in edges]
-            if not dim.size == 1:
+            if not len(dim) == 1:
                 raise ValueError(
                     "Expected unique dimension of grids with contact problems"
                 )
@@ -238,7 +236,7 @@ class ContactTractionAd(Discretization):
             low_dim_grids = []
 
         self._discretization = pp.ContactTraction(
-            keyword, ambient_dimension=dim, discr_h=pp.Mpsa(keyword)
+            keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
         )
         self._name = "Simple ad contact"
         self.keyword = keyword

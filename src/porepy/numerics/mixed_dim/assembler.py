@@ -883,8 +883,9 @@ class Assembler:
                     # Associate the first variable with primary, the second with
                     # secondary, and the final with edge.
                     if assemble_matrix:
+                        idx = np.array([primary_idx, edge_idx, oi])
                         loc_mat, _ = self._assign_matrix_vector(
-                            self._dof_manager.full_dof[[primary_idx, edge_idx, oi]],
+                            self._dof_manager.full_dof[idx],
                             sps_matrix,
                         )
 
@@ -955,8 +956,9 @@ class Assembler:
                     # nodes, together with the relavant mortar variable and term
                     # Associate the first variable with primary, the second with
                     # secondary, and the final with edge.
+                    idx = np.array([secondary_idx, edge_idx, oi])
                     loc_mat, _ = self._assign_matrix_vector(
-                        self._dof_manager.full_dof[[secondary_idx, edge_idx, oi]],
+                        self._dof_manager.full_dof[idx],
                         sps_matrix,
                     )
                     assemble_matrix, assemble_rhs = True, True
