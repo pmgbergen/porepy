@@ -1,29 +1,42 @@
-# In part based on http://www.science.smith.edu/dftwiki/index.php/Tutorial:_Docker_Anaconda_Python_--_4
+# To build:
+#
+#    docker build . --tag porepy
+#
+# To run (sharing the current directory with the container)
+#
+#    docker run -ti -v $(pwd):/home/porepy/ porepy:latest
+#
+# To save a modified container, from host:
+#
+#    docker commit porepy TAG_FOR_NEW_IMAGE
+#    docker run -ti TAG_FOR_NEW_IMAGE  # will contain modifications.
+#
 
-# We will use Ubuntu for our image
-FROM ubuntu:18.04
-MAINTAINER EirikKeilegavlen <Eirik.Keilegavlen@uib.no>
+FROM continuumio/miniconda3:latest
 
-# Updating Ubuntu packages
-RUN apt-get update && yes|apt-get upgrade && apt-get install -y wget
+MAINTAINER PorePy Development Team
 
 # Adding wget and bzip2
-RUN apt-get install -y wget bzip2 git gcc libglu1-mesa libxrender1 libxcursor1 libxft2 libxinerama1
+RUN apt-get update && yes|apt-get upgrade && apt-get install -y wget vim 
+RUN apt-get install -y wget bzip2 git gcc libglu1-mesa libxrender1 libxcursor1 libxft2 libxinerama1 
 
 # Add sudo
 RUN apt-get -y install sudo
 
-# Add user ubuntu with no password, add to sudo group
+# Updating Anaconda packages
+RUN conda update conda
+RUN conda update --all
+
 # Add user ubuntu with no password, add to sudo group
 RUN adduser --disabled-password --gecos '' ubuntu
 RUN adduser ubuntu sudo
 RUN adduser --disabled-password porepy
 RUN adduser porepy sudo
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
 USER ubuntu
 WORKDIR /home/ubuntu/
 RUN chmod a+rwx /home/ubuntu/
-
 
 USER porepy
 ENV POREPY_HOME /home/porepy
@@ -32,59 +45,97 @@ RUN touch $POREPY_HOME/.sudo_as_admin_successful && \
 VOLUME /home/porepy/shared
 
 # Print something nice on entry.
+RUN ["echo", "Clone PorePy"]
 
-WORKDIR /home/porepy
-#USER root
+# Name of top directory for porepy installation
+ENV POREPY_HOME=/home/porepy
+# .. and the directory for the PorePy source
+ENV POREPY_SRC=${POREPY_HOME}/pp
 
-RUN wget http://gmsh.info/bin/Linux/gmsh-4.3.0-Linux64.tgz && \
-     tar xvf gmsh-4.3.0-Linux64.tgz && \
-     rm gmsh-4.3.0-Linux64.tgz
+### Set up the conda environment
 
-RUN echo "config={\"gmsh_path\":\"/home/porepy/gmsh-4.3.0-Linux64/bin/gmsh\"} " > porepy_config.py
+WORKDIR ${POREPY_HOME}
 
-# Anaconda installing
-RUN cd /tmp  && \
-    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O conda.sh  && \
-    chmod +x conda.sh && \
-    bash conda.sh -b -p /home/porepy/.conda && \
-    rm /tmp/*
 
-# Set path to conda
+# Copy the file environment.yml from host into the container if it exists.
+# Copying the dockerfile is necessary to avoid errors environment.yml
+# does not exist, and the * and / in hte below expression are also necessary.
+# Source: https://redgreenrepeat.com/2018/04/13/how-to-conditionally-copy-file-in-dockerfile/
+COPY dockerfile environment.yml* ${POREPY_HOME}/
+
+# Modify the environment file to:
+#  1) Ensure that the environment name is pp_env; if not, below commands
+#     are invalid.
+#  2) Set a version of Python, if not specified.
+
+# First, install pyyaml. This we do with pip since installing with
+# conda at this stage gave strange error messages (installation will only
+# have effect in the conda base environment).
+RUN pip install pyyaml
+
+# TODO: Put parse_environment.py in Dockerfiles, move the git pull
+# to above this line, copy the parsing file (if necessary).
+RUN conda init bash
+COPY parse_environment.py .
+RUN python parse_environment.py
+
+# Prepare Conda to work with bash
+
+RUN cat ./environment.yml
+
+# Create the Conda environment, we call this pp_env
+# NOTE: While it would have been preferrable to set the environment name
+# in as a variable, combining this with the activation commands below
+# was not worth the effort. Instead, we enforce the name pp_env when parsing
+# the environment.yml file, and take for granted that is the name of the
+# environment below.
+RUN conda env create -f environment.yml
+
 ENV PATH /home/porepy/.conda/bin:$PATH
 
-ENV PYTHONPATH /home/porepy
+# Activating the conda environment inside the Docker container is
+# not straightforward, since every RUN command is executed in a separate
+# shell. Use a workaround:
+# Main source: https://pythonspeed.com/articles/activate-conda-dockerfile/
+SHELL ["conda", "run", "-n", "pp_env", "/bin/bash", "-c"]
+
+# Activate the new Conda environment when logging into the container
+# First, make conda commands available for bash
+RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
+
+# Next add activation to the .bashrc
+# Source: https://stackoverflow.com/questions/64323539/docker-run-interactive-with-conda-environment-already-activated
+RUN echo "conda activate pp_env" >> ~/.bashrc
+
+ENV PYTHONPATH $POREPY_HOME
+
+USER porepy
+
+### Add various packages that may be useful for development
+#RUN conda install -c conda-forge spyder jupyterlab 
 
 
-# Updating Anaconda packages
-RUN conda update conda
-RUN conda update --all
-RUN conda install -c anaconda python=3.7
+# Clone PorePy from GitHub
+#WORKDIR ${POREPY_HOME}
+#RUN git clone https://github.com/pmgbergen/porepy.git ${POREPY_SRC}
 
-# Set up conda to work with conda activate
+#WORKDIR ${POREPY_SRC}
 
-#RUN conda activate pp
+# FIXME: Change to main, or develop, later on
+#RUN git checkout docker
 
-RUN git clone https://github.com/pmgbergen/porepy.git pp
-#	cd pp && \
-#	echo "config = {\"gmsh_path\":\"/usr/local/bin/gmsh\"} " > porepy_config.py &&\
-#    /bin/bash -c -l 'echo "PYTHONPATH=/home/porepy/pp:$PYTHONPATH">>~/.profile'  &&\
-#     /bin/bash -c -l 'source ~/.profile' && \
-#    python setup.py install 
+# Install PorePy dependencies, as specified in the PorePy repository
+#RUN conda install -c conda-forge --file requirements-dev.txt
 
-WORKDIR /home/porepy/pp
-RUN conda install numpy=1.16.3 scipy=1.2.1 networkx=2.3 sympy=1.4 cython=0.29.7 numba=0.43.1 matplotlib=3.0.3 pytest=4.5.0 pytest-cov=2.6.1 pytest-runner=4.4 jupyter=1.0.0
-# Vtk should be install from conda-forged (not all dependencies are installed otherwise):
-RUN conda install -c conda-forge vtk
-RUN pip install meshio==2.3.8 shapely==1.6.4.post2 shapely[vectorized]==1.6.4.post2
+# Install PorePy
+#RUN pip install --user -e .
 
-RUN python setup.py install
+# Get external content
+#RUN python fetch_content.py
 
-WORKDIR /home/porepy
+# WORKDIR /home/porepy/pp/tests
+# RUN pytest
 
-RUN wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
-RUN mv polyhedron.py robust_point_in_polyhedron.py
+USER porepy
 
-USER ROOT
-EXPOSE 8888
 
-USER POREPY
