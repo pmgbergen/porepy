@@ -108,7 +108,7 @@ def half_space_interior_point(
 
     dim = (1, n.shape[1])
     c = np.array([0, 0, 0, 0, -1])
-    A_ub = np.concatenate((n, [np.sum(-n * x0, axis=0)], np.ones(dim))).T
+    A_ub: np.ndarray = np.vstack((n, [np.sum(-n * x0, axis=0)], np.ones(dim))).T
     b_ub = np.zeros(dim).T
     b_min, b_max = np.amin(pts, axis=1), np.amax(pts, axis=1)
     bounds = (

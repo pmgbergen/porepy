@@ -222,6 +222,3 @@ def test_add_one_well_with_matrix() -> None:
             ]
         )
         assert np.allclose(mg.mortar_to_primary_int().A.flatten(), known)
-
-
-test_add_one_well_with_matrix()

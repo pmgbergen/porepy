@@ -289,7 +289,7 @@ class SetupTHM(ProblemDataTime, model.THM):
         }
 
         super().__init__()
-
+        self._use_ad = False
         self.ux_south = ux_south
         self.uy_south = uy_south
         self.ux_north = ux_north
