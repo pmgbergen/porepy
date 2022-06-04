@@ -798,7 +798,7 @@ def polygons_3d(
                         if dist_vert.min() < tol:
                             # This is a point
                             segment_vertex_intersection[tmp_ind].append(
-                                [np.argmin(dist_vert)[0], False]
+                                [np.argmin(dist_vert), False]
                             )
                         else:
                             # Point failed, look for closest segment.
@@ -808,7 +808,7 @@ def polygons_3d(
                                 isect, start, end
                             )
                             segment_vertex_intersection[tmp_ind].append(
-                                [np.argmin(dist_seg[0])[0], True]
+                                [np.argmin(dist_seg[0]), True]
                             )
                     # Intersection information is complete, move on.
                     continue
@@ -1003,7 +1003,7 @@ def polygons_3d(
                         if dist_vert.min() < tol:
                             # This is a point
                             segment_vertex_intersection[tmp_ind].append(
-                                [np.argmin(dist_vert)[0], True]
+                                [np.argmin(dist_vert), True]
                             )
                         else:
                             # Point failed, look for closest segment.
@@ -1013,7 +1013,7 @@ def polygons_3d(
                                 isect, start, end
                             )
                             segment_vertex_intersection[tmp_ind].append(
-                                [np.argmin(dist_seg)[0], False]
+                                [np.argmin(dist_seg), False]
                             )
 
                     # Intersection information is complete, move on.

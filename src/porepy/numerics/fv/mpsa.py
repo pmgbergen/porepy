@@ -1474,8 +1474,8 @@ class Mpsa(Discretization):
             # Pick out part of Hook's law associated with this dimension
             # The code here looks nasty, it should be possible to get the right
             # format of the submatrices in a simpler way, but I couldn't do it.
-            sym_dim = np.hstack(sym_tensor_swp[:, :, rind]).transpose()
-            asym_dim = np.hstack(asym_tensor_swp[:, :, rind]).transpose()
+            sym_dim = np.concatenate(sym_tensor_swp[:, :, rind], axis=1).transpose()
+            asym_dim = np.concatenate(asym_tensor_swp[:, :, rind], axis=1).transpose()
 
             # Distribute (relevant parts of) Hook's law on subcells
             # This will be nd rows, thus cell ci is associated with indices
