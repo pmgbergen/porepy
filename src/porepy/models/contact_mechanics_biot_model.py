@@ -816,7 +816,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         accumulation_all = mass_discr.mass * (
             ad.pressure - ad.pressure.previous_timestep()
         )
-
         flux = self._fluid_flux(subdomains)
 
         eq = (
@@ -889,7 +888,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             + ad.interface_flux
         )
         return interface_flow_eq
-
 
     def _boundary_pressure(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
         flux_discr = self._ad.flux_discretization
@@ -966,7 +964,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         internal_boundary_div_u: pp.ad.Operator = (
             div_u_discr.bound_div_u
             * ad.subdomain_projections_vector.face_restriction(subdomains)
-            * ad.mortar_projections_vector.mortar_to_primary_int
+            * ad.mortar_projections_vector.mortar_to_primary_avg
             * (
                 ad.interface_displacement
                 - ad.interface_displacement.previous_timestep()

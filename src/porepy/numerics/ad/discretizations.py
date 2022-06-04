@@ -23,7 +23,7 @@ Example:
 from __future__ import annotations
 
 import abc
-from typing import Callable, List, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -433,8 +433,7 @@ class DifferentiableFVAd:
         self._discretization = base_discr
         self.dof_manager = dof_manager
         self.keyword = keyword
-        self._subdomain_projections = pp.ad.Subdomai
-        rojections(self.grids)
+        self._subdomain_projections = pp.ad.SubdomainProjections(self.grids)
         self._perm_function = pp.ad.Function(
             permeability_function, "permeability_function"
         )
