@@ -1013,6 +1013,7 @@ class ContactMechanics(AbstractModel):
             * ad.mortar_projections_vector.sign_of_mortar_sides
             * interface_displacement
         )
+        rotated_jumps.set_name("Rotated displacement jump")
         return rotated_jumps
 
     def _contact_mechanics_normal_equation(
@@ -1145,6 +1146,7 @@ class ContactMechanics(AbstractModel):
             C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
         with u being displacement jump increments, t denoting tangtial
         component and b_p the friction bound.
+
         For b_p = 0, the equation C_t = 0 does not in itself imply T_t = 0,
         which is what the contact conditions require. The case is handled
         through the use of a characteristic function.
@@ -1287,8 +1289,7 @@ class ContactMechanics(AbstractModel):
         fracture_subdomains: List[pp.Grid],
         interfaces: List[Tuple[pp.Grid, pp.Grid]],
     ) -> pp.ad.Operator:
-        """Force balance equation at matrix-fracture interfaces
-
+        """Force balance equation at matrix-fracture interfaces.
 
         Parameters
         ----------
@@ -1315,6 +1316,7 @@ class ContactMechanics(AbstractModel):
             * ad.internal_boundary_vector_to_outwards
             * self._stress(matrix_subdomains)
         )
+        # Traction from the actual contact force.
         contact_from_secondary = (
             ad.mortar_projections_vector.sign_of_mortar_sides
             * ad.mortar_projections_vector.secondary_to_mortar_int
