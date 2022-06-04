@@ -41,7 +41,7 @@ class ContactMechanicsBiotAdObjects(
 
 
 class ContactMechanicsBiot(pp.ContactMechanics):
-    """This is a shell class for poro-elastic contact mechanics problems.
+    """This is a shell class for poroelastic contact mechanics problems.
 
     Setting up such problems requires a lot of boilerplate definitions of variables,
     parameters and discretizations. This class is intended to provide a standardized
@@ -77,7 +77,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         viz_folder_name (str): Folder for visualization export.
         gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
-        convergence_status (bool): Whether the non-linear iterations has converged.
+        convergence_status (bool): Whether the non-linear iterations have converged.
         linear_solver (str): Specification of linear solver. Only known permissible
             value is 'direct'
         scalar_scale (float): Scaling coefficient for the scalar variable. Can be used
@@ -98,7 +98,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Time
         self.time: float = 0
-        self.time_step: float = self.params.get("end_time", 1.0)
+        self.time_step: float = self.params.get("time_step", 1.0)
         self.end_time: float = self.params.get("end_time", 1.0)
 
         # Temperature
@@ -111,7 +111,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         self.scalar_scale: float = 1.0
         self.length_scale: float = 1.0
 
-        # Whether or not to subtract the fracture pressure contribution for the contact
+        # Whether to subtract the fracture pressure contribution for the contact
         # traction. This should be done if the scalar variable is pressure, but not for
         # temperature. See assign_discretizations
         self.subtract_fracture_pressure: bool = True
@@ -165,7 +165,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Is it correct there is no contribution from the global boundary conditions?
 
-    # Methods for setting parametrs etc.
+    # Methods for setting parameters etc.
 
     def _set_parameters(self) -> None:
         """
@@ -212,7 +212,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     def _set_scalar_parameters(self) -> None:
         tensor_scale = self.scalar_scale / self.length_scale**2
-        kappa = 1 * tensor_scale
         mass_weight = 1 * self.scalar_scale
         for g, d in self.gb:
             specific_volume = self._specific_volume(g)
@@ -259,7 +258,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             # and therefore need to be weighted by the corresponding
             # specific volumes
             normal_diffusivity *= v_h
-            data_edge = pp.initialize_data(
+            pp.initialize_data(
                 e,
                 data_edge,
                 self.scalar_parameter_key,
@@ -433,7 +432,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
         The specific volume of a cell accounts for the dimension reduction and has
         dimensions [m^(Nd - d)].
-        Typically equals 1 in Nd, the aperture in codimension 1 and the square/cube
+        Typically, equals 1 in Nd, the aperture in codimension 1 and the square/cube
         of aperture in codimensions 2 and 3.
         """
         a = self._aperture(g)
@@ -443,7 +442,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
-        Note the attribute subtract_fracture_pressure: Indicates whether or not to
+        Note the attribute subtract_fracture_pressure: Indicates whether to
         subtract the fracture pressure contribution for the contact traction. This
         should not be done if the scalar variable is temperature.
         """
@@ -625,24 +624,11 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         super()._assign_equations()
 
         # Now, assign the two flow equations not present in the parent model.
-
-        gb, ad = self.gb, self._ad
-
-        # g_primary: pp.Grid = gb.grids_of_dimension(Nd)[0]
-        # g_frac: List[pp.Grid] = gb.grids_of_dimension(Nd - 1).tolist()
         subdomains: List[pp.Grid] = [g for g, _ in self.gb]
 
-        interfaces = [e for e, d in gb.edges() if d["mortar_grid"].codim == 1]
+        interfaces = [e for e, d in self.gb.edges() if d["mortar_grid"].codim == 1]
 
-        # Primary variables on Ad form
-        ad.pressure: pp.ad.Variable = self._eq_manager.merge_variables(
-            [(g, self.scalar_variable) for g in subdomains]
-        )
-        ad.interface_flux: pp.ad.Variable = self._eq_manager.merge_variables(
-            [(e, self.mortar_scalar_variable) for e in interfaces]
-        )
         # Construct equations
-
         subdomain_flow_eq: pp.ad.Operator = self._subdomain_flow_equation(subdomains)
         interface_flow_eq: pp.ad.Operator = self._interface_flow_equation(interfaces)
         # Assign equations to manager
@@ -702,7 +688,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     ) -> pp.ad.Operator:
         """Force balance equation on fracture subdomains.
 
-
         Parameters
         ----------
         matrix_subdomains: List[pp.Grid]
@@ -723,61 +708,76 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             preferable, but was deemed to lead to too complicated projections between
             subdomains and interfaces.
         """
+        # The force balance equation for the contact mechanics without fluid pressure
+        # with a term representing the fluid pressure in the fracture.
+
+        # First the pure elastic force balance.
         eq = super()._force_balance_equation(
             matrix_subdomains, fracture_subdomains, interfaces
         )
+
         if not self.subtract_fracture_pressure:
+            # If the scalar variable does not have the interpretation of a pressure,
+            # no modifications of the equation is needed.
             return eq
+
+        # The fracture pressure force takes the form
+        #   normal_vector * I p
+        # where I is the identity matrix.
 
         g_primary = matrix_subdomains[0]
         mat = []
 
+        # Build up matrices containing the n-dot-I products for each interface.
         for e in interfaces:
+            # It is assumed that the list interfaces contains only matrix-fracture
+            # interfaces, thus no need to filter on dimensions
+
             mg = self.gb.edge_props(e, "mortar_grid")
             assert isinstance(mg, pp.MortarGrid)  # Appease mypy
 
-            faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
-            sgn, _ = g_primary.signs_and_cells_of_boundary_faces(
-                faces_on_fracture_surface
-            )
+            # Find the normal vectors of faces in g_primary on the boundary of this
+            # interface.
+            faces_on_fracture_boundary = mg.primary_to_mortar_int().tocsr().indices
             internal_boundary_normals = g_primary.face_normals[
-                : self._Nd, faces_on_fracture_surface
+                : self._Nd, faces_on_fracture_boundary
             ]
+            # Also get sign of the faces.
+            sgn, _ = g_primary.signs_and_cells_of_boundary_faces(
+                faces_on_fracture_boundary
+            )
+            # Normal vector. Scale with sgn so that the normals point out of all cells
             outwards_fracture_normals = sgn * internal_boundary_normals
 
+            # Matrix representation of n_dot_I for this interface
             data = outwards_fracture_normals.ravel("F")
             row = np.arange(self._Nd * mg.num_cells)
             col = np.tile(np.arange(mg.num_cells), (self._Nd, 1)).ravel("F")
             n_dot_I = sps.csc_matrix((data, (row, col)))
-            # i) The scalar contribution to the contact stress is mapped to
-            # the mortar grid  and multiplied by n \dot I, with n being the
-            # outwards normals on the two sides.
-            # Note that by using different normals for the two sides, we do not need to
-            # adjust the secondary pressure with the corresponding signs by applying
-            # sign_of_mortar_sides as done in PrimalContactCoupling.
-            # iii) The contribution should be subtracted so that we balance the primary
-            # forces by
-            # T_contact - n dot I p,
-            # hence the minus.
+            # The scalar contribution to the contact stress is mapped to the mortar grid
+            # and multiplied by n \dot I, with n being the outwards normals on the two
+            # sides.
             mat.append(n_dot_I * mg.secondary_to_mortar_int(nd=1))
 
         if len(interfaces) == 0:
             mat = [sps.csr_matrix((0, 0))]
-        # May need to do this as for tangential projections, additive that is
+
+        # Block matrix version covering all interfaces.
         normal_matrix = pp.ad.Matrix(sps.block_diag(mat))
 
+        # Ad variable representing pressure on all fracture subdomains.
         p_frac = (
             self._ad.subdomain_projections_scalar.cell_restriction(fracture_subdomains)
             * self._ad.pressure
         )
 
+        # Add n_dot_I * p to the force balance.
         fracture_pressure = normal_matrix * p_frac
         force_balance_equation: pp.ad.Operator = eq + fracture_pressure
         return force_balance_equation
 
     def _subdomain_flow_equation(self, subdomains: List[pp.Grid]):
         """Mass balance equation for slightly compressible flow in a deformable medium.
-
 
         Parameters
         ----------
@@ -801,6 +801,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         # if time steps are changed.
         ad.time_step = pp.ad.Scalar(self.time_step, "time step")
 
+        # Source term for the flow equation.
         flow_source = pp.ad.ParameterArray(
             param_keyword=self.scalar_parameter_key,
             array_keyword="source",
@@ -808,10 +809,13 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         )
 
         div_scalar = pp.ad.Divergence(grids=subdomains)
+        # Terms relating to the mechanics-to-flow coupling.
         biot_accumulation_primary = self._biot_terms_flow([self._nd_grid()])
 
-        # Accumulation term on the fractures.
+        # Accumulation term specific to the fractures due to fracture volume changes.
         accumulation_fracs = self._volume_change(g_frac)
+
+        # Accumulation due to compressibility. Applies to all subdomains
         accumulation_all = mass_discr.mass * (
             ad.pressure - ad.pressure.previous_timestep()
         )
@@ -838,11 +842,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     def _interface_flow_equation(self, interfaces: List[Tuple[pp.Grid, pp.Grid]]):
         """Equation for interface fluxes.
 
-
         Parameters
         ----------
         interfaces : List[Tuple[pp.Grid, pp.Grid]]
-            DESCRIPTION.
+            List of interfaces for which a flow equation should be constructed.
 
         Returns
         -------
@@ -908,8 +911,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         return interface_flow_eq
 
     def _biot_terms_flow(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
-        """Biot terms, div(u) and stabilization
-
+        """Biot terms, div(u) and stabilization.
 
         Parameters
         ----------
@@ -923,7 +925,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             Biot flow equation in the matrix.
 
         """
-
         ad = self._ad
         div_u_discr = pp.ad.DivUAd(
             self.mechanics_parameter_key,
@@ -938,6 +939,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             array_keyword="biot_alpha",
             grids=subdomains,
         )
+        # Boundary conditions for the mechanics, on this and the previous time step.
         bc_mech = pp.ad.ParameterArray(
             self.mechanics_parameter_key,
             array_keyword="bc_values",
@@ -981,7 +983,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             * (ad.pressure - ad.pressure.previous_timestep())
         )
         stabilization_term.set_name("Biot stabilization")
-
         biot_terms: pp.ad.Operator = div_u_terms + stabilization_term
         return biot_terms
 
@@ -1000,17 +1001,26 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         volume_change : pp.ad.Operator
             Volume change term for the fracture subdomains as an ad operator.
 
+        TODO: Extend to intersections
         """
+        ad = self._ad
+        interface_displacement_prev = ad.interface_displacement.previous_timestep()
+        interface_displacement = ad.interface_displacement
+
+        # Change (in time) of the interface jump
+        rotated_jumps: pp.ad.Operator = (
+            ad.subdomain_projections_vector.cell_restriction(subdomains)
+            * ad.mortar_projections_vector.mortar_to_secondary_avg
+            * ad.mortar_projections_vector.sign_of_mortar_sides
+            * (interface_displacement - interface_displacement_prev)
+        )
+
         discr = pp.ad.MassMatrixAd(self.mechanics_parameter_key, subdomains)
         # Neglects intersections
         volume_change: pp.ad.Operator = (
-            discr.mass
-            * self._ad.local_fracture_coord_transformation_normal
-            * (
-                self._displacement_jump(subdomains)
-                - self._displacement_jump(subdomains, previous_timestep=True)
-            )
+            discr.mass * self._ad.normal_component_frac * rotated_jumps
         )
+        volume_change.set_name("Volume change")
         return volume_change
 
     def _fluid_flux(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
@@ -1022,16 +1032,15 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         subdomains : List[pp.Grid]
             Subdomains for which fluid fluxes are defined, normally all.
 
-        Note:
-            The ad flux discretization used here is stored for consistency with
-            self._interface_flow_equations, where self._ad.flux_discretization
-            is applied.
-
         Returns
         -------
         flux : pp.ad.Operator
             Flux on ad form.
 
+        Note:
+            The ad flux discretization used here is stored for consistency with
+            self._interface_flow_equation, where self._ad.flux_discretization
+            is applied.
         """
         bc = pp.ad.ParameterArray(
             self.scalar_parameter_key,
@@ -1166,8 +1175,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         Parameters:
             solution (array): solution of current iteration.
-            solution (array): solution of previous iteration.
-            solution (array): initial solution (or from beginning of time step).
+            prev_solution (array): solution of previous iteration.
+            init_solution (array): initial solution (or from beginning of time step).
             nl_params (dictionary): assumed to have the key nl_convergence_tol whose
                 value is a float.
         """
@@ -1261,7 +1270,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         if self._use_ad:
             self._eq_manager.discretize(self.gb)
         else:
-            # Discretization is a bit cumbersome, as the Biot discetization removes the
+            # Discretization is a bit cumbersome, as the Biot discretization removes the
             # one-to-one correspondence between discretization objects and blocks in
             # the matrix.
             # First, Discretize with the biot class
@@ -1297,25 +1306,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     self.assembler.discretize(filt=filt)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
-
-    def _initialize_linear_solver(self) -> None:
-
-        solver = self.params.get("linear_solver", "direct")
-
-        if solver == "direct":
-            """In theory, it should be possible to instruct SuperLU to reuse the
-            symbolic factorization from one iteration to the next. However, it seems
-            the scipy wrapper around SuperLU has not implemented the necessary
-            functionality, as discussed in
-
-                https://github.com/scipy/scipy/issues/8227
-
-            We will therefore pass here, and pay the price of long computation times.
-            """
-            self.linear_solver = "direct"
-
-        else:
-            raise ValueError("unknown linear solver " + solver)
 
     def _discretize_biot(self, update_after_geometry_change: bool = False) -> None:
         """

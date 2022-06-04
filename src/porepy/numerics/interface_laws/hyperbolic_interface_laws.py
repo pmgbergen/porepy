@@ -9,8 +9,6 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
 
-module_sections = ["numerics"]
-
 
 class UpwindCoupling(
     porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
@@ -44,7 +42,6 @@ class UpwindCoupling(
     def ndof(self, mg: pp.MortarGrid) -> int:
         return mg.num_cells
 
-    @pp.time_logger(sections=module_sections)
     def discretize(
         self,
         g_primary: pp.Grid,
@@ -71,7 +68,7 @@ class UpwindCoupling(
 
         mg: pp.MortarGrid = data_edge["mortar_grid"]
 
-        # mapping from upper dim cellls to faces
+        # mapping from upper dim cells to faces
         # The mortars always points from upper to lower, so we don't flip any
         # signs.
         # The mapping will be non-zero also for faces not adjacent to
@@ -103,7 +100,6 @@ class UpwindCoupling(
         # Identity matrix, to represent the mortar variable itself
         matrix_dictionary[self.mortar_discr_matrix_key] = sps.eye(mg.num_cells)
 
-    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self,
         g_primary: pp.Grid,
@@ -173,11 +169,11 @@ class UpwindCoupling(
 
         # assemble matrices
         # Note the sign convention: The Darcy mortar flux is positive if it goes
-        # from g_h to g_l. Thus a positive transport flux (assuming positive
+        # from g_h to g_l. Thus, a positive transport flux (assuming positive
         # concentration) will go out of g_h, into g_l.
 
         # Transport out of upper equals lambda.
-        # Use integrated projcetion operator; the flux is an extensive quantity
+        # Use integrated projection operator; the flux is an extensive quantity
         cc[0, 2] = inv_trace_primary * mg.mortar_to_primary_int()
 
         # transport out of lower is -lambda
@@ -219,7 +215,6 @@ class UpwindCoupling(
         matrix += cc
         return matrix, rhs
 
-    @pp.time_logger(sections=module_sections)
     def cfl(
         self,
         g_primary,
