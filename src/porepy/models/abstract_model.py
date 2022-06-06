@@ -195,7 +195,8 @@ class AbstractModel:
             # and/or each grid separately, possibly using _l2_norm_cell
 
             # We normalize by the size of the solution vector
-            error = np.linalg.norm(solution) / solution.size
+            # Enforce float to make mypy happy
+            error = float(np.linalg.norm(solution)) / solution.size
             logger.debug(f"Normalized error: {error:.2e}")
             converged = error < nl_params["nl_convergence_tol"]
             diverged = False
