@@ -523,7 +523,10 @@ def test_variable_combinations(grids, variables):
 @pytest.mark.parametrize(
     "operator_class, constructor_kwargs",
     [
-        ("LJacFunction", ({"L": [-1.0, 0.0]}, {"L": [0.0, 2.0 * 1.816]})),
+        (
+            "DiagonalJacobianFunction",
+            ({"multipliers": [-1.0, 0.0]}, {"multipliers": [0.0, 2.0 * 1.816]}),
+        ),
         ("Function", ({}, {})),
     ],
 )
@@ -640,7 +643,7 @@ def test_operator_functions(operator_class, constructor_kwargs):
     # 8x2 cells on the Mortar grid
     coord_point = np.array([[0.2, 0.8], [0.5, 0.5]])
     indices_point = np.array([[0], [1]])
-    domain = pp.SquareDomain()
+    domain = pp.SquareDomain([1, 1])
     fracture_network = pp.FractureNetwork2d(coord_point, indices_point, domain)
     mesh_args = {"mesh_size_frac": 0.3}
     mdg = fracture_network.mesh(mesh_args)
