@@ -541,22 +541,25 @@ def test_operator_functions(operator_class, constructor_kwargs):
     2. Test: test of dimensions compatibility for a mixed-dimensional domain with mortar grids
     but without mortar variables
     """
-    # get class reference
+    # The name of the tested class is given as a test parameter in form of a string.
+    # In order to get a reference to the actual type, look for the class name among the
+    # attributes of the module object `pp.ad`
     operator_cls = getattr(pp.ad, operator_class)
-    ############ single domain for convergence test
-    gbs = pp.GridBucket()
+
+    ############ 1. Test: single domain for convergence test
+    gb = pp.GridBucket()
     g = pp.CartGrid([2, 2])
-    gbs.add_nodes([g])
-    gbs.compute_geometry()
+    gb.add_nodes([g])
+    gb.compute_geometry()
 
     # Functions for equations
     line = lambda x, y: y - x
 
-    radii = np.array([1.0 + i * 0.25 for i in range(gbs.num_cells())])
+    radii = np.array([1.0 + i * 0.25 for i in range(gb.num_cells())])
     circle_ = lambda x, y: x**2 + y**2
 
     # creating variables
-    for g, d in gbs:
+    for g, d in gb:
         d[pp.STATE] = {}
         d[pp.STATE][pp.ITERATE] = {}
         d[pp.PRIMARY_VARIABLES] = {}
@@ -564,10 +567,10 @@ def test_operator_functions(operator_class, constructor_kwargs):
         d[pp.PRIMARY_VARIABLES].update({"x": {"cells": 1}})
         d[pp.PRIMARY_VARIABLES].update({"y": {"cells": 1}})
 
-    dof_manager = pp.DofManager(gbs)
-    eq_manager = pp.ad.EquationManager(gbs, dof_manager)
+    dof_manager = pp.DofManager(gb)
+    eq_manager = pp.ad.EquationManager(gb, dof_manager)
 
-    for g, _ in gbs:
+    for g, _ in gb:
         _ = [eq_manager.variable(g, "x"), eq_manager.variable(g, "y")]
         x = eq_manager.merge_variables([(g, "x")])
         y = eq_manager.merge_variables([(g, "y")])
@@ -596,7 +599,7 @@ def test_operator_functions(operator_class, constructor_kwargs):
         return (-1) * np.copy(b0)
 
     # Setting equations with approximating operators
-    Z = reset_values(gbs, eq_manager)
+    Z = reset_values(gb, eq_manager)
 
     line_a = operator_cls(
         **constructor_kwargs[0], func=line, name="line_a", is_vector_func=False
@@ -608,16 +611,18 @@ def test_operator_functions(operator_class, constructor_kwargs):
     circle_a = circle_a_ - radii**2
 
     eq_manager.equations = {"line": line_a, "circle": circle_a}
-    iterations = "NOT CONVERGED"
+    iterations = 0
+    max_iter = 1000
     res_norm = None
 
-    for i in range(4000):
+    # solving the nonlinear problem (see docstring: Test 1)
+    for i in range(max_iter + 1):
+        iterations = i
 
         A, b = eq_manager.assemble()
 
         res_norm = np.linalg.norm(b)
         if res_norm <= 1.0e-10:
-            iterations = i
             break
 
         dz = sps.linalg.spsolve(A, b)
@@ -626,7 +631,7 @@ def test_operator_functions(operator_class, constructor_kwargs):
         dof_manager.distribute_variable(Z)
         dof_manager.distribute_variable(Z, to_iterate=True)
 
-    assert iterations != "NOT CONVERGED"
+    assert iterations < max_iter
 
     ############ mD domain for test of dimensions
     # this grid has in total 200 cell DOFs
@@ -635,14 +640,14 @@ def test_operator_functions(operator_class, constructor_kwargs):
     # 8x2 cells on the Mortar grid
     coord_point = np.array([[0.2, 0.8], [0.5, 0.5]])
     indices_point = np.array([[0], [1]])
-    domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+    domain = pp.SquareDomain()
     fracture_network = pp.FractureNetwork2d(coord_point, indices_point, domain)
     mesh_args = {"mesh_size_frac": 0.3}
-    gbmd = fracture_network.mesh(mesh_args)
-    gbmd.compute_geometry()
+    mdg = fracture_network.mesh(mesh_args)
+    mdg.compute_geometry()
 
     # creating variables
-    for g, d in gbmd:
+    for g, d in mdg:
         d[pp.STATE] = {}
         d[pp.STATE][pp.ITERATE] = {}
         d[pp.PRIMARY_VARIABLES] = {}
@@ -656,20 +661,15 @@ def test_operator_functions(operator_class, constructor_kwargs):
         d[pp.STATE][pp.ITERATE]["y"] = np.ones(g.num_cells)
 
     # Then for the edges
-    for _, d in gbmd.edges():
-        if d["mortar_grid"].codim == 2:
-            continue
-        else:
-            d[pp.PRIMARY_VARIABLES] = {"mortar_x": {"cells": 1}}
-            d[pp.PRIMARY_VARIABLES].update({"mortar_y": {"cells": 1}})
+    for _, d in mdg.edges():
+        d[pp.PRIMARY_VARIABLES] = {"mortar_x": {"cells": 1}}
+        d[pp.PRIMARY_VARIABLES].update({"mortar_y": {"cells": 1}})
 
-    dof_manager = pp.DofManager(gbmd)
-    eq_manager = pp.ad.EquationManager(gbmd, dof_manager)
+    dof_manager = pp.DofManager(mdg)
+    eq_manager = pp.ad.EquationManager(mdg, dof_manager)
 
-    x = eq_manager.merge_variables([(g, "x") for g, _ in gbmd])
-    y = eq_manager.merge_variables([(g, "y") for g, _ in gbmd])
-    # mortar_x = eq_manager.merge_variables([(e, "mortar_x") for e, _ in gbmd.edges()])
-    # mortar_y = eq_manager.merge_variables([(e, "mortar_y") for e, _ in gbmd.edges()])
+    x = eq_manager.merge_variables([(g, "x") for g, _ in mdg])
+    y = eq_manager.merge_variables([(g, "y") for g, _ in mdg])
 
     initial_values = np.ones(dof_manager.num_dofs())
     dof_manager.distribute_variable(initial_values)
@@ -932,7 +932,6 @@ class AdArrays(unittest.TestCase):
         A = sps.csc_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
 
         f = A * a + b
-        # jac = A * Ja + Jb
 
         self.assertTrue(np.all(f.val == [15, 33, 51]))
         self.assertTrue(np.sum(f.full_jac() != A * Ja + Jb) == 0)
@@ -995,10 +994,6 @@ class AdArrays(unittest.TestCase):
         self.assertTrue(c.val == 2 and np.allclose(c.jac, 1))
 
     def test_full_jac(self):
-        # J1 = sps.csc_matrix(
-        #     np.array([[1, 3, 5], [1, 5, 1], [6, 2, 4], [2, 4, 1], [6, 2, 1]])
-        # )
-        # J2 = sps.csc_matrix(np.array([[1, 2], [2, 5], [6, 0], [9, 9], [45, 2]]))
         J = np.array(
             [
                 [1, 3, 5, 1, 2],

@@ -4,6 +4,7 @@ operators as input arguments.
 Contains also a decorator class for callables, which transforms them automatically in the
 specified operator function type.
 """
+from __future__ import annotations
 
 import abc
 from functools import partial
@@ -19,10 +20,8 @@ from porepy.numerics.ad.forward_mode import Ad_array
 from .operators import Operation, Operator, Tree
 
 __all__ = [
-    "AbstractFunction",
-    "AbstractJacFunction",
     "Function",
-    "LJacFunction",
+    "DiagonalJacobianFunction",
     "ADmethod",
 ]
 
@@ -44,8 +43,8 @@ class AbstractFunction(Operator):
         self,
         func: Callable,
         name: str,
-        is_vector_func: Optional[bool] = False,
-        is_adarray_func: Optional[bool] = False,
+        is_array_func: bool = False,
+        is_adarray_func: bool = False,
     ):
         """Constructor. Saves information about the passed callable.
         The passed callable is expected to take numerical information in some form and
@@ -53,7 +52,7 @@ class AbstractFunction(Operator):
 
         Important NOTE: flagging this instance with `is_adarray_func` will lead to a direct
         evaluation of the callable using Ad_array instances, effectively bypassing
-        the abstract methods (but still leading to NotImplementedError if not implemented)
+        the abstract methods (but still leading to NotImplementedError if not implemented).
         Might not be elegant, but we can put the old `Function` class this way in the same
         category/hierarchy.
 
@@ -61,9 +60,9 @@ class AbstractFunction(Operator):
         :type func: callable
         :param name: Name of this operator instance
         :type name: str
-        :param is_vector_func: Indicator if passed callable can be fed with vectors
+        :param is_array_func: Indicator if passed callable can be fed with vectors
             (numpy.ndarray)
-        :type is_vector_func: bool
+        :type is_array_func: bool
         :param is_adarray_func: indicator whether callable can be fed with Ad_array instances
             or not
         :type is_adarray_func: bool
@@ -72,9 +71,9 @@ class AbstractFunction(Operator):
         # Reference to callable passed at instantiation
         self.func: Callable = func
         # indicator whether above callable can be fed with vectors (numpy.ndarray) or not
-        self.is_vector_func: bool = bool(is_vector_func)
+        self.is_array_func: bool = is_array_func
         # indicator whether above callable can be fed with Ad_array instances
-        self.is_adarray_func: bool = bool(is_adarray_func)
+        self.is_adarray_func: bool = is_adarray_func
 
         ### PRIVATE
         self._name: str = name
@@ -120,8 +119,8 @@ class AbstractFunction(Operator):
     def __truediv__(self, other):
         raise RuntimeError("ad.Operator functions should only be called, not divided.")
 
-    def parse(self, gb: "pp.GridBucket"):
-        """Parsing to an numerical value.
+    def parse(self, gb: pp.GridBucket):
+        """Parsing to a numerical value.
 
         The real work will be done by combining the function with arguments, during
         parsing of an operator tree.
@@ -136,7 +135,7 @@ class AbstractFunction(Operator):
         return self
 
     @abc.abstractmethod
-    def get_values(self, *args: "Ad_array") -> "np.ndarray":
+    def get_values(self, *args: Ad_array) -> np.ndarray:
         """
         Abstract method for evaluating the callable passed at instantiation.
 
@@ -149,7 +148,7 @@ class AbstractFunction(Operator):
         pass
 
     @abc.abstractmethod
-    def get_jacobian(self, *args: "Ad_array") -> "sps.spmatrix":
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
         """
         Abstract method for evaluating the Jacobian of the callable passed at instantiation.
 
@@ -165,11 +164,11 @@ class AbstractFunction(Operator):
         pass
 
 
-class AbstractJacFunction(AbstractFunction):
+class AbstractJacobianFunction(AbstractFunction):
     """'Half'-abstract base class, for which a direct evaluation of the passed callable is
     implemented. Only the Jacobian has to be concretized / approximated."""
 
-    def get_values(self, *args: "Ad_array") -> "np.ndarray":
+    def get_values(self, *args: Ad_array) -> np.ndarray:
         """
         Evaluates the passed callable directly using values of Ad_array instances
         passed as arguments.
@@ -183,8 +182,7 @@ class AbstractJacFunction(AbstractFunction):
         vals = (arg.val for arg in args)
 
         # if the callable is flagged as conform for vector operations, feed vectors
-        if self.is_vector_func:
-
+        if self.is_array_func:
             return self.func(*vals)
         else:
             # if not vector-conform, feed element-wise
@@ -217,66 +215,65 @@ class Function(AbstractFunction):
     (due to the assumed, direct evaluation of result using the callable).
     """
 
-    def __init__(
-        self, func: Callable, name: str, is_vector_func: Optional[bool] = True
-    ):
+    def __init__(self, func: Callable, name: str, is_vector_func: bool = True):
         super().__init__(func, name, is_vector_func, True)
 
-    def get_values(self, *args: "Ad_array") -> "np.ndarray":
+    def get_values(self, *args: Ad_array) -> np.ndarray:
         result = self.func(*args)
         return result.val
 
-    def get_jacobian(self, *args: "Ad_array") -> "np.ndarray":
+    def get_jacobian(self, *args: Ad_array) -> np.ndarray:
         result = self.func(*args)
         return result.jac
 
 
-class LJacFunction(AbstractJacFunction):
+class DiagonalJacobianFunction(AbstractJacobianFunction):
     """
-    Approximates the Jacobian of the function using the L-scheme
-    with a fixed value per dependency.
+    Approximates the Jacobian of the function using the a diagonal matrix and a scalar
+    multiplier per dependency.
     """
 
     def __init__(
         self,
-        L: Union[List[float], float],
+        multipliers: Union[List[float], float],
         func: Callable,
         name: str,
-        is_vector_func: Optional[bool] = False,
+        is_vector_func: bool = False,
     ):
         """Constructor.
 
-        The L-multiplier for the L-scheme can be passed for every argument specifically
-        using a list.
-        The order in the list has to mach the order of arguments when calling
-        this instance.
+        The scalar multipliers for the diagonal matrix can be passed for every
+        function dependency specifically using a list.
+        The order in the list has to mach the order of arguments when evaluating
+        the function (i.e. the variables passed to `__call__`).
 
         :param L: multiplier for identity for L-scheme
         :type L: float / List[float]
         """
         super().__init__(func, name, is_vector_func)
         # check and format input for further use
-        if isinstance(L, list):
-            self._L = [float(val) for val in L]
+        if isinstance(multipliers, list):
+            self._multipliers = [float(val) for val in multipliers]
         else:
-            self._L = [float(L)]
+            self._multipliers = [float(multipliers)]
 
-    def get_jacobian(self, *args: "Ad_array") -> "sps.spmatrix":
-        """The approximate jacobian is identity times L.
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+        """The approximate jacobian is identity times scalar multiplier for every
+        function dependency.
 
-        Where the respective blocks appears,
+        Where the respective diagonal blocks appears,
         depends on the total DOFs and the order of arguments passed during the
         call to this instance.
         """
         # the Jacobian of a (Merged) Variable is already a properly sized block identity
         if len(args) >= 1:
-            jac = args[0].jac * self._L[0]
+            jac = args[0].jac * self._multipliers[0]
 
             # summing identity blocks for each dependency
             if len(args) > 1:
                 # TODO think about exception handling in case not enough
                 # L-values were provided initially
-                for arg, L in zip(args[1:], self._L[1:]):
+                for arg, L in zip(args[1:], self._multipliers[1:]):
                     jac += arg.jac * L
         else:
             # TODO assert zero as scalar will cause no type errors with other operators
@@ -437,18 +434,19 @@ class ADmethod:
         """
         Descriptor protocol.
 
-        If this instance decorates a class method (and effectively replaces it), it is bound
-        to the class instance.
+        If this ADmethod decorates a class method (and effectively replaces it), it will bound
+        to the class instance, similar to bound methods
 
         Every time this instance is syntactically accessed as an attribute of the
         class instance, this getter is called and returns a partially evaluated call
-        to this instance. By calling this instance this way, we can pass a reference to the
-        class instance as an argument to __call__,
-        and consequently to the decorated class method.
+        to this instance instead.
+        By calling this instance this way, we can save a reference to the `self` argument of
+        the decorated class method and pass is as an argument to the decorated method.
 
-        The reason why this is necessary is due to the fact, that decorated functions and
-        class methods are always passed in unbound form to the decorator when the code is
-        evaluated.
+        The reason why this is necessary is due to the fact, that  class methods
+        are always passed in unbound form to the decorator when the code is
+        evaluated
+        (i.e. they don't have a reference to the `self` argument, contrary to bound methods)
 
         :param binding_instance: instance for binding this object's call to it.
         :type binding_instance: Any
@@ -456,7 +454,6 @@ class ADmethod:
         :type binding_type: type
         """
         # safe a reference to the binding instance
-        # NOTE VL: Do we need a validation of the binding instance here?
         self._bound_to = binding_instance
         # a partial call to the decorator is returned, not the decorator itself.
         # This will trigger the function evaluation.
