@@ -423,6 +423,7 @@ class Operator:
             if func_op.is_adarray_func:
                 return func_op.func(*results[1:])
             else:
+                # This should be a Function with approximated Jacobian and value.
                 try:
                     val = func_op.get_values(*results[1:])
                     jac = func_op.get_jacobian(*results[1:])
