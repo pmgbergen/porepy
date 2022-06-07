@@ -835,9 +835,17 @@ def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -
     for node in nodes:
         # t_node takes into account the added nodes.
         t_node = node + node_count
-        # Find cells connected to node
 
-        cells = np.unique(pp.matrix_operations.slice_indices(cell_nodes, node))
+        # Find cells connected to node
+        # First get hold of all cells from the cell-node map
+        all_cells = pp.matrix_operations.slice_indices(cell_nodes, node)
+        # Reassure mypy that slice_indices did not return two values (we know this since
+        # we did not pass it the return_index_array parameter).
+        assert isinstance(all_cells, np.ndarray)
+
+        # Next, uniquify
+        cells = np.unique(all_cells)
+
         # Find the color of each cell. A group of cells is given the same color
         # if they are connected by faces. This means that all cells on one side
         # of a fracture will have the same color, but a different color than
@@ -853,15 +861,17 @@ def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -
         face_pos = np.array([g.face_nodes.indptr[t_node]])
         assert g.cell_faces.getformat() == "csc"
         assert g.face_nodes.getformat() == "csr"
+
         faces_of_node_t = pp.matrix_operations.slice_indices(g.face_nodes, t_node)
+        assert isinstance(faces_of_node_t, np.ndarray)  # Appease mypy
 
         for j in range(colors.size):
             # For each color we wish to add one node. First we find all faces that
             # are connected to the fracture node, and have the correct cell
             # color
-            colored_faces = np.unique(
-                pp.matrix_operations.slice_indices(g.cell_faces, cells[ix == j])
-            )
+            all_faces = pp.matrix_operations.slice_indices(g.cell_faces, cells[ix == j])
+            assert isinstance(all_faces, np.ndarray)  # Appease mypy
+            colored_faces = np.unique(all_faces)
 
             is_colored = np.in1d(faces_of_node_t, colored_faces, assume_unique=True)
 
