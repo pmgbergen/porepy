@@ -96,7 +96,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # Use the managers from the composition so that the Schur complement can be made
         self.eqm: pp.ad.EquationManager = self.composition.eq_manager
         self.dofm: pp.DofManager = self.composition.dof_manager
-        # self.dofm.update_dofs()
 
         # set the first primary equation, sum over all overall substance fractions
         name = "overall_substance_fraction_sum"
@@ -325,24 +324,20 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         print("Equilibrium:\n    Success: %s\n    Iterations: %i\n    TRU: %i"
         %
         (str(history['success']), history['iterations'], history['trust']))
-        saturations = self.composition.saturation_flash(max_iter, tol)
-        history = self.composition.newton_history[-1]
-        print("Saturation flash:\n    Success: %s\n    Iterations: %i\n    TRU: %i"
-        %
-        (str(history['success']), history['iterations'], history['trust']))
+        
+        self.composition.saturation_flash()
+
         isenthalpic = self.composition.isenthalpic_flash(max_iter, tol)
         history = self.composition.newton_history[-1]
         print("Isenthalpic flash:\n    Success: %s\n    Iterations: %i"
         %
         (str(history['success']), history['iterations']))
 
-        if equilibrium and saturations and isenthalpic:
+        if equilibrium and isenthalpic:
             return True
         else:
             if not equilibrium:
                 print("Equilibrium Calculations did not converge.")
-            if not saturations:
-                print("Saturation Flash did not converge.")
             if not isenthalpic:
                 print("Isenthalpic Flash did not converge.")
             return False
@@ -397,7 +392,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         for g, d in self.gb:
 
             source = self._unitary_source(g)
-            unit_tensor = pp.ad.SecondOrderTensorAd(np.ones(g.num_cells))
+            unit_tensor = pp.SecondOrderTensor(np.ones(g.num_cells))
             # TODO is this a must-have parameter?
             zero_vector_source = np.zeros((self.gb.dim_max(), g.num_cells))
 
@@ -424,7 +419,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             ### Darcy flow parameters per PhaseField
             # TODO VL is this necessary per phase? global pressure formulation
             bc, bc_vals = self._bc_advective_flux(g)
-            transmissibility = pp.ad.SecondOrderTensorAd(
+            transmissibility = pp.SecondOrderTensor(
                 self._base_permeability * np.ones(g.num_cells)
             )
             for phase in self.composition:
