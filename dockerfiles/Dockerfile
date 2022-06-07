@@ -39,29 +39,35 @@ WORKDIR /home/ubuntu/
 RUN chmod a+rwx /home/ubuntu/
 
 USER porepy
+
 ENV POREPY_HOME /home/porepy
 RUN touch $POREPY_HOME/.sudo_as_admin_successful && \
     mkdir $POREPY_HOME/shared
 VOLUME /home/porepy/shared
 
-# Print something nice on entry.
-RUN ["echo", "Clone PorePy"]
+ENV TMP_DIR /tmp
 
 # Name of top directory for porepy installation
 ENV POREPY_HOME=/home/porepy
 # .. and the directory for the PorePy source
 ENV POREPY_SRC=${POREPY_HOME}/pp
 
+## Pull PorePy 
+# Clone PorePy from GitHub
+RUN git clone https://github.com/pmgbergen/porepy.git ${POREPY_SRC}
+WORKDIR ${POREPY_SRC}/dockerfiles
+
 ### Set up the conda environment
-
-WORKDIR ${POREPY_HOME}
-
 
 # Copy the file environment.yml from host into the container if it exists.
 # Copying the dockerfile is necessary to avoid errors environment.yml
 # does not exist, and the * and / in hte below expression are also necessary.
 # Source: https://redgreenrepeat.com/2018/04/13/how-to-conditionally-copy-file-in-dockerfile/
-COPY dockerfile environment.yml* ${POREPY_HOME}/
+COPY dockerfile environment.yml* ${TMP_DIR}/
+
+# Copy the parse_environment file from the PorePy directory to /tmp
+RUN cp ${POREPY_SRC}/dockerfiles/parse_environment.py ${TMP_DIR}
+WORKDIR ${TMP_DIR}
 
 # Modify the environment file to:
 #  1) Ensure that the environment name is pp_env; if not, below commands
@@ -73,15 +79,8 @@ COPY dockerfile environment.yml* ${POREPY_HOME}/
 # have effect in the conda base environment).
 RUN pip install pyyaml
 
-# TODO: Put parse_environment.py in Dockerfiles, move the git pull
-# to above this line, copy the parsing file (if necessary).
-RUN conda init bash
-COPY parse_environment.py .
-RUN python parse_environment.py
-
 # Prepare Conda to work with bash
-
-RUN cat ./environment.yml
+RUN conda init bash
 
 # Create the Conda environment, we call this pp_env
 # NOTE: While it would have been preferrable to set the environment name
@@ -107,34 +106,26 @@ RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
 # Source: https://stackoverflow.com/questions/64323539/docker-run-interactive-with-conda-environment-already-activated
 RUN echo "conda activate pp_env" >> ~/.bashrc
 
-ENV PYTHONPATH $POREPY_HOME
-
-USER porepy
+# Add conda-forge as a channel
+RUN conda config --add channels conda-forge
 
 ### Add various packages that may be useful for development
-#RUN conda install -c conda-forge spyder jupyterlab 
-
-
-# Clone PorePy from GitHub
-#WORKDIR ${POREPY_HOME}
-#RUN git clone https://github.com/pmgbergen/porepy.git ${POREPY_SRC}
-
-#WORKDIR ${POREPY_SRC}
-
-# FIXME: Change to main, or develop, later on
-#RUN git checkout docker
+RUN conda install -c conda-forge spyder jupyterlab ipython
 
 # Install PorePy dependencies, as specified in the PorePy repository
-#RUN conda install -c conda-forge --file requirements-dev.txt
+RUN conda install -c conda-forge --file ${POREPY_SRC}/requirements-dev.txt
 
 # Install PorePy
-#RUN pip install --user -e .
+WORKDIR ${POREPY_SRC}
+RUN pip install --user -e .
 
 # Get external content
-#RUN python fetch_content.py
+RUN python fetch_content.py
 
-# WORKDIR /home/porepy/pp/tests
-# RUN pytest
+ENV PYTHONPATH $POREPY_HOME:$PYTHONPATH
+
+WORKDIR /home/porepy/pp/tests
+RUN pytest
 
 USER porepy
 
