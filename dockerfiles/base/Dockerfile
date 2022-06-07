@@ -63,7 +63,13 @@ WORKDIR ${POREPY_SRC}/dockerfiles
 # Copying the dockerfile is necessary to avoid errors environment.yml
 # does not exist, and the * and / in hte below expression are also necessary.
 # Source: https://redgreenrepeat.com/2018/04/13/how-to-conditionally-copy-file-in-dockerfile/
-COPY Dockerfile environment.yml* ${TMP_DIR}/
+
+# First make sure there is a file environment (if this is empty, the below
+# parsing will assign sensible values)
+RUN touch ${TMP_DIR}/environment.yml
+
+# Then copy the environment file from the host if it exists
+COPY environment.yml* ${TMP_DIR}/
 
 # Copy the parse_environment file from the PorePy directory to /tmp
 RUN cp ${POREPY_SRC}/dockerfiles/parse_environment.py ${TMP_DIR}
@@ -108,25 +114,3 @@ RUN echo "conda activate pp_env" >> ~/.bashrc
 
 # Add conda-forge as a channel
 RUN conda config --add channels conda-forge
-
-### Add various packages that may be useful for development
-RUN conda install -c conda-forge spyder jupyterlab ipython
-
-# Install PorePy dependencies, as specified in the PorePy repository
-RUN conda install -c conda-forge --file ${POREPY_SRC}/requirements-dev.txt
-
-# Install PorePy
-WORKDIR ${POREPY_SRC}
-RUN pip install --user -e .
-
-# Get external content
-RUN python fetch_content.py
-
-ENV PYTHONPATH $POREPY_HOME:$PYTHONPATH
-
-WORKDIR /home/porepy/pp/tests
-RUN pytest
-
-USER porepy
-
-
