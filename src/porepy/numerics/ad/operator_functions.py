@@ -236,6 +236,8 @@ class ConstantFunction(AbstractFunction):
         def func(*args):
             return values
         super().__init__(func, name)
+        # TODO check if distinguishing between global scalar, cell-wise scalar,
+        # vector per cell and 2nd-order-tensor per cell is necessary
         self._values = values
     
     def get_values(self, *args: Ad_array) -> np.ndarray:
@@ -374,7 +376,7 @@ class ADmethod:
         # keyword arguments for call to constructor of operator type
         self._op_kwargs = operator_kwargs
 
-    def __call__(self, *args, **kwargs) -> Union["ADmethod", "pp.ad.Operator"]:
+    def __call__(self, *args, **kwargs) -> Union[ADmethod, pp.ad.Operator]:
         """
         Wrapper factory.
         The decorated object is wrapped and/or evaluated here.
@@ -424,35 +426,6 @@ class ADmethod:
 
         return wrapped_function
 
-    def ad_wrapper(self, *args, **kwargs):
-        """
-        Actual wrapper function.
-        Constructs the necessary AD-Operator class and performs the evaluation.
-        """
-        # extra safety measure to ensure a a bound call is done to the right, binding instance.
-        # We pass only the binding instance referenced in the descriptor protocol.
-        if self._bound_to is None:
-            operator_func = self._func
-        else:
-            # partial evaluation of a bound function,
-            # since the AD operator has no reference to binding instance
-            operator_func = partial(self._func, self._bound_to)
-
-        # Resulting AD operator has a special name to mark its origin
-        if "name" not in self._op_kwargs.keys():
-            name = "ADmethod-"
-            name += (
-                str(self._ad_func_type.__qualname__)
-                + "-decorating-"
-                + str(self._func.__qualname__)
-            )
-            self._op_kwargs.update({"name": name})
-
-        # calling the operator
-        wrapping_operator = self._ad_func_type(func=operator_func, **self._op_kwargs)
-
-        return wrapping_operator(*args, **kwargs)
-
     def __get__(self, binding_instance: object, binding_type: type):
         """
         Descriptor protocol.
@@ -481,3 +454,32 @@ class ADmethod:
         # a partial call to the decorator is returned, not the decorator itself.
         # This will trigger the function evaluation.
         return partial(self.__call__, binding_instance)
+
+    def ad_wrapper(self, *args, **kwargs):
+        """
+        Actual wrapper function.
+        Constructs the necessary AD-Operator class and performs the evaluation.
+        """
+        # extra safety measure to ensure a a bound call is done to the right, binding instance.
+        # We pass only the binding instance referenced in the descriptor protocol.
+        if self._bound_to is None:
+            operator_func = self._func
+        else:
+            # partial evaluation of a bound function,
+            # since the AD operator has no reference to binding instance
+            operator_func = partial(self._func, self._bound_to)
+
+        # Resulting AD operator has a special name to mark its origin
+        if "name" not in self._op_kwargs.keys():
+            name = "ADmethod-"
+            name += (
+                str(self._ad_func_type.__qualname__)
+                + "-decorating-"
+                + str(self._func.__qualname__)
+            )
+            self._op_kwargs.update({"name": name})
+
+        # calling the operator
+        wrapping_operator = self._ad_func_type(func=operator_func, **self._op_kwargs)
+
+        return wrapping_operator(*args, **kwargs)
