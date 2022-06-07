@@ -63,7 +63,7 @@ WORKDIR ${POREPY_SRC}/dockerfiles
 # Copying the dockerfile is necessary to avoid errors environment.yml
 # does not exist, and the * and / in hte below expression are also necessary.
 # Source: https://redgreenrepeat.com/2018/04/13/how-to-conditionally-copy-file-in-dockerfile/
-COPY dockerfile environment.yml* ${TMP_DIR}/
+COPY Dockerfile environment.yml* ${TMP_DIR}/
 
 # Copy the parse_environment file from the PorePy directory to /tmp
 RUN cp ${POREPY_SRC}/dockerfiles/parse_environment.py ${TMP_DIR}
