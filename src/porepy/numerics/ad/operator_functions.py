@@ -228,7 +228,7 @@ class Function(AbstractFunction):
 
 
 class ConstantFunction(AbstractFunction):
-    """"Function representing constant, scalar values with no dependencies, i.e. zero jacobian.
+    """"Function representing constant, scalar values with no dependencies, i.e. zero Jacobian.
     """
 
     def __init__(self, values: np.ndarray, name: str):
@@ -244,6 +244,9 @@ class ConstantFunction(AbstractFunction):
 
     def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
         """Returns the trivial derivative of a constant."""
+        # NOTE it's not a sparse matrix as imposed by the parent method signature,
+        # but the multiplication with a zero always works with any numeric format in
+        # numpy, scipy
         return 0.
 
 
