@@ -227,6 +227,26 @@ class Function(AbstractFunction):
         return result.jac
 
 
+class ConstantFunction(AbstractFunction):
+    """"Function representing constant, scalar values with no dependencies, i.e. zero jacobian.
+    """
+
+    def __init__(self, values: np.ndarray, name: str):
+        # dummy function, takes whatever and returns only the pre-set values
+        def func(*args):
+            return values
+        super().__init__(func, name)
+        self._values = values
+    
+    def get_values(self, *args: Ad_array) -> np.ndarray:
+        """Returns the values passed at instantiation."""
+        return self._values
+
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+        """Returns the trivial derivative of a constant."""
+        return 0.
+
+
 class DiagonalJacobianFunction(AbstractJacobianFunction):
     """
     Approximates the Jacobian of the function using the a diagonal matrix and a scalar
