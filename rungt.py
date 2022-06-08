@@ -11,6 +11,7 @@ params = {
     "file_name": "gt_vl_" + timestamp,
     "use_ad": True
 }
+some_operator = 0
 
 model = pp.CompositionalFlowModel(params=params)
 model.prepare_simulation()
@@ -22,6 +23,7 @@ tol = 1e-7
 
 max_iter_equilibrium = 200
 tol_equilibrium = 1e-8
+model.dt = 0.0001
 
 while t < T:
     model.before_newton_loop()
@@ -30,9 +32,8 @@ while t < T:
     equilibrated = model.solve_equilibrium(max_iter_equilibrium, tol_equilibrium)
 
     if not equilibrated:
-        # raise RuntimeError("Equilibrium calculations failed at time %s" % (str(t)))
-        pass
-    
+        raise RuntimeError("Equilibrium calculations failed at time %s" % (str(t)))
+
     for i in range(max_iter):
         model.before_newton_iteration()
         dx = model.assemble_and_solve_linear_system(tol)
