@@ -409,8 +409,20 @@ class Operator:
                     # numpy functions in this way is not clear to EK.
                     return (results[0] * results[1] ** -1)[0]
                 else:
-                    # Not sure what this will cover, but results[1] being a float etc.
-                    # could end up here (and is easily covered).
+                    # Not sure what this will cover. We have to wait for it to happen.
+                    raise NotImplementedError(
+                        "Encountered a case not covered when dividing Ad objects"
+                    )
+            elif isinstance(results[0], numbers.Real):
+                # if the dividend is a number, the divisor has to be an Ad_array,
+                # otherwise the overloaded division wouldn't have been invoked
+                # We use the same strategy as in above case where the divisor is an Ad_array
+                if isinstance(results[1], pp.ad.Ad_array):
+                    # See remarks by EK in case ndarray / Ad_array
+                    return (results[0] * results[1] ** -1)[0]
+                else:
+                    # In case above argument, that the divisor can only be an Ad_array,
+                    # is wrong
                     raise NotImplementedError(
                         "Encountered a case not covered when dividing Ad objects"
                     )
