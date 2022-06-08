@@ -389,17 +389,10 @@ class Operator:
                 # mode should take care of everything.
                 return results[0] / results[1]
             elif isinstance(results[0], (np.ndarray, sps.spmatrix)):
-<<<<<<< HEAD
-                # The first array is a numpy array, and numpy's implementation of
-                # division will be invoked.
-                if isinstance(results[1], (np.ndarray, numbers.Real)):
-                    # Both items are numpy arrays, everything is fine.
-=======
                 # if the first array is a numpy array or sparse matrix,
                 # then numpy's implementation of division will be invoked.
                 if isinstance(results[1], (np.ndarray, numbers.Real)):
                     # Both items are numpy arrays or scalars, everything is fine.
->>>>>>> bugfix_ad_arithmetics
                     return results[0] / results[1]
                 elif isinstance(results[1], pp.ad.Ad_array):
                     # Numpy cannot deal with division with an Ad_array. Instead multiply
