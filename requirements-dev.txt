@@ -4,7 +4,7 @@ numpy
 scipy
 sympy
 matplotlib
-cython;platform_system=="Linux"
+cython
 future
 six
 shapely
@@ -19,3 +19,4 @@ mypy
 black == 22.3.0
 isort
 typing_extensions
+requests
