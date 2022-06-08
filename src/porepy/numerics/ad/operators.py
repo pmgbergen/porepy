@@ -1,6 +1,7 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
 import copy
+import numbers
 from enum import Enum
 from itertools import count
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -394,11 +395,11 @@ class Operator:
                 # If the first item is an Ad array, the implementation of the forward
                 # mode should take care of everything.
                 return results[0] / results[1]
-            elif isinstance(results[0], np.ndarray):
-                # The first array is a numpy array, and numpy's implementation of
-                # division will be invoked.
-                if isinstance(results[1], np.ndarray):
-                    # Both items are numpy arrays, everything is fine.
+            elif isinstance(results[0], (np.ndarray, sps.spmatrix)):
+                # if the first array is a numpy array or sparse matrix,
+                # then numpy's implementation of division will be invoked.
+                if isinstance(results[1], (np.ndarray, numbers.Real)):
+                    # Both items are numpy arrays or scalars, everything is fine.
                     return results[0] / results[1]
                 elif isinstance(results[1], pp.ad.Ad_array):
                     # Numpy cannot deal with division with an Ad_array. Instead multiply
