@@ -65,7 +65,8 @@ class Water(PhaseField):
         enthalpy: "pp.ad.MergedVariable",
         temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
     ) -> "pp.ad.Operator":
-        return pp.ad.Array(np.ones(self.gb.num_cells()))
+        # return pp.ad.Array(np.ones(self.gb.num_cells()))
+        return pressure
 
     def enthalpy(
         self,
