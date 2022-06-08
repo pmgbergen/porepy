@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict
 
 import numpy as np
 
@@ -27,14 +27,16 @@ class PhysicalSubdomain:
 
     Currently supported heuristic laws for RELATIVE PERMEABILITY:
         - 'quadratic': quadratic power law for saturation
-    
+
     Currently supported heuristic laws for POROSITY:
         - 'linear_pressure': linear pressure law
     """
 
     def __init__(
-        self, grid: "pp.Grid", substances: "pp.composite.SolidSubstance",
-        rel_perm_law: str
+        self,
+        grid: "pp.Grid",
+        substances: "pp.composite.SolidSubstance",
+        rel_perm_law: str,
     ) -> None:
         """Constructor using geometrical and substance information.
 
@@ -69,9 +71,8 @@ class PhysicalSubdomain:
         :return: AD representation of the base permeability
         :rtype: :class:`~porepy.numerics.ad.operators.SecondOrderTensorAd`
         """
-        arr = np.ones(self.grid.num_cells) * self.substance.base_permeability()
-
-        return pp.ad.SecondOrderTensorAd(self.substance.base_permeability())
+        # arr = np.ones(self.grid.num_cells) * self.substance.base_permeability()
+        return pp.SecondOrderTensor(self.substance.base_permeability())
 
     # ------------------------------------------------------------------------------
     ### HEURISTIC LAWS NOTE all heuristic laws can be modularized somewhere and referenced here
@@ -79,9 +80,10 @@ class PhysicalSubdomain:
 
     def porosity(
         self,
-        pressure: "pp.ad.Variable",
-        enthalpy: "pp.ad.Variable",
-    ) -> "pp.ad.Operator":
+        pressure: pp.ad.Variable,
+        enthalpy: pp.ad.Variable,
+        law: str
+    ) -> pp.ad.Operator:
         """
         Currently supported heuristic laws (values for 'law'):
             - 'pressure':      linear model using base porosity and reference pressure
@@ -114,10 +116,11 @@ class PhysicalSubdomain:
                 + "Available: 'pressure,'"
             )
 
-    def relative_permeability(
-        self, saturation: "pp.ad.Variable"
-    ) -> "pp.ad.Operator":
+    def relative_permeability(self, saturation: pp.ad.Variable, law: str) -> pp.ad.Operator:
         """
+        Currently supported heuristic laws (values for 'law'):
+            - 'quadratic':      squared saturation values
+
         Math. Dimension:        scalar
         Phys. Dimension:        [-] (fractional)
 
@@ -161,11 +164,13 @@ class PhysicalDomain:
                 {grid: PhysicalSubdomain(grid, UnitSolid(self.gb))}
             )
 
-    def __str(self) -> str:
+    def __str__(self) -> str:
         """Adds information to the string representation of the gridbucket."""
-        
+
         out = "Physical subdomain made of \n"
-        materials = [subdomain.substance for subdomain in self._physical_subdomains.values()]
+        materials = [
+            subdomain.substance for subdomain in self._physical_subdomains.values()
+        ]
         out += ", ".join(set(materials))
         out += "\n on grid bucker:\n" + str(self.gb)
         return out

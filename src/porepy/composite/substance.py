@@ -91,7 +91,7 @@ class Substance(abc.ABC):
         if Substance.__singleton_accessed:
             Substance.__singleton_accessed = False
             return
-        
+
         super().__init__()
 
         ## PUBLIC

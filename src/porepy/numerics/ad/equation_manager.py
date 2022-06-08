@@ -73,9 +73,14 @@ class EquationManager:
         self.variables: Dict[GridLike, Dict[str, "pp.ad.Variable"]] = dict()
 
         # declare public attributes to be set when updating equations
+        # Dict containging AD operators per given name
         self.equations: Dict[str, pp.ad.Operator] = dict()
-        self.secondary_variables: List["pp.ad.Variable"] = list()
+        # List of secondary variables to be excluded from the global vector of unknowns
+        self.secondary_variables: List[pp.ad.Variable] = list()
+        # Start index for blocks corresponding to rows of the different equations.
         self.row_block_indices_last_assembled: Optional[np.ndarray]
+        # Dict containing indices per equation name in the global vector of unknowns
+        self.dofs_per_equation_last_assembled: Optional[Dict[str, np.ndarray]]
 
         self.update_equations(equations, secondary_variables)
 
@@ -103,7 +108,7 @@ class EquationManager:
         :type secondary_variables: List
         """
 
-        self._set_variables(self.gb)
+        self._set_variables_from_gridbucket(self.gb)
 
         if equations is None:
             equations = dict()
@@ -150,9 +155,9 @@ class EquationManager:
 
         self.secondary_variables = sec_var
 
-        # Start index for blocks corresponding to rows of the different equations.
         # Defaults to None, will be overwritten by assembly methods.
         self.row_block_indices_last_assembled = None
+        self.dofs_per_equation_last_assembled = None
 
     def merge_variables(
         self, grid_var: Sequence[Tuple[GridLike, str]]
@@ -226,17 +231,24 @@ class EquationManager:
         mat: List[sps.spmatrix] = []
         rhs: List[np.ndarray] = []
 
-        # Keep track of first row index for each equation/block
+        # Keep track of DOFs for each equation/block
         ind_start: List[int] = [0]
+        self.dofs_per_equation_last_assembled = dict()
 
         # Iterate over equations, assemble.
-        for eq in self.equations.values():
+        for name, eq in self.equations.items():
             ad = eq.evaluate(self.dof_manager, state)
             # Append matrix and rhs
             mat.append(ad.jac)
             # Multiply by -1 to move to the rhs
             rhs.append(-ad.val)
-            ind_start.append(ind_start[-1] + ad.val.size)
+            start_idx = ind_start[-1]
+            end_idx = start_idx + ad.val.size
+            ind_start.append(end_idx)
+            self.dofs_per_equation_last_assembled.update(
+                {name: np.array(range(start_idx, end_idx))}
+            )
+
 
         # The system assembled in the for-loop above contains derivatives for both
         # primary and secondary variables, where the primary is understood as the
@@ -311,7 +323,9 @@ class EquationManager:
         # Projection to the subset of active variables
         projection = self._column_projection(variables)
 
+        # DOF tracking for equations/blocks
         ind_start = [0]
+        self.dofs_per_equation_last_assembled = dict()
 
         # Iterate over equations, assemble.
         for name in eq_names:
@@ -326,7 +340,12 @@ class EquationManager:
             # Multiply by -1 to move to the rhs
             rhs.append(-ad.val)
 
-            ind_start.append(ind_start[-1] + ad.val.size)
+            start_idx = ind_start[-1]
+            end_idx = start_idx + ad.val.size
+            ind_start.append(end_idx)
+            self.dofs_per_equation_last_assembled.update(
+                {name: np.array(range(start_idx, end_idx))}
+            )
 
         # Concatenate results.
         if len(mat) > 0:
@@ -438,6 +457,22 @@ class EquationManager:
 
         return S, bs
 
+    def update_variables_from_merged(self, merged_var: pp.ad.MergedVariable) -> None:
+        """Takes a merged variable and stores its variables per grid/interface internally.
+        NOTE VL: This is contrary to the current principle of creating merged vars from vars.
+        But it is necessary if one wants to make the modelling more dynamic.
+        It needs a better solution... TODO
+        """
+
+        for sub_var in merged_var.sub_vars:
+            grid = sub_var._g
+            name = sub_var._name
+            
+            if grid not in self.variables.keys():
+                self.variables.update({grid: dict()})
+            
+            self.variables[grid].update({name: sub_var})
+
     def subsystem_equation_manager(
         self,
         eq_names: Sequence[str],
@@ -498,7 +533,7 @@ class EquationManager:
         unique_discr = _ad_utils.uniquify_discretization_list(discr)
         _ad_utils.discretize_from_list(unique_discr, gb)
 
-    def _column_projection(self, variables: Sequence["pp.ad.Variable"]) -> sps.spmatrix:
+    def _column_projection(self, variables: Sequence[pp.ad.Variable]) -> sps.spmatrix:
         """Create a projection matrix from the full variable set to a subset.
 
         Parameters:
@@ -566,7 +601,7 @@ class EquationManager:
         other_variables = list(set(all_variables).difference(set(variables)))
         return other_variables
 
-    def _set_variables(self, gb):
+    def _set_variables_from_gridbucket(self, gb: pp.GridBucket):
         # Define variables as specified in the GridBucket
         variables = {}
         for g, d in gb:

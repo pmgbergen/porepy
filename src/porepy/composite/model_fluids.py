@@ -56,15 +56,14 @@ class IdealFluid(FluidSubstance):
 
 
 class H2O(FluidSubstance):
-    
     @staticmethod
     def molar_mass() -> float:
-        """ Taken from https://pubchem.ncbi.nlm.nih.gov/compound/water ."""
+        """Taken from https://pubchem.ncbi.nlm.nih.gov/compound/water ."""
         return 0.018015
 
     def molar_density(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-        ) -> float:
+    ) -> float:
         if temperature:
             water = IAPWS95(P=pressure, T=temperature)
         else:
@@ -72,15 +71,15 @@ class H2O(FluidSubstance):
         # this is a bit ugly, considering the parent class method for mass density...
         # but that is what iapws got
         return water.rho / self.molar_mass()
-    
+
     def Fick_diffusivity(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-        ) -> float:
-        return 0.42 # TODO fix this, this is random
+    ) -> float:
+        return 0.42  # TODO fix this, this is random
 
     def thermal_conductivity(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-        ) -> float:
+    ) -> float:
         if temperature:
             water = IAPWS95(P=pressure, T=temperature)
         else:
@@ -90,7 +89,7 @@ class H2O(FluidSubstance):
 
     def dynamic_viscosity(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-        ) -> float:
+    ) -> float:
         if temperature:
             water = IAPWS95(P=pressure, T=temperature)
         else:

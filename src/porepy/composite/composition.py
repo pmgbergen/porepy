@@ -1,7 +1,6 @@
 """ Contains the physical extension for :class:`~porepy.grids.grid_bucket.GridBucket`."""
 
 from __future__ import annotations
-from optparse import Option
 
 import warnings
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
@@ -60,9 +59,7 @@ class Composition:
         )
         # store phase equilibria equations for each substance name (key)
         # equations are stored in dicts per substance (key: equ name, value: operator)
-        self.phase_equilibrium_equations: Dict[
-            str, Dict[str, pp.ad.Operator]
-        ] = dict()
+        self.phase_equilibrium_equations: Dict[str, Dict[str, pp.ad.Operator]] = dict()
         # contains chronologically information about past applications of the Newton algorithm
         self.newton_history: List[Dict[str, Any]] = list()
 
@@ -224,7 +221,7 @@ class Composition:
     def composit_density(
         self,
         prev_time: Optional[bool] = False,
-        temperature: Union["pp.ad.MergedVariable", None] = None
+        temperature: Union["pp.ad.MergedVariable", None] = None,
     ) -> pp.ad.Operator:
         """
         :param prev_time: (optional) indicator to use values at previous time step
@@ -241,13 +238,14 @@ class Composition:
                 * phase.molar_density(
                     self.pressure.previous_timestep(),
                     self.enthalpy.previous_timestep(),
-                    temperature=temperature
+                    temperature=temperature,
                 )
                 for phase in self
             ]
         else:
             rho = [
-                phase.saturation * phase.molar_density(
+                phase.saturation
+                * phase.molar_density(
                     self.pressure, self.enthalpy, temperature=temperature
                 )
                 for phase in self
@@ -487,9 +485,7 @@ class Composition:
         # at this point we assume all DOFs are defined and we reset the following
         # to get correct DOF mappins
         self.dof_manager = pp.DofManager(self.gb)
-        self.eq_manager = pp.ad.EquationManager(
-            self.gb, self.dof_manager
-        )
+        self.eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager)
 
         # setting of equations and subsystems
         equations = dict()
@@ -513,7 +509,7 @@ class Composition:
         isothermal_flash_subsystem["equations"].append("isothermal_flash")
         isothermal_flash_subsystem["vars"].append(self._enthalpy)
         isothermal_flash_subsystem["var_names"].append(self._enthalpy_var)
-        
+
         self._isothermal_flash_subsystem = isothermal_flash_subsystem
         self.isothermal_flash()
 
@@ -587,6 +583,21 @@ class Composition:
 
         self.eq_manager.equations = equations
 
+        # Adding all dynamically created MergedVariables to the equation manager
+        # necessary to register the variables per grid
+        self.eq_manager.update_variables_from_merged(self.pressure)
+        self.eq_manager.update_variables_from_merged(self.enthalpy)
+        self.eq_manager.update_variables_from_merged(self.temperature)
+        for phase in self:
+            self.eq_manager.update_variables_from_merged(phase.molar_fraction)
+            self.eq_manager.update_variables_from_merged(phase.saturation)
+            for substance in phase:
+                self.eq_manager.update_variables_from_merged(
+                    substance.fraction_in_phase(phase.name)
+                )
+        for substance in self._present_substances:
+            self.eq_manager.update_variables_from_merged(substance.overall_fraction)
+
         success = True
         if initial_calc:
             success = self.do_calculations()
@@ -624,7 +635,7 @@ class Composition:
     # -----------------------------------------------------------------------------------------
 
     def compute_phase_equilibrium(
-        self, max_iterations: int = 100, tol: float = 1.0e-10
+        self, max_iterations: int = 100, tol: float = 1.0e-10, trust_region: bool = True
     ) -> bool:
         """Computes the equilibrium using the following equations:
             - overall substance fraction equations (num_substances)
@@ -651,13 +662,17 @@ class Composition:
             subsystem["var_names"],
             max_iterations,
             tol,
-            trust_region=True  #,eliminate_unitarity=COMPUTATIONAL_VARIABLES["phase_molar_fraction"]
+            trust_region=trust_region,
+            # eliminate_unitarity=(
+            #     COMPUTATIONAL_VARIABLES["phase_molar_fraction"],
+            #     "molar_phase_fraction_sum",
+            # ),
         )
 
     def saturation_flash(self, copy_to_state: bool = False) -> None:
         """Performs a saturation flash calculation using phase molar fractions.
         Two different procedures are applied, dependent on the number of present phases.
-        
+
         For a 2-phase-system, a forward evaluation is done.
         For more than 2 phases, a linear system has to be solved.
         """
@@ -670,7 +685,10 @@ class Composition:
             raise NotImplementedError("Single-phase saturation flash not implemented.")
 
     def isenthalpic_flash(
-        self, max_iterations: int = 100, tol: float = 1.0e-10, copy_to_state: bool = True
+        self,
+        max_iterations: int = 100,
+        tol: float = 1.0e-10,
+        copy_to_state: bool = True,
     ) -> bool:
         """Performs an isenthalpic flash to obtain temperature values.
 
@@ -732,12 +750,12 @@ class Composition:
         self.dof_manager.distribute_variable(
             X, variables=[self._enthalpy_var], to_iterate=True
         )
-    
+
     # -----------------------------------------------------------------------------------------
     ### Model equations
     # -----------------------------------------------------------------------------------------
 
-    def overall_substance_fractions_sum(self) -> "pp.ad.Operator":
+    def overall_substance_fractions_sum(self) -> pp.ad.Operator:
         """Returns 1 equation representing the unity of the overall component fractions.
 
         sum_c zeta_c - 1 = 0
@@ -751,7 +769,7 @@ class Composition:
 
         return equation
 
-    def overall_substance_fraction_equations(self) -> List["pp.ad.MergedVariable"]:
+    def overall_substance_fraction_equations(self) -> List[pp.ad.MergedVariable]:
         """Returns num_substances equations representing the definition of the
         overall component fraction.
         The order of equations per substance equals the order of substances as they appear in
@@ -775,7 +793,7 @@ class Composition:
 
         return equations
 
-    def molar_phase_fraction_sum(self) -> "pp.ad.Operator":
+    def molar_phase_fraction_sum(self) -> pp.ad.Operator:
         """Returns 1 equation representing the unity of molar phase fractions.
 
         sum_e xi_e -1 = 0
@@ -789,7 +807,7 @@ class Composition:
 
         return equation
 
-    def substance_in_phase_sum_equations(self) -> List["pp.ad.Operator"]:
+    def substance_in_phase_sum_equations(self) -> List[pp.ad.Operator]:
         """Returns num_phases -1 equations representing the unity of the
         molar component fractions per phase.
         For phases in composition (`__iter__`) returns an equation for two neighboring phases.
@@ -817,7 +835,7 @@ class Composition:
 
         return equations
 
-    def saturation_flash_equations(self) -> List["pp.ad.Operator"]:
+    def saturation_flash_equations(self) -> List[pp.ad.Operator]:
         """Returns num_phases equations representing the relation between molar phase fractions
         and saturation (volumetric phase fractions).
 
@@ -837,7 +855,7 @@ class Composition:
 
         return equations
 
-    def isenthalpic_flash_equation(self) -> "pp.ad.Operator":
+    def isenthalpic_flash_equation(self) -> pp.ad.Operator:
         """Returns an operator representing the isenthalpic flash equation.
 
         rho(p,h) * h = sum_e s_e * rho_e(p,h) * h_e(p, T)
@@ -860,8 +878,8 @@ class Composition:
             )
 
         return equ
-    
-    def isothermal_flash_equation(self) -> "pp.ad.Operator":
+
+    def isothermal_flash_equation(self) -> pp.ad.Operator:
         """Returns an operator representing the isothermal flash equation for calculating the
         global specific molar entropy.
 
@@ -885,8 +903,10 @@ class Composition:
 
         return equ
 
-    def get_permutation_to_local(self, variables: Optional[List[str]]= None) -> "sps.spmatrix":
-        """Returns a permutation matrix grouping together 
+    def get_permutation_to_local(
+        self, variables: Optional[List[str]] = None
+    ) -> sps.spmatrix:
+        """Returns a permutation matrix grouping together
             1. cell-wise values
             2. face-wise values
             3. node-wise values
@@ -1041,13 +1061,13 @@ class Composition:
     def _subsystem_newton(
         self,
         equations: List[str],
-        variables: List["pp.ad.MergedVariable"],
+        variables: List[pp.ad.MergedVariable],
         var_names: List[str],
         max_iterations: int,
         eps: float,
         trust_region: Optional[bool] = False,
-        eliminate_unitarity: Optional[Tuple[str,str]] = None,
-        elimination_criterion: Optional[str] = 'min'
+        eliminate_unitarity: Optional[Tuple[str, str]] = None,
+        elimination_criterion: Optional[str] = "min",
     ) -> bool:
         """Performs Newton iterations on a specified subset of equations and variables.
 
@@ -1059,12 +1079,14 @@ class Composition:
         Unity elimination:
             For a given variable symbol x
             (see :data:`~porepy.composite._composite_utils.COMPUTATIONAL_VARIABLES`)
-            assumes the constr of type 
+            assumes the constr of type
                 sum_i x_i = 1
             for all occurrences of x in `var_names`.
             Constructs respective affine-linear projections and eliminates respective
             columns and rows in the linear system of equations.
-            Eliminates the `x_i` fulfilling the given criterion `elimination_criterion`. 
+            Eliminates the `x_i` fulfilling the given criterion `elimination_criterion`.
+            TODO this does not work for phase molar fractions.
+            The substance fractions for the eliminated phase explode for some reason...
 
         :param equations: names of equations in equation manager
         :type equations: List[str]
@@ -1078,12 +1100,12 @@ class Composition:
         :type eps: float
         :param eps: if true, enforces a trust region of [0,1] for the variables
         :type trust_region: bool
-        :param eliminate_unitarity: list of strings containing symbols of variables to be 
+        :param eliminate_unitarity: list of strings containing symbols of variables to be
             eliminated by the unitary constraint
         :type eliminate_unitarity: list
-        :param elimination_criterion: choose from `['min', 'max']` to define which variable to 
+        :param elimination_criterion: choose from `['min', 'max']` to define which variable to
             eliminate during the unitarity elimination
-        :type elimination_criterion: str 
+        :type elimination_criterion: str
 
         :return: True if successful, False otherwise
         :rtype: bool
@@ -1095,41 +1117,58 @@ class Composition:
         # print(A.todense())
         # print(np.linalg.cond(A.todense()))
         # print(self.dof_manager.assemble_variable())
-        if eliminate_unitarity:
-            # TODO name accessed using private attribute...
-            elimintated_var = eliminate_unitarity[0]
-            elimintated_eq = eliminate_unitarity[1]
-            u_vars = [var for var in variables if elimintated_var in var._name]
-            u_var_vals = [var.evaluate(self.dof_manager).val for var in u_vars]
-            avg_val = [np.sum(vals) / len(vals) for vals in u_var_vals]
-
-            if elimination_criterion == 'min':
-                to_eliminate = avg_val.index(min(avg_val))
-            elif elimination_criterion == 'max':
-                to_eliminate = avg_val.index(max(avg_val))
-            else: 
-                raise ValueError("Unknown criterion '%s' for unitarity elimination."
-                    %(str(elimination_criterion)))
-
-            # get variables for which an identity block is to be computed
-            other_vars = list(set(variables).difference(set(u_vars)))
-            eliminated_var = u_vars.pop(to_eliminate)
-            non_eliminated_vars = u_vars + other_vars
-            non_eliminated_var_names = [var._name for var in non_eliminated_vars]
-
-            expansion, affine = self._unitary_expansion(u_vars, eliminated_var, other_vars)
-            print(expansion.todense())
-            print(affine)
 
         if np.linalg.norm(b) <= eps:
             success = True
-            iter_fin = 0
+            iter_final = 0
         else:
+            # get prolongation to global vector
+            prolongation = self._prolongation_matrix(variables)
+
+            if eliminate_unitarity:
+                # get information about the group of variables for the elimination procedure
+                eliminated_var = eliminate_unitarity[0]
+                eliminated_eq = eliminate_unitarity[1]
+                unitary_vars = [var for var in variables if eliminated_var in var._name]
+
+                # choose which var out of the unitary group to eliminate
+                unitary_var_vals = [var.evaluate(self.dof_manager).val for var in unitary_vars]
+                avg_val = [np.sum(vals) / len(vals) for vals in unitary_var_vals]
+
+                if elimination_criterion == "min":
+                    to_eliminate = avg_val.index(min(avg_val))
+                elif elimination_criterion == "max":
+                    to_eliminate = avg_val.index(max(avg_val))
+                else:
+                    raise ValueError(
+                        "Unknown criterion '%s' for unitarity elimination."
+                        % (str(elimination_criterion))
+                    )
+
+                # get variables for which an identity block is to be computed
+                other_vars = list(set(variables).difference(set(unitary_vars)))
+                # get eliminated var from the group of unitary vars
+                eliminated_var = unitary_vars.pop(to_eliminate)
+
+                # construct affine-linear transformation for eliminated unitary variable
+                expansion, affine = self._unitary_expansion(
+                    unitary_vars, eliminated_var, other_vars
+                )
+                # get the eliminated equations (unitary constraint): start with identity
+                elimination = sps.diags(np.ones(A.shape[0])).tocsr()
+                # get indices of not eliminated equations
+                not_eliminated = np.ones(b.size, dtype=bool)
+                eliminated_idx = self.eq_manager.dofs_per_equation_last_assembled[
+                    eliminated_eq
+                ]
+                not_eliminated[eliminated_idx] = False
+                # get projection onto not eliminated equations
+                elimination = elimination[not_eliminated]
+                # print(elimination.todense())
+
             for i in range(max_iterations):
 
                 if eliminate_unitarity:
-                    # TODO construct matrix which eliminates the respective equations
-                    elimination = expansion.T
                     b = elimination * (b - A * affine)
                     A = elimination * A * expansion
                     # print(A.todense())
@@ -1137,86 +1176,79 @@ class Composition:
                 dx = sps.linalg.spsolve(A, b)
 
                 if eliminate_unitarity:
-                    dX = self._prolongation_matrix(non_eliminated_vars) * dx
-                else:
-                    dX = self._prolongation_matrix(variables) * dx
-                scaling = 1.
+                    # if the unitarity has still to hold, than the update for
+                    # the eliminated var has to be the negative of the sum of the other updates
+                    dx = expansion * dx
+
+                dX = prolongation * dx
+                # Trust Region Update scaling, defaults to 1
+                TRU_scaling = 1.0
 
                 # trust region update for values between 0 and 1
                 # find values exceeding 1 and values below 0
                 # find scaling coefficients so that WHOLE update stays within 0 and 1
                 # choose minimal scaling coefficient and scale down update uniformly
                 if trust_region:
-                    
-                    if eliminate_unitarity:
-                        X = self.dof_manager.assemble_variable(
-                            variables=non_eliminated_var_names, from_iterate=True
-                        )
-                    else:
-                        X = self.dof_manager.assemble_variable(
-                            variables=var_names, from_iterate=True
-                        )
+                    X = self.dof_manager.assemble_variable(
+                        variables=var_names, from_iterate=True
+                    )
 
                     X_preliminary = X + dX
-                    scale_positive = 1.
-                    scale_negative = 1.
-                    too_large = X_preliminary > 1.
-                    too_small = X_preliminary < 0.
+                    too_large = X_preliminary > 1.0
+                    too_small = X_preliminary < 0.0
+                    scale_too_large = 1.0
+                    scale_too_small = 1.0
 
                     if np.any(too_large):
                         max_idx = X_preliminary.argmax()
                         # x + alpha dx = 1 <-> alpha = (1-x)/dx
-                        scale_positive = (1-X[max_idx]) / dX[max_idx]
+                        scale_too_large = (1 - X[max_idx]) / dX[max_idx]
                     if np.any(too_small):
                         min_idx = X_preliminary.argmin()
                         # x + beta dx = 0 <-> beta = - x / dx
-                        scale_negative = - X[min_idx] / dX[min_idx]
+                        scale_too_small = -X[min_idx] / dX[min_idx]
 
-                    scaling = min([scale_positive, scale_negative])
+                    TRU_scaling = min([scale_too_large, scale_too_small])
 
-                    if scaling < 1.:
+                    if TRU_scaling < 1.0:
                         trust_region_updates += 1
 
-                if eliminate_unitarity:
-                    X += scaling * dX
-                    X = self._prolongation_matrix(non_eliminated_vars).T * X
-                    X = expansion * X + affine
-                    X = self._prolongation_matrix(variables) * X
-                    self.dof_manager.distribute_variable(
-                        X, variables=var_names, to_iterate=True
-                        )
-                else:
-                    self.dof_manager.distribute_variable(
-                        scaling * dX, variables=var_names, additive=True, to_iterate=True
-                    )
+                self.dof_manager.distribute_variable(
+                    TRU_scaling * dX,
+                    variables=var_names,
+                    additive=True,
+                    to_iterate=True,
+                )
 
                 A, b = self.eq_manager.assemble_subsystem(equations, variables)
-                print(self.dof_manager.assemble_variable(from_iterate=True))
 
                 if np.linalg.norm(b) <= eps:
                     # setting state to newly found solution
                     X = self.dof_manager.assemble_variable(
                         variables=var_names, from_iterate=True
                     )
+                    X_global = self.dof_manager.assemble_variable(from_iterate=True)
                     self.dof_manager.distribute_variable(X, variables=var_names)
                     success = True
-                    iter_fin = i
+                    iter_final = i
                     break
 
         # if not successful, replace iterate values with initial state values
         if not success:
             X = self.dof_manager.assemble_variable()
             self.dof_manager.distribute_variable(X, to_iterate=True)
-            iter_fin = max_iterations
+            iter_final = max_iterations
         # append history entry and delete old ones if necessary
-        self.newton_history.append({
-                        'variables': var_names,
-                        'iterations': iter_fin,
-                        'trust': trust_region_updates,
-                        'success': success
-                    })
+        self.newton_history.append(
+            {
+                "variables": var_names,
+                "iterations": iter_final,
+                "trust": trust_region_updates,
+                "success": success,
+            }
+        )
         if len(self.newton_history) > self._max_history:
-                    self.newton_history.pop(0)
+            self.newton_history.pop(0)
 
         return success
 
@@ -1228,11 +1260,13 @@ class Composition:
             "var_names": list(),
         }
 
-    def _prolongation_matrix(self, variables: List["pp.ad.MergedVariable"]) -> sps.spmatrix:
+    def _prolongation_matrix(
+        self, variables: List[pp.ad.MergedVariable]
+    ) -> sps.spmatrix:
         """Constructs a prolongation mapping for a subspace of given variables to the
         global vector.
         Credits to EK.
-        
+
         :param variables: variables spanning the subspace
         :type: :class:`~porepy.ad.MergedVariable`
 
@@ -1258,10 +1292,12 @@ class Composition:
         return sps.coo_matrix((data, (rows, cols)), shape=(nrows, ncols)).tocsr()
 
     def _unitary_expansion(
-        self, vars: List["pp.ad.MergedVariable"], to_eliminate: "pp.ad.MergedVariable",
-        other_vars: Optional[List["pp.ad.MergedVariable"]] = []
-    ) -> Tuple["sps.spmatrix", "np.ndarray"]:
-        """ Returns the unitary expansion mapping for variables fulfilling the
+        self,
+        vars: List[pp.ad.MergedVariable],
+        to_eliminate: pp.ad.MergedVariable,
+        other_vars: Optional[List[pp.ad.MergedVariable]] = [],
+    ) -> Tuple[sps.spmatrix, np.ndarray]:
+        """Returns the unitary expansion mapping for variables fulfilling the
         unitary constraint.
         The unitary expansion is an affine-linear mapping from n-1 to n variables which
         fulfill
@@ -1271,7 +1307,7 @@ class Composition:
 
         Other variables can be included in the mapping. The map will contain an identity block
         for them.
-        
+
         NOTE: assumes cell-wise values for x_i
 
         :param vars: names of variables fulfilling the unitary constraint.
@@ -1290,8 +1326,6 @@ class Composition:
         linear_rows = list()
         linear_cols = list()
         eliminated_dofs = dict()
-        # general dimension of the system
-        D = 0
 
         affine = np.zeros(self.dof_manager.num_dofs())
         subvars = self.eq_manager._variables_as_list(vars)
@@ -1301,7 +1335,7 @@ class Composition:
         # affine part for eliminated variable
         for var in elim_subvars:
             local_dofs = self.dof_manager.grid_and_variable_to_dofs(var._g, var._name)
-            affine[local_dofs] = 1.
+            affine[local_dofs] = 1.0
             eliminated_dofs[var._g] = local_dofs
 
         # identity block plus unitary block for unitary variables
@@ -1313,10 +1347,10 @@ class Composition:
             linear_rows.append(local_dofs)
             linear_cols.append(local_dofs)
 
-            linear_vals.append( -np.ones(num_local_dofs))
+            linear_vals.append(-np.ones(num_local_dofs))
             linear_rows.append(eliminated_dofs[var._g])
             linear_cols.append(local_dofs)
-        
+
         # identity block for other variables
         for var in other_subvars:
 
@@ -1327,26 +1361,27 @@ class Composition:
             linear_rows.append(local_dofs)
             linear_cols.append(local_dofs)
 
-        
         linear_vals = np.hstack(linear_vals)
         linear_cols = np.hstack(linear_cols)
         linear_rows = np.hstack(linear_rows)
         # slice through and remove rows with only zeros
         linear = sps.coo_matrix((linear_vals, (linear_rows, linear_cols))).tocsr()
         num_non_zeros = np.diff(linear.indptr)
-        linear =  linear[num_non_zeros != 0]
+        linear = linear[num_non_zeros != 0]
         # slice through and remove columns with only zeros
         linear = linear.tocsc()
         num_non_zeros = np.diff(linear.indptr)
-        linear =  linear[:, num_non_zeros != 0]
+        linear = linear[:, num_non_zeros != 0]
 
         # use a global projection to get the properly sliced affine part
-        projection = self.eq_manager._column_projection(subvars + elim_subvars + other_subvars)
+        projection = self.eq_manager._column_projection(
+            subvars + elim_subvars + other_subvars
+        )
         affine = (affine.T * projection).T
 
-        return (linear , affine)
+        return (linear, affine)
 
-    def _2phase_saturation_flash(self, copy_to_state: bool = True) -> None :
+    def _2phase_saturation_flash(self, copy_to_state: bool = True) -> None:
         """Calculates the saturation value assuming phase molar fractions are given.
         Valid for two-phase flow.
 
@@ -1362,10 +1397,14 @@ class Composition:
         xi2 = phase2.molar_fraction.evaluate(self.dof_manager).val
 
         # get density values for given pressure and enthalpy
-        rho1 = phase1.molar_density(self.pressure, self.enthalpy).evaluate(self.dof_manager)
+        rho1 = phase1.molar_density(self.pressure, self.enthalpy).evaluate(
+            self.dof_manager
+        )
         if isinstance(rho1, pp.ad.Ad_array):
             rho1 = rho1.val
-        rho2 = phase2.molar_density(self.pressure, self.enthalpy).evaluate(self.dof_manager)
+        rho2 = phase2.molar_density(self.pressure, self.enthalpy).evaluate(
+            self.dof_manager
+        )
         if isinstance(rho1, pp.ad.Ad_array):
             rho2 = rho2.val
 
@@ -1374,8 +1413,8 @@ class Composition:
         s2 = np.zeros(xi1.size)
 
         # TODO test sensitivity of this
-        phase1_saturated = xi1 == 1. # equal to phase2_vanished
-        phase2_saturated = xi2 == 1. # equal to phase1_vanished
+        phase1_saturated = xi1 == 1.0  # equal to phase2_vanished
+        phase2_saturated = xi2 == 1.0  # equal to phase1_vanished
 
         # calculate only non-saturated cells to avoid division by zero
         # set saturated or "vanishing" cells explicitly to 1., or 0. respectively
@@ -1383,17 +1422,21 @@ class Composition:
         xi2_idx = xi2[idx]
         rho1_idx = rho1[idx]
         rho2_idx = rho2[idx]
-        s1[idx] = 1. / (1. + xi2_idx / (1. - xi2_idx) * rho1_idx / rho2_idx)
-        s1[phase1_saturated] = 1.
-        s1[phase2_saturated] = 0. # even if initiated as zero array. remove numerical artifacts
+        s1[idx] = 1.0 / (1.0 + xi2_idx / (1.0 - xi2_idx) * rho1_idx / rho2_idx)
+        s1[phase1_saturated] = 1.0
+        s1[
+            phase2_saturated
+        ] = 0.0  # even if initiated as zero array. remove numerical artifacts
 
         idx = not phase1_saturated
         xi1_idx = xi1[idx]
         rho1_idx = rho1[idx]
         rho2_idx = rho2[idx]
-        s2[idx] = 1. / (1. + xi1_idx / (1. - xi1_idx) * rho2_idx / rho1_idx)
-        s2[phase1_saturated] = 0. # even if initiated as zero array. remove numerical artifacts
-        s2[phase2_saturated] = 1.
+        s2[idx] = 1.0 / (1.0 + xi1_idx / (1.0 - xi1_idx) * rho2_idx / rho1_idx)
+        s2[
+            phase1_saturated
+        ] = 0.0  # even if initiated as zero array. remove numerical artifacts
+        s2[phase2_saturated] = 1.0
 
         # distribute saturation values to global DOF
         X = np.zeros(self.dof_manager.num_dofs())
@@ -1410,7 +1453,7 @@ class Composition:
             self.dof_manager.distribute_variable(
                 X, variables=[phase1.saturation_var, phase2.saturation_var]
             )
-        
+
     def _multi_phase_saturation_flash(self, copy_to_state: bool = True) -> None:
         """Calculates the saturation value assuming phase molar fractions are given.
         Valid for flow with at least 3 phases.
@@ -1423,7 +1466,9 @@ class Composition:
         xi = [phase.molar_fraction.evaluate(self.dof_manager).val for phase in phases]
         rho = list()
         for phase in phases:
-            rho_p = phase.molar_density(self.pressure, self.enthalpy).evaluate(self.dof_manager)
+            rho_p = phase.molar_density(self.pressure, self.enthalpy).evaluate(
+                self.dof_manager
+            )
             if isinstance(rho_p, pp.ad.Ad_array):
                 rho_p = rho_p.val
             rho.append(rho_p)
@@ -1439,7 +1484,7 @@ class Composition:
         for i in range(self.num_phases):
             # get the DOFS where one phase is fully saturated
             # TODO check sensitivity of this
-            saturated_i = xi[i] == 1.
+            saturated_i = xi[i] == 1.0
             saturated.append(saturated_i)
 
             # store information that other phases vanish at these DOFs
@@ -1474,16 +1519,16 @@ class Composition:
                     denominator = 1 - xi[i]
                     # to avoid a division by zero error, we set it to one
                     # this is arbitrary, but respective matrix entries will be sliced out later
-                    # since they correspond to cells where one phase is saturated, 
+                    # since they correspond to cells where one phase is saturated,
                     # i.e. the respective saturation is 1., the other 0.
-                    denominator[denominator == 0.] = 1.
-                    d = 1. + rho[j] / rho[i] * xi[i] / denominator
+                    denominator[denominator == 0.0] = 1.0
+                    d = 1.0 + rho[j] / rho[i] * xi[i] / denominator
 
                     mats.append(sps.diags([d]))
-            
+
             # rectangular matrix per equation
             mat_per_eq.append(np.hstack(mats))
-        
+
         # Stack matrices per equation on each other
         # This matrix corresponds to the vector of stacked, discretized saturations per phase
         mat = np.vstack(mat_per_eq)
@@ -1505,15 +1550,15 @@ class Composition:
         # prolongate the values from the multiphase region to global DOFs
         saturations = projection.T * s
         # set values where phases are saturated or have vanished
-        saturations[saturated] = 1.
-        saturations[vanished] = 0.
+        saturations[saturated] = 1.0
+        saturations[vanished] = 0.0
 
         # distribute results to the saturation variables
         X = np.zeros(self.dof_manager.num_dofs())
         var_names = list()
         for i, phase in enumerate(phases):
             dof = self.dof_manager.dof_var([phase.saturation_var])
-            X[dof] = saturations[i*num_cells : (i+1)*num_cells]
+            X[dof] = saturations[i * num_cells : (i + 1) * num_cells]
             var_names.append(phase.saturation_var)
 
         self.dof_manager.distribute_variable(X, variables=var_names, to_iterate=True)

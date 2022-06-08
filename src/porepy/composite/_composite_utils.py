@@ -154,8 +154,7 @@ def create_merged_mortar_variable(
 
 
 def operator_sum(operators: List["pp.ad.Operator"]) -> "pp.ad.Operator":
-    """This function is just for surpassing Typing error when using built-in sum().
-    """
+    """This function is just for surpassing Typing error when using built-in sum()."""
     out = operators[0]
     if len(operators) > 1:
         for op in operators[1:]:
