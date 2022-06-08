@@ -575,7 +575,11 @@ class Operator:
         return self.__add__(other)
 
     def __rsub__(self, other):
-        return self.__sub__(other)
+        # consider the expression a-b. right-subtraction means self == b
+        children = self._parse_other(other)
+        # we need to change the order here since a-b != b-a
+        children = [children[1], children[0]]
+        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
 
     def evaluate(
         self,
