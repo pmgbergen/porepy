@@ -1405,7 +1405,7 @@ class Composition:
         rho2 = phase2.molar_density(self.pressure, self.enthalpy).evaluate(
             self.dof_manager
         )
-        if isinstance(rho1, pp.ad.Ad_array):
+        if isinstance(rho2, pp.ad.Ad_array):
             rho2 = rho2.val
 
         # allocate saturations, size must be the same

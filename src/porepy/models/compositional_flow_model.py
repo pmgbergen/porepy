@@ -81,18 +81,18 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         )
 
         ### MODEL TUNING
-        self._use_TRU = False
-        k_value = 1.5
+        self._use_TRU = True
+        self._monolithic = True
+        k_value = 0.5
 
-        # k_value_water = (
-        #     self.saltwater.water.fraction_in_phase(self.saltwater.name)
-        #     - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name)
-        #     )
-        # k_value_water = 1 - self.saltwater.salt.fraction_in_phase(self.saltwater.name)
         k_value_water = (
-            1-self.saltwater.salt.fraction_in_phase(self.saltwater.name)
-            - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name) 
+            self.saltwater.water.fraction_in_phase(self.saltwater.name)
+            - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name)
             )
+        # k_value_water = (
+        #     1-self.saltwater.salt.fraction_in_phase(self.saltwater.name)
+        #     - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name) 
+        #     )
 
         name = "k_value_%s" % (self.saltwater.water.name)
         self.composition.add_phase_equilibrium_equation(
@@ -210,6 +210,16 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.eqm = self.eqm.subsystem_equation_manager(
             no_flash_subsystem["equations"], no_flash_subsystem["vars"]
         )
+        self.eqm.update_variables_from_merged(self.composition.pressure)
+        self.eqm.update_variables_from_merged(self.composition.enthalpy)
+        for phase in self.composition:
+            self.eqm.update_variables_from_merged(phase.molar_fraction)
+            for substance in phase:
+                self.eqm.update_variables_from_merged(
+                    substance.fraction_in_phase(phase.name)
+                )
+        for substance in self.composition.substances:
+            self.eqm.update_variables_from_merged(substance.overall_fraction)
 
         # NOTE this can be optimized. Some component need to be discretized only once.
         self.eqm.discretize(self.gb)
@@ -236,12 +246,16 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         :type solution_vector: numpy.ndarray
         """
         self._nonlinear_iteration += 1
+        if self._monolithic:
+            vars = self.primary_subsystem["vars"] + self.primary_subsystem["secondary_vars"]
+        else:
+            vars = self.primary_subsystem["vars"]
         solution_vector = (
-            self._prolongation_matrix(self.primary_subsystem["vars"]) * solution_vector
+            self._prolongation_matrix(vars) * solution_vector
         )
         self.dofm.distribute_variable(
             values=solution_vector,
-            variables=self.primary_subsystem["vars"],
+            variables=vars,
             additive=True,
             to_iterate=True,
         )
@@ -279,19 +293,19 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # TODO Eirik mentioned an inverter for block-diagonal systems?
         inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
 
-        # Schur complement elimination of non-primary variables and equations
-        A_red, b_red = self.eqm.assemble_schur_complement_system(
-            primary_equations=self.primary_subsystem["equations"],
-            primary_variables=self.primary_subsystem["vars"],
-            inverter=inverter,
-            secondary_variables=self.primary_subsystem["secondary_vars"]
-        )
-
-        # A_red, b_red = self.eqm.assemble_subsystem(
-        #     self.primary_subsystem["equations"], self.primary_subsystem["vars"]
-        # )
         
-        res_norm = np.linalg.norm(b_red)
+        if self._monolithic:
+            A, b = self.eqm.assemble()
+        else:
+            # Schur complement elimination of non-primary variables and equations
+            A, b = self.eqm.assemble_schur_complement_system(
+                primary_equations=self.primary_subsystem["equations"],
+                primary_variables=self.primary_subsystem["vars"],
+                inverter=inverter,
+                secondary_variables=self.primary_subsystem["secondary_vars"]
+            )
+        
+        res_norm = np.linalg.norm(b)
         if res_norm < tol:
             self.convergence_status = True
             x = self.dofm.assemble_variable(
@@ -300,10 +314,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             return x
 
         # TODO direct solver only nice to small systems
-        # print(A_red.todense())
+        print(A.todense())
         # print(np.linalg.det(A_red.todense()))
         # print(np.linalg.cond(A_red.todense()))
-        dx = spla.spsolve(A_red, b_red)
+        dx = spla.spsolve(A, b)
 
         # Prolongation of primary variables to global dimensions
         # prolongation = self._prolongation_matrix(self.primary_subsystem["vars"])
