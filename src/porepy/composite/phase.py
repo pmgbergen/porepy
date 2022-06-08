@@ -378,9 +378,7 @@ class PhaseField(abc.ABC):
 
     @abc.abstractmethod
     def dynamic_viscosity(
-        self,
-        pressure: "pp.ad.MergedVariable",
-        enthalpy: "pp.ad.MergedVariable"
+        self, pressure: "pp.ad.MergedVariable", enthalpy: "pp.ad.MergedVariable"
     ) -> "pp.ad.Operator":
         """
         Abstract physical property, dependent on thermodynamic state and the composition.
@@ -402,9 +400,7 @@ class PhaseField(abc.ABC):
 
     @abc.abstractmethod
     def thermal_conductivity(
-        self,
-        pressure: "pp.ad.MergedVariable",
-        enthalpy: "pp.ad.MergedVariable"
+        self, pressure: "pp.ad.MergedVariable", enthalpy: "pp.ad.MergedVariable"
     ) -> "pp.ad.Operator":
         """
         Abstract physical property, dependent on thermodynamic state and composition.

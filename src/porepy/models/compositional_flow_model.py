@@ -80,10 +80,18 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             pressure=[1.], temperature=[50.], saturations=[[0.9, 0.1]]
         )
 
-        k_value = self.composition.pressure / 2.
+        ### MODEL TUNING
+        self._use_TRU = False
+        k_value = 1.5
+
+        # k_value_water = (
+        #     self.saltwater.water.fraction_in_phase(self.saltwater.name)
+        #     - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name)
+        #     )
+        # k_value_water = 1 - self.saltwater.salt.fraction_in_phase(self.saltwater.name)
         k_value_water = (
-            self.saltwater.water.fraction_in_phase(self.saltwater.name)
-            - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name)
+            1-self.saltwater.salt.fraction_in_phase(self.saltwater.name)
+            - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name) 
             )
 
         name = "k_value_%s" % (self.saltwater.water.name)
@@ -319,7 +327,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         :return: True if successful, False otherwise
         :rtype: bool
         """
-        equilibrium = self.composition.compute_phase_equilibrium(max_iter, tol)
+        equilibrium = self.composition.compute_phase_equilibrium(max_iter, tol, self._use_TRU)
         history = self.composition.newton_history[-1]
         print("Equilibrium:\n    Success: %s\n    Iterations: %i\n    TRU: %i"
         %
@@ -329,7 +337,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         isenthalpic = self.composition.isenthalpic_flash(max_iter, tol)
         history = self.composition.newton_history[-1]
-        print("Isenthalpic flash:\n    Success: %s\n    Iterations: %i"
+        print("Isenthalpic Flash:\n    Success: %s\n    Iterations: %i"
         %
         (str(history['success']), history['iterations']))
 

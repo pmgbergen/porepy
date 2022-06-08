@@ -19,39 +19,39 @@ class UnitSolid(SolidSubstance):
 
     @staticmethod
     def molar_mass() -> float:
-        return 1.
+        return 1.0
 
     def molar_density(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
     ) -> float:
-        return 1.
+        return 1.0
 
     @staticmethod
     def base_porosity() -> float:
-        return 1.
+        return 1.0
 
     @staticmethod
     def base_permeability() -> float:
-        return 1.
-    
+        return 1.0
+
     @staticmethod
     def poro_reference_pressure() -> float:
-        return 1.
+        return 1.0
 
     def Fick_diffusivity(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
     ) -> float:
-        return 1.
+        return 1.0
 
     def thermal_conductivity(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
     ) -> float:
-        return 1.
+        return 1.0
 
 
 class NaCl(SolidSubstance):
-    """ A mix of
-    https://en.wikipedia.org/wiki/Sodium_chloride 
+    """A mix of
+    https://en.wikipedia.org/wiki/Sodium_chloride
     and
     https://www.researchgate.net/post/Does-anyone-know-of-porosity-and-permeability-measurements-of-rock-salt
     """
@@ -62,21 +62,21 @@ class NaCl(SolidSubstance):
 
     def molar_density(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-        ) -> float:
-        kg_pro_m3 = 0.00217* 1e6
+    ) -> float:
+        kg_pro_m3 = 0.00217 * 1e6
         return kg_pro_m3 / self.molar_mass()
-    
+
     def Fick_diffusivity(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-        ) -> float:
-        return 0.42 # TODO fix this, this is random
+    ) -> float:
+        return 0.42  # TODO fix this, this is random
 
     def thermal_conductivity(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-        ) -> float:
+    ) -> float:
         if temperature:
             # conduct(8 Kelvin) = 203 and conduct(314 Kelvin) = 6.9
-            return -0.636688*temperature + 206.820032
+            return -0.636688 * temperature + 206.820032
         else:
             # heat capacity c=50.5 J / k / mol -> T = (h-p)/c linearized
             return -0.636688 / 50.5 * (enthalpy - pressure) + 206.820032
@@ -91,7 +91,7 @@ class NaCl(SolidSubstance):
 
     @staticmethod
     def poro_reference_pressure() -> float:
-        return 1.
+        return 1.0
 
     @staticmethod
     def compressibility() -> float:
