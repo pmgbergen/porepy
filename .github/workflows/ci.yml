@@ -3,16 +3,19 @@
 name: Build Test
 
 # Controls when the action will run. Triggers the workflow on push or pull request
-# events for the master and develop branches
+# events for the main and develop branches
 on:
   push:
     branches:
       - develop
-      - master
+      - main
   pull_request:
     branches: 
       - develop
-      - master
+      - main
+  schedule:
+    # Do a nightly run of the tests
+    - cron: '0 1 * * *'
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -31,27 +34,48 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     
     - name: Setup Python ${{ matrix.python-version}}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3
       with:
         # Version range or exact version of a Python version to use, using SemVer's version range syntax.
         python-version: ${{ matrix.python-version}}
         architecture: x64
-    
+        cache: 'pip'
+
+    # Cache pip dependencies
+    # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      id: cache
+      with:
+        # Cache the full python environment, this is more efficient than just caching pip
+        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
+        path: ${{ env.pythonLocation }}
+        key: ${{ env.pythonLocation }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Cache mypy
+      uses: actions/cache@v3
+      id: cache-mypy
+      with:
+        path: mypy-cache-${{ matrix.python-version}}
+        key: ${{ runner.os }}-mypy
+
+    - name: Install external libraries
+      run: |
+        sudo apt-get install libglu1-mesa libgeos-dev
+        export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
+
     - name: Install PorePy
       run: |
-        sudo apt-get update
-        sudo apt-get install libglu1-mesa
-        sudo apt-get install libgeos-dev
-        export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
         pip install -U pip
-        pip install -r requirements-dev.txt
-        pip install jupyter
+        # Install requirements, using eager updates to avoid stalled dependencies due to caching
+        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
+        pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt
         pip install .
-        pip install shapely
-        pip install shapely[vectorized]
         pip freeze
         wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
         mv polyhedron.py robust_point_in_polyhedron.py
@@ -60,18 +84,22 @@ jobs:
       if: ${{ always() }}
       run: black --check src
 
+    - name: isort
+      if: ${{always()}}
+      run: isort --check src
+
     - name: flake8
       if: ${{ always() }}
       run: flake8 src 
 
     - name: mypy
       if: ${{ always() }}
-      run: mypy src
+      run: mypy src --cache-dir mypy-cache-${{ matrix.python-version}}
 
-    - name: isort
+    - name: unit tests
       if: ${{always()}}
-      run: isort --check src
+      run: pytest tests/unit
 
-    - name: pytest
+    - name: integration tests
       if: ${{always()}}
-      run: pytest
+      run: pytest tests/integration
