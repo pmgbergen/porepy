@@ -56,6 +56,7 @@ class IdealFluid(FluidSubstance):
 
 
 class H2O(FluidSubstance):
+    
     @staticmethod
     def molar_mass() -> float:
         """Taken from https://pubchem.ncbi.nlm.nih.gov/compound/water ."""
