@@ -47,11 +47,19 @@ jobs:
       uses: actions/cache@v2
       id: cache
       with:
-        # Cache the full python environment, https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
+        # Cache the full python environment, this is more efficient than just caching pip
+        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         path: ${{ env.pythonLocation }}
         key: ${{ env.pythonLocation }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
+
+    - name: Cache mypy
+      uses: actions/cache@v2
+      id: cache-mypy
+      with:
+        path: mypy-cache
+        key: {{ $runner.os }}-mypy
 
     - name: Install PorePy
       run: |
@@ -81,7 +89,7 @@ jobs:
 
     - name: mypy
       if: ${{ always() }}
-      run: mypy src
+      run: mypy src --cache-dir mypy-cache
 
     - name: unit tests
       if: ${{always()}}
