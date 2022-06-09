@@ -81,9 +81,11 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         )
 
         ### MODEL TUNING
-        self._use_TRU = True
+        self._use_TRU = False
+        self._elimination = ("xi", "molar_phase_fraction_sum", "min")
+        # self._elimination = None
         self._monolithic = True
-        k_value = 0.5
+        k_value = 2.
 
         k_value_water = (
             self.saltwater.water.fraction_in_phase(self.saltwater.name)
@@ -341,7 +343,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         :return: True if successful, False otherwise
         :rtype: bool
         """
-        equilibrium = self.composition.compute_phase_equilibrium(max_iter, tol, self._use_TRU)
+        equilibrium = self.composition.compute_phase_equilibrium(
+            max_iter, tol, self._use_TRU, self._elimination)
         history = self.composition.newton_history[-1]
         print("Equilibrium:\n    Success: %s\n    Iterations: %i\n    TRU: %i"
         %
