@@ -3,16 +3,19 @@
 name: Build Test
 
 # Controls when the action will run. Triggers the workflow on push or pull request
-# events for the master and develop branches
+# events for the main and develop branches
 on:
   push:
     branches:
       - develop
-      - master
+      - main
   pull_request:
     branches: 
       - develop
-      - master
+      - main
+  schedule:
+    # Do a nightly run of the tests
+    - cron: '0 1 * * *'
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
