@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Generator, List, Literal, Optional, Set, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -65,10 +65,10 @@ class Composition:
 
         ## PRIVATE
         # set containing all present substances
-        self._present_substances: Set["pp.composite.Substance"] = set()
+        self._present_substances: Set[pp.composite.Substance] = set()
         # key: phase name, value: tuple of present substance names
         self._phases_per_substance: Dict[
-            "pp.composite.Substance", Set[PhaseField]
+            pp.composite.Substance, Set[PhaseField]
         ] = dict()
         # instances of added phases
         self._present_phases: List[PhaseField] = list()
@@ -77,13 +77,13 @@ class Composition:
         self._pressure_var: str = COMPUTATIONAL_VARIABLES["pressure"]
         self._enthalpy_var: str = COMPUTATIONAL_VARIABLES["enthalpy"]
         self._temperature_var: str = COMPUTATIONAL_VARIABLES["temperature"]
-        self._pressure: "pp.ad.MergedVariable" = create_merged_variable(
+        self._pressure: pp.ad.MergedVariable = create_merged_variable(
             gb, {"cells": 1}, self._pressure_var
         )
-        self._enthalpy: "pp.ad.MergedVariable" = create_merged_variable(
+        self._enthalpy: pp.ad.MergedVariable = create_merged_variable(
             gb, {"cells": 1}, self._enthalpy_var
         )
-        self._temperature: "pp.ad.MergedVariable" = create_merged_variable(
+        self._temperature: pp.ad.MergedVariable = create_merged_variable(
             gb, {"cells": 1}, self._temperature_var
         )
         # store subsystem components (references) for faster assembly
@@ -222,7 +222,7 @@ class Composition:
         self,
         prev_time: Optional[bool] = False,
         temperature: Union["pp.ad.MergedVariable", None] = None,
-    ) -> pp.ad.Operator:
+    ) -> Union[pp.ad.Operator, Literal[0]]:
         """
         :param prev_time: (optional) indicator to use values at previous time step
         :type prev_time: bool
@@ -233,6 +233,9 @@ class Composition:
         :rtype: :class:`~porepy.numerics.ad.operators.MergedVariable`
         """
         if prev_time:
+            if temperature:
+                temperature=temperature.previous_timestep()
+
             rho = [
                 phase.saturation.previous_timestep()
                 * phase.molar_density(
@@ -635,7 +638,11 @@ class Composition:
     # -----------------------------------------------------------------------------------------
 
     def compute_phase_equilibrium(
-        self, max_iterations: int = 100, tol: float = 1.0e-10, trust_region: bool = True
+        self,
+        max_iterations: int = 100,
+        tol: float = 1.0e-10,
+        trust_region: bool = True,
+        eliminate_unitarity: Optional[Tuple[str, str, str]] = None,
     ) -> bool:
         """Computes the equilibrium using the following equations:
             - overall substance fraction equations (num_substances)
@@ -663,10 +670,7 @@ class Composition:
             max_iterations,
             tol,
             trust_region=trust_region,
-            # eliminate_unitarity=(
-            #     COMPUTATIONAL_VARIABLES["phase_molar_fraction"],
-            #     "molar_phase_fraction_sum",
-            # ),
+            eliminate_unitarity=eliminate_unitarity,
         )
 
     def saturation_flash(self, copy_to_state: bool = False) -> None:
@@ -1037,9 +1041,9 @@ class Composition:
         This method is called internally everytime any new component is added.
         """
         # for given substance (keys), save set of phases containing the substance (values)
-        phases_per_substance: Dict["pp.composite.Substance", Set[PhaseField]] = dict()
+        phases_per_substance = dict()
         # unique substance names, over whole composition
-        unique_substances: Set["pp.composite.Substance"] = set()
+        unique_substances = set()
         # loop through composition, safe references and appearance of substances in phases
         for phase in self:
             for substance in phase:
@@ -1066,8 +1070,7 @@ class Composition:
         max_iterations: int,
         eps: float,
         trust_region: Optional[bool] = False,
-        eliminate_unitarity: Optional[Tuple[str, str]] = None,
-        elimination_criterion: Optional[str] = "min",
+        eliminate_unitarity: Optional[Tuple[str, str, str]] = None,
     ) -> bool:
         """Performs Newton iterations on a specified subset of equations and variables.
 
@@ -1085,8 +1088,6 @@ class Composition:
             Constructs respective affine-linear projections and eliminates respective
             columns and rows in the linear system of equations.
             Eliminates the `x_i` fulfilling the given criterion `elimination_criterion`.
-            TODO this does not work for phase molar fractions.
-            The substance fractions for the eliminated phase explode for some reason...
 
         :param equations: names of equations in equation manager
         :type equations: List[str]
@@ -1100,12 +1101,11 @@ class Composition:
         :type eps: float
         :param eps: if true, enforces a trust region of [0,1] for the variables
         :type trust_region: bool
-        :param eliminate_unitarity: list of strings containing symbols of variables to be
-            eliminated by the unitary constraint
-        :type eliminate_unitarity: list
-        :param elimination_criterion: choose from `['min', 'max']` to define which variable to
-            eliminate during the unitarity elimination
-        :type elimination_criterion: str
+        :param eliminate_unitarity: list of strings containing
+            - symbol of eliminated variable
+            - name of eliminated unitary equation
+            - elimination criterion
+        :type eliminate_unitarity: List[str]
 
         :return: True if successful, False otherwise
         :rtype: bool
@@ -1129,10 +1129,18 @@ class Composition:
                 # get information about the group of variables for the elimination procedure
                 eliminated_var = eliminate_unitarity[0]
                 eliminated_eq = eliminate_unitarity[1]
+                elimination_criterion = eliminate_unitarity[2]
+
+                # list of vars belonging to the unitarity group
                 unitary_vars = [var for var in variables if eliminated_var in var._name]
+                # make a deep copy of the equation set
+                reduced_equations = list(equations)
+                reduced_equations.remove(eliminated_eq)
 
                 # choose which var out of the unitary group to eliminate
-                unitary_var_vals = [var.evaluate(self.dof_manager).val for var in unitary_vars]
+                unitary_var_vals = [
+                    var.evaluate(self.dof_manager).val for var in unitary_vars
+                ]
                 avg_val = [np.sum(vals) / len(vals) for vals in unitary_var_vals]
 
                 if elimination_criterion == "min":
@@ -1154,6 +1162,7 @@ class Composition:
                 expansion, affine = self._unitary_expansion(
                     unitary_vars, eliminated_var, other_vars
                 )
+
                 # get the eliminated equations (unitary constraint): start with identity
                 elimination = sps.diags(np.ones(A.shape[0])).tocsr()
                 # get indices of not eliminated equations
@@ -1164,14 +1173,17 @@ class Composition:
                 not_eliminated[eliminated_idx] = False
                 # get projection onto not eliminated equations
                 elimination = elimination[not_eliminated]
-                # print(elimination.todense())
+                # remove the eliminated equation
+                A = elimination * A * expansion
+                b = elimination * b
+                # print(A.todense())
+
+                # the alternative is to re-assemble the rectangular system without the equation
+                # Upper way should be faster, though not critical..
+                # equations.remove(eliminated_eq)
+                # A, b = self.eq_manager.assemble_subsystem(equations, variables)
 
             for i in range(max_iterations):
-
-                if eliminate_unitarity:
-                    b = elimination * (b - A * affine)
-                    A = elimination * A * expansion
-                    # print(A.todense())
 
                 dx = sps.linalg.spsolve(A, b)
 
@@ -1220,14 +1232,19 @@ class Composition:
                     to_iterate=True,
                 )
 
-                A, b = self.eq_manager.assemble_subsystem(equations, variables)
+                if eliminate_unitarity:
+                    A, b = self.eq_manager.assemble_subsystem(
+                        reduced_equations, variables
+                    )
+                    A = A * expansion
+                else:
+                    A, b = self.eq_manager.assemble_subsystem(equations, variables)
 
                 if np.linalg.norm(b) <= eps:
                     # setting state to newly found solution
                     X = self.dof_manager.assemble_variable(
                         variables=var_names, from_iterate=True
                     )
-                    X_global = self.dof_manager.assemble_variable(from_iterate=True)
                     self.dof_manager.distribute_variable(X, variables=var_names)
                     success = True
                     iter_final = i
@@ -1418,7 +1435,7 @@ class Composition:
 
         # calculate only non-saturated cells to avoid division by zero
         # set saturated or "vanishing" cells explicitly to 1., or 0. respectively
-        idx = not phase2_saturated
+        idx = np.logical_not(phase2_saturated)
         xi2_idx = xi2[idx]
         rho1_idx = rho1[idx]
         rho2_idx = rho2[idx]
@@ -1428,7 +1445,7 @@ class Composition:
             phase2_saturated
         ] = 0.0  # even if initiated as zero array. remove numerical artifacts
 
-        idx = not phase1_saturated
+        idx = np.logical_not(phase1_saturated)
         xi1_idx = xi1[idx]
         rho1_idx = rho1[idx]
         rho2_idx = rho2[idx]
@@ -1495,14 +1512,14 @@ class Composition:
                 else:
                     # where phase i is saturated, phase j vanishes
                     # Use OR in order to accumulate the bools per i-loop without overwriting
-                    vanished[j] = vanished[j] or saturated_i
+                    vanished[j] = np.logical_or(vanished[j], saturated_i)
 
         # indicator which DOFs are saturated for the vector of stacked, discrete saturations
         saturated = np.hstack(saturated)
         # indicator which DOFs vanish
         vanished = np.hstack(vanished)
         # all other DOFs are in multiphase regions
-        multiphase = not (saturated or vanished)
+        multiphase = np.logical_not(np.logical_or(saturated,vanished))
 
         # construct the matrix for saturation flash
         # first loop, per block row (equation per phase)
