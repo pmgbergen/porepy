@@ -580,22 +580,6 @@ def invert_diagonal_blocks(
             p2 = p2 + n2
         return v
 
-    def invert_diagonal_blocks_cython(a: sps.spmatrix, sz: np.ndarray) -> np.ndarray:
-        """Invert block diagonal matrix using code wrapped with cython."""
-        try:
-            import porepy.numerics.fv.cythoninvert as cythoninvert
-        except ImportError:
-            raise ImportError(
-                """Compiled Cython module not available. Is cython installed?"""
-            )
-        a.sorted_indices()
-        ptr = a.indptr
-        indices = a.indices
-        dat = a.data
-
-        v = cythoninvert.inv_python(ptr, indices, dat, sz)
-        return v
-
     def invert_diagonal_blocks_numba(a: sps.spmatrix, size: np.ndarray) -> np.ndarray:
         """
         Invert block diagonal matrix by invoking numba acceleration of a simple
@@ -696,23 +680,16 @@ def invert_diagonal_blocks(
     # Remove blocks of size 0
     s = s[s > 0]
     # Variable to check if we have tried and failed with numba
-    try_cython = False
     if method == "numba" or method is None:
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
-        except np.linalg.LinAlgError:
+        except:
             raise ValueError("Error in inversion of local linear systems")
-        except Exception:
-            # This went wrong, fall back on cython
-            try_cython = True
     # Variable to check if we should fall back on python
-    if method == "cython" or try_cython:
-        try:
-            inv_vals = invert_diagonal_blocks_cython(mat, s)
-        except ImportError as e:
-            raise e
     elif method == "python":
         inv_vals = invert_diagonal_blocks_python(mat, s)
+    else:
+        raise ValueError(f"Unknown type of block inverter {method}")
     ia = block_diag_matrix(inv_vals, s)
     return ia
 
