@@ -683,7 +683,7 @@ def invert_diagonal_blocks(
     if method == "numba" or method is None:
         try:
             inv_vals = invert_diagonal_blocks_numba(mat, s)
-        except:
+        except np.linalg.LinAlgError:
             raise ValueError("Error in inversion of local linear systems")
     # Variable to check if we should fall back on python
     elif method == "python":
