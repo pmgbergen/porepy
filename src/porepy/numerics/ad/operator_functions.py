@@ -228,18 +228,20 @@ class Function(AbstractFunction):
 
 
 class ConstantFunction(AbstractFunction):
-    """"Function representing constant, scalar values with no dependencies, i.e. zero Jacobian.
+    """ "Function representing constant, scalar values with no dependencies,
+    i.e. zero Jacobian.
     """
 
     def __init__(self, values: np.ndarray, name: str):
         # dummy function, takes whatever and returns only the pre-set values
         def func(*args):
             return values
+
         super().__init__(func, name)
         # TODO check if distinguishing between global scalar, cell-wise scalar,
         # vector per cell and 2nd-order-tensor per cell is necessary
         self._values = values
-    
+
     def get_values(self, *args: Ad_array) -> np.ndarray:
         """Returns the values passed at instantiation."""
         return self._values
@@ -249,7 +251,7 @@ class ConstantFunction(AbstractFunction):
         # NOTE it's not a sparse matrix as imposed by the parent method signature,
         # but the multiplication with a zero always works with any numeric format in
         # numpy, scipy
-        return 0.
+        return 0.0
 
 
 class DiagonalJacobianFunction(AbstractJacobianFunction):
