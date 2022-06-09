@@ -39,6 +39,7 @@ jobs:
         # Version range or exact version of a Python version to use, using SemVer's version range syntax.
         python-version: ${{ matrix.python-version}}
         architecture: x64
+        cache: 'pip'
 
     # Cache pip dependencies
     # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
@@ -46,19 +47,21 @@ jobs:
       uses: actions/cache@v2
       id: cache
       with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        # Cache the full python environment, https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
+        path: ${{ env.pythonLocation }}
+        key: ${{ env.pythonLocation }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
 
     - name: Install PorePy
       run: |
-        sudo apt-get update
         sudo apt-get install libglu1-mesa
         sudo apt-get install libgeos-dev
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
         pip install -U pip
-        pip install -r requirements-dev.txt
+        # Install requirements, using eager updates to avoid stalled dependencies due to caching
+        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
+        pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt
         pip install .
         pip freeze
         wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
@@ -80,6 +83,10 @@ jobs:
       if: ${{ always() }}
       run: mypy src
 
-    - name: pytest
+    - name: unit tests
       if: ${{always()}}
-      run: pytest
+      run: pytest tests/unit
+
+    - name: integration tests
+      if: ${{always()}}
+      run: pytest tests/integration
