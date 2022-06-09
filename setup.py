@@ -34,7 +34,5 @@ setup(
     py_modules=[
         os.path.splitext(os.path.basename(path))[0] for path in glob("src/*.py")
     ],
-    cmdclass=cmdclass,
-    ext_modules=ext_modules,
     zip_safe=False,
 )
