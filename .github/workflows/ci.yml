@@ -50,12 +50,17 @@ jobs:
         pip install -U pip
         pip install -r requirements-dev.txt
         pip install .
-        python fetch_content.py
         pip freeze
+        wget https://raw.githubusercontent.com/keileg/polyhedron/master/polyhedron.py
+        mv polyhedron.py robust_point_in_polyhedron.py
 
     - name: black
       if: ${{ always() }}
       run: black --check src
+
+    - name: isort
+      if: ${{always()}}
+      run: isort --check src
 
     - name: flake8
       if: ${{ always() }}
@@ -64,10 +69,6 @@ jobs:
     - name: mypy
       if: ${{ always() }}
       run: mypy src
-
-    - name: isort
-      if: ${{always()}}
-      run: isort --check src
 
     - name: pytest
       if: ${{always()}}
