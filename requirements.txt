@@ -4,7 +4,7 @@ numpy
 scipy
 sympy
 matplotlib
-cython;platform_system=="Linux"
+cython
 future
 six
 shapely
@@ -12,3 +12,4 @@ shapely[vectorized]
 numba>=0.53.0
 gmsh
 requests
+future
