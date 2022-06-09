@@ -36,6 +36,7 @@ class Composition:
     TODO: pressure, enthalpy, overall molar substance fractions,...
         all these operators need only be evaluated ones.
         Phase densities might change due to changing substance fractions in phases...
+    TODO: All computations here can be parallelized since they are local...
     """
 
     def __init__(self, gb: pp.GridBucket) -> None:
@@ -462,13 +463,10 @@ class Composition:
         """
         return tuple(self._phases_per_substance[substance])
 
-    def initialize_composition(self, initial_calc: Optional[bool] = False) -> bool:
+    def initialize_composition(self) -> None:
         """
-        Sets the equations for this model and executes optionally the initial calculations.
-        (see :method:`~porepy.composite.CompositionalFlow.do_initial_calculations`)
-
+        Sets the equations for this model.
         Throws an error if not all initial values have been set.
-
         Initial values of molar variables are computed using the natural variables.
 
         Use :method:`~porepy.compostie.phase.PhaseField.set_initial_fractions`
@@ -476,14 +474,6 @@ class Composition:
         Use
         :method:`~porepy.compostie.compositional_domain.CompositionalDomain.set_initial_state`
         to set the rest.
-
-        Flag `initial_calc` as True to compute the initial calculations
-
-        :param initial_calc: flag for computing initial calculations
-        :type initial_calc: bool
-
-        :return: Always True, if no initial calculations are done. Otherwise result of calc.
-        :rtype: bool
         """
         # at this point we assume all DOFs are defined and we reset the following
         # to get correct DOF mappins
@@ -601,38 +591,6 @@ class Composition:
         for substance in self._present_substances:
             self.eq_manager.update_variables_from_merged(substance.overall_fraction)
 
-        success = True
-        if initial_calc:
-            success = self.do_calculations()
-
-        return success
-
-    def do_calculations(self, max_iterations: int = 100, tol: float = 1.0e-10) -> bool:
-        """Performs the following calculations:
-            - the phase equilibrium
-            - saturations flash
-            - isenthalpic flash.
-
-        This step is put in a separate method in case this class gets inherited.
-        NOTE VL: All computations here can be parallelized since they are local (per cell).
-
-        :param max_iterations: set maximal number for Newton iterations
-        :type max_iterations: int
-        :param tol: tolerance for Newton residual
-        :type tol: float
-
-        :return: True if all calculations are successful, False otherwise
-        :rtype: bool
-        """
-        equilibrium = self.compute_phase_equilibrium(max_iterations, tol)
-        self.saturation_flash(copy_to_state=True)
-        isenthalpic = self.isenthalpic_flash(max_iterations, tol)
-
-        if equilibrium and isenthalpic:
-            return True
-        else:
-            return False
-
     # -----------------------------------------------------------------------------------------
     ### Equilibrium and flash calculations
     # -----------------------------------------------------------------------------------------
@@ -641,7 +599,8 @@ class Composition:
         self,
         max_iterations: int = 100,
         tol: float = 1.0e-10,
-        trust_region: bool = True,
+        copy_to_state: bool = False,
+        trust_region: bool = False,
         eliminate_unitarity: Optional[Tuple[str, str, str]] = None,
     ) -> bool:
         """Computes the equilibrium using the following equations:
@@ -669,6 +628,7 @@ class Composition:
             subsystem["var_names"],
             max_iterations,
             tol,
+            copy_to_state=copy_to_state,
             trust_region=trust_region,
             eliminate_unitarity=eliminate_unitarity,
         )
@@ -692,7 +652,7 @@ class Composition:
         self,
         max_iterations: int = 100,
         tol: float = 1.0e-10,
-        copy_to_state: bool = True,
+        copy_to_state: bool = False,
     ) -> bool:
         """Performs an isenthalpic flash to obtain temperature values.
 
@@ -716,6 +676,7 @@ class Composition:
             subsystem["var_names"],
             max_iterations,
             tol,
+            copy_to_state=copy_to_state,
         )
 
     def isothermal_flash(self) -> None:
@@ -933,7 +894,7 @@ class Composition:
         """
         Name is self-explanatory.
 
-        These calculations have to be done everytime everytime new initial values are set.
+        These calculations have to be done every time new initial values are set.
         """
         molar_fraction_sum = 0.0
 
@@ -1069,6 +1030,7 @@ class Composition:
         var_names: List[str],
         max_iterations: int,
         eps: float,
+        copy_to_state: bool = False,
         trust_region: Optional[bool] = False,
         eliminate_unitarity: Optional[Tuple[str, str, str]] = None,
     ) -> bool:
@@ -1133,9 +1095,8 @@ class Composition:
 
                 # list of vars belonging to the unitarity group
                 unitary_vars = [var for var in variables if eliminated_var in var._name]
-                # make a deep copy of the equation set
-                reduced_equations = list(equations)
-                reduced_equations.remove(eliminated_eq)
+                # remove the redundant equation
+                equations.remove(eliminated_eq)
 
                 # choose which var out of the unitary group to eliminate
                 unitary_var_vals = [
@@ -1232,26 +1193,25 @@ class Composition:
                     to_iterate=True,
                 )
 
+                A, b = self.eq_manager.assemble_subsystem(equations, variables)
                 if eliminate_unitarity:
-                    A, b = self.eq_manager.assemble_subsystem(
-                        reduced_equations, variables
-                    )
-                    A = A * expansion
-                else:
-                    A, b = self.eq_manager.assemble_subsystem(equations, variables)
+                    A = A * expansion                    
 
                 if np.linalg.norm(b) <= eps:
                     # setting state to newly found solution
                     X = self.dof_manager.assemble_variable(
                         variables=var_names, from_iterate=True
                     )
-                    self.dof_manager.distribute_variable(X, variables=var_names)
+                    if copy_to_state:
+                        self.dof_manager.distribute_variable(X, variables=var_names)
                     success = True
                     iter_final = i
                     break
 
         # if not successful, replace iterate values with initial state values
         if not success:
+            print("\nComposition failed to solve:\n%s\nwith iterate state\n%s\n"
+            % (str(equations), str(self.dof_manager.assemble_variable(from_iterate=True))))
             X = self.dof_manager.assemble_variable()
             self.dof_manager.distribute_variable(X, to_iterate=True)
             iter_final = max_iterations

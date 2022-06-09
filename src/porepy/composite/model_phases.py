@@ -1,4 +1,5 @@
 """Contains concrete implementation of phases."""
+from __future__ import annotations
 
 from typing import List, Optional, Union
 
@@ -15,7 +16,7 @@ __all__: List[str] = ["SaltWater", "Water"]
 
 
 class SaltWater(PhaseField):
-    def __init__(self, name: str, gb: "pp.GridBucket") -> None:
+    def __init__(self, name: str, gb: pp.GridBucket) -> None:
         super().__init__(name, gb)
         # saving external reference for simplicity
         self.water = H2O(gb)
@@ -26,23 +27,23 @@ class SaltWater(PhaseField):
 
     def molar_density(
         self,
-        pressure: "pp.ad.MergedVariable",
-        enthalpy: "pp.ad.MergedVariable",
-        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
-    ) -> "pp.ad.Operator":
+        pressure: pp.ad.MergedVariable,
+        enthalpy: pp.ad.MergedVariable,
+        temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
+    ) -> pp.ad.Operator:
         return pp.ad.Array(np.ones(self.gb.num_cells()))
 
     def enthalpy(
         self,
-        pressure: "pp.ad.MergedVariable",
-        enthalpy: "pp.ad.MergedVariable",
-        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
-    ) -> "pp.ad.Operator":
+        pressure: pp.ad.MergedVariable,
+        enthalpy: pp.ad.MergedVariable,
+        temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
+    ) -> pp.ad.Operator:
         return pp.ad.Array(np.ones(self.gb.num_cells()))
 
     def dynamic_viscosity(
-        self, pressure: "pp.ad.MergedVariable", enthalpy: "pp.ad.MergedVariable"
-    ) -> "pp.ad.Operator":
+        self, pressure: pp.ad.MergedVariable, enthalpy: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         return pp.ad.Array(np.ones(self.gb.num_cells()))  # 0.001
 
     def thermal_conductivity(self, pressure: float, enthalpy: float) -> float:
@@ -52,7 +53,7 @@ class SaltWater(PhaseField):
 class Water(PhaseField):
     """Values found on Wikipedia..."""
 
-    def __init__(self, name: str, gb: "pp.GridBucket") -> None:
+    def __init__(self, name: str, gb: pp.GridBucket) -> None:
         super().__init__(name, gb)
         # saving external reference for simplicity
         self.water = H2O(gb)
@@ -61,27 +62,33 @@ class Water(PhaseField):
 
     def molar_density(
         self,
-        pressure: "pp.ad.MergedVariable",
-        enthalpy: "pp.ad.MergedVariable",
-        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
-    ) -> "pp.ad.Operator":
+        pressure: pp.ad.MergedVariable,
+        enthalpy: pp.ad.MergedVariable,
+        temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
+    ) -> pp.ad.Operator:
         # return pp.ad.Array(np.ones(self.gb.num_cells()))
-        return pressure
+        if temperature:
+            return pressure / temperature
+        else:
+            return pressure / (1 + enthalpy / 2.)
 
     def enthalpy(
         self,
-        pressure: "pp.ad.MergedVariable",
-        enthalpy: "pp.ad.MergedVariable",
-        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
-    ) -> "pp.ad.Operator":
-        return pp.ad.Array(np.ones(self.gb.num_cells()))
+        pressure: pp.ad.MergedVariable,
+        enthalpy: pp.ad.MergedVariable,
+        temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
+    ) -> pp.ad.Operator:
+        if temperature:
+            return 2.* temperature
+        else:
+            return enthalpy / 2.
 
     def dynamic_viscosity(
-        self, pressure: "pp.ad.MergedVariable", enthalpy: "pp.ad.MergedVariable"
-    ) -> "pp.ad.Operator":
+        self, pressure: pp.ad.MergedVariable, enthalpy: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         return pp.ad.Array(np.ones(self.gb.num_cells()))  # 0.0003
 
     def thermal_conductivity(
-        self, pressure: "pp.ad.MergedVariable", enthalpy: "pp.ad.MergedVariable"
-    ) -> "pp.ad.Operator":
+        self, pressure: pp.ad.MergedVariable, enthalpy: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         return pp.ad.Array(np.ones(self.gb.num_cells()))  # 0.05
