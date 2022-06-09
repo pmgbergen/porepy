@@ -11,7 +11,7 @@ networkx = "^2.3"
 sympy = "^1.4"
 matplotlib = "^3.0.3"
 cython = "^0.29.7"
-future = "^0.17.1"
+future = "^0.17"
 six = "^1.12.0"
 shapely = {extras = ["vectorized"], version = "^1.7.0"}
 numba = ">=0.53.0"
