@@ -64,10 +64,13 @@ jobs:
         path: mypy-cache-${{ matrix.python-version}}
         key: ${{ runner.os }}-mypy
 
-    - name: Install PorePy
+    - name: Install external libraries
       run: |
         sudo apt-get install libglu1-mesa libgeos-dev
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
+
+    - name: Install PorePy
+      run: |
         pip install -U pip
         # Install requirements, using eager updates to avoid stalled dependencies due to caching
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
