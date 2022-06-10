@@ -7,7 +7,6 @@ import numpy as np
 import scipy.sparse as sps
 from typing_extensions import Literal
 
-import porepy as pp
 from porepy.utils.mcolon import mcolon
 
 
