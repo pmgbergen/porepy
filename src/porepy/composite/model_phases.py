@@ -80,14 +80,15 @@ class WaterVapor(PhaseField):
         enthalpy: pp.ad.MergedVariable,
         temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
     ) -> pp.ad.Operator:
-        # return pp.ad.Array(np.ones(self.gb.num_cells()))
-        if temperature:
-            # ideal gas law
-            return pressure / temperature / self.specific_molar_gas_constant
-        else:
-            # linearized internal energy
-            # rho h = rho T - p -> rho = p / (h-T)
-            return pressure / (enthalpy)
+        val = 0.756182 / H2O.molar_mass()
+        return pp.ad.Array( val * np.ones(self.gb.num_cells()))
+        # if temperature:
+        #     # ideal gas law
+        #     return pressure / temperature / self.specific_molar_gas_constant
+        # else:
+        #     # linearized internal energy
+        #     # rho h = rho T - p -> rho = p / (h-T)
+        #     return pressure / (enthalpy)
 
     def enthalpy(
         self,

@@ -21,6 +21,7 @@ from .model_solids import *
 from .phase import *
 from .physical_domain import *
 from .substance import *
+from ._composite_utils import COMPUTATIONAL_VARIABLES, IDEAL_GAS_CONSTANT
 
 __all__.extend(composition.__all__)
 __all__.extend(model_fluids.__all__)
