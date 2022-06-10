@@ -12,10 +12,14 @@ from .model_fluids import H2O
 from .model_solids import NaCl
 from .phase import PhaseField
 
-__all__: List[str] = ["SaltWater", "Water"]
+__all__: List[str] = ["SaltWater", "WaterVapor"]
 
 
 class SaltWater(PhaseField):
+
+    # source wikipedia
+    molar_heat_capacity = 0.0042  # kJ / mol / K
+    
     def __init__(self, name: str, gb: pp.GridBucket) -> None:
         super().__init__(name, gb)
         # saving external reference for simplicity
@@ -31,7 +35,8 @@ class SaltWater(PhaseField):
         enthalpy: pp.ad.MergedVariable,
         temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
     ) -> pp.ad.Operator:
-        return pp.ad.Array(np.ones(self.gb.num_cells()))
+        density = 998.21 / H2O.molar_mass()
+        return pp.ad.Array(density * np.ones(self.gb.num_cells()))
 
     def enthalpy(
         self,
@@ -39,7 +44,12 @@ class SaltWater(PhaseField):
         enthalpy: pp.ad.MergedVariable,
         temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
     ) -> pp.ad.Operator:
-        return pp.ad.Array(np.ones(self.gb.num_cells()))
+        if temperature:
+            return (1. + self.molar_heat_capacity) * temperature
+        else:
+            # TODO get physical
+            return enthalpy / 2.
+        # return pp.ad.Array(np.ones(self.gb.num_cells()))
 
     def dynamic_viscosity(
         self, pressure: pp.ad.MergedVariable, enthalpy: pp.ad.MergedVariable
@@ -50,8 +60,12 @@ class SaltWater(PhaseField):
         return pp.ad.Array(np.ones(self.gb.num_cells()))
 
 
-class Water(PhaseField):
+class WaterVapor(PhaseField):
     """Values found on Wikipedia..."""
+
+    # https://en.wikipedia.org/wiki/Water_vapor see specific gas constant (mass)
+    specific_molar_gas_constant = 0.4615 * H2O.molar_mass()  # kJ / mol / K
+    molar_heat_capacity = 1.864 * H2O.molar_mass()  # kJ / mol / K
 
     def __init__(self, name: str, gb: pp.GridBucket) -> None:
         super().__init__(name, gb)
@@ -68,9 +82,12 @@ class Water(PhaseField):
     ) -> pp.ad.Operator:
         # return pp.ad.Array(np.ones(self.gb.num_cells()))
         if temperature:
-            return pressure / temperature
+            # ideal gas law
+            return pressure / temperature / self.specific_molar_gas_constant
         else:
-            return pressure / (1 + enthalpy / 2.)
+            # linearized internal energy
+            # rho h = rho T - p -> rho = p / (h-T)
+            return pressure / (enthalpy)
 
     def enthalpy(
         self,
@@ -79,8 +96,9 @@ class Water(PhaseField):
         temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
     ) -> pp.ad.Operator:
         if temperature:
-            return 2.* temperature
+            return (self.molar_heat_capacity + self.specific_molar_gas_constant) * temperature
         else:
+            # TODO get physical
             return enthalpy / 2.
 
     def dynamic_viscosity(

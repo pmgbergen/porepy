@@ -35,10 +35,14 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
     def __init__(
         self,
         params: Dict,
-        k_value: float,
+        flash_params: Dict = {
+            "max_iter_flash": 200,
+            "tol_flash": 1e-10,
+            "use_TRU": False,
+            "k_value": 0.5,
+            "elimination": None,
+        },
         monolithic_solver: bool = True,
-        max_iter_flash: int = 200,
-        tol_flash: float = 1e-10,
     ) -> None:
         """Base constructor for a standard grid.
 
@@ -51,6 +55,21 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         :type params: dict
         """
         super().__init__(params)
+
+        ### MODEL TUNING
+        mm = pp.composite.H2O.molar_mass()
+        # TODO tune pressure unit
+        initial_pressure = 1.
+        # Kelvin
+        initial_temperature = 323.
+        # kg to mol
+        injected_moles_water = 100. / mm
+        # kJ / mol , specific heat capacity from Wikipedia
+        injected_water_enthalpy = 0.0042 * initial_temperature + initial_pressure / (1 / mm)
+        # D-BC temperature Kelvin
+        boundary_temp = 383. # 110 Celsius
+        # N-BC one tenth of injection
+        outflow = 10. / mm
 
         ### PUBLIC
         # time step size
@@ -65,6 +84,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.gb: pp.GridBucket
         self.box: Dict = dict()
         self.create_grid()
+
+        # contains information about the primary system
+        self.primary_subsystem: Dict[str, list] = dict()
 
         # Parameter keywords
         self.flow_parameter_key: str = "flow"
@@ -87,23 +109,25 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.saltwater = pp.composite.SaltWater("brine", self.gb)
         self.saltwater.set_initial_fractions([[0.96, 0.04]])
 
-        self.watervapor = pp.composite.Water("vapor", self.gb)
-        self.watervapor.set_initial_fractions([[1.]])
+        self.watervapor = pp.composite.WaterVapor("vapor", self.gb)
+        self.watervapor.set_initial_fractions([[1.0]])
 
         self.composition.add_phases([self.saltwater, self.watervapor])
 
         self.composition.set_initial_state(
-            pressure=[1.], temperature=[20.], saturations=[[0.9, 0.1]]
+            pressure=[initial_pressure],
+            temperature=[initial_temperature],
+            saturations=[[0.9, 0.1]]
         )
 
         #### K-VALUE EQUATION
-        k_value_water = (
-            self.saltwater.water.fraction_in_phase(self.saltwater.name)
-            - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name)
-            )
+        k_value = flash_params["k_value"]
+        k_value_water = self.saltwater.water.fraction_in_phase(
+            self.saltwater.name
+        ) - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name)
         # k_value_water = (
         #     1-self.saltwater.salt.fraction_in_phase(self.saltwater.name)
-        #     - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name) 
+        #     - k_value * self.saltwater.water.fraction_in_phase(self.watervapor.name)
         #     )
 
         name = "k_value_%s" % (self.saltwater.water.name)
@@ -118,40 +142,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.dofm: pp.DofManager = self.composition.dof_manager
 
         # set the first primary equation, sum over all overall substance fractions
-        name = "overall_substance_fraction_sum"
-        self.primary_subsystem: Dict[str, list] = {
-            "equations": [name],
-            "vars": [self.composition.pressure, self.composition.enthalpy],
-            "var_names": [
-                self.composition._pressure_var,
-                self.composition._enthalpy_var,
-            ],
-        }
-        for substance in self.composition.substances:
-            self.primary_subsystem["vars"].append(substance.overall_fraction)
-            self.primary_subsystem["var_names"].append(substance.overall_fraction_var)
-
-        self.eqm.equations.update(
-            {name: self.composition.overall_substance_fractions_sum()}
-        )
-
-        secondary_vars = list()
-        secondary_var_names = list()
-        for phase in self.composition:
-            secondary_vars.append(phase.molar_fraction)
-            secondary_var_names.append(phase.molar_fraction_var)
-            for substance in phase:
-                secondary_vars.append(substance.fraction_in_phase(phase.name))
-                secondary_var_names.append(substance.fraction_in_phase_var(phase.name))
-        self.primary_subsystem.update({"secondary_vars": secondary_vars})
-        self.primary_subsystem.update({"secondary_var_names": secondary_var_names})
 
         ### PRIVATE
         # solver strategy. If monolithic, the model will take care of flash calculations
         # if not, it will solve only the primary system
         self._monolithic = monolithic_solver
-        self._max_iter_flash = max_iter_flash
-        self._tol_flash = tol_flash
+        self._max_iter_flash = flash_params["max_iter_flash"]
+        self._tol_flash = flash_params["tol_flash"]
+        self._use_TRU = flash_params["use_TRU"]
+        self._elimination = flash_params["elimination"]
         # list of primary equations
         self._prim_equ: List[str] = list()
         # list of primary variables
@@ -165,19 +164,17 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         ## model-specific input.
         self._source_quantity = {
-            "H2O": 5.,  # mol in 1 m^3 (1 mol of liquid water is approx 1.8xe-5 m^3)
+            "H2O": injected_moles_water,  # mol in 1 m^3 (1 mol of liquid water is approx 1.8xe-5 m^3)
             "NaCl": 0.0,  # only water is pumped into the system
         }
         self._source_enthalpy = {
-            "H2O": 5.,  # TODO get physical value here
+            "H2O": injected_water_enthalpy, # in kJ
             "NaCl": 0.0,  # no new salt enters the system
         }
         # 110°C temperature for D-BC for conductive flux
-        self._conductive_boundary_temperature = 40.
+        self._conductive_boundary_temperature = boundary_temp
         # flux for N-BC
-        self._outflow_flux = (
-            1.0  # if less mole flow out than pumped in, pressure rises
-        )
+        self._outflow_flux = outflow
         # base porosity for grid
         self._base_porosity = 1.0
         # base permeability for grid
@@ -218,13 +215,39 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             self.gb, self.params["file_name"], folder_name=self.params["folder_name"]
         )
 
+        # Define primary and secondary variables/system without saturation and temperature
+        self.primary_subsystem.update({
+            "equations": [],
+            "vars": [self.composition.pressure, self.composition.enthalpy],
+            "var_names": [
+                self.composition._pressure_var,
+                self.composition._enthalpy_var,
+            ],
+        })
+        for substance in self.composition.substances:
+            self.primary_subsystem["vars"].append(substance.overall_fraction)
+            self.primary_subsystem["var_names"].append(substance.overall_fraction_var)
+        
+        secondary_vars = list()
+        secondary_var_names = list()
+        for phase in self.composition:
+            secondary_vars.append(phase.molar_fraction)
+            secondary_var_names.append(phase.molar_fraction_var)
+            for substance in phase:
+                secondary_vars.append(substance.fraction_in_phase(phase.name))
+                secondary_var_names.append(substance.fraction_in_phase_var(phase.name))
+        self.primary_subsystem.update({"secondary_vars": secondary_vars})
+        self.primary_subsystem.update({"secondary_var_names": secondary_var_names})
+
         self._set_up()
+        self._set_overall_fraction_sum_equation()
         self._set_mass_balance_equations()
         self._set_energy_balance_equation()
 
         no_flash_subsystem = {
-            "equations" : self.primary_subsystem["equations"] + self.composition.subsystem["equations"],
-            "vars": self.primary_subsystem["vars"] + self.composition.subsystem["vars"]
+            "equations": self.primary_subsystem["equations"]
+            + self.composition.subsystem["equations"],
+            "vars": self.primary_subsystem["vars"] + self.composition.subsystem["vars"],
         }
 
         # Re-setting the equation manager to get rid of the flash variables and their equations
@@ -265,7 +288,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.conductive_upwind.bound_transport_dir.discretize(self.gb)
         self.conductive_upwind.bound_transport_neu.discretize(self.gb)
 
-    def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
+    def after_newton_iteration(self, solution_vector: np.ndarray, iteration: int) -> None:
         """
         Distributes solution of iteration additively to the iterate state of the variables.
         Increases the iteration counter.
@@ -275,9 +298,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
         self._nonlinear_iteration += 1
         vars, var_names = self._system_vars()
-        solution_vector = (
-            self._prolongation_matrix(vars) * solution_vector
-        )
+        solution_vector = self._prolongation_matrix(vars) * solution_vector
 
         self.dofm.distribute_variable(
             values=solution_vector,
@@ -289,15 +310,24 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         if self._monolithic:
             self.composition.saturation_flash()
             success = self.composition.isenthalpic_flash(
-                max_iterations=self._max_iter_flash,
-                tol= self._tol_flash
+                max_iterations=self._max_iter_flash, tol=self._tol_flash
             )
             # history = self.composition.newton_history[-1]
             # print("Isenthalpic Flash:\n    Success: %s\n    Iterations: %i"
             # %
             # (str(history['success']), history['iterations']))
             if not success:
-                raise RuntimeError("Isenthalpic failed during iterations")
+                raise RuntimeError("Isenthalpic failed in iteration %i." % (iteration))
+        else:
+            print(".. starting equilibrium calculations at iteration %i" % (iteration))
+            equilibrated = self.solve_equilibrium(
+                self._max_iter_flash,
+                self._tol_flash,
+                use_TRU=self._use_TRU,
+                eliminate_unitary=self._elimination,
+            )
+            if not equilibrated:
+                raise RuntimeError("Equilibrium flash failed in iteration %i." % (iteration))
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -307,23 +337,22 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         Exports the results.
         """
         _, var_names = self._system_vars()
-        self.dofm.distribute_variable(
-            solution, variables=var_names
-        )
+        self.dofm.distribute_variable(solution, variables=var_names)
         self._export()
 
         if self._monolithic:
             self.composition.saturation_flash(copy_to_state=True)
             success = self.composition.isenthalpic_flash(
                 max_iterations=self._max_iter_flash,
-                tol= self._tol_flash,
-                copy_to_state=True
+                tol=self._tol_flash,
+                copy_to_state=True,
             )
 
             history = self.composition.newton_history[-1]
-            print("Isenthalpic Flash:\n    Success: %s\n    Iterations: %i"
-            %
-            (str(history['success']), history['iterations']))
+            print(
+                "Isenthalpic Flash:\n    Success: %s\n    Iterations: %i"
+                % (str(history["success"]), history["iterations"])
+            )
 
             if not success:
                 raise RuntimeError("Isenthalpic failed after Newton Converged.")
@@ -346,7 +375,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         :return: If converged, returns the solution. Until then, returns the update.
         :rtype: numpy.ndarray
         """
-        
+
         if self._monolithic:
             A, b = self.eqm.assemble()
         else:
@@ -358,16 +387,16 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                 primary_equations=self.primary_subsystem["equations"],
                 primary_variables=self.primary_subsystem["vars"],
                 inverter=inverter,
-                secondary_variables=self.primary_subsystem["secondary_vars"]
+                secondary_variables=self.primary_subsystem["secondary_vars"],
             )
-        
+            # it is necessary to introduce specific choice of secondary vars in order to
+            # exclude flash variables like temperature and saturations
+
         res_norm = np.linalg.norm(b)
         if res_norm < tol:
             self.convergence_status = True
             _, var_names = self._system_vars()
-            x = self.dofm.assemble_variable(
-                variables=var_names, from_iterate=True
-            )
+            x = self.dofm.assemble_variable(variables=var_names, from_iterate=True)
             return x
 
         # TODO direct solver only nice to small systems
@@ -398,29 +427,24 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         :rtype: bool
         """
         ### Phase equilibrium calculations
+        print(".. .. Calculating Equilibrium")
         equilibrium = self.composition.compute_phase_equilibrium(
             max_iter,
             tol,
             copy_to_state=True,
             trust_region=use_TRU,
-            eliminate_unitarity=eliminate_unitary
+            eliminate_unitarity=eliminate_unitary,
         )
-        
-        history = self.composition.newton_history[-1]
-        print("Equilibrium:\n    Success: %s\n    Iterations: %i\n    TRU: %i"
-        %
-        (str(history['success']), history['iterations'], history['trust']))
-        
+
         ### Saturation Flash
+        print(".. .. Calculating Saturation Flash")
         self.composition.saturation_flash(copy_to_state=True)
 
         ### Isenthalpic Flash
-        isenthalpic = self.composition.isenthalpic_flash(max_iter, tol, copy_to_state=True)
-        
-        history = self.composition.newton_history[-1]
-        print("Isenthalpic Flash:\n    Success: %s\n    Iterations: %i"
-        %
-        (str(history['success']), history['iterations']))
+        print(".. .. Calculating Isenthalpic Flash")
+        isenthalpic = self.composition.isenthalpic_flash(
+            max_iter, tol, copy_to_state=True
+        )
 
         if equilibrium and isenthalpic:
             return True
@@ -431,11 +455,13 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                 print("Isenthalpic Flash did not converge.")
             return False
 
-    def _prolongation_matrix(self, variables: List[pp.ad.MergedVariable]) -> sps.spmatrix:
+    def _prolongation_matrix(
+        self, variables: List[pp.ad.MergedVariable]
+    ) -> sps.spmatrix:
         """Constructs a prolongation mapping for a subspace of given variables to the
         global vector.
         Credits to EK
-        
+
         :param variables: variables spanning the subspace
         :type: :class:`~porepy.ad.MergedVariable`
 
@@ -467,8 +493,14 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
     def _system_vars(self) -> List[str]:
         """Depending on solver strategy, returns the system variables"""
         if self._monolithic:
-            vars = self.primary_subsystem["vars"] + self.primary_subsystem["secondary_vars"]
-            names = self.primary_subsystem["var_names"] + self.primary_subsystem["secondary_var_names"]
+            vars = (
+                self.primary_subsystem["vars"]
+                + self.primary_subsystem["secondary_vars"]
+            )
+            names = (
+                self.primary_subsystem["var_names"]
+                + self.primary_subsystem["secondary_var_names"]
+            )
             return (vars, names)
         else:
             return (self.primary_subsystem["vars"], self.primary_subsystem["var_names"])
@@ -479,6 +511,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         print(self.dofm.assemble_variable(from_iterate=True))
         print("State")
         print(self.dofm.assemble_variable())
+
     # ------------------------------------------------------------------------------
     ### SET-UP
     # ------------------------------------------------------------------------------
@@ -502,8 +535,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
             ### Mass weight parameter. Same for all balance equations
             pp.initialize_data(
-                g, d, self.mass_parameter_key,
-                {"mass_weight": self._base_porosity * np.ones(g.num_cells)}
+                g,
+                d,
+                self.mass_parameter_key,
+                {"mass_weight": self._base_porosity * np.ones(g.num_cells)},
             )
 
             ### Mass parameters per substance
@@ -546,7 +581,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                 {
                     "bc": bc,
                     "bc_values": bc_vals,
-                    "darcy_flux": np.zeros(g.num_faces),  # Upwinding expects an initial flux
+                    "darcy_flux": np.zeros(
+                        g.num_faces
+                    ),  # Upwinding expects an initial flux
                 },
             )
 
@@ -598,26 +635,22 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             raise NotImplementedError("Mixed dimensional case not yet available.")
 
         ### Instantiating discretization operators
-        
+
         # darcy flux
         mpfa = pp.ad.MpfaAd(self.flow_parameter_key, self._grids)
         bc = pp.ad.BoundaryCondition(self.flow_parameter_key, self._grids)
-        self.darcy_flux = (
-            mpfa.flux * self.composition.pressure
-            + mpfa.bound_flux * bc
-        )
-        
+        self.darcy_flux = mpfa.flux * self.composition.pressure + mpfa.bound_flux * bc
+
         # darcy upwind
         keyword = "%s_%s" % (self.upwind_parameter_key, self.flow_parameter_key)
         self.darcy_upwind = pp.ad.UpwindAd(keyword, self._grids)
         self.darcy_upwind_bc = pp.ad.BoundaryCondition(keyword, self._grids)
-        
+
         # conductive flux
         mpfa = pp.ad.MpfaAd(self.energy_parameter_key, self._grids)
         bc = pp.ad.BoundaryCondition(self.energy_parameter_key, self._grids)
         self.conductive_flux = (
-            mpfa.flux * self.composition.temperature
-            + mpfa.bound_flux * bc
+            mpfa.flux * self.composition.temperature + mpfa.bound_flux * bc
         )
         # conductive upwind
         keyword = "%s_%s" % (self.upwind_parameter_key, self.energy_parameter_key)
@@ -626,9 +659,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
     ### Boundary Conditions
 
-    def _bc_advective_flux(
-        self, g: pp.Grid
-    ) -> Tuple[pp.BoundaryCondition, np.ndarray]:
+    def _bc_advective_flux(self, g: pp.Grid) -> Tuple[pp.BoundaryCondition, np.ndarray]:
         """BC for advective flux (Darcy). Override for modifications.
 
         Phys. Dimensions of ADVECTIVE MASS FLUX:
@@ -655,9 +686,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         bc, vals = self._bc_unitary_flux(g, "east", "neu")
         return (bc, vals * self._outflow_flux)
 
-    def _bc_diff_disp_flux(
-        self, g: pp.Grid
-    ) -> Tuple[pp.BoundaryCondition, np.ndarray]:
+    def _bc_diff_disp_flux(self, g: pp.Grid) -> Tuple[pp.BoundaryCondition, np.ndarray]:
         """BC for diffusive-dispersive flux (Darcy). Override for modifications.
 
         Phys. Dimensions of FICK's LAW OF DIFFUSION:
@@ -749,6 +778,27 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
     ### MODEL EQUATIONS: Mass and Energy Balance
     # ------------------------------------------------------------------------------------------
 
+    def _set_overall_fraction_sum_equation(self) -> None:
+        """Sets the overall substance fraction sum equation."""
+
+        name = "overall_substance_fraction_sum"
+        self.primary_subsystem["equations"].append(name)
+
+        fraction_sum = self.composition.overall_substance_fractions_sum()
+
+        # index reduction of algebraic unitarity constraint
+        # demand exponential decay of rate of change
+        time_derivative = list()
+        for substance in self.composition.substances:
+            time_derivative.append(
+                substance.overall_fraction - substance.overall_fraction.previous_timestep()
+            )
+        decay = self.dt / (2*np.pi)
+
+        eq = sum(time_derivative) + self.dt * decay * fraction_sum
+
+        self.eqm.equations.update({name: eq})
+
     def _set_mass_balance_equations(self) -> None:
         """Set mass balance equations per substance"""
 
@@ -763,7 +813,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             ### ACCUMULATION
             accumulation = (
                 mass.mass
-                / self.dt
                 * (
                     subst.overall_fraction * cp.composit_density()
                     - subst.overall_fraction.previous_timestep()
@@ -796,7 +845,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
             ### MASS BALANCE PER COMPONENT
             # minus in advection already included
-            equ_subst = accumulation + div * advection - source
+            equ_subst = accumulation + self.dt * (div * advection - source)
             equ_name = "mass_balance_%s" % (subst.name)
             self.eqm.equations.update({equ_name: equ_subst})
             self.primary_subsystem["equations"].append(equ_name)
@@ -816,7 +865,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### ACCUMULATION
         accumulation = (
             mass.mass
-            / self.dt
             * (
                 cp.enthalpy * cp.composit_density()
                 - cp.enthalpy.previous_timestep() * cp.composit_density(prev_time=True)
@@ -836,10 +884,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         scalar_part = sum(scalar_part)
 
         advection = (
-                self.darcy_flux * (upwind_adv.upwind * scalar_part)
-                - upwind_adv.bound_transport_dir * self.darcy_flux * bc_upwind_adv
-                - upwind_adv.bound_transport_neu * bc_upwind_adv
-            )
+            self.darcy_flux * (upwind_adv.upwind * scalar_part)
+            - upwind_adv.bound_transport_dir * self.darcy_flux * bc_upwind_adv
+            - upwind_adv.bound_transport_neu * bc_upwind_adv
+        )
 
         ### CONDUCTION
         scalar_part = list()
@@ -850,10 +898,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         scalar_part = mass.mass * sum(scalar_part)
 
         conduction = (
-                self.conductive_flux * (upwind_cond.upwind * scalar_part)
-                - upwind_cond.bound_transport_dir * self.conductive_flux * bc_upwind_cond
-                - upwind_cond.bound_transport_neu * bc_upwind_cond
-            )
+            self.conductive_flux * (upwind_cond.upwind * scalar_part)
+            - upwind_cond.bound_transport_dir * self.conductive_flux * bc_upwind_cond
+            - upwind_cond.bound_transport_neu * bc_upwind_cond
+        )
 
         ### SOURCE
         # rock enthalpy source
@@ -863,10 +911,12 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # enthalpy source due to mass source
         for subst in cp.substances:
             kw = "source_%s" % (subst.name)
-            source += pp.ad.ParameterArray(self.energy_parameter_key, kw, grids=self._grids)
+            source += pp.ad.ParameterArray(
+                self.energy_parameter_key, kw, grids=self._grids
+            )
 
         ### GLOBAL ENERGY BALANCE
-        equ_energy = accumulation + div * (advection + conduction) - source
+        equ_energy = accumulation + self.dt * (div * (advection + conduction) - source)
         equ_name = "energy_balance"
         self.eqm.equations.update({equ_name: equ_energy})
         self.primary_subsystem["equations"].append(equ_name)
