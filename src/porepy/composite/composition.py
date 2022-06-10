@@ -87,13 +87,27 @@ class Composition:
         self._temperature: pp.ad.MergedVariable = create_merged_variable(
             gb, {"cells": 1}, self._temperature_var
         )
+
         # store subsystem components (references) for faster assembly
         self._phase_equilibrium_subsystem: dict = dict()
-        self._saturation_flash_subsystem: dict = dict()
         self._isenthalpic_flash_subsystem: dict = dict()
-        self._isothermal_flash_subsystem: dict = dict()
+        # will be created during the initialization
+        self._isothermal_flash_equ: Optional[pp.ad.Operator] = None
+        # self._isothermal_flash_subsystem: dict = dict()
+        # self._saturation_flash_subsystem: dict = dict()
+        
+        # names of equations
+        self._substance_fractions_relations_name = "substance_fractions_relation"
+        self._substance_in_phase_unity_name = "substance_in_phase_unity"
+        self._phase_fraction_unity = "molar_phase_fraction_unity"
+        self._isenthalpic_flash_name = "isenthalpic_flash"
+        # self._isothermal_flash_name = "isothermal_flash"
+        # self._saturation_flash_name = "saturation_flash"
+
         # defines the maximal number of Newton history entries
         self._max_history = 200
+        # last inverted matrix for equilibrium calculations
+        self._last_inverted = None
 
     def __str__(self) -> str:
         """Returns string representation of instance,
@@ -475,62 +489,59 @@ class Composition:
         :method:`~porepy.compostie.compositional_domain.CompositionalDomain.set_initial_state`
         to set the rest.
         """
+        ### CHECK SYSTEM CLOSURE
+        self._check_num_phase_equilibrium_equations()
+
         # at this point we assume all DOFs are defined and we reset the following
-        # to get correct DOF mappins
+        # to get a complete DOF mapping including all variables
         self.dof_manager = pp.DofManager(self.gb)
         self.eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager)
 
         # setting of equations and subsystems
         equations = dict()
-        subset: Any
-        isothermal_flash_subsystem: Dict[str, list] = self._get_subsystem_dict()
         phase_equilibrium_subsystem: Dict[str, list] = self._get_subsystem_dict()
-        saturation_flash_subsystem: Dict[str, list] = self._get_subsystem_dict()
         isenthalpic_flash_subsystem: Dict[str, list] = self._get_subsystem_dict()
 
-        ### ISOTHERMAL FLASH
-        # compute the initial enthalpy using an isothermal flash
-        name = "isothermal_flash"
-        eq = self.isothermal_flash_equation()
-
-        equations.update({name: eq})
-
-        isothermal_flash_subsystem["equations"].append("isothermal_flash")
-        isothermal_flash_subsystem["vars"].append(self._enthalpy)
-        isothermal_flash_subsystem["var_names"].append(self._enthalpy_var)
-
-        self._isothermal_flash_subsystem = isothermal_flash_subsystem
-        self.isothermal_flash()
-
-        ### CALCULATE molar variables and check system closure
-        self._calculate_initial_molar_phase_fractions()
-        self._calculate_initial_overall_substance_fractions()
-        self._check_num_phase_equilibrium_equations()
-
-        ### EQUILIBRIUM CALCULATIONS
+        ### SETTING GENERAL EQUILIBRIUM EQUATIONS
         # num_substances overall fraction equations
-        subset = self.overall_substance_fraction_equations()
+        subset = self.substance_fraction_relation_equations()
         for c, substance in enumerate(self._present_substances):
-            name = "overall_substance_fraction_%s" % (substance.name)
+            
+            name = "%s_%s" % (self._substance_fractions_relations_name, substance.name)
+            
             equations.update({name: subset[c]})
             phase_equilibrium_subsystem["equations"].append(name)
 
         # num_phases - 1 substance in phase sum equations
         subset = self.substance_in_phase_sum_equations()
-        phases = [phase for phase in self]
+        phases = self._present_phases
         for i in range(self.num_phases - 1):
-            name = "substance_in_phase_sum_%s_%s" % (phases[i].name, phases[i + 1].name)
+            
+            name = "%s_%s_%s" % (
+                self._substance_in_phase_unity_name, phases[i].name, phases[i + 1].name
+            )
+           
             equations.update({name: subset[i]})
             phase_equilibrium_subsystem["equations"].append(name)
 
+        # 1 phase fraction unity equation
+        equ = self.molar_phase_fractions_unity()
+        
+        equations.update({self._phase_fraction_unity: equ})
+        phase_equilibrium_subsystem["equations"].append(self._phase_fraction_unity)
+
+        ### SETTING MODEL SPECIFIC PHASE-TRANSITION EQUATIONS
         # num_substances * (num_phases(of substance) - 1) phase equilibrium equations
         for substance in self._present_substances:
             for equ_name in self.phase_equilibrium_equations[substance.name]:
+                
                 equation = self.phase_equilibrium_equations[substance.name][equ_name]
+                
                 equations.update({equ_name: equation})
                 phase_equilibrium_subsystem["equations"].append(equ_name)
 
-        # adding substance fractions in phases to subsystem
+        ### PHASE EQUILIBRIUM SUBSYSTEM
+        # Adding variables and variable names to the subsystem
         for substance in self._present_substances:
             for phase in self._phases_per_substance[substance]:
                 phase_equilibrium_subsystem["vars"].append(
@@ -539,45 +550,30 @@ class Composition:
                 phase_equilibrium_subsystem["var_names"].append(
                     substance.fraction_in_phase_var(phase.name)
                 )
-
-        # 1 phase fraction unity equation
-        equ = self.molar_phase_fraction_sum()
-        name = "molar_phase_fraction_sum"
-        equations.update({name: equ})
-        phase_equilibrium_subsystem["equations"].append(name)
         for phase in self:
             phase_equilibrium_subsystem["vars"].append(phase.molar_fraction)
             phase_equilibrium_subsystem["var_names"].append(phase.molar_fraction_var)
-
-        # store respective subsystem
+        # storing a reference to the subsystem
         self._phase_equilibrium_subsystem = phase_equilibrium_subsystem
-
-        ### SATURATION FLASH
-        # num_phases saturation fraction equations for saturation flash calculations
-        subset = self.saturation_flash_equations()
-        for e, phase in enumerate(self._present_phases):
-            name = "saturation_flash_%s" % (phase.name)
-            equations.update({name: subset[e]})
-            saturation_flash_subsystem["equations"].append(name)
-            saturation_flash_subsystem["vars"].append(phase.saturation)
-            saturation_flash_subsystem["var_names"].append(phase.saturation_var)
-        # store respective subsystem
-        self._saturation_flash_subsystem = saturation_flash_subsystem
 
         ### ISENTHALPIC FLASH
         # 1 isenthalpic equation for isenthalpic flash
         equ = self.isenthalpic_flash_equation()
-        name = "isenthalpic_flash"
-        equations.update({name: equ})
+        equations.update({self._isenthalpic_flash_name: equ})
         # store respective subsystem
-        isenthalpic_flash_subsystem["equations"].append(name)
+        isenthalpic_flash_subsystem["equations"].append(self._isenthalpic_flash_name)
         isenthalpic_flash_subsystem["vars"].append(self._temperature)
         isenthalpic_flash_subsystem["var_names"].append(self._temperature_var)
         self._isenthalpic_flash_subsystem = isenthalpic_flash_subsystem
 
+        ### SETTING EQUATIONS FOR THIS COMPOSITION
+        # Saturation flash and isothermal flash are not included,
+        # since they have an equivalent already present
+        # temperature - enthalpy
+        # saturation  - phase molar fraction
         self.eq_manager.equations = equations
 
-        # Adding all dynamically created MergedVariables to the equation manager
+        ### Adding all dynamically created MergedVariables to the equation manager
         # necessary to register the variables per grid
         self.eq_manager.update_variables_from_merged(self.pressure)
         self.eq_manager.update_variables_from_merged(self.enthalpy)
@@ -591,6 +587,15 @@ class Composition:
                 )
         for substance in self._present_substances:
             self.eq_manager.update_variables_from_merged(substance.overall_fraction)
+        
+        ### ISOTHERMAL FLASH
+        # compute the initial enthalpy using an isothermal flash
+        self._isothermal_flash_equ = self.isothermal_flash_equation()
+        self.isothermal_flash()
+
+        ### CALCULATE molar variables
+        self._calculate_initial_molar_phase_fractions()
+        self._calculate_initial_overall_substance_fractions()
 
     # -----------------------------------------------------------------------------------------
     ### Equilibrium and flash calculations
@@ -623,7 +628,7 @@ class Composition:
         # get objects defining the subsystem
         subsystem = self._phase_equilibrium_subsystem
 
-        return self._subsystem_newton(
+        return self._equilibrium_newton(
             subsystem["equations"],
             subsystem["vars"],
             subsystem["var_names"],
@@ -647,7 +652,7 @@ class Composition:
         elif self.num_phases > 2:
             self._multi_phase_saturation_flash(copy_to_state=copy_to_state)
         else:
-            raise NotImplementedError("Single-phase saturation flash not implemented.")
+            raise RuntimeError("Saturation Flash for single-phase system not available.")
 
     def isenthalpic_flash(
         self,
@@ -671,7 +676,7 @@ class Composition:
         # get objects defining the subsystem
         subsystem = self._isenthalpic_flash_subsystem
 
-        return self._subsystem_newton(
+        return self._standard_newton(
             subsystem["equations"],
             subsystem["vars"],
             subsystem["var_names"],
@@ -680,8 +685,11 @@ class Composition:
             copy_to_state=copy_to_state,
         )
 
-    def isothermal_flash(self) -> None:
+    def isothermal_flash(self, copy_to_state: bool = True) -> None:
         """Performs an isothermal flash to obtain the molar enthalpy of the composition.
+        
+        This is usually performed only once at the beginning after setting initial values in
+        temperature.
 
         The "flash" here is a simple forward evaluation of the caloric relation for enthalpy.
 
@@ -690,38 +698,27 @@ class Composition:
         :param tol: tolerance for Newton residual
         :type tol: float
         """
+        # forward evaluation
+        # equ = self.isothermal_flash_equation()
+        assert self._isothermal_flash_equ is not None
+        h = self._isothermal_flash_equ.evaluate(self.dof_manager).val
 
-        equ = list()
-        # caloric relation for enthalpy
-        for phase in self._present_phases:
-            # s_e * rho_e(p,h) * h_e(p,h,T)
-            equ.append(
-                phase.saturation
-                * phase.molar_density(
-                    self._pressure, self._enthalpy, temperature=self._temperature
-                )
-                * phase.enthalpy(
-                    self._pressure, self._enthalpy, temperature=self._temperature
-                )
-            )
-
-        equ = sum(equ) / self.composit_density(temperature=self._temperature)
-        h = equ.evaluate(self.dof_manager).val
-
+        # getting global dofs for enthalpy and inserting values
         dof = self.dof_manager.dof_var([self._enthalpy_var])
         X = np.zeros(self.dof_manager.num_dofs())
         X[dof] = h
 
-        self.dof_manager.distribute_variable(X, variables=[self._enthalpy_var])
         self.dof_manager.distribute_variable(
             X, variables=[self._enthalpy_var], to_iterate=True
         )
+        if copy_to_state:
+            self.dof_manager.distribute_variable(X, variables=[self._enthalpy_var])
 
     # -----------------------------------------------------------------------------------------
     ### Model equations
     # -----------------------------------------------------------------------------------------
 
-    def overall_substance_fractions_sum(self) -> pp.ad.Operator:
+    def overall_substance_fractions_unity(self) -> pp.ad.Operator:
         """Returns 1 equation representing the unity of the overall component fractions.
 
         sum_c zeta_c - 1 = 0
@@ -735,7 +732,7 @@ class Composition:
 
         return equation
 
-    def overall_substance_fraction_equations(self) -> List[pp.ad.MergedVariable]:
+    def substance_fraction_relation_equations(self) -> List[pp.ad.MergedVariable]:
         """Returns num_substances equations representing the definition of the
         overall component fraction.
         The order of equations per substance equals the order of substances as they appear in
@@ -759,7 +756,7 @@ class Composition:
 
         return equations
 
-    def molar_phase_fraction_sum(self) -> pp.ad.Operator:
+    def molar_phase_fractions_unity(self) -> pp.ad.Operator:
         """Returns 1 equation representing the unity of molar phase fractions.
 
         sum_e xi_e -1 = 0
@@ -801,26 +798,6 @@ class Composition:
 
         return equations
 
-    def saturation_flash_equations(self) -> List[pp.ad.Operator]:
-        """Returns num_phases equations representing the relation between molar phase fractions
-        and saturation (volumetric phase fractions).
-
-        xi_e * (sum_j s_j rho_j) - s_e * rho_e = 0
-        """
-        equations = list()
-
-        for phase in self:
-            # xi_e * (sum_j s_j rho_j)
-            equation = phase.molar_fraction * self.composit_density()
-            # - s_e * rho_e
-            equation -= phase.saturation * phase.molar_density(
-                self.pressure, self.enthalpy
-            )
-
-            equations.append(equation)
-
-        return equations
-
     def isenthalpic_flash_equation(self) -> pp.ad.Operator:
         """Returns an operator representing the isenthalpic flash equation.
 
@@ -854,12 +831,11 @@ class Composition:
         We express phase enthalpies in terms of p, T since they are not supposed to change
         during the flash calculation. This leads to a simpler form of the equation.
         """
-        # rho(p, h, s_e) * h
-        equ = self.composit_density(temperature=self._temperature) * self._enthalpy
 
+        equ = list()
         for phase in self._present_phases:
-            # - s_e * rho_e(p,h) * h_e(p,h,T)
-            equ -= (
+            # s_e * rho_e(p,h) * h_e(p,h,T)
+            equ.append(
                 phase.saturation
                 * phase.molar_density(
                     self._pressure, self._enthalpy, temperature=self._temperature
@@ -868,26 +844,12 @@ class Composition:
                     self._pressure, self._enthalpy, temperature=self._temperature
                 )
             )
+        # h = [sum_e s_e * rho_e(p,T) * h_e(p,T)] / rho(p, T, s_e)
+        print(sum(equ).evaluate(self.dof_manager).val)
+        print(self.composit_density(temperature=self._temperature).evaluate(self.dof_manager).val)
+        equ = sum(equ) / self.composit_density(temperature=self._temperature)
 
         return equ
-
-    def get_permutation_to_local(
-        self, variables: Optional[List[str]] = None
-    ) -> sps.spmatrix:
-        """Returns a permutation matrix grouping together
-            1. cell-wise values
-            2. face-wise values
-            3. node-wise values
-        per node, then per edge in grid bucket.
-
-        :param variables: Returns the permutation matrix for a subsystem spanned by
-            given variable names
-        :type variables: List[str]
-
-        :return: permutation matrix
-        :rtype: scipy.sparse.spmatrix
-        """
-        pass
 
     # -----------------------------------------------------------------------------------------
     ### private methods
@@ -1024,13 +986,13 @@ class Composition:
             if substance.name not in self.phase_equilibrium_equations.keys():
                 self.phase_equilibrium_equations.update({substance.name: dict()})
 
-    def _subsystem_newton(
+    def _equilibrium_newton(
         self,
         equations: List[str],
         variables: List[pp.ad.MergedVariable],
         var_names: List[str],
         max_iterations: int,
-        eps: float,
+        tol: float,
         copy_to_state: bool = False,
         trust_region: Optional[bool] = False,
         eliminate_unitarity: Optional[Tuple[str, str, str]] = None,
@@ -1076,13 +1038,14 @@ class Composition:
         success = False
         trust_region_updates = 0
         # make a deep copy
+        equations_original = equations
         equations = [eq for eq in equations]
         A, b = self.eq_manager.assemble_subsystem(equations, variables)
         # print(A.todense())
         # print(np.linalg.cond(A.todense()))
         # print(self.dof_manager.assemble_variable())
 
-        if np.linalg.norm(b) <= eps:
+        if np.linalg.norm(b) <= tol:
             success = True
             iter_final = 0
         else:
@@ -1139,7 +1102,6 @@ class Composition:
                 # remove the eliminated equation
                 A = elimination * A * expansion
                 b = elimination * b
-                # print(A.todense())
 
                 # the alternative is to re-assemble the rectangular system without the equation
                 # Upper way should be faster, though not critical..
@@ -1199,7 +1161,73 @@ class Composition:
                 if eliminate_unitarity:
                     A = A * expansion                    
 
-                if np.linalg.norm(b) <= eps:
+                if np.linalg.norm(b) <= tol:
+                    # setting state to newly found solution
+                    X = self.dof_manager.assemble_variable(
+                        variables=var_names, from_iterate=True
+                    )
+                    if copy_to_state:
+                        self.dof_manager.distribute_variable(X, variables=var_names)
+                    success = True
+                    iter_final = i
+                    A, _ = self.eq_manager.assemble_subsystem(equations_original, variables)
+                    # TODO make inverter more efficient (block inverter)
+                    self._last_inverted = np.linalg.inv(A.A)
+                    break
+
+        # if not successful, replace iterate values with initial state values
+        if not success:
+            print("\nComposition failed to solve:\n%s\nwith iterate state\n%s\n"
+            % (str(equations), str(self.dof_manager.assemble_variable(from_iterate=True))))
+            X = self.dof_manager.assemble_variable()
+            self.dof_manager.distribute_variable(X, to_iterate=True)
+            iter_final = max_iterations
+            self._last_inverted = None
+
+        # append history entry
+        self._newton_history_entry(
+            iterations=iter_final, success=success, variables=var_names, equations=equations,
+            TRU=trust_region_updates, unity_elimination=str(eliminate_unitarity)
+        )
+
+        return success
+
+    def _standard_newton(
+        self,
+        equations: List[str],
+        variables: List[pp.ad.MergedVariable],
+        var_names: List[str],
+        max_iterations: int,
+        tol: float,
+        copy_to_state: bool = False,
+    ) -> bool:
+        """Standard Newton Algorithm"""
+        success = False
+        A, b = self.eq_manager.assemble_subsystem(equations, variables)
+
+        if np.linalg.norm(b) <= tol:
+            success = True
+            iter_final = 0
+        else:
+            # get prolongation to global vector
+            prolongation = self._prolongation_matrix(variables)
+
+            for i in range(max_iterations):
+
+                dx = sps.linalg.spsolve(A, b)
+
+                dX = prolongation * dx
+
+                self.dof_manager.distribute_variable(
+                    dX,
+                    variables=var_names,
+                    additive=True,
+                    to_iterate=True,
+                )
+
+                A, b = self.eq_manager.assemble_subsystem(equations, variables)                  
+
+                if np.linalg.norm(b) <= tol:
                     # setting state to newly found solution
                     X = self.dof_manager.assemble_variable(
                         variables=var_names, from_iterate=True
@@ -1212,24 +1240,41 @@ class Composition:
 
         # if not successful, replace iterate values with initial state values
         if not success:
-            print("\nComposition failed to solve:\n%s\nwith iterate state\n%s\n"
+            print("\nStandard Newton failed to solve:\n%s\nwith iterate state\n%s\n"
             % (str(equations), str(self.dof_manager.assemble_variable(from_iterate=True))))
             X = self.dof_manager.assemble_variable()
             self.dof_manager.distribute_variable(X, to_iterate=True)
             iter_final = max_iterations
-        # append history entry and delete old ones if necessary
+        
+        # make history entry
+        self._newton_history_entry(
+            iterations=iter_final, success=success, variables=var_names, equations=equations
+        )
+
+        return success
+
+    def _newton_history_entry(
+        self,
+        method: str = "standard",
+        iterations: int = 0,
+        success: bool = False,
+        variables: List[str] = list(),
+        equations: List[str] = list(),
+        **kwargs
+    ) -> None:
+        """Makes an entry in the newton history"""
         self.newton_history.append(
             {
-                "variables": var_names,
-                "iterations": iter_final,
-                "trust": trust_region_updates,
-                "success": success,
+                "method:": method,
+                "iterations:": iterations,
+                "success:": success,
+                "variables:": str(variables),
+                "equations:": str(equations),
+                "other:" : str(kwargs)
             }
         )
         if len(self.newton_history) > self._max_history:
             self.newton_history.pop(0)
-
-        return success
 
     def _get_subsystem_dict(self) -> Dict[str, list]:
         """Returns a template for subsystem dictionaries."""

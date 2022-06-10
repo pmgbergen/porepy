@@ -5,7 +5,7 @@ sys.path.append("/mnt/c/Users/vl-work/Desktop/github/porepy/src")
 
 import porepy as pp
 
-timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
+timestamp = datetime.now().strftime("%Y_%m_%f__%H_%M_%S")
 params = {
     "folder_name": "/mnt/c/Users/vl-work/Desktop/sim-results/",
     "file_name": "gt_vl_" + timestamp,
@@ -15,12 +15,12 @@ params = {
 k_value = 0.5
 monolithic = False
 use_TRU = False
-elimination = ("xi", "molar_phase_fraction_sum", "min")
+elimination = ("xi", "molar_phase_fraction_unity", "min")
 # elimination = None
 max_iter_equilibrium = 200
 tol_equilibrium = 1e-8
 
-t = 0
+t = 0.
 T = 100
 dt = 0.01
 max_iter = 200
@@ -41,12 +41,13 @@ model = pp.CompositionalFlowModel(
 )
 
 model.prepare_simulation()
-model.dt = t
+model.dt = dt
 
 print("Solving initial equilibrium")
 equilibrated = model.solve_equilibrium(
     max_iter_equilibrium,
     tol_equilibrium,
+    copy_to_state=True,
     use_TRU=use_TRU,
     eliminate_unitary=elimination,
 )
@@ -54,7 +55,7 @@ if not equilibrated:
     raise RuntimeError("Equilibrium calculations failed at time %s" % (str(t)))
 print("Starting simulation ..")
 while t < T:
-    print(".. Timestep t=%f , dt=%f" % (t, model.dt))
+    print(".. Timestep t=%f , dt=%e" % (t, model.dt))
     model.before_newton_loop()
     i_final = 0
 
@@ -78,7 +79,7 @@ while t < T:
         model._print("convergence failure")
         model.after_newton_failure(dx, tol, i_final)
         model.dt = model.dt / 2
-        print("Newton FAILED: t=%f , max iter=%i.\n Halving timestep to %f"
+        print("Newton FAILED: t=%f , max iter=%i.\n Halving timestep to %e"
         % (t, max_iter, model.dt))
         if model.dt < 0.00001:
             raise RuntimeError("Time step halving due to convergence failure reached critical value.")

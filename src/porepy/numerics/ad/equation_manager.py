@@ -366,7 +366,6 @@ class EquationManager:
         primary_equations: Sequence[str],
         primary_variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
         inverter: Callable[[sps.spmatrix], sps.spmatrix],
-        secondary_variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]] = None,
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
         elimination of the variables and equations not to be included.
@@ -425,12 +424,9 @@ class EquationManager:
         all_variables = self._variables_as_list()
 
         secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
-        if not secondary_variables:
-            secondary_variables = list(
-                set(all_variables).difference(set(primary_variables))
-            )
-        else:
-            secondary_variables = self._variables_as_list(secondary_variables)
+        secondary_variables = list(
+            set(all_variables).difference(set(primary_variables))
+        )
 
         # First assemble the primary and secondary equations for all variables
         # Note the reverse order here: Assemble the primary variables last so that
