@@ -13,10 +13,10 @@ params = {
 }
 
 k_value = 0.5
-monolithic = True
+monolithic = False
 use_TRU = False
 elimination = ("xi", "molar_phase_fraction_sum", "min")
-elimination = None
+# elimination = None
 max_iter_equilibrium = 200
 tol_equilibrium = 1e-8
 
@@ -26,16 +26,24 @@ dt = 0.01
 max_iter = 200
 tol = 1e-7
 
+flash_params = {
+            "max_iter_flash": max_iter_equilibrium,
+            "tol_flash": tol_equilibrium,
+            "use_TRU": use_TRU,
+            "k_value": k_value,
+            "elimination": elimination,
+        }
+
 model = pp.CompositionalFlowModel(
     params=params,
-    k_value=k_value,
+    flash_params=flash_params,
     monolithic_solver=monolithic,
-    max_iter_flash=max_iter_equilibrium,
-    tol_flash=tol_equilibrium,
 )
 
 model.prepare_simulation()
 model.dt = t
+
+print("Solving initial equilibrium")
 equilibrated = model.solve_equilibrium(
     max_iter_equilibrium,
     tol_equilibrium,
@@ -44,13 +52,15 @@ equilibrated = model.solve_equilibrium(
 )
 if not equilibrated:
     raise RuntimeError("Equilibrium calculations failed at time %s" % (str(t)))
-
+print("Starting simulation ..")
 while t < T:
+    print(".. Timestep t=%f , dt=%f" % (t, model.dt))
     model.before_newton_loop()
     i_final = 0
 
     for i in range(max_iter):
         model.before_newton_iteration()
+        print(".. solving primary system at iteration %i" % (i))
         dx = model.assemble_and_solve_linear_system(tol)
         if model.convergence_status:
             print("Newton converged: t=%f , iterations=%i" % (t, i))
@@ -58,19 +68,11 @@ while t < T:
             model.after_newton_convergence(dx, tol, i)
             i_final = i
             break
-        model.after_newton_iteration(dx)
-
-        if not monolithic:
-            equilibrated = model.solve_equilibrium(
-                max_iter_equilibrium,
-                tol_equilibrium,
-                use_TRU=use_TRU,
-                eliminate_unitary=elimination,
-            )
-            if not equilibrated:
-                raise RuntimeError(
-                    "Equilibrium calculations failed at time %s" % (str(t))
-                )
+        try:
+            model.after_newton_iteration(dx, i)
+        except RuntimeError as err:
+            msg = str(err) + "\nSimulation time: t=%f" % (t)
+            raise RuntimeError(msg)
 
     if not model.convergence_status:
         model._print("convergence failure")

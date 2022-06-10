@@ -222,7 +222,7 @@ class Composition:
     def composit_density(
         self,
         prev_time: Optional[bool] = False,
-        temperature: Union["pp.ad.MergedVariable", None] = None,
+        temperature: Union[pp.ad.MergedVariable, None] = None,
     ) -> Union[pp.ad.Operator, Literal[0]]:
         """
         :param prev_time: (optional) indicator to use values at previous time step
@@ -488,10 +488,6 @@ class Composition:
         saturation_flash_subsystem: Dict[str, list] = self._get_subsystem_dict()
         isenthalpic_flash_subsystem: Dict[str, list] = self._get_subsystem_dict()
 
-        self._calculate_initial_molar_phase_fractions()
-        self._calculate_initial_overall_substance_fractions()
-        self._check_num_phase_equilibrium_equations()
-
         ### ISOTHERMAL FLASH
         # compute the initial enthalpy using an isothermal flash
         name = "isothermal_flash"
@@ -505,6 +501,11 @@ class Composition:
 
         self._isothermal_flash_subsystem = isothermal_flash_subsystem
         self.isothermal_flash()
+
+        ### CALCULATE molar variables and check system closure
+        self._calculate_initial_molar_phase_fractions()
+        self._calculate_initial_overall_substance_fractions()
+        self._check_num_phase_equilibrium_equations()
 
         ### EQUILIBRIUM CALCULATIONS
         # num_substances overall fraction equations
@@ -703,7 +704,7 @@ class Composition:
                     self._pressure, self._enthalpy, temperature=self._temperature
                 )
             )
-        # h = (sum_e s_e * rho_e(p,h) * h_e(p,h,T)) / (sum_e sum_e s_e * rho_e(p,h))
+
         equ = sum(equ) / self.composit_density(temperature=self._temperature)
         h = equ.evaluate(self.dof_manager).val
 
@@ -854,13 +855,15 @@ class Composition:
         during the flash calculation. This leads to a simpler form of the equation.
         """
         # rho(p, h, s_e) * h
-        equ = self.composit_density() * self._enthalpy
+        equ = self.composit_density(temperature=self._temperature) * self._enthalpy
 
         for phase in self._present_phases:
             # - s_e * rho_e(p,h) * h_e(p,h,T)
             equ -= (
                 phase.saturation
-                * phase.molar_density(self._pressure, self._enthalpy)
+                * phase.molar_density(
+                    self._pressure, self._enthalpy, temperature=self._temperature
+                )
                 * phase.enthalpy(
                     self._pressure, self._enthalpy, temperature=self._temperature
                 )
@@ -924,9 +927,8 @@ class Composition:
             )
 
         # assert the fractional character (sum equals 1) in each cell
-        # if not np.allclose(sum_per_grid, 1.):
-        # TODO check if this is really necessary here (equilibrium is computed afterwards)
-        if np.any(molar_fraction_sum != 1.0):  # TODO check sensitivity
+        # if np.any(molar_fraction_sum != 1.0):
+        if not np.allclose(molar_fraction_sum, 1.):  # TODO check sensitivity
             raise ValueError(
                 "Initial phase molar fractions do not sum up " + "to 1.0 on each cell."
             )
@@ -964,9 +966,8 @@ class Composition:
                 )
 
             # assert the fractional character (sum equals 1) in each cell
-            # if not np.allclose(sum_per_grid, 1.):
-            # TODO check if this is really necessary here (equilibrium is computed afterwards)
-            if np.any(sum_per_grid != 1.0):  # TODO check sensitivity
+            # if not np.allclose(sum_per_grid, 1.):if np.any(sum_per_grid != 1.0):
+            if not np.allclose(sum_per_grid, 1.):  # TODO check sensitivity
                 raise ValueError(
                     "Initial overall substance fractions do not sum up "
                     + "to 1.0 on each cell on grid:\n"
@@ -1074,7 +1075,8 @@ class Composition:
         """
         success = False
         trust_region_updates = 0
-
+        # make a deep copy
+        equations = [eq for eq in equations]
         A, b = self.eq_manager.assemble_subsystem(equations, variables)
         # print(A.todense())
         # print(np.linalg.cond(A.todense()))
