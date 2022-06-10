@@ -4,10 +4,10 @@ module for operations on sparse matrices
 from typing import Optional, Tuple, Union
 
 import numpy as np
-import porepy as pp
 import scipy.sparse as sps
 from typing_extensions import Literal
 
+import porepy as pp
 from porepy.utils.mcolon import mcolon
 
 
