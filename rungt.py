@@ -12,7 +12,7 @@ params = {
     "use_ad": True,
 }
 
-k_value = 0.5
+k_value = 0.8
 monolithic = False
 use_TRU = False
 elimination = ("xi", "molar_phase_fraction_unity", "min")

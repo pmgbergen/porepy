@@ -57,15 +57,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         super().__init__(params)
 
         ### MODEL TUNING
-        mm = pp.composite.H2O.molar_mass()
-        # TODO tune pressure unit
-        initial_pressure = 1.
+        mm_h2o = pp.composite.H2O.molar_mass()
+        # kPa
+        initial_pressure = 101.32
         # Kelvin
         initial_temperature = 323.
         # kg to mol
-        injected_moles_water = 10. / mm
+        injected_moles_water = 10. / mm_h2o
         # kJ / mol , specific heat capacity from Wikipedia
-        injected_water_enthalpy = 0.0042 * initial_temperature + initial_pressure / (998.21 / mm)
+        injected_water_enthalpy = 0.075327 * initial_temperature + initial_pressure / (998.21 / mm_h2o)
         # D-BC temperature Kelvin
         boundary_temperature = 383. # 110 Celsius
         # N-BC one tenth of injection
@@ -483,16 +483,55 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             trust_region=use_TRU,
             eliminate_unitarity=eliminate_unitary,
         )
+        print("\nPost Equilibrium Calc")
+        print(self.composition.dof_manager.assemble_variable())
+        for phase in self.composition:
+            print(phase.name)
+            print(phase.molar_density(
+                    self.composition._pressure, self.composition._enthalpy, temperature=self.composition._temperature
+                ).evaluate(self.composition.dof_manager))
+            print(phase.enthalpy(
+                    self.composition._pressure, self.composition._enthalpy, temperature=self.composition._temperature
+                ).evaluate(self.composition.dof_manager).val)
+        print("T, h")
+        print(self.composition._temperature.evaluate(self.composition.dof_manager).val)
+        print(self.composition._enthalpy.evaluate(self.composition.dof_manager).val)
 
         ### Saturation Flash
         print(".. .. Calculating Saturation Flash")
         self.composition.saturation_flash(copy_to_state=copy_to_state)
+        print("\nPost Saturation Flash")
+        print(self.composition.dof_manager.assemble_variable())  
+        for phase in self.composition:
+            print(phase.name)
+            print(phase.molar_density(
+                    self.composition._pressure, self.composition._enthalpy, temperature=self.composition._temperature
+                ).evaluate(self.composition.dof_manager))
+            print(phase.enthalpy(
+                    self.composition._pressure, self.composition._enthalpy, temperature=self.composition._temperature
+                ).evaluate(self.composition.dof_manager).val)
+        print("T, h")
+        print(self.composition._temperature.evaluate(self.composition.dof_manager).val)
+        print(self.composition._enthalpy.evaluate(self.composition.dof_manager).val)
 
         ### Isenthalpic Flash
         print(".. .. Calculating Isenthalpic Flash")
         isenthalpic = self.composition.isenthalpic_flash(
             max_iter, tol, copy_to_state=copy_to_state
         )
+        print("\nPost Isenthalpic Flash")
+        print(self.composition.dof_manager.assemble_variable())  
+        for phase in self.composition:
+            print(phase.name)
+            print(phase.molar_density(
+                    self.composition._pressure, self.composition._enthalpy, temperature=self.composition._temperature
+                ).evaluate(self.composition.dof_manager))
+            print(phase.enthalpy(
+                    self.composition._pressure, self.composition._enthalpy, temperature=self.composition._temperature
+                ).evaluate(self.composition.dof_manager).val)
+        print("T, h")
+        print(self.composition._temperature.evaluate(self.composition.dof_manager).val)
+        print(self.composition._enthalpy.evaluate(self.composition.dof_manager).val)
 
         if equilibrium and isenthalpic:
             return True
