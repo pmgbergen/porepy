@@ -79,10 +79,7 @@ class PhysicalSubdomain:
     # ------------------------------------------------------------------------------
 
     def porosity(
-        self,
-        pressure: pp.ad.Variable,
-        enthalpy: pp.ad.Variable,
-        law: str
+        self, pressure: pp.ad.Variable, enthalpy: pp.ad.Variable, law: str
     ) -> pp.ad.Operator:
         """
         Currently supported heuristic laws (values for 'law'):
@@ -116,7 +113,9 @@ class PhysicalSubdomain:
                 + "Available: 'pressure,'"
             )
 
-    def relative_permeability(self, saturation: pp.ad.Variable, law: str) -> pp.ad.Operator:
+    def relative_permeability(
+        self, saturation: pp.ad.Variable, law: str
+    ) -> pp.ad.Operator:
         """
         Currently supported heuristic laws (values for 'law'):
             - 'quadratic':      squared saturation values
