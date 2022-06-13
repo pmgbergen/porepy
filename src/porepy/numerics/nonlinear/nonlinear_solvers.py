@@ -9,8 +9,6 @@ import logging
 
 import numpy as np
 
-import porepy as pp
-
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
