@@ -242,7 +242,7 @@ def project_line_matrix(pts, tangent=None, tol=1e-5, reference=None):
     if reference is None:
         reference = [0, 0, 1]
 
-    reference = np.asarray(reference, dtype=np.float)
+    reference = np.asarray(reference, dtype=float)
     angle = np.arccos(np.dot(tangent, reference))
     vect = np.array(
         [
