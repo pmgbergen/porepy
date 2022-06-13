@@ -564,8 +564,8 @@ class DifferentiableFVAd:
                 fi, ci, sgn, fc_cc = self._geometry_information(g)
                 vector_source = params["vector_source"]
                 vector_source_dim = params.get("ambient_dimension", g.dim)
-                vals = (fc_cc * sgn)[:vector_source_dim].ravel("f")
-                rows = np.tile(fi, (vector_source_dim, 1)).ravel("f")
+                vals = (fc_cc * sgn)[:vector_source_dim].ravel("F")
+                rows = np.tile(fi, (vector_source_dim, 1)).ravel("F")
                 cols = pp.fvutils.expand_indices_nd(ci, vector_source_dim)
                 vector_source_val = (
                     sps.coo_matrix((vals, (rows, cols))).tocsr() * vector_source
