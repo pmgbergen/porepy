@@ -17,8 +17,8 @@ __all__: List[str] = ["SaltWater", "WaterVapor"]
 
 class SaltWater(PhaseField):
 
-    # source wikipedia
-    molar_heat_capacity = 0.0042  # kJ / mol / K
+    # https://en.wikipedia.org/wiki/Table_of_specific_heat_capacities
+    molar_heat_capacity = 0.075327  # kJ / mol / K
     
     def __init__(self, name: str, gb: pp.GridBucket) -> None:
         super().__init__(name, gb)
@@ -36,6 +36,7 @@ class SaltWater(PhaseField):
         temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
     ) -> pp.ad.Operator:
         density = 998.21 / H2O.molar_mass()
+        # density = 1.
         return pp.ad.Array(density * np.ones(self.gb.num_cells()))
 
     def enthalpy(
@@ -45,7 +46,9 @@ class SaltWater(PhaseField):
         temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
     ) -> pp.ad.Operator:
         if temperature:
-            return (1. + self.molar_heat_capacity) * temperature
+            # return (1. + self.molar_heat_capacity) * temperature
+            # return pressure + temperature
+            return pressure / self.molar_density(pressure, enthalpy, temperature) + temperature * self.molar_heat_capacity
         else:
             # TODO get physical
             return enthalpy / 2.
@@ -80,15 +83,16 @@ class WaterVapor(PhaseField):
         enthalpy: pp.ad.MergedVariable,
         temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
     ) -> pp.ad.Operator:
-        val = 0.756182 / H2O.molar_mass()
-        return pp.ad.Array( val * np.ones(self.gb.num_cells()))
-        # if temperature:
-        #     # ideal gas law
-        #     return pressure / temperature / self.specific_molar_gas_constant
-        # else:
-        #     # linearized internal energy
-        #     # rho h = rho T - p -> rho = p / (h-T)
-        #     return pressure / (enthalpy)
+        # density = 0.756182 / H2O.molar_mass()
+        # # density = 1.
+        # return pp.ad.Array( density * np.ones(self.gb.num_cells()))
+        if temperature:
+            # ideal gas law
+            return pressure / (temperature * self.specific_molar_gas_constant)
+        else:
+            # linearized internal energy
+            # rho h = rho T - p -> rho = p / (h-T)
+            return pressure / (enthalpy)
 
     def enthalpy(
         self,
@@ -97,7 +101,9 @@ class WaterVapor(PhaseField):
         temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
     ) -> pp.ad.Operator:
         if temperature:
-            return (self.molar_heat_capacity + self.specific_molar_gas_constant) * temperature
+            # return (self.molar_heat_capacity + self.specific_molar_gas_constant) * temperature
+            # return pressure + temperature
+            return pressure / self.molar_density(pressure, enthalpy, temperature) + temperature * self.molar_heat_capacity
         else:
             # TODO get physical
             return enthalpy / 2.

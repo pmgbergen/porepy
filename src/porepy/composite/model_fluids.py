@@ -60,7 +60,7 @@ class H2O(FluidSubstance):
     @staticmethod
     def molar_mass() -> float:
         """Taken from https://pubchem.ncbi.nlm.nih.gov/compound/water ."""
-        return 0.018015
+        return 0.01801528
 
     def molar_density(
         self, pressure: float, enthalpy: float, temperature: Optional[float] = None

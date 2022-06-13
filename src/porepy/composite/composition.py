@@ -591,7 +591,33 @@ class Composition:
         ### ISOTHERMAL FLASH
         # compute the initial enthalpy using an isothermal flash
         self._isothermal_flash_equ = self.isothermal_flash_equation()
+        print("\nPre Isothermal flash")
+        print(self.dof_manager.assemble_variable())
+        for phase in self:
+            print(phase.name)
+            print(phase.molar_density(
+                    self._pressure, self._enthalpy, temperature=self._temperature
+                ).evaluate(self.dof_manager))
+            print(phase.enthalpy(
+                    self._pressure, self._enthalpy, temperature=self._temperature
+                ).evaluate(self.dof_manager).val)
+        print("T, h")
+        print(self._temperature.evaluate(self.dof_manager).val)
+        print(self._enthalpy.evaluate(self.dof_manager).val)
         self.isothermal_flash()
+        print("\nPost isothermal flash")
+        print(self.dof_manager.assemble_variable())   
+        for phase in self:
+            print(phase.name)
+            print(phase.molar_density(
+                    self._pressure, self._enthalpy, temperature=self._temperature
+                ).evaluate(self.dof_manager))
+            print(phase.enthalpy(
+                    self._pressure, self._enthalpy, temperature=self._temperature
+                ).evaluate(self.dof_manager).val)
+        print("T, h")
+        print(self._temperature.evaluate(self.dof_manager).val)
+        print(self._enthalpy.evaluate(self.dof_manager).val)   
 
         ### CALCULATE molar variables
         self._calculate_initial_molar_phase_fractions()
@@ -646,13 +672,13 @@ class Composition:
         For a 2-phase-system, a forward evaluation is done.
         For more than 2 phases, a linear system has to be solved.
         """
-        # depending on number of phases, two different procedures
-        if self.num_phases == 2:
-            self._2phase_saturation_flash(copy_to_state=copy_to_state)
-        elif self.num_phases > 2:
-            self._multi_phase_saturation_flash(copy_to_state=copy_to_state)
-        else:
-            raise RuntimeError("Saturation Flash for single-phase system not available.")
+        self._calculate_saturations(copy_to_state=copy_to_state)
+        # if self.num_phases == 2:
+        #     self._2phase_saturation_flash(copy_to_state=copy_to_state)
+        # elif self.num_phases > 2:
+        #     self._multi_phase_saturation_flash(copy_to_state=copy_to_state)
+        # else:
+        #     raise RuntimeError("Saturation Flash for single-phase system not available.")
 
     def isenthalpic_flash(
         self,
@@ -700,7 +726,10 @@ class Composition:
         """
         # forward evaluation
         # equ = self.isothermal_flash_equation()
-        assert self._isothermal_flash_equ is not None
+        if self._isothermal_flash_equ is None:
+            raise RuntimeError("Composition: use 'initialize_composition' before any calculations.")
+        # assert self._isothermal_flash_equ is not None
+        
         h = self._isothermal_flash_equ.evaluate(self.dof_manager).val
 
         # getting global dofs for enthalpy and inserting values
@@ -801,55 +830,61 @@ class Composition:
     def isenthalpic_flash_equation(self) -> pp.ad.Operator:
         """Returns an operator representing the isenthalpic flash equation.
 
-        rho(p,h) * h = sum_e s_e * rho_e(p,h) * h_e(p, T)
+        rho(p,h, s_e) * h - sum_e rho_e(p,h) * h_e(p, T) = 0
 
-        We still express densities in terms of p, h since density is not supposed to change
-        during the flash calculation. This leads to solely the phase enthalpies being dependent
-        on temperature.
+        Same as the isothermal flash, only this time h is given and T is to be found.
+        This leads the necessity to apply Newton, in contrast to the isothermal flash which
+        is just an evaluation.
         """
         # rho(p, h, s_e) * h
-        equ = self.composit_density() * self._enthalpy
+        equ = self.composit_density(temperature=self.temperature) * self.enthalpy - self._phase_enthalpies_sum()
 
-        for phase in self._present_phases:
-            # - s_e * rho_e(p,h) * h_e(p,h,T)
-            equ -= (
-                phase.saturation
-                * phase.molar_density(self._pressure, self._enthalpy)
-                * phase.enthalpy(
-                    self._pressure, self._enthalpy, temperature=self._temperature
-                )
-            )
+        # for phase in self._present_phases:
+        #     # - s_e * rho_e(p,h) * h_e(p,h,T)
+        #     equ -= (
+        #         phase.saturation
+        #         * phase.molar_density(self._pressure, self._enthalpy, temperature=self._temperature)
+        #         * phase.enthalpy(
+        #             self._pressure, self._enthalpy, temperature=self._temperature
+        #         )
+        #     )
 
         return equ
 
     def isothermal_flash_equation(self) -> pp.ad.Operator:
         """Returns an operator representing the isothermal flash equation for calculating the
-        global specific molar entropy.
+        specific molar enthalpy of the composition.
 
-        rho(p,T) * h = sum_e s_e * rho_e(p,T) * h_e(p,T)
+        rho(p,T) * h = sum_e rho_e(p,T) * h_e(p,T)
+        h = [sum_e s_e * rho_e(p,T) * h_e(p,T)] / [sum_e s_e * rho_e(p,T)]
 
-        We express phase enthalpies in terms of p, T since they are not supposed to change
-        during the flash calculation. This leads to a simpler form of the equation.
+        This is a simple evaluation and is therefore treated separately from the isenthalpic
+        flash, even though the equations are the same
         """
+        # h = [sum_e rho_e(p,T) * h_e(p,T)] / rho(p, T, s_e)
+        equ = (self._phase_enthalpies_sum()
+               / self.composit_density(temperature=self._temperature))
 
+        return equ
+
+    def _phase_enthalpies_sum(self) -> pp.ad.Operator:
+        """ Returns
+        sum_e rho_e(p,T) * h_e(p,T)
+        """
         equ = list()
         for phase in self._present_phases:
-            # s_e * rho_e(p,h) * h_e(p,h,T)
+            # rho_e(p,h) * h_e(p,h,T)
             equ.append(
-                phase.saturation
-                * phase.molar_density(
+                phase.molar_density(
                     self._pressure, self._enthalpy, temperature=self._temperature
                 )
                 * phase.enthalpy(
                     self._pressure, self._enthalpy, temperature=self._temperature
                 )
+                * phase.saturation
             )
-        # h = [sum_e s_e * rho_e(p,T) * h_e(p,T)] / rho(p, T, s_e)
-        print(sum(equ).evaluate(self.dof_manager).val)
-        print(self.composit_density(temperature=self._temperature).evaluate(self.dof_manager).val)
-        equ = sum(equ) / self.composit_density(temperature=self._temperature)
-
-        return equ
+        
+        return sum(equ)
 
     # -----------------------------------------------------------------------------------------
     ### private methods
@@ -1585,6 +1620,30 @@ class Composition:
             X[dof] = saturations[i * num_cells : (i + 1) * num_cells]
             var_names.append(phase.saturation_var)
 
+        self.dof_manager.distribute_variable(X, variables=var_names, to_iterate=True)
+        if copy_to_state:
+            self.dof_manager.distribute_variable(X, variables=var_names)
+
+    def _calculate_saturations(self, copy_to_state: bool = True) -> None:
+        """ Forward evaluation according Voskov, Tchelepi 2011, Equ 14"""
+
+        # xi_e / rho_e
+        ratios = [(phase.molar_fraction
+                   / phase.molar_density(
+                    self.pressure, self.enthalpy, self.temperature
+                    )).evaluate(self.dof_manager).val for phase in self._present_phases]
+        ratio_sum = sum(ratios)
+
+        X = np.zeros(self.dof_manager.num_dofs())
+        var_names = list()
+        for e, phase in enumerate(self._present_phases):
+            ratio = ratios[e]
+            saturation = ratio / ratio_sum
+
+            dof = self.dof_manager.dof_var([phase.saturation_var])
+            X[dof] = saturation
+            var_names.append(phase.saturation_var)
+        
         self.dof_manager.distribute_variable(X, variables=var_names, to_iterate=True)
         if copy_to_state:
             self.dof_manager.distribute_variable(X, variables=var_names)
