@@ -13,7 +13,7 @@ from . import (
     physical_domain,
     substance,
 )
-
+from ._composite_utils import COMPUTATIONAL_VARIABLES, IDEAL_GAS_CONSTANT
 from .composition import *
 from .model_fluids import *
 from .model_phases import *
@@ -21,7 +21,6 @@ from .model_solids import *
 from .phase import *
 from .physical_domain import *
 from .substance import *
-from ._composite_utils import COMPUTATIONAL_VARIABLES, IDEAL_GAS_CONSTANT
 
 __all__.extend(composition.__all__)
 __all__.extend(model_fluids.__all__)

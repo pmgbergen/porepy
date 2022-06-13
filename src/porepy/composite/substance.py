@@ -5,7 +5,7 @@ used in this framework.
 from __future__ import annotations
 
 import abc
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import porepy as pp
 
@@ -51,7 +51,7 @@ class Substance(abc.ABC):
     """
 
     """ For a grid bucket (keys), contains a list of present substances (values). """
-    __substances_per_gb: Dict["pp.GridBucket", List[str]] = dict()
+    __substances_per_gb: Dict[pp.GridBucket, List[str]] = dict()
 
     """ For a name (keys), contains the singleton (subtance instance). """
     __susbtance_instances: Dict[str, Substance] = dict()
@@ -59,7 +59,7 @@ class Substance(abc.ABC):
     """ Flags if a singleton has been re-instantiated in order to skip the initialization. """
     __singleton_accessed: bool = False
 
-    def __new__(cls, gb: "pp.GridBucket") -> Substance:
+    def __new__(cls, gb: pp.GridBucket) -> Substance:
         """
         Declarator assures the substance name is unique for a given computational domain.
         Ambiguities must be avoided due to the central storage of the AD variables and usage
@@ -79,7 +79,7 @@ class Substance(abc.ABC):
         Substance.__susbtance_instances.update({name: new_instance})
         return new_instance
 
-    def __init__(self, gb: "pp.GridBucket") -> None:
+    def __init__(self, gb: pp.GridBucket) -> None:
         """Abstract base class constructor. Initiates component-related AD-variables.
         Contains symbolic names of associated model variables.
 
@@ -95,13 +95,13 @@ class Substance(abc.ABC):
         super().__init__()
 
         ## PUBLIC
-        self.gb: "pp.GridBucket" = gb
+        self.gb: pp.GridBucket = gb
 
         # creating the overall molar fraction variable
         self._omf = create_merged_variable(gb, {"cells": 1}, self.overall_fraction_var)
         # for a phase name (key),
         # provide the MergedVariable for the molar fraction in that phase (value)
-        self._mfip: Dict[str, "pp.ad.MergedVariable"] = dict()
+        self._mfip: Dict[str, pp.ad.MergedVariable] = dict()
 
     @property
     def name(self) -> str:
@@ -139,7 +139,7 @@ class Substance(abc.ABC):
         )
 
     @property
-    def overall_fraction(self) -> "pp.ad.MergedVariable":
+    def overall_fraction(self) -> pp.ad.MergedVariable:
         """As a fractional quantity, all values are between 0 and 1.
 
         :return: reference to domain-wide :class:`~porepy.ad.MergedVariable` representing
@@ -148,7 +148,7 @@ class Substance(abc.ABC):
         """
         return self._omf
 
-    def fraction_in_phase(self, phase_name: str) -> "pp.ad.MergedVariable":
+    def fraction_in_phase(self, phase_name: str) -> pp.ad.MergedVariable:
         """As a fractional quantity, all values are between 0 and 1.
 
         :param phase_name: Name of the  :class:`~porepy.composit.PhaseField` for which
@@ -190,9 +190,7 @@ class Substance(abc.ABC):
     ### SCALAR ATTRIBUTES (dependent on thermodynamic state)
     # ------------------------------------------------------------------------------
 
-    def mass_density(
-        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-    ) -> float:
+    def mass_density(self, pressure: float, temperature: float) -> float:
         """
         Uses the molar mass and molar density to compute the mass density.
 
@@ -202,12 +200,10 @@ class Substance(abc.ABC):
         :return: mass density of the component
         :rtype: float
         """
-        return self.molar_mass() * self.molar_density(pressure, enthalpy, temperature)
+        return self.molar_mass() * self.molar_density(pressure, temperature)
 
     @abc.abstractmethod
-    def molar_density(
-        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-    ) -> float:
+    def molar_density(self, pressure: float, temperature: float) -> float:
         """
         Math. Dimension:        scalar
         Phys. Dimension:        [mol / m^3]
@@ -218,9 +214,7 @@ class Substance(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def Fick_diffusivity(
-        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-    ) -> float:
+    def Fick_diffusivity(self, pressure: float, temperature: float) -> float:
         """
         Math. Dimension:        scalar
         Phys. Dimension:        m^2 / s
@@ -231,9 +225,7 @@ class Substance(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def thermal_conductivity(
-        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-    ) -> float:
+    def thermal_conductivity(self, pressure: float, temperature: float) -> float:
         """
         Math. Dimension:        scalar
         Phys. Dimension:        [W / m / K]
@@ -255,9 +247,7 @@ class FluidSubstance(Substance):
     """
 
     @abc.abstractmethod
-    def dynamic_viscosity(
-        self, pressure: float, enthalpy: float, temperature: Optional[float] = None
-    ) -> float:
+    def dynamic_viscosity(self, pressure: float, temperature: float) -> float:
         """
         Math. Dimension:        scalar
         Phys. Dimension:        [Pa s] = [kg / m / s]

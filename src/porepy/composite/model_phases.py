@@ -1,11 +1,11 @@
 """Contains concrete implementation of phases."""
 from __future__ import annotations
 
-from typing import List, Optional, Union
-
-from iapws import IAPWS95, SeaWater
+from typing import List
 
 import numpy as np
+from iapws import IAPWS95, SeaWater
+
 import porepy as pp
 
 from .model_fluids import H2O
@@ -19,7 +19,7 @@ class SaltWater(PhaseField):
 
     # https://en.wikipedia.org/wiki/Table_of_specific_heat_capacities
     molar_heat_capacity = 0.075327  # kJ / mol / K
-    
+
     def __init__(self, name: str, gb: pp.GridBucket) -> None:
         super().__init__(name, gb)
         # saving external reference for simplicity
@@ -30,36 +30,25 @@ class SaltWater(PhaseField):
         self.add_substance(self.salt)
 
     def molar_density(
-        self,
-        pressure: pp.ad.MergedVariable,
-        enthalpy: pp.ad.MergedVariable,
-        temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
         density = 998.21 / H2O.molar_mass()
-        # density = 1.
         return pp.ad.Array(density * np.ones(self.gb.num_cells()))
 
-    def enthalpy(
-        self,
-        pressure: pp.ad.MergedVariable,
-        enthalpy: pp.ad.MergedVariable,
-        temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
+    def specific_molar_enthalpy(
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        if temperature:
-            # return (1. + self.molar_heat_capacity) * temperature
-            # return pressure + temperature
-            return pressure / self.molar_density(pressure, enthalpy, temperature) + temperature * self.molar_heat_capacity
-        else:
-            # TODO get physical
-            return enthalpy / 2.
-        # return pp.ad.Array(np.ones(self.gb.num_cells()))
+        return (
+            pressure / self.molar_density(pressure, temperature)
+            + temperature * self.molar_heat_capacity
+        )
 
     def dynamic_viscosity(
-        self, pressure: pp.ad.MergedVariable, enthalpy: pp.ad.MergedVariable
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
         return pp.ad.Array(np.ones(self.gb.num_cells()))  # 0.001
 
-    def thermal_conductivity(self, pressure: float, enthalpy: float) -> float:
+    def thermal_conductivity(self, pressure: float, temperature: float) -> float:
         return pp.ad.Array(np.ones(self.gb.num_cells()))
 
 
@@ -78,42 +67,25 @@ class WaterVapor(PhaseField):
         self.add_substance(self.water)
 
     def molar_density(
-        self,
-        pressure: pp.ad.MergedVariable,
-        enthalpy: pp.ad.MergedVariable,
-        temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        # density = 0.756182 / H2O.molar_mass()
-        # # density = 1.
-        # return pp.ad.Array( density * np.ones(self.gb.num_cells()))
-        if temperature:
-            # ideal gas law
-            return pressure / (temperature * self.specific_molar_gas_constant)
-        else:
-            # linearized internal energy
-            # rho h = rho T - p -> rho = p / (h-T)
-            return pressure / (enthalpy)
 
-    def enthalpy(
-        self,
-        pressure: pp.ad.MergedVariable,
-        enthalpy: pp.ad.MergedVariable,
-        temperature: Optional[Union[pp.ad.MergedVariable, None]] = None,
+        return pressure / (temperature * self.specific_molar_gas_constant)
+
+    def specific_molar_enthalpy(
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        if temperature:
-            # return (self.molar_heat_capacity + self.specific_molar_gas_constant) * temperature
-            # return pressure + temperature
-            return pressure / self.molar_density(pressure, enthalpy, temperature) + temperature * self.molar_heat_capacity
-        else:
-            # TODO get physical
-            return enthalpy / 2.
+        return (
+            pressure / self.molar_density(pressure, temperature)
+            + temperature * self.molar_heat_capacity
+        )
 
     def dynamic_viscosity(
-        self, pressure: pp.ad.MergedVariable, enthalpy: pp.ad.MergedVariable
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
         return pp.ad.Array(np.ones(self.gb.num_cells()))  # 0.0003
 
     def thermal_conductivity(
-        self, pressure: pp.ad.MergedVariable, enthalpy: pp.ad.MergedVariable
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
         return pp.ad.Array(np.ones(self.gb.num_cells()))  # 0.05

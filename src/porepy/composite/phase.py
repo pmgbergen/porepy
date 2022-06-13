@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import abc
 import warnings
-from typing import Dict, Generator, List, Optional, Union
+from typing import Dict, Generator, List, Union
 
 import numpy as np
 
@@ -59,9 +59,9 @@ class PhaseField(abc.ABC):
     """
 
     """ For a grid bucket (keys), contains a list of present phases (values). """
-    __phase_instances: Dict["pp.GridBucket", list] = dict()
+    __phase_instances: Dict[pp.GridBucket, list] = dict()
 
-    def __new__(cls, name: str, gb: "pp.GridBucket") -> PhaseField:
+    def __new__(cls, name: str, gb: pp.GridBucket) -> PhaseField:
         """
         Declarator assures the phase name is unique for a given computational domain.
         Ambiguities must be avoided due to the central storage of the AD variables and usage
@@ -79,7 +79,7 @@ class PhaseField(abc.ABC):
         PhaseField.__phase_instances[gb].append(name)
         return super().__new__(cls)
 
-    def __init__(self, name: str, gb: "pp.GridBucket") -> None:
+    def __init__(self, name: str, gb: pp.GridBucket) -> None:
         """Base class constructor. Initiates phase-related AD-variables.
 
         :param name: name of the phase
@@ -90,11 +90,11 @@ class PhaseField(abc.ABC):
         super().__init__()
 
         ## PUBLIC
-        self.gb: "pp.GridBucket" = gb
+        self.gb: pp.GridBucket = gb
 
         ## PRIVATE
         self._name = str(name)
-        self._present_substances: List["pp.composite.Substance"] = list()
+        self._present_substances: List[pp.composite.Substance] = list()
 
         # Instantiate saturation variable
         self._saturation = create_merged_variable(gb, {"cells": 1}, self.saturation_var)
@@ -103,14 +103,14 @@ class PhaseField(abc.ABC):
             self.gb, {"cells": 1}, self.molar_fraction_var
         )
 
-    def __iter__(self) -> Generator["pp.composite.Substance", None, None]:
+    def __iter__(self) -> Generator[pp.composite.Substance, None, None]:
         """
         Iterator over substances present in this phase field instance.
 
         IMPORTANT:
         The order from this iterator is used for choosing e.g. the values in a
         list of 'numpy.array' when setting initial values.
-        Use the order returned here everytime you deal with substance-related values
+        Use the order returned here every time you deal with substance-related values
         for substances in this phase.
 
         :return: yields present substance
@@ -130,7 +130,7 @@ class PhaseField(abc.ABC):
         return self._name
 
     @property
-    def saturation(self) -> "pp.ad.MergedVariable":
+    def saturation(self) -> pp.ad.MergedVariable:
         """
         As a fractional quantity, all values are between 0 and 1.
 
@@ -151,7 +151,7 @@ class PhaseField(abc.ABC):
         return COMPUTATIONAL_VARIABLES["saturation"] + "_" + self.name
 
     @property
-    def molar_fraction(self) -> "pp.ad.MergedVariable":
+    def molar_fraction(self) -> pp.ad.MergedVariable:
         """
         As a fractional quantity, all values are between 0 and 1.
 
@@ -173,7 +173,7 @@ class PhaseField(abc.ABC):
 
     def add_substance(
         self,
-        substances: Union[List["pp.composite.Substance"], "pp.composite.Substance"],
+        substances: Union[List[pp.composite.Substance], pp.composite.Substance],
     ) -> None:
         """Adds substances which are expected by the model in this phase.
 
@@ -210,7 +210,7 @@ class PhaseField(abc.ABC):
             subst.fraction_in_phase(self.name)
 
     def set_initial_fractions(
-        self, fractions: Union[List[List["np.ndarray"]], List[List[float]]]
+        self, fractions: Union[List[List[np.ndarray]], List[List[float]]]
     ) -> None:
         """
         Sets the (initial) molar fractions for present substances.
@@ -275,11 +275,8 @@ class PhaseField(abc.ABC):
                 )
 
     def mass_density(
-        self,
-        pressure: "pp.ad.MergedVariable",
-        enthalpy: "pp.ad.MergedVariable",
-        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
-    ) -> "pp.ad.Operator":
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """
         Uses the  molar mass values in combination with the molar fractions in this phase
         to compute the mass density of the phase.
@@ -309,7 +306,7 @@ class PhaseField(abc.ABC):
             weight += substance.molar_mass() * substance.fraction_in_phase(self.name)
 
         # Multiply the mass weight with the molar density and return the operator
-        return weight * self.molar_density(pressure, enthalpy, temperature=temperature)
+        return weight * self.molar_density(pressure, temperature)
 
     # ------------------------------------------------------------------------------
     ### Abstract, phase-related physical properties
@@ -317,11 +314,8 @@ class PhaseField(abc.ABC):
 
     @abc.abstractmethod
     def molar_density(
-        self,
-        pressure: "pp.ad.MergedVariable",
-        enthalpy: "pp.ad.MergedVariable",
-        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
-    ) -> "pp.ad.Operator":
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """
         Abstract physical property, dependent on thermodynamic state and the composition.
         The composition variables (molar fractions of present substances) can be accessed
@@ -332,9 +326,7 @@ class PhaseField(abc.ABC):
 
         :param pressure: global pressure variable
         :type pressure: :class:`~porepy.ad.MergedVariable`
-        :param enthalpy: global enthalpy variable
-        :type enthalpy: :class:`~porepy.ad.MergedVariable`
-        :param temperature: (optional) if passed, the temperature based value must be returned.
+        :param temperature: global temperature variable
         :type temperature: :class:`~porepy.ad.MergedVariable`
 
         :return: molar density of the phase
@@ -343,33 +335,21 @@ class PhaseField(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def enthalpy(
-        self,
-        pressure: "pp.ad.MergedVariable",
-        composit_enthalpy: "pp.ad.MergedVariable",
-        temperature: Optional[Union["pp.ad.MergedVariable", None]] = None,
-    ) -> "pp.ad.Operator":
+    def specific_molar_enthalpy(
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """
         Abstract physical quantity, dependent on thermodynamic state and the composition.
         The composition variables (molar fractions of present substances) can be accessed
         by reference.
 
-        NOTE: See Gibb's rule for compositions, the enthalpy of a phase in a composition with
-        a global variable, should depend only on pressure and composition.
-
-        NOTE: For the isenthalpic flash, this function will be called additionally with
-        temperature as a variable.
-        If temperature is not NONE, a temperature-dependent enthalpy operator must be returned.
-
         Math. Dimension:        scalar
-        Phys.Dimension:         [J / mol / K]
+        Phys.Dimension:         [kJ / mol / K]
 
         :param pressure: global pressure variable
-        :type pressure: :class:`~porepy.ad.Operator`
-        :param composit_enthalpy: global enthalpy variable
-        :type composit_enthalpy: :class:`~porepy.ad.Operator`
-        :param temperature: (optional) global temperature variable for the isenthalpic flash
-        :type temperature: :class:`~porepy.ad.Operator`
+        :type pressure: :class:`~porepy.ad.MergedVariable`
+        :param temperature: global temperature variable
+        :type temperature: :class:`~porepy.ad.MergedVariable`
 
         :return: specific molar enthalpy of the phase
         :rtype: :class:`~porepy.ad.operators.Operator`
@@ -378,20 +358,20 @@ class PhaseField(abc.ABC):
 
     @abc.abstractmethod
     def dynamic_viscosity(
-        self, pressure: "pp.ad.MergedVariable", enthalpy: "pp.ad.MergedVariable"
-    ) -> "pp.ad.Operator":
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """
         Abstract physical property, dependent on thermodynamic state and the composition.
         The composition variables (molar fractions of present substances) can be accessed
         by reference.
 
         Math. Dimension:        scalar
-        Phys. Dimension:        [kg / m / s]
+        Phys. Dimension:        [mol / m / s]
 
         :param pressure: global pressure variable
         :type pressure: :class:`~porepy.ad.MergedVariable`
-        :param enthalpy: global enthalpy variable
-        :type enthalpy: :class:`~porepy.ad.MergedVariable`
+        :param temperature: global temperature variable
+        :type temperature: :class:`~porepy.ad.MergedVariable`
 
         :return: dynamic viscosity of the phase
         :rtype: :class:`~porepy.ad.operators.Operator`
@@ -400,8 +380,8 @@ class PhaseField(abc.ABC):
 
     @abc.abstractmethod
     def thermal_conductivity(
-        self, pressure: "pp.ad.MergedVariable", enthalpy: "pp.ad.MergedVariable"
-    ) -> "pp.ad.Operator":
+        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """
         Abstract physical property, dependent on thermodynamic state and composition.
         The composition variables (molar fractions of present substances) can be accessed
@@ -412,146 +392,10 @@ class PhaseField(abc.ABC):
 
         :param pressure: global pressure variable
         :type pressure: :class:`~porepy.ad.MergedVariable`
-        :param enthalpy: global enthalpy variable
-        :type enthalpy: :class:`~porepy.ad.MergedVariable`
+        :param temperature: global temperature variable
+        :type temperature: :class:`~porepy.ad.MergedVariable`
 
         :return: thermal conductivity of phase for Fourier's Law
         :rtype: :class:`~porepy.ad.operators.Operator`
         """
         pass
-
-
-# class StateField(PhaseField):
-#     """
-#     This class represent the 'state of matter'-interpretation of 'phase'.
-#     The StateField is associated with a specific, dominating substance in a specific
-#     state of matter, which serves as a solvent in the region occupied by this phase.
-
-#     Physical properties like density and viscosity of the phase are dominated by the
-#     respective physical property of the solvent.
-
-#     Functionalities:
-#         - provides classifications of states of matter
-#         - provides simple physical properties of the phase associated
-#           with the underlying substance
-#         - based on the last point, serves as a concrete implementation of a
-#           phase-field and is not abstract
-
-#     Physical properties are mainly heuristic laws. In order to provide more models/laws
-#     create a child class and override the respective method.
-#     Follow the if-else construction given in the methods here and return a call to
-#     '__super__().<physical property>' in the 'else' branch.
-#     """
-
-#     def __new__(cls, name: str, gb: "pp.GridBucket", *args, **kwargs) -> StateField:
-#         """Overriding declarator due to different signatures."""
-#         out = super().__new__(cls, name, gb)
-#         return out
-
-#     def __init__(
-#         self,
-#         name: str,
-#         gb: "pp.GridBucket",
-#         solvent: "pp.composite.FluidSubstance",
-#         state_of_matter: str,
-#     ) -> None:
-#         """
-#         Constructor with additional arguments.
-
-#         :param solvent: substance for which the state of matter is assumed.
-#         :type solvent: :class:`~porepy.composite.substance.FluidSubstance`
-
-#         :param state_of_matter: string-representation of the state
-#         :type state_of_matter: str
-#         """
-
-#         state_of_matter = str(state_of_matter)
-
-#         if state_of_matter not in STATES_OF_MATTER:
-#             raise ValueError("Unknown state of matter '%s'." % (state_of_matter))
-
-#         super().__init__(name, gb)
-
-#         # Add the solvent to the present substances.
-#         # It will always be the first substance in the iterator this way.
-#         self.add_substance(solvent)
-
-#         ## PRIVATE
-#         self._solvent: "pp.composite.FluidSubstance" = solvent
-#         self._state = state_of_matter
-
-#     # ------------------------------------------------------------------------------
-#     ### HEURISTIC LAWS NOTE all heuristic laws can be modularized somewhere else
-#     # ------------------------------------------------------------------------------
-
-#     @abc.abstractmethod
-#     def molar_phase_density(self, law: str, *args, **kwargs) -> "pp.ad.Operator":
-#         """
-#         Currently supported heuristic laws (values for 'law'):
-#             - 'solvent':       uses the unmodified solvent density
-
-#         Inherit this class and overwrite this method if you want to implement special models
-#         for the phase density.
-#         Use positional arguments 'args' and keyword arguments 'kwargs' to provide arguments
-#         for the heuristic law.
-
-#         Math. Dimension:        scalar
-#         Phys. Dimension:        [mol / m^3]
-
-#         :param law: name of the law to be applied (see valid values above)
-#         :type law: str
-
-#         :return: molar density of the phase
-#             (dependent on thermodynamic state and the composition)
-#         :rtype: :class:`~porepy.ad.operators.Operator`
-#         """
-
-#         law = str(law)
-
-#         if law == "solvent":
-
-#             return pp.ad.Function(
-#                 lambda p, h: self._solvent.molar_density(p, h),
-#                 "molar-density-%s-%s" % (self.name, law),
-#             )
-
-#         else:
-#             raise NotImplementedError(
-#                 "Unknown 'law' keyword for phase viscosity.: %s \n" % (law)
-#                 + "Available: 'solvent,'"
-#             )
-
-#     @abc.abstractmethod
-#     def phase_viscosity(self, law: str, *args, **kwargs) -> pp.ad.Operator:
-#         """
-#         Currently supported heuristic laws (values for 'law'):
-#             - 'solvent':        uses the unmodified solvent viscosity
-
-#         Inherit this class and overwrite this method if you want to implement special models
-#         for the phase viscosity.
-#         Use positional arguments 'args' and keyword arguments 'kwargs' to provide arguments
-#         for the heuristic law.
-
-#         Math. Dimension:        scalar
-#         Phys. Dimension:        [kg / m / s]
-
-#         :param law: name of the law to be applied (see valid values above)
-#         :type law: str
-
-#         :return: dynamic viscosity of the phase
-#             (dependent on thermodynamic state and the composition)
-#         :rtype: :class:`~porepy.ad.operators.Operator`
-#         """
-
-#         law = str(law)
-
-#         if law == "solvent":
-#             return pp.ad.Function(
-#                 lambda p, h: self._solvent.dynamic_viscosity(p, h),
-#                 "viscosity-%s-%s" % (self.name, law),
-#             )
-#         else:
-#             raise NotImplementedError(
-#                 "Unknown 'law' keyword for phase viscosity.: %s \n" % (law)
-#                 + "Available: 'solvent,'"
-#             )

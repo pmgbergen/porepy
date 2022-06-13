@@ -16,7 +16,7 @@ k_value = 0.8
 monolithic = False
 use_TRU = False
 elimination = ("xi", "molar_phase_fraction_unity", "min")
-# elimination = None
+elimination = None
 max_iter_equilibrium = 200
 tol_equilibrium = 1e-8
 
@@ -43,16 +43,17 @@ model = pp.CompositionalFlowModel(
 model.prepare_simulation()
 model.dt = dt
 
-print("Solving initial equilibrium")
-equilibrated = model.solve_equilibrium(
+print("Solving initial equilibrium ..")
+equilibrated = model.composition.isothermal_flash(
     max_iter_equilibrium,
     tol_equilibrium,
     copy_to_state=True,
-    use_TRU=use_TRU,
-    eliminate_unitary=elimination,
+    trust_region=use_TRU,
+    eliminate_unity=elimination,
 )
 if not equilibrated:
     raise RuntimeError("Equilibrium calculations failed at time %s" % (str(t)))
+model._print("After initial equilibrium")
 print("Starting simulation ..")
 while t < T:
     print(".. Timestep t=%f , dt=%e" % (t, model.dt))
