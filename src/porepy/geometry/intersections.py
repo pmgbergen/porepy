@@ -533,7 +533,7 @@ def polygons_3d(
 
     # Pre-compute polygon normals to save computational time
     polygon_normals = [
-        pp.map_geometry.compute_normal(poly).reshape((-1, 1)) for poly in polys
+        pp.map_geometry.compute_normal(poly, tol=tol).reshape((-1, 1)) for poly in polys
     ]
 
     # Loop over all fracture pairs (taking more than one simultaneously if an index
