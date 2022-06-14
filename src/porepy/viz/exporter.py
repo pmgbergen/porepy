@@ -65,7 +65,9 @@ class Exporter:
     Optional arguments in kwargs:
     fixed_grid: (optional) in a time dependent simulation specify if the
         grid changes in time or not. The default is True.
-    binary: (optional) export in binary format, default is True.
+    binary: (optional) export in binary format, default is True. If False,
+        the output is in Ascii format, which allows better readibility and
+        debugging, but requires more memory.
     export_constants_separately: (optional) export constants in separate files
         to potentially reduce memory footprint, default is True.
 
@@ -90,7 +92,8 @@ class Exporter:
     save.write_pvd(times)
 
     where times is a list of actual times (not time steps), associated
-    to the previously exported time steps.
+    to the previously exported time steps. If times is not provided
+    the time steps will be used instead.
 
     In general, pvd files gather data exported in separate files, including
     data on differently dimensioned grids, constant data, and finally time steps.
@@ -98,8 +101,10 @@ class Exporter:
     In the case of different keywords, change the file name with
     "change_name".
 
-    NOTE: the following names are reserved for data exporting: grid_dim,
-    is_mortar, mortar_side, cell_id, grid_node_number, grid_edge_number
+    NOTE: the following names are reserved for constant data exporting
+    and should not be used otherwise (otherwise data is overwritten):
+    grid_dim, is_mortar, mortar_side, cell_id, grid_node_number,
+    grid_edge_number
     """
 
     def __init__(
@@ -122,7 +127,11 @@ class Exporter:
                 'binary' (boolean) controlling whether data is stored in binary format
                 (default True);
                 'export_constants_separately' (boolean) controlling whether
-                constant data is exported in separate files (default True).
+                constant data is exported in separate files, which may be of interest
+                when exporting large data sets (in particular of constant data) for
+                many time steps (default True); note, however, that the mesh is
+                exported to each vtu file, which may also require significant amount
+                of storage.
         """
         # Exporter is operating on grid buckets. Convert to grid bucket if grid is provided.
         if isinstance(gb, pp.Grid):
@@ -213,7 +222,7 @@ class Exporter:
                 associated data values for all or no grids of each specific
                 dimension.
         """
-        # Identify change in constant data. Has the effect that
+        # Interpret change in constant data. Has the effect that
         # the constant data container will be exported at the
         # next application of write_vtu().
         self._exported_constant_data_up_to_date = False
@@ -346,7 +355,7 @@ class Exporter:
 
     def write_pvd(
         self,
-        times: np.ndarray,
+        times: Optional[np.ndarray] = None,
         file_extension: Optional[Union[np.ndarray, List[int]]] = None,
     ) -> None:
         """
@@ -354,18 +363,23 @@ class Exporter:
         The user should open only this file in paraview.
 
         We assume that the VTU associated files have the same name.
-        We assume that the VTU associated files are in the same folder.
+        We assume that the VTU associated files are in the working directory.
 
         Parameters:
-        times (np.ndarray): array of times to be exported. These will be the times
-            associated with indivdiual time steps in, say, Paraview. By default,
-            the times will be associated with the order in which the time steps were
-            exported. This can be overridden by the file_extension argument.
+        times (optional, np.ndarray): array of actual times to be exported. These will
+            be the times associated with indivdiual time steps in, say, Paraview.
+            By default, the times will be associated with the order in which the time
+            steps were exported. This can be overridden by the file_extension argument.
+            If no times are provided, the exported time steps are used.
         file_extension (np.array-like, optional): End of file names used in the export
             of individual time steps, see self.write_vtu(). If provided, it should have
             the same length as time. If not provided, the file names will be picked
             from those used when writing individual time steps.
         """
+
+        if times is None:
+            times = np.array(self._exported_timesteps)
+
         if file_extension is None:
             file_extension = self._exported_timesteps
         elif isinstance(file_extension, np.ndarray):
@@ -376,6 +390,7 @@ class Exporter:
             assert len(file_extension) == times.shape[0]
 
         # Make mypy happy
+        assert times is not None
         assert file_extension is not None
 
         # Extract the time steps related to constant data and
@@ -490,19 +505,18 @@ class Exporter:
                 brought into unified format.
         """
 
-        # Convert data to list, while keeping the data structures provided,
-        # or provide an empty list if no data provided
-        if data is None:
-            data = list()
-        elif not isinstance(data, list):
-            data = [data]
+        # The strategy is to traverse the input data and check each data point
+        # for its type and apply a corresponding conversion to a unique format.
+        # For each supported input data format, a dedicated routine is implemented
+        # to 1. identify whether the type is present; and 2. update the data
+        # dictionaries (to be returned in this routine) in the correct format:
+        # The dictionaries use (grid,key) and (edge,key) as key and the data
+        # array as value.
 
-        # Initialize container for data associated to nodes
-        subdomain_data: SubdomainData = dict()
-        interface_data: InterfaceData = dict()
+        # Now a list of these subroutines follows before the definition of the
+        # actual routine.
 
-        # Auxiliary function transforming scalar ranged values
-        # to vector ranged values when suitable.
+        # Aux. method: Transform scalar- to vector-ranged values.
         def toVectorFormat(value: np.ndarray, g: pp.Grid) -> np.ndarray:
             """
             Check whether the value array has the right dimension corresponding
@@ -523,8 +537,7 @@ class Exporter:
 
             return value
 
-        # Auxiliary functions for type checking
-
+        # Aux. method: Check type for Interface
         def isinstance_interface(e: Interface) -> bool:
             """
             Implementation of isinstance(e, Interface).
@@ -536,80 +549,24 @@ class Exporter:
                 and isinstance(e[1], pp.Grid)
             )
 
-        def isinstance_Tuple_subdomains_str(t: Tuple[List[pp.Grid], str]) -> bool:
+        # Aux. method: Detect and convert data of form "key".
+        def add_data_from_str(pt, subdomain_data, interface_data):
             """
-            Implementation of isinstance(t, Tuple[List[pp.Grid], str]).
+            Check whether data is provided by a key of a field - could be both node
+            and edge data. If so, collect all data corresponding to grids and edges
+            identified by the key.
+            """
 
-            Detects data input of type ([g1, g2, ...], "name"),
-            where g1, g2, ... are subdomains.
-            """
-            # Implementation of isinstance(Tuple[List[pp.Grid], str], t)
-            return list(map(type, t)) == [list, str] and all(
-                [isinstance(g, pp.Grid) for g in t[0]]
-            )
-
-        def isinstance_Tuple_interfaces_str(t: Tuple[List[Interface], str]) -> bool:
-            """
-            Implementation of isinstance(t, Tuple[List[Interface], str]).
-
-            Detects data input of type ([e1, e2, ...], "name"),
-            where e1, e2, ... are interfaces.
-            """
-            # Implementation of isinstance(t, Tuple[List[Tuple[pp.Grid, pp.Grid]], str])
-            return list(map(type, t)) == [list, str] and all(
-                [isinstance_interface(g) for g in t[0]]
-            )
-
-        def isinstance_Tuple_subdomain_str_array(
-            t: Tuple[pp.Grid, str, np.ndarray]
-        ) -> bool:
-            """
-            Implementation of isinstance(t, Tuple[pp.Grid, str, np.ndarray]).
-            """
-            types = list(map(type, t))
-            return isinstance(t[0], pp.Grid) and types[1:] == [str, np.ndarray]
-
-        def isinstance_Tuple_interface_str_array(
-            t: Tuple[Interface, str, np.ndarray]
-        ) -> bool:
-            """
-            Implementation of isinstance(t, Tuple[Interface, str, np.ndarray]).
-            """
-            return list(map(type, t)) == [
-                tuple,
-                str,
-                np.ndarray,
-            ] and isinstance_interface(t[0])
-
-        def isinstance_Tuple_str_array(pt) -> bool:
-            """
-            Implementation if isinstance(pt, Tuple[str, np.ndarray].
-            Detects data input of type ("name", value).
-            """
-            # Check whether the tuple is of length 2 and has the right types.
-            return list(map(type, pt)) == [str, np.ndarray]
-
-        # Loop over all data points and convert them collect them in the format
-        # (grid/edge, key, data) for single grids etc. and store them in two
-        # dictionaries with keys (grid/egde, key) and value given by data.
-        # Distinguish here between subdomain and interface data and store
-        # accordingly.
-        for pt in data:
-
-            # Allow for different cases. Distinguish each case separately.
-
-            # Case 1: Data provided by the key of a field only - could be both node
-            # and edge data. Idea: Collect all data corresponding to grids and edges
-            # related to the key.
+            # Only continue in case data is of type str
             if isinstance(pt, str):
 
-                # The data point is simply a string addressing a state using a key
+                # Identify the key provided through the data.
                 key = pt
 
-                # Fetch grids and interfaces as well as data associated to the key
+                # Initialize tag storing whether data corrspeonding to the key has been found.
                 has_key = False
 
-                # Try to find the key in the data dictionary associated to subdomains
+                # Check data associated to subdomain field data
                 for g, d in self.gb.nodes():
                     if pp.STATE in d and key in d[pp.STATE]:
                         # Mark the key as found
@@ -621,7 +578,7 @@ class Exporter:
                         # Add data point in correct format to the collection
                         subdomain_data[(g, key)] = value
 
-                # Try to find the key in the data dictionary associated to interfaces
+                # Check data associated to interface field data
                 for e, d in self.gb.edges():
                     if pp.STATE in d and key in d[pp.STATE]:
                         # Mark the key as found
@@ -640,15 +597,34 @@ class Exporter:
                         f"No data with provided key {key} present in the grid bucket."
                     )
 
-            # Case 2a: Data provided by a tuple (g, key).
-            # Here, g is a single grid or a list of grids.
-            # Idea: Collect the data only among the grids specified.
-            elif isinstance_Tuple_subdomains_str(pt):
+                # Return updated dictionaries and indicate succesful conversion.
+                return subdomain_data, interface_data, True
 
-                # By construction, the first component is a list of grids.
+            else:
+                # Return original data dictionaries and indicate no modification.
+                return subdomain_data, interface_data, False
+
+        # Aux. method: Detect and convert data of form ([grids], "key").
+        def add_data_from_Tuple_subdomains_str(
+            pt: Tuple[List[pp.Grid], str], subdomain_data, interface_data
+        ):
+            """
+            Check whether data is provided as tuple (g, key),
+            where g is a list of grids, and key is a string.
+            This routine explicitly checks only for subdomain data.
+            """
+
+            # Implementation of isinstance(t, Tuple[List[pp.Grid], str]).
+            isinstance_tuple_subdomains_str = list(map(type, pt)) == [
+                list,
+                str,
+            ] and all([isinstance(g, pp.Grid) for g in pt[0]])
+
+            # If of correct type, convert to unique format and update subdomain data.
+            if isinstance_tuple_subdomains_str:
+
+                # By construction, the 1. and 2. components are a list of grids and a key.
                 grids: List[pp.Grid] = pt[0]
-
-                # By construction, the second component contains a key.
                 key = pt[1]
 
                 # Loop over grids and fetch the states corresponding to the key
@@ -670,15 +646,32 @@ class Exporter:
                     # Add data point in correct format to collection
                     subdomain_data[(g, key)] = value
 
-            # Case 2b: Data provided by a tuple (e, key)
-            # Here, e is a list of edges.
-            # Idea: Collect the data only among the specified interfaces.
-            elif isinstance_Tuple_interfaces_str(pt):
+                # Return updated dictionaries and indicate succesful conversion.
+                return subdomain_data, interface_data, True
 
-                # By construction, the first component contains a list of interfaces.
+            else:
+                # Return original data dictionaries and indicate no modification.
+                return subdomain_data, interface_data, False
+
+        # Aux. method: Detect and convert data of form ([interfaces], "key").
+        def add_data_from_Tuple_interfaces_str(pt, subdomain_data, interface_data):
+            """
+            Check whether data is provided as tuple (e, key),
+            where e is a list of interfaces, and key is a string.
+            This routine explicitly checks only for interface data.
+            """
+
+            # Implementation of isinstance(t, Tuple[List[Interface], str]).
+            isinstance_tuple_interfaces_str = list(map(type, pt)) == [
+                list,
+                str,
+            ] and all([isinstance_interface(g) for g in pt[0]])
+
+            # If of correct type, convert to unique format and update subdomain data.
+            if isinstance_tuple_interfaces_str:
+
+                # By construction, the 1. and 2. components are a list of interfaces and a key.
                 edges: List[Interface] = pt[0]
-
-                # By construction, the second component contains a key.
                 key = pt[1]
 
                 # Loop over edges and fetch the states corresponding to the key
@@ -701,33 +694,33 @@ class Exporter:
                     # Add data point in correct format to collection
                     interface_data[(e, key)] = value
 
-            # Case 3: Data provided by a tuple (key, data).
-            # This case is only well-defined, if the grid bucket contains
-            # only a single grid.
-            # Idea: Extract the unique grid and continue as in Case 2.
-            elif isinstance_Tuple_str_array(pt):
+                # Return updated dictionaries and indicate succesful conversion.
+                return subdomain_data, interface_data, True
 
-                # Fetch the correct grid. This option is only supported for grid
-                # buckets containing a single grid.
-                grids = [g for g, _ in self.gb.nodes()]
-                g = grids[0]
-                if not len(grids) == 1:
-                    raise ValueError(
-                        f"""The data type used for {pt} is only
-                        supported if the grid bucket only contains a single grid."""
-                    )
+            else:
+                # Return original data dictionaries and indicate no modification.
+                return subdomain_data, interface_data, False
 
-                # Fetch remaining ingredients required to define node data element
-                key = pt[0]
-                value = toVectorFormat(pt[1], g)
+        # Aux. method: Detect and convert data of form (g, "key", value).
+        def add_data_from_Tuple_subdomain_str_array(pt, subdomain_data, interface_data):
+            """
+            Check whether data is provided as tuple (g, key, data),
+            where g is a single grid, key is a string, and data is a user-defined data array.
+            This routine explicitly checks only for subdomain data.
+            """
 
-                # Add data point in correct format to collection
-                subdomain_data[(g, key)] = value
+            # Implementation of isinstance(t, Tuple[pp.Grid, str, np.ndarray]).
+            # NOTE: The type of a grid is identifying the specific grid type (simplicial
+            # etc.) Thus, isinstance is used here to detect whether a grid is provided.
+            types = list(map(type, pt))
+            isinstance_Tuple_subdomain_str_array = isinstance(pt[0], pp.Grid) and types[
+                1:
+            ] == [str, np.ndarray]
 
-            # Case 4a: Data provided as tuple (g, key, data).
-            # Idea: Since this is already the desired format, process naturally.
-            elif isinstance_Tuple_subdomain_str_array(pt):
-                # Data point in correct format
+            # Convert data to unique format and update the subdomain data dictionary.
+            if isinstance_Tuple_subdomain_str_array:
+
+                # Interpret (g, key, value) = (pt[0], pt[1], pt[2]);
                 g = pt[0]
                 key = pt[1]
                 value = toVectorFormat(pt[2], g)
@@ -735,12 +728,35 @@ class Exporter:
                 # Add data point in correct format to collection
                 subdomain_data[(g, key)] = value
 
-            # Case 4b: Data provided as tuple (e, key, data).
-            # Idea: Since this is already the desired format, process naturally.
-            elif isinstance_Tuple_interface_str_array(pt):
-                # Data point in correct format
+                # Return updated dictionaries and indicate succesful conversion.
+                return subdomain_data, interface_data, True
+
+            else:
+                # Return original data dictionaries and indicate no modification.
+                return subdomain_data, interface_data, False
+
+        # Aux. method: Detect and convert data of form (e, "key", value).
+        def add_data_from_Tuple_interface_str_array(pt, subdomain_data, interface_data):
+            """
+            Check whether data is provided as tuple (g, key, data),
+            where e is a single interface, key is a string, and data is a user-defined
+            data array. This routine explicitly checks only for interface data.
+            """
+
+            # Implementation of isinstance(t, Tuple[Interface, str, np.ndarray]).
+            isinstance_Tuple_interface_str_array = list(map(type, pt)) == [
+                tuple,
+                str,
+                np.ndarray,
+            ] and isinstance_interface(pt[0])
+
+            # Convert data to unique format and update the interface data dictionary.
+            if isinstance_Tuple_interface_str_array:
+                # Interpret (e, key, value) = (pt[0], pt[1], pt[2]);
                 e = pt[0]
                 key = pt[1]
+
+                # Fetch grid data for converting the value to right format;
                 d = self.gb.edge_props(e)
                 mg = d["mortar_grid"]
                 value = toVectorFormat(pt[2], mg)
@@ -748,9 +764,103 @@ class Exporter:
                 # Add data point in correct format to collection
                 interface_data[(e, key)] = value
 
+                # Return updated dictionaries and indicate succesful conversion.
+                return subdomain_data, interface_data, True
+
             else:
+                # Return original data dictionaries and indicate no modification.
+                return subdomain_data, interface_data, False
+
+        # Aux. method: Detect and convert data of form ("key", value).
+        def add_data_from_Tuple_str_array(pt, subdomain_data, interface_data):
+            """
+            Check whether data is provided by a tuple (key, data),
+            where key is a string, and data is a user-defined data array.
+            This only works when the grid bucket contains a single grid.
+            """
+
+            # Implementation if isinstance(pt, Tuple[str, np.ndarray].
+            isinstance_Tuple_str_array = list(map(type, pt)) == [str, np.ndarray]
+
+            # Convert data to unique format and update the interface data dictionary.
+            if isinstance_Tuple_str_array:
+
+                # Fetch the correct grid. This option is only supported for grid
+                # buckets containing a single grid.
+                grids = [g for g, _ in self.gb.nodes()]
+                if not len(grids) == 1:
+                    raise ValueError(
+                        f"""The data type used for {pt} is only
+                        supported if the grid bucket only contains a single grid."""
+                    )
+
+                # Fetch remaining ingredients required to define node data element
+                g = grids[0]
+                key = pt[0]
+                value = toVectorFormat(pt[1], g)
+
+                # Add data point in correct format to collection
+                subdomain_data[(g, key)] = value
+
+                # Return updated dictionaries and indicate succesful conversion.
+                return subdomain_data, interface_data, True
+
+            else:
+                # Return original data dictionaries and indicate no modification.
+                return subdomain_data, interface_data, False
+
+        ################################################
+        # The actual routine _sort_and_unify_data()
+        ################################################
+
+        # Convert data to list, while keeping the data structures provided,
+        # or provide an empty list if no data provided
+        if data is None:
+            data = list()
+        elif not isinstance(data, list):
+            data = [data]
+
+        # Initialize container for data associated to nodes
+        subdomain_data: SubdomainData = dict()
+        interface_data: InterfaceData = dict()
+
+        # Define methods to be used for checking the data type and performing
+        # the conversion. This list implicitly also defines which input data is
+        # allowed.
+        methods = [
+            add_data_from_str,
+            add_data_from_Tuple_subdomains_str,
+            add_data_from_Tuple_interfaces_str,
+            add_data_from_Tuple_subdomain_str_array,
+            add_data_from_Tuple_interface_str_array,
+            add_data_from_Tuple_str_array,
+        ]
+
+        # Loop over all data points and collect them in a unified format.
+        # For this, two separate dictionaries (for subdomain and interface data)
+        # are used. The final format uses (subdomain/interface,key) as key of
+        # the dictionaries, and the value is given by the corresponding data.
+        for pt in data:
+
+            # Initialize tag storing whether the conversion process for pt is successful.
+            success = False
+
+            for method in methods:
+
+                # Check whether data point of right type and convert to
+                # the unique data type.
+                subdomain_data, interface_data, success = method(
+                    pt, subdomain_data, interface_data
+                )
+
+                # Stop, once a supported data format has been detected.
+                if success:
+                    break
+
+            # Check if provided data has non-supported data format.
+            if not success:
                 raise ValueError(
-                    f"The provided data type used for {pt} is not supported."
+                    f"Input data {pt} has wrong format and cannot be exported."
                 )
 
         return subdomain_data, interface_data
@@ -1021,8 +1131,11 @@ class Exporter:
 
     def _update_meshio_geom(self) -> None:
         """
-        Auxiliary method upating internal copies of the grids. Merely asks for
-        exporting grids.
+        Manager for storing the grid information in meshio format.
+
+        The internal variables meshio_geom and m_meshio_geom, storing all
+        essential (mortar) grid information as points, connectivity and cell
+        ids, are created and stored.
         """
         # Subdomains
         for dim in self.dims:
@@ -1094,7 +1207,9 @@ class Exporter:
         num_pts = np.sum([g.num_nodes for g in gs])
         meshio_pts = np.empty((num_pts, 3))  # type: ignore
 
-        # Initialize offset. Required taking into account multiple 1d grids.
+        # Initialize offset. All data associated to 1d grids is stored in
+        # the same vtu file, essentially using concatenation. To identify
+        # each grid, keep track of number of nodes for each grid.
         nodes_offset = 0
 
         # Loop over all 1d grids
@@ -1104,8 +1219,8 @@ class Exporter:
             sl = slice(nodes_offset, nodes_offset + g.num_nodes)
             meshio_pts[sl, :] = g.nodes.T
 
-            # Lines are simplices, and have a trivial connectvity.
-            cn_indices = self._simplex_cell_to_nodes(2, g)
+            # Lines are 1-simplices, and have a trivial connectvity.
+            cn_indices = self._simplex_cell_to_nodes(1, g)
 
             # Add to previous connectivity information
             cell_to_nodes[cell_type] = np.vstack(
@@ -1136,7 +1251,7 @@ class Exporter:
         Determine cell to node connectivity for a general n-simplex mesh.
 
         Parameters:
-            n (int): order of the simplices in the grid.
+            n (int): dimension of the simplices in the grid.
             g (pp.Grid): grid containing cells and nodes.
             cells (np.ndarray, optional): all n-simplex cells
 
@@ -1151,16 +1266,19 @@ class Exporter:
             else g.cell_nodes().indptr[cells]
         )
 
-        # Collect the indptr to all nodes of the cell; each n-simplex cell contains n nodes
-        expanded_cn_indptr = np.vstack([cn_indptr + i for i in range(n)]).reshape(
-            -1, order="F"
-        )
+        # Each n-simplex has n+1 nodes
+        num_nodes = n + 1
+
+        # Collect the indptr to all nodes of the cell.
+        expanded_cn_indptr = np.vstack(
+            [cn_indptr + i for i in range(num_nodes)]
+        ).reshape(-1, order="F")
 
         # Detect all corresponding nodes by applying the expanded mask to the indices
         expanded_cn_indices = g.cell_nodes().indices[expanded_cn_indptr]
 
         # Convert to right format.
-        cn_indices = np.reshape(expanded_cn_indices, (-1, n), order="C")
+        cn_indices = np.reshape(expanded_cn_indices, (-1, num_nodes), order="C")
 
         return cn_indices
 
@@ -1192,7 +1310,9 @@ class Exporter:
         num_pts = np.sum([g.num_nodes for g in gs])
         meshio_pts = np.empty((num_pts, 3))  # type: ignore
 
-        # Initialize offsets. Required taking into account multiple 2d grids.
+        # Initialize offsets. All data associated to 2d grids is stored in
+        # the same vtu file, essentially using concatenation. To identify
+        # each grid, keep track of number of nodes and cells for each grid.
         nodes_offset = 0
         cell_offset = 0
 
@@ -1243,14 +1363,15 @@ class Exporter:
 
                     # Fetch triangle cells
                     cells = g_cell_map[cell_type]
-                    # Determine the trivial connectivity.
-                    cn_indices = self._simplex_cell_to_nodes(3, g, cells)
+                    # Determine the trivial connectivity - triangles are 2-simplices.
+                    cn_indices = self._simplex_cell_to_nodes(2, g, cells)
 
                 # Quad and polygon cells.
                 else:
                     # For quads/polygons, g.cell_nodes cannot be blindly used as for
                     # triangles, since the ordering of the nodes may define a cell of
-                    # the type (here specific for quads) x--x and not x--x
+                    # the type (here specific for quads)
+                    # x--x and not x--x
                     #  \/          |  |
                     #  /\          |  |
                     # x--x         x--x .
@@ -1491,7 +1612,9 @@ class Exporter:
         num_pts = np.sum([g.num_nodes for g in gs])
         meshio_pts = np.empty((num_pts, 3))  # type: ignore
 
-        # Initialize offsets. Required taking into account multiple 3d grids.
+        # Initialize offsets. All data associated to 3d grids is stored in
+        # the same vtu file, essentially using concatenation. To identify
+        # each grid, keep track of number of nodes and cells for each grid.
         nodes_offset = 0
         cell_offset = 0
 
@@ -1510,7 +1633,8 @@ class Exporter:
 
             # Determine local connectivity for all cells. Simplices are invariant
             # under permuatations. Thus, no specific ordering of nodes is required.
-            cn_indices = self._simplex_cell_to_nodes(4, g, cells)
+            # Tetrahedra are essentially 3-simplices.
+            cn_indices = self._simplex_cell_to_nodes(3, g, cells)
 
             # Store cell-node connectivity, and add offset taking into account
             # previous grids
@@ -1804,7 +1928,7 @@ class Exporter:
         """
 
         # If no folder_name is prescribed, the files will be stored in the
-        # same folder.
+        # working directory.
         if folder_name is None:
             return name
 
