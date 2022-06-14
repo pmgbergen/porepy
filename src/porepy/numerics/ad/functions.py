@@ -132,7 +132,10 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
     assert dim_size % dim == 0
     size = int(dim_size / dim)
     local_inds_t = np.arange(dim_size)
-    local_inds_n = np.int32(np.kron(np.arange(size), np.ones(dim)))
+    if size == 0:
+        local_inds_n = np.empty(0, dtype=np.int32)
+    else:
+        local_inds_n = np.array(np.kron(np.arange(size), np.ones(dim)), dtype=np.int32)
     norm_jac = sps.csr_matrix(
         (jac_vals.ravel("F"), (local_inds_n, local_inds_t)),
         shape=(size, dim_size),

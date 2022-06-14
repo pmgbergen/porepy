@@ -295,4 +295,4 @@ class MergedOperator(operators.Operator):
                 raise NotImplementedError("")
         else:
             # This is a standard term; wrap it in a diagonal sparse matrix
-            return sps.block_diag(mat)
+            return sps.block_diag(mat, format="csr")

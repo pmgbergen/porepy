@@ -9,16 +9,15 @@ import logging
 
 import numpy as np
 
-import porepy as pp
-
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
-module_sections = ["numerics"]
-
 
 class NewtonSolver:
+<<<<<<< HEAD
 
+=======
+>>>>>>> develop
     def __init__(self, params=None):
         if params is None:
             params = {}

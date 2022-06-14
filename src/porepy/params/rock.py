@@ -11,7 +11,6 @@ import porepy as pp
 module_sections = ["parameters"]
 
 
-@pp.time_logger(sections=module_sections)
 def poisson_from_lame(mu, lmbda):
     """Compute Poisson's ratio from Lame parameters
 
@@ -26,7 +25,6 @@ def poisson_from_lame(mu, lmbda):
     return lmbda / (2 * (mu + lmbda))
 
 
-@pp.time_logger(sections=module_sections)
 def lame_from_young_poisson(e, nu):
     """Compute Lame parameters from Young's modulus and Poisson's ratio.
 
@@ -45,7 +43,20 @@ def lame_from_young_poisson(e, nu):
     return lmbda, mu
 
 
-@pp.time_logger(sections=module_sections)
+def young_from_lame(lmbda, mu):
+    """
+    Compute Young's modulus from Lamé parameters.
+
+    Parameters:
+        lmbda (double): First Lame parameter
+        mu: Second Lame parameter / shear modulus
+
+    Returns:
+        double: Young's modulus
+    """
+    return mu * (3 * lmbda + 2 * mu) / (lmbda + mu)
+
+
 def bulk_from_lame(lmbda, mu):
     """
     Compute bulk modulus from Lamé parameters.
@@ -73,7 +84,6 @@ class UnitRock(object):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, theta_ref=None):
         self.PERMEABILITY = 1
         self.THERMAL_EXPANSION = 1
@@ -81,7 +91,7 @@ class UnitRock(object):
         self.POROSITY = 1
         self.MU = 1
         self.LAMBDA = 1
-        self.YOUNG_MODULUS = 1
+        self.YOUNG_MODULUS = young_from_lame(self.MU, self.LAMBDA)
         self.POISSON_RATIO = poisson_from_lame(self.MU, self.LAMBDA)
 
         if theta_ref is None:
@@ -89,11 +99,9 @@ class UnitRock(object):
         else:
             self.theta_ref = theta_ref
 
-    @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, _):
         return 1.0
 
-    @pp.time_logger(sections=module_sections)
     def thermal_conductivity(self, theta=None):
         return 1.0
 
@@ -106,7 +114,6 @@ class SandStone(UnitRock):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, theta_ref=None):
 
         # Fairly permeable rock.
@@ -127,7 +134,6 @@ class SandStone(UnitRock):
 
         self.DENSITY = 2650 * pp.KILOGRAM / pp.METER**3
 
-    @pp.time_logger(sections=module_sections)
     def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
         if theta is None:
             theta = self.theta_ref
