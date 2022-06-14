@@ -1,11 +1,19 @@
 """
 Various functions with set operations.
 """
+from __future__ import annotations
+from typing import Any, Tuple
 import numba
 import numpy as np
 
 
-def unique_rows(data):
+def unique_rows(
+    data: np.ndarray[Any, np.dtype[np.float64]]
+) -> Tuple[
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.int64]],
+    np.ndarray[Any, np.dtype[np.int64]],
+]:
     """
     Function similar to Matlab's unique(...,'rows')
 
@@ -27,7 +35,11 @@ def unique_rows(data):
     return data[ia], ia, ic
 
 
-def ismember_rows(a, b, sort=True):
+def ismember_rows(
+    a: np.ndarray[Any, np.dtype[np.float64]],
+    b: np.ndarray[Any, np.dtype[np.float64]],
+    sort: float = True,
+) -> Tuple[np.ndarray[Any, np.dtype[np.bool_]], np.ndarray[Any, np.dtype[np.int64]]]:
     """
     Find *columns* of a that are also members of *columns* of b.
 
@@ -92,7 +104,7 @@ def ismember_rows(a, b, sort=True):
     # Find common members
     ismem_a = np.isin(ind_a, ind_b)
 
-    # Fonud this trick on
+    # Found this trick on
     # https://stackoverflow.com/questions/8251541/numpy-for-every-element-in-one-array-find-the-index-in-another-array
     # See answer by Joe Kington
     sort_ind = np.argsort(ind_b)
@@ -103,7 +115,13 @@ def ismember_rows(a, b, sort=True):
     return ismem_a, ia
 
 
-def unique_columns_tol(mat, tol=1e-8):
+def unique_columns_tol(
+    mat: np.ndarray[Any, np.dtype[np.float64]], tol: float = 1e-8
+) -> Tuple[
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.int64]],
+    np.ndarray[Any, np.dtype[np.int64]],
+]:
     """
     Remove duplicates from a point set, for a given distance traveling.
 
@@ -135,9 +153,13 @@ def unique_columns_tol(mat, tol=1e-8):
     # Treat 1d array as 2d
     mat = np.atleast_2d(mat)
 
-    # Special treatment of the case with an empty array
+    # Some special cases
     if mat.shape[1] == 0:
+        # Empty arrays gets empty return
         return mat, np.array([], dtype=int), np.array([], dtype=int)
+    elif mat.shape[1] == 1:
+        # Array with a single column needs no processing
+        return mat, np.array([0]), np.array([0])
 
     # If the matrix is integers, and the tolerance less than 1/2, we can use
     # numpy's unique function
