@@ -621,7 +621,7 @@ def invert_diagonal_blocks(
             matrix is formed, the inverse is computed using numpy (which again will
             invoke LAPACK), and the inverse is stored in an (raveled) array. The most
             complex part of the code is the formation of the local matrix: Since the
-            original matrix is be sparse, there may be zero elements in the blocks
+            original matrix is sparse, there may be zero elements in the blocks
             which may not be explicitly represented in the data, and the order of the
             columns in the sparse format may not be linear. To deal with this, we do a
             double loop to fill in the local matrix.
