@@ -43,6 +43,8 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
 
     # Connection map between cells
     c2c = g.cell_connection_map()
+    # Enforce csr. This should be the case anyhow, but better safe than sorry.
+    c2c = c2c.tocsr()
 
     # Convert the cells into the format required by pymetis
     indptr = c2c.indptr
