@@ -26,9 +26,10 @@ def from_points(pts, overlap=0):
     domain = {
         "xmin": min_coord[0] - dx[0] * overlap,
         "xmax": max_coord[0] + dx[0] * overlap,
-        "ymin": min_coord[1] - dx[1] * overlap,
-        "ymax": max_coord[1] + dx[1] * overlap,
     }
+    if max_coord.size > 1:
+        domain["ymin"] = min_coord[1] - dx[1] * overlap
+        domain["ymax"] = max_coord[1] + dx[1] * overlap
 
     if max_coord.size == 3:
         domain["zmin"] = min_coord[2] - dx[2] * overlap
