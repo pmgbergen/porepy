@@ -14,13 +14,15 @@ from . import msh_2_grid
 from .gmsh_interface import Tags
 
 
-def _cart_grid_3d(fracs, nx, physdims=None):
+def _cart_grid_3d(
+    fracs: List[np.ndarray], nx: np.ndarray, physdims: np.ndarray = None
+) -> List[pp.Grid]:
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
 
     Based on rectangles describing the individual fractures, the method
     constructs grids in 3d (the whole domain), 2d (one for each individual
-    fracture), 1d (along fracture intersections), and 0d (meeting between
+    fracture), 1d (along fracture intersections), and 0d (intersections of
     intersections).
 
     Parameters
@@ -42,7 +44,7 @@ def _cart_grid_3d(fracs, nx, physdims=None):
     frac1 = np.array([[1, 1, 4, 4], [1, 4, 4, 1], [2, 2, 2, 2]])
     frac2 = np.array([[2, 2, 2, 2], [1, 1, 4, 4], [1, 4, 4, 1]])
     fracs = [frac1, frac2]
-    gb = cart_grid_3d(fracs, [5, 5, 5])
+    grid_list = _cart_grid_3d(fracs, [5, 5, 5])
     """
 
     nx = np.asarray(nx)
@@ -319,7 +321,7 @@ def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
 
     edges = np.vstack((edges, edge_tags))
 
-    # Loop through the edges to make 1D grids. Ommit the auxiliary edges.
+    # Loop through the edges to make 1D grids. Omit the auxiliary edges.
     for e in np.ravel(np.where(edges[2] == Tags.FRACTURE_INTERSECTION_LINE.value)):
         # We find the start and end point of each fracture intersection (1D
         # grid) and then the corresponding global node index.

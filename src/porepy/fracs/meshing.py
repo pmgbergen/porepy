@@ -88,9 +88,9 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
     ----------
     fracs (list of np.ndarray): One list item for each fracture. Each item
         consist of a (nd x npt) array describing fracture vertices, where npt is 2
-        for 2d domains, 4 for 3d domains. The fractures has to be rectangles(3D) or
-        straight lines(2D) that alignes with the axis. The fractures may be intersecting.
-        The fractures will snap to closest grid faces.
+        for 2d domains, 4 for 3d domains. The fractures have to be rectangles(3D) or
+        straight lines(2D) that align with the axis. The fractures may be intersecting.
+        The fractures will snap to the closest grid faces.
     nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
     **kwargs:
         physdims (np.ndarray): Physical dimensions in each direction.
@@ -109,7 +109,7 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
            fracture_faces: All faces that are split (i.e. has a connection to a
                lower dim grid).
            tip_faces: A boundary face that is not on the domain boundary, nor
-               coupled to a lower domentional domain.
+               coupled to a lower dimensional domain.
         The union of the above three is the tag boundary_faces.
 
     Examples
