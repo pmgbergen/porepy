@@ -267,14 +267,21 @@ def slice_indices(
     Parameters
     ----------
     A (scipy.sparse.csc/csr_matrix): A sparse matrix.
-    slice_ind (np.array): Array containing indices to be sliced
+    slice_ind (np.ndarray): Array containing indices to be sliced
 
     Returns
     -------
-    indices (np.array): If A is csc_matrix:
+    indices (np.ndarray): If A is csc_matrix:
                             The nonzero row indices or columns slice_ind
-                        If A is csr_matrix:
+                          If A is csr_matrix:
                             The nonzero columns indices or rows slice_ind
+    array_ind (np.ndarray or slice): The indices in the compressed storage format (csc
+                            or csr) corresponding to the slice; so that, if A is csr,
+                            A.indices[array_ind] gives the columns of the slice
+                            (represented in indices), and the corresponding data can be
+                            accessed as A.data[array_ind]. Only returned if
+                            return_array_ind is True.
+
     Examples
     --------
     A = sps.csc_matrix(np.eye(10))

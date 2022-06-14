@@ -79,7 +79,7 @@ class ImplicitMpfa(pp.Mpfa):
             proj = mg.mortar_to_primary_int()
 
         if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
-            # If bound flux is gven as sub-faces we have to map it from sub-faces
+            # If bound flux is given as sub-faces we have to map it from sub-faces
             # to faces
             hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
             bound_flux = hf2f * bound_flux
@@ -307,12 +307,12 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         cc = np.array([sps.coo_matrix((i, j)) for i in dof for j in dof])
         cc = cc.reshape((3, 3))
 
-        # Projection from mortar to upper dimenional faces
+        # Projection from mortar to upper dimensional faces
         hat_P_avg = g_m.primary_to_mortar_avg()
         # Projection from mortar to lower dimensional cells
         check_P_avg = g_m.secondary_to_mortar_avg()
 
-        # mapping from upper dim cellls to faces
+        # mapping from upper dim cells to faces
         # The mortars always points from upper to lower, so we don't flip any
         # signs
         div = np.abs(pp.numerics.fv.fvutils.scalar_divergence(g_primary))
@@ -329,15 +329,13 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # transport out of lower is -lambda
         cc[1, 2] = -check_P_avg.T
 
-        # Discretisation of mortars
+        # Discretization of mortars
         # CHANGE from UpwindCoupling: multiply the discretization of the advective
         # mortar fluxes by dt and advection weight (e.g. heat capacity)
 
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
         # i.e., T_primaryat * fluid_flux = lambda.
         # We set cc[2, 0] = T_primaryat * fluid_flux
-        # import pdb
-        # pdb.set_trace()
         cc[2, 0] = sps.diags(lam_flux * flag) * hat_P_avg * div.T * sps.diags(w_primary)
 
         # If fluid flux is negative we use the lower value as weight,
