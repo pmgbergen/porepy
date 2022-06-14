@@ -1732,6 +1732,9 @@ class Exporter:
             # regarding hexahedron cells.
             cn_indices = cn_indices[:, [0, 2, 6, 4, 1, 3, 7, 5]]
 
+            # Test whether the hard-coded numbering really defines a hexahedron.
+            assert self._test_hex_meshio_format(g.nodes, cn_indices)
+
             # Store cell-node connectivity, and add offset taking into account
             # previous grids
             cell_to_nodes = np.vstack((cell_to_nodes, cn_indices + nodes_offset))
@@ -1749,6 +1752,75 @@ class Exporter:
 
         # Return final meshio data: points, cell (connectivity), cell ids
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
+
+    def _test_hex_meshio_format(self, nodes, cn_indices) -> bool:
+
+        import numba
+
+        @numba.jit(nopython=True)
+        def _function_to_compile(nodes, cn_indices) -> bool:
+            """
+            Test whether the node numbering for each cell complies
+            with the hardcoded numbering used by meshio, cf. documentation
+            of meshio.
+
+            For this, fetch three potential sides of the hex and
+            test whether they lie circular chain within a plane.
+            Here, the test is successful, if the node sets [0,1,2,3],
+            [4,5,6,7], and [0,1,5,4] define planes.
+            """
+
+            # Assume initially correct format
+            correct_format = True
+
+            # Test each cell separately
+            for i in range(cn_indices.shape[0]):
+
+                # Assume initially that the cell is a hex
+                is_hex = True
+
+                # Visit three node sets and check whether
+                # they define feasible sides of a hex.
+                global_ind_0 = cn_indices[i, 0:4]
+                global_ind_1 = cn_indices[i, 4:8]
+                global_ind_2 = np.array(
+                    [
+                        cn_indices[i, 0],
+                        cn_indices[i, 1],
+                        cn_indices[i, 5],
+                        cn_indices[i, 4],
+                    ]
+                )
+
+                # Check each side separately
+                for global_ind in [global_ind_0, global_ind_1, global_ind_2]:
+
+                    # Fetch coordinates associated to the four nodes
+                    coords = nodes[:, global_ind]
+
+                    # Check orientation by determining normalized cross products
+                    # of all two consecutive connections.
+                    normalized_cross = np.zeros((3, 3))
+                    for j in range(3):
+                        cross = np.cross(
+                            coords[:, j + 1] - coords[:, j],
+                            coords[:, (j + 2) % 4] - coords[:, j + 1],
+                        )
+                        normalized_cross[:, j] = cross / np.linalg.norm(cross)
+
+                    # Consider the points lying in a plane when each connection
+                    # produces the same normalized cross product.
+                    is_plane = np.linalg.matrix_rank(normalized_cross) == 1
+
+                    # Combine with the remaining sides
+                    is_hex = is_hex and is_plane
+
+                # Combine the results for all cells
+                correct_format = correct_format and is_hex
+
+            return correct_format
+
+        return _function_to_compile(nodes, cn_indices)
 
     def _export_polyhedron_3d(self, gs: Iterable[pp.Grid]) -> Meshio_Geom:
         """
@@ -1887,9 +1959,8 @@ class Exporter:
         # Utilize meshio_geom for this.
         for field in fields:
 
-            # TODO RM? as implemented now, field.values should never be None.
-            if field.values is None:
-                continue
+            # Although technically possible, as implemented, field.values should never be None.
+            assert field.values is not None
 
             # For each field create a sub-vector for each geometrically uniform group of cells
             num_block = meshio_geom.cell_ids.size
