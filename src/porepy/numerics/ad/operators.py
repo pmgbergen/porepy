@@ -109,9 +109,14 @@ class Operator:
         else:
             # We need to look deeper in the tree.
             # Look for variables among the children
-            sub_variables = [
-                child._find_subtree_variables() for child in self.tree.children
-            ]
+            sub_variables = []
+            # When using nested pp.ad.Functions, some of the children may be Ad_arrays
+            # (forward mode), rather than Operators. For the former, don't look for
+            # children - they have none.
+            for child in self.tree.children:
+                if isinstance(child, pp.ad.Operator):
+                    sub_variables += child._find_subtree_variables()
+
             # Some work is needed to parse the information
             var_list: List[Variable] = []
             for var in sub_variables:
@@ -289,6 +294,11 @@ class Operator:
                     return self._prev_iter_vals[op.id]
                 else:
                     return self._ad[op.id]
+        elif isinstance(op, pp.ad.Ad_array):
+            # When using nested pp.ad.Function, op can be an already evaluated term.
+            # Just return it.
+            return op
+
         elif op.is_leaf():
             # Case 2
             # EK: Is this correct after moving from Expression?
@@ -743,6 +753,9 @@ class Operator:
         elif isinstance(other, sps.spmatrix):
             return [self, pp.ad.Matrix(other)]
         elif isinstance(other, pp.ad.Operator) or isinstance(other, Operator):
+            return [self, other]
+        elif isinstance(other, pp.ad.Ad_array):
+            # This may happen when using nested pp.ad.Function.
             return [self, other]
         else:
             raise ValueError(f"Cannot parse {other} as an AD operator")
