@@ -148,7 +148,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         seg_vert = seg_vert_all[0]
 
         # Find number of unique intersection points.
-        _, mapping, _ = pp.utils.setmembership.unique_columns_tol(coord, tol)
+        _, mapping, _ = pp.utils.setmembership.uniquify_point_set(coord, tol)
         # If there are no, or a single intersection point, we just need to test if the
         # entire polygon is inside the polyhedral.
         # A single intersection point can only be combined with a polygon fully inside
@@ -356,7 +356,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
             # Consider unique intersection points; there may be repititions in cases
             # where the polyhedron has multiple parallel sides.
-            isect_coord, _, _ = pp.utils.setmembership.unique_columns_tol(
+            isect_coord, _, _ = pp.utils.setmembership.uniquify_point_set(
                 coord[:, loc_isect_ind], tol
             )
 
@@ -438,12 +438,12 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             axis=0,
         )
         # Uniquify intersection coordinates, and update the segments
-        unique_coords, _, ib = pp.utils.setmembership.unique_columns_tol(
+        unique_coords, _, ib = pp.utils.setmembership.uniquify_point_set(
             coord_extended, tol=tol
         )
         unique_segments = ib[segments]
         # Then uniquify the segments, in terms of the unique coordinates
-        unique_segments, *rest = pp.utils.setmembership.unique_columns_tol(
+        unique_segments, *rest = pp.utils.setmembership.uniquify_point_set(
             unique_segments
         )
         # Remove point segments.
