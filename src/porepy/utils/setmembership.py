@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Tuple
 import numba
 import numpy as np
+from scipy.spatial import KDTree
 
 
 def unique_rows(
@@ -44,9 +45,6 @@ def ismember_rows(
     Find *columns* of a that are also members of *columns* of b.
 
     The function mimics Matlab's function ismember(..., 'rows').
-
-    If the numpy version is less than 1.13, this function will be slow for
-    large arrays.
 
     TODO: Rename function, this is confusing!
 
@@ -207,3 +205,40 @@ def unique_columns_tol(
     keep, new_2_old, old_2_new = _numba_distance(mat_t, tol)
 
     return mat[:, keep], new_2_old, old_2_new
+
+
+def uniquify_point_set(
+    points: np.ndarray[Any, np.dtype[np.float64]], tol: float = 1e-8
+) -> Tuple[
+    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray[Any, np.dtype[np.int64]],
+    np.ndarray[Any, np.dtype[np.int64]],
+]:
+    num_p = points.shape[1]
+    tree = KDTree(points.T)
+
+    pairs = tree.query_pairs(tol, output_type="ndarray")
+
+    if pairs.size == 0:
+        return points.copy(), np.arange(num_p), np.arange(num_p)
+
+    pair_arr = np.sort(pairs, axis=1)
+    sorted_arr = pair_arr[np.lexsort((pair_arr[:, 1], pair_arr[:, 0]))].T
+
+    duplicate = np.isin(sorted_arr[0], sorted_arr[1])
+
+    reduced_arr = sorted_arr[:, np.logical_not(duplicate)]
+    not_in_pairs = np.setdiff1d(np.arange(points.shape[1]), pair_arr.ravel())
+
+    reduced_arr = np.hstack((reduced_arr, np.tile(not_in_pairs, (2, 1))))
+
+    ia = np.unique(reduced_arr[0])
+
+    ib = np.arange(num_p)
+    _, inv_map = np.unique(reduced_arr[0], return_inverse=True)
+    ib[reduced_arr[0]] = inv_map
+    ib[reduced_arr[1]] = ib[reduced_arr[0]]
+
+    upoints = points[:, ia]
+
+    return upoints, ia, ib

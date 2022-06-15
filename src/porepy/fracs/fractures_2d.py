@@ -13,7 +13,6 @@ import numpy as np
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
-from porepy.utils.setmembership import unique_columns_tol
 
 from .gmsh_interface import GmshData2d, GmshWriter, Tags
 
@@ -383,7 +382,7 @@ class FractureNetwork2d(object):
         ]
 
         # uniquify the points
-        self.pts, _, old_2_new = unique_columns_tol(self.pts, tol=self.tol)
+        self.pts, _, old_2_new = pp.utils.setmembership.uniquify_point_set(self.pts, tol=self.tol)
         self.edges = old_2_new[self.edges]
         self._decomposition["domain_boundary_points"] = old_2_new[
             self._decomposition["domain_boundary_points"]
@@ -470,7 +469,7 @@ class FractureNetwork2d(object):
         edges = np.vstack((edges, tags))
 
         # Ensure unique description of points
-        pts_all, _, old_2_new = unique_columns_tol(points, tol=self.tol)
+        pts_all, _, old_2_new = pp.utils.setmembership.uniquify_point_set(points, tol=self.tol)
         edges[:2] = old_2_new[edges[:2]]
         to_remove = np.where(edges[0, :] == edges[1, :])[0]
         lines = np.delete(edges, to_remove, axis=1)
@@ -484,7 +483,7 @@ class FractureNetwork2d(object):
         # This may disturb the line tags in lines[2], but we should not be
         # dependent on those.
         li = np.sort(lines[:2], axis=0)
-        _, new_2_old, old_2_new = unique_columns_tol(li, tol=self.tol)
+        _, new_2_old, old_2_new = pp.utils.setmembership.unique_columns_tol(li, tol=self.tol)
         lines = lines[:, new_2_old]
 
         if not np.all(np.diff(lines[:2], axis=0) != 0):
@@ -503,7 +502,7 @@ class FractureNetwork2d(object):
         logger.info("Done. Elapsed time " + str(time.time() - tm))
 
         # Ensure unique description of points
-        pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=self.tol)
+        pts_split, _, old_2_new = pp.utils.setmembership.uniquify_point_set(pts_split, tol=self.tol)
         lines_split[:2] = old_2_new[lines_split[:2]]
         to_remove = np.where(lines[0, :] == lines[1, :])[0]
         lines = np.delete(lines, to_remove, axis=1)
@@ -667,7 +666,7 @@ class FractureNetwork2d(object):
         # the other outside the domain. In this case the edge should be removed.
         # The edge will have been cut so that the endpoints coincide. Look for
         # such edges
-        _, _, n2o = pp.utils.setmembership.unique_columns_tol(p, self.tol)
+        _, _, n2o = pp.utils.setmembership.uniquify_point_set(p, self.tol)
         reduced_edges = n2o[e]
         not_point_edge = np.diff(reduced_edges, axis=0).ravel() != 0
 
