@@ -59,7 +59,7 @@ class TestIsmember(unittest.TestCase):
         self.assertTrue(np.allclose(ma, ma_known))
         self.assertTrue(np.allclose(ia, ia_known))
 
-    def test_ismember_rows_unqual_sizes_1(self):
+    def test_ismember_rows_unqual_sizes_2(self):
         # b larger than b
         a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
         b = np.array([[3, 1, 2, 5, 3, 4, 7], [3, 3, 3, 1, 9, 9, 9]])
