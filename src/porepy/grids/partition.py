@@ -43,9 +43,14 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
 
     # Connection map between cells
     c2c = g.cell_connection_map()
+    # Enforce csr. This should be the case anyhow, but better safe than sorry.
+    c2c = c2c.tocsr()
 
     # Convert the cells into the format required by pymetis
-    adjacency_list = [list(c2c.getrow(i).indices) for i in range(c2c.shape[0])]
+    indptr = c2c.indptr
+    adjacency_list = [
+        c2c.indices[indptr[i] : indptr[i + 1]].tolist() for i in range(c2c.shape[0])
+    ]
     # Call pymetis
     # It seems it is important that num_part is an int, not an int.
     part = pymetis.part_graph(int(num_part), adjacency=adjacency_list)
