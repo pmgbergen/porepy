@@ -1784,8 +1784,8 @@ class Exporter:
                 # they define feasible sides of a hex.
                 # FIXME use shorter code of the following style - note: the order in the
                 # array is not the same troubling numba
-                #global_ind_0 = cn_indices[i, 0:4]
-                #global_ind_1 = cn_indices[i, 4:8]
+                # global_ind_0 = cn_indices[i, 0:4]
+                # global_ind_1 = cn_indices[i, 4:8]
                 global_ind_0 = np.array(
                     [
                         cn_indices[i, 0],
