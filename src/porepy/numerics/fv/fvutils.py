@@ -847,7 +847,7 @@ class ExcludeBoundaries(object):
             [[0, 1, 0, 0],
               [0, 0, 0, 1]]
         """
-        col = np.argwhere([not it for it in ids])
+        col = np.argwhere(np.logical_not(ids))
         row = np.arange(col.size)
         return sps.coo_matrix(
             (np.ones(row.size, dtype=bool), (row, col.ravel("C"))),
