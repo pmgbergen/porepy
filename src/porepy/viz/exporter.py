@@ -1782,8 +1782,26 @@ class Exporter:
 
                 # Visit three node sets and check whether
                 # they define feasible sides of a hex.
-                global_ind_0 = cn_indices[i, 0:4]
-                global_ind_1 = cn_indices[i, 4:8]
+                # FIXME use shorter code of the following style - note: the order in the
+                # array is not the same troubling numba
+                #global_ind_0 = cn_indices[i, 0:4]
+                #global_ind_1 = cn_indices[i, 4:8]
+                global_ind_0 = np.array(
+                    [
+                        cn_indices[i, 0],
+                        cn_indices[i, 1],
+                        cn_indices[i, 2],
+                        cn_indices[i, 3],
+                    ]
+                )
+                global_ind_1 = np.array(
+                    [
+                        cn_indices[i, 4],
+                        cn_indices[i, 5],
+                        cn_indices[i, 6],
+                        cn_indices[i, 7],
+                    ]
+                )
                 global_ind_2 = np.array(
                     [
                         cn_indices[i, 0],
@@ -1791,7 +1809,7 @@ class Exporter:
                         cn_indices[i, 5],
                         cn_indices[i, 4],
                     ]
-                )[:]
+                )
 
                 # Check each side separately
                 for global_ind in [global_ind_0, global_ind_1, global_ind_2]:
