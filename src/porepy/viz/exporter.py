@@ -873,7 +873,8 @@ class Exporter:
         attributes _constant_subdomain_data and _constant_interface_data, have
         the same format as the output of _sort_and_unify_data.
         """
-        # Identify change in constant data. Has the effect that
+        # Assume a change in constant data (it is not checked whether
+        # the data really has been modified). Has the effect that
         # the constant data container will be exported at the
         # next application of write_vtu().
         self._exported_constant_data_up_to_date = False
@@ -1790,7 +1791,7 @@ class Exporter:
                         cn_indices[i, 5],
                         cn_indices[i, 4],
                     ]
-                )
+                )[:]
 
                 # Check each side separately
                 for global_ind in [global_ind_0, global_ind_1, global_ind_2]:
