@@ -3,7 +3,9 @@ Module contains functions for distance computations.
 
 """
 from __future__ import annotations
+
 from typing import Any
+
 import numpy as np
 from scipy.spatial import distance as scidist
 
@@ -306,7 +308,9 @@ def point_pointset(p, pset, exponent=2):
     )
 
 
-def pointset(p: np.ndarray[Any, np.dtype[np.float64]], max_diag: bool=False) -> np.ndarray[Any, np.dtype[np.float64]]:
+def pointset(
+    p: np.ndarray[Any, np.dtype[np.float64]], max_diag: bool = False
+) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Compute mutual distance between all points in a point set.
 
     Parameters:
@@ -321,15 +325,15 @@ def pointset(p: np.ndarray[Any, np.dtype[np.float64]], max_diag: bool=False) -> 
     """
     if p.ndim == 1 or p.ndim == 2 and p.shape[-1] == 1:
         return np.zeros((1, 1))
-    
+
     # Use scipy spatial function to compute distances between points
-    d = scidist.cdist(p.T, p.T, 'euclidean')
-    
+    d = scidist.cdist(p.T, p.T, "euclidean")
+
     if max_diag:
         # Get the maximum per row (could have used column, the distance matrix is
         # symmetric), and add it to the diagonal
         row_max = np.max(d, axis=1)
-        d += 2 * np.diag(row_max)        
+        d += 2 * np.diag(row_max)
 
     return d
 
