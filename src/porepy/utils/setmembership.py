@@ -2,7 +2,7 @@
 Various functions with set operations.
 """
 from __future__ import annotations
-from typing import Any, Tuple
+from typing import Any, Tuple, Union
 import numba
 import numpy as np
 from scipy.spatial import KDTree
@@ -71,6 +71,10 @@ def ismember_rows(
         (array([ True,  True, False,  True, False], dtype=bool), [1, 0, 1])
 
     """
+    # IMPLEMENTATION NOTE: A serious attempt was made (June 2022) to speed up
+    # this calculation by using functionality from scipy.spatial. This did not
+    # work: The Scipy functions scaled poorly with the size of arrays a and b,
+    # and lead to memory overflow for large arrays.
 
     # Sort if required, but not if the input is 1d
     if sort and a.ndim > 1:
@@ -114,20 +118,23 @@ def ismember_rows(
 
 
 def unique_columns_tol(
-    mat: np.ndarray[Any, np.dtype[np.float64]], tol: float = 1e-8
+    mat: Union[np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.int64]]], tol: float = 1e-8
 ) -> Tuple[
     np.ndarray[Any, np.dtype[np.float64]],
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.int64]],
 ]:
     """
-    Remove duplicates from a point set, for a given distance traveling.
+    For an array, remove columns that are closer than a given tolerance.
+
+    To uniquify a point set, consider using the function uniquify_point_set
+    instead.    
 
     Resembles Matlab's uniquetol function, as applied to columns. To rather
     work at rows, use a transpose.
-
+    
     Parameters:
-        mat (np.ndarray, nd x n_pts): Columns to be uniquified
+        mat (np.ndarray, nd x n_pts): Columns to be uniquified. 
         tol (double, optional): Tolerance for when columns are considered equal.
             Should be seen in connection with distance between the points in
             the points (due to rounding errors). Defaults to 1e-8.
@@ -138,7 +145,7 @@ def unique_columns_tol(
         old_2_new: Index of the representation of old points in the reduced
             list.
 
-    Example (won't work as doctest):
+    Example:
         >>> p_un, n2o, o2n = unique_columns(np.array([[1, 0, 1], [1, 0, 1]]))
         >>> p_un
         array([[1, 0], [1, 0]])
@@ -169,7 +176,20 @@ def unique_columns_tol(
 
     @numba.jit("Tuple((b1[:],i8[:],i8[:]))(f8[:, :],f8)", nopython=True, cache=True)
     def _numba_distance(mat, tol):
-        # Helper function for numba acceleration of unique_columns_tol
+        """ Helper function for numba acceleration of unique_columns_tol.
+        
+        IMPLEMENTATION NOTE: Calling this function many times (it is unclear
+        what this really means, but likely >=100s of thousands of times) may
+        lead to enhanced memory consumption and significant reductions in
+        performance. This could be related to this GH issue
+        
+            https://github.com/numba/numba/issues/1361
+
+        However, it is not clear this is really the error. No solution is known
+        at the time of writing, the only viable options seem to be algorithmic
+        modifications that reduce the number of calls to this function.
+
+        """
         num_cols = mat.shape[0]
         keep = np.zeros(num_cols, dtype=numba.types.bool_)
         keep[0] = True
@@ -199,9 +219,9 @@ def unique_columns_tol(
 
     mat_t = np.atleast_2d(mat.T).astype(float)
 
-    # IMPLEMENTATION NOTE: For small problems, it will likely not pay off to
-    # wait for the numba compile. Consider to make a python version of the numba
-    # function and use this for small (whatever that means) mat_t.
+    # IMPLEMENTATION NOTE: It could pay off to make a pure Python implementation
+    # to be used for small arrays, however, attempts on making this work in
+    # practice failed.
     keep, new_2_old, old_2_new = _numba_distance(mat_t, tol)
 
     return mat[:, keep], new_2_old, old_2_new
@@ -214,31 +234,83 @@ def uniquify_point_set(
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.int64]],
 ]:
-    num_p = points.shape[1]
-    tree = KDTree(points.T)
+    """Uniquify a set of points so that no two sets of points are closer than a
+    distance tol from each other.
+    
+    This function is partially overlapping by the function unique_columns_tol,
+    but the latter is more general, as it provides fast treatment of integer
+    arrays.
+    
+    FIXME: It should be possible to unify the two implementations, however,
+    more experience is needed before doing so.
+  
+    Parameters:
+        mat (np.ndarray, nd x n_pts): Columns to be uniquified. 
+        tol (double, optional): Tolerance for when columns are considered equal.
+            Should be seen in connection with distance between the points in
+            the points (due to rounding errors). Defaults to 1e-8.
 
+    Returns:
+        np.ndarray: Unique columns.
+        new_2_old: Index of which points that are preserved
+        old_2_new: Index of the representation of old points in the reduced
+            list.
+
+    """
+    # The implementation uses Scipy's KDTree implementation to efficiently get
+    # the distance between points.
+    num_p = points.shape[1]
+    # Transpose needed to comply with KDTree.
+    tree = KDTree(points.T)
+    
+    # Get all pairs of points closer than the tolerance.
     pairs = tree.query_pairs(tol, output_type="ndarray")
 
     if pairs.size == 0:
-        return points.copy(), np.arange(num_p), np.arange(num_p)
+        # No points were find, we can return 
+        return points, np.arange(num_p), np.arange(num_p)
 
+    # Process information to arive at a unique point set. This is technical,
+    # since we need to deal with cases where more than two points coincide
+    # (example: if the points p1, p2 and p3 coincide, they will be identified
+    # either by the pairs {(i1, i2), (i1, i3)}, by {(i1, i2), (i2, i3)},
+    # or by {(i1, i3), (i2, i3)}). 
+    
+    # Sort the index pairs of identical points for simpler identification.
+    # NOTE: pairs, as returned by KDTree, is a num_pairs x 2 array, thus
+    # sorting the pairs should be along axis 1.
     pair_arr = np.sort(pairs, axis=1)
+    # Sort the pairs along axis=1. The lexsort will make the sorting first
+    # according to pair_arr[:, 0] (the point with the lowest index in each
+    # pair), and then according to the second index (pair_arr[:, 1]). The
+    # result will be a lexiograpically ordered array.
+    # Also note the transport back to a 2 x num_pairs array.
     sorted_arr = pair_arr[np.lexsort((pair_arr[:, 1], pair_arr[:, 0]))].T
 
+    # Find points that are both in the first and second row. This will identify
+    # triplets identified by pairs {(i1, i2), (i2, i3)} as described above.
     duplicate = np.isin(sorted_arr[0], sorted_arr[1])
-
+    # Array with duplicates of the type {(i1, i2), (i1, i3)} removed.
     reduced_arr = sorted_arr[:, np.logical_not(duplicate)]
+    
+    # Also identify points that are not involved in any pairs, these should be
+    # included in the unique set. Append these to the point array.
     not_in_pairs = np.setdiff1d(np.arange(points.shape[1]), pair_arr.ravel())
-
     reduced_arr = np.hstack((reduced_arr, np.tile(not_in_pairs, (2, 1))))
 
+    # The array can still contain pairs of type {(i1, i2), (i1, i3)} and
+    # {(i1, i3), (i1, i3)}. These can be identified by a unique on the first
+    # row.
     ia = np.unique(reduced_arr[0])
 
+    # Make a mapping from all points to the reduced set.
     ib = np.arange(num_p)
     _, inv_map = np.unique(reduced_arr[0], return_inverse=True)
     ib[reduced_arr[0]] = inv_map
     ib[reduced_arr[1]] = ib[reduced_arr[0]]
 
+    # Uniquify points.
     upoints = points[:, ia]
 
+    # Done.
     return upoints, ia, ib
