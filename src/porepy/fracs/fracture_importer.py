@@ -75,7 +75,7 @@ def network_3d_from_csv(
             check_convexity = kwargs.get("check_convexity", True)
 
             frac_list.append(
-                pp.Fracture(
+                pp.Fracture3d(
                     pts.reshape((3, -1), order="F"), check_convexity=check_convexity
                 )
             )
@@ -152,7 +152,7 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
             num_points = int(data[8])
 
             frac_list.append(
-                pp.EllipticFracture(
+                pp.EllipticFracture3d(
                     centers, maj_ax, min_ax, maj_ax_ang, strike_ang, dip_ang, num_points
                 )
             )
@@ -490,7 +490,7 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
                 # Check for keywords not yet implemented.
                 raise ValueError("Unknown section type " + line)
 
-    fractures = [pp.Fracture(f) for f in fracs]
+    fractures = [pp.Fracture3d(f) for f in fracs]
     if tol is not None:
         network = pp.FractureNetwork3d(fractures, tol=tol)
     else:

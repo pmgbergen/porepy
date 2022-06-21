@@ -19,437 +19,10 @@ import porepy as pp
 from porepy.utils import setmembership, sort_points
 
 from .gmsh_interface import GmshData3d, GmshWriter, Tags
+from .fracture_3d import Fracture3d, EllipticFracture3d
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
-
-
-class Fracture(object):
-    """Class representing a single fracture, as a convex, planar 2D object
-    embedded in 3D space.
-
-    The fracture is defined by its vertexes. It contains various utility
-    methods, mainly intended for use together with the FractureNetwork class.
-
-    Non-convex fractures can be initialized, but geometry processing (computation
-    of intersections etc.) is not supported for non-convex geometries. As a
-    work-around, the fracture can be split into convex parts.
-
-    Attributes:
-        p (np.ndarray, 3 x npt): Fracture vertices. Will be stored in a CCW
-            order (or CW, depending on which side it is viewed from).
-        orig_p (np.ndarray, 3 x npt): Original fracture vertices, kept in case
-            the fracture geometry for some reason is modified.
-        center (np.ndarray, 3 x 1): Fracture centroid.
-        index (int): Index of fracture. Intended used in FractureNetork.
-            Exact use is not clear (several fractures can be given same index),
-            use with care.
-
-    """
-
-    def __init__(self, points, index=None, check_convexity=False, sort_points=True):
-        """Initialize fractures.
-
-        __init__ defines the vertexes of the fracture and sort them to be CCW.
-        Also compute centroid and normal, and check for planarity and
-        convexity.
-
-        Parameters:
-            points (np.ndarray-like, 3 x npt): Vertexes of new fracture. There
-                should be at least 3 points to define a plane.
-            index (int, optional): Index of fracture. Defaults to None.
-            check_convexity (boolean, optional): If True, check if the given
-                points are convex. Defaults to False. Can be skipped if the
-                plane is known to be convex to save (substantial) time.
-            sort_points (boolean, optional): If True (default) the points are
-                sorted to a ccv ordering. Note that the algorithm assumes
-                convexity of the polygon, thus if a fracture is known to be
-                non-convex, the paramater should be False.
-
-        """
-        self.p = np.asarray(points, dtype=np.float)
-        # Ensure the points are ccw
-        if sort_points:
-            self.points_2_ccw()
-        self.compute_centroid()
-        self.compute_normal()
-
-        self.orig_p = self.p.copy()
-
-        self.index = index
-
-        assert self.is_planar(), "Points define non-planar fracture"
-        if check_convexity:
-            assert self.check_convexity(), "Points form non-convex polygon"
-
-    def set_index(self, i):
-        """Set index of this fracture.
-
-        Parameters:
-            i (int): Index.
-
-        """
-        self.index = i
-
-    def __eq__(self, other):
-        """Equality is defined as two fractures having the same index.
-
-        There are issues with this, behavior may change in the future.
-
-        """
-        return self.index == other.index
-
-    def copy(self):
-        """Return a deep copy of the fracture.
-
-        Note that the original points (as given when the fracture was
-        initialized) will *not* be preserved.
-
-        Returns:
-            Fracture with the same points.
-
-        """
-        p = np.copy(self.p)
-        return Fracture(p)
-
-    def points(self):
-        """
-        Iterator over the vexrtexes of the bounding polygon
-
-        Yields:
-            np.array (3 x 1): polygon vertexes
-
-        """
-        for i in range(self.p.shape[1]):
-            yield self.p[:, i].reshape((-1, 1))
-
-    def segments(self):
-        """
-        Iterator over the segments of the bounding polygon.
-
-        Yields:
-            np.array (3 x 2): polygon segment
-        """
-
-        sz = self.p.shape[1]
-        for i in range(sz):
-            yield self.p[:, np.array([i, i + 1]) % sz]
-
-    def is_vertex(self, p, tol=1e-4):
-        """Check whether a given point is a vertex of the fracture.
-
-        Parameters:
-            p (np.array): Point to check
-            tol (double): Tolerance of point accuracy.
-
-        Returns:
-            True: if the point is in the vertex set, false if not.
-            int: Index of the identical vertex. None if not a vertex.
-
-        """
-        p = p.reshape((-1, 1))
-        ap = np.hstack((p, self.p))
-        up, _, ind = setmembership.unique_columns_tol(ap, tol=tol * np.sqrt(3))
-
-        # If uniquifying did not remove any points, it is not a vertex.
-        if up.shape[1] == ap.shape[1]:
-            return False, None
-        else:
-            occurences = np.where(ind == ind[0])[0]
-            return True, (occurences[1] - 1)
-
-    def points_2_ccw(self):
-        """
-        Ensure that the points are sorted in a counter-clockwise order.
-
-        implementation note:
-            For now, the ordering of nodes in based on a simple angle argument.
-            This will not be robust for general point clouds, but we expect the
-            fractures to be regularly shaped in this sense. In particular, we
-            will be safe if the cell is convex.
-
-        Returns:
-            np.array (int): The indices corresponding to the sorting.
-
-        """
-        # First rotate coordinates to the plane
-        points_2d = self.plane_coordinates()
-        # Center around the 2d origin
-        points_2d -= np.mean(points_2d, axis=1).reshape((-1, 1))
-
-        theta = np.arctan2(points_2d[1], points_2d[0])
-        sort_ind = np.argsort(theta)
-
-        self.p = self.p[:, sort_ind]
-
-        return sort_ind
-
-    def add_points(self, p, check_convexity=True, tol=1e-4, enforce_pt_tol=None):
-        """
-        Add a point to the polygon with ccw sorting enforced.
-
-        Always run a test to check that the points are still planar. By
-
-        default, a check of convexity is also performed, however, this can be
-        turned off to speed up simulations (the test uses sympy, which turns
-        out to be slow in many cases).
-
-        Parameters:
-            p (np.ndarray, 3xn): Points to add
-            check_convexity (boolean, optional): Verify that the polygon is
-                convex. Defaults to true.
-            tol (double, optional): Tolerance used to check if the point
-                already exists. Defaults to 1e-4.
-
-        Return:
-            boolean, true if the resulting polygon is convex.
-
-        """
-
-        to_enforce = np.hstack(
-            (
-                np.zeros(self.p.shape[1], dtype=bool),
-                np.ones(p.shape[1], dtype=bool),
-            )
-        )
-        self.p = np.hstack((self.p, p))
-        self.p, _, _ = setmembership.unique_columns_tol(self.p, tol=tol)
-
-        # Sort points to ccw
-        mask = self.points_2_ccw()
-
-        if enforce_pt_tol is not None:
-            to_enforce = np.where(to_enforce[mask])[0]
-            dist = pp.distances.pointset(self.p)
-            dist /= np.amax(dist)
-            np.fill_diagonal(dist, np.inf)
-            mask = np.where(dist < enforce_pt_tol)[0]
-            mask = np.setdiff1d(mask, to_enforce, assume_unique=True)
-            self.remove_points(mask)
-
-        if check_convexity:
-            return self.check_convexity() and self.is_planar(tol)
-        else:
-            return self.is_planar()
-
-    def remove_points(self, ind, keep_orig=False):
-        """Remove points from the fracture definition
-
-        Parameters:
-            ind (np array-like): Indices of points to remove.
-            keep_orig (boolean, optional): Whether to keep the original points
-                in the attribute orig_p. Defaults to False.
-
-        """
-        self.p = np.delete(self.p, ind, axis=1)
-        if not keep_orig:
-            self.orig_p = self.p
-
-    def plane_coordinates(self):
-        """
-        Represent the vertex coordinates in its natural 2d plane.
-
-        The plane does not necessarily have the third coordinate as zero (no
-        translation to the origin is made)
-
-        Returns:
-            np.array (2xn): The 2d coordinates of the vertexes.
-
-        """
-        rotation = pp.map_geometry.project_plane_matrix(self.p)
-        points_2d = rotation.dot(self.p)
-
-        return points_2d[:2]
-
-    def check_convexity(self):
-        """
-        Check if the polygon is convex.
-
-        Todo: If a hanging node is inserted at a segment, this may slightly
-            violate convexity due to rounding errors. It should be possible to
-            write an algorithm that accounts for this. First idea: Projcet
-            point onto line between points before and after, if the projection
-            is less than a tolerance, it is okay.
-
-        Returns:
-            boolean, true if the polygon is convex.
-
-        """
-        if self.p.shape[1] == 3:
-            # A triangle is always convex
-            return True
-
-        p_2d = self.plane_coordinates()
-        return self.as_sp_polygon(p_2d).is_convex()
-
-    def is_planar(self, tol=1e-4):
-        """Check if the points forming this fracture lies in a plane.
-
-        Parameters:
-            tol (double): Tolerance for non-planarity. Treated as an absolute
-                quantity (no scaling with fracture extent)
-
-        Returns:
-            boolean, True if the polygon is planar. False if not.
-        """
-        p = self.p - np.mean(self.p, axis=1).reshape((-1, 1))
-        rot = pp.map_geometry.project_plane_matrix(p)
-        p_2d = rot.dot(p)
-        return np.max(np.abs(p_2d[2])) < tol
-
-    def compute_centroid(self):
-        """
-        Compute, and redefine, center of the fracture in the form of the
-        centroid.
-
-        The method assumes the polygon is convex.
-
-        """
-        # Rotate to 2d coordinates
-        rot = pp.map_geometry.project_plane_matrix(self.p)
-        p = rot.dot(self.p)
-        z = p[2, 0]
-        p = p[:2]
-
-        # Vectors from the first point to all other points. Subsequent pairs of
-        # these will span triangles which, assuming convexity, will cover the
-        # polygon.
-        v = p[:, 1:] - p[:, 0].reshape((-1, 1))
-        # The cell center of the triangles spanned by the subsequent vectors
-        cc = (p[:, 0].reshape((-1, 1)) + p[:, 1:-1] + p[:, 2:]) / 3
-        # Area of triangles
-        area = 0.5 * np.abs(v[0, :-1] * v[1, 1:] - v[1, :-1] * v[0, 1:])
-
-        # The center is found as the area weighted center
-        center = np.sum(cc * area, axis=1) / np.sum(area)
-
-        # Project back again.
-        self.center = rot.transpose().dot(np.append(center, z)).reshape((3, 1))
-
-    def compute_normal(self):
-        """Compute normal to the polygon."""
-        self.normal = pp.map_geometry.compute_normal(self.p)[:, None]
-
-    def as_sp_polygon(self, p=None):
-        """Represent polygon as a sympy object.
-
-        Parameters:
-            p (np.array, nd x npt, optional): Points for the polygon. Defaults
-                to None, in which case self.p is used.
-
-        Returns:
-            sympy.geometry.Polygon: Representation of the polygon formed by p.
-
-        """
-        from sympy.geometry import Point, Polygon
-
-        if p is None:
-            p = self.p
-
-        sp = [Point(p[:, i]) for i in range(p.shape[1])]
-        return Polygon(*sp)
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __str__(self):
-        s = "Points: \n"
-        s += str(self.p) + "\n"
-        s += "Center: " + str(self.center)
-        return s
-
-
-class EllipticFracture(Fracture):
-    """
-    Subclass of Fractures, representing an elliptic fracture.
-
-    See parent class for description.
-
-    """
-
-    def __init__(
-        self,
-        center,
-        major_axis,
-        minor_axis,
-        major_axis_angle,
-        strike_angle,
-        dip_angle,
-        num_points=16,
-    ):
-        """
-        Initialize an elliptic shaped fracture, approximated by a polygon.
-
-
-        The rotation of the plane is calculated using three angles. First, the
-        rotation of the major axis from the x-axis. Next, the fracture is
-        inclined by specifying the strike angle (which gives the rotation
-        axis) measured from the x-axis, and the dip angle. All angles are
-        measured in radians.
-
-        Parameters:
-            center (np.ndarray, size 3x1): Center coordinates of fracture.
-            major_axis (double): Length of major axis (radius-like, not
-                diameter).
-            minor_axis (double): Length of minor axis. There are no checks on
-                whether the minor axis is less or equal the major.
-            major_axis_angle (double, radians): Rotation of the major axis from
-                the x-axis. Measured before strike-dip rotation, see above.
-            strike_angle (double, radians): Line of rotation for the dip.
-                Given as angle from the x-direction.
-            dip_angle (double, radians): Dip angle, i.e. rotation around the
-                strike direction.
-            num_points (int, optional): Number of points used to approximate
-                the ellipsis. Defaults to 16.
-
-        Example:
-            Fracture centered at [0, 1, 0], with a ratio of lengths of 2,
-            rotation in xy-plane of 45 degrees, and an incline of 30 degrees
-            rotated around the x-axis.
-            >>> frac = EllipticFracture(np.array([0, 1, 0]), 10, 5, np.pi/4, 0,
-                                        np.pi/6)
-
-        """
-        center = np.asarray(center)
-        if center.ndim == 1:
-            center = center.reshape((-1, 1))
-        self.center = center
-
-        # First, populate polygon in the xy-plane
-        angs = np.linspace(0, 2 * np.pi, num_points + 1, endpoint=True)[:-1]
-        x = major_axis * np.cos(angs)
-        y = minor_axis * np.sin(angs)
-        z = np.zeros_like(angs)
-        ref_pts = np.vstack((x, y, z))
-
-        assert pp.geometry_property_checks.points_are_planar(ref_pts)
-
-        # Rotate reference points so that the major axis has the right
-        # orientation
-        major_axis_rot = pp.map_geometry.rotation_matrix(major_axis_angle, [0, 0, 1])
-        rot_ref_pts = major_axis_rot.dot(ref_pts)
-
-        assert pp.geometry_property_checks.points_are_planar(rot_ref_pts)
-
-        # Then the dip
-        # Rotation matrix of the strike angle
-        strike_rot = pp.map_geometry.rotation_matrix(strike_angle, np.array([0, 0, 1]))
-        # Compute strike direction
-        strike_dir = strike_rot.dot(np.array([1, 0, 0]))
-        dip_rot = pp.map_geometry.rotation_matrix(dip_angle, strike_dir)
-
-        dip_pts = dip_rot.dot(rot_ref_pts)
-
-        assert pp.geometry_property_checks.points_are_planar(dip_pts)
-
-        # Set the points, and store them in a backup.
-        self.p = center + dip_pts
-        self.orig_p = self.p.copy()
-
-        # Compute normal vector
-        self.normal = pp.map_geometry.compute_normal(self.p)[:, None]
-
-        assert pp.geometry_property_checks.points_are_planar(self.orig_p, self.normal)
 
 
 class FractureNetwork3d(object):
@@ -488,7 +61,7 @@ class FractureNetwork3d(object):
 
     def __init__(
         self,
-        fractures: Optional[List[Fracture]] = None,
+        fractures: Optional[List[Fracture3d]] = None,
         domain: Optional[Union[Dict[str, float], List[np.ndarray]]] = None,
         tol: float = 1e-8,
         run_checks: bool = False,
@@ -1002,7 +575,7 @@ class FractureNetwork3d(object):
         return self._fractures[position]
 
     def intersections_of_fracture(
-        self, frac: Union[int, Fracture]
+        self, frac: Union[int, Fracture3d]
     ) -> Tuple[List[int], List[bool]]:
         """Get all known intersections for a fracture.
 
@@ -1833,7 +1406,7 @@ class FractureNetwork3d(object):
                 # the points should not be sorted.
                 # Splitting of non-convex fractures into convex subparts is
                 # handled below.
-                new_frac = Fracture(constrained_polys[sub_i], sort_points=False)
+                new_frac = Fracture3d(constrained_polys[sub_i], sort_points=False)
                 self.add(new_frac)
                 ind_map = np.hstack((ind_map, fi))
 
@@ -2162,7 +1735,7 @@ class FractureNetwork3d(object):
                 # thus a linear ordering should be fine also for a subpolygon.
                 verts = np.unique(triangles[tris])
                 # To be sure, check the convexity of the polygon.
-                self.add(Fracture(f.p[:, verts], check_convexity=False))
+                self.add(Fracture3d(f.p[:, verts], check_convexity=False))
                 ind_map = np.hstack((ind_map, fi))
 
             # Finally increase pointer to ind_map array
@@ -2184,7 +1757,7 @@ class FractureNetwork3d(object):
         boundary_tags = self.tags.get("boundary", [False] * len(self._fractures))
         if keep_box:
             for f in polyhedron:
-                self.add(Fracture(f))
+                self.add(Fracture3d(f))
                 boundary_tags.append(True)
         self.tags["boundary"] = boundary_tags
 
@@ -2777,8 +2350,8 @@ class FractureNetwork3d(object):
 
     def _add_intersection(
         self,
-        first: Union[Fracture, np.ndarray],
-        second: Union[Fracture, np.ndarray],
+        first: Union[Fracture3d, np.ndarray],
+        second: Union[Fracture3d, np.ndarray],
         start: np.ndarray,
         end: np.ndarray,
         bound_first: Union[bool, np.ndarray],

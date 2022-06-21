@@ -94,7 +94,7 @@ class TestMeshSize(unittest.TestCase):
         """
 
         f_1 = np.array([[1, 5, 5, 1], [1, 1, 1, 1], [1, 1, 3, 3]])
-        f_set = [pp.Fracture(f_1)]
+        f_set = [pp.Fracture3d(f_1)]
         domain = {"xmin": 0, "ymin": 0, "zmin": 0, "xmax": 5, "ymax": 5, "zmax": 5}
         mesh_size_min = 0.1
         mesh_size_frac = 0.1

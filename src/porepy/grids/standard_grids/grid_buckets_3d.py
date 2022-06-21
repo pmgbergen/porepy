@@ -44,7 +44,7 @@ def single_horizontal(mesh_args=None, x_coords=None, y_coords=None, simplex=True
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2, "mesh_size_min": 0.2}
-        network = pp.FractureNetwork3d([pp.Fracture(fracture)], domain=domain)
+        network = pp.FractureNetwork3d([pp.Fracture3d(fracture)], domain=domain)
         gb = network.mesh(mesh_args)
 
     else:

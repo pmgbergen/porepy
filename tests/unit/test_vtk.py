@@ -219,8 +219,8 @@ class MeshioExporterTest(unittest.TestCase):
         self.assertTrue(content == self._test_fractures_2d_vtu())
 
     def test_fractures_3d(self):
-        f_1 = pp.Fracture(np.array([[0, 1, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]))
-        f_2 = pp.Fracture(
+        f_1 = pp.Fracture3d(np.array([[0, 1, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]))
+        f_2 = pp.Fracture3d(
             np.array([[0.5, 0.5, 0.5, 0.5], [-1, 2, 2, -1], [-1, -1, 2, 2]])
         )
         domain = {"xmin": -2, "xmax": 3, "ymin": -2, "ymax": 3, "zmin": -3, "zmax": 3}
