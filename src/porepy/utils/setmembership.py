@@ -2,7 +2,9 @@
 Various functions with set operations.
 """
 from __future__ import annotations
+
 from typing import Any, Tuple, Union
+
 import numba
 import numpy as np
 from scipy.spatial import KDTree
@@ -118,7 +120,10 @@ def ismember_rows(
 
 
 def unique_columns_tol(
-    mat: Union[np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.int64]]], tol: float = 1e-8
+    mat: Union[
+        np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.int64]]
+    ],
+    tol: float = 1e-8,
 ) -> Tuple[
     np.ndarray[Any, np.dtype[np.float64]],
     np.ndarray[Any, np.dtype[np.int64]],
@@ -128,13 +133,13 @@ def unique_columns_tol(
     For an array, remove columns that are closer than a given tolerance.
 
     To uniquify a point set, consider using the function uniquify_point_set
-    instead.    
+    instead.
 
     Resembles Matlab's uniquetol function, as applied to columns. To rather
     work at rows, use a transpose.
-    
+
     Parameters:
-        mat (np.ndarray, nd x n_pts): Columns to be uniquified. 
+        mat (np.ndarray, nd x n_pts): Columns to be uniquified.
         tol (double, optional): Tolerance for when columns are considered equal.
             Should be seen in connection with distance between the points in
             the points (due to rounding errors). Defaults to 1e-8.
@@ -176,13 +181,13 @@ def unique_columns_tol(
 
     @numba.jit("Tuple((b1[:],i8[:],i8[:]))(f8[:, :],f8)", nopython=True, cache=True)
     def _numba_distance(mat, tol):
-        """ Helper function for numba acceleration of unique_columns_tol.
-        
+        """Helper function for numba acceleration of unique_columns_tol.
+
         IMPLEMENTATION NOTE: Calling this function many times (it is unclear
         what this really means, but likely >=100s of thousands of times) may
         lead to enhanced memory consumption and significant reductions in
         performance. This could be related to this GH issue
-        
+
             https://github.com/numba/numba/issues/1361
 
         However, it is not clear this is really the error. No solution is known
@@ -236,16 +241,16 @@ def uniquify_point_set(
 ]:
     """Uniquify a set of points so that no two sets of points are closer than a
     distance tol from each other.
-    
+
     This function is partially overlapping by the function unique_columns_tol,
     but the latter is more general, as it provides fast treatment of integer
     arrays.
-    
+
     FIXME: It should be possible to unify the two implementations, however,
     more experience is needed before doing so.
-  
+
     Parameters:
-        mat (np.ndarray, nd x n_pts): Columns to be uniquified. 
+        mat (np.ndarray, nd x n_pts): Columns to be uniquified.
         tol (double, optional): Tolerance for when columns are considered equal.
             Should be seen in connection with distance between the points in
             the points (due to rounding errors). Defaults to 1e-8.
@@ -262,20 +267,20 @@ def uniquify_point_set(
     num_p = points.shape[1]
     # Transpose needed to comply with KDTree.
     tree = KDTree(points.T)
-    
+
     # Get all pairs of points closer than the tolerance.
     pairs = tree.query_pairs(tol, output_type="ndarray")
 
     if pairs.size == 0:
-        # No points were find, we can return 
+        # No points were find, we can return
         return points, np.arange(num_p), np.arange(num_p)
 
     # Process information to arive at a unique point set. This is technical,
     # since we need to deal with cases where more than two points coincide
     # (example: if the points p1, p2 and p3 coincide, they will be identified
     # either by the pairs {(i1, i2), (i1, i3)}, by {(i1, i2), (i2, i3)},
-    # or by {(i1, i3), (i2, i3)}). 
-    
+    # or by {(i1, i3), (i2, i3)}).
+
     # Sort the index pairs of identical points for simpler identification.
     # NOTE: pairs, as returned by KDTree, is a num_pairs x 2 array, thus
     # sorting the pairs should be along axis 1.
@@ -292,7 +297,7 @@ def uniquify_point_set(
     duplicate = np.isin(sorted_arr[0], sorted_arr[1])
     # Array with duplicates of the type {(i1, i2), (i1, i3)} removed.
     reduced_arr = sorted_arr[:, np.logical_not(duplicate)]
-    
+
     # Also identify points that are not involved in any pairs, these should be
     # included in the unique set. Append these to the point array.
     not_in_pairs = np.setdiff1d(np.arange(points.shape[1]), pair_arr.ravel())

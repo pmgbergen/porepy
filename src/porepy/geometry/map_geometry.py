@@ -3,7 +3,9 @@ Collection of functions related to geometry mappings, rotations etc.
 
 """
 from __future__ import annotations
+
 from typing import Any, Optional, Tuple
+
 import numpy as np
 
 import porepy as pp
@@ -396,13 +398,13 @@ def compute_normal(
     # Center of the point cloud, and vectors from the center to all points
     center = pts.mean(axis=1).reshape((-1, 1))
     v = pts - center
-    
+
     # To do the cross product, we need two vectors in the plane of the point cloud.
     # In an attempt at minimizing the vulnerabilities with respect to rounding errors,
     # the vectors should be carefully chosen.
     # As the first vector, chose the longest one.
-    
-    # Norm of all vectors 
+
+    # Norm of all vectors
     nrm = np.linalg.norm(v, axis=0)
     # Index of the longest vector (will be needed below)
     v1_ind = np.argmax(nrm)
@@ -417,11 +419,11 @@ def compute_normal(
             v1[0] * v[1] - v1[1] * v[0],
         ]
     )
-    
+
     # Find the index of the longest cross product, and thereby of the vector in v that
     # produced the longest vector.
     cross_ind = np.argmax(np.linalg.norm(cross, axis=0))
-    
+
     # Pick out the normal vector, using the longest normal
     normal = cross[:, cross_ind]
 
@@ -434,7 +436,7 @@ def compute_normal(
     # (the cross product axb = |a||b|sin(theta) - to detect a small theta, we need to
     # scale the cross product by the lengths of a and b).
     nrm_scaling = nrm[v1_ind] * nrm[cross_ind]
-    
+
     if np.allclose(normal, np.zeros(3), atol=tol * nrm_scaling):
         raise RuntimeError(
             "Unable to calculate normal from point set. Are all points collinear?"
