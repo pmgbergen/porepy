@@ -590,7 +590,7 @@ def _argsort_points_along_line_segment(
 
 def _intersection_segment_fracture(
     segment_points: np.ndarray,
-    fracture: pp.Fracture,
+    fracture: pp.Fracture3d,
     tags: List[np.ndarray],
     ignore_endpoint_tag: bool,
     tol: float = 1e-8,
