@@ -1,9 +1,8 @@
 """
-Module to store the grid hiearchy formed by a set of fractures and their
+Module to store the grid hierarchy formed by a set of fractures and their
 intersections in the form of a GridTree.
 
 """
-import itertools
 import warnings
 from typing import (
     Any,
@@ -35,7 +34,7 @@ class GridTree:
     and in method names, are strongly marked by this graph thinking.
 
     Connections between the grids are defined as a tuple, with first the highest
-    and the the lowest-dimensional neighboring grid.
+    and then the lowest-dimensional neighboring grid.
 
     Attributes:
         _nodes (dictionary): For each subdomain grid, a dictionary with
@@ -99,7 +98,7 @@ class GridTree:
     def subdomains_of_interface(self, mg: pp.MortarGrid) -> Tuple[pp.Grid, pp.Grid]:
         """Obtain the subdomains of an interface.
 
-        FIXME: Consider intorducing only_higher, only_lower keywords.
+        FIXME: Consider introducing only_higher, only_lower keywords.
 
         The nodes will be given in ascending order with respect their
         dimension. If the edge is between grids of the same dimension, the node
@@ -107,7 +106,7 @@ class GridTree:
         of nodes exists, assign_node_ordering() will be called by this method.
 
         Parameters:
-            edge (Tuple[pp.Grid, pp.Grid]):
+            mg, pp.MortarGrid:
                 An edge in the graph.
 
         Returns:
@@ -150,7 +149,7 @@ class GridTree:
     ) -> Generator[pp.MortarGrid, None, None]:
         """Iterator over the edges of the specific node.
 
-        FIXME: Consider intorducing only_higher, only_lower keywords.
+        FIXME: Consider introducing only_higher, only_lower keywords.
 
         Parameters:
             node: A node in the graph.
@@ -171,7 +170,7 @@ class GridTree:
         """Get neighbors of a node in the graph.
 
         FIXME: Method name is unclear, should really be 'subdomain_neighbors_of_subdomain',
-        but that is a mouthfull.
+        but that is a mouthful.
 
         Optionally, return only neighbors corresponding to higher or lower
         dimension. At most one of only_higher and only_lower can be True.
@@ -665,7 +664,7 @@ class GridTree:
 
         """
         # Identify neighbors
-        neighbors: List[pp.Grid] = self.sort_multiple_nodes(
+        neighbors: List[pp.Grid] = self.sort_nodes(
             self.subdomain_neighbors(node).tolist()
         )
 
@@ -705,7 +704,7 @@ class GridTree:
                 "eliminated_nodes": List of all grids that were removed.
                 "neighbours": List with neighbors of the eliminated grids. Sorted in
                     the same order as eliminated_nodes. Node ordering is updated.
-                "neigbours_old": Same as neighbours, but with the original node
+                "neighbours_old": Same as neighbours, but with the original node
                     ordering.
 
         """
@@ -756,7 +755,7 @@ class GridTree:
         If an ordering covering all nodes in the graph already exist, but does
         not coincide with the new ordering, a warning is issued. If the optional
         parameter overwrite_existing is set to False, no update is performed if
-        an node ordering already exists.
+        a node ordering already exists.
 
         Parameters:
             overwrite_existing (bool, optional): If True (default), any existing node
@@ -820,9 +819,9 @@ class GridTree:
                 if old_number > removed_number:
                     n["node_number"] = old_number - 1
 
-    def sort_multiple_nodes(self, nodes: List[pp.Grid]) -> List[pp.Grid]:
+    def sort_nodes(self, nodes: List[pp.Grid]) -> List[pp.Grid]:
         """
-        Sort all the nodes according to node number.
+        Sort nodes according to node number.
 
         Parameters:
             nodes: List of graph nodes.
@@ -861,7 +860,7 @@ class GridTree:
         for grid in self.subdomains():
             grid.compute_geometry()
 
-        for mg in self.interfaces:
+        for mg in self.interfaces():
             mg.compute_geometry()
 
     def copy(self) -> "GridTree":
@@ -928,7 +927,7 @@ class GridTree:
         In face_cells, the cells of the lower dimensional grid correspond to the first
         axis and the faces of the higher dimensional grid to the second axis.
         Furthermore, grids are sorted with the lower-dimensional first and the
-        higher-dimesnional last. To be consistent with this, the grid corresponding
+        higher-dimensional last. To be consistent with this, the grid corresponding
         to the first axis of cell_cells is the first grid of the node sorting.
 
         FIXME: This can be deleted if eliminate_subdomains is deleted.
@@ -1184,7 +1183,7 @@ class GridTree:
 
     def cell_volumes_mortar(self, cond: Callable[[pp.Grid], bool] = None) -> np.ndarray:
         """
-        Get the cell volumes of all mortar cellse of the grid bucket, considering a loop
+        Get the cell volumes of all mortar cells of the grid bucket, considering a loop
         on all the grids.  It is possible to specify a condition based on the
         grid to select some of them.
 
