@@ -109,23 +109,24 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
     constrained_polygons = []
     orig_poly_ind = []
-    
+
     # Construct bounding box for polyhedron
     bounding_box = pp.bounding_box.from_points(np.hstack([p for p in polyhedron]))
-    
+
     # Loop over the polygons. For each, find the intersections with all
     # polygons on the side of the polyhedra.
     for pi, poly in enumerate(polygons):
         # First check if polyhedron is outside the bounding box - if so, we can move on.
-        if (np.max(poly[0]) < bounding_box['xmin'] or 
-            np.min(poly[0]) > bounding_box['xmax'] or 
-            np.max(poly[1]) < bounding_box['ymin'] or 
-            np.min(poly[1]) > bounding_box['ymax'] or 
-            np.max(poly[2]) < bounding_box['zmin'] or 
-            np.min(poly[2]) > bounding_box['zmax']  
-            ):
+        if (
+            np.max(poly[0]) < bounding_box["xmin"]
+            or np.min(poly[0]) > bounding_box["xmax"]
+            or np.max(poly[1]) < bounding_box["ymin"]
+            or np.min(poly[1]) > bounding_box["ymax"]
+            or np.max(poly[2]) < bounding_box["zmin"]
+            or np.min(poly[2]) > bounding_box["zmax"]
+        ):
             continue
-        
+
         # Add this polygon to the list of constraining polygons. Put this first
         all_poly = [poly] + polyhedron
 

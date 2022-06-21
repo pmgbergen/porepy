@@ -202,6 +202,7 @@ def point_in_polygon(poly, p, default=False):
 
     return inside
 
+
 def point_in_polyhedron(
     polyhedron: Union[np.ndarray, List[np.ndarray]],
     test_points: np.ndarray,
@@ -277,7 +278,7 @@ def point_in_polyhedron(
     # Uniquify points, and update triangulation
     upoints, ia, ib = pp.utils.setmembership.uniquify_point_set(points, tol)
     ut = ib[tri.astype(int)]
-    
+
     # The in-polyhedra algorithm requires a very particular ordering of the vertexes
     # in the triangulation. Fix this.
     # Note: We cannot do a standard CCW sorting here, since the polygons lie in

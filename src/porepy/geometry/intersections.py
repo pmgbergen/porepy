@@ -961,7 +961,7 @@ def polygons_3d(
                         else:
                             isect = np.hstack((isect, loc_isect))
                             tmp_isect = np.hstack((tmp_isect, loc_isect))
-                    
+
                     tmp_unique_isect, *rest = pp.utils.setmembership.uniquify_point_set(
                         tmp_isect, tol=tol
                     )
@@ -2173,10 +2173,9 @@ def split_intersecting_segments_2d(
         # Remove duplicates in the point set.
         # NOTE: The tolerance used here is a bit sensitive, if set too loose, this
         # may merge non-intersecting fractures.
-        
+
         unique_all_pt, ia, ib = pp.utils.setmembership.uniquify_point_set(all_pt, tol)
-        
-        
+
         # Data structure for storing the split edges.
         new_edge = np.empty((e.shape[0], 0), dtype=int)
         argsort: np.ndarray = np.empty(0, dtype=int)
