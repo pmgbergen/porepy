@@ -608,7 +608,7 @@ def structured_refinement(
     if g.dim == 1:
         # Rotate coarse nodes and fine cell centers to align with the x-axis
         tangent = pp.map_geometry.compute_tangent(nodes)
-        reference = np.array([1.0, 0, 0])
+        reference = np.array([1.0, 0.0, 0.0])
         R = pp.map_geometry.project_line_matrix(nodes, tangent, reference=reference)
         nodes = R.dot(nodes)[0, :]
         cells_ref = R.dot(cells_ref)[0, :]
