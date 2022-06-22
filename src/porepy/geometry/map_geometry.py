@@ -47,7 +47,7 @@ def map_grid(
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.float64]],
 ]:
-    """If a 2d or a 1d grid is passed, the function return the cell_centers,
+    """If a 2d or a 1d grid is passed, the function returns the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
     passed nothing is applied. The return vectors have a reduced number of rows.
 
@@ -402,7 +402,7 @@ def compute_normal(
     # To do the cross product, we need two vectors in the plane of the point cloud.
     # In an attempt at minimizing the vulnerabilities with respect to rounding errors,
     # the vectors should be carefully chosen.
-    # As the first vector, chose the longest one.
+    # As the first vector, choose the longest one.
 
     # Norm of all vectors
     nrm = np.linalg.norm(v, axis=0)

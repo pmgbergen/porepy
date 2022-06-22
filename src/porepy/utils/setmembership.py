@@ -136,7 +136,7 @@ def unique_columns_tol(
     instead.
 
     Resembles Matlab's uniquetol function, as applied to columns. To rather
-    work at rows, use a transpose.
+    work on rows, use a transpose.
 
     Parameters:
         mat (np.ndarray, nd x n_pts): Columns to be uniquified.
@@ -242,7 +242,7 @@ def uniquify_point_set(
     """Uniquify a set of points so that no two sets of points are closer than a
     distance tol from each other.
 
-    This function is partially overlapping by the function unique_columns_tol,
+    This function partially overlaps the function unique_columns_tol,
     but the latter is more general, as it provides fast treatment of integer
     arrays.
 
@@ -253,7 +253,7 @@ def uniquify_point_set(
         mat (np.ndarray, nd x n_pts): Columns to be uniquified.
         tol (double, optional): Tolerance for when columns are considered equal.
             Should be seen in connection with distance between the points in
-            the points (due to rounding errors). Defaults to 1e-8.
+            the point set (due to rounding errors). Defaults to 1e-8.
 
     Returns:
         np.ndarray: Unique columns.
