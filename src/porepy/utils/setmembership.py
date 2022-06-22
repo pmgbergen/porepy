@@ -3,7 +3,7 @@ Various functions with set operations.
 """
 from __future__ import annotations
 
-from typing import Any, Tuple, Union
+from typing import Any, Tuple
 
 import numba
 import numpy as np
@@ -120,12 +120,10 @@ def ismember_rows(
 
 
 def unique_columns_tol(
-    mat: Union[
-        np.ndarray[Any, np.dtype[np.float64]], np.ndarray[Any, np.dtype[np.int64]]
-    ],
+    mat: np.ndarray,
     tol: float = 1e-8,
 ) -> Tuple[
-    np.ndarray[Any, np.dtype[np.float64]],
+    np.ndarray,
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.int64]],
 ]:
@@ -169,7 +167,7 @@ def unique_columns_tol(
         return mat, np.array([], dtype=int), np.array([], dtype=int)
     elif mat.shape[1] == 1:
         # Array with a single column needs no processing
-        return mat, np.array([0]), np.array([0])
+        return mat, np.array([0], dtype=int), np.array([0], dtype=int)
 
     # If the matrix is integers, and the tolerance less than 1/2, we can use
     # numpy's unique function
