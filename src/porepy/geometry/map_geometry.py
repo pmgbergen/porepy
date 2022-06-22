@@ -18,13 +18,14 @@ def force_point_collinearity(
     Given a set of points, return them aligned on a line.
     Useful to enforce collinearity for almost collinear points. The order of the
     points remain the same.
-    NOTE: The first point in the list has to be on the extrema of the line.
 
     Parameter:
-        pts: (3 x num_pts) the input points.
+        pts: (3 x num_pts) the input points. The first point should be on one
+            extrema of the line.
 
     Return:
         pts: (3 x num_pts) the corrected points.
+
     """
     assert pts.shape[1] > 1
 
@@ -52,20 +53,20 @@ def map_grid(
     passed nothing is applied. The return vectors have a reduced number of rows.
 
     Parameters:
-    g (grid): the grid.
-    tol (double, optional): Tolerance used to check that the grid is linear or planar.
-        Defaults to 1e-5.
-    R (np.array size 3x3, optional ): Rotation matrix. The first dim rows should map
-        vectors onto the tangential space of the grid. If not provided, a rotation
-        matrix will be computed.
+        g (grid): the grid.
+        tol (double, optional): Tolerance used to check that the grid is linear or planar.
+            Defaults to 1e-5.
+        R (np.array size 3x3, optional ): Rotation matrix. The first dim rows should map
+            vectors onto the tangential space of the grid. If not provided, a rotation
+            matrix will be computed.
 
     Returns:
-    cell_centers: (g.dim x g.num_cells) the mapped centers of the cells.
-    face_normals: (g.dim x g.num_faces) the mapped normals of the faces.
-    face_centers: (g.dim x g.num_faces) the mapped centers of the faces.
-    R: (3 x 3) the rotation matrix used.
-    dim: indicates which are the dimensions active.
-    nodes: (g.dim x g.num_nodes) the mapped nodes.
+        cell_centers: (g.dim x g.num_cells) the mapped centers of the cells.
+        face_normals: (g.dim x g.num_faces) the mapped normals of the faces.
+        face_centers: (g.dim x g.num_faces) the mapped centers of the faces.
+        R: (3 x 3) the rotation matrix used.
+        dim: indicates which are the dimensions active.
+        nodes: (g.dim x g.num_nodes) the mapped nodes.
 
     """
     cell_centers = g.cell_centers
@@ -214,16 +215,16 @@ def project_plane_matrix(
     example: np.dot( R, pts )
 
     Parameters:
-    pts (np.ndarray, 3xn): the points.
-    normal: (optional) the normal of the plane, otherwise three points are
-        required.
-    tol: (optional, float) tolerance to assert the planarity of the cloud of
-        points. Default value 1e-5.
-    reference: (optional, np.array, 3x1) reference vector to compute the angles.
-        Default value [0, 0, 1].
+        pts (np.ndarray, 3xn): the points.
+        normal: (optional) the normal of the plane, otherwise three points are
+            required.
+        tol: (optional, float) tolerance to assert the planarity of the cloud of
+            points. Default value 1e-5.
+        reference: (optional, np.array, 3x1) reference vector to compute the angles.
+            Default value [0, 0, 1].
 
     Returns:
-    np.ndarray, 3x3, projection matrix.
+        np.ndarray, 3x3, projection matrix.
 
     """
     if reference is None:
@@ -262,12 +263,12 @@ def project_line_matrix(
     example: np.dot( R, pts )
 
     Parameters:
-    pts (np.ndarray, 3xn): the points.
-    tangent: (optional) the tangent unit vector of the plane, otherwise two
-        points are required.
+        pts (np.ndarray, 3xn): the points.
+        tangent: (optional) the tangent unit vector of the plane, otherwise two
+            points are required.
 
     Returns:
-    np.ndarray, 3x3, projection matrix.
+        np.ndarray, 3x3, projection matrix.
 
     """
 
@@ -298,11 +299,11 @@ def rotation_matrix(
     form of Rodrigues formula.
 
     Parameters:
-    a: double, the angle.
-    vect: np.array, 1x3, the vector.
+        a: double, the angle.
+        vect: np.array, 1x3, the vector.
 
     Returns:
-    matrix: np.ndarray, 3x3, the rotation matrix.
+        matrix: np.ndarray, 3x3, the rotation matrix.
 
     NOTE: If vect is a zero vector, the returned rotation matrix will be the
     identity matrix.
@@ -331,16 +332,20 @@ def normal_matrix(
     """Compute the normal projection matrix of a plane.
 
     The algorithm assume that the points lie on a plane.
+
     Three non-aligned points are required.
 
-    Either points or normal are mandatory.
-
     Parameters:
-    pts (optional): np.ndarray, 3xn, the points. Need n > 2.
-    normal (optional): np.array, 1x3, the normal.
+        pts (optional): np.ndarray, 3xn, the points. Need n > 2.
+        normal (optional): np.array, 3x1, the normal.
+
+        Either points or normal are mandatory.
 
     Returns:
-    normal matrix: np.array, 3x3, the normal matrix.
+        normal matrix: np.array, 3x3, the normal matrix.
+
+    Raises:
+        ValueError if neither pts nor normal is provided.
 
     """
     if normal is not None:
@@ -348,9 +353,12 @@ def normal_matrix(
     elif pts is not None:
         normal = compute_normal(pts)
     else:
-        assert False, "Points or normal are mandatory"
+        raise ValueError(
+            "Need either points or normal vector to compute normal matrix."
+        )
 
-    return np.tensordot(normal, normal, axes=0)
+    # Ravel normal vector for the calculation to work
+    return np.tensordot(normal, normal.ravel(), axes=0)
 
 
 def tangent_matrix(
@@ -365,14 +373,21 @@ def tangent_matrix(
     Either points or normal are mandatory.
 
     Parameters:
-    pts: np.ndarray, 3xn, the points. Need n > 2.
-    normal: np.array, 1x3, the normal.
+        pts: np.ndarray, 3xn, the points. Need n > 2.
+        normal: np.array, 3x1, the normal.
 
     Returns:
-    tangential matrix: np.array, 3x3, the tangential matrix.
+        tangential matrix: np.array, 3x3, the tangential matrix.
+
+    Raises:
+        ValueError if neither pts nor normal is provided.
 
     """
-    assert pts is not None or normal is not None
+    if pts is None and normal is None:
+        raise ValueError(
+            "Need either points or normal vector to compute tangent matrix."
+        )
+
     return np.eye(3) - normal_matrix(pts, normal)
 
 
@@ -381,15 +396,24 @@ def compute_normal(
 ) -> np.ndarray:
     """Compute the normal of a set of points. The sign of the normal is arbitrary
 
-    The algorithm assume that the points lie on a plane.
-    Three non-aligned points are required.
+    The algorithm assumes that the points lie on a plane.
+
+    Three non-aligned points are needed. If the points are almost collinear,
+    the algorithm will attempt to find a combination of points that minimizes
+    rounding errors. To ensure stable results, make sure to provide points
+    that truly span a 2d plane.
 
     Parameters:
-    pts: np.ndarray, 3xn, the points. Need n > 2.
-    tol: Absolute tolerance used to detect essentially collinear points.
+        pts: np.ndarray, 3xn, the points. Need n > 2.
+        tol: Absolute tolerance used to detect essentially collinear points.
 
     Returns:
-    normal: np.array, 1x3, the normal.
+        normal: np.array, 1x3, the normal.
+
+    Raises:
+        ValueError if less than three points are provided.
+        ValueError if all points provided are collinear (relative to the specified
+            tolerance)
 
     """
     if pts.shape[1] <= 2:
@@ -429,11 +453,11 @@ def compute_normal(
 
     # Check on the computation, if the cross product is essentially zero, the points
     # are collinear, and the computation is not to be trusted.
-    # Need to use absolute tolerance when invoking np.allclose, since relative tolerance
-    # makes no sense when comparing with a zero vector - see numpy.allclose
+    # We need to use absolute tolerance when invoking np.allclose, since relative
+    # tolerance makes no sense when comparing with a zero vector - see numpy.allclose
     # documentation for details.
     # Still, the tolerance should be scaled with the size of v1 and v[:, cross_ind]
-    # (the cross product axb = |a||b|sin(theta) - to detect a small theta, we need to
+    # (the cross product a x b = |a||b|sin(theta) - to detect a small theta, we need to
     # scale the cross product by the lengths of a and b).
     nrm_scaling = nrm[v1_ind] * nrm[cross_ind]
 
