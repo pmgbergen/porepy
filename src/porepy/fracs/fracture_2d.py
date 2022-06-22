@@ -1,22 +1,18 @@
 """Contains classes representing fractures in 1D, i.e. manifolds of dimension 1 embedded in 2D.
 """
-from __future__ import annotations
 
 from typing import Optional
 
 import numpy as np
-from sympy.geometry import Point, Polygon
 
 import porepy as pp
-
-from fracture_3d import Fracture3d
 from fracture import Fracture
 
 class Fracture2d(Fracture):
     """A class representing linear fracture in 2D.
     
     """
-    # @abc.abstractmethod
+    
     def sort_points(self) -> np.ndarray:
         """Abstract method to sort the vertices as needed for geometric algorithms.
 
@@ -25,9 +21,8 @@ class Fracture2d(Fracture):
         numpy.ndarray(dtype=int)
             The indices corresponding to the sorting.
         """
-        return self.p
+        pass
 
-    # @abc.abstractmethod
     def local_coordinates(self) -> np.ndarray:
         """Abstract method for computing the vertex coordinates in a local system and its
         local dimension `d`.
@@ -43,7 +38,6 @@ class Fracture2d(Fracture):
 
         return points_2d[:2]
 
-    # @abc.abstractmethod
     def is_convex(self) -> bool:
         """Abstract method for implementing a convexity check.
 
@@ -54,7 +48,6 @@ class Fracture2d(Fracture):
         """
         return True
 
-    # @abc.abstractmethod
     def is_planar(self, tol: float = 1e-4) -> bool:
         """Abstract method to check if the fracture is planar.
 
@@ -71,21 +64,11 @@ class Fracture2d(Fracture):
         """
         return True
 
-    # @abc.abstractmethod
     def compute_centroid(self) -> np.ndarray:
         """Method for computing and returning the centroid of the fracture.
-        Convexity is assumed.
         """
-        x_coord = self.p[0]
-        y_coord = self.p[1]
-        centroid_x = sum(x_coord)/2
-        centroid_y = sum(y_coord)/2
-        return np.array([centroid_x,centroid_y,0])
+        return np.array([sum(self.p[i])/2 for i in range(len(self.p))])
 
-    # @abc.abstractmethod
     def compute_normal(self) -> np.ndarray:
         """See parent class docs."""
         return pp.map_geometry.compute_normals_1d(self.p)[:,0]
-
-f = Fracture2d(np.array([[0,0],[0,1],[0,0]]))
-
