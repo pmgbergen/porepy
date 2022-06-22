@@ -276,10 +276,13 @@ def uniquify_point_set(
         return points, np.arange(num_p), np.arange(num_p)
 
     # Process information to arive at a unique point set. This is technical,
-    # since we need to deal with cases where more than two points coincide
-    # (example: if the points p1, p2 and p3 coincide, they will be identified
-    # either by the pairs {(i1, i2), (i1, i3)}, by {(i1, i2), (i2, i3)},
-    # or by {(i1, i3), (i2, i3)}).
+    # since we need to deal with cases where more than two points coincide.
+    # As an example: if the points p1, p2 and p3 coincide, they will be
+    # identified either by the pairs {(i1, i2), (i1, i3)}, by
+    # {(i1, i2), (i2, i3)}, or by {(i1, i3), (i2, i3)}). To be clear,
+    # more than three points can coincide - such configurations will
+    # include more point combinations, but will not introduce additional
+    # complications.
 
     # Sort the index pairs of identical points for simpler identification.
     # NOTE: pairs, as returned by KDTree, is a num_pairs x 2 array, thus
@@ -292,8 +295,9 @@ def uniquify_point_set(
     # Also note the transport back to a 2 x num_pairs array.
     sorted_arr = pair_arr[np.lexsort((pair_arr[:, 1], pair_arr[:, 0]))].T
 
-    # Find points that are both in the first and second row. This will identify
-    # triplets identified by pairs {(i1, i2), (i2, i3)} as described above.
+    # Find points that are both in the first and second row. Referring to the
+    # example with three intersecting points, this will identify triplets
+    # expressed as pairs {(i1, i2), (i2, i3)}.
     duplicate = np.isin(sorted_arr[0], sorted_arr[1])
     # Array with duplicates of the type {(i1, i2), (i1, i3)} removed.
     reduced_arr = sorted_arr[:, np.logical_not(duplicate)]
@@ -304,8 +308,9 @@ def uniquify_point_set(
     reduced_arr = np.hstack((reduced_arr, np.tile(not_in_pairs, (2, 1))))
 
     # The array can still contain pairs of type {(i1, i2), (i1, i3)} and
-    # {(i1, i3), (i1, i3)}. These can be identified by a unique on the first
-    # row.
+    # {(i1, i3), (i1, i3)}, again referring to the example with three identical
+    # points.
+    # These can be identified by a unique on the first row.
     ia = np.unique(reduced_arr[0])
 
     # Make a mapping from all points to the reduced set.
