@@ -315,8 +315,8 @@ def pointset(
 
     Parameters:
         p (np.ndarray, 3xn): Points
-        max_diag (boolean, defaults to False): If True, the diagonal values will
-            are set to a value larger than any other distance for each point,
+        max_diag (boolean, defaults to False): If True, the diagonal value corresponding
+            to each point is set to twice the maximum of the distances for that point,
             rather than 0.
 
     Returns:
