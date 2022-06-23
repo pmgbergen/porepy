@@ -131,10 +131,10 @@ class TestCopyFracture(unittest.TestCase):
         f2 = f1.copy()
 
         # Points should be identical
-        self.assertTrue(np.allclose(f1.p, f2.p))
+        self.assertTrue(np.allclose(f1.pts, f2.pts))
 
-        f2.p[0, 0] = 7
-        self.assertTrue(not np.allclose(f1.p, f2.p))
+        f2.pts[0, 0] = 7
+        self.assertTrue(not np.allclose(f1.pts, f2.pts))
 
 
 class TestReprStr(unittest.TestCase):
