@@ -1,8 +1,6 @@
 """Contains classes representing fractures in 1D, i.e. manifolds of dimension 1 embedded in 2D.
 """
 
-from typing import Optional
-
 import numpy as np
 
 import porepy as pp
@@ -10,7 +8,6 @@ from fracture import Fracture
 
 class Fracture2d(Fracture):
     """A class representing linear fracture in 2D.
-    
     """
     
     def sort_points(self) -> np.ndarray:
@@ -33,8 +30,8 @@ class Fracture2d(Fracture):
         numpy.ndarray((nd-1) x npt)
             The coordinates of the vertices in local dimensions.
         """
-        rotation = pp.map_geometry.project_line_matrix(self.p)
-        points_2d = rotation.dot(self.p)
+        rotation = pp.map_geometry.project_line_matrix(self.pts)
+        points_2d = rotation.dot(self.ptsts)
 
         return points_2d[:2]
 
@@ -67,8 +64,8 @@ class Fracture2d(Fracture):
     def compute_centroid(self) -> np.ndarray:
         """Method for computing and returning the centroid of the fracture.
         """
-        return np.array([sum(self.p[i])/2 for i in range(len(self.p))])
+        return np.array([sum(self.pts[i])/2 for i in range(len(self.pts))])
 
     def compute_normal(self) -> np.ndarray:
         """See parent class docs."""
-        return pp.map_geometry.compute_normals_1d(self.p)[:,0]
+        return pp.map_geometry.compute_normals_1d(self.pts)
