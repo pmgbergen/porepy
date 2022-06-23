@@ -149,7 +149,7 @@ class Fracture(object):
         """
         p = p.reshape((-1, 1))
         ap = np.hstack((p, self.p))
-        up, _, ind = setmembership.unique_columns_tol(ap, tol=tol * np.sqrt(3))
+        up, _, ind = setmembership.uniquify_point_set(ap, tol=tol * np.sqrt(3))
 
         # If uniquifying did not remove any points, it is not a vertex.
         if up.shape[1] == ap.shape[1]:
@@ -213,7 +213,7 @@ class Fracture(object):
             )
         )
         self.p = np.hstack((self.p, p))
-        self.p, _, _ = setmembership.unique_columns_tol(self.p, tol=tol)
+        self.p, _, _ = setmembership.uniquify_point_set(self.p, tol=tol)
 
         # Sort points to ccw
         mask = self.points_2_ccw()
@@ -1312,7 +1312,7 @@ class FractureNetwork3d(object):
         )
 
         # We now need to find points that occur in multiple places
-        p_unique, _, all_2_unique_p = setmembership.unique_columns_tol(
+        p_unique, _, all_2_unique_p = setmembership.uniquify_point_set(
             all_p, tol=self.tol * np.sqrt(3)
         )
 
@@ -1471,7 +1471,7 @@ class FractureNetwork3d(object):
             # Add the new points towards the end of the list.
             all_p = np.hstack((all_p, p_add_3d))
 
-            new_all_p, _, ia = setmembership.unique_columns_tol(all_p, self.tol)
+            new_all_p, _, ia = setmembership.uniquify_point_set(all_p, self.tol)
 
             # Handle case where the new point is already represented in the
             # global list of points.
@@ -1803,6 +1803,7 @@ class FractureNetwork3d(object):
 
         # Constrain the fractures to lie within the bounding polyhedron
         polys = [f.p for f in self._fractures]
+
         constrained_polys, inds = pp.constrain_geometry.polygons_by_polyhedron(
             polys, polyhedron
         )
@@ -2161,7 +2162,6 @@ class FractureNetwork3d(object):
                 # The node indices are given in a cyclic ordering (CW or CCW),
                 # thus a linear ordering should be fine also for a subpolygon.
                 verts = np.unique(triangles[tris])
-                # To be sure, check the convexity of the polygon.
                 self.add(Fracture(f.p[:, verts], check_convexity=False))
                 ind_map = np.hstack((ind_map, fi))
 
@@ -2658,7 +2658,7 @@ class FractureNetwork3d(object):
                         unique_candidates,
                         _,
                         o2n,
-                    ) = pp.utils.setmembership.unique_columns_tol(candidates, self.tol)
+                    ) = pp.utils.setmembership.uniquify_point_set(candidates, self.tol)
 
                     # Make arrays for points along the segment (originally the
                     # endpoints), and for the auxiliary points
