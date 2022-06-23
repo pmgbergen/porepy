@@ -39,30 +39,29 @@ class FractureNetwork2d(object):
         pts (np.array, 2 x num_pts): Start and endpoints of the fractures. Points
             can be shared by fractures.
         edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
-            indices, refering to pts, of the start and end points of the fractures.
+            indices, referring to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
         domain (dictionary or np.ndarray): The domain in which the fracture set is
-
             defined. If dictionary, it should contain keys 'xmin', 'xmax', 'ymin',
             'ymax', each of which maps to a double giving the range of the domain.
-            If np.array, it should be of size 2 x n, and given the vertexes of the.
+            If np.array, it should be of size 2 x n, and given the vertexes of the
             domain. The fractures need not lay inside the domain.
         tol (double): Tolerance used in geometric computations.
         tags (dict): Tags for fractures.
-        decomposition (dict): Decomposition of the fracture network, used for export to
+        _decomposition (dict): Decomposition of the fracture network, used for export to
             gmsh, and available for later processing. Initially empty, is created by
             self.mesh().
 
     """
 
     def __init__(self, pts=None, edges=None, domain=None, tol=1e-8):
-        """Define the frature set.
+        """Define the fracture set.
 
         Parameters:
             pts (np.array, 2 x n): Start and endpoints of the fractures. Points
             can be shared by fractures.
         edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
-            indices, refering to pts, of the start and end points of the fractures.
+            indices, referring to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
         domain (dictionary or set of points): The domain in which the fracture set is
 
@@ -202,7 +201,7 @@ class FractureNetwork2d(object):
             tol (double, optional): Tolerance used for geometric computations.
                 Defaults to the tolerance of this network.
             do_snap (boolean, optional): Whether to snap lines to avoid small
-                segments. Defults to True.
+                segments. Defaults to True.
             constraints (np.array of int): Index of network edges that should not
                 generate lower-dimensional meshes, but only act as constraints in
                 the meshing algorithm.
@@ -210,10 +209,12 @@ class FractureNetwork2d(object):
                 the surrounding matrix) is created.
             tags_to_transfer (list of key, optional default None): The tags of
                 the network are passed to the fracture grids.
+            remove_small_fractures
+                Whether to remove small fractures. FIXME: expand documentation.
             write_geo (bool, optional): If True (default), the gmsh configuration
                 will be written to a .geo_unrolled file.
             finalize_gmsh (boolean): If True (default), the port to Gmsh is closed when
-                meshing is completed. On repeated invokations of Gmsh in the same Python
+                meshing is completed. On repeated invocations of Gmsh in the same Python
                 session, a memory leak in Gmsh may cause reduced performance (written
                 spring 2021). In these cases, it may be better to finalize gmsh externally
                 to this class. See also clear_gmsh.
@@ -284,19 +285,21 @@ class FractureNetwork2d(object):
         """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
 
-        NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
+        NOTE: Consider using the mesh() function instead to get a ready GridBucket.
 
         Parameters:
             mesh_args: Arguments passed on to mesh size control
             tol (double, optional): Tolerance used for geometric computations.
                 Defaults to the tolerance of this network.
             do_snap (boolean, optional): Whether to snap lines to avoid small
-                segments. Defults to True.
+                segments. Defaults to True.
             constraints (np.array of int): Index of network edges that should not
                 generate lower-dimensional meshes, but only act as constraints in
                 the meshing algorithm.
             dfn (boolean, optional): If True, a DFN mesh (of the network, but not
                 the surrounding matrix) is created.
+                remove_small_fractures
+                Whether to remove small fractures. FIXME: expand documentation.
 
         Returns:
             GridBucket: Mixed-dimensional mesh.
@@ -356,7 +359,7 @@ class FractureNetwork2d(object):
 
             # Splitting of fractures give an increase of index corresponding to the number
             # of repeats. The clip avoids negative values for deleted edges, these have
-            # been acounted for before. Maybe we could merge the two adjustments.
+            # been accounted for before. Maybe we could merge the two adjustments.
             adjustment += np.clip(num_occ - 1, 0, None)
 
             # Do the real adjustment
@@ -400,7 +403,7 @@ class FractureNetwork2d(object):
         self._find_and_split_intersections(constraints)
         # Insert auxiliary points and determine mesh size.
         # _insert_auxiliary_points(..) does both.
-        # _set_mesh_size_withouth_auxiliary_points() sets the mesh size
+        # _set_mesh_size_without_auxiliary_points() sets the mesh size
         # to the existing points. This is only done for DFNs, but could
         # also be used for any grid if that is desired.
         if not dfn:
@@ -451,8 +454,20 @@ class FractureNetwork2d(object):
         )
         return data
 
-    def _find_and_split_intersections(self, constraints):
-        # Unified description of points and lines for domain, and fractures
+    def _find_and_split_intersections(self, constraints: np.ndarray):
+        """Unified description of points and lines for domain and fractures.
+
+        FIXME: update documentation
+        Parameters
+        ----------
+        constraints
+            Indices of Fractures which should be considered meshing constraints,
+            not as physical objects.
+
+        Returns
+        -------
+
+        """
         points = self.pts
         edges = self.edges
 
@@ -549,11 +564,11 @@ class FractureNetwork2d(object):
             aux_id = np.ravel(lines[:2, aux_id])
             _, aux_ia, aux_count = np.unique(aux_id, True, False, True)
 
-            # probably it can be done more efficiently but currently we rarely use the
+            # It can be probably be done more efficiently, but currently we rarely use the
             # auxiliary points in 2d
             for a in aux_id[aux_ia[aux_count > 1]]:
-                # if a match is found decrease the frac_count only by one, this prevent
-                # the multiple fracture case to be handle wrongly
+                # if a match is found decrease the frac_count only by one, this prevents
+                # the multiple fracture case to be handled wrongly
                 frac_count[frac_id[frac_ia] == a] -= 1
 
         return frac_id[frac_ia[frac_count > 1]]
@@ -561,7 +576,7 @@ class FractureNetwork2d(object):
     def _insert_auxiliary_points(
         self, mesh_size_frac=None, mesh_size_bound=None, mesh_size_min=None
     ):
-        # Gridding size
+        # Mesh size
         # Tag points at the domain corners
         logger.info("Determine mesh size")
         tm = time.time()
@@ -592,8 +607,8 @@ class FractureNetwork2d(object):
         mesh_size_min: Optional[float] = None,
     ) -> None:
         """
-        Set the "Vailla" mesh size to points. No attemts at automatically
-        determine the mesh size is done and no auxillary points are inserted.
+        Set the "vanilla" mesh size to points. No attempts at automatically
+        determine the mesh size is done and no auxiliary points are inserted.
         Fracture points are given the mesh_size_frac mesh size and the domain
         boundary is given the mesh_size_bound mesh size. mesh_size_min is unused.
         """
@@ -609,7 +624,7 @@ class FractureNetwork2d(object):
 
         if mesh_size_frac is not None:
             val = mesh_size_frac
-        # One value for each point to distinguish betwee val and val_bound.
+        # One value for each point to distinguish between val and val_bound.
         vals = val * np.ones(num_pts)
         if mesh_size_bound is not None:
             vals[boundary_pt_ind] = mesh_size_bound
@@ -728,7 +743,7 @@ class FractureNetwork2d(object):
             before meshing. The function may change both connectivity and orientation
             of individual fractures in the network. Specifically, fractures that
             almost form a T-intersection (or L), may be connected, while
-            X-intersections with very short ends may be truncated to T-intersections.
+            X-intersections with very short branches may be truncated to T-intersections.
 
         The modification snaps vertexes to the closest point on the adjacent line.
             This will in general change the orientation of the fracture with the
@@ -760,7 +775,6 @@ class FractureNetwork2d(object):
         pts_orig = pts.copy()
         edges = self.edges
         counter = 0
-        pn = 0 * pts
         while counter < max_iter:
             pn = pp.constrain_geometry.snap_points_to_segments(pts, edges, tol=snap_tol)
             diff = np.max(np.abs(pn - pts))
@@ -782,8 +796,19 @@ class FractureNetwork2d(object):
             return pts, False
 
     def _snap_to_boundary(self, snap_tol: float):
-        # Snap points to the domain boundary.
-        # The function modifies self.pts.
+        """Snap points to the domain boundary.
+
+        The function modifies self.pts.
+        Parameters
+        ----------
+        snap_tol
+            Tolerance. Internal points which are a distance d<snap_tol
+            away from the boundary will be snapped to the boundary.
+
+        Returns
+        -------
+
+        """
         is_bound = self.tags["boundary"]
         # interior edges
         interior_edges = self.edges[:2, np.logical_not(is_bound)]
@@ -811,7 +836,7 @@ class FractureNetwork2d(object):
         end_bound_pts = self.pts[:, self.edges[1, is_bound]]
 
         overlap = np.zeros(self.edges.shape[1], dtype=bool)
-        # loop on all the internal edges and check if should be removed or not
+        # loop on all the internal edges and check whether they should be removed
         for ind in np.where(is_internal)[0]:
             # define the start and end point of the current internal edge
             start = self.pts[:, self.edges[0, ind]]
@@ -823,7 +848,10 @@ class FractureNetwork2d(object):
 
         return overlap
 
-    ## end of methods related to meshing
+    """
+    End of methods related to meshing
+    ---------------------------------
+    """
 
     def _decompose_domain(self, domain, num_x, ny=None):
         x0 = domain["xmin"]
@@ -890,7 +918,7 @@ class FractureNetwork2d(object):
 
         The method will create a deep copy of all fractures, as well as the domain, of
         the network. Note that if the fractures have had extra points imposed as part
-        of a meshing procedure, these will included in the copied fractures.
+        of a meshing procedure, these will be included in the copied fractures.
 
         Returns:
             pp.FractureNetwork2d.
@@ -963,7 +991,7 @@ class FractureNetwork2d(object):
         for key, value in self.tags.items():
             tags[key] = value[argsort]
 
-        fn = FractureNetwork2d(p, e, self.domain, tol=self.tol)
+        fn = FractureNetwork2d(p, e, self.domain, tol=tol)
         fn.tags = tags
 
         return fn
@@ -973,7 +1001,7 @@ class FractureNetwork2d(object):
     def as_graph(self, split_intersections=True):
         """Represent the fracture set as a graph, using the networkx data structure.
 
-        By default the fractures will first be split into non-intersecting branches.
+        By default, the fractures will first be split into non-intersecting branches.
 
         Parameters:
             split_intersections (boolean, optional): If True (default), the network
@@ -1168,7 +1196,7 @@ class FractureNetwork2d(object):
             p (np.array, 2 x n , optional): Points used to describe the fractures.
 
                 defaults to the fractures in this set.
-            edges (np.array, 2 x num_frac, optional): Indices, refering to pts, of the start
+            edges (np.array, 2 x num_frac, optional): Indices, referring to pts, of the start
                 and end points of the fractures for which the centres should be computed.
                 Defaults to the fractures of this set.
 
@@ -1219,16 +1247,19 @@ class FractureNetwork2d(object):
         """
         pp.plot_fractures(self.pts, self.edges, domain=self.domain, **kwargs)
 
-    def to_csv(self, file_name, with_header=True):
+    def to_csv(self, file_name: str, with_header=True):
         """
-        Save the 2d network on a csv file with comma , as separator.
+        Save the 2d network on a csv file with comma as separator.
         Note: the file is overwritten if present.
         The format is
         FID, START_X, START_Y, END_X, END_Y
 
-        Parameters:
-            file_name: name of the file
-            domain: (optional) the bounding box of the problem
+        Parameters
+        ----------
+        file_name
+            Name of the file.
+        with_header
+            Whether to write headers for the five columns in the first row.
         """
 
         with open(file_name, "w") as csv_file:
@@ -1249,7 +1280,7 @@ class FractureNetwork2d(object):
         """
         Export the fracture network to file.
 
-        The file format is given as an kwarg, by default vtu will be used. The writing is
+        The file format is given as a kwarg, by default vtu will be used. The writing is
         outsourced to meshio, thus the file format should be supported by that package.
 
         The fractures are treated as lines, with no special treatment

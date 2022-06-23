@@ -62,7 +62,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
                 if g.frac_num == fi:
                     self.assertTrue(
                         compare_bounding_boxes(
-                            pp.bounding_box.from_points(f.p),
+                            pp.bounding_box.from_points(f.pts),
                             pp.bounding_box.from_points(g.nodes),
                         )
                     )
@@ -239,7 +239,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
         f_2 = pp.Fracture3d(
             np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
         )
-        f_3 = pp.Fracture3d(f_2.p + np.array([0.5, 0, 0]).reshape((-1, 1)))
+        f_3 = pp.Fracture3d(f_2.pts + np.array([0.5, 0, 0]).reshape((-1, 1)))
 
         # Add some parameters for grid size
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}

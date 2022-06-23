@@ -88,26 +88,33 @@ def network_3d_from_csv(
 
 
 def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=False):
-
     """
     Create the fracture network from a set of 3d fractures stored in a csv file and
     domain. In the csv file, we assume the following structure
     - first line (optional) describes the domain as a rectangle with
       X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
-    - the other lines descibe the N fractures as a elliptic fractures:
+    - the other lines describe the N fractures as a elliptic fractures:
       center_x, center_y, center_z, major_axis, minor_axis, major_axis_angle,
                  strike_angle, dip_angle, num_points.
-     See EllipticFracture for information about the parameters
+     See create_elliptic_fracture for information about the parameters
 
     Lines that start with a # are ignored.
 
-    Parameters:
-        file_name: name of the file
-        has_domain: if the first line in the csv file specify the domain
-        tol: (optional) tolerance for the methods
+    Parameters
+    ----------
+    file_name
+        Name of the file
+    has_domain
+        Whether the first line in the csv file specify the domain
+    tol
+        Tolerance for geometry related methods (snapping etc.) of FractureNetwork3d.
+        Defaults to 1e-4.
+    degrees
 
-    Return:
-        FractureNetwork3d: the fracture network
+    Returns
+    -------
+    FractureNetwork3d
+        the fracture network
 
     """
 
@@ -152,7 +159,7 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
             num_points = int(data[8])
 
             frac_list.append(
-                pp.EllipticFracture3d(
+                pp.create_elliptic_fracture(
                     centers, maj_ax, min_ax, maj_ax_ang, strike_ang, dip_ang, num_points
                 )
             )
