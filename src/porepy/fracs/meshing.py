@@ -68,7 +68,7 @@ def grid_list_to_grid_bucket(
     split_grid.split_fractures(gb, **kwargs)
     logger.info("Done. Elapsed time " + str(time.time() - tm_split))
 
-    create_mortar_grids(gb, **kwargs)
+    create_mortar_grids(gb)
 
     gb.assign_node_ordering()
 
@@ -221,7 +221,14 @@ def _tag_faces(grids, check_highest_dim=True):
         domain_boundary_tags = np.zeros(g_h.num_faces, dtype=bool)
         domain_boundary_tags[bnd_faces] = True
         g_h.tags["domain_boundary_faces"] = domain_boundary_tags
-        bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
+
+        # Pick out the face-node relation for the highest dimensional grid, restricted
+        # to the faces on the domain boundary. This will be of use for identifying
+        # tip faces for 2d grids below.
+        fn_h = g_h.face_nodes[:, bnd_faces].tocsr()
+
+        # Nodes on the boundary
+        bnd_nodes, _, _ = sps.find(fn_h)
 
         # Boundary nodes of g_h in terms of global indices
         bnd_nodes_glb = g_h.global_point_ind[np.unique(bnd_nodes)]
@@ -241,11 +248,6 @@ def _tag_faces(grids, check_highest_dim=True):
         global_node_as_fracture_tip = np.array([], dtype=int)
         # Also count the number of occurences of nodes on fractures
         num_occ_nodes = np.array([], dtype=int)
-
-        # Pick out the face-node relation for the highest dimensional grid, restricted
-        # to the faces on the domain boundary. This will be of use for identifying
-        # tip faces for 2d grids below.
-        fn_h = g_h.face_nodes[:, bnd_faces].tocsr()
 
         for g_dim in grids[1:-1]:
             for g in g_dim:
@@ -501,7 +503,7 @@ def _assemble_in_bucket(grids, **kwargs):
     return bucket
 
 
-def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
+def create_mortar_grids(gb):
 
     gb.add_edge_props("mortar_grid")
     # loop on all the nodes and create the mortar grids
@@ -510,13 +512,15 @@ def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
         # d['face_cells'].indices gives mappings into the lower dimensional
         # cells. Count the number of occurences for each cell.
         num_sides = np.bincount(d["face_cells"].indices)
-        # Each cell should be found either twice (think a regular fracture
-        # that splits a higher dimensional mesh), or once (the lower end of
-        # a T-intersection, or both ends of an L-intersection).
-        if ensure_matching_face_cell:
-            assert np.all(num_sides == 1) or np.all(num_sides == 2)
-        else:
-            assert np.max(num_sides) < 3
+
+        if np.max(num_sides) > 2:
+            # Each cell should be found either twice (think a regular fracture
+            # that splits a higher dimensional mesh), or once (the lower end of
+            # a T-intersection, or both ends of an L-intersection).
+            raise ValueError(
+                """Found low-dimensional cell which corresponds to
+                             too many high-dimensional faces."""
+            )
 
         # If all cells are found twice, create two mortar grids
         if np.all(num_sides > 1):
