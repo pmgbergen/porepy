@@ -199,7 +199,7 @@ class TestImport3dCsv(unittest.TestCase):
         network = pp.fracture_importer.network_3d_from_csv(file_name, has_domain=False)
         known_p = np.array([[0, 1, 1], [0, 1, 0], [0, 1, 1]])
         self.assertTrue(len(network._fractures) == 1)
-        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[0].p))
+        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[0].pts))
 
     def test_two_fractures(self):
         # Two fractures, identical coordinates - this will not matter
@@ -212,8 +212,8 @@ class TestImport3dCsv(unittest.TestCase):
         network = pp.fracture_importer.network_3d_from_csv(file_name, has_domain=False)
         known_p = np.array([[0, 1, 1], [0, 1, 0], [0, 1, 1]])
         self.assertTrue(len(network._fractures) == 2)
-        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[0].p))
-        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[1].p))
+        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[0].pts))
+        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[1].pts))
 
 
 class TestImport3dElliptic(unittest.TestCase):
@@ -243,13 +243,13 @@ class TestImport3dElliptic(unittest.TestCase):
         self.assertTrue(len(network._fractures) == 1)
         f = network._fractures[0]
         self.assertTrue(test_utils.compare_arrays(f.center, np.zeros((3, 1))))
-        self.assertTrue(f.p.shape[1] == 16)
-        self.assertTrue(f.p[0].max() == 2)
-        self.assertTrue(f.p[1].max() == 1)
-        self.assertTrue(f.p[2].max() == 0)
-        self.assertTrue(f.p[0].min() == -2)
-        self.assertTrue(f.p[1].min() == -1)
-        self.assertTrue(f.p[2].min() == 0)
+        self.assertTrue(f.pts.shape[1] == 16)
+        self.assertTrue(f.pts[0].max() == 2)
+        self.assertTrue(f.pts[1].max() == 1)
+        self.assertTrue(f.pts[2].max() == 0)
+        self.assertTrue(f.pts[0].min() == -2)
+        self.assertTrue(f.pts[1].min() == -1)
+        self.assertTrue(f.pts[2].min() == 0)
 
 
 class TestImportDFN1d(unittest.TestCase):
