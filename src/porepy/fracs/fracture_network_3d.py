@@ -584,6 +584,7 @@ class FractureNetwork3d(object):
             np.array (Intersection): Array of intersections
 
         """
+        fi: Optional[int]  # need this typing since frac.index might also be None
         if isinstance(frac, int):
             fi = frac
         else:
@@ -1758,8 +1759,8 @@ class FractureNetwork3d(object):
 
         boundary_tags = self.tags.get("boundary", [False] * len(self._fractures))
         if keep_box:
-            for f in polyhedron:
-                self.add(Fracture3d(f))
+            for pnt in polyhedron:
+                self.add(Fracture3d(pnt))
                 boundary_tags.append(True)
         self.tags["boundary"] = boundary_tags
 
