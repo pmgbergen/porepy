@@ -149,24 +149,6 @@ class Fracture3d(Fracture):
         sp = [Point(pts[:, i]) for i in range(pts.shape[1])]
         return Polygon(*sp)
 
-    def copy(self) -> Fracture3d:
-        """Return a copy of the fracture with the current vertices.
-
-        Notes
-        -----
-            The original points (as given when the fracture was initialized)
-            will *not* be preserved.
-
-        Returns
-        -------
-            Fracture with the same points.
-        """
-        p = np.copy(self.pts)
-        # No need to copy index, since it's an int (if not None), which is
-        # immutable. Thus, changes to one index will not change the other.
-        # TODO: Consider adding optional index parameter to this method.
-        return Fracture3d(p, index=self.index)
-
 
 def create_elliptic_fracture(
     center: np.ndarray,

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import abc
-from typing import Generator, List, Optional, Tuple, Union
+from typing import Generator, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 
 import porepy as pp
 from porepy.utils import setmembership
+
+FractureType = TypeVar("FractureType", bound="Fracture")
 
 
 class Fracture(abc.ABC):
@@ -271,6 +273,23 @@ class Fracture(abc.ABC):
 
         if not keep_orig:
             self.orig_pts = self.pts
+
+    def copy(self: FractureType) -> FractureType:
+        """Return a copy of the fracture with the current vertices.
+
+        Notes
+        -----
+            The original points (as given when the fracture was initialized)
+            will *not* be preserved.
+
+        Returns
+        -------
+            Fracture with the same points.
+        """
+        # deep copy points since mutable
+        p = np.copy(self.pts)
+        # TODO: Consider adding optional index parameter to this method.
+        return type(self)(p, index=self.index)
 
     ###########################################################################################
     ### Dimension-dependent, abstract methods
