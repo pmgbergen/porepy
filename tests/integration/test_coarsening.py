@@ -221,7 +221,7 @@ class BasicsTest(unittest.TestCase):
         # Test
         # Be carefull! If the indexing of any grids (including mg) change the hard-coded
         # indexes may be wrong
-        known_indices = np.array([0, 2, 1, 3, 4, 6, 5, 7])
+        known_indices = np.array([1, 3, 0, 2, 5, 7, 4, 6])
         known = np.array([1, 4, 7, 10, 44, 45, 46, 47])
 
         for _, d in gb.edges():
