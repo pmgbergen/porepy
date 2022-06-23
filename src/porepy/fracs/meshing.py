@@ -517,8 +517,10 @@ def create_mortar_grids(gb):
             # Each cell should be found either twice (think a regular fracture
             # that splits a higher dimensional mesh), or once (the lower end of
             # a T-intersection, or both ends of an L-intersection).
-            raise ValueError("""Found low-dimensional cell which corresponds to
-                             too many high-dimensional faces.""")
+            raise ValueError(
+                """Found low-dimensional cell which corresponds to
+                             too many high-dimensional faces."""
+            )
 
         # If all cells are found twice, create two mortar grids
         if np.all(num_sides > 1):
