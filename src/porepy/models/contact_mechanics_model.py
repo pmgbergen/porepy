@@ -393,17 +393,19 @@ class ContactMechanics(AbstractModel):
         """
         self.create_grid()
         self._Nd = self.gb.dim_max()
-        self._set_parameters()
         self._assign_variables()
         if self._use_ad:
             self._assign_ad_variables()
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(self.gb)
+        self._initial_condition()
+        self._set_parameters()
         self._assign_discretizations()
         # Once we have defined all discretizations, it's time to instantiate an
         # equation manager (needs to know which terms it should treat)
         if not self._use_ad:
             self.assembler: pp.Assembler = pp.Assembler(self.gb, self.dof_manager)
 
-        self._initial_condition()
         self._discretize()
         self._initialize_linear_solver()
 
@@ -1072,12 +1074,12 @@ class ContactMechanics(AbstractModel):
 
         Note:
             Hueeber and Berge use
-            (-1) * friction_coefficient * (T_n + discr.normal * (u_n - gap))
+            (-1) * friction_coefficient * (T_n + c_n * (u_n - gap))
             The argument is that with this choice, "the Newton-type iteration
             automatically takes the form of an active set method" (Hueber's
             thesis p. 104). Since we abandon the sets in the ad-based
              implementation, the simpler form more closely related to the
-             Coloumb friction law is prefered.
+             Coulomb friction law is prefered.
         """
         friction_coefficient = pp.ad.ParameterMatrix(
             self.mechanics_parameter_key,
