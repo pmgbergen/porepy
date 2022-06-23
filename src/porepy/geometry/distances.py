@@ -2,8 +2,12 @@
 Module contains functions for distance computations.
 
 """
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
+from scipy.spatial import distance as scidist
 
 import porepy as pp
 
@@ -304,30 +308,32 @@ def point_pointset(p, pset, exponent=2):
     )
 
 
-def pointset(p, max_diag=False):
+def pointset(
+    p: np.ndarray[Any, np.dtype[np.float64]], max_diag: bool = False
+) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Compute mutual distance between all points in a point set.
 
     Parameters:
         p (np.ndarray, 3xn): Points
-        max_diag (boolean, defaults to False): If True, the diagonal values will
-            are set to a large value, rather than 0.
+        max_diag (boolean, defaults to False): If True, the diagonal value corresponding
+            to each point is set to twice the maximum of the distances for that point,
+            rather than 0.
 
     Returns:
         np.array (nxn): Distance between points.
-    """
-    if p.size > 3:
-        n = p.shape[1]
-    else:
-        n = 1
-        p = p.reshape((-1, 1))
 
-    d = np.zeros((n, n))
-    for i in range(n):
-        d[i] = point_pointset(p[:, i], p)
+    """
+    if p.ndim == 1 or p.ndim == 2 and p.shape[-1] == 1:
+        return np.zeros((1, 1))
+
+    # Use scipy spatial function to compute distances between points
+    d = scidist.cdist(p.T, p.T, "euclidean")
 
     if max_diag:
-        for i in range(n):
-            d[i, i] = 2 * np.max(d[i])
+        # Get the maximum per row (could have used column, the distance matrix is
+        # symmetric), and add it to the diagonal
+        row_max = np.max(d, axis=1)
+        d += 2 * np.diag(row_max)
 
     return d
 
