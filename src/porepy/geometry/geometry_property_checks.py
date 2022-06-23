@@ -276,7 +276,7 @@ def point_in_polyhedron(
         num_points += simplices.max() + 1
 
     # Uniquify points, and update triangulation
-    upoints, _, ib = pp.utils.setmembership.unique_columns_tol(points, tol=tol)
+    upoints, ia, ib = pp.utils.setmembership.uniquify_point_set(points, tol)
     ut = ib[tri.astype(int)]
 
     # The in-polyhedra algorithm requires a very particular ordering of the vertexes
@@ -333,14 +333,15 @@ def points_are_planar(pts, normal=None, tol=1e-5):
     else:
         normal = normal.flatten() / np.linalg.norm(normal)
 
-    check_all = np.zeros(pts.shape[1] - 1, dtype=bool)
-
-    for idx, p in enumerate(pts[:, 1:].T):
-        den = np.linalg.norm(pts[:, 0] - p)
-        dotprod = np.dot(normal, (pts[:, 0] - p) / (den if den else 1))
-        check_all[idx] = np.isclose(dotprod, 0, atol=tol, rtol=0)
-
-    return np.all(check_all)
+    # Force normal vector to be a column vector
+    normal = normal.reshape((-1, 1))
+    # Mean point in the point cloud
+    cp = np.mean(pts, axis=1).reshape((-1, 1))
+    # Dot product between the normal vector and the vector from the center point to the
+    # individual points
+    dot_prod = np.linalg.norm(np.sum(normal * (pts - cp), axis=0))
+    # The points are planar if all the dot products are essentially zero.
+    return np.all(np.isclose(dot_prod, 0, atol=tol, rtol=0))
 
 
 def point_in_cell(poly, p, if_make_planar=True):
