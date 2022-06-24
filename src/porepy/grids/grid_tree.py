@@ -654,13 +654,14 @@ class GridTree:
             self._nodes[new] = data
             del self._nodes[old]
 
+            # Loop over edges, look for edges which has the node to be replaced as
+            # one of its neighbors
             for mg, edge in self._edge_to_node.items():
+                # If we find a hit, overwrite the old edge information.
                 if edge[0] == old:
                     self._edge_to_node[mg] = (new, edge[1])
-                    del self._edge_to_node[mg]
                 elif edge[1] == old:
                     self._edge_to_node[mg] = (edge[0], new)
-                    del self._edge_to_node[mg]
 
     def eliminate_subdomain(self, node: pp.Grid) -> List[pp.Grid]:
         """
@@ -1030,8 +1031,10 @@ class GridTree:
 
         # Loop over the edges of the graph (pair of connected nodes)
         idx = 0
-        for e, data in self.edges():
-            g_l, g_h = self.nodes_of_edge(e)
+        for mg in self.interfaces():
+            data = self.interface_data(mg)
+
+            g_l, g_h = self.subdomains_of_interface(mg)
             data_l, data_h = self.subdomain_data(g_l), self.subdomain_data(g_h)
 
             i[idx] = self.subdomain_data(g_l, "node_number")
@@ -1066,13 +1069,9 @@ class GridTree:
             cond = lambda g: True
         diam_g = [np.amax(g.cell_diameters()) for g in self._nodes.keys() if cond(g)]
 
-        diam_mg = [
-            np.amax(d["mortar_grid"].cell_diameters())
-            for mg in self._edge_data
-            if cond(mg)
-        ]
+        diam_mg = [np.amax(mg.cell_diameters()) for mg in self._edge_data if cond(mg)]
 
-        return np.amax(np.hstack((diam_g, diam_mg)))  # type: ignore
+        return np.amax(np.hstack((diam_g, diam_mg)))
 
     def bounding_box(
         self, as_dict: bool = False
@@ -1115,7 +1114,7 @@ class GridTree:
             int: Minimum dimension of the grids present in the hierarchy.
 
         """
-        return np.amin([grid.dim for grid, _ in self])  # type: ignore
+        return np.min([grid.dim for grid in self.subdomains()])
 
     def dim_max(self) -> int:
         """
@@ -1123,7 +1122,7 @@ class GridTree:
             int: Maximum dimension of the grids present in the hierarchy.
 
         """
-        return np.amax([grid.dim for grid, _ in self])  # type: ignore
+        return np.max([grid.dim for grid in self.subdomains()])
 
     def all_dims(self) -> np.ndarray:
         """
@@ -1225,7 +1224,7 @@ class GridTree:
         if cond is None:
             cond = lambda g: True
         return np.sum(  # type: ignore
-            [grid.num_cells for grid in self._nodes.keys() if cond(grid)], dtype=int
+            [grid.num_cells for grid in self.subdomains() if cond(grid)], dtype=int
         )
 
     def num_mortar_cells(self, cond: Callable[[pp.Grid], bool] = None) -> int:
