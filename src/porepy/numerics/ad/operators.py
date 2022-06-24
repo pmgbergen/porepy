@@ -224,7 +224,7 @@ class Operator:
         all_discr = self._identify_subtree_discretizations([])
         return _ad_utils.uniquify_discretization_list(all_discr)
 
-    def discretize(self, gb: pp.GridTree) -> None:
+    def discretize(self, gb: pp.MixedDimensionalGrid) -> None:
         """Perform discretization operation on all discretizations identified in
         the tree of this operator, using data from gb.
 
@@ -249,7 +249,7 @@ class Operator:
     def set_name(self, name: str) -> None:
         self._name = name
 
-    def parse(self, gb: pp.GridTree) -> Any:
+    def parse(self, gb: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
         Subclasses that represent atomic operators (leaves in a tree-representation of
         an operator) should override this method to retutrn e.g. a number, an array or a
@@ -259,7 +259,7 @@ class Operator:
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
-    def _parse_operator(self, op: "Operator", gb: pp.GridTree):
+    def _parse_operator(self, op: "Operator", gb: pp.MixedDimensionalGrid):
         """TODO: Currently, there is no prioritization between the operations; for
         some reason, things just work. We may need to make an ordering in which the
         operations should be carried out. It seems that the strategy of putting on
@@ -686,7 +686,7 @@ class Operator:
         # Initialize Ad variables with the current iterates
 
         # The size of the Jacobian matrix will always be set according to the
-        # variables found by the DofManager in the GridTree.
+        # variables found by the DofManager in the MixedDimensionalGrid.
 
         # NOTE: This implies that to derive a subsystem from the Jacobian
         # matrix of this Expression will require restricting the columns of
@@ -791,7 +791,7 @@ class Matrix(Operator):
         """Convert the Ad matrix into an actual matrix.
 
         Pameteres:
-            gb (pp.GridTree): Mixed-dimensional grid. Not used, but it is needed as
+            gb (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is needed as
                 input to be compatible with parse methods for other operators.
 
         Returns:
@@ -834,11 +834,11 @@ class Array(Operator):
             s += f"({self._name})"
         return s
 
-    def parse(self, gb: pp.GridTree) -> np.ndarray:
+    def parse(self, gb: pp.MixedDimensionalGrid) -> np.ndarray:
         """Convert the Ad Array into an actual array.
 
         Pameteres:
-            gb (pp.GridTree): Mixed-dimensional grid. Not used, but it is needed as
+            gb (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is needed as
                 input to be compatible with parse methods for other operators.
 
         Returns:
@@ -876,11 +876,11 @@ class Scalar(Operator):
             s += f"({self._name})"
         return s
 
-    def parse(self, gb: pp.GridTree) -> float:
+    def parse(self, gb: pp.MixedDimensionalGrid) -> float:
         """Convert the Ad Scalar into an actual number.
 
         Pameteres:
-            gb (pp.GridTree): Mixed-dimensional grid. Not used, but it is needed as
+            gb (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is needed as
                 input to be compatible with parse methods for other operators.
 
         Returns:
@@ -1204,7 +1204,7 @@ class Function(Operator):
         parsing of an operator tree.
 
         Parameters:
-            gb (pp.GridTree): Mixed-dimensional grid. Not used, but it is needed as
+            gb (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is needed as
                 input to be compatible with parse methods for other operators.
 
         Returns:
@@ -1224,7 +1224,7 @@ class SecondOrderTensorAd(SecondOrderTensor, Operator):
 
         return s
 
-    def parse(self, gb: pp.GridTree) -> np.ndarray:
+    def parse(self, gb: pp.MixedDimensionalGrid) -> np.ndarray:
         return self.values
 
 

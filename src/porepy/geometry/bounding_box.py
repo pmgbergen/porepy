@@ -55,12 +55,12 @@ def from_grid(g: pp.Grid) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def from_md_grid(
-    mdg: pp.GridTree, as_dict: bool = False
+    mdg: pp.MixedDimensionalGrid, as_dict: bool = False
 ) -> Union[Dict[str, float], Tuple[np.ndarray, np.ndarray]]:
     """Return the bounding box of a mixed-dimensional grid.
 
     Parameters:
-        mdg (pp.GridTree): Mixed-dimensional grid
+        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid
         as_dict (bool): If True, the bounding box is returned as a dictionary, if False,
             it is represented by arrays with max and min values. Defaults to False.
             . Defaults to False.

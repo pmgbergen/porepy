@@ -187,7 +187,7 @@ class Model(pp.ContactMechanics):
 
     def create_grid(self):
         """
-        Method that creates and returns the GridTree of a 2D domain with six
+        Method that creates and returns the MixedDimensionalGrid of a 2D domain with six
         fractures. The two sides of the fractures are coupled together with a
         mortar grid.
         """

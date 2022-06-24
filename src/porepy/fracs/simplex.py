@@ -22,7 +22,7 @@ def triangle_grid_embedded(file_name):
     conforming along intersections between fractures.
 
     This function produces a set of grids for fractures and lower-dimensional
-    objects, but it does nothing to merge the grids. To create a GridTree,
+    objects, but it does nothing to merge the grids. To create a MixedDimensionalGrid,
     use the function fracs.meshing.dfn instead, with the option
     conforming=True.
 

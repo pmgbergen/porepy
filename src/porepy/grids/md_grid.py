@@ -1,6 +1,6 @@
 """
 Module to store the grid hierarchy formed by a set of fractures and their
-intersections in the form of a GridTree.
+intersections in the form of a MixedDimensionalGrid.
 
 
 
@@ -27,7 +27,7 @@ from porepy.grids import mortar_grid
 from porepy.utils import setmembership
 
 
-class GridTree:
+class MixedDimensionalGrid:
     """
     FIXME: Rename to MixedDimensionalGrid
 
@@ -80,7 +80,7 @@ class GridTree:
     def subdomains(
         self, return_data: bool = False, dim: Optional[int] = None
     ) -> Generator[Tuple[pp.Grid, Tuple[pp.Grid, Dict]], None, None]:
-        """Iterator over the subdomains in the GridTree.
+        """Iterator over the subdomains in the MixedDimensionalGrid.
 
         Optionally, the iterator can filter subdomains on dimension.
 
@@ -111,7 +111,7 @@ class GridTree:
         self, return_data: bool = False, dim: Optional[int] = None
     ) -> Generator[pp.MortarGrid, None, None]:
         """
-        Iterator over the MortarGrids belonging to interfaces in the GridTree.
+        Iterator over the MortarGrids belonging to interfaces in the MixedDimensionalGrid.
 
         Optionally, the iterator can filter interfaces on dimension.
 
@@ -249,7 +249,7 @@ class GridTree:
     # ------------ Getters for node and edge properties
 
     def subdomain_data(self, grid: pp.Grid) -> Any:
-        """Getter for a subdomain property of the GridTree.
+        """Getter for a subdomain property of the MixedDimensionalGrid.
 
         Parameters:
             grid (pp.Grid): The grid associated with the node.
@@ -295,7 +295,7 @@ class GridTree:
             ng = new_grids  # type: ignore
 
         if any([i is j for i in ng for j in list(self._node_data)]):
-            raise ValueError("Grid already defined in GridTree")
+            raise ValueError("Grid already defined in MixedDimensionalGrid")
 
         for grid in ng:
             # Add the grid to the list of subdomains with an empty data dictionary.
@@ -308,7 +308,7 @@ class GridTree:
         primary_secondary_map: sps.spmatrix,
     ) -> None:
         """
-        Add an interface to the GridTree.
+        Add an interface to the MixedDimensionalGrid.
 
         FIXME: Subdomain order should be primary, secondary. Applies to, and will have
         consequences for, the entire code base. Primary is the grid with the highest
@@ -520,14 +520,14 @@ class GridTree:
         for mg in self.interfaces():
             mg.compute_geometry()
 
-    def copy(self) -> "GridTree":
+    def copy(self) -> "MixedDimensionalGrid":
         """Make a shallow copy of the grid bucket. The underlying grids are not copied.
 
         Return:
-            pp.GridTree: Copy of this GridTree.
+            pp.MixedDimensionalGrid: Copy of this MixedDimensionalGrid.
 
         """
-        gb_copy: pp.GridTree = GridTree()
+        gb_copy: pp.MixedDimensionalGrid = MixedDimensionalGrid()
         gb_copy._node_data = self._node_data.copy()
         gb_copy._edge_data = self._edge_data.copy()
         gb_copy._edge_to_node = self._edge_to_node.copy()
@@ -546,7 +546,7 @@ class GridTree:
         FIXME: Improve documentation.
 
         Parameters:
-            gb (GridTree): To be updated.
+            gb (MixedDimensionalGrid): To be updated.
             g_map (dictionary): Mapping between the old and new grids. Keys are
                 the old grids, and values are the new grids.
             mg_map (dictionary): Mapping between the old mortar grid and new
@@ -559,8 +559,8 @@ class GridTree:
         # 1) Update the mortar grid. This will also update projections to and from the
         #    mortar grids so that they are valid for the new mortar grid, but not with
         #    respect to any changes in the subdomain grids.
-        # 2) Update the subdomain grids with respect to nodes in the GridTree.
-        # 3) Update the subdomain grids with respect to the interfaces in the GridTree.
+        # 2) Update the subdomain grids with respect to nodes in the MixedDimensionalGrid.
+        # 3) Update the subdomain grids with respect to the interfaces in the MixedDimensionalGrid.
         #    This will update projections to and from mortar grids.
         # Thus, if both the mortar grid and an adjacent subdomain grids are updated, the
         # projections will be updated twice.

@@ -48,7 +48,7 @@ def plot_grid(g, cell_value=None, vector_value=None, info=None, **kwargs):
         add_info.
     alpha: (optonal) transparency of cells (2d) and faces (3d)
     cells: (optional) boolean array with length number of cells. Only plot cells c
-            where cells[c]=True. Not valid for a GridTree.
+            where cells[c]=True. Not valid for a MixedDimensionalGrid.
     How to use:
     if g is a single grid:
     cell_id = np.arange(g.num_cells)
@@ -62,7 +62,7 @@ def plot_grid(g, cell_value=None, vector_value=None, info=None, **kwargs):
     if isinstance(g, pp.Grid):
         plot_single(g, cell_value, vector_value, info, **kwargs)
 
-    if isinstance(g, pp.GridTree):
+    if isinstance(g, pp.MixedDimensionalGrid):
         plot_gb(g, cell_value, vector_value, info, **kwargs)
 
 

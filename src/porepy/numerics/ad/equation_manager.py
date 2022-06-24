@@ -21,18 +21,18 @@ GridLike = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
 class EquationManager:
     """Representation of a set of equations specified on Ad form.
 
-    The equations are tied to a specific GridTree, with variables fixed in a
+    The equations are tied to a specific MixedDimensionalGrid, with variables fixed in a
     corresponding DofManager.
 
     Attributes:
-        gb (pp.GridTree): Mixed-dimensional grid on which this EquationManager
+        gb (pp.MixedDimensionalGrid): Mixed-dimensional grid on which this EquationManager
             operates.
         dof_manager (pp.DofManager): Degree of freedom manager used for this
             EquationManager.
         equations (List of Ad Operators): Equations assigned to this EquationManager.
             can be expanded by direct addition to the list.
         variables (Dict): Mapping from grids or grid tuples (interfaces) to Ad
-            variables. These are set at initialization from the GridTree, and should
+            variables. These are set at initialization from the MixedDimensionalGrid, and should
             not be changed later.
         secondary_variables (List of Ad Variables): List of variables that are secondary,
             that is, their derivatives will not be included in the Jacobian matrix.
@@ -50,7 +50,7 @@ class EquationManager:
 
     def __init__(
         self,
-        gb: pp.GridTree,
+        gb: pp.MixedDimensionalGrid,
         dof_manager: pp.DofManager,
         equations: Optional[Dict[str, "pp.ad.Operator"]] = None,
         secondary_variables: Optional[Sequence["pp.ad.Variable"]] = None,
@@ -58,7 +58,7 @@ class EquationManager:
         """Initialize the EquationManager.
 
         Parameters:
-            gb (pp.GridTree): Mixed-dimensional grid for this EquationManager.
+            gb (pp.MixedDimensionalGrid): Mixed-dimensional grid for this EquationManager.
             dof_manager (pp.DofManager): Degree of freedom manager.
             equations (List, Optional): List of equations. Defaults to empty list.
             secondary_variables (List of Ad Variable or MergedVariable): Variables
@@ -123,7 +123,7 @@ class EquationManager:
         self.row_block_indices_last_assembled: Optional[np.ndarray] = None
 
     def _set_variables(self, gb):
-        # Define variables as specified in the GridTree
+        # Define variables as specified in the MixedDimensionalGrid
         variables = {}
         for g, d in gb:
             variables[g] = {}
@@ -452,7 +452,7 @@ class EquationManager:
             secondary_variables=secondary_variables,
         )
 
-    def discretize(self, gb: pp.GridTree) -> None:
+    def discretize(self, gb: pp.MixedDimensionalGrid) -> None:
         """Loop over all discretizations in self.equations, find all unique discretizations
         and discretize.
 
@@ -461,7 +461,7 @@ class EquationManager:
         identified and only discretized once.
 
         Parameters:
-            gb (pp.GridTree): Mixed-dimensional grid from which parameters etc. will
+            gb (pp.MixedDimensionalGrid): Mixed-dimensional grid from which parameters etc. will
                 be taken and where discretization matrices will be stored.
 
         """

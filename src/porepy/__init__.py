@@ -85,7 +85,7 @@ from porepy.params.fluid import Water, UnitFluid
 # Grids
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
-from porepy.grids.grid_bucket import GridTree
+from porepy.grids.grid_bucket import MixedDimensionalGrid
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid

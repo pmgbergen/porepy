@@ -76,7 +76,7 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         g2.compute_geometry()
         grids = [g2, g1]
 
-        gb = pp.GridTree()
+        gb = pp.MixedDimensionalGrid()
 
         [gb.add_nodes(g) for g in grids]
         [g2, g1] = gb.grids_of_dimension(2)
@@ -319,7 +319,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
     def generate_2d_grid(self, n, xmax, ymax):
         g1 = pp.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])
         g1.compute_geometry()
-        gb = pp.GridTree()
+        gb = pp.MixedDimensionalGrid()
 
         gb.add_nodes(g1)
         tol = 1e-6

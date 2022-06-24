@@ -49,7 +49,7 @@ class TestAssembler(unittest.TestCase):
         g1.grid_num = 1
         g2.grid_num = 2
 
-        gb = pp.GridTree()
+        gb = pp.MixedDimensionalGrid()
         gb.add_nodes([g1, g2])
         gb.add_edge([g1, g2], None)
 
@@ -73,7 +73,7 @@ class TestAssembler(unittest.TestCase):
         g2.dim = 1
         g3.dim = 1
 
-        gb = pp.GridTree()
+        gb = pp.MixedDimensionalGrid()
         gb.add_nodes([g1, g2, g3])
         gb.add_edge([g1, g2], None)
         gb.add_edge([g1, g3], None)

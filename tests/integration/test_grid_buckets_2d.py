@@ -10,7 +10,7 @@ import numpy as np
 import porepy as pp
 
 
-class TestGridTrees(unittest.TestCase):
+class TestMixedDimensionalGrids(unittest.TestCase):
     """Various tests for the utility methods to generate standard geometries.
 
     Note that the tests in part are based on hard-coded 'known' information on the

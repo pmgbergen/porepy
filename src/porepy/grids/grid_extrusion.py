@@ -24,14 +24,14 @@ import porepy as pp
 from porepy.grids import mortar_grid
 
 
-def extrude_grid_bucket(gb: pp.GridTree, z: np.ndarray) -> Tuple[pp.GridTree, Dict]:
-    """Extrude a GridTree by extending all fixed-dimensional grids in the z-direction.
+def extrude_grid_bucket(gb: pp.MixedDimensionalGrid, z: np.ndarray) -> Tuple[pp.MixedDimensionalGrid, Dict]:
+    """Extrude a MixedDimensionalGrid by extending all fixed-dimensional grids in the z-direction.
 
     In practice, the original grid bucket will be 2d, and the result is 3d.
 
-    The returned GridTree is fully functional, including mortar grids on the gb edges.
+    The returned MixedDimensionalGrid is fully functional, including mortar grids on the gb edges.
     The data dictionaries on nodes and edges are mainly empty. Data can be transferred from
-    the original GridTree via the returned map between old and new grids.
+    the original MixedDimensionalGrid via the returned map between old and new grids.
 
     Parameters:
         gb (pp.GridBukcet): Mixed-dimensional grid to be extruded. Should be 2d.
@@ -40,7 +40,7 @@ def extrude_grid_bucket(gb: pp.GridTree, z: np.ndarray) -> Tuple[pp.GridTree, Di
             decreasing order, respectively.
 
     Returns:
-        gb (pp.GridTree): Mixed-dimensional grid, 3d. The data dictionaries on nodes and
+        gb (pp.MixedDimensionalGrid): Mixed-dimensional grid, 3d. The data dictionaries on nodes and
             edges are mostly empty.
         dict: Mapping from individual grids in the old bucket to the corresponding
             extruded grids in the new one. The dictionary values are a namedtuple with
@@ -49,8 +49,8 @@ def extrude_grid_bucket(gb: pp.GridTree, z: np.ndarray) -> Tuple[pp.GridTree, Di
 
     """
 
-    # New GridTree. to be filled in
-    gb_new: pp.GridTree = pp.GridTree()
+    # New MixedDimensionalGrid. to be filled in
+    gb_new: pp.MixedDimensionalGrid = pp.MixedDimensionalGrid()
 
     # Data structure for mapping between old and new grids
     g_map = {}
