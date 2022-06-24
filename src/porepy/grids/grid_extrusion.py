@@ -12,8 +12,10 @@ The main methods in the module are
 All other functions are helpers.
 
 """
+from __future__ import annotations
+
 from collections import namedtuple
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -21,10 +23,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.grids import mortar_grid
 
-module_sections = ["grids", "gridding"]
 
-
-@pp.time_logger(sections=module_sections)
 def extrude_grid_bucket(gb: pp.GridTree, z: np.ndarray) -> Tuple[pp.GridTree, Dict]:
     """Extrude a GridTree by extending all fixed-dimensional grids in the z-direction.
 
@@ -154,7 +153,6 @@ def extrude_grid_bucket(gb: pp.GridTree, z: np.ndarray) -> Tuple[pp.GridTree, Di
     return gb_new, g_map
 
 
-@pp.time_logger(sections=module_sections)
 def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Increase the dimension of a given grid by 1, by extruding the grid in the
     z-direction.
@@ -196,8 +194,9 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.nda
         raise ValueError("The grid to be extruded should have dimension at most 2")
 
 
-@pp.time_logger(sections=module_sections)
-def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
+def _extrude_2d(
+    g: pp.Grid, z: np.ndarray[Any, np.dtype[np.float64]]
+) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Extrude a 2d grid into 3d by prismatic extension.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -435,7 +434,7 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     # For the cells, we will store the number of facqes for each cell. This will later
     # be expanded to a full set of cell indices
     cf_vertical_cell_count = np.array([], dtype=int)
-    cf_data_vertical = np.array([])
+    cf_data_vertical = np.array([], dtype=bool)
 
     for k in range(num_cell_layers):
         # The face indices are found from the 2d information, with increaments that
@@ -528,7 +527,6 @@ def _extrude_2d(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndar
     return g_new, cell_map, face_map
 
 
-@pp.time_logger(sections=module_sections)
 def _extrude_1d(
     g: pp.TensorGrid, z: np.ndarray
 ) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
@@ -644,7 +642,6 @@ def _extrude_1d(
     return g_new, cell_map, face_map
 
 
-@pp.time_logger(sections=module_sections)
 def _extrude_0d(
     g: pp.PointGrid, z: np.ndarray
 ) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
@@ -699,7 +696,6 @@ def _extrude_0d(
     return g_new, cell_map, face_map
 
 
-@pp.time_logger(sections=module_sections)
 def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     """Define all standard tags (face and nodes) for the extruded grids
 
@@ -788,7 +784,6 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
     return tags
 
 
-@pp.time_logger(sections=module_sections)
 def _create_mappings(
     g: pp.Grid, g_new: pp.Grid, num_cell_layers: int
 ) -> Tuple[np.ndarray, np.ndarray]:

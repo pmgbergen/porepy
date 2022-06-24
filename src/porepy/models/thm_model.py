@@ -19,18 +19,14 @@ equations.
 
 Equation scaling: For monolithic solution of coupled systems, the condition number of
 the global matrix may become a severe restriction. To alleviate this, the model is set
-up with three scaling parameters. length_scaling allows to solve on a unit size domain,
+up with three scaling parameters. length_scaling allows solving on a unit size domain,
 and result interpretation on e.g. a kilometer scale. pressure_scale and temperature_scale
 may be used to solve for scaled pressure (p_scaled = p_physical/pressure_scale) and
 temperature. For typical reservoir conditions, choosing a large (e.g. 1e6) pressure_scale
-is a good place to start. To obtain an idea about the effect on the matrix, set the
-logging level to DEBUG.
-
-NOTE: This module should be considered an experimental feature, which will likely
-undergo major changes (or be deleted).
+is a good place to start.
 """
-import logging
-import time
+from __future__ import annotations
+
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -38,13 +34,23 @@ import numpy as np
 import porepy as pp
 from porepy.utils.derived_discretizations import implicit_euler as IE_discretizations
 
-# Module-wide logger
-logger = logging.getLogger(__name__)
-module_sections = ["models", "numerics"]
+
+class THMAdObjects(
+    pp.models.contact_mechanics_biot_model.ContactMechanicsBiotAdObjects
+):
+    """Storage class for ad related objects.
+
+    Stored objects include variables, compound ad operators and projections.
+    """
+
+    temperature: pp.ad.Variable
+    advective_interface_flux: pp.ad.Variable
+    conductive_interface_flux: pp.ad.Variable
+    heat_conduction_discretization: Union[pp.ad.MpfaAd, pp.ad.TpfaAd]
 
 
 class THM(pp.ContactMechanicsBiot):
-    """This is a shell class for poro-elastic contact mechanics problems.
+    """This is a shell class for poroelastic contact mechanics problems.
 
     Setting up such problems requires a lot of boilerplate definitions of variables,
     parameters and discretizations. This class is intended to provide a standardized
@@ -60,20 +66,20 @@ class THM(pp.ContactMechanicsBiot):
 
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
-            including in Paraview export.
+            including in ParaView export.
         mortar_displacement_variable (str): Name assigned to the displacement variable
             on the fracture walls. Will be used throughout the simulations, including in
-            Paraview export.
+            ParaView export.
         contact_traction_variable (str): Name assigned to the variable for contact
             forces in the fracture. Will be used throughout the simulations, including
-            in Paraview export.
+            in ParaView export.
         scalar_variable (str): Name assigned to the pressure variable. Will be used
-            throughout the simulations, including in Paraview export.
+            throughout the simulations, including in ParaView export.
         temperature_variable (str): Name assigned to the temperature variable. Will be used
-            throughout the simulations, including in Paraview export.
+            throughout the simulations, including in ParaView export.
         mortar scalar_variable (str): Name assigned to the interface scalar variable
             representing flux between grids. Will be used throughout the simulations,
-            including in Paraview export.
+            including in ParaView export.
 
         mechanics_parameter_key (str): Keyword used to define parameters and
             discretizations for the mechanics problem.
@@ -88,7 +94,7 @@ class THM(pp.ContactMechanicsBiot):
         viz_folder_name (str): Folder for visualization export.
         gb (pp.GridTree): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
-        convergence_status (bool): Whether the non-linear iterations has converged.
+        convergence_status (bool): Whether the non-linear iterations have converged.
         linear_solver (str): Specification of linear solver. Only known permissible
             value is 'direct'
         scalar_scale (float): Scaling coefficient for the pressure variable. Can be used
@@ -104,7 +110,6 @@ class THM(pp.ContactMechanicsBiot):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
@@ -137,20 +142,23 @@ class THM(pp.ContactMechanicsBiot):
         # Keyword needed to specify parameters and discretizations for the
         # temperature mechanics coupling
         self.mechanics_temperature_parameter_key: str = "mech_temperature"
+        self._use_ad = True
 
-    @pp.time_logger(sections=module_sections)
     def before_newton_iteration(self) -> None:
         """Re-discretize the nonlinear terms"""
         self.compute_fluxes()
-        terms = [
-            self.friction_coupling_term,
-            self.advection_term,
-            self.advection_coupling_term,
-        ]
-        filt = pp.assembler_filters.ListFilter(term_list=terms)
-        self.assembler.discretize(filt=filt)
+        if self._use_ad:
+            self._eq_manager.equations["interface_heat_advection"].discretize(self.gb)
+            self._eq_manager.equations["subdomain_energy_balance"].discretize(self.gb)
+        else:
+            terms = [
+                self.friction_coupling_term,
+                self.advection_term,
+                self.advection_coupling_term,
+            ]
+            filt = pp.assembler_filters.ListFilter(term_list=terms)
+            self.assembler.discretize(filt=filt)
 
-    @pp.time_logger(sections=module_sections)
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
         Compute the stress in the highest-dimensional grid based on the displacement
@@ -181,7 +189,6 @@ class THM(pp.ContactMechanicsBiot):
         # Stress contribution from the scalar variable
         d[pp.STATE]["stress"] += matrix_dictionary["grad_p"] * T
 
-    @pp.time_logger(sections=module_sections)
     def compute_fluxes(self) -> None:
         """Compute the fluxes in the mixed-dimensional grid from the current state of
         the pressure variables.
@@ -197,7 +204,6 @@ class THM(pp.ContactMechanicsBiot):
             from_iterate=True,
         )
 
-    @pp.time_logger(sections=module_sections)
     def _set_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -206,7 +212,6 @@ class THM(pp.ContactMechanicsBiot):
         self._set_temperature_parameters()
         self._set_mechanics_parameters()
 
-    @pp.time_logger(sections=module_sections)
     def _set_mechanics_parameters(self) -> None:
         """
         Set the parameters for the simulation.
@@ -214,21 +219,18 @@ class THM(pp.ContactMechanicsBiot):
         super()._set_mechanics_parameters()
         for g, d in self.gb:
             if g.dim == self._Nd:
+                mech_params = d[pp.PARAMETERS][self.mechanics_parameter_key].copy()
+                mech_params.update({"biot_alpha": self._biot_beta(g)})
                 pp.initialize_data(
                     g,
                     d,
                     self.mechanics_temperature_parameter_key,
-                    {
-                        "biot_alpha": self._biot_beta(g),
-                        "bc_values": self._bc_values_mechanics(g),
-                        "p_reference": np.zeros(g.num_cells),
-                    },
+                    mech_params,
                 )
 
-    @pp.time_logger(sections=module_sections)
     def _set_scalar_parameters(self) -> None:
         """Set parameters for the pressure / mass conservation equation."""
-        # Most values are handled as if this was a poro-elastic problem
+        # Most values are handled as if this was a poroelastic problem
         super()._set_scalar_parameters()
         for g, d in self.gb:
             t2s_coupling = (
@@ -243,15 +245,14 @@ class THM(pp.ContactMechanicsBiot):
                 {"mass_weight": t2s_coupling, "time_step": self.time_step},
             )
 
-    @pp.time_logger(sections=module_sections)
     def _set_temperature_parameters(self) -> None:
         """Parameters for the temperature equation."""
         tensor_scale: float = (
             self.temperature_scale / self.length_scale**2 / self.T_0_Kelvin
         )
         kappa: float = 1 * tensor_scale
-        heat_capacity = 1
-        mass_weight: float = heat_capacity * self.temperature_scale / self.T_0_Kelvin
+        c_heat = 1
+        mass_weight: float = c_heat * self.temperature_scale / self.T_0_Kelvin
         for g, d in self.gb:
             # By default, we set the same type of boundary conditions as for the
             # pressure problem, that is, zero Dirichlet everywhere
@@ -263,7 +264,11 @@ class THM(pp.ContactMechanicsBiot):
             thermal_conductivity = pp.SecondOrderTensor(
                 kappa * specific_volume * np.ones(g.num_cells)
             )
-            advection_weight = heat_capacity * self.temperature_scale / self.T_0_Kelvin
+            heat_capacity = c_heat * np.ones(g.num_cells) * self.temperature_scale
+            advection_weight = heat_capacity / self.T_0_Kelvin
+            advection_weight_faces = (
+                c_heat * np.ones(g.num_faces) * self.temperature_scale / self.T_0_Kelvin
+            )
             s2t_coupling = (
                 self._scalar_temperature_coupling_coefficient(g)
                 * specific_volume
@@ -280,7 +285,9 @@ class THM(pp.ContactMechanicsBiot):
                     "biot_alpha": self._biot_beta(g),
                     "source": source_values,
                     "second_order_tensor": thermal_conductivity,
-                    "advection_weight": advection_weight,
+                    "advection_weight": advection_weight,  # TODO: remove on ad purge
+                    "advection_weight_boundary": advection_weight_faces,
+                    "heat_capacity": heat_capacity,
                     "time_step": self.time_step,
                 },
             )
@@ -310,8 +317,7 @@ class THM(pp.ContactMechanicsBiot):
             # and therefore need to be weighted by the corresponding
             # specific volumes
             normal_diffusivity *= v_h
-
-            data_edge = pp.initialize_data(
+            pp.initialize_data(
                 e,
                 data_edge,
                 self.temperature_parameter_key,
@@ -320,36 +326,59 @@ class THM(pp.ContactMechanicsBiot):
                 },
             )
 
-    @pp.time_logger(sections=module_sections)
     def _bc_type_temperature(self, g: pp.Grid) -> pp.BoundaryCondition:
+        """Boundary condition type specification.
+
+        Args:
+            g: Grid representing a subdomain
+
+        Returns:
+            bc: BoundaryCondition object.
+
+        Note that currently, Neumann values are collected by both advection
+        and convection discretization. Consider dividing by two when assigning
+        values using _bc_values_temperature.
+        """
         # Define boundary regions
         all_bf, *_ = self._domain_boundary_sides(g)
         # Define boundary condition on faces
-        return pp.BoundaryCondition(g, all_bf, "dir")
+        bc = pp.BoundaryCondition(g, all_bf, "dir")
+        return bc
 
-    @pp.time_logger(sections=module_sections)
     def _bc_values_temperature(self, g: pp.Grid) -> np.ndarray:
-        return np.zeros(g.num_faces)
+        """Boundary condition values.
 
-    @pp.time_logger(sections=module_sections)
+
+        Args:
+            g: Grid representing a subdomain
+
+        Returns:
+            values: cell-wise array.
+
+        Note that currently, Neumann values are collected by both advection
+        and convection discretization. Consider dividing by two.
+        """
+        values = np.zeros(g.num_faces)
+        return values
+
     def _source_temperature(self, g: pp.Grid) -> np.ndarray:
         return np.zeros(g.num_cells)
 
-    @pp.time_logger(sections=module_sections)
-    def _biot_beta(self, g: pp.Grid) -> float:
+    def _biot_beta(self, g: pp.Grid) -> Union[float, np.ndarray]:
         """
         TM coupling coefficient
         """
-        return 1.0
+        if self._use_ad:
+            return 1.0 * np.ones(g.num_cells)
+        else:
+            return 1.0
 
-    @pp.time_logger(sections=module_sections)
     def _scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
         """
         TH coupling coefficient
         """
         return -1.0
 
-    @pp.time_logger(sections=module_sections)
     def _assign_variables(self) -> None:
         """
         Assign primary variables to the nodes and edges of the grid bucket.
@@ -369,18 +398,48 @@ class THM(pp.ContactMechanicsBiot):
                 }
             )
 
-    @pp.time_logger(sections=module_sections)
+    def _assign_ad_variables(self) -> None:
+        """Assign variables to self._ad
+
+
+        Assigns the following attributes to self._ad in addition to those set by
+        the parent class:
+            pressure: primary variable in all subdomains.
+            interface_flux: Primary variable on interfaces of codimension 1 (usually
+                all interfaces).
+
+        Returns
+        -------
+        None
+
+        """
+        super()._assign_ad_variables()
+        subdomains: List[pp.Grid] = [g for g, _ in self.gb]
+
+        interfaces = [e for e, d in self.gb.edges() if d["mortar_grid"].codim == 1]
+        # Primary variables on Ad form
+        self._ad.temperature = self._eq_manager.merge_variables(
+            [(g, self.temperature_variable) for g in subdomains]
+        )
+        self._ad.advective_interface_flux = self._eq_manager.merge_variables(
+            [(e, self.mortar_temperature_advection_variable) for e in interfaces]
+        )
+        self._ad.conductive_interface_flux = self._eq_manager.merge_variables(
+            [(e, self.mortar_temperature_variable) for e in interfaces]
+        )
+
     def _assign_discretizations(self) -> None:
         """
         Assign discretizations to the nodes and edges of the grid bucket.
 
-        Note the attribute subtract_fracture_pressure: Indicates whether or not to
+        Note the attribute subtract_fracture_pressure: Indicates whether to
         subtract the fracture pressure contribution for the contact traction. This
         should not be done if the scalar variable is temperature.
         """
-        # Call parent class for disrcetizations for the poro-elastic system.
+        # Call parent class for discretizations for the poroelastic system.
         super()._assign_discretizations()
-
+        if self._use_ad:
+            return
         # What remains is terms related to temperature
 
         # Shorthand for parameter keywords
@@ -410,10 +469,7 @@ class THM(pp.ContactMechanicsBiot):
         )
 
         # Nd
-        grad_t_disc = pp.GradP(
-            key_mt
-        )  # pp.GradP(key_m) # Kanskje denne (og andre) b;r erstattes av spesiallagde
-        # varianter som henter ut s-varianten og ganger med alpha/beta?
+        grad_t_disc = pp.GradP(key_mt)
 
         stabilization_disc_t = pp.BiotStabilization(key_t, var_t)
         s2t_disc = IE_discretizations.ImplicitMassMatrix(
@@ -432,11 +488,10 @@ class THM(pp.ContactMechanicsBiot):
                             "diffusion": diff_disc_t,
                             self.advection_term: adv_disc_t,
                             "mass": mass_disc_t,
-                            # Also the stabilization term from Biot
                             "stabilization": stabilization_disc_t,
                             "source": source_disc_t,
                         },
-                        # grad T term in the momentuum equation
+                        # grad T term in the momentum equation
                         var_d + "_" + var_t: {"grad_p": grad_t_disc},
                         # div u term in the energy equation
                         var_t + "_" + var_d: {"div_u": div_u_disc_t},
@@ -518,7 +573,492 @@ class THM(pp.ContactMechanicsBiot):
                     }
                 )
 
-    @pp.time_logger(sections=module_sections)
+    def _assign_equations(self):
+        """Assign equations for mixed-dimensional flow and deformation.
+
+        The following equations are assigned to the equation manager by the
+        call to super. Some of the methods producing these equations are
+        modified in this class to account for coupling terms from temperature,
+        which appear in _stress and _subdomain_flow_equation
+            "momentum" in the nd subdomains
+            "contact_mechanics_normal" in all fracture subdomains
+            "contact_mechanics_tangential" in all fracture subdomains
+            "force_balance" at the matrix-fracture interfaces
+
+            "subdomain_flow" in all subdomains
+            "interface_flow" on all interfaces of codimension 1
+
+        The following equations are added by this class:
+             "subdomain_energy_balance" in all subdomains
+             "interface_heat_conduction" on all interfaces of codimension 1
+             "interface_heat_advection" on all interfaces of codimension 1
+
+        Returns
+        -------
+        None.
+
+        """
+        super()._assign_equations()
+
+        # Now, assign the two flow equations not present in the parent model.
+
+        subdomains: List[pp.Grid] = [g for g, _ in self.gb]
+        interfaces = [e for e, d in self.gb.edges() if d["mortar_grid"].codim == 1]
+
+        # Construct equations
+        subdomain_energy_balance_eq: pp.ad.Operator = (
+            self._subdomain_energy_balance_equation(subdomains)
+        )
+        interface_heat_conduction_eq: pp.ad.Operator = (
+            self._interface_heat_conduction_equation(interfaces)
+        )
+        interface_heat_advection_eq: pp.ad.Operator = (
+            self._interface_heat_advection_equation(interfaces)
+        )
+        # Assign equations to manager
+        self._eq_manager.name_and_assign_equations(
+            {
+                "subdomain_energy_balance": subdomain_energy_balance_eq,
+                "interface_heat_conduction": interface_heat_conduction_eq,
+                "interface_heat_advection": interface_heat_advection_eq,
+            },
+        )
+
+    def _subdomain_flow_equation(self, subdomains: List[pp.Grid]):
+        """Mass balance equation for slightly compressible flow in a deformable medium.
+
+        Method calls super and adds the TH coupling term.
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Subdomains on which the equation is defined.
+
+        Returns
+        -------
+        eq : pp.ad.Operator
+            The equation on AD form.
+
+        """
+        # The equation is the same as for the isothermal model, except that the temperature
+        # dependency in the density will give one more term.
+        eq = super()._subdomain_flow_equation(subdomains)
+        discr = pp.ad.MassMatrixAd(self.t2s_parameter_key, subdomains)
+        eq += discr.mass * (
+            self._ad.temperature - self._ad.temperature.previous_timestep()
+        )
+        return eq
+
+    def _heat_flux(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        """Heat flux.
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Subdomains for which heat fluxes are defined, normally all.
+
+        Returns
+        -------
+        flux : pp.ad.Operator
+            Flux on ad form.
+
+        Note:
+            The ad flux discretization used here is stored for consistency with
+            self._interface_heat_conduction_equation, where self._ad.flux_discretization
+            is applied.
+        """
+        ad = self._ad
+        # Discretization of advective flux
+        upwind_ad = pp.ad.UpwindAd(self.temperature_parameter_key, subdomains)
+        # Discretization of the conductive flux
+        flux_discr = pp.ad.MpfaAd(self.temperature_parameter_key, subdomains)
+
+        # Store to ensure consistency in interface flux
+        ad.heat_conduction_discretization = flux_discr
+
+        # (Fluid) enthalpy
+        enthalpy = self._enthalpy(subdomains)
+
+        # Heat capacity of the fluid on the boundary. This is needed to transfer
+        # Dirichlet conditions (given in temperature) to an expression for enthalpy.
+        heat_capacity_boundary = pp.ad.ParameterMatrix(
+            self.temperature_parameter_key,
+            "advection_weight_boundary",
+            subdomains,
+        )
+        # Boundary values, set either as enhtalpy fluxes, or temperature values.
+        bc_values = pp.ad.ParameterArray(
+            self.temperature_parameter_key,
+            array_keyword="bc_values",
+            grids=subdomains,
+        )
+        fluid_flux = self._fluid_flux(subdomains)
+
+        flux = (
+            # The conductive flux acts on temperature differences, not enthalpy.
+            flux_discr.flux * ad.temperature
+            + flux_discr.bound_flux * bc_values  # Conductive boundary fluxes
+            + fluid_flux * (upwind_ad.upwind * enthalpy)  # Advective flux
+            # Dirichlet boundary data is assumed to be given in temperature
+            - upwind_ad.bound_transport_dir
+            * fluid_flux
+            * (heat_capacity_boundary * bc_values)
+            # Advective flux coming from lower-dimensional subdomains
+            - upwind_ad.bound_transport_neu
+            * (
+                ad.mortar_projections_scalar.mortar_to_primary_int
+                * ad.advective_interface_flux
+                + bc_values
+            )
+            # Conductive flux from lower-dimensional subdomains
+            + flux_discr.bound_flux
+            * ad.mortar_projections_scalar.mortar_to_primary_int
+            * ad.conductive_interface_flux
+        )
+        return flux
+
+    def _subdomain_energy_balance_equation(self, subdomains: List[pp.Grid]):
+        """Energy balance equation.
+
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Subdomains on which the equation is defined.
+
+        Returns
+        -------
+        eq : pp.ad.Operator
+            The equation on AD form.
+
+        """
+
+        ad = self._ad
+        g_frac: List[pp.Grid] = self.gb.grids_of_dimension(self._Nd - 1).tolist()
+        mass_discr = pp.ad.MassMatrixAd(self.temperature_parameter_key, subdomains)
+
+        heat_source = pp.ad.ParameterArray(
+            param_keyword=self.temperature_parameter_key,
+            array_keyword="source",
+            grids=subdomains,
+        )
+        scalar_discr = pp.ad.MassMatrixAd(self.s2t_parameter_key, subdomains)
+
+        div_scalar = pp.ad.Divergence(grids=subdomains)
+        biot_accumulation_primary = self._biot_terms_heat([self._nd_grid()])
+        heat_flux = self._heat_flux(subdomains)
+
+        # Accumulation term on all subdomains. Contributions from both pressure and
+        # temperature dependency in the density.
+        accumulation_all = mass_discr.mass * (
+            ad.temperature - ad.temperature.previous_timestep()
+        ) + scalar_discr.mass * (
+            self._ad.pressure - self._ad.pressure.previous_timestep()
+        )
+
+        # Time scaling of flux terms, including interdimensional
+        eq = (
+            ad.time_step
+            * (
+                # Heat fluxes internal to the subdomain, and from lower-dimensional
+                # neighboring subdomains (see self._heat_flux())
+                div_scalar * heat_flux
+                # Conductive heat flux from higher-dimensional neighbors
+                - ad.mortar_projections_scalar.mortar_to_secondary_int
+                * ad.conductive_interface_flux
+                # Advective heat flux from higher-dimensional neighbors
+                - ad.mortar_projections_scalar.mortar_to_secondary_int
+                * ad.advective_interface_flux
+            )
+            + accumulation_all
+            + ad.subdomain_projections_scalar.cell_prolongation([self._nd_grid()])
+            * biot_accumulation_primary
+            - heat_source
+        )
+        if len(subdomains) > 1:
+            # Volume change term in the fracture.
+            heat_capacity = pp.ad.ParameterMatrix(
+                self.temperature_parameter_key,
+                "heat_capacity",
+                g_frac,
+            )
+            volume = self._volume_change(g_frac)
+            volume.set_name("volume")
+            accumulation_fracs = heat_capacity * volume
+            eq -= (
+                ad.subdomain_projections_scalar.cell_prolongation(g_frac)
+                * accumulation_fracs
+            )
+        eq.set_name("Subdomain energy balance")
+
+        return eq
+
+    def _interface_heat_conduction_equation(
+        self, interfaces: List[Tuple[pp.Grid, pp.Grid]]
+    ):
+        """Equation for conductive interface heat fluxes.
+
+        Parameters
+        ----------
+        interfaces : List[Tuple[pp.Grid, pp.Grid]]
+            DESCRIPTION.
+
+        Returns
+        -------
+        interface_heat_conduction_eq : pp.ad.Operator
+            The interface equation on ad form.
+
+        """
+        # Interface equation: \lambda = -\kappa (t_l - t_h)
+        # Robin_ad.mortar_discr represents -\kappa. The involved term is
+        # reconstruction of T_h on internal boundary, which has contributions
+        # from cell center temperature, external boundary and interface flux
+        # on internal boundaries (including those corresponding to "other"
+        # fractures).
+
+        # Create list of subdomains. Ensure matrix grid is present so that bc
+        # and vector_source_subdomains are consistent with ad.heat_conduction_discretization
+        subdomains = [self._nd_grid()]
+        # All all subdomains, then uniquify the list
+        for interface in interfaces:
+            for sd in interface:
+                if sd not in subdomains:
+                    subdomains.append(sd)
+
+        ad = self._ad
+        flux_discr = ad.heat_conduction_discretization
+        interface_discr = pp.ad.RobinCouplingAd(
+            self.temperature_parameter_key, interfaces
+        )
+
+        bc = pp.ad.ParameterArray(
+            self.temperature_parameter_key,
+            array_keyword="bc_values",
+            grids=subdomains,
+        )
+
+        # Construct primary (higher-dimensional) temperature
+        # IMPLEMENTATION NOTE: this could possibly do with a sub-method
+        t_primary = (
+            flux_discr.bound_pressure_cell * ad.temperature
+            + flux_discr.bound_pressure_face
+            * ad.mortar_projections_scalar.mortar_to_primary_int
+            * ad.conductive_interface_flux
+            + flux_discr.bound_pressure_face * bc
+        )
+        # Project the two temperatures to the interface and equate with interface flux
+        interface_heat_conduction_eq: pp.ad.Operator = (
+            interface_discr.mortar_discr
+            * (
+                ad.mortar_projections_scalar.primary_to_mortar_avg * t_primary
+                - ad.mortar_projections_scalar.secondary_to_mortar_avg * ad.temperature
+            )
+            + ad.conductive_interface_flux
+        )
+        return interface_heat_conduction_eq
+
+    def _interface_heat_advection_equation(
+        self, interfaces: List[Tuple[pp.Grid, pp.Grid]]
+    ):
+        """Equation for advective interface heat fluxes.
+
+        Parameters
+        ----------
+        interfaces : List[Tuple[pp.Grid, pp.Grid]]
+            DESCRIPTION.
+
+        Returns
+        -------
+        interface_heat_conduction_eq : pp.ad.Operator
+            The interface equation on ad form.
+
+        Equation:
+
+            advective_flux = fluid_flux * upwind_weight * t
+
+        """
+        # Create list of subdomains. Ensure matrix grid is present so that bc
+        # and vector_source_subdomains are consistent with ad.flux_discretization
+        subdomains = [self._nd_grid()]
+        for interface in interfaces:
+            for sd in interface:
+                if sd not in subdomains:
+                    subdomains.append(sd)
+
+        ad = self._ad
+        fluid_flux = self._ad.interface_flux
+        discr = pp.ad.UpwindCouplingAd(self.temperature_parameter_key, interfaces)
+        proj = ad.mortar_projections_scalar
+        trace = pp.ad.Trace(subdomains)
+        enthalpy = self._enthalpy(subdomains)
+        # Project the two temperatures to the interface and equate with interface flux
+        interface_heat_conduction_eq: pp.ad.Operator = (
+            fluid_flux
+            * (
+                discr.upwind_primary
+                * proj.primary_to_mortar_avg
+                * trace.trace
+                * enthalpy
+                + discr.upwind_secondary * proj.secondary_to_mortar_avg * enthalpy
+            )
+            - ad.advective_interface_flux
+        )
+        return interface_heat_conduction_eq
+
+    def _enthalpy(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        """Ad representation of enthalpy.
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            List of subdomains.
+
+        Returns
+        -------
+        enthalpy : pp.ad.Operator
+            enthalpy ad operator.
+
+        """
+        # The enthalpy in this implementation is modeled as the product of tempearature
+        # and the heat capacity of the fluid.
+        heat_capacity = pp.ad.ParameterMatrix(
+            self.temperature_parameter_key,
+            "advection_weight",
+            subdomains,
+        )
+        enthalpy = heat_capacity * self._ad.temperature
+        enthalpy.set_name("enthalpy")
+        return enthalpy
+
+    def _stress(
+        self,
+        matrix_subdomains: List[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Ad representation of thermoporomechanical stress.
+
+
+        Parameters
+        ----------
+        matrix_subdomains : List[pp.Grid]
+            List of N-dimensional grids, usually with a single entry.
+
+        Returns
+        -------
+        stress : pp.ad.Operator
+            Stress operator.
+
+        """
+
+        poromechanical_stress = super()._stress(matrix_subdomains)
+        discr = pp.ad.BiotAd(
+            self.mechanics_temperature_parameter_key,
+            matrix_subdomains,
+            self.temperature_parameter_key,
+        )
+        thermal_stress: pp.ad.Operator = (
+            discr.grad_p
+            * self._ad.subdomain_projections_scalar.cell_restriction(matrix_subdomains)
+            * self._ad.temperature
+        )
+        # Hitherto, we have assumed we operate on self.temperature_variable = T-T_ref.
+        # If this assumption is overturned, add the following to stress (see biot model):
+        # - discr.grad_p * t_reference
+
+        thermal_stress.set_name("thermal_stress")
+        stress: pp.ad.Operator = poromechanical_stress + thermal_stress
+        stress.set_name("thermoporomechanical_stress")
+        return stress
+
+    def _biot_terms_heat(self, subdomains: List[pp.Grid]) -> pp.ad.Operator:
+        """Biot terms, div(u) and stabilization.
+
+
+        Parameters
+        ----------
+        subdomains : List[pp.Grid]
+            Matrix subdomains, expected to have length=1.
+
+        Returns
+        -------
+        biot_terms : pp.ad.Operator
+            Ad operator representing d/dt div(u) and stabilization terms of the
+            Biot flow equation in the matrix.
+
+
+        """
+        ad = self._ad
+        parameter_key = self.temperature_parameter_key
+        ad_variable = ad.temperature
+
+        div_u_discr = pp.ad.DivUAd(
+            self.mechanics_temperature_parameter_key,
+            grids=subdomains,
+            mat_dict_keyword=parameter_key,
+        )
+        stabilization_discr = pp.ad.BiotStabilizationAd(parameter_key, subdomains)
+        biot_alpha = pp.ad.ParameterMatrix(
+            parameter_key,
+            array_keyword="biot_alpha",
+            grids=subdomains,
+        )
+        bc_mech = pp.ad.ParameterArray(
+            self.mechanics_parameter_key,
+            array_keyword="bc_values",
+            grids=subdomains,
+        )
+        bc_mech_previous = pp.ad.ParameterArray(
+            self.mechanics_parameter_key,
+            array_keyword="bc_values_previous_timestep",
+            grids=subdomains,
+        )
+        # The "div_u" really represents the time increment d/dt div(u), thus
+        # all contributions are defined on differences between current and previous
+        # state. There are three components: matrix, external boundary and
+        # internal boundary (fractures). The last term requires projection of
+        # displacements from interfaces
+        matrix_div_u: pp.ad.Operator = div_u_discr.div_u * (
+            ad.displacement - ad.displacement.previous_timestep()
+        )
+        external_boundary_div_u: pp.ad.Operator = div_u_discr.bound_div_u * (
+            bc_mech - bc_mech_previous
+        )
+        internal_boundary_div_u: pp.ad.Operator = (
+            div_u_discr.bound_div_u
+            * ad.subdomain_projections_vector.face_restriction(subdomains)
+            * ad.mortar_projections_vector.mortar_to_primary_int
+            * (
+                ad.interface_displacement
+                - ad.interface_displacement.previous_timestep()
+            )
+        )
+        div_u_terms: pp.ad.Operator = biot_alpha * (
+            matrix_div_u + external_boundary_div_u + internal_boundary_div_u
+        )
+        div_u_terms.set_name("div_u")
+
+        # The stabilization term is also defined on a time increment, but only
+        # considers the matrix subdomain and no boundary contributions.
+        stabilization_term: pp.ad.Operator = (
+            stabilization_discr.stabilization
+            * ad.subdomain_projections_scalar.cell_restriction(subdomains)
+            * (ad_variable - ad_variable.previous_timestep())
+        )
+        stabilization_term.set_name("Biot stabilization")
+
+        biot_terms: pp.ad.Operator = div_u_terms + stabilization_term
+        return biot_terms
+
+    def _set_ad_objects(self) -> None:
+        """Sets the storage class self._ad
+
+
+        Returns
+        -------
+        None
+
+        """
+        self._ad = THMAdObjects()
+
     def _initial_condition(self) -> None:
         """
         In addition to the values set by the parent class, we set initial value for the
@@ -531,9 +1071,8 @@ class THM(pp.ContactMechanicsBiot):
 
         for e, d in self.gb.edges():
             mg = d["mortar_grid"]
-            d = pp.initialize_data(e, d, key, {"darcy_flux": np.zeros(mg.num_cells)})
+            pp.initialize_data(e, d, key, {"darcy_flux": np.zeros(mg.num_cells)})
 
-    @pp.time_logger(sections=module_sections)
     def _save_mechanical_bc_values(self) -> None:
         """
         The div_u term uses the mechanical bc values for both current and previous time
@@ -553,7 +1092,6 @@ class THM(pp.ContactMechanicsBiot):
             key_t
         ]["bc_values"].copy()
 
-    @pp.time_logger(sections=module_sections)
     def _discretize(self) -> None:
         """Discretize all terms"""
         if not hasattr(self, "dof_manager"):
@@ -561,10 +1099,15 @@ class THM(pp.ContactMechanicsBiot):
         if not hasattr(self, "assembler"):
             self.assembler = pp.Assembler(self.gb, self.dof_manager)
 
-        tic = time.time()
-        logger.info("Discretize")
-
-        # Discretization is a bit cumbersome, as the Biot discetization removes the
+        if self._use_ad:
+            self._eq_manager.discretize(self.gb)
+            # self._copy_biot_discretizations()
+            return
+        # else:
+        #     self.assembler.discretize()
+        #     self._copy_biot_discretizations()
+        #     return
+        # Discretization is a bit cumbersome, as the Biot discretization removes the
         # one-to-one correspondence between discretization objects and blocks in the matrix.
         # First, Discretize with the biot class
         self._discretize_biot()
@@ -619,60 +1162,65 @@ class THM(pp.ContactMechanicsBiot):
                 filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
                 self.assembler.discretize(filt=filt)
 
-        logger.info("Done. Elapsed time {}".format(time.time() - tic))
-
-    @pp.time_logger(sections=module_sections)
     def _copy_biot_discretizations(self) -> None:
         """The Biot discretization is designed to discretize a single term of the
         grad_p type. It should not be difficult to generalize this, but pending such
         an update, the below code copies the discretization matrices from the flow
         related keywords to those of the temperature.
 
+        The Biot class incorporates the "alpha" coefficient in the discretization
+        matrices stored for the grad p term and the stabilization, but not for
+        the div_u term (multiplied upon assembly). Consequently, after copying the
+        matrices from flow, we multiply the former by weight = beta / alpha.
+
+        This method assigns the following discretization matrices for the keyword
+        self.temperature_parameter_key:
+            "div_u", "bound_div_u", "biot_stabilization"
+        and these for self.mechanics_temperature_parameter_key:
+            "grad_p", "bound_displacement_pressure"
+
+        Implementation note:
+        For now, the ad version of the class discretizes the temperature terms
+        separately. For now, we keep this copy method and assert that the two are
+        equivalent. TODO: Purge after removing non-ad?
         """
+        key_m_from_t = self.mechanics_temperature_parameter_key
+
         g: pp.Grid = self.gb.grids_of_dimension(self._Nd)[0]
         d: Dict = self.gb.node_props(g)
         beta = self._biot_beta(g)
         alpha = self._biot_alpha(g)
 
-        # For grad p term of u equation
-        weight_grad_t = beta / alpha
+        weight = beta / alpha
 
         # Account for scaling
-        weight_grad_t *= self.temperature_scale / self.scalar_scale
+        weight *= self.temperature_scale / self.scalar_scale
 
-        # Stabilization is derived from the grad p discretization
-        weight_stabilization = beta / alpha
-        weight_stabilization *= self.temperature_scale / self.scalar_scale
+        if self._use_ad:
+            # The ignored typing has to do with legacy scalar coupling coefficient
+            # definition and will be purged along with non-ad version of self.
+            assert np.all(np.isclose(weight, weight[0]))  # type:ignore
+            weight = weight[0]  # type:ignore
 
-        # The stabilization terms appear in the T/p equations, whereof only the first
-        # is divided by T_0_Kelvin.
-        weight_stabilization *= 1 / self.T_0_Kelvin
-
-        # Matrix dictionaries for the different subproblems
+        # Matrix dictionaries for the different sub-problems
         matrices_s = d[pp.DISCRETIZATION_MATRICES][self.scalar_parameter_key]
         matrices_ms = d[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
         matrices_t = d[pp.DISCRETIZATION_MATRICES][self.temperature_parameter_key]
+        if key_m_from_t not in d[pp.DISCRETIZATION_MATRICES]:
+            d[pp.DISCRETIZATION_MATRICES][key_m_from_t] = dict()
+        matrices_mt = d[pp.DISCRETIZATION_MATRICES][key_m_from_t]
+        for key, w in zip(
+            ["div_u", "bound_div_u", "biot_stabilization"], [1, 1, weight]
+        ):
+            new = matrices_s[key] * w
+            if self._use_ad:
+                old = matrices_t[key]
+                assert np.all(np.isclose(new.data, old.data))
+            matrices_t.update({key: new})
+        for key in ["grad_p", "bound_displacement_pressure"]:
+            new = matrices_ms[key].copy() * weight
+            if self._use_ad:
+                old = matrices_mt[key]
+                assert np.all(np.isclose(new.data, old.data))
 
-        matrices_mt = {}
-        matrices_t["div_u"] = matrices_s["div_u"].copy()
-        matrices_t["bound_div_u"] = matrices_s["bound_div_u"].copy()
-        matrices_mt["grad_p"] = weight_grad_t * matrices_ms["grad_p"]
-        matrices_t["biot_stabilization"] = (
-            weight_stabilization * matrices_s["biot_stabilization"]
-        )
-        matrices_mt["bound_displacement_pressure"] = (
-            weight_grad_t * matrices_ms["bound_displacement_pressure"]
-        )
-        # For div u term of t equation
-        weight_div_u = beta
-        key_m_from_t = self.mechanics_temperature_parameter_key
-        d[pp.DISCRETIZATION_MATRICES][key_m_from_t] = matrices_mt
-        pp.initialize_data(
-            g,
-            d,
-            key_m_from_t,
-            {"biot_alpha": weight_div_u},
-        )
-        bc_dict = {"bc_values": self._bc_values_mechanics(g)}
-        state = {key_m_from_t: bc_dict}
-        pp.set_state(d, state)
+            matrices_mt.update({key: new})

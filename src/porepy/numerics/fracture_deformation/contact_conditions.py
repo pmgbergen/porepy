@@ -298,7 +298,7 @@ class ColoumbContact(
         # Structures for storing the computed coefficients.
         displacement_weight = []  # Multiplies displacement jump
         traction_weight = []  # Multiplies the normal forces
-        rhs = np.array([])  # Goes to the right hand side.
+        rhs: np.ndarray = np.array([], dtype=float)  # Goes to the right hand side.
 
         # Zero vectors of the size of the tangential space and the full space,
         # respectively. These are needed to complement the discretization

@@ -130,7 +130,7 @@ class FVElliptic(pp.EllipticDiscretization):
         Returns:
             scipy.sparse.csr_matrix: System matrix of this discretization. The size of
                 the matrix will depend on the specific discretization.
-            np.ndarray: Right hand side vector with representation of boundary
+            np.ndarray: Right-hand side vector with representation of boundary
                 conditions. The size of the vector will depend on the discretization.
         """
 

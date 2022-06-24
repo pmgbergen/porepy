@@ -736,7 +736,6 @@ class ParameterArray(Operator):
         array_keyword: str,
         grids: Optional[List[pp.Grid]] = None,
         edges: Optional[List[Edge]] = None,
-        matrix_representation: bool = False,
         name: Optional[str] = None,
     ):
         """Construct a wrapper for parameter arrays for a set of subdomains.
@@ -840,7 +839,7 @@ class ParameterMatrix(ParameterArray):
     """
 
     def __str__(self) -> str:
-        return f"ParameterArray({self.param_keyword})({self.array_keyword})"
+        return f"ParameterMatrix({self.param_keyword})({self.array_keyword})"
 
     def parse(self, gb: pp.GridTree) -> np.ndarray:
         """Convert the Ad expression into numerical values for the scalar sources,
