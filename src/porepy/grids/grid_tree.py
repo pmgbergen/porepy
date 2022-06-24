@@ -30,7 +30,7 @@ from porepy.utils import setmembership
 class GridTree:
     """
     FIXME: Rename to MixedDimensionalGrid
-    
+
     Container for the hierarchy of grids formed by fractures and their
     intersections.
 
@@ -79,17 +79,22 @@ class GridTree:
 
     def subdomains(
         self, return_data: bool = False, dim: Optional[int] = None
-    ) -> Generator[pp.Grid, None, None]:
+    ) -> Generator[Tuple[pp.Grid, Tuple[pp.Grid, Dict]], None, None]:
         """Iterator over the subdomains in the GridTree.
 
         Optionally, the iterator can filter subdomains on dimension.
 
         Parameters:
+            return_data (boolean, optional): If True, the data dictionary of the
+                subdomain will be returned together with the subdomain grids. Defaults
+                to False.
             dim (int, optional): If provided, only subdomains of the specified dimension
                 will be returned.
 
         Yields:
-            grid (pp.Grid): Grid associated with the current node.
+            pp.Grid: Grid associated with the current node.
+            dict: Data dictionary associated with the subdomain. Only returned if
+                return_data = True.
 
         """
         for grid in self._node_data:
@@ -111,11 +116,16 @@ class GridTree:
         Optionally, the iterator can filter interfaces on dimension.
 
         Parameters:
+            return_data (boolean, optional): If True, the data dictionary of the
+                subdomain will be returned together with the interface grids. Defaults
+                to False.
             dim (int, optional): If provided, only interfaces  of the specified
                 dimension will be returned.
 
         Yields:
-            interface (pp.MortarGrid):
+            MortarGrid: Grid on the the interface.
+            dict: Data dictionary associated with the subdomain. Only returned if
+                return_data = True.
 
         """
         for edge in self._edge_data:
@@ -123,9 +133,10 @@ class GridTree:
             if dim is not None and dim != edge.dim:
                 continue
 
-            FIXME RETURN
-
-            yield edge
+            if return_data:
+                yield edge, self._edge_data[edge]
+            else:
+                yield edge
 
     # ---------- Navigate within the graph --------
 
@@ -237,39 +248,23 @@ class GridTree:
 
     # ------------ Getters for node and edge properties
 
-
-    def subdomain_data(self, grid: pp.Grid, key: Any = None) -> Any:
+    def subdomain_data(self, grid: pp.Grid) -> Any:
         """Getter for a subdomain property of the GridTree.
-
-        FIXME: Should we delete the key and simply return the full data dictionary?
-        DELETE KEY
 
         Parameters:
             grid (pp.Grid): The grid associated with the node.
-            key (object, optional): Keys for the properties to be retrieved.
-                If key is None (default) the entire data dictionary for the
-                node is returned.
 
         Returns:
             object: A dictionary with keys and properties.
 
         """
-        if key is None:
-            return self._node_data[grid]
-        else:
-            return self._node_data[grid][key]
+        return self._node_data[grid]
 
-    def interface_data(self, edge: pp.MortarGrid, key: Any = None) -> Dict:
+    def interface_data(self, edge: pp.MortarGrid) -> Dict:
         """Getter for an edge properties of the bucket.
-
-        FIXME: Should we delete the key and simply return the full data dictionary?
-        DELETE KEY
 
         Parameters:
             edge (Tuple of pp.Grid): The two grids making up the edge.
-            key (object, optional): Keys for the properties to be retrieved.
-                If key is None (default) the entire data dictionary for the
-                edge is returned.
 
         Returns:
             object: The properties.
@@ -278,14 +273,7 @@ class GridTree:
             KeyError if the two grids do not form an edge.
 
         """
-        if edge in self._edge_data:
-            if key is None:
-                return self._edge_data[edge]
-            else:
-                return self._edge_data[edge][key]
-
-        else:
-            raise KeyError("Unknown edge")
+        return self._edge_data[edge]
 
     # ------------ Add new nodes and edges ----------
 
@@ -321,7 +309,7 @@ class GridTree:
     ) -> None:
         """
         Add an interface to the GridTree.
-        
+
         FIXME: Subdomain order should be primary, secondary. Applies to, and will have
         consequences for, the entire code base. Primary is the grid with the highest
         dimension (in the rare cases with an equi-dimensional coupling, the ordering
@@ -683,49 +671,21 @@ class GridTree:
         """
         if cond is None:
             cond = lambda g: True
-        diam_g = [np.amax(g.cell_diameters()) for g in self._node_data.keys() if cond(g)]
+        diam_g = [
+            np.amax(g.cell_diameters()) for g in self._node_data.keys() if cond(g)
+        ]
 
         diam_mg = [np.amax(mg.cell_diameters()) for mg in self._edge_data if cond(mg)]
 
         return np.amax(np.hstack((diam_g, diam_mg)))
 
-    def bounding_box(
-        self, as_dict: bool = False
-    ) -> Union[Dict[str, float], Tuple[float, float]]:
-        """
-        Return the bounding box of the grid bucket.
-        
-        FIXME: Move to utils.bounding_box
-        
-        """
-        c_0s = np.empty((3, self.num_subdomains()))
-        c_1s = np.empty((3, self.num_subdomains()))
-
-        for i, grid in enumerate(self._node_data.keys()):
-            c_0s[:, i], c_1s[:, i] = grid.bounding_box()
-
-        min_vals = np.amin(c_0s, axis=1)
-        max_vals = np.amax(c_1s, axis=1)
-
-        if as_dict:
-            return {
-                "xmin": min_vals[0],
-                "xmax": max_vals[0],
-                "ymin": min_vals[1],
-                "ymax": max_vals[1],
-                "zmin": min_vals[2],
-                "zmax": max_vals[2],
-            }
-        else:
-            return min_vals, max_vals  # type: ignore
-
-#    def size(self) -> int:
-#        """
-#        Returns:
-#            int: Number of mono-dimensional grids and interfaces in the bucket.
-#
-#        """
-#        return self.num_subdomains() + self.num_interfaces()
+    #    def size(self) -> int:
+    #        """
+    #        Returns:
+    #            int: Number of mono-dimensional grids and interfaces in the bucket.
+    #
+    #        """
+    #        return self.num_subdomains() + self.num_interfaces()
 
     def dim_min(self) -> int:
         """
@@ -742,15 +702,16 @@ class GridTree:
 
         """
         return np.max([grid.dim for grid in self.subdomains()])
-"""
+
+    """
     def all_dims(self) -> np.ndarray:
-        """
+        ""
         Returns:
             np.array: Active dimensions of the grids present in the hierarchy.
 
-        """
+        ""
         return np.unique([grid.dim for grid in self.subdomains()])
-"""
+    """
 
     def num_subdomain_cells(self, cond: Callable[[pp.Grid], bool] = None) -> int:
         """
