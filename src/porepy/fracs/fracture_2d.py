@@ -4,7 +4,7 @@
 import numpy as np
 
 import porepy as pp
-from fracture import Fracture
+from .fracture import Fracture
 
 class Fracture2d(Fracture):
     """A class representing linear fracture in 2D.
