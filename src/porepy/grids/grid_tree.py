@@ -72,25 +72,47 @@ class GridTree:
 
     # --------- Iterators -------------------------
 
-    def subdomains(self) -> Generator[pp.Grid, None, None]:
+    def subdomains(self, dim: Optional[int] = None) -> Generator[pp.Grid, None, None]:
         """Iterator over the subdomains in the GridTree.
+
+        Optionally, the iterator can filter subdomains on dimension.
+
+        Parameters:
+            dim (int, optional): If provided, only subdomains of the specified dimension
+                will be returned.
 
         Yields:
             grid (pp.Grid): Grid associated with the current node.
 
         """
         for grid in self._nodes:
+            # Filter on dimension if requested.
+            if dim is not None and dim != grid.dim:
+                continue
+
             yield grid
 
-    def interfaces(self) -> Generator[pp.MortarGrid, None, None]:
+    def interfaces(
+        self, dim: Optional[int] = None
+    ) -> Generator[pp.MortarGrid, None, None]:
         """
         Iterator over the MortarGrids belonging to interfaces in the GridTree.
 
+        Optionally, the iterator can filter interfaces on dimension.
+
+        Parameters:
+            dim (int, optional): If provided, only interfaces  of the specified
+                dimension will be returned.
+
         Yields:
-            interface (Tuple[pp.Grid, pp.Grid]):
+            interface (pp.MortarGrid):
 
         """
         for edge in self._edge_data:
+            # Filter on dimension if requested.
+            if dim is not None and dim != edge.dim:
+                continue
+
             yield edge
 
     # ---------- Navigate within the graph --------
@@ -204,17 +226,6 @@ class GridTree:
         else:
             # Find the neighbours that are higher dimensional
             return [g for g in neigh if g.dim < node.dim]
-
-    # ------------ Getters for grids
-
-    def subdomains_of_dimension(self, dim: int) -> List[pp.Grid]:
-        """Get all grids in the bucket of a specific dimension.
-
-        Returns:
-            grids (List): Array of grids of the specified dimension
-
-        """
-        return [g for g in self.subdomains() if g.dim == dim]
 
     # ----------- Adders for node and edge properties (introduce keywords)
 
