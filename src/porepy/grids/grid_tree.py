@@ -332,6 +332,8 @@ class GridTree:
         Note: the property may contain None but the outcome of the test is
         still true.
 
+        FIXME: This is not used in the core of porepy. Delete?
+
         Parameters:
             grids (list of pp.Grid): The grids associated with the nodes.
             key (object): Key for the property to be tested.
@@ -399,6 +401,8 @@ class GridTree:
 
         Values can also be set by accessing the data dictionary of the subdomain
         directly.
+
+        FIXME: Delete this one?
 
         No checks are performed on whether the property has been added to
         the subdomain. If the property has not been added, it will implicitly be
@@ -558,7 +562,9 @@ class GridTree:
 
         if any([i is j for i in ng for j in list(self._nodes.keys())]):
             raise ValueError("Grid already defined in bucket")
+
         for grid in ng:
+            # Add the grid to the list of subdomains with an empty data dictionary.
             self._nodes[grid] = {}
 
     def add_interface(
@@ -596,8 +602,13 @@ class GridTree:
         if mg in self._edge_data:
             raise ValueError("Cannot add existing edge")
 
+        # The data dictionary is initialized with a single field, defining the mapping
+        # between grid quantities in the primary and secondary neighboring subdomains
+        # (for a co-dimension 1 coupling, this will be between faces in the
+        # higher-dimensional grid and cells in the lower-dimensional grid).
         data = {"face_cells": primary_secondary_map}
 
+        # Add the interface to the list, with
         self._edge_data[mg] = data
 
         # The higher-dimensional grid is the first node of the edge.
@@ -627,15 +638,17 @@ class GridTree:
            node : the subdomain to be removed
 
         """
-
+        # Delete from the subdomain lits.
         del self._nodes[node]
 
+        # Find interfaces to be removed, store in a list.
         edges_to_remove: List[pp.MortarGrid] = []
         for mg in self.interfaces():
             edge = self._edge_to_node[mg]
             if edge[0] == node or edge[1] == node:
                 edges_to_remove.append(mg)
 
+        # Remove interfaces.
         for mg in edges_to_remove:
             del self._edge_data[mg]
             del self._edge_to_node[mg]
@@ -644,6 +657,8 @@ class GridTree:
         """
         Update the grids giving old and new values. The interfaces are updated
         accordingly.
+
+        FIXME: This is in reality a subset of self.replace_subdomains. Should we merge?
 
         Parameters:
             mapping: A dictionary with the old grid as keys and new grid as values.
@@ -849,7 +864,7 @@ class GridTree:
         """
         Find the local node mapping from a source grid to a target grid.
 
-        FIXME: Can we delete this one?
+        FIXME: Can we delete this one? It is not used in the core of PorePy.
 
         target_2_source_nodes(..) returns the mapping from g_src -> g_trg such
         that g_trg.nodes[:, map] == g_src.nodes. E.g., if the target grid is the
@@ -895,6 +910,8 @@ class GridTree:
     ) -> None:
         """Replace grids and / or mortar grids in the mixed-dimensional grid.
 
+        FIXME: Should be replace_subdomains_and_interfaces?
+
         Parameters:
             gb (GridTree): To be updated.
             g_map (dictionary): Mapping between the old and new grids. Keys are
@@ -905,6 +922,16 @@ class GridTree:
                 side grids as values.
 
         """
+        # The operation is carried out in three steps:
+        # 1) Update the mortar grid. This will also update projections to and from the
+        #    mortar grids so that they are valid for the new mortar grid, but not with
+        #    respect to any changes in the subdomain grids.
+        # 2) Update the subdomain grids with respect to nodes in the GridTree.
+        # 3) Update the subdomain grids with respect to the interfaces in the GridTree.
+        #    This will update projections to and from mortar grids.
+        # Thus, if both the mortar grid and an adjacent subdomain grids are updated, the
+        # projections will be updated twice.
+
         if mg_map is None:
             mg_map = {}
 
@@ -926,6 +953,8 @@ class GridTree:
                     # update the mortar grid of the same dimension
                     mg.update_secondary(g_new, tol)
                 else:  # g_new.dim == mg.dim + 1
+                    # FIXME: Will this also work for co-dimension 2 couplings?
+                    # EK believes so.
                     mg.update_primary(g_new, g_old, tol)
 
     def _find_shared_face(self, g0: pp.Grid, g1: pp.Grid, g_l: pp.Grid) -> np.ndarray:
@@ -1179,7 +1208,7 @@ class GridTree:
             cond: optional, predicate with a grid as input.
 
         Return:
-            cell_centers (ndArray): The cell centers of all cells in the GridTree.
+            cell_centers (np.ndarray): The cell centers of all cells in the GridTree.
 
         """
         if cond is None:
