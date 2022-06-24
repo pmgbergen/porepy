@@ -861,21 +861,6 @@ class Grid:
         sgn, ci = sgn[IC], ci[IC]
         return sgn, ci
 
-    def bounding_box(self) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Return the bounding box of the grid.
-
-        Returns:
-            np.array (size 3): Minimum node coordinates in each direction.
-            np.array (size 3): Maximum node coordinates in each direction.
-
-        """
-        if self.dim == 0:
-            coords = self.cell_centers
-        else:
-            coords = self.nodes
-        return np.amin(coords, axis=1), np.amax(coords, axis=1)
-
     def closest_cell(
         self, p: np.ndarray, return_distance: bool = False
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
