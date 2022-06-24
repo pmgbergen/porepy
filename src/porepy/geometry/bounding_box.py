@@ -4,6 +4,7 @@ Compute bounding boxes of geometric objects.
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
+
 import porepy as pp
 
 

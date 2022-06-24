@@ -24,7 +24,9 @@ import porepy as pp
 from porepy.grids import mortar_grid
 
 
-def extrude_grid_bucket(gb: pp.MixedDimensionalGrid, z: np.ndarray) -> Tuple[pp.MixedDimensionalGrid, Dict]:
+def extrude_grid_bucket(
+    gb: pp.MixedDimensionalGrid, z: np.ndarray
+) -> Tuple[pp.MixedDimensionalGrid, Dict]:
     """Extrude a MixedDimensionalGrid by extending all fixed-dimensional grids in the z-direction.
 
     In practice, the original grid bucket will be 2d, and the result is 3d.
