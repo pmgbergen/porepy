@@ -155,15 +155,15 @@ def uniquify_discretization_list(all_discr):
 
 def discretize_from_list(
     discretizations: Dict,
-    gb: pp.GridTree,
+    gb: pp.MixedDimensionalGrid,
 ) -> None:
     """For a list of (ideally uniquified) discretizations, perform the actual
     discretization.
     """
     for discr in discretizations:
-        # discr is a discretization (on node or interface in the GridTree sense)
+        # discr is a discretization (on node or interface in the MixedDimensionalGrid sense)
 
-        # Loop over all grids (or GridTree edges), do discretization.
+        # Loop over all grids (or MixedDimensionalGrid edges), do discretization.
         for g in discretizations[discr]:
             if isinstance(g, tuple):
                 data = gb.edge_props(g)  # type:ignore
@@ -239,7 +239,7 @@ class MergedOperator(operators.Operator):
         discretization matrices.
 
         Pameteres:
-            gb (pp.GridTree): Mixed-dimensional grid. Not used, but it is needed as
+            gb (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is needed as
                 input to be compatible with parse methods for other operators.
 
         Returns:

@@ -531,7 +531,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
     Intended usage is to impose full continuity conditions between domains of higher
     dimensions separated by a lower-dimensional domain (think two intersecting
     fractures), in cases where one does not want to eliminate the lower-dimensional
-    domain from the GridTree. The class is designed to interact with the class
+    domain from the MixedDimensionalGrid. The class is designed to interact with the class
     FluxPressureContinuity. Wider usage is possible, but be cautious.
 
     The subclassing from FVElliptic was convenient, but other options could also have

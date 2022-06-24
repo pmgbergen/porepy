@@ -13,7 +13,7 @@ from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
 
 
 def coarsen(
-    g: Union[pp.Grid, pp.GridTree], method: str, **method_kwargs
+    g: Union[pp.Grid, pp.MixedDimensionalGrid], method: str, **method_kwargs
 ) -> Union[None, sps.spmatrix]:
     """Create a coarse grid from a given grid. If a grid bucket is passed the
     procedure is applied to the higher in dimension.
@@ -81,7 +81,7 @@ def generate_coarse_grid(g, subdiv):
             subdiv = subdiv[g][1]
         _generate_coarse_grid_single(g, subdiv, False)
 
-    if isinstance(g, grid_bucket.GridTree):
+    if isinstance(g, grid_bucket.MixedDimensionalGrid):
         _generate_coarse_grid_gb(g, subdiv)
 
 
@@ -304,7 +304,7 @@ def _tpfa_matrix(g, perm=None):
         Two-point flux approximation matrix
 
     """
-    if isinstance(g, grid_bucket.GridTree):
+    if isinstance(g, grid_bucket.MixedDimensionalGrid):
         g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
 
     if perm is None:
@@ -370,7 +370,7 @@ def create_aggregations(g, **kwargs):
     """
 
     # Extract the higher dimensional grids
-    if isinstance(g, grid_bucket.GridTree):
+    if isinstance(g, grid_bucket.MixedDimensionalGrid):
         g = g.get_grids(lambda g_: g_.dim == g.dim_max())
 
     g_list = np.atleast_1d(g)
@@ -511,7 +511,7 @@ def create_partition(A, g, seeds=None, **kwargs):
     epsilon = kwargs.get("epsilon", 0.25)
 
     # NOTE: Extract the higher dimensional grids, we suppose it is unique
-    if isinstance(g, pp.GridTree):
+    if isinstance(g, pp.MixedDimensionalGrid):
         g_high = g.grids_of_dimension(g.dim_max())[0]
     else:
         g_high = g

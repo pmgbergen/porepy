@@ -16,7 +16,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
-from porepy.grids.grid_bucket import GridTree
+from porepy.grids.grid_bucket import MixedDimensionalGrid
 from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,8 @@ mortar_sides = mortar_grid.MortarSides
 
 def grid_list_to_grid_bucket(
     grids: List[List[pp.Grid]], time_tot: float = None, **kwargs
-) -> pp.GridTree:
-    """Convert a list of grids to a full GridTree.
+) -> pp.MixedDimensionalGrid:
+    """Convert a list of grids to a full MixedDimensionalGrid.
 
     The list can come from several mesh constructors, both simplex and
     structured approaches uses this in 2D and 3D.
@@ -47,7 +47,7 @@ def grid_list_to_grid_bucket(
         **kwargs: Passed on to subfunctions.
 
     Returns:
-        GridTree: Final mixed-dimensional grid.
+        MixedDimensionalGrid: Final mixed-dimensional grid.
 
     """
     # Tag tip faces
@@ -81,9 +81,9 @@ def grid_list_to_grid_bucket(
     return gb
 
 
-def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridTree:
+def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.MixedDimensionalGrid:
     """
-    Creates a cartesian fractured GridTree in 2- or 3-dimensions.
+    Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
 
     Parameters
     ----------
@@ -100,9 +100,9 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridTree:
 
     Returns:
     -------
-    GridTree: A complete bucket where all fractures are represented as
+    MixedDimensionalGrid: A complete bucket where all fractures are represented as
         lower dim grids. The higher dim fracture faces are split in two,
-        and on the edges of the GridTree graph the mapping from lower dim
+        and on the edges of the MixedDimensionalGrid graph the mapping from lower dim
         cells to higher dim faces are stored as 'face_cells'. Each face is
         given boolean tags depending on the type:
            domain_boundary_faces: All faces that lie on the domain boundary
@@ -142,9 +142,9 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridTree:
 
 def tensor_grid(
     fracs: List[np.ndarray], x: np.ndarray, y=None, z=None, **kwargs
-) -> pp.GridTree:
+) -> pp.MixedDimensionalGrid:
     """
-    Creates a cartesian fractured GridTree in 2- or 3-dimensions.
+    Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
 
     Parameters
     ----------
@@ -160,9 +160,9 @@ def tensor_grid(
 
     Returns:
     -------
-    GridTree: A complete bucket where all fractures are represented as
+    MixedDimensionalGrid: A complete bucket where all fractures are represented as
         lower dim grids. The higher dim fracture faces are split in two,
-        and on the edges of the GridTree graph the mapping from lower dim
+        and on the edges of the MixedDimensionalGrid graph the mapping from lower dim
         cells to higher dim faces are stored as 'face_cells'. Each face is
         given boolean tags depending on the type:
            domain_boundary_faces: All faces that lie on the domain boundary
@@ -370,7 +370,7 @@ def _nodes_per_face(g):
 
 def _assemble_in_bucket(grids, **kwargs):
     """
-    Create a GridTree from a list of grids.
+    Create a MixedDimensionalGrid from a list of grids.
 
     Parameters
     ----------
@@ -383,12 +383,12 @@ def _assemble_in_bucket(grids, **kwargs):
 
     Returns
     -------
-    GridTree: A GridTree class where the mapping face_cells are given to
+    MixedDimensionalGrid: A MixedDimensionalGrid class where the mapping face_cells are given to
         each edge. face_cells maps from lower-dim cells to higher-dim faces.
     """
 
     # Create bucket
-    bucket = GridTree()
+    bucket = MixedDimensionalGrid()
     [bucket.add_nodes(g_d) for g_d in grids]
 
     node_pairs: List[Tuple[Tuple[pp.Grid, pp.Grid], sps.spmatrix]] = []
