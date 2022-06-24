@@ -48,7 +48,7 @@ class GridTree:
         self._nodes: Dict[pp.Grid, Dict] = {}
         self._edge_data: Dict[pp.MortarGrid, Dict] = {}
         self._edge_to_node: Dict[pp.MortarGrid, Tuple[pp.Grid, pp.Grid]]
-        self.name = "grid bucket"
+        self.name = "Grid Tree"
 
     def __contains__(self, key: Any) -> bool:
         """Overload __contains__.
@@ -164,13 +164,10 @@ class GridTree:
             if node_pair[0] == node or node_pair[1] == node:
                 yield edge
 
-    def subdomain_neighbors(
+    def neighboring_subdomains(
         self, node: pp.Grid, only_higher: bool = False, only_lower: bool = False
     ) -> List[pp.Grid]:
         """Get neighbors of a node in the graph.
-
-        FIXME: Method name is unclear, should really be 'subdomain_neighbors_of_subdomain',
-        but that is a mouthful.
 
         Optionally, return only neighbors corresponding to higher or lower
         dimension. At most one of only_higher and only_lower can be True.
@@ -1319,7 +1316,7 @@ class GridTree:
             num_nodes += g.num_nodes
             num_cells += g.num_cells
         s = (
-            "Mixed dimensional grid. \n"
+            "Mixed-dimensional grid. \n"
             f"Maximum dimension present: {self.dim_max()} \n"
             f"Minimum dimension present: {self.dim_min()} \n"
         )
@@ -1351,7 +1348,7 @@ class GridTree:
 
     def __repr__(self) -> str:
         s = (
-            f"Grid bucket containing {self.num_subdomains() } grids and "
+            f"Mixed-dimensional containing {self.num_subdomains() } grids and "
             f"{self.num_interfaces()} interfaces\n"
             f"Maximum dimension present: {self.dim_max()} \n"
             f"Minimum dimension present: {self.dim_min()} \n"
