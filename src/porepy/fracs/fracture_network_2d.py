@@ -333,8 +333,8 @@ class FractureNetwork2d(object):
             self.edges = np.delete(self.edges, to_delete, axis=1)
 
             # remove also the fractures in the tags
-            for _, value in self.tags.items():
-                value = np.delete(value, to_delete)
+            for key, value in self.tags.items():
+                self.tags[key] = np.delete(value, to_delete)
 
         if not self.bounding_box_imposed:
             edges_kept, edges_deleted = self.impose_external_boundary(
@@ -520,6 +520,7 @@ class FractureNetwork2d(object):
         # Ensure unique description of points
         pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=self.tol)
         lines_split[:2] = old_2_new[lines_split[:2]]
+        # FIXME: Should the following two code lines operate on "split_lines"?
         to_remove = np.where(lines[0, :] == lines[1, :])[0]
         lines = np.delete(lines, to_remove, axis=1)
 
