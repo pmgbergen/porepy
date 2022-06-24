@@ -81,7 +81,9 @@ def grid_list_to_grid_bucket(
     return gb
 
 
-def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.MixedDimensionalGrid:
+def cart_grid(
+    fracs: List[np.ndarray], nx: np.ndarray, **kwargs
+) -> pp.MixedDimensionalGrid:
     """
     Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
 

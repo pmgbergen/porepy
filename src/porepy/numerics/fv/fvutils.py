@@ -1543,7 +1543,9 @@ def compute_darcy_flux(
 
     if keyword_store is None:
         keyword_store = keyword
-    if not isinstance(gb, MixedDimensionalGrid) and not isinstance(gb, pp.MixedDimensionalGrid):
+    if not isinstance(gb, MixedDimensionalGrid) and not isinstance(
+        gb, pp.MixedDimensionalGrid
+    ):
         parameter_dictionary = data[pp.PARAMETERS][keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:

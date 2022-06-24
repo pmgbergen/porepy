@@ -22,7 +22,9 @@ from porepy.grids import mortar_grid
 module_sections = ["grids", "gridding", "numerics"]
 
 
-def propagate_fractures(gb: pp.MixedDimensionalGrid, faces: Dict[pp.Grid, np.ndarray]) -> None:
+def propagate_fractures(
+    gb: pp.MixedDimensionalGrid, faces: Dict[pp.Grid, np.ndarray]
+) -> None:
     """
     gb - grid bucket with matrix and fracture grids.
     faces_h - list of list of faces to be split in the highest-dimensional

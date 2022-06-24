@@ -459,7 +459,10 @@ def match_grids_along_1d_mortar(
 
 
 def gb_refinement(
-    gb: pp.MixedDimensionalGrid, gb_ref: pp.MixedDimensionalGrid, tol: float = 1e-8, mode: str = "nested"
+    gb: pp.MixedDimensionalGrid,
+    gb_ref: pp.MixedDimensionalGrid,
+    tol: float = 1e-8,
+    mode: str = "nested",
 ):
     """Wrapper for coarse_fine_cell_mapping to construct mapping for grids in
     MixedDimensionalGrid.
