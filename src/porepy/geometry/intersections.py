@@ -533,7 +533,7 @@ def polygons_3d(
 
     # Pre-compute polygon normals to save computational time
     polygon_normals = [
-        pp.map_geometry.compute_normal(poly).reshape((-1, 1)) for poly in polys
+        pp.map_geometry.compute_normal(poly, tol=tol).reshape((-1, 1)) for poly in polys
     ]
 
     # Loop over all fracture pairs (taking more than one simultaneously if an index
@@ -761,13 +761,13 @@ def polygons_3d(
 
                     # Uniquify the intersection points found on this segment of main.
                     # If more than one, the intersection is on the boundary of main.
-                    tmp_unique_isect, *rest = pp.utils.setmembership.unique_columns_tol(
+                    tmp_unique_isect, *rest = pp.utils.setmembership.uniquify_point_set(
                         tmp_isect, tol=tol
                     )
                     if tmp_unique_isect.shape[1] > 1:
                         isect_on_boundary_main = True
 
-                isect, *rest = pp.utils.setmembership.unique_columns_tol(isect, tol=tol)
+                isect, *rest = pp.utils.setmembership.uniquify_point_set(isect, tol=tol)
 
                 if isect.shape[1] == 0:
                     # The polygons share a plane, but no intersections
@@ -798,7 +798,7 @@ def polygons_3d(
                         if dist_vert.min() < tol:
                             # This is a point
                             segment_vertex_intersection[tmp_ind].append(
-                                [np.argmin(dist_vert)[0], False]
+                                [np.argmin(dist_vert), False]
                             )
                         else:
                             # Point failed, look for closest segment.
@@ -808,7 +808,7 @@ def polygons_3d(
                                 isect, start, end
                             )
                             segment_vertex_intersection[tmp_ind].append(
-                                [np.argmin(dist_seg[0])[0], True]
+                                [np.argmin(dist_seg[0]), True]
                             )
                     # Intersection information is complete, move on.
                     continue
@@ -962,14 +962,14 @@ def polygons_3d(
                             isect = np.hstack((isect, loc_isect))
                             tmp_isect = np.hstack((tmp_isect, loc_isect))
 
-                    tmp_unique_isect, *rest = pp.utils.setmembership.unique_columns_tol(
+                    tmp_unique_isect, *rest = pp.utils.setmembership.uniquify_point_set(
                         tmp_isect, tol=tol
                     )
 
                     if tmp_unique_isect.shape[1] > 1:
                         isect_on_boundary_other = True
 
-                isect, *rest = pp.utils.setmembership.unique_columns_tol(isect, tol=tol)
+                isect, *rest = pp.utils.setmembership.uniquify_point_set(isect, tol=tol)
 
                 seg_vert_main_0 = (0, "not implemented for shared planes")
                 seg_vert_main_1 = (0, "not implemented for shared planes")
@@ -1003,7 +1003,7 @@ def polygons_3d(
                         if dist_vert.min() < tol:
                             # This is a point
                             segment_vertex_intersection[tmp_ind].append(
-                                [np.argmin(dist_vert)[0], True]
+                                [np.argmin(dist_vert), True]
                             )
                         else:
                             # Point failed, look for closest segment.
@@ -1013,7 +1013,7 @@ def polygons_3d(
                                 isect, start, end
                             )
                             segment_vertex_intersection[tmp_ind].append(
-                                [np.argmin(dist_seg)[0], False]
+                                [np.argmin(dist_seg), False]
                             )
 
                     # Intersection information is complete, move on.
@@ -2173,7 +2173,9 @@ def split_intersecting_segments_2d(
         # Remove duplicates in the point set.
         # NOTE: The tolerance used here is a bit sensitive, if set too loose, this
         # may merge non-intersecting fractures.
-        unique_all_pt, _, ib = pp.utils.setmembership.unique_columns_tol(all_pt, tol)
+
+        unique_all_pt, ia, ib = pp.utils.setmembership.uniquify_point_set(all_pt, tol)
+
         # Data structure for storing the split edges.
         new_edge = np.empty((e.shape[0], 0), dtype=int)
         argsort: np.ndarray = np.empty(0, dtype=int)

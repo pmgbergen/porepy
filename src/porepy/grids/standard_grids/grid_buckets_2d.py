@@ -47,9 +47,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
 
     else:
         fracture = np.array([x_endpoints, [0.5, 0.5]])
-        gb = pp.meshing.cart_grid(
-            [fracture], mesh_args, physdims=[domain["xmax"], domain["ymax"]]
-        )
+        gb = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(2))
     return gb, domain
 
 
@@ -82,9 +80,7 @@ def single_vertical(mesh_args=None, y_endpoints=None, simplex=True):
 
     else:
         fracture = np.array([[0.5, 0.5], y_endpoints])
-        gb = pp.meshing.cart_grid(
-            [fracture], mesh_args, physdims=[domain["xmax"], domain["ymax"]]
-        )
+        gb = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(2))
     return gb, domain
 
 

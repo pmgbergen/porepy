@@ -393,17 +393,19 @@ class ContactMechanics(AbstractModel):
         """
         self.create_grid()
         self._Nd = self.gb.dim_max()
-        self._set_parameters()
         self._assign_variables()
         if self._use_ad:
             self._assign_ad_variables()
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(self.gb)
+        self._initial_condition()
+        self._set_parameters()
         self._assign_discretizations()
         # Once we have defined all discretizations, it's time to instantiate an
         # equation manager (needs to know which terms it should treat)
         if not self._use_ad:
             self.assembler: pp.Assembler = pp.Assembler(self.gb, self.dof_manager)
 
-        self._initial_condition()
         self._discretize()
         self._initialize_linear_solver()
 
@@ -1013,6 +1015,7 @@ class ContactMechanics(AbstractModel):
             * ad.mortar_projections_vector.sign_of_mortar_sides
             * interface_displacement
         )
+        rotated_jumps.set_name("Rotated displacement jump")
         return rotated_jumps
 
     def _contact_mechanics_normal_equation(
@@ -1071,12 +1074,12 @@ class ContactMechanics(AbstractModel):
 
         Note:
             Hueeber and Berge use
-            (-1) * friction_coefficient * (T_n + discr.normal * (u_n - gap))
+            (-1) * friction_coefficient * (T_n + c_n * (u_n - gap))
             The argument is that with this choice, "the Newton-type iteration
             automatically takes the form of an active set method" (Hueber's
             thesis p. 104). Since we abandon the sets in the ad-based
              implementation, the simpler form more closely related to the
-             Coloumb friction law is prefered.
+             Coulomb friction law is prefered.
         """
         friction_coefficient = pp.ad.ParameterMatrix(
             self.mechanics_parameter_key,
@@ -1145,6 +1148,7 @@ class ContactMechanics(AbstractModel):
             C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
         with u being displacement jump increments, t denoting tangtial
         component and b_p the friction bound.
+
         For b_p = 0, the equation C_t = 0 does not in itself imply T_t = 0,
         which is what the contact conditions require. The case is handled
         through the use of a characteristic function.
@@ -1287,8 +1291,7 @@ class ContactMechanics(AbstractModel):
         fracture_subdomains: List[pp.Grid],
         interfaces: List[Tuple[pp.Grid, pp.Grid]],
     ) -> pp.ad.Operator:
-        """Force balance equation at matrix-fracture interfaces
-
+        """Force balance equation at matrix-fracture interfaces.
 
         Parameters
         ----------
@@ -1315,6 +1318,7 @@ class ContactMechanics(AbstractModel):
             * ad.internal_boundary_vector_to_outwards
             * self._stress(matrix_subdomains)
         )
+        # Traction from the actual contact force.
         contact_from_secondary = (
             ad.mortar_projections_vector.sign_of_mortar_sides
             * ad.mortar_projections_vector.secondary_to_mortar_int
