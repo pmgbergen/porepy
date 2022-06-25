@@ -387,10 +387,6 @@ class Exporter:
             assert isinstance(file_extension, list)
             assert len(file_extension) == times.shape[0]
 
-        # Make mypy happy
-        assert times is not None
-        assert file_extension is not None
-
         # Extract the time steps related to constant data and
         # complying with file_extension. Implicitly test whether
         # file_extension is a subset of _exported_timesteps.
