@@ -1410,7 +1410,9 @@ class Exporter:
 
                     # Sort faces for each cell such that they form a chain. Use a function
                     # compiled with Numba. This step is the bottleneck of this routine.
-                    cfn = pp.utils.sort_points.sort_multiple_point_pairs(cfn).astype(int)
+                    cfn = pp.utils.sort_points.sort_multiple_point_pairs(cfn).astype(
+                        int
+                    )
 
                     # For each cell pick the sorted nodes such that they form a chain
                     # and thereby define the connectivity, i.e., skip every second row.
