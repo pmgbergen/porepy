@@ -193,18 +193,6 @@ class Exporter:
                 "The sorting algorithm requires numba to be installed."
             )
 
-    # TODO in use by anyone?
-    def change_name(self, file_name: str) -> None:
-        """
-        Change the root name of the files, useful when different keywords are
-        considered but on the same grid.
-
-        Parameters:
-            file_name (str): the new root name of the files.
-
-        """
-        self.file_name = file_name
-
     def add_constant_data(
         self,
         data: Optional[Union[DataInput, List[DataInput]]] = None,
