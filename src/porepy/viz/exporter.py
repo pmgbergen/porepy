@@ -68,7 +68,8 @@ class Exporter:
     binary: (optional) export in binary format, default is True. If False,
         the output is in Ascii format, which allows better readibility and
         debugging, but requires more memory.
-    export_constants_separately: (optional) export constants in separate files
+    export_constants_separately: (optional) export constant data (includes mesh
+        and geometry information as well as user-defined data) in separate files
         to potentially reduce memory footprint, default is True.
 
     How to use:
@@ -198,7 +199,15 @@ class Exporter:
         data: Optional[Union[DataInput, List[DataInput]]] = None,
     ) -> None:
         """
-        Collect constant data (after unifying). And later export to own files.
+        Collect user-defined constant-in-time data, associated to grids,
+        and to be exported to separate files instead of the main files..
+
+        In principle, constant data is not different from standard output
+        data. It is merely printed to another file and just when any constant
+        data is updated (via updates of the grid, or the use of this routine).
+        Hence, the same input formats are allowed as for the usual field data,
+        which is varying in time. As part of the routine, the data is converted
+        to the same unified format.
 
         Parameters:
             data (Union[DataInput, List[DataInput]], optional): node and
