@@ -27,9 +27,10 @@ logger = logging.getLogger(__name__)
 Field = namedtuple("Field", ["name", "values"])
 
 # Object for managing meshio-relevant data, as well as a container
-# for its storage, taking dimensions as inputs.
+# for its storage, taking dimensions as inputs. Since 0d grids are
+# stored as 'None', allow for such values.
 Meshio_Geom = namedtuple("Meshio_Geom", ["pts", "connectivity", "cell_ids"])
-MD_Meshio_Geom = Dict[int, Optional[Meshio_Geom]]
+MD_Meshio_Geom = Dict[int, Union[None, Meshio_Geom]]
 
 # Interface between subdomains
 Interface = Tuple[pp.Grid, pp.Grid]
@@ -239,7 +240,7 @@ class Exporter:
     def write_vtu(
         self,
         data: Optional[Union[DataInput, List[DataInput]]] = None,
-        time_dependent: Optional[bool] = False,
+        time_dependent: bool = False,
         time_step: Optional[int] = None,
         gb: Optional[Union[pp.Grid, pp.GridBucket]] = None,
     ) -> None:
@@ -259,7 +260,7 @@ class Exporter:
                 NOTE: The user has to make sure that each unique key has
                 associated data values for all or no grids of each specific
                 dimension.
-            time_dependent (boolean, optional): If False, file names will
+            time_dependent (boolean): If False (default), file names will
                 not be appended with an index that marks the time step.
                 Can be overwritten by giving a value to time_step; if not,
                 the file names will subsequently be ending with 1, 2, etc.
