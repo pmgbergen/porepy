@@ -101,6 +101,98 @@ def sort_point_pairs(
     return sorted_lines, sort_ind
 
 
+def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
+    """Function to sort multiple pairs of points to form circular chains.
+
+    The routine contains essentially the same functionality as sort_point_pairs,
+    but stripped down to the special case of circular chains. Differently to
+    sort_point_pairs, this variant sorts an arbitrary amount of independent
+    point pairs. The chains are restricted by the assumption that each contains
+    equally many line segments. Finally, this routine uses numba.
+
+    Parameters:
+        lines (np.ndarray): Array of size 2 * num_chains x num_lines_per_chain,
+            containing node indices. For each pair of two rows, each column
+            represents a line segment connectng the two nodes in the two entries
+            of this column.
+
+    Returns:
+        np.ndarray: Sorted version of lines, where for each chain, the collection
+            of line segments has been potentially flipped and sorted.
+    """
+
+    import numba
+
+    @numba.jit(nopython=True)
+    def _function_to_compile(lines):
+        """
+        Copy of pp.utils.sort_points.sort_point_pairs. This version is extended
+        to multiple chains. Each chain is implicitly assumed to be circular.
+        """
+
+        # Retrieve number of chains and lines per chain from the shape.
+        # Implicitly expect that all chains have the same length
+        num_chains, chain_length = lines.shape
+        # Since for each chain lines includes two rows, divide by two
+        num_chains = int(num_chains / 2)
+
+        # Initialize array of sorted lines to be the final output
+        sorted_lines = np.zeros((2 * num_chains, chain_length))
+        # Fix the first line segment for each chain and identify
+        # it as in place regarding the sorting.
+        sorted_lines[:, 0] = lines[:, 0]
+        # Keep track of which lines have been fixed and which are still candidates
+        found = np.zeros(chain_length)
+        found[0] = 1
+
+        # Loop over chains and consider each chain separately.
+        for c in range(num_chains):
+            # Initialize found making any line segment aside of the first a candidate
+            found[1:] = 0
+
+            # Define the end point of the previous and starting point for the next
+            # line segment
+            prev = sorted_lines[2 * c + 1, 0]
+
+            # The sorting algorithm: Loop over all positions in the chain to be set next.
+            # Find the right candidate to be moved to this position and possibly flipped
+            # if needed. A candidate is identified as fitting if it contains one point
+            # equal to the current starting point. This algorithm uses a double loop,
+            # which is the most naive approach. However, assume chain_length is in
+            # general small.
+            for i in range(1, chain_length):  # The first line has already been found
+                for j in range(
+                    1, chain_length
+                ):  # The first line has already been found
+                    # A candidate line segment with matching start and end point
+                    # in the first component of the point pair.
+                    if np.abs(found[j]) < 1e-6 and lines[2 * c, j] == prev:
+                        # Copy the segment to the right place
+                        sorted_lines[2 * c : 2 * c + 2, i] = lines[2 * c : 2 * c + 2, j]
+                        # Mark as used
+                        found[j] = 1
+                        # Define the starting point for the next line segment
+                        prev = lines[2 * c + 1, j]
+                        break
+                    # A candidate line segment with matching start and end point
+                    # in the second component of the point pair.
+                    elif np.abs(found[j]) < 1e-6 and lines[2 * c + 1, j] == prev:
+                        # Flip and copy the segment to the right place
+                        sorted_lines[2 * c, i] = lines[2 * c + 1, j]
+                        sorted_lines[2 * c + 1, i] = lines[2 * c, j]
+                        # Mark as used
+                        found[j] = 1
+                        # Define the starting point for the next line segment
+                        prev = lines[2 * c, j]
+                        break
+
+        # Return the sorted lines defining chains.
+        return sorted_lines
+
+    # Run numba compiled function
+    return _function_to_compile(lines)
+
+
 def sort_point_plane(
     pts: np.ndarray,
     centre: np.ndarray,
