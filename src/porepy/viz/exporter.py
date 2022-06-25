@@ -526,6 +526,7 @@ class Exporter:
             """
             # Make some checks
             if not value.size % g.num_cells == 0:
+                # This line will raise an error if node or face data is exported.
                 raise ValueError("The data array is not compatible with the grid.")
 
             # Convert to vectorial data if more data provided than grid cells available,
@@ -1201,7 +1202,7 @@ class Exporter:
         # Since each cell is a line, the list of cell ids is trivial
         total_num_cells = np.sum(np.array([g.num_cells for g in gs]))
         cell_id: Dict[str, List[int]] = {
-            cell_type: np.arange(total_num_cells, dtype=int).tolist()
+            cell_type: [i for i in range(total_num_cells)]
         }
 
         # Data structure for storing node coordinates of all 1d grids.
