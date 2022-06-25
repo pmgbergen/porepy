@@ -1226,15 +1226,18 @@ class Exporter:
             nodes_offset += g.num_nodes
 
         # Construct the meshio data structure
-        num_blocks = len(cell_to_nodes)
-        meshio_cells = np.empty(num_blocks, dtype=object)
-        meshio_cell_id = np.empty(num_blocks, dtype=object)
+        meshio_cells = list()
+        meshio_cell_id = list()
 
         # For each cell_type store the connectivity pattern cell_to_nodes for
         # the corresponding cells with ids from cell_id.
-        for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block.astype(int))
-            meshio_cell_id[block] = np.array(cell_id[cell_type])
+        for (cell_type, cell_block) in cell_to_nodes.items():
+            meshio_cells.append(
+                meshio.CellBlock(cell_type, cell_block.astype(int))
+            )
+            meshio_cell_id.append(
+                np.array(cell_id[cell_type])
+            )
 
         # Return final meshio data: points, cell (connectivity), cell ids
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
@@ -1425,21 +1428,22 @@ class Exporter:
             cell_offset += g.num_cells
 
         # Construct the meshio data structure
-        num_blocks = len(cell_to_nodes)
-        meshio_cells = np.empty(num_blocks, dtype=object)
-        meshio_cell_id = np.empty(num_blocks, dtype=object)
+        meshio_cells = list()
+        meshio_cell_id = list()
 
         # For each cell_type store the connectivity pattern cell_to_nodes for
         # the corresponding cells with ids from cell_id.
-        for block, (cell_type, cell_block) in enumerate(cell_to_nodes.items()):
+        for (cell_type, cell_block) in cell_to_nodes.items():
 
             # Meshio requires the keyword "polygon" for general polygons.
             # Thus, remove the number of nodes associated to polygons.
             cell_type_meshio_format = "polygon" if "polygon" in cell_type else cell_type
-            meshio_cells[block] = meshio.CellBlock(
-                cell_type_meshio_format, cell_block.astype(int)
+            meshio_cells.append(
+                meshio.CellBlock(cell_type_meshio_format, cell_block.astype(int))
             )
-            meshio_cell_id[block] = np.array(cell_id[cell_type])
+            meshio_cell_id.append(
+                np.array(cell_id[cell_type])
+            )
 
         # Return final meshio data: points, cell (connectivity), cell ids
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
@@ -1546,11 +1550,9 @@ class Exporter:
             cell_offset += g.num_cells
 
         # Initialize the meshio data structure for the connectivity and cell ids.
-        # There is only one cell type.
-        meshio_cells = np.empty(1, dtype=object)
-        meshio_cell_id = np.empty(1, dtype=object)
-        meshio_cells[0] = meshio.CellBlock("tetra", cell_to_nodes.astype(int))
-        meshio_cell_id[0] = np.array(cell_id)
+        # There is only one cell type, and meshio expects iterable data structs.
+        meshio_cells = [meshio.CellBlock("tetra", cell_to_nodes.astype(int))]
+        meshio_cell_id = [np.array(cell_id)]
 
         # Return final meshio data: points, cell (connectivity), cell ids
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
@@ -1645,11 +1647,9 @@ class Exporter:
             cell_offset += g.num_cells
 
         # Initialize the meshio data structure for the connectivity and cell ids.
-        # There is only one cell type.
-        meshio_cells = np.empty(1, dtype=object)
-        meshio_cell_id = np.empty(1, dtype=object)
-        meshio_cells[0] = meshio.CellBlock("hexahedron", cell_to_nodes.astype(int))
-        meshio_cell_id[0] = np.array(cell_id)
+        # There is only one cell type, and meshio expects iterable data structs.
+        meshio_cells = [meshio.CellBlock("hexahedron", cell_to_nodes.astype(int))]
+        meshio_cell_id = [np.array(cell_id)]
 
         # Return final meshio data: points, cell (connectivity), cell ids
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
@@ -1839,18 +1839,15 @@ class Exporter:
             nodes_offset += g.num_nodes
             cell_offset += g.num_cells
 
-        # Determine the total number of blocks / cell types.
-        num_blocks = len(cell_to_faces)
-
         # Initialize the meshio data structure for the connectivity and cell ids.
-        meshio_cells = np.empty(num_blocks, dtype=object)
-        meshio_cell_id = np.empty(num_blocks, dtype=object)
+        meshio_cells = list()
+        meshio_cell_id = list()
 
         # Store the cells in meshio format
-        for block, (cell_type, cell_block) in enumerate(cell_to_faces.items()):
+        for (cell_type, cell_block) in cell_to_faces.items():
             # Adapt the block number taking into account of previous cell types.
-            meshio_cells[block] = meshio.CellBlock(cell_type, cell_block)
-            meshio_cell_id[block] = np.array(cell_id[cell_type])
+            meshio_cells.append(meshio.CellBlock(cell_type, cell_block))
+            meshio_cell_id.append(np.array(cell_id[cell_type]))
 
         # Return final meshio data: points, cell (connectivity), cell ids
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
@@ -1882,15 +1879,14 @@ class Exporter:
             assert field.values is not None
 
             # For each field create a sub-vector for each geometrically uniform group of cells
-            num_block = meshio_geom.cell_ids.size
-            cell_data[field.name] = np.empty(num_block, dtype=object)
+            cell_data[field.name] = list()
 
             # Fill up the data
-            for block, ids in enumerate(meshio_geom.cell_ids):
+            for ids in meshio_geom.cell_ids:
                 if field.values.ndim == 1:
-                    cell_data[field.name][block] = field.values[ids]
+                    cell_data[field.name].append(field.values[ids])
                 elif field.values.ndim == 2:
-                    cell_data[field.name][block] = field.values[:, ids].T
+                    cell_data[field.name].append(field.values[:, ids].T)
                 else:
                     raise ValueError
 
