@@ -30,7 +30,7 @@ Note that you may have to revert to an older version of PorePy to run the exampl
 Install instructions can be found here [Install](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 Note that there are a few simple but non-obvious steps in the installation, so please read the entire document before sending questions.
 
-PorePy is developed under Python >=3.7.
+PorePy is developed under Python >=3.8.
 
 To get the most current version, install from github:
 

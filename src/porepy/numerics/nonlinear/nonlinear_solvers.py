@@ -9,16 +9,11 @@ import logging
 
 import numpy as np
 
-import porepy as pp
-
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
-module_sections = ["numerics"]
-
 
 class NewtonSolver:
-    @pp.time_logger(sections=module_sections)
     def __init__(self, params=None):
         if params is None:
             params = {}
@@ -31,7 +26,6 @@ class NewtonSolver:
         default_options.update(params)
         self.params = default_options
 
-    @pp.time_logger(sections=module_sections)
     def solve(self, model):
         model.before_newton_loop()
 
@@ -77,7 +71,6 @@ class NewtonSolver:
 
         return error_norm, is_converged, iteration_counter
 
-    @pp.time_logger(sections=module_sections)
     def iteration(self, model, lin_tol):
         """A single Newton iteration.
 

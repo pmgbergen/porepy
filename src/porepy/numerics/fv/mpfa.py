@@ -921,7 +921,10 @@ class Mpfa(pp.FVElliptic):
         # unknown in the discretized sytsem to the right hand side.
         # The negative in front of pr_trace_cell comes from the grad_eqs
         rhs_cells = -sps.vstack([nk_cell, -pr_trace_cell, pr_cont_cell])
-        flux = darcy * igrad * rhs_cells
+        # Compute matrix-matrix product, this is used in several steps below
+        darcy_igrad = darcy * igrad
+
+        flux = darcy_igrad * rhs_cells
 
         # Boundary conditions
         rhs_bound = self._create_bound_rhs(
@@ -936,13 +939,15 @@ class Mpfa(pp.FVElliptic):
             subface_rhs,
         )
         # Discretization of boundary values
-        bound_flux = darcy * igrad * rhs_bound
+        bound_flux = darcy_igrad * rhs_bound
 
         # Obtain the reconstruction of the pressure
-        dist_grad, cell_centers = reconstruct_presssure(g, subcell_topology, eta)
+        dist_cell, cell_centers = reconstruct_presssure(g, subcell_topology, eta)
+        # Compute matrix-matrix product, this is used in several steps below
+        dist_cell_igrad = dist_cell * igrad
 
-        pressure_trace_cell = dist_grad * igrad * rhs_cells + cell_centers
-        pressure_trace_bound = dist_grad * igrad * rhs_bound
+        pressure_trace_cell = dist_cell_igrad * rhs_cells + cell_centers
+        pressure_trace_bound = dist_cell_igrad * rhs_bound
 
         area_scaling = 1.0 / (hf2f * np.ones(hf2f.shape[1]))
         area_mat = hf2f * sps.diags(hf2f.T * area_scaling)
@@ -965,9 +970,8 @@ class Mpfa(pp.FVElliptic):
             g,
             subcell_topology,
             bound_exclusion,
-            darcy,
-            igrad,
-            dist_grad,
+            darcy_igrad,
+            dist_cell_igrad,
             nk_grad_all,
             nk_grad_paired,
         )
@@ -994,9 +998,8 @@ class Mpfa(pp.FVElliptic):
         g: pp.Grid,
         subcell_topology: pp.fvutils.SubcellTopology,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
-        darcy: sps.spmatrix,
-        igrad: sps.spmatrix,
-        dist_grad: sps.spmatrix,
+        darcy_igrad: sps.spmatrix,
+        dist_cell_igrad: sps.spmatrix,
         nk_grad_all: sps.spmatrix,
         nk_grad_paired: sps.spmatrix,
     ) -> Tuple[sps.spmatrix, sps.spmatrix]:
@@ -1013,9 +1016,11 @@ class Mpfa(pp.FVElliptic):
                 etc.
             bound_exclusion: Object that can eliminate faces related to boundary
                 conditions.
-            darcy: discretized Darcy's law
-            igrad: inverse gradient
-            nk_grad_all: nK products on a sub-cell level
+            darcy_igrad: Product of the discrete Darcy law with the basis functions
+                (igrad)
+            dist_igrad: Product of
+            nk_grad_all: Product between nK products on a sub-cell level and the basis
+                functions (igrad)
             nk_grad_paired: nK products after pairing
 
         Returns:
@@ -1103,9 +1108,8 @@ class Mpfa(pp.FVElliptic):
         # prepare for computation of imbalance coefficients, that is jumps in
         # cell-centers vector sources, ready to be  multiplied with inverse gradients.
         # This is the middle term on the right hand side in Eq (31) in Starnoni et al
-        prod = igrad * rhs_map * nk_grad_paired
-        vector_source_jumps = -darcy * prod
-
+        prod = rhs_map * nk_grad_paired
+        vector_source_jumps = -darcy_igrad * prod
         # The vector source should have no impact on the boundary conditions (on
         # Dirichlet boundaries, the pressure is set directly, on Neumann, the flux set
         # is interpreted as a total flux). However, to recover the face pressure at a
@@ -1115,7 +1119,7 @@ class Mpfa(pp.FVElliptic):
         # source (note that in a boundary cell, nk_grad_paired will only contain
         # contribution from the single neighboring cell). Multiply this by the distance
         # from the cell center to the continuity point to get the pressure offset.
-        vector_source_bound = -dist_grad * prod
+        vector_source_bound = -dist_cell_igrad * prod
 
         # Step 2
 
@@ -1490,7 +1494,7 @@ def reconstruct_presssure(g, subcell_topology, eta):
 
     avg_over_subfaces = sps.coo_matrix(
         (1 / counts[IC], (subcell_topology.subfno, subcell_topology.subhfno))
-    )
+    ).tocsr()
     D_g = avg_over_subfaces * D_g
     D_g = D_g.tocsr()
 
