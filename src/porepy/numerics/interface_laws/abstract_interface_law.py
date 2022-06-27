@@ -18,19 +18,19 @@ class AbstractInterfaceLaw(abc.ABC):
     Attributes:
         keyword (str): Used to identify the right parameter dictionary from the full
             data dictionary of this grid.
-        edge_coupling_via_high_dim (boolean): If True, assembly will allow for a direct
+        intf_coupling_via_high_dim (boolean): If True, assembly will allow for a direct
             coupling between different edges. The class must then implement the function
-            assemble_edge_coupling_via_high_dim().
-        edge_coupling_via_low_dim (boolean): If True, assembly will allow for a direct
+            assemble_intf_coupling_via_high_dim().
+        intf_coupling_via_low_dim (boolean): If True, assembly will allow for a direct
             coupling between different edges. The class must then implement the function
-            assemble_edge_coupling_via_low_dim().
+            assemble_intf_coupling_via_low_dim().
 
     """
 
     def __init__(self, keyword: str) -> None:
         self.keyword = keyword
-        self.edge_coupling_via_high_dim = False
-        self.edge_coupling_via_low_dim = False
+        self.intf_coupling_via_high_dim = False
+        self.intf_coupling_via_low_dim = False
 
     def _key(self) -> str:
         return self.keyword + "_"
@@ -320,7 +320,7 @@ class AbstractInterfaceLaw(abc.ABC):
         else:
             return cc, rhs
 
-    def _define_local_block_matrix_edge_coupling(
+    def _define_local_block_matrix_intf_coupling(
         self,
         g: pp.Grid,
         discr_grid: Discretization,
@@ -404,7 +404,7 @@ class AbstractInterfaceLaw(abc.ABC):
         else:
             return rhs
 
-    def assemble_edge_coupling_via_high_dim(  # type: ignore
+    def assemble_intf_coupling_via_high_dim(  # type: ignore
         self,
         g_between: pp.Grid,
         data_between: Dict,
@@ -421,7 +421,7 @@ class AbstractInterfaceLaw(abc.ABC):
         """Method to assemble the contribution from one interface to another one.
 
         The method must be implemented for subclasses of AbstractInterfaceLaw which has
-        the attribute edge_coupling_via_high_dim set to True. For classes where the
+        the attribute intf_coupling_via_high_dim set to True. For classes where the
         variable is False, there is no need for action.
 
         Note that the mixed-dimensional modeling framework does not allow for direct
@@ -441,9 +441,9 @@ class AbstractInterfaceLaw(abc.ABC):
             g_between (pp.Grid): Grid of the higher dimensional neighbor to the
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
-            edge_primary (tuple of grids): The grids of the primary edge
+            intf_primary (tuple of grids): The grids of the primary edge
             data_intf_primary (dict): Data dictionary of the primary interface.
-            edge_secondary (tuple of grids): The grids of the secondary edge.
+            intf_secondary (tuple of grids): The grids of the secondary edge.
             data_intf_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
             assemble_matrix (optional): If True (defalut), contributions to local matrix
@@ -461,13 +461,13 @@ class AbstractInterfaceLaw(abc.ABC):
                 the primary and secondary interface, respectively.
 
         """
-        if self.edge_coupling_via_high_dim:
+        if self.intf_coupling_via_high_dim:
             raise NotImplementedError(
                 """Interface laws with edge couplings via the high
                                       dimensional grid must implement this model"""
             )
 
-    def assemble_edge_coupling_via_low_dim(  # type: ignore
+    def assemble_intf_coupling_via_low_dim(  # type: ignore
         self,
         g_between: pp.Grid,
         data_between: Dict,
@@ -485,7 +485,7 @@ class AbstractInterfaceLaw(abc.ABC):
         """Method to assemble the contribution from one interface to another one.
 
         The method must be implemented for subclasses of AbstractInterfaceLaw which has
-        the attribute edge_coupling_via_low_dim set to True. For classes where the
+        the attribute intf_coupling_via_low_dim set to True. For classes where the
         variable is False, there is no need for action.
 
         Note that the mixed-dimensional modeling framework does not allow for direct
@@ -505,9 +505,9 @@ class AbstractInterfaceLaw(abc.ABC):
             g_between (pp.Grid): Grid of the lower-dimensional neighbor to the
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
-            edge_primary (tuple of grids): The grids of the primary edge
+            intf_primary (tuple of grids): The grids of the primary edge
             data_intf_primary (dict): Data dictionary of the primary interface.
-            edge_secondary (tuple of grids): The grids of the secondary edge.
+            intf_secondary (tuple of grids): The grids of the secondary edge.
             data_intf_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
             assemble_matrix (optional): If True (defalut), contributions to local matrix
@@ -524,7 +524,7 @@ class AbstractInterfaceLaw(abc.ABC):
                 secondary and mortar variable, respectively.
 
         """
-        if self.edge_coupling_via_low_dim:
+        if self.intf_coupling_via_low_dim:
             raise NotImplementedError(
                 """Interface laws with edge couplings via the high
                                       dimensional grid must implement this model"""
