@@ -57,6 +57,7 @@ class AbstractInterfaceLaw(abc.ABC):
         self,
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
         data_primary: Dict,
         data_secondary: Dict,
         data_intf: Dict,
@@ -81,6 +82,7 @@ class AbstractInterfaceLaw(abc.ABC):
         self,
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
         data_primary: Dict,
         data_secondary: Dict,
         data_intf: Dict,
@@ -113,7 +115,7 @@ class AbstractInterfaceLaw(abc.ABC):
 
         """
         self.discretize(
-            sd_primary, sd_secondary, data_primary, data_secondary, data_intf
+            sd_primary, sd_secondary, intf, data_primary, data_secondary, data_intf
         )
 
     @abc.abstractmethod
@@ -121,11 +123,12 @@ class AbstractInterfaceLaw(abc.ABC):
         self,
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
         data_primary: Dict,
         data_secondary: Dict,
         data_intf: Dict,
         matrix: np.ndarray,
-    ) -> Union[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
@@ -154,6 +157,7 @@ class AbstractInterfaceLaw(abc.ABC):
         self,
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
         data_primary: Dict,
         data_secondary: Dict,
         data_intf: Dict,
@@ -181,7 +185,13 @@ class AbstractInterfaceLaw(abc.ABC):
 
         """
         A, _ = self.assemble_matrix_rhs(
-            sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
+            sd_primary,
+            sd_secondary,
+            intf,
+            data_primary,
+            data_secondary,
+            data_intf,
+            matrix,
         )
         return A
 
@@ -189,6 +199,7 @@ class AbstractInterfaceLaw(abc.ABC):
         self,
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
         data_primary: Dict,
         data_secondary: Dict,
         data_intf: Dict,
@@ -216,7 +227,13 @@ class AbstractInterfaceLaw(abc.ABC):
 
         """
         _, b = self.assemble_matrix_rhs(
-            sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
+            sd_primary,
+            sd_secondary,
+            intf,
+            data_primary,
+            data_secondary,
+            data_intf,
+            matrix,
         )
         return b
 
@@ -224,9 +241,9 @@ class AbstractInterfaceLaw(abc.ABC):
         self,
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
         discr_primary: Discretization,
         discr_secondary: Discretization,
-        mg: pp.MortarGrid,
         matrix: np.ndarray,
         create_matrix: bool = True,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
@@ -262,7 +279,7 @@ class AbstractInterfaceLaw(abc.ABC):
 
         dof_primary = discr_primary.ndof(sd_primary)
         dof_secondary = discr_secondary.ndof(sd_secondary)
-        dof_mortar = self.ndof(mg)
+        dof_mortar = self.ndof(intf)
         # We know the number of dofs from the primary and secondary side from their
         # discretizations
         dof = np.array([dof_primary, dof_secondary, dof_mortar])
@@ -282,7 +299,7 @@ class AbstractInterfaceLaw(abc.ABC):
                 matrix.
                 """
                 )
-            elif not self.ndof(mg) == matrix[primary_ind, mortar_ind].shape[1]:
+            elif not self.ndof(intf) == matrix[primary_ind, mortar_ind].shape[1]:
                 raise ValueError(
                     """The number of dofs of the edge discretization given
                 in the coupling discretization must match the number of dofs given by the
@@ -307,8 +324,8 @@ class AbstractInterfaceLaw(abc.ABC):
         self,
         g: pp.Grid,
         discr_grid: Discretization,
-        msd_primary: pp.MortarGrid,
-        msd_secondary: pp.MortarGrid,
+        intf_primary: pp.MortarGrid,
+        intf_secondary: pp.MortarGrid,
         matrix: np.ndarray,
         create_matrix: bool = True,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
@@ -344,8 +361,8 @@ class AbstractInterfaceLaw(abc.ABC):
         secondary_ind = 2
 
         dof_grid = discr_grid.ndof(g)
-        dof_mortar_primary = self.ndof(msd_primary)
-        dof_mortar_secondary = self.ndof(msd_secondary)
+        dof_mortar_primary = self.ndof(intf_primary)
+        dof_mortar_secondary = self.ndof(intf_secondary)
         dof = np.array([dof_grid, dof_mortar_primary, dof_mortar_secondary])
 
         if create_matrix:
@@ -391,14 +408,16 @@ class AbstractInterfaceLaw(abc.ABC):
         self,
         g_between: pp.Grid,
         data_between: Dict,
-        edge_primary: Tuple[pp.Grid, pp.Grid],
+        intf_primary: pp.MortarGrid,
+        sd_pair_primary: Tuple[pp.Grid, pp.Grid],
         data_intf_primary: Dict,
-        edge_secondary: Tuple[pp.Grid, pp.Grid],
+        intf_secondary: pp.MortarGrid,
+        sd_pair_secondary: Tuple[pp.Grid, pp.Grid],
         data_intf_secondary: Dict,
         matrix: np.ndarray,
         assemble_matrix: bool = True,
         assemble_rhs: bool = True,
-    ) -> Union[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Method to assemble the contribution from one interface to another one.
 
         The method must be implemented for subclasses of AbstractInterfaceLaw which has
@@ -452,14 +471,17 @@ class AbstractInterfaceLaw(abc.ABC):
         self,
         g_between: pp.Grid,
         data_between: Dict,
-        edge_primary: Tuple[pp.Grid, pp.Grid],
+        intf_primary: pp.MortarGrid,
+        sd_pair_primary: Tuple[pp.Grid, pp.Grid],
         data_intf_primary: Dict,
-        edge_secondary: Tuple[pp.Grid, pp.Grid],
+        intf_secondary: pp.MortarGrid,
+        sd_pair_secondary: Tuple[pp.Grid, pp.Grid],
         data_intf_secondary: Dict,
         matrix: np.ndarray,
-        assemble_matrix: bool = False,
-        assemble_rhs: bool = False,
-    ) -> Union[np.ndarray, np.ndarray]:
+        assemble_matrix: bool = True,
+        assemble_rhs: bool = True,
+    ):
+
         """Method to assemble the contribution from one interface to another one.
 
         The method must be implemented for subclasses of AbstractInterfaceLaw which has
