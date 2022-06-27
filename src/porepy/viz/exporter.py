@@ -1195,9 +1195,7 @@ class Exporter:
         # Dictionary collecting all cell ids for each cell type.
         # Since each cell is a line, the list of cell ids is trivial
         total_num_cells = np.sum(np.array([g.num_cells for g in gs]))
-        cell_id: Dict[str, List[int]] = {
-            cell_type: [i for i in range(total_num_cells)]
-        }
+        cell_id: Dict[str, List[int]] = {cell_type: [i for i in range(total_num_cells)]}
 
         # Data structure for storing node coordinates of all 1d grids.
         num_pts = np.sum([g.num_nodes for g in gs])
@@ -1233,12 +1231,8 @@ class Exporter:
         # For each cell_type store the connectivity pattern cell_to_nodes for
         # the corresponding cells with ids from cell_id.
         for (cell_type, cell_block) in cell_to_nodes.items():
-            meshio_cells.append(
-                meshio.CellBlock(cell_type, cell_block.astype(int))
-            )
-            meshio_cell_id.append(
-                np.array(cell_id[cell_type])
-            )
+            meshio_cells.append(meshio.CellBlock(cell_type, cell_block.astype(int)))
+            meshio_cell_id.append(np.array(cell_id[cell_type]))
 
         # Return final meshio data: points, cell (connectivity), cell ids
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
@@ -1442,9 +1436,7 @@ class Exporter:
             meshio_cells.append(
                 meshio.CellBlock(cell_type_meshio_format, cell_block.astype(int))
             )
-            meshio_cell_id.append(
-                np.array(cell_id[cell_type])
-            )
+            meshio_cell_id.append(np.array(cell_id[cell_type]))
 
         # Return final meshio data: points, cell (connectivity), cell ids
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
@@ -1655,12 +1647,14 @@ class Exporter:
         # Return final meshio data: points, cell (connectivity), cell ids
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
-    def _test_hex_meshio_format(self, nodes, cn_indices) -> bool:
+    def _test_hex_meshio_format(
+        self, nodes: np.ndarray, cn_indices: np.ndarray
+    ) -> bool:
 
         import numba
 
         @numba.jit(nopython=True)
-        def _function_to_compile(nodes, cn_indices) -> bool:
+        def _function_to_compile(nodes: np.ndarray, cn_indices: np.ndarray) -> bool:
             """
             Test whether the node numbering for each cell complies
             with the hardcoded numbering used by meshio, cf. documentation
@@ -1870,7 +1864,7 @@ class Exporter:
                 meshio format (for a single dimension).
         """
         # Initialize empty cell data dictinary
-        cell_data = {}
+        cell_data: Dict[str, List[np.ndarray]] = {}
 
         # Split the data for each group of geometrically uniform cells
         # Utilize meshio_geom for this.
