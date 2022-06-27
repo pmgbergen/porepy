@@ -10,8 +10,6 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.discretization import Discretization
 
-module_sections = ["numerics"]
-
 
 class AbstractInterfaceLaw(abc.ABC):
     """Partial implementation of an interface (between two grids) law. Any full
@@ -29,22 +27,18 @@ class AbstractInterfaceLaw(abc.ABC):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
         self.keyword = keyword
         self.edge_coupling_via_high_dim = False
         self.edge_coupling_via_low_dim = False
 
-    @pp.time_logger(sections=module_sections)
     def _key(self) -> str:
         return self.keyword + "_"
 
-    @pp.time_logger(sections=module_sections)
     def _discretization_key(self) -> str:
         return self._key() + pp.DISCRETIZATION
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def ndof(self, mg: pp.MortarGrid) -> int:
         """Get the number of degrees of freedom of this interface law for a
         given mortar grid.
@@ -59,9 +53,13 @@ class AbstractInterfaceLaw(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def discretize(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_intf: Dict,
     ) -> None:
         """Discretize the interface law and store the discretization in the
         edge data.
@@ -70,18 +68,22 @@ class AbstractInterfaceLaw(abc.ABC):
         interface.
 
         Parameters:
-            g_h: Grid of the primary domanin.
-            g_l: Grid of the secondary domain.
-            data_h: Data dictionary for the primary domain.
-            data_l: Data dictionary for the secondary domain.
-            data_edge: Data dictionary for the edge between the domains.
+            sd_primary: Grid of the primary domanin.
+            sd_secondary: Grid of the secondary domain.
+            data_primary: Data dictionary for the primary domain.
+            data_secondary: Data dictionary for the secondary domain.
+            data_intf: Data dictionary for the edge between the domains.
 
         """
         pass
 
-    @pp.time_logger(sections=module_sections)
     def update_discretization(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_intf: Dict,
     ) -> None:
         """Partial update of discretization.
 
@@ -103,24 +105,25 @@ class AbstractInterfaceLaw(abc.ABC):
 
 
         Parameters:
-            g_h: Grid of the primary domanin.
-            g_l: Grid of the secondary domain.
-            data_h: Data dictionary for the primary domain.
-            data_l: Data dictionary for the secondary domain.
-            data_edge: Data dictionary for the edge between the domains.
+            sd_primary: Grid of the primary domanin.
+            sd_secondary: Grid of the secondary domain.
+            data_primary: Data dictionary for the primary domain.
+            data_secondary: Data dictionary for the secondary domain.
+            data_intf: Data dictionary for the edge between the domains.
 
         """
-        self.discretize(g_h, g_l, data_h, data_l, data_edge)
+        self.discretize(
+            sd_primary, sd_secondary, data_primary, data_secondary, data_intf
+        )
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
         data_primary: Dict,
         data_secondary: Dict,
-        data_edge: Dict,
+        data_intf: Dict,
         matrix: np.ndarray,
     ) -> Union[np.ndarray, np.ndarray]:
         """Assemble the dicretization of the interface law, and its impact on
@@ -129,11 +132,11 @@ class AbstractInterfaceLaw(abc.ABC):
         The matrix will be
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -147,14 +150,13 @@ class AbstractInterfaceLaw(abc.ABC):
         """
         pass
 
-    @pp.time_logger(sections=module_sections)
     def assemble_matrix(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
         data_primary: Dict,
         data_secondary: Dict,
-        data_edge: Dict,
+        data_intf: Dict,
         matrix: np.ndarray,
     ) -> np.ndarray:
         """Assemble the dicretization of the interface law, and its impact on
@@ -165,11 +167,11 @@ class AbstractInterfaceLaw(abc.ABC):
         by some discretization methods.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -179,18 +181,17 @@ class AbstractInterfaceLaw(abc.ABC):
 
         """
         A, _ = self.assemble_matrix_rhs(
-            g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+            sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
         )
         return A
 
-    @pp.time_logger(sections=module_sections)
     def assemble_rhs(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
         data_primary: Dict,
         data_secondary: Dict,
-        data_edge: Dict,
+        data_intf: Dict,
         matrix: np.ndarray,
     ) -> np.ndarray:
         """Assemble the dicretization of the interface law, and its impact on
@@ -201,11 +202,11 @@ class AbstractInterfaceLaw(abc.ABC):
         by some discretization methods.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -215,15 +216,14 @@ class AbstractInterfaceLaw(abc.ABC):
 
         """
         _, b = self.assemble_matrix_rhs(
-            g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+            sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
         )
         return b
 
-    @pp.time_logger(sections=module_sections)
     def _define_local_block_matrix(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
         discr_primary: Discretization,
         discr_secondary: Discretization,
         mg: pp.MortarGrid,
@@ -238,11 +238,11 @@ class AbstractInterfaceLaw(abc.ABC):
         the primary, secondary and mortar variables for this interface law.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -260,8 +260,8 @@ class AbstractInterfaceLaw(abc.ABC):
         secondary_ind = 1
         mortar_ind = 2
 
-        dof_primary = discr_primary.ndof(g_primary)
-        dof_secondary = discr_secondary.ndof(g_secondary)
+        dof_primary = discr_primary.ndof(sd_primary)
+        dof_secondary = discr_secondary.ndof(sd_secondary)
         dof_mortar = self.ndof(mg)
         # We know the number of dofs from the primary and secondary side from their
         # discretizations
@@ -303,13 +303,12 @@ class AbstractInterfaceLaw(abc.ABC):
         else:
             return cc, rhs
 
-    @pp.time_logger(sections=module_sections)
     def _define_local_block_matrix_edge_coupling(
         self,
         g: pp.Grid,
         discr_grid: Discretization,
-        mg_primary: pp.MortarGrid,
-        mg_secondary: pp.MortarGrid,
+        msd_primary: pp.MortarGrid,
+        msd_secondary: pp.MortarGrid,
         matrix: np.ndarray,
         create_matrix: bool = True,
     ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
@@ -321,11 +320,11 @@ class AbstractInterfaceLaw(abc.ABC):
         the primary, secondary and mortar variables for this interface law.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -345,8 +344,8 @@ class AbstractInterfaceLaw(abc.ABC):
         secondary_ind = 2
 
         dof_grid = discr_grid.ndof(g)
-        dof_mortar_primary = self.ndof(mg_primary)
-        dof_mortar_secondary = self.ndof(mg_secondary)
+        dof_mortar_primary = self.ndof(msd_primary)
+        dof_mortar_secondary = self.ndof(msd_secondary)
         dof = np.array([dof_grid, dof_mortar_primary, dof_mortar_secondary])
 
         if create_matrix:
@@ -388,15 +387,14 @@ class AbstractInterfaceLaw(abc.ABC):
         else:
             return rhs
 
-    @pp.time_logger(sections=module_sections)
     def assemble_edge_coupling_via_high_dim(  # type: ignore
         self,
         g_between: pp.Grid,
         data_between: Dict,
         edge_primary: Tuple[pp.Grid, pp.Grid],
-        data_edge_primary: Dict,
+        data_intf_primary: Dict,
         edge_secondary: Tuple[pp.Grid, pp.Grid],
-        data_edge_secondary: Dict,
+        data_intf_secondary: Dict,
         matrix: np.ndarray,
         assemble_matrix: bool = True,
         assemble_rhs: bool = True,
@@ -425,9 +423,9 @@ class AbstractInterfaceLaw(abc.ABC):
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
             edge_primary (tuple of grids): The grids of the primary edge
-            data_edge_primary (dict): Data dictionary of the primary interface.
+            data_intf_primary (dict): Data dictionary of the primary interface.
             edge_secondary (tuple of grids): The grids of the secondary edge.
-            data_edge_secondary (dict): Data dictionary of the secondary interface.
+            data_intf_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
             assemble_matrix (optional): If True (defalut), contributions to local matrix
                 are assembled.
@@ -450,15 +448,14 @@ class AbstractInterfaceLaw(abc.ABC):
                                       dimensional grid must implement this model"""
             )
 
-    @pp.time_logger(sections=module_sections)
     def assemble_edge_coupling_via_low_dim(  # type: ignore
         self,
         g_between: pp.Grid,
         data_between: Dict,
         edge_primary: Tuple[pp.Grid, pp.Grid],
-        data_edge_primary: Dict,
+        data_intf_primary: Dict,
         edge_secondary: Tuple[pp.Grid, pp.Grid],
-        data_edge_secondary: Dict,
+        data_intf_secondary: Dict,
         matrix: np.ndarray,
         assemble_matrix: bool = False,
         assemble_rhs: bool = False,
@@ -487,9 +484,9 @@ class AbstractInterfaceLaw(abc.ABC):
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
             edge_primary (tuple of grids): The grids of the primary edge
-            data_edge_primary (dict): Data dictionary of the primary interface.
+            data_intf_primary (dict): Data dictionary of the primary interface.
             edge_secondary (tuple of grids): The grids of the secondary edge.
-            data_edge_secondary (dict): Data dictionary of the secondary interface.
+            data_intf_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
             assemble_matrix (optional): If True (defalut), contributions to local matrix
                 are assembled.
