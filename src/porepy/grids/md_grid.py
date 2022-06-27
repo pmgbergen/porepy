@@ -11,6 +11,8 @@ import warnings
 from typing import (
     Any,
     Callable,
+    Literal,
+    Iterator,
     Dict,
     Generator,
     Iterable,
@@ -18,6 +20,7 @@ from typing import (
     Optional,
     Tuple,
     Union,
+    overload
 )
 
 import numpy as np
@@ -61,6 +64,22 @@ class MixedDimensionalGrid:
         return False
 
     # --------- Iterators -------------------------
+    @overload
+    def subdomains(self, return_data: Literal[False]=False, dim: Optional[int] = None
+                   ) -> Generator[pp.Grid, None, None]:
+        # Method signature intended to define type hint.
+        # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
+        # Note that the order of the overloaded methods is important, the version
+        # with the default argument must come first. See
+        # https://docs.python.org/3/library/typing.html#typing.overload
+        ...
+
+    @overload
+    def subdomains(self, return_data: Literal[True]=True, dim: Optional[int] = None
+                   ) -> Generator[Tuple[pp.Grid, Dict], None, None]:
+        # Method signature intended to define type hint.
+        # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
+        ...
 
     def subdomains(
         self, return_data: bool = False, dim: Optional[int] = None
@@ -92,6 +111,21 @@ class MixedDimensionalGrid:
                 yield grid, self._subdomain_data[grid]
             else:
                 yield grid
+
+    @overload
+    def interfaces(self, return_data: Literal[False]=False, dim: Optional[int] = None
+                   ) -> Generator[pp.MortarGrid, None, None]:
+        # Method signature intended to define type hint.
+        # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
+        ...
+
+    @overload
+    def interfaces(self, return_data: Literal[True]=True, dim: Optional[int] = None
+                   ) -> Generator[Tuple[pp.MortarGrid, Dict], None, None]:
+        # Method signature intended to define type hint.
+        # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
+        ...
+
 
     def interfaces(
         self, return_data: bool = False, dim: Optional[int] = None
