@@ -41,15 +41,15 @@ class DofManager:
 
     """
 
-    def __init__(self, gb: pp.MixedDimensionalGrid) -> None:
+    def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         """Set up a DofManager for a mixed-dimensional grid.
 
         Parameters:
-            gb (pp.MixedDimensionalGrid): MixedDimensionalGrid representing the mixed-dimensional grid.
+            mdg (pp.MixedDimensionalGrid): MixedDimensionalGrid representing the mixed-dimensional grid.
 
         """
 
-        self.gb = gb
+        self.mdg = mdg
 
         # Counter for block index
         block_dof_counter = 0
@@ -61,7 +61,7 @@ class DofManager:
         # to the ordering specified in block_dof
         full_dof: List[int] = []
 
-        for g, d in gb:
+        for g, d in mdg:
             if pp.PRIMARY_VARIABLES not in d:
                 continue
 
@@ -81,7 +81,7 @@ class DofManager:
                 )
                 full_dof.append(total_local_dofs)
 
-        for e, d in gb.edges():
+        for e, d in mdg.edges():
             if pp.PRIMARY_VARIABLES not in d:
                 continue
 
@@ -263,7 +263,7 @@ class DofManager:
         if ind >= dof_start[-1]:
             raise ValueError(f"Index {ind} is larger than system size {dof_start[-1]}")
         elif ind < 0:
-            raise ValueError(f"Dof indices should be non-negative")
+            raise ValueError("Dof indices should be non-negative")
 
         # Find the block index of this grid-variable combination
         block_ind = np.argmax(dof_start > ind) - 1
@@ -338,7 +338,7 @@ class DofManager:
         dofs = np.empty(0, dtype=int)
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
 
-        for x, _ in self.gb.nodes_and_edges():
+        for x, _ in self.mdg.nodes_and_edges():
             for v in var:
                 if (x, v) in self.block_dof:
                     block_ind = self.block_dof[(x, v)]
@@ -413,9 +413,9 @@ class DofManager:
 
             if isinstance(g, tuple):
                 # This is really an edge
-                data = self.gb.edge_props(g)
+                data = self.mdg.edge_props(g)
             else:
-                data = self.gb.node_props(g)
+                data = self.mdg.node_props(g)
 
             if pp.STATE not in data:
                 data[pp.STATE] = {}
@@ -481,9 +481,9 @@ class DofManager:
 
             if isinstance(g, tuple):
                 # This is really an edge
-                data = self.gb.edge_props(g)
+                data = self.mdg.interface_data(g)
             else:
-                data = self.gb.node_props(g)
+                data = self.mdg.subdomain_data(g)
 
             if from_iterate:
                 # Use copy to avoid nasty bugs.
