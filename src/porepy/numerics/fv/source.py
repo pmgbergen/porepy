@@ -1,6 +1,7 @@
 """
 Discretization of the source term of an equation for FV methods.
 """
+from __future__ import annotations
 import numpy as np
 import scipy.sparse as sps
 

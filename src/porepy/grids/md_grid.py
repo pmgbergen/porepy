@@ -25,7 +25,6 @@ from scipy import sparse as sps
 
 import porepy as pp
 from porepy.grids import mortar_grid
-from porepy.utils import setmembership
 
 
 class MixedDimensionalGrid:

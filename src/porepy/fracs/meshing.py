@@ -6,6 +6,8 @@ will therefore wrap interface to different mesh generators, pass options to the
 generators etc.
 
 """
+
+from __future__ import annotations
 import logging
 import time
 from typing import List, Tuple
@@ -16,7 +18,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
-from porepy.grids.grid_bucket import MixedDimensionalGrid
+from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
@@ -510,7 +512,7 @@ def _assemble_in_bucket(grids, **kwargs):
 
 
 def create_mortar_grids(
-    gb: pp.GridBucket,
+    gb: pp.MixedDimensionalGrid,
     subdomain_pairs: List[Tuple[Tuple[pp.Grid, pp.Grid], sps.spmatrix]],
 ):
     # loop on all the nodes and create the mortar grids
