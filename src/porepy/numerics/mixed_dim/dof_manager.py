@@ -3,13 +3,9 @@
 from __future__ import annotations
 
 import itertools
-import sys
 from typing import Dict, List, Optional, Tuple, Union
 
-if sys.version[:3] < "3.8":
-    from typing_extensions import Literal
-else:
-    from typing import Literal  # type: ignore
+from typing import Literal
 
 import numpy as np
 import scipy.sparse as sps
