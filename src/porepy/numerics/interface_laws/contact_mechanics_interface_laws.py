@@ -64,7 +64,7 @@ class PrimalContactCoupling(
         """
         return (intf.dim + 1) * intf.num_cells
 
-    def discretize(self, sd_primary, sd_secondary, data_h, data_l, data_intf):
+    def discretize(self, sd_primary, sd_secondary, intf, data_h, data_l, data_intf):
 
         tic = time.time()
         logging.debug("Discretize contact mechanics interface law")
@@ -93,7 +93,14 @@ class PrimalContactCoupling(
         logger.debug("Done. Elapsed time {}".format(time.time() - tic))
 
     def assemble_matrix_rhs(
-        self, sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
+        self,
+        sd_primary,
+        sd_secondary,
+        intf,
+        data_primary,
+        data_secondary,
+        data_intf,
+        matrix,
     ):
 
         """Assemble the dicretization of the interface law, and its impact on
@@ -116,7 +123,6 @@ class PrimalContactCoupling(
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
-        intf = data_intf["mortar_grid"]
         projection = data_secondary["tangential_normal_projection"]
 
         cc, rhs = self._define_local_block_matrix(
@@ -286,9 +292,11 @@ class PrimalContactCoupling(
         self,
         g_between,
         data_between,
-        edge_primary,
+        intf_primary: pp.MortarGrid,
+        sd_pair_primary,
         data_intf_primary,
-        edge_secondary,
+        intf_secondary: pp.MortarGrid,
+        sd_pair_secondary,
         data_intf_secondary,
         matrix,
         assemble_matrix: bool = True,
@@ -321,25 +329,21 @@ class PrimalContactCoupling(
                 the primary and secondary interface, respectively.
 
         """
-        # Bookkeeping
-        intf_prim: pp.MortarGrid = data_intf_primary["mortar_grid"]
-        intf_sec: pp.MortarGrid = data_intf_secondary["mortar_grid"]
-
         # Initialize matrices of the correct sizes
         cc, rhs = self._define_local_block_matrix_edge_coupling(
-            g_between, self.discr_primary, intf_prim, intf_sec, matrix
+            g_between, self.discr_primary, intf_primary, intf_secondary, matrix
         )
 
         # Ambient dimension.
         Nd = g_between.dim
 
-        faces_on_fracture_surface = intf_prim.primary_to_mortar_int().tocsr().indices
+        faces_on_fracture_surface = intf_primary.primary_to_mortar_int().tocsr().indices
         sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
             g_between, Nd, faces_on_fracture_surface
         )
 
-        proj_sec = intf_sec.mortar_to_primary_avg(nd=Nd)
-        proj_prim = intf_prim.primary_to_mortar_int(nd=Nd)
+        proj_prim = intf_primary.primary_to_mortar_int(nd=Nd)
+        proj_sec = intf_secondary.mortar_to_primary_avg(nd=Nd)
 
         # Discretization of boundary conditions
         bound_stress = data_between[pp.DISCRETIZATION_MATRICES][
@@ -404,14 +408,21 @@ class MatrixScalarToForceBalance(
         ambient_dimension = intf.dim + 1
         return ambient_dimension * intf.num_cells
 
-    def discretize(self, sd_primary, sd_secondary, data_h, data_l, data_intf):
+    def discretize(self, sd_primary, sd_secondary, intf, data_h, data_l, data_intf):
         """
         Nothing to do
         """
         pass
 
     def assemble_matrix_rhs(
-        self, sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
+        self,
+        sd_primary,
+        sd_secondary,
+        intf,
+        data_primary,
+        data_secondary,
+        data_intf,
+        matrix,
     ):
         """
         Assemble the pressure contributions of the interface force balance law.
@@ -529,14 +540,21 @@ class FractureScalarToForceBalance(
         ambient_dimension = intf.dim + 1
         return ambient_dimension * intf.num_cells
 
-    def discretize(self, sd_primary, sd_secondary, data_h, data_l, data_intf):
+    def discretize(self, sd_primary, sd_secondary, intf, data_h, data_l, data_intf):
         """
         Nothing to do
         """
         pass
 
     def assemble_matrix_rhs(
-        self, sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
+        self,
+        sd_primary,
+        sd_secondary,
+        intf,
+        data_primary,
+        data_secondary,
+        data_intf,
+        matrix,
     ):
         """
         Assemble the pressure contributions of the interface force balance law.
@@ -643,7 +661,14 @@ class DivUCoupling(
         pass
 
     def assemble_matrix_rhs(
-        self, sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
+        self,
+        sd_primary,
+        sd_secondary,
+        intf,
+        data_primary,
+        data_secondary,
+        data_intf,
+        matrix,
     ):
         """
         Assemble the mortar displacement's contribution as a internal Dirichlet
@@ -663,8 +688,6 @@ class DivUCoupling(
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
-        intf = data_intf["mortar_grid"]
-
         cc, rhs = self._define_local_block_matrix(
             sd_primary,
             sd_secondary,

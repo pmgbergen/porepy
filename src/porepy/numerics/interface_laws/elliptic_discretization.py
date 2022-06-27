@@ -8,7 +8,7 @@ must honor. This is particularly useful to ensure uniformity when coupling
 discretizations between dimensions by interface laws.
 """
 from abc import abstractmethod
-from typing import Dict
+from typing import Dict, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -129,6 +129,7 @@ class EllipticDiscretization(Discretization):
         self,
         sd: pp.Grid,
         sd_data: Dict,
+        intf: pp.MortarGrid,
         intf_data: Dict,
         cc: np.ndarray,
         matrix: np.ndarray,
@@ -174,6 +175,7 @@ class EllipticDiscretization(Discretization):
         self,
         sd: pp.Grid,
         sd_data: Dict,
+        intf: pp.MortarGrid,
         intf_data: Dict,
         cc: np.ndarray,
         matrix: np.ndarray,
@@ -216,8 +218,9 @@ class EllipticDiscretization(Discretization):
         self,
         sd: pp.Grid,
         sd_data: Dict,
+        intf: pp.MortarGrid,
         intf_data: Dict,
-        cc: np.ndarray,
+        cc: Optional[np.ndarray],
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
@@ -260,7 +263,7 @@ class EllipticDiscretization(Discretization):
 
     @abstractmethod
     def assemble_int_bound_pressure_trace_rhs(
-        self, sd, sd_data, intf_data, cc, rhs, self_ind, use_secondary_proj=False
+        self, sd, sd_data, intf, intf_data, cc, rhs, self_ind, use_secondary_proj=False
     ):
         """Assemble the rhs contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -328,6 +331,7 @@ class EllipticDiscretization(Discretization):
         self,
         sd: pp.Grid,
         sd_data: Dict,
+        intf: pp.MortarGrid,
         intf_data: Dict,
         cc: np.ndarray,
         matrix: np.ndarray,

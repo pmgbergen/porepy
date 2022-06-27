@@ -46,6 +46,7 @@ class UpwindCoupling(
         self,
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
         data_primary: Dict,
         data_secondary: Dict,
         data_intf: Dict,
@@ -65,8 +66,6 @@ class UpwindCoupling(
         lam_flux: np.ndarray = np.sign(
             data_intf[pp.PARAMETERS][self.keyword][self._flux_array_key]
         )
-
-        intf: pp.MortarGrid = data_intf["mortar_grid"]
 
         # mapping from upper dim cells to faces
         # The mortars always points from upper to lower, so we don't flip any
@@ -104,6 +103,7 @@ class UpwindCoupling(
         self,
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
         data_primary: Dict,
         data_secondary: Dict,
         data_intf,
@@ -136,7 +136,6 @@ class UpwindCoupling(
         ][self.keyword]
         # Retrieve the number of degrees of both grids
         # Create the block matrix for the contributions
-        intf: pp.MortarGrid = data_intf["mortar_grid"]
 
         # We know the number of dofs from the primary and secondary side from their
         # discretizations
