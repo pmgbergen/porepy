@@ -12,7 +12,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.grids.grid_bucket import MixedDimensionalGrid
+from porepy.grids.md_grid import MixedDimensionalGrid
 
 
 class SubcellTopology(object):
