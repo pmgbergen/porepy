@@ -76,9 +76,9 @@ class RobinCoupling(
         # This interface law will have direct interface coupling to represent
         # the influence of the flux boundary condition of the secondary
         # interface on the pressure trace on the first interface.
-        self.edge_coupling_via_high_dim = True
+        self.intf_coupling_via_high_dim = True
         # No coupling via lower-dimensional interfaces.
-        self.edge_coupling_via_low_dim = False
+        self.intf_coupling_via_low_dim = False
 
         # Keys used to identify the discretization matrices of this discretization
         self.mortar_discr_matrix_key = "robin_mortar_discr"
@@ -463,7 +463,7 @@ class RobinCoupling(
         else:
             return matrix, rhs
 
-    def assemble_edge_coupling_via_high_dim(
+    def assemble_intf_coupling_via_high_dim(
         self,
         g: pp.Grid,
         data_grid: Dict,
@@ -483,9 +483,9 @@ class RobinCoupling(
         Parameters:
             g (pp.Grid): Grid of the higher dimensional neighbor to the main interface.
             data_grid (dict): Data dictionary of the intermediate grid.
-            edge_primary (tuple of grids): The grids of the primary edge
+            intf_primary (tuple of grids): The grids of the primary edge
             data_intf_primary (dict): Data dictionary of the primary interface.
-            edge_secondary (tuple of grids): The grids of the secondary edge.
+            intf_secondary (tuple of grids): The grids of the secondary edge.
             data_intf_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
 
@@ -501,11 +501,11 @@ class RobinCoupling(
         assert self.discr_primary is not None and self.discr_secondary is not None
 
         if assemble_matrix:
-            cc, rhs = self._define_local_block_matrix_edge_coupling(
+            cc, rhs = self._define_local_block_matrix_intf_coupling(
                 g, self.discr_primary, intf_primary, intf_secondary, matrix
             )
         else:
-            rhs = self._define_local_block_matrix_edge_coupling(
+            rhs = self._define_local_block_matrix_intf_coupling(
                 g,
                 self.discr_primary,
                 intf_primary,
@@ -596,9 +596,9 @@ class FluxPressureContinuity(RobinCoupling):
         # This interface law will have direct interface coupling to represent
         # the influence of the flux boundary condition of the secondary
         # interface on the pressure trace on the first interface.
-        self.edge_coupling_via_high_dim = False
+        self.intf_coupling_via_high_dim = False
         # No coupling via lower-dimensional interfaces.
-        self.edge_coupling_via_low_dim = False
+        self.intf_coupling_via_low_dim = False
 
     def discretize(
         self,

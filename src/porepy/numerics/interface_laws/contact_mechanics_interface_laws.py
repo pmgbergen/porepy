@@ -54,7 +54,7 @@ class PrimalContactCoupling(
         self.discr_secondary = discr_secondary
 
         # Account for interaction between different, but intersecting, mortar grids
-        self.edge_coupling_via_high_dim = True
+        self.intf_coupling_via_high_dim = True
 
     def ndof(self, intf):
         """Get the number of dof for this coupling.
@@ -288,7 +288,7 @@ class PrimalContactCoupling(
 
         return matrix, rhs
 
-    def assemble_edge_coupling_via_high_dim(
+    def assemble_intf_coupling_via_high_dim(
         self,
         g_between,
         data_between,
@@ -313,9 +313,9 @@ class PrimalContactCoupling(
             g_between (pp.Grid): Grid of the higher dimensional neighbor to the
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
-            edge_primary (tuple of grids): The grids of the primary edge
+            intf_primary (tuple of grids): The grids of the primary edge
             data_intf_primary (dict): Data dictionary of the primary interface.
-            edge_secondary (tuple of grids): The grids of the secondary edge.
+            intf_secondary (tuple of grids): The grids of the secondary edge.
             data_intf_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
 
@@ -330,7 +330,7 @@ class PrimalContactCoupling(
 
         """
         # Initialize matrices of the correct sizes
-        cc, rhs = self._define_local_block_matrix_edge_coupling(
+        cc, rhs = self._define_local_block_matrix_intf_coupling(
             g_between, self.discr_primary, intf_primary, intf_secondary, matrix
         )
 
