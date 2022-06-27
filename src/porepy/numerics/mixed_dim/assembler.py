@@ -42,20 +42,20 @@ class Assembler:
     """
 
     def __init__(
-        self, gb: pp.MixedDimensionalGrid, dof_manager: Optional[pp.DofManager] = None
+        self, mdg: pp.MixedDimensionalGrid, dof_manager: Optional[pp.DofManager] = None
     ) -> None:
         """Construct an assembler for a given MixedDimensionalGrid on a given set of variables.
 
         Parameters:
-            self.gb (pp.MixedDimensionalGrid): Mixed-dimensional grid where the equations are
+            self.mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid where the equations are
                 discretized. The data dictionaries on nodes and edges should contain
                 variable and discretization information, see tutorial for details.
 
         """
-        self.gb = gb
+        self.mdg = mdg
 
         if dof_manager is None:
-            dof_manager = pp.DofManager(gb)
+            dof_manager = pp.DofManager(mdg)
 
         self._dof_manager = dof_manager
 
@@ -198,7 +198,7 @@ class Assembler:
                 return self._initialize_matrix_rhs(sps_matrix)
 
         # Assemble
-        matrix, rhs = self._operate_on_gb(  # type:ignore
+        matrix, rhs = self._operate_on_mdg(  # type:ignore
             operation="assemble",
             filt=filt,
             matrix_format=matrix_format,
@@ -260,9 +260,9 @@ class Assembler:
                 Tuple[pp.Grid, pp.Grid, Tuple[pp.Grid, pp.Grid]],
             ]
 
-            grid_list: List[grid_list_type] = [g for g, _ in self.gb]
-            grid_list += [e for e, _ in self.gb.edges()]
-            grid_list += [(e[0], e[1], e) for e, _ in self.gb.edges()]
+            grid_list: List[grid_list_type] = [g for g in self.mdg.subdomains()]
+            grid_list += [e for e in self.mdg.interfaces()]
+            grid_list += [(e[0], e[1], e) for e in self.mdg.interfaces()]
             variable_list: List[str] = []
             term_list: List[str] = []
 
@@ -285,7 +285,7 @@ class Assembler:
 
         # Loop over all nodes, either register them as marked for update, or remove
         # from the grid_set.
-        for g, d in self.gb:
+        for g, d in self.mdg.subdomains(return_data=True):
             if d.get("partial_update", False):
                 update_grid[g] = True
             else:
@@ -293,26 +293,29 @@ class Assembler:
                     grid_set.remove(g)
                 update_grid[g] = False
 
-        for e, d_e in self.gb.edges():
+        for mg, d_e in self.mdg.interfaces(return_data=True):
             # if edge not marked for partial update, remove
             update_edge = d_e.get("partial_update", False)
-            if not update_edge and e in grid_set:
-                grid_set.remove(e)
+            if not update_edge and mg in grid_set:
+                grid_set.remove(mg)
 
-            # The coupling should be updated if the edge or any of the neigboring
+            sd_primary, sd_secondary = self.mdg.interface_to_subdomain_pair(mg)
+            # The coupling should be updated if the edge or any of the neighboring
             # grids is marked for update
             if (
-                not (update_grid[e[0]] or update_grid[e[1]] or update_edge)
-                and (e[0], e[1], e) in grid_set
+                not (
+                    update_grid[sd_primary] or update_grid[sd_secondary] or update_edge
+                )
+                and (sd_primary, sd_secondary, mg) in grid_set
             ):
-                grid_set.remove((e[0], e[1], e))
+                grid_set.remove((sd_primary, sd_secondary, mg))
 
         # Create a new filter with only grids marked for update.
         new_filt = pp.assembler_filters.ListFilter(
             grid_list=list(grid_set), variable_list=variable_list, term_list=term_list
         )
 
-        self._operate_on_gb(operation="update_discretization", filt=new_filt)
+        self._operate_on_mdg(operation="update_discretization", filt=new_filt)
 
     def discretize(
         self, filt: Optional[pp.assembler_filters.AssemblerFilter] = None
@@ -330,9 +333,9 @@ class Assembler:
                 lead to discretization of all terms in the entire MixedDimensionalGrid.
 
         """
-        self._operate_on_gb("discretize", filt=filt)
+        self._operate_on_mdg("discretize", filt=filt)
 
-    def _operate_on_gb(
+    def _operate_on_mdg(
         self,
         operation: str,
         filt: Optional[pp.assembler_filters.AssemblerFilter] = None,
@@ -384,7 +387,7 @@ class Assembler:
         else:
             # We will only reach this if someone has invoked this private method
             # from the outside.
-            raise ValueError("Unknown gb operation " + str(operation))
+            raise ValueError("Unknown mdg operation " + str(operation))
 
         # First take care of operations internal to nodes and edges
         self._operate_on_nodes_and_edges(filt, operation, matrix, rhs, **extra_args)
@@ -427,9 +430,9 @@ class Assembler:
             is_node = isinstance(grid, pp.Grid)
             # Get hold of data dictionary
             if is_node:
-                data = self.gb.node_props(grid)
+                data = self.mdg.subdomain_data(grid)
             else:
-                data = self.gb.edge_props(grid)
+                data = self.mdg.interface_data(grid)
 
             # Discretization
             # NOTE: For the edge, this is not the coupling discretization,
@@ -559,12 +562,12 @@ class Assembler:
                 continue
 
             g_primary, g_secondary, e = combination.coupling
-            data_secondary = self.gb.node_props(g_secondary)
-            data_primary = self.gb.node_props(g_primary)
-            data_edge = self.gb.edge_props(e)
+            data_secondary = self.mdg.subdomain_data(g_secondary)
+            data_primary = self.mdg.subdomain_data(g_primary)
+            data_intf = self.mdg.interface_data(e)
 
             term_key = combination.term
-            coupling = data_edge[pp.COUPLING_DISCRETIZATION][term_key]
+            coupling = data_intf[pp.COUPLING_DISCRETIZATION][term_key]
 
             # Get edge coupling discretization
             edge_vals: Tuple[str, Any] = coupling.get(e)
@@ -636,12 +639,12 @@ class Assembler:
             if primary_idx is not None and secondary_idx is not None:
                 if operation == "discretize":
                     edge_discr.discretize(
-                        g_primary, g_secondary, data_primary, data_secondary, data_edge
+                        g_primary, g_secondary, data_primary, data_secondary, data_intf
                     )
 
                 elif operation == "update_discretization":
                     edge_discr.discretize(
-                        g_primary, g_secondary, data_primary, data_secondary, data_edge
+                        g_primary, g_secondary, data_primary, data_secondary, data_intf
                     )
 
                 elif operation == "assemble":
@@ -692,7 +695,7 @@ class Assembler:
                             g_secondary,
                             data_primary,
                             data_secondary,
-                            data_edge,
+                            data_intf,
                             loc_mat,
                         )
                     elif assemble_rhs_only:
@@ -701,7 +704,7 @@ class Assembler:
                             g_secondary,
                             data_primary,
                             data_secondary,
-                            data_edge,
+                            data_intf,
                             None,  # The local matrix should not be used
                         )
                     else:
@@ -710,7 +713,7 @@ class Assembler:
                             g_secondary,
                             data_primary,
                             data_secondary,
-                            data_edge,
+                            data_intf,
                             loc_mat,
                         )
                     if not assemble_rhs_only:
@@ -740,7 +743,7 @@ class Assembler:
                 # secondary_idx is None
                 # The operation is a simplified version of the full option above.
                 if operation in ("discretize", "update_discretization"):
-                    edge_discr.discretize(g_primary, data_primary, data_edge)
+                    edge_discr.discretize(g_primary, data_primary, data_intf)
                 elif operation == "assemble":
 
                     loc_mat, _ = self._assign_matrix_vector(
@@ -752,17 +755,17 @@ class Assembler:
 
                     if assemble_matrix_only:
                         tmp_mat = edge_discr.assemble_matrix(
-                            g_primary, data_primary, data_edge, loc_mat
+                            g_primary, data_primary, data_intf, loc_mat
                         )
 
                     elif assemble_rhs_only:
                         loc_rhs = edge_discr.assemble_rhs(
-                            g_primary, data_primary, data_edge, loc_mat
+                            g_primary, data_primary, data_intf, loc_mat
                         )
 
                     else:
                         tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
-                            g_primary, data_primary, data_edge, loc_mat
+                            g_primary, data_primary, data_intf, loc_mat
                         )
                     if not assemble_rhs_only:
                         matrix[mat_key][  # type:ignore
@@ -787,7 +790,7 @@ class Assembler:
                 # primary_idx is None
                 # The operation is a simplified version of the full option above.
                 if operation in ("discretize", "update_discretization"):
-                    edge_discr.discretize(g_secondary, data_secondary, data_edge)
+                    edge_discr.discretize(g_secondary, data_secondary, data_intf)
                 elif operation == "assemble":
 
                     loc_mat, _ = self._assign_matrix_vector(
@@ -799,17 +802,17 @@ class Assembler:
                     ]
                     if assemble_matrix_only:
                         tmp_mat = edge_discr.assemble_matrix(
-                            g_secondary, data_secondary, data_edge, loc_mat
+                            g_secondary, data_secondary, data_intf, loc_mat
                         )
 
                     elif assemble_rhs_only:
                         loc_rhs = edge_discr.assemble_rhs(
-                            g_secondary, data_secondary, data_edge, loc_mat
+                            g_secondary, data_secondary, data_intf, loc_mat
                         )
 
                     else:
                         tmp_mat, loc_rhs = edge_discr.assemble_matrix_rhs(
-                            g_secondary, data_secondary, data_edge, loc_mat
+                            g_secondary, data_secondary, data_intf, loc_mat
                         )
 
                     if not assemble_rhs_only:
@@ -843,14 +846,16 @@ class Assembler:
             # These restrictions may be loosened somewhat in the future, but a
             # general coupling between different edges will not be implemented.
             if operation == "assemble" and edge_discr.edge_coupling_via_high_dim:
-                for other_edge, data_other in self.gb.edges_of_node(g_primary):
+                for other_edge, data_other in self.mdg.subdomain_to_interfaces(
+                    g_primary
+                ):
 
                     # Skip the case where the primary and secondary edge is the same
                     if other_edge == e:
                         continue
 
                     # Avoid coupling between mortar grids of different dimensions.
-                    if data_other["mortar_grid"].dim != data_edge["mortar_grid"].dim:
+                    if data_other["mortar_grid"].dim != data_intf["mortar_grid"].dim:
                         continue
 
                     # Only consider terms where the primary and secondary edge have
@@ -896,7 +901,7 @@ class Assembler:
                             g_primary,
                             data_primary,
                             e,
-                            data_edge,
+                            data_intf,
                             other_edge,
                             data_other,
                             loc_mat,
@@ -913,7 +918,7 @@ class Assembler:
                             g_primary,
                             data_primary,
                             e,
-                            data_edge,
+                            data_intf,
                             other_edge,
                             data_other,
                             loc_mat,
@@ -924,13 +929,15 @@ class Assembler:
                     rhs[mat_key][edge_idx] += loc_rhs[1]  # type:ignore
 
             if operation == "assemble" and edge_discr.edge_coupling_via_low_dim:
-                for other_edge, data_other in self.gb.edges_of_node(g_secondary):
+                for other_edge, data_other in self.mdg.subdomain_to_interfaces(
+                    g_secondary
+                ):
 
                     # Skip the case where the primary and secondary edge is the same
                     if other_edge == e:
                         continue
 
-                    if data_other["mortar_grid"].dim != data_edge["mortar_grid"].dim:
+                    if data_other["mortar_grid"].dim != data_intf["mortar_grid"].dim:
                         continue
 
                     # Only consider terms where the primary and secondary edge have
@@ -970,7 +977,7 @@ class Assembler:
                     (tmp_mat, loc_rhs) = edge_discr.assemble_edge_coupling_via_low_dim(
                         g_secondary,
                         data_secondary,
-                        data_edge,
+                        data_intf,
                         data_other,
                         loc_mat,
                         assemble_matrix=assemble_matrix,
@@ -1022,7 +1029,7 @@ class Assembler:
 
         # Loop over all nodes in the grid bucket, identify its local and active
         # variables.
-        for g, d in self.gb:
+        for g, d in self.mdg.subdomains(return_data=True):
 
             # If for some reason there are no primary variables defined for this grid,
             # skip it.
@@ -1073,7 +1080,7 @@ class Assembler:
         # Next do the equivalent operation for edges in the grid.
         # Most steps are identical to the operations on the nodes, we comment
         # only on edge-specific aspects; see above loop for more information
-        for e, d in self.gb.edges():
+        for mg, d in self.mdg.interfaces(return_data=True):
 
             # If for some reason there are no primary variables defined for this edge,
             # skip it.
@@ -1096,11 +1103,11 @@ class Assembler:
                             self._variable_term_key(term, local_var, other_local_var)
                         )
                         grid_variable_term_combinations.append(
-                            GridVariableTerm(e, local_var, other_local_var, term)
+                            GridVariableTerm(mg, local_var, other_local_var, term)
                         )
             # Finally, identify variable combinations for coupling terms.
             # This involves both the neighboring grids
-            g_secondary, g_primary = self.gb.nodes_of_edge(e)
+            g_primary, g_secondary = self.mdg.interface_to_subdomain(mg)
 
             discr = d.get(pp.COUPLING_DISCRETIZATION, None)
             if discr is None:
@@ -1113,12 +1120,12 @@ class Assembler:
                 # Identify this term in the discretization by the variable names
                 # on the edge, the variable names of the secondary and primary grid
                 # in that order, and finally the term name.
-                # There is a tacit assumption here that self.gb.nodes_of_edge return the
+                # There is a tacit assumption here that self.mdg.nodes_of_edge return the
                 # grids in the same order here and in the assembly. This should be okay.
                 # The consequences for the methods if this is no longer the case is unclear.
 
                 # Get the name of the edge variable (it is the first item in a tuple)
-                key_edge: str = val.get(e)[0]
+                key_intf: str = val.get(mg)[0]
 
                 # Get name of the edge variable, if it exists
                 key_secondary = val.get(g_secondary)
@@ -1139,12 +1146,12 @@ class Assembler:
                     key_primary = ""
 
                 variable_combinations.append(
-                    self._variable_term_key(term, key_edge, key_secondary, key_primary)
+                    self._variable_term_key(term, key_intf, key_secondary, key_primary)
                 )
                 grid_variable_term_combinations.append(
                     CouplingVariableTerm(
-                        (g_primary, g_secondary, e),
-                        key_edge,
+                        (g_primary, g_secondary, mg),
+                        key_intf,
                         key_primary,
                         key_secondary,
                         term,
@@ -1174,9 +1181,9 @@ class Assembler:
             grid, variable = key
             # Get data dictionary - this is slightly different for grid and interface
             if isinstance(grid, pp.Grid):
-                d = self.gb.node_props(grid)
+                d = self.mdg.subdomain_data(grid)
             else:  # This is an edge
-                d = self.gb.edge_props(grid)
+                d = self.mdg.interface_data(grid)
                 # Also fetch mortar grid
                 grid = d["mortar_grid"]
 
@@ -1302,16 +1309,16 @@ class Assembler:
             loc_op = loc_disc.get(_operator_name, None)
             return loc_op
 
-        # Loop ever nodes in the gb to find the local operators
-        for _, d in self.gb:
+        # Loop ever nodes in the mdg to find the local operators
+        for _, d in self.mdg.subdomains(return_data=True):
             op = _get_operator(d, keyword, operator_name)
             # If a node does not have the keyword or operator, do not add it.
             if op is None:
                 continue
             operator.append(op)
 
-        # Loop over edges in the gb to find the local operators
-        for _, d in self.gb.edges():
+        # Loop over edges in the mdg to find the local operators
+        for _, d in self.mdg.interfaces(return_data=True):
             op = _get_operator(d, keyword, operator_name)
             # If an edge does not have the keyword or operator, do not add it.
             if op is None:
@@ -1341,7 +1348,7 @@ class Assembler:
 
         """
         parameter = []
-        for _, d in self.gb:
+        for _, d in self.mdg.subdomain(return_data=True):
             parameter.append(d[pp.PARAMETERS][keyword][parameter_name])
         return np.hstack(parameter)
 
@@ -1408,8 +1415,8 @@ class Assembler:
         names = [key[1] for key in self._dof_manager.block_dof.keys()]
         unique_vars = list(set(names))
         s = (
-            f"Assembler object on a MixedDimensionalGrid with {self.gb.num_graph_nodes()} "
-            f"subdomains and {self.gb.num_graph_edges()} interfaces.\n"
+            f"Assembler object on a MixedDimensionalGrid with {self.mdg.num_subdomains()} "
+            f"subdomains and {self.mdg.num_interfaces()} interfaces.\n"
             f"Total number of degrees of freedom: {self.num_dof()}\n"
             "Total number of subdomain and interface variables:"
             f"{len(self._dof_manager.block_dof)}\n"
@@ -1422,11 +1429,11 @@ class Assembler:
         s = (
             f"Assembler objcet with in total {self.num_dof()} dofs"
             f" on {len(self._dof_manager.block_dof)} subdomain and interface variables.\n"
-            f"Maximum grid dimension: {self.gb.dim_max()}.\n"
-            f"Minimum grid dimension: {self.gb.dim_min()}.\n"
+            f"Maximum grid dimension: {self.mdg.dim_max()}.\n"
+            f"Minimum grid dimension: {self.mdg.dim_min()}.\n"
         )
-        for dim in range(self.gb.dim_max(), self.gb.dim_min() - 1, -1):
-            s += f"In dimension {dim}: {len(self.gb.grids_of_dimension(dim))} grids.\n"
+        for dim in range(self.mdg.dim_max(), self.mdg.dim_min() - 1, -1):
+            s += f"In dimension {dim}: {len([sd for sd in self.mdg.subdomains(dim=dim)])} grids.\n"
             unique_vars = {
                 key[1]
                 for key in self._dof_manager.block_dof.keys()
@@ -1440,7 +1447,7 @@ class Assembler:
             # List of found special (subset) variable combinations
             found_special_var_combination: List[Set[str]] = []
             # Loop over all grids of this dimension
-            for g in self.gb.grids_of_dimension(dim):
+            for g in self.mdg.subdomains(dim=dim):
                 # All variables on this subdomain
                 var = set(self.variables_of_grid(g))
                 # Check if this is a subset of the full variable list on this dimension
@@ -1457,14 +1464,14 @@ class Assembler:
                             f"dimension {dim}: {var}\n"
                         )
 
-        for dim in range(self.gb.dim_max(), self.gb.dim_min(), -1):
+        for dim in range(self.mdg.dim_max(), self.mdg.dim_min(), -1):
             unique_vars = {
                 var
-                for g in self.gb.grids_of_dimension(
-                    dim
-                )  # For each grid of dimension dim
-                for e, _ in self.gb.edges_of_node(g)  # for each edge of that grid
-                if self.gb.nodes_of_edge(e)[1]
+                for g in self.mdg.subdomains(dim=dim)  # For each grid of dimension dim
+                for e in self.mdg.subdomain_to_interfaces(
+                    g
+                )  # for each edge of that grid
+                if self.mdg.interface_to_subdomains(e)[1]
                 == g  # such that the edge neighbors a lower-dimensional grid
                 for var in self.variables_of_grid(e)  # get all variables on that edge
             }
@@ -1479,9 +1486,9 @@ class Assembler:
 
             # List of found special (subset) variable combinations
             found_special_var_combination = []
-            for g in self.gb.grids_of_dimension(dim):
-                for e, _ in self.gb.edges_of_node(g):
-                    var = set(self.variables_of_grid(e))
+            for g in self.mdg.subdomains(dim=dim):
+                for intf in self.mdg.subdomain_to_interface(g):
+                    var = set(self.variables_of_grid(intf))
                     # Check if this is a subset of the full variable list on this dimension
                     if var.issubset(unique_vars):
                         # We will only report each subset variable definition once.
