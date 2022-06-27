@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Sequence
 
 from typing import Literal
 
@@ -17,7 +17,7 @@ csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 
 __all__ = ["DofManager"]
 
-GridLike = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
+GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
 class DofManager:
@@ -30,10 +30,10 @@ class DofManager:
     Attributes:
         block_dof: Is a dictionary with keys that are either
             Tuple[pp.Grid, variable_name: str] for nodes in the MixedDimensionalGrid, or
-            Tuple[Tuple[pp.Grid, pp.Grid], str] for edges in the MixedDimensionalGrid.
-
+            Tuple[pp.MortarGrid, str] for edges in the MixedDimensionalGrid.
             The values in block_dof are integers 0, 1, ..., that identify the block
             index of this specific grid (or edge) - variable combination.
+        
         full_dof: Is a np.ndarray of int that stores the number of degrees of
             freedom per key-item pair in block_dof. Thus
               len(full_dof) == len(block_dof).
@@ -55,55 +55,53 @@ class DofManager:
         block_dof_counter = 0
 
         # Dictionary that maps node/edge + variable combination to an index.
-        block_dof: Dict[Tuple[Union[pp.Grid, Tuple[pp.Grid, pp.Grid]], str], int] = {}
+        block_dof: Dict[Tuple[Union[pp.Grid, pp.MortarGrid], str], int] = {}
 
         # Storage for number of dofs per variable per node/edge, with respect
         # to the ordering specified in block_dof
         full_dof: List[int] = []
 
-        for g, d in mdg:
-            if pp.PRIMARY_VARIABLES not in d:
+        for sd, data in mdg.subdomains(return_data=True):
+            if pp.PRIMARY_VARIABLES not in data:
                 continue
 
-            for local_var, local_dofs in d[pp.PRIMARY_VARIABLES].items():
+            for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
                 # First assign a block index.
                 # Note that the keys in the dictionary is a tuple, with a grid
                 # and a variable name (str)
-                block_dof[(g, local_var)] = block_dof_counter
+                block_dof[(sd, local_var)] = block_dof_counter
                 block_dof_counter += 1
 
                 # Count number of dofs for this variable on this grid and store it.
                 # The number of dofs for each grid entitiy type defaults to zero.
                 total_local_dofs = (
-                    g.num_cells * local_dofs.get("cells", 0)
-                    + g.num_faces * local_dofs.get("faces", 0)
-                    + g.num_nodes * local_dofs.get("nodes", 0)
+                    sd.num_cells * local_dofs.get("cells", 0)
+                    + sd.num_faces * local_dofs.get("faces", 0)
+                    + sd.num_nodes * local_dofs.get("nodes", 0)
                 )
                 full_dof.append(total_local_dofs)
 
-        for e, d in mdg.edges():
-            if pp.PRIMARY_VARIABLES not in d:
+        for intf, data in mdg.interfaces(return_data=True):
+            if pp.PRIMARY_VARIABLES not in data:
                 continue
 
-            mg: pp.MortarGrid = d["mortar_grid"]
-
-            for local_var, local_dofs in d[pp.PRIMARY_VARIABLES].items():
+            for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
 
                 # First count the number of dofs per variable. Note that the
                 # identifier here is a tuple of the edge and a variable str.
-                block_dof[(e, local_var)] = block_dof_counter
+                block_dof[(intf, local_var)] = block_dof_counter
                 block_dof_counter += 1
 
                 # We only allow for cell variables on the mortar grid.
                 # This will not change in the foreseeable future
-                total_local_dofs = mg.num_cells * local_dofs.get("cells", 0)
+                total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
                 full_dof.append(total_local_dofs)
 
         # Array version of the number of dofs per node/edge and variable
         self.full_dof: np.ndarray = np.array(full_dof)
         self.block_dof: Dict[Tuple[GridLike, str], int] = block_dof
 
-    def grid_and_variable_to_dofs(self, g: GridLike, variable: str) -> np.ndarray:
+    def grid_and_variable_to_dofs(self, grid: GridLike, variable: str) -> np.ndarray:
         """Get the indices in the global system of variables associated with a
         given node / edge (in the MixedDimensionalGrid sense) and a given variable.
 
@@ -116,7 +114,7 @@ class DofManager:
             np.array (int): Index of degrees of freedom for this variable.
 
         """
-        block_ind = self.block_dof[(g, variable)]
+        block_ind = self.block_dof[(grid, variable)]
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
         return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
 
@@ -250,7 +248,7 @@ class DofManager:
             ind (int): Index of degree of freedom.
 
         Returns:
-            pp.Grid or Tuple of two pp.Grids: Grid on subdomain, or pair of grids which
+            pp.Grid or pp.MortarGrid: Grid on subdomain, or pair of grids which
                 define an interface.
             str: Name of variable.
 
@@ -281,7 +279,7 @@ class DofManager:
         (start and end of the associated dofs).
 
         Parameters:
-            g (pp.Grid or Tuple of two pp.Grids): Grid on subdomain, or pair of grids which
+            g (pp.Grid or pp.MortarGrid): Grid on subdomain, or pair of grids which
                 define an interface.
             variable (str): Name of variable.
 
@@ -298,7 +296,7 @@ class DofManager:
         """Helper function to get the indices for a grid-variable combination.
 
         Parameters:
-            g (pp.Grid or Tuple of two pp.Grids): Grid on subdomain, or pair of grids which
+            g (pp.Grid or pp.MortarGrid): Grid on subdomain, or pair of grids which
                 define an interface.
             variable (str): Name of variable.
 
@@ -338,10 +336,14 @@ class DofManager:
         dofs = np.empty(0, dtype=int)
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
 
-        for x, _ in self.mdg.nodes_and_edges():
+        grids: Sequence[GridLike] = (
+            [sd for sd in self.mdg.subdomains()] 
+            + [intf for intf in self.mdg.interfaces()]  # type: ignore
+            )
+        for g in grids:
             for v in var:
-                if (x, v) in self.block_dof:
-                    block_ind = self.block_dof[(x, v)]
+                if (g, v) in self.block_dof:
+                    block_ind = self.block_dof[(g, v)]
                     local_dofs = np.arange(
                         dof_start[block_ind], dof_start[block_ind + 1]
                     )
@@ -385,7 +387,7 @@ class DofManager:
                 values coresponds to that implied in self._block_dof and self._full_dof.
                 Should have size self.num_dofs(), thus projections from subsets of
                 variables must be done before calling this function.
-            grids (list of grids or grid tuples (interfaces), optional): The subdomains
+            grids (list of pp.Grid or pp.MortarGrid, optional): The subdomains
                 and interfaces to be considered. If not provided, all grids and edges
                 found in self.block_dof will be considered.
             variables (list of str, optional): Names of the variables to be
@@ -411,11 +413,11 @@ class DofManager:
 
             dof_ind = self.grid_and_variable_to_dofs(g, var)
 
-            if isinstance(g, tuple):
+            if isinstance(g, pp.MortarGrid):
                 # This is really an edge
-                data = self.mdg.edge_props(g)
+                data = self.mdg.interface_data(g)
             else:
-                data = self.mdg.node_props(g)
+                data = self.mdg.subdomain_data(g)
 
             if pp.STATE not in data:
                 data[pp.STATE] = {}
@@ -479,7 +481,7 @@ class DofManager:
 
             dof_ind = self.grid_and_variable_to_dofs(g, var)
 
-            if isinstance(g, tuple):
+            if isinstance(g, pp.MortarGrid):
                 # This is really an edge
                 data = self.mdg.interface_data(g)
             else:
