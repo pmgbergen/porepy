@@ -56,20 +56,20 @@ class PrimalContactCoupling(
         # Account for interaction between different, but intersecting, mortar grids
         self.edge_coupling_via_high_dim = True
 
-    def ndof(self, mg):
+    def ndof(self, intf):
         """Get the number of dof for this coupling.
 
         It is assumed that this method will only be called for mortar grids of
         co-dimension 1. If the assumption is broken, this will not work.
         """
-        return (mg.dim + 1) * mg.num_cells
+        return (intf.dim + 1) * intf.num_cells
 
-    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+    def discretize(self, sd_primary, sd_secondary, data_h, data_l, data_intf):
 
         tic = time.time()
         logging.debug("Discretize contact mechanics interface law")
         # Discretize the surface PDE
-        matrix_dictionary_edge = data_edge[pp.DISCRETIZATION_MATRICES][self.keyword]
+        matrix_dictionary_edge = data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         # Tangential_normal projection
         tangential_normal_projection = data_l["tangential_normal_projection"]
@@ -86,27 +86,29 @@ class PrimalContactCoupling(
         # however, the discretization is inherently linked to the mortar grid.
         # It is therefore constructed here.
 
-        self.discr_secondary.discretize(g_h, g_l, data_h, data_l, data_edge)
+        self.discr_secondary.discretize(
+            sd_primary, sd_secondary, data_h, data_l, data_intf
+        )
 
         logger.debug("Done. Elapsed time {}".format(time.time() - tic))
 
     def assemble_matrix_rhs(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+        self, sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
     ):
 
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the edge between the subdomains
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
 
         """
-        ambient_dimension = g_primary.dim
+        ambient_dimension = sd_primary.dim
 
         primary_ind = 0
         secondary_ind = 1
@@ -114,11 +116,16 @@ class PrimalContactCoupling(
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
-        mg = data_edge["mortar_grid"]
+        intf = data_intf["mortar_grid"]
         projection = data_secondary["tangential_normal_projection"]
 
         cc, rhs = self._define_local_block_matrix(
-            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
+            sd_primary,
+            sd_secondary,
+            self.discr_primary,
+            self.discr_secondary,
+            intf,
+            matrix,
         )
         # IMPLEMENTATION NOTE: The current implementation is geared towards
         # using mpsa for the mechanics problem. A more general approach would
@@ -137,7 +144,7 @@ class PrimalContactCoupling(
         primary_bc_values = data_primary[pp.PARAMETERS][self.discr_primary.keyword][
             "bc_values"
         ]
-        primary_divergence = pp.fvutils.vector_divergence(g_primary)
+        primary_divergence = pp.fvutils.vector_divergence(sd_primary)
 
         # The mortar variable (boundary displacement) takes the form of a Dirichlet
         # condition for the primary side. The MPSA convention is to have
@@ -148,7 +155,7 @@ class PrimalContactCoupling(
         cc[primary_ind, mortar_ind] = (
             primary_divergence
             * primary_bound_stress
-            * mg.mortar_to_primary_avg(nd=ambient_dimension)
+            * intf.mortar_to_primary_avg(nd=ambient_dimension)
         )
 
         ### Equation for the secondary side
@@ -163,7 +170,7 @@ class PrimalContactCoupling(
             traction_discr,
             displacement_jump_discr,
             rhs_secondary,
-        ) = self.discr_secondary.assemble_matrix_rhs(g_secondary, data_secondary)
+        ) = self.discr_secondary.assemble_matrix_rhs(sd_secondary, data_secondary)
         # The contact forces. Can be applied directly, these are in their own
         # local coordinate systems.
         cc[secondary_ind, secondary_ind] = traction_discr
@@ -176,21 +183,21 @@ class PrimalContactCoupling(
         # coefficients of the displacement jump.
         cc[secondary_ind, mortar_ind] = (
             displacement_jump_discr
-            * projection.project_tangential_normal(g_secondary.num_cells)
-            * mg.mortar_to_secondary_avg(nd=ambient_dimension)
-            * mg.sign_of_mortar_sides(nd=ambient_dimension)
+            * projection.project_tangential_normal(sd_secondary.num_cells)
+            * intf.mortar_to_secondary_avg(nd=ambient_dimension)
+            * intf.sign_of_mortar_sides(nd=ambient_dimension)
         )
 
         # Right hand side system. In the local (surface) coordinate system.
         # For transient simulations where the tangential velocity, not displacement, is
         # considered, a term arises on the rhs from the previous time step.
-        previous_time_step_displacements = data_edge[pp.STATE][
+        previous_time_step_displacements = data_intf[pp.STATE][
             self.mortar_displacement_variable
         ].copy()
         rotated_jumps = (
-            projection.project_tangential_normal(g_secondary.num_cells)
-            * mg.mortar_to_secondary_avg(nd=ambient_dimension)
-            * mg.sign_of_mortar_sides(nd=ambient_dimension)
+            projection.project_tangential_normal(sd_secondary.num_cells)
+            * intf.mortar_to_secondary_avg(nd=ambient_dimension)
+            * intf.sign_of_mortar_sides(nd=ambient_dimension)
             * previous_time_step_displacements
         )
         rhs_u = displacement_jump_discr * rotated_jumps
@@ -214,9 +221,9 @@ class PrimalContactCoupling(
         # switch direction of the stress on boundary for the higher dimensional domain: The
         # contact forces are defined as negative in contact, whereas the sign of the higher
         # dimensional stresses are defined according to the direction of the normal vector.
-        faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
+        faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
         sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
-            g_primary, ambient_dimension, faces_on_fracture_surface
+            sd_primary, ambient_dimension, faces_on_fracture_surface
         )
 
         ## First, we obtain T_primary = stress * u_primary + bound_stress * u_mortar
@@ -225,14 +232,14 @@ class PrimalContactCoupling(
         # Switch the direction of the vectors to obtain the traction as defined
         # by the outwards pointing normal vector.
         traction_from_primary = (
-            mg.primary_to_mortar_int(nd=ambient_dimension)
+            intf.primary_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * primary_stress
         )
         cc[mortar_ind, primary_ind] = traction_from_primary
         # Stress contribution from boundary conditions.
         rhs[mortar_ind] = -(
-            mg.primary_to_mortar_int(nd=ambient_dimension)
+            intf.primary_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * primary_bound_stress
             * primary_bc_values
@@ -243,10 +250,10 @@ class PrimalContactCoupling(
         # Switch the direction of the vectors, so that for all faces, a positive
         # force points into the fracture surface.
         traction_from_mortar = (
-            mg.primary_to_mortar_int(nd=ambient_dimension)
+            intf.primary_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * primary_bound_stress
-            * mg.mortar_to_primary_avg(nd=ambient_dimension)
+            * intf.mortar_to_primary_avg(nd=ambient_dimension)
         )
         cc[mortar_ind, mortar_ind] = traction_from_mortar
 
@@ -265,8 +272,8 @@ class PrimalContactCoupling(
         # plus for the k side, yielding the two equations
         # - T_secondary + T_primary_j = 0    and T_secondary + T_primary_k = 0
         contact_traction_to_mortar = (
-            mg.sign_of_mortar_sides(nd=ambient_dimension)
-            * mg.secondary_to_mortar_int(nd=ambient_dimension)
+            intf.sign_of_mortar_sides(nd=ambient_dimension)
+            * intf.secondary_to_mortar_int(nd=ambient_dimension)
             * projection.project_tangential_normal().T
         )
         cc[mortar_ind, secondary_ind] = contact_traction_to_mortar
@@ -280,9 +287,9 @@ class PrimalContactCoupling(
         g_between,
         data_between,
         edge_primary,
-        data_edge_primary,
+        data_intf_primary,
         edge_secondary,
-        data_edge_secondary,
+        data_intf_secondary,
         matrix,
         assemble_matrix: bool = True,
         assemble_rhs: bool = True,
@@ -299,9 +306,9 @@ class PrimalContactCoupling(
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
             edge_primary (tuple of grids): The grids of the primary edge
-            data_edge_primary (dict): Data dictionary of the primary interface.
+            data_intf_primary (dict): Data dictionary of the primary interface.
             edge_secondary (tuple of grids): The grids of the secondary edge.
-            data_edge_secondary (dict): Data dictionary of the secondary interface.
+            data_intf_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
 
         Returns:
@@ -315,24 +322,24 @@ class PrimalContactCoupling(
 
         """
         # Bookkeeping
-        mg_prim: pp.MortarGrid = data_edge_primary["mortar_grid"]
-        mg_sec: pp.MortarGrid = data_edge_secondary["mortar_grid"]
+        intf_prim: pp.MortarGrid = data_intf_primary["mortar_grid"]
+        intf_sec: pp.MortarGrid = data_intf_secondary["mortar_grid"]
 
         # Initialize matrices of the correct sizes
         cc, rhs = self._define_local_block_matrix_edge_coupling(
-            g_between, self.discr_primary, mg_prim, mg_sec, matrix
+            g_between, self.discr_primary, intf_prim, intf_sec, matrix
         )
 
         # Ambient dimension.
         Nd = g_between.dim
 
-        faces_on_fracture_surface = mg_prim.primary_to_mortar_int().tocsr().indices
+        faces_on_fracture_surface = intf_prim.primary_to_mortar_int().tocsr().indices
         sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
             g_between, Nd, faces_on_fracture_surface
         )
 
-        proj_sec = mg_sec.mortar_to_primary_avg(nd=Nd)
-        proj_prim = mg_prim.primary_to_mortar_int(nd=Nd)
+        proj_sec = intf_sec.mortar_to_primary_avg(nd=Nd)
+        proj_prim = intf_prim.primary_to_mortar_int(nd=Nd)
 
         # Discretization of boundary conditions
         bound_stress = data_between[pp.DISCRETIZATION_MATRICES][
@@ -391,44 +398,49 @@ class MatrixScalarToForceBalance(
         self.discr_secondary = discr_secondary
         # Keyword used to retrieve gradP discretization.
 
-    def ndof(self, mg):
+    def ndof(self, intf):
         # Assume the interface law is defined only on mortar grids next to the
         # ambient dimension
-        ambient_dimension = mg.dim + 1
-        return ambient_dimension * mg.num_cells
+        ambient_dimension = intf.dim + 1
+        return ambient_dimension * intf.num_cells
 
-    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+    def discretize(self, sd_primary, sd_secondary, data_h, data_l, data_intf):
         """
         Nothing to do
         """
         pass
 
     def assemble_matrix_rhs(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+        self, sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
     ):
         """
         Assemble the pressure contributions of the interface force balance law.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the edge between the subdomains
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
         """
 
-        ambient_dimension = g_primary.dim
+        ambient_dimension = sd_primary.dim
 
         primary_ind = 0
         mortar_ind = 2
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
-        mg = data_edge["mortar_grid"]
+        intf = data_intf["mortar_grid"]
         cc, rhs = self._define_local_block_matrix(
-            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
+            sd_primary,
+            sd_secondary,
+            self.discr_primary,
+            self.discr_secondary,
+            intf,
+            matrix,
         )
 
         primary_scalar_gradient = data_primary[pp.DISCRETIZATION_MATRICES][
@@ -448,9 +460,9 @@ class MatrixScalarToForceBalance(
         # A diagonal operator is needed to switch the sign of vectors on
         # higher-dimensional faces that point into the fracture surface, see
         # PrimalContactCoupling.
-        faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
+        faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
         sign_switcher = pp.grid_utils.switch_sign_if_inwards_normal(
-            g_primary, ambient_dimension, faces_on_fracture_surface
+            sd_primary, ambient_dimension, faces_on_fracture_surface
         )
 
         # i) Obtain pressure stress contribution from the higher dimensional domain.
@@ -460,7 +472,7 @@ class MatrixScalarToForceBalance(
         # iii) Map to the mortar grid.
         # iv) Minus according to - alpha grad p already in the discretization matrix
         primary_scalar_to_primary_traction = (
-            mg.primary_to_mortar_int(nd=ambient_dimension)
+            intf.primary_to_mortar_int(nd=ambient_dimension)
             * sign_switcher
             * primary_scalar_gradient
         )
@@ -511,45 +523,50 @@ class FractureScalarToForceBalance(
         self.discr_primary = discr_primary
         self.discr_secondary = discr_secondary
 
-    def ndof(self, mg):
+    def ndof(self, intf):
         # Assume the interface law is defined only on mortar grids next to the
         # ambient dimension
-        ambient_dimension = mg.dim + 1
-        return ambient_dimension * mg.num_cells
+        ambient_dimension = intf.dim + 1
+        return ambient_dimension * intf.num_cells
 
-    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+    def discretize(self, sd_primary, sd_secondary, data_h, data_l, data_intf):
         """
         Nothing to do
         """
         pass
 
     def assemble_matrix_rhs(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+        self, sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
     ):
         """
         Assemble the pressure contributions of the interface force balance law.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the edge between the subdomains
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
         """
 
-        ambient_dimension = g_primary.dim
+        ambient_dimension = sd_primary.dim
 
         secondary_ind = 1
         mortar_ind = 2
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
-        mg = data_edge["mortar_grid"]
+        intf = data_intf["mortar_grid"]
 
         cc, rhs = self._define_local_block_matrix(
-            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
+            sd_primary,
+            sd_secondary,
+            self.discr_primary,
+            self.discr_secondary,
+            intf,
+            matrix,
         )
 
         ## Ensure that the contact variable is only the force from the contact of the
@@ -559,16 +576,16 @@ class FractureScalarToForceBalance(
         # matrix. Similar sign switching as above is needed (this one operating on
         # fracture faces only).
 
-        faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
-        sgn, _ = g_primary.signs_and_cells_of_boundary_faces(faces_on_fracture_surface)
-        fracture_normals = g_primary.face_normals[
+        faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
+        sgn, _ = sd_primary.signs_and_cells_of_boundary_faces(faces_on_fracture_surface)
+        fracture_normals = sd_primary.face_normals[
             :ambient_dimension, faces_on_fracture_surface
         ]
         outwards_fracture_normals = sgn * fracture_normals
 
         data = outwards_fracture_normals.ravel("F")
-        row = np.arange(g_primary.dim * mg.num_cells)
-        col = np.tile(np.arange(mg.num_cells), (g_primary.dim, 1)).ravel("F")
+        row = np.arange(sd_primary.dim * intf.num_cells)
+        col = np.tile(np.arange(intf.num_cells), (sd_primary.dim, 1)).ravel("F")
         n_dot_I = sps.csc_matrix((data, (row, col)))
         # i) The scalar contribution to the contact stress is mapped to the mortar grid
         # and multiplied by n \dot I, with n being the outwards normals on the two sides.
@@ -580,7 +597,7 @@ class FractureScalarToForceBalance(
         # T_contact - n dot I p,
         # hence the minus.
         secondary_pressure_to_contact_traction = -(
-            n_dot_I * mg.secondary_to_mortar_int(nd=1)
+            n_dot_I * intf.secondary_to_mortar_int(nd=1)
         )
         # Minus to obtain -T_secondary + T_primary = 0, i.e. from placing the two
         # terms on the same side of the equation, as also done in PrimalContactCoupling.
@@ -614,29 +631,29 @@ class DivUCoupling(
         # assemble_int_bound_displacement_source for the secondary.
         self.discr_secondary = discr_secondary
 
-    def ndof(self, mg):
+    def ndof(self, intf):
         # Assume the interface law is defined only on mortar grids next to the
         # ambient dimension
-        return (mg.dim + 1) * mg.num_cells
+        return (intf.dim + 1) * intf.num_cells
 
-    def discretize(self, g_h, g_l, data_h, data_l, data_edge):
+    def discretize(self, sd_primary, sd_secondary, data_h, data_l, data_intf):
         """
         Nothing to do
         """
         pass
 
     def assemble_matrix_rhs(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+        self, sd_primary, sd_secondary, data_primary, data_secondary, data_intf, matrix
     ):
         """
         Assemble the mortar displacement's contribution as a internal Dirichlet
         contribution for the higher dimension, and source term for the lower dimension.
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the edge between the subdomains
             matrix: original discretization matrix, to which the coupling terms will be
                 added.
         """
@@ -646,20 +663,25 @@ class DivUCoupling(
 
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
-        mg = data_edge["mortar_grid"]
+        intf = data_intf["mortar_grid"]
 
         cc, rhs = self._define_local_block_matrix(
-            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
+            sd_primary,
+            sd_secondary,
+            self.discr_primary,
+            self.discr_secondary,
+            intf,
+            matrix,
         )
 
         grid_swap = False
         # Let the DivU class assemble the contribution from mortar to primary
         self.discr_primary.assemble_int_bound_displacement_trace(
-            g_primary, data_primary, data_edge, grid_swap, cc, matrix, rhs, primary_ind
+            sd_primary, data_primary, data_intf, grid_swap, cc, matrix, rhs, primary_ind
         )
         # and from mortar to secondary.
         self.discr_secondary.assemble_int_bound_displacement_source(
-            g_secondary, data_secondary, data_edge, cc, matrix, rhs, secondary_ind
+            sd_secondary, data_secondary, data_intf, cc, matrix, rhs, secondary_ind
         )
         matrix += cc
 
