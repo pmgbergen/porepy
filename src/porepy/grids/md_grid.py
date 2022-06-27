@@ -1,6 +1,6 @@
 """
 Module to store the grid hierarchy formed by a set of fractures and their
-intersections in the form of a MixedDimensionalGrid.
+intersections  along with a surrounding matrix in the form of a MixedDimensionalGrid.
 
 
 
@@ -31,7 +31,7 @@ from porepy.utils import setmembership
 class MixedDimensionalGrid:
     """
     Container for the hierarchy of grids formed by fractures and their
-    intersections.
+    intersections along with a surrounding matrix.
 
     """
 
@@ -49,7 +49,7 @@ class MixedDimensionalGrid:
 
         Returns:
             True if either key is a pp.Grid, and key is among the subdomains of this
-                mixeddimensional grid, *or* key is a pp.MortarGrid and key is among the
+                mixed-dimensional grid, *or* key is a pp.MortarGrid and key is among the
                 interfaces of this mixed-dimensional grid.
 
         """
@@ -65,7 +65,7 @@ class MixedDimensionalGrid:
 
     def subdomains(
         self, return_data: bool = False, dim: Optional[int] = None
-    ) -> Generator[Tuple[pp.Grid, Tuple[pp.Grid, Dict]], None, None]:
+    ) -> Generator[Union[pp.Grid, Tuple[pp.Grid, Dict]], None, None]:
         """Iterator over the subdomains in the MixedDimensionalGrid.
 
         Optionally, the iterator can filter subdomains on dimension. Also, the data
@@ -96,7 +96,7 @@ class MixedDimensionalGrid:
 
     def interfaces(
         self, return_data: bool = False, dim: Optional[int] = None
-    ) -> Generator[pp.MortarGrid, None, None]:
+    ) -> Generator[Union[pp.MortarGrid, Tuple[pp.MortarGrid, Dict]], None, None]:
         """
         Iterator over the MortarGrids belonging to interfaces in the
         MixedDimensionalGrid.
@@ -112,7 +112,7 @@ class MixedDimensionalGrid:
                 dimension will be returned.
 
         Yields:
-            MortarGrid: Grid on the the interface.
+            MortarGrid: Grid on the interface.
             dict: Data dictionary associated with the subdomain. Only returned if
                 return_data = True.
 
@@ -134,7 +134,7 @@ class MixedDimensionalGrid:
     ) -> Tuple[pp.Grid, pp.Grid]:
         """Obtain the subdomains of an interface.
 
-        The subdomains will be given in decending order with respect their
+        The subdomains will be given in descending order with respect their
         dimension. If the interface is between grids of the same dimension, the subdomain
         ordering (as defined by assign_subdomain_ordering()) is used. If no ordering
         of subdomain exists, assign_subdomain_ordering() will be called by this method.
@@ -146,7 +146,7 @@ class MixedDimensionalGrid:
             pp.Grid: The primary subdomain neighboring this interface. Normally, this
                 will be the subdomain with the higher dimension.
             pp.Grid: The secondary subdomain neighboring this interface. Normally, this
-                will be the subdomain with the lowerer dimension.
+                will be the subdomain with the lower dimension.
 
         """
         subdomains = self._interface_to_subdomains[intf]
@@ -184,7 +184,7 @@ class MixedDimensionalGrid:
                 by a MortarGrid.
 
         Raises:
-            KeyError: If the subdomain pair is not represented in the mixed-dimenional
+            KeyError: If the subdomain pair is not represented in the mixed-dimensional
                 grid.
 
         """
@@ -202,7 +202,7 @@ class MixedDimensionalGrid:
         """Iterator over the interfaces of a specific subdomain.
 
         Args:
-            subdomain (pp.Grid): A subdomain in the mixed-dimensional grid.
+            sd (pp.Grid): A subdomain in the mixed-dimensional grid.
 
         Yields:
             pp.MortarGrid: Interfaces associated with the subdomain.
@@ -223,9 +223,9 @@ class MixedDimensionalGrid:
 
         Args:
             sd (pp.Grid): Subdomain in the mixed-dimensional grid.
-            only_higher (boolean, optional): Consider only the higher
+            only_higher (boolean, optional): Consider only the higher-
                 dimensional neighbors. Defaults to False.
-            only_lower (boolean, optional): Consider only the lower dimensional
+            only_lower (boolean, optional): Consider only the lower-dimensional
                 neighbors. Defaults to False.
 
         Return:
@@ -286,7 +286,7 @@ class MixedDimensionalGrid:
         """Add new subdomains to the mixed-dimensional grid.
 
         Args:
-            new_grids (pp.Grid or Iterable of pp.Grid): The subdomains to be added. None
+            new_subdomains (pp.Grid or Iterable of pp.Grid): The subdomains to be added. None
                 of these should have been added previously.
 
         Raises:
@@ -316,12 +316,12 @@ class MixedDimensionalGrid:
 
         Note:
             If the grids have different dimensions, the coupling will be defined with
-            the higher-dimensional grid as the first subdomain. For equal dimensions,
-            the ordering of the subdomains is the same as in input grids.
+            the higher-dimensional grid as the first ("primary") subdomain. For equal
+            dimensions, the ordering of the subdomains is the same as in input grids.
 
         Args:
-            mg (pp.MortarGrid): MortarGrid that represents this interface.
-            grids (Tuple, len==2). Grids to be connected. The ordering is arbitrary.
+            intf (pp.MortarGrid): MortarGrid that represents this interface.
+            sd_pair (Tuple, len==2). Grids to be connected. The ordering is arbitrary.
             primary_secondary_map (sps.spmatrix): Identity mapping between cells in the
                 higher-dimensional grid and faces in the lower-dimensional
                 grid. No assumptions are made on the type of the object at this
@@ -381,7 +381,7 @@ class MixedDimensionalGrid:
            sd (pp.Grid): The subdomain to be removed
 
         """
-        # Delete from the subdomain lits.
+        # Delete from the subdomain list.
         del self._subdomain_data[sd]
 
         # Find interfaces to be removed, store in a list.
@@ -403,12 +403,12 @@ class MixedDimensionalGrid:
         Assign an ordering of the subdomains in the mixed-dimensional, stored as the
         attribute 'node_number' in the data dictionary.
 
-        The ordering starts with grids of highest dimension. The ordering
+        The ordering starts with grids of the highest dimension. The ordering
         within each dimension is determined by an iterator over the graph, and
         can in principle change between two calls to this function.
 
         If an ordering covering all subdomains in the mixed-dimensional grid already
-        exist, but does not coincide with the new ordering, a warning is issued. If the
+        exists, but does not coincide with the new ordering, a warning is issued. If the
         optional parameter overwrite_existing is set to False, no update is performed if
         a subdomain ordering already exists.
 
@@ -448,7 +448,7 @@ class MixedDimensionalGrid:
             counter += 1
 
     def update_subdomain_ordering(self, removed_number: int) -> None:
-        """Uppdate an existing ordering of the subdomains, stored as the attribute
+        """Update an existing ordering of the subdomains, stored as the attribute
         'node_number' in the data dictionaries.
 
         Intended for keeping the subdomain ordering after removing a subdomain from the
@@ -479,7 +479,7 @@ class MixedDimensionalGrid:
                 if old_number > removed_number:
                     data["node_number"] = old_number - 1
 
-    def sort_subdomain_data(self, subdomains: List[pp.Grid]) -> List[pp.Grid]:
+    def sort_subdomains(self, subdomains: List[pp.Grid]) -> List[pp.Grid]:
         """Sort subdomains according to the subdomain ordering (attribute 'node_number'
         in the data dictionary associated with the subdomain).
 
@@ -529,9 +529,9 @@ class MixedDimensionalGrid:
         """Replace grids and / or mortar grids in the mixed-dimensional grid.
 
         Args:
-            g_map (dictionary): Mapping between the old and new grids. Keys are
+            sd_map (dictionary): Mapping between the old and new grids. Keys are
                 the old grids, and values are the new grids.
-            itnf_map (dictionary): Mapping between the old mortar grid and new
+            intf_map (dictionary): Mapping between the old mortar grid and new
                 (side grids of the) mortar grid. Keys are the old mortar grids,
                 and values are dictionaries with side grid number as keys, and
                 side grids as values.
@@ -809,8 +809,8 @@ class MixedDimensionalGrid:
 
     def __repr__(self) -> str:
         s = (
-            f"Mixed-dimensional containing {self.num_subdomains() } grids and "
-            f"{self.num_interfaces()} interfaces\n"
+            f"Mixed-dimensional grid containing {self.num_subdomains() } grids and "
+            f"{self.num_interfaces()} interfaces.\n"
             f"Maximum dimension present: {self.dim_max()} \n"
             f"Minimum dimension present: {self.dim_min()} \n"
         )
