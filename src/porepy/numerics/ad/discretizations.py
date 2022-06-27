@@ -51,14 +51,12 @@ __all__ = [
     "DifferentiableFVAd",
 ]
 
-Edge = Tuple[pp.Grid, pp.Grid]
-
 
 class Discretization(abc.ABC):
     """General/utility methods for AD discretization classes.
 
     The init of the children classes below typically calls wrap_discretization
-    and has arguments including grids or edges and keywords for parameter and
+    and has arguments including subdomains or interfaces and keywords for parameter and
     possibly matrix storage.
 
     """
@@ -75,11 +73,13 @@ class Discretization(abc.ABC):
 
         # Get the name of this discretization.
         self._name: str
-        self.grids: List[pp.Grid]
-        self.edges: List[Edge]
+        self.subdomains: List[pp.Grid]
+        self.interfaces: List[pp.MortarGrid]
 
     def __repr__(self) -> str:
-        s = f"Ad discretization of type {self._name}. Defined on {len(self.grids)} grids"
+        s = f"""
+        Ad discretization of type {self._name}. Defined on {len(self.subdomains)} subdomains
+        """
         return s
 
     def __str__(self) -> str:
@@ -97,9 +97,9 @@ class BiotAd(Discretization):
     """
 
     def __init__(
-        self, keyword: str, grids: List[pp.Grid], flow_keyword: str = "flow"
+        self, keyword: str, subdomains: List[pp.Grid], flow_keyword: str = "flow"
     ) -> None:
-        self.grids = grids
+        self.subdomains = subdomains
         self._discretization = pp.Biot(keyword, flow_keyword)
         self._name = "BiotMpsa"
 
@@ -120,19 +120,22 @@ class BiotAd(Discretization):
         self.bound_pressure: MergedOperator
 
         wrap_discretization(
-            obj=self, discr=self._discretization, grids=grids, mat_dict_key=self.keyword
+            obj=self,
+            discr=self._discretization,
+            subdomains=subdomains,
+            mat_dict_key=self.keyword,
         )
 
 
 class MpsaAd(Discretization):
-    def __init__(self, keyword: str, grids: List[pp.Grid]) -> None:
-        self.grids = grids
+    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+        self.subdomains = subdomains
         self._discretization = pp.Mpsa(keyword)
         self._name = "Mpsa"
 
         self.keyword = keyword
 
-        # Declear attributes, these will be initialized by the below call to the
+        # Declare attributes, these will be initialized by the below call to the
         # discretization wrapper.
 
         self.stress: MergedOperator
@@ -140,26 +143,26 @@ class MpsaAd(Discretization):
         self.bound_displacement_cell: MergedOperator
         self.bound_displacement_face: MergedOperator
 
-        wrap_discretization(self, self._discretization, grids=grids)
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
 class GradPAd(Discretization):
-    def __init__(self, keyword: str, grids: List[pp.Grid]) -> None:
-        self.grids = grids
+    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+        self.subdomains = subdomains
         self._discretization = pp.GradP(keyword)
         self._name = "GradP from Biot"
         self.keyword = keyword
 
         self.grad_p: MergedOperator
 
-        wrap_discretization(self, self._discretization, grids=grids)
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
 class DivUAd(Discretization):
     def __init__(
-        self, keyword: str, grids: List[pp.Grid], mat_dict_keyword: str
+        self, keyword: str, subdomains: List[pp.Grid], mat_dict_keyword: str
     ) -> None:
-        self.grids = grids
+        self.subdomains = subdomains
         self._discretization = pp.DivU(keyword, mat_dict_keyword)
 
         self._name = "DivU from Biot"
@@ -169,42 +172,45 @@ class DivUAd(Discretization):
         self.bound_div_u: MergedOperator
 
         wrap_discretization(
-            self, self._discretization, grids=grids, mat_dict_key=mat_dict_keyword
+            self,
+            self._discretization,
+            subdomains=subdomains,
+            mat_dict_key=mat_dict_keyword,
         )
 
 
 class BiotStabilizationAd(Discretization):
-    def __init__(self, keyword: str, grids: List[pp.Grid]) -> None:
-        self.grids = grids
+    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+        self.subdomains = subdomains
         self._discretization = pp.BiotStabilization(keyword)
         self._name = "Biot stabilization term"
         self.keyword = keyword
 
         self.stabilization: MergedOperator
 
-        wrap_discretization(self, self._discretization, grids=grids)
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
 class ColoumbContactAd(Discretization):
-    def __init__(self, keyword: str, edges: List[Edge]) -> None:
-        self.edges = edges
+    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+        self.interfaces = interfaces
 
         # Special treatment is needed to cover the case when the edge list happens to
         # be empty.
-        if len(edges) > 0:
-            dim = list(set([e[0].dim for e in edges]))
-
-            low_dim_grids = [e[1] for e in edges]
+        if len(interfaces) > 0:
+            dim = list(set([intf.dim for intf in interfaces]))
+            # FIXME: No access to subdomains
+            low_dim_subdomains: List[pp.Grid] = []
             if not len(dim) == 1:
                 raise ValueError(
-                    "Expected unique dimension of grids with contact problems"
+                    "Expected unique dimension of subdomains with contact problems"
                 )
         else:
             # The assigned dimension value should never be used for anything, so we
             # set a negative value to indicate this (not sure how the parameter is used)
             # in the real contact discretization.
             dim = [-1]
-            low_dim_grids = []
+            low_dim_subdomains = []
 
         self._discretization = pp.ColoumbContact(
             keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
@@ -216,30 +222,33 @@ class ColoumbContactAd(Discretization):
         self.displacement: MergedOperator
         self.rhs: MergedOperator
         wrap_discretization(
-            self, self._discretization, edges=edges, mat_dict_grids=low_dim_grids
+            self,
+            self._discretization,
+            interfaces=interfaces,
+            mat_dict_grids=low_dim_subdomains,
         )
 
 
 class ContactTractionAd(Discretization):
-    def __init__(self, keyword: str, edges: List[Edge]) -> None:
-        self.edges = edges
+    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+        self.interfaces = interfaces
 
         # Special treatment is needed to cover the case when the edge list happens to
         # be empty.
-        if len(edges) > 0:
-            dim = list(set([e[0].dim for e in edges]))
-
-            low_dim_grids = [e[1] for e in edges]
+        if len(interfaces) > 0:
+            dim = list(set([intf.dim for intf in interfaces]))
+            # FIXME: No access to subdomains
+            low_dim_subdomains: List[pp.Grid] = []
             if not len(dim) == 1:
                 raise ValueError(
-                    "Expected unique dimension of grids with contact problems"
+                    "Expected unique dimension of subdomains with contact problems"
                 )
         else:
             # The assigned dimension value should never be used for anything, so we
             # set a negative value to indicate this (not sure how the parameter is used)
             # in the real contact discretization.
             dim = [-1]
-            low_dim_grids = []
+            low_dim_subdomains = []
 
         self._discretization = pp.ContactTraction(
             keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)
@@ -252,7 +261,10 @@ class ContactTractionAd(Discretization):
         self.traction_scaling: MergedOperator
 
         wrap_discretization(
-            self, self._discretization, edges=edges, mat_dict_grids=low_dim_grids
+            self,
+            self._discretization,
+            interfaces=interfaces,
+            mat_dict_grids=low_dim_subdomains,
         )
 
 
@@ -260,8 +272,8 @@ class ContactTractionAd(Discretization):
 
 
 class MpfaAd(Discretization):
-    def __init__(self, keyword: str, grids: List[pp.Grid]) -> None:
-        self.grids = grids
+    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+        self.subdomains = subdomains
         self._discretization = pp.Mpfa(keyword)
         self._name = "Mpfa"
         self.keyword = keyword
@@ -273,12 +285,12 @@ class MpfaAd(Discretization):
         self.vector_source: MergedOperator
         self.bound_pressure_vector_source: MergedOperator
 
-        wrap_discretization(self, self._discretization, grids=grids)
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
 class TpfaAd(Discretization):
-    def __init__(self, keyword: str, grids: List[pp.Grid]) -> None:
-        self.grids = grids
+    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+        self.subdomains = subdomains
         self._discretization = pp.Tpfa(keyword)
         self._name = "Tpfa"
         self.keyword = keyword
@@ -290,23 +302,23 @@ class TpfaAd(Discretization):
         self.vector_source: MergedOperator
         self.bound_pressure_vector_source: MergedOperator
 
-        wrap_discretization(self, self._discretization, grids=grids)
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
 class MassMatrixAd(Discretization):
-    def __init__(self, keyword: str, grids: List[pp.Grid]) -> None:
-        self.grids = grids
+    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+        self.subdomains = subdomains
         self._discretization = pp.MassMatrix(keyword)
         self._name = "Mass matrix"
         self.keyword = keyword
 
         self.mass: MergedOperator
-        wrap_discretization(self, self._discretization, grids=grids)
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
 class UpwindAd(Discretization):
-    def __init__(self, keyword: str, grids: List[pp.Grid]) -> None:
-        self.grids = grids
+    def __init__(self, keyword: str, subdomains: List[pp.Grid]) -> None:
+        self.subdomains = subdomains
         self._discretization = pp.Upwind(keyword)
         self._name = "Upwind"
         self.keyword = keyword
@@ -314,53 +326,53 @@ class UpwindAd(Discretization):
         self.upwind: MergedOperator
         self.bound_transport_dir: MergedOperator
         self.bound_transport_neu: MergedOperator
-        wrap_discretization(self, self._discretization, grids=grids)
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
 
 
 ## Interface coupling discretizations
 
 
 class WellCouplingAd(Discretization):
-    def __init__(self, keyword: str, edges: List[Edge]) -> None:
-        self.edges = edges
+    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+        self.interfaces = interfaces
         self._discretization = pp.WellCoupling(keyword, primary_keyword=keyword)
         self._name = "Well interface coupling"
         self.keyword = keyword
 
         self.well_discr: MergedOperator
         self.well_vector_source: MergedOperator
-        wrap_discretization(self, self._discretization, edges=edges)
+        wrap_discretization(self, self._discretization, interfaces=interfaces)
 
     def __repr__(self) -> str:
         s = (
             f"Ad discretization of type {self._name}."
-            f"Defined on {len(self.edges)} mortar grids."
+            f"Defined on {len(self.interfaces)} interfaces."
         )
         return s
 
 
 class RobinCouplingAd(Discretization):
-    def __init__(self, keyword: str, edges: List[Edge]) -> None:
-        self.edges = edges
+    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+        self.interfaces = interfaces
         self._discretization = pp.RobinCoupling(keyword, primary_keyword=keyword)
         self._name = "Robin interface coupling"
         self.keyword = keyword
 
         self.mortar_discr: MergedOperator
         self.mortar_vector_source: MergedOperator
-        wrap_discretization(self, self._discretization, edges=edges)
+        wrap_discretization(self, self._discretization, interfaces=interfaces)
 
     def __repr__(self) -> str:
         s = (
             f"Ad discretization of type {self._name}."
-            f"Defined on {len(self.edges)} mortar grids."
+            f"Defined on {len(self.interfaces)} interfaces."
         )
         return s
 
 
 class UpwindCouplingAd(Discretization):
-    def __init__(self, keyword: str, edges: List[Edge]) -> None:
-        self.edges = edges
+    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+        self.interfaces = interfaces
         self._discretization = pp.UpwindCoupling(keyword)
         self._name = "Upwind coupling"
         self.keyword = keyword
@@ -371,12 +383,12 @@ class UpwindCouplingAd(Discretization):
         self.flux: MergedOperator
         self.upwind_primary: MergedOperator
         self.upwind_secondary: MergedOperator
-        wrap_discretization(self, self._discretization, edges=edges)
+        wrap_discretization(self, self._discretization, interfaces=interfaces)
 
     def __repr__(self) -> str:
         s = (
             f"Ad discretization of type {self._name}."
-            f"Defined on {len(self.edges)} mortar grids."
+            f"Defined on {len(self.interfaces)} interfaces."
         )
         return s
 
@@ -404,8 +416,8 @@ class DifferentiableFVAd:
 
     def __init__(
         self,
-        grid_list: List[pp.Grid],
-        gb: pp.GridBucket,
+        subdomains: List[pp.Grid],
+        mdg: pp.MixedDimensionalGrid,
         base_discr: Union[pp.ad.MpfaAd, pp.ad.TpfaAd],
         dof_manager: pp.DofManager,
         permeability_function: Callable[[pp.ad.Variable], pp.ad.Ad_array],
@@ -416,24 +428,25 @@ class DifferentiableFVAd:
         """Initialize the differentiable finite volume method.
 
         Parameters:
-            bc (dict): Dictionary with grids as keys and a dictionary containing bc
-                objects and bc values (keys to inner dictionary are "type" and "values").
+            subdomains: List of subdomains on which the discretization is defined.
+            mdg: Mixed-dimensional grid.
             base_discr: Tpfa or Mpfa discretization (Ad), gol which we want to
                 approximate the transmissibility matrix.
             dof_manager (pp.DofManager): Needed to evaluate Ad operators.
-            perm_function: returning permeability as an Ad_array given the perm_argument.
-            perm_argument: pp.ad.Variable representing the variable upon which perm_function
-                depends.
+            permeability_function: returning permeability as an Ad_array given the
+                perm_argument.
+            permeability_argument: pp.ad.Variable representing the variable upon which
+                perm_function depends.
             potential: pp.ad.Variable representation of potential for the flux law
-                flux=-K\grad(potential - vector_source)
+                flux=-K\nabla(potential - vector_source)
 
         """
-        self.grids = grid_list
-        self.gb = gb
+        self.subdomains = subdomains
+        self.mdg = mdg
         self._discretization = base_discr
         self.dof_manager = dof_manager
         self.keyword = keyword
-        self._subdomain_projections = pp.ad.SubdomainProjections(self.grids)
+        self._subdomain_projections = pp.ad.SubdomainProjections(self.subdomains)
         self._perm_function = pp.ad.Function(
             permeability_function, "permeability_function"
         )
@@ -498,28 +511,28 @@ class DifferentiableFVAd:
         flux_jac = sps.csr_matrix((base_flux.shape[0], self.dof_manager.num_dofs()))
 
         # The differentiation of transmissibilities with respect to permeability is
-        # implemented as a loop over all grids. It could be possible to gather all grid
+        # implemented as a loop over all subdomains. It could be possible to gather all grid
         # information in arrays as a preprocessing step, but that seems not to be worth
         # the effort. However, to avoid evaluating the permeability function multiple
         # times, we precompute it here
         global_permeability = self._perm_function(self._perm_argument).evaluate(
             self.dof_manager
         )
-        g: pp.Grid
-        for g in self.grids:
-            transmissibility_jac, _ = self._transmissibility(g, global_permeability)
+        sd: pp.Grid
+        for sd in self.subdomains:
+            transmissibility_jac, _ = self._transmissibility(sd, global_permeability)
 
-            params = self.gb.node_props(g)[pp.PARAMETERS][self.keyword]
+            params = self.mdg.subdomain_data(sd)[pp.PARAMETERS][self.keyword]
             # Potential for this grid
-            cells_of_grid = self._subdomain_projections.cell_restriction([g]).evaluate(
+            cells_of_grid = self._subdomain_projections.cell_restriction([sd]).evaluate(
                 self.dof_manager
             )
             potential_value = cells_of_grid * potential.val
 
             # Create matrix and multiply into Jacobian
             grad_p = sps.diags(
-                pp.fvutils.scalar_divergence(g).T * potential_value,
-                shape=(g.num_faces, g.num_faces),
+                pp.fvutils.scalar_divergence(sd).T * potential_value,
+                shape=(sd.num_faces, sd.num_faces),
             )
             # One half of the product rule applied to (T grad p). The other half
             # is base_flux * potential.jac as added below this loop.
@@ -534,18 +547,18 @@ class DifferentiableFVAd:
             is_neu = params["bc"].is_neu
 
             # See tpfa discretization for the following treatment of values
-            sort_id = np.argsort(g.cell_faces[is_dir, :].indices)
-            bndr_sgn = (g.cell_faces[is_dir, :]).data[sort_id]
-            bc_values = np.zeros(g.num_faces)
+            sort_id = np.argsort(sd.cell_faces[is_dir, :].indices)
+            bndr_sgn = (sd.cell_faces[is_dir, :]).data[sort_id]
+            bc_values = np.zeros(sd.num_faces)
             # Sign of this term:
             # bndr_sgn is the gradient operation at the boundary.
             # The minus ensues from moving the term from rhs to lhs
             # Note: If you get confused by comparison to tpfa (where
             # the term is negative on the rhs), confer
             # fv_elliptic.assemble_rhs, where the sign is inverted,
-            # and accept my condolances. IS
+            # and accept my condolences. IS
             bc_values[is_dir] = -bndr_sgn * params["bc_values"][is_dir]
-            bc_value_mat = sps.diags(bc_values, shape=(g.num_faces, g.num_faces))
+            bc_value_mat = sps.diags(bc_values, shape=(sd.num_faces, sd.num_faces))
 
             # Dirichlet face contribution from boundary values:
             jac_bound = bc_value_mat * transmissibility_jac
@@ -555,15 +568,15 @@ class DifferentiableFVAd:
 
             # Prolong this Jacobian to the full set of faces and add.
             face_prolongation = self._subdomain_projections.face_prolongation(
-                [g]
+                [sd]
             ).evaluate(self.dof_manager)
             flux_jac += face_prolongation * grad_p_jac
             flux_jac += face_prolongation * jac_bound
 
-            if "vector_source" in params and g.dim > 0:
-                fi, ci, sgn, fc_cc = self._geometry_information(g)
+            if "vector_source" in params and sd.dim > 0:
+                fi, ci, sgn, fc_cc = self._geometry_information(sd)
                 vector_source = params["vector_source"]
-                vector_source_dim = params.get("ambient_dimension", g.dim)
+                vector_source_dim = params.get("ambient_dimension", sd.dim)
                 vals = (fc_cc * sgn)[:vector_source_dim].ravel("F")
                 rows = np.tile(fi, (vector_source_dim, 1)).ravel("F")
                 cols = pp.fvutils.expand_indices_nd(ci, vector_source_dim)
@@ -572,7 +585,7 @@ class DifferentiableFVAd:
                 )
                 vector_source_mat = sps.diags(
                     vector_source_val,
-                    shape=(g.num_faces, g.num_faces),
+                    shape=(sd.num_faces, sd.num_faces),
                 )
                 vector_source_jac = vector_source_mat * transmissibility_jac
                 pp.matrix_operations.zero_rows(
@@ -597,9 +610,6 @@ class DifferentiableFVAd:
         """The actual implementation of the
 
         Parameters:
-            perm_function (pp.ad.Function): Function which gives the permeability as a
-                function of primary variables. The function should return cell-wise
-                permeability for all grids in grid_list.
             perm_argument (pp.ad.Ad_array, evaluation of a pp.ad.Variable): Variable(s)
                 upon which the permeability depends.
 
@@ -627,10 +637,10 @@ class DifferentiableFVAd:
             (base_bound_pressure_face.shape[0], self.dof_manager.num_dofs())
         )
 
-        projections = pp.ad.SubdomainProjections(self.grids)
+        projections = pp.ad.SubdomainProjections(self.subdomains)
 
         # The differentiation of transmissibilities with respect to permeability is
-        # implemented as a loop over all grids. It could be possible to gather all grid
+        # implemented as a loop over all subdomains. It could be possible to gather all grid
         # information in arrays as a preprocessing step, but that seems not to be worth
         # the effort. However, to avoid evaluating the permeability function multiple
         # times, we precompute it here
@@ -638,11 +648,11 @@ class DifferentiableFVAd:
             self.dof_manager
         )
 
-        g: pp.Grid
-        for g in self.grids:
-            params: Dict = self.gb.node_props(g)[pp.PARAMETERS][self.keyword]
+        sd: pp.Grid
+        for sd in self.subdomains:
+            params: Dict = self.mdg.subdomain_data(sd)[pp.PARAMETERS][self.keyword]
             transmissibility_jac, inverse_sum_squared = self._transmissibility(
-                g, global_permeability
+                sd, global_permeability
             )
 
             # On Dirichlet faces, the tpfa discretization simply recovers boundary
@@ -650,15 +660,15 @@ class DifferentiableFVAd:
             # On Neumann faces, however, the tpfa contribution is
             # v_face[bnd.is_neu] = -1 / t_full[bnd.is_neu]
             # Differentiate and multiply with transmissibility jacobian
-            v_face = np.zeros(g.num_faces)
+            v_face = np.zeros(sd.num_faces)
             is_neu = params["bc"].is_neu
 
             v_face[is_neu] = inverse_sum_squared[is_neu]
-            d_face2boundp_d_t = sps.diags(v_face, shape=(g.num_faces, g.num_faces))
+            d_face2boundp_d_t = sps.diags(v_face, shape=(sd.num_faces, sd.num_faces))
             jac_bound_pressure_face = d_face2boundp_d_t * transmissibility_jac
 
             # Prolong this Jacobian to the full set of faces and add.
-            face_prolongation = projections.face_prolongation([g]).evaluate(
+            face_prolongation = projections.face_prolongation([sd]).evaluate(
                 self.dof_manager
             )
             bound_pressure_face_jac += face_prolongation * jac_bound_pressure_face

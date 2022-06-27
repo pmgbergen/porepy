@@ -17,7 +17,7 @@ Classes:
         discretization or a set of AD discretizations.
 
 """
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -27,9 +27,8 @@ import porepy as pp
 from . import operators
 from .forward_mode import Ad_array
 
-Edge = Tuple[pp.Grid, pp.Grid]
-GridList = List[pp.Grid]
-EdgeList = List[Edge]
+SubdomainList = List[pp.Grid]
+InterfaceList = List[pp.MortarGrid]
 
 
 def concatenate(variables, axis=0):
@@ -41,7 +40,6 @@ def concatenate(variables, axis=0):
     jacs = np.array([var.jac for var in variables])
 
     vals_stacked = np.concatenate(vals, axis=axis)
-    jacs_stacked = []
     jacs_stacked = sps.vstack(jacs)
 
     return Ad_array(vals_stacked, jacs_stacked)
@@ -50,20 +48,20 @@ def concatenate(variables, axis=0):
 def wrap_discretization(
     obj,
     discr,
-    grids: Optional[GridList] = None,
-    edges: Optional[EdgeList] = None,
+    subdomains: Optional[SubdomainList] = None,
+    interfaces: Optional[InterfaceList] = None,
     mat_dict_key: Optional[str] = None,
     mat_dict_grids=None,
 ):
     """
     Please add documentation, @EK.
-    It is assumed that grids or edges is None
+    It is assumed that subdomains or edges is None
     """
-    if grids is None:
-        assert isinstance(edges, list)
+    if subdomains is None:
+        assert isinstance(interfaces, list)
     else:
-        assert isinstance(grids, list)
-        assert edges is None
+        assert isinstance(subdomains, list)
+        assert interfaces is None
 
     key_set = []
     # Loop over all discretizations, identify all attributes that ends with
@@ -74,10 +72,10 @@ def wrap_discretization(
         mat_dict_key = discr.keyword
 
     if mat_dict_grids is None:
-        if edges is None:
-            mat_dict_grids = grids
+        if interfaces is None:
+            mat_dict_grids = subdomains
         else:
-            mat_dict_grids = edges
+            mat_dict_grids = interfaces
 
     for s in dir(discr):
         if s.endswith("_matrix_key"):
@@ -87,7 +85,9 @@ def wrap_discretization(
     # Make a merged discretization for each of the identified terms.
     # If some keys are not shared by all values in grid_discr, errors will result.
     for key in key_set:
-        op = MergedOperator(discr, key, mat_dict_key, mat_dict_grids, grids, edges)
+        op = MergedOperator(
+            discr, key, mat_dict_key, mat_dict_grids, subdomains, interfaces
+        )
         setattr(op, "keyword", mat_dict_key)
         setattr(obj, key, op)
 
@@ -109,15 +109,15 @@ def uniquify_discretization_list(all_discr):
 
     """
     discr_type = Union["pp.Discretization", "pp.AbstractInterfaceLaw"]
-    unique_discr_grids: Dict[discr_type, Union[GridList, EdgeList]] = {}
+    unique_discr_grids: Dict[discr_type, Union[SubdomainList, InterfaceList]] = {}
 
     # Mapping from discretization classes to the discretization.
-    # We needed this for some reason..
+    # We needed this for some reason.
     cls_obj_map = {}
     # List of all combinations of discretizations and parameter keywords covered.
     cls_key_covered = []
     for discr in all_discr:
-        # Get the class of the underlying dicsretization, so MpfaAd will return Mpfa.
+        # Get the class of the underlying discretization, so MpfaAd will return Mpfa.
         cls = discr.discr.__class__
         # Parameter keyword for this discretization
         param_keyword = discr.keyword
@@ -126,15 +126,15 @@ def uniquify_discretization_list(all_discr):
         key = (cls, param_keyword)
 
         if key in cls_key_covered:
-            # If this has been encountered before, we add grids not earlier associated
+            # If this has been encountered before, we add subdomains not earlier associated
             # with this discretization to the existing list.
-            # of grids.
+            # of subdomains.
             # Map from discretization class to Ad discretization
             d = cls_obj_map[cls]
-            for g in discr.grids:
+            for g in discr.subdomains:
                 if g not in unique_discr_grids[d]:
                     unique_discr_grids[d].append(g)
-            for e in discr.edges:
+            for e in discr.interfaces:
                 if e not in unique_discr_grids[d]:
                     unique_discr_grids[d].append(e)
         else:
@@ -142,12 +142,12 @@ def uniquify_discretization_list(all_discr):
             cls_obj_map[cls] = discr.discr
             cls_key_covered.append(key)
 
-            # Add new discretization with associated list of grids.
-            # Need a copy here to avoid assigning additional grids to this
+            # Add new discretization with associated list of subdomains.
+            # Need a copy here to avoid assigning additional subdomains to this
             # discretization (if not copy, this may happen if
             # the key-discr combination is encountered a second time and the
             # code enters the if part of this if-else).
-            grid_likes = discr.grids.copy() + discr.edges.copy()
+            grid_likes = discr.subdomains.copy() + discr.interfaces.copy()
             unique_discr_grids[discr.discr] = grid_likes
 
     return unique_discr_grids
@@ -155,7 +155,7 @@ def uniquify_discretization_list(all_discr):
 
 def discretize_from_list(
     discretizations: Dict,
-    gb: pp.MixedDimensionalGrid,
+    mdg: pp.MixedDimensionalGrid,
 ) -> None:
     """For a list of (ideally uniquified) discretizations, perform the actual
     discretization.
@@ -163,16 +163,16 @@ def discretize_from_list(
     for discr in discretizations:
         # discr is a discretization (on node or interface in the MixedDimensionalGrid sense)
 
-        # Loop over all grids (or MixedDimensionalGrid edges), do discretization.
+        # Loop over all subdomains (or MixedDimensionalGrid edges), do discretization.
         for g in discretizations[discr]:
-            if isinstance(g, tuple):
-                data = gb.edge_props(g)  # type:ignore
-                g_primary, g_secondary = g
-                d_primary = gb.node_props(g_primary)
-                d_secondary = gb.node_props(g_secondary)
+            if isinstance(g, pp.MortarGrid):
+                data = mdg.interface_data(g)  # type:ignore
+                g_primary, g_secondary = mdg.interface_to_subdomain_pair(g)
+                d_primary = mdg.subdomain_data(g_primary)
+                d_secondary = mdg.subdomain_data(g_secondary)
                 discr.discretize(g_primary, g_secondary, d_primary, d_secondary, data)
             else:
-                data = gb.node_props(g)
+                data = mdg.subdomain_data(g)
                 try:
                     discr.discretize(g, data)
                 except NotImplementedError:
@@ -197,13 +197,13 @@ class MergedOperator(operators.Operator):
         key: str,
         mat_dict_key: str,
         mat_dict_grids,
-        grids: Optional[GridList] = None,
-        edges: Optional[EdgeList] = None,
+        subdomains: Optional[SubdomainList] = None,
+        interfaces: Optional[InterfaceList] = None,
     ) -> None:
         """Initiate a merged discretization.
 
         Parameters:
-            grid_discr (dict): Mapping between grids, or interfaces, where the
+            discr (dict): Mapping between subdomains, or interfaces, where the
                 discretization is applied, and the actual Discretization objects.
             key (str): Keyword that identifies this discretization matrix, e.g.
                 for a class with an attribute foo_matrix_key, the key will be foo.
@@ -214,7 +214,7 @@ class MergedOperator(operators.Operator):
 
         """
         self._name = discr.__class__.__name__
-        self._set_grids_or_edges(grids, edges)
+        self._set_subdomains_or_interfaces(subdomains, interfaces)
         self.key = key
         self.discr = discr
 
@@ -225,22 +225,21 @@ class MergedOperator(operators.Operator):
         self._set_tree(None)
 
     def __repr__(self) -> str:
-        if len(self.edges) == 0:
-            s = f"Operator with key {self.key} defined on {len(self.grids)} grids"
+        if len(self.interfaces) == 0:
+            s = f"Operator with key {self.key} defined on {len(self.subdomains)} subdomains"
         else:
-            s = f"Operator with key {self.key} defined on {len(self.edges)} edges"
+            s = f"Operator with key {self.key} defined on {len(self.interfaces)} edges"
         return s
 
     def __str__(self) -> str:
         return f"{self._name}({self.mat_dict_key}).{self.key}"
 
-    def parse(self, gb):
+    def parse(self, mdg):
         """Convert a merged operator into a sparse matrix by concatenating
         discretization matrices.
 
-        Pameteres:
-            gb (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is needed as
-                input to be compatible with parse methods for other operators.
+        Parameters:
+            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid.
 
         Returns:
             sps.spmatrix: The merged discretization matrices for the associated matrix.
@@ -252,7 +251,7 @@ class MergedOperator(operators.Operator):
 
         if len(self.mat_dict_grids) == 0:
             # The underlying discretization is constructed on an empty grid list, quite
-            # likely on a mixed-dimensional grid containing no mortar grids.
+            # likely on a mixed-dimensional grid containing no mortar subdomains.
             # We can return an empty matrix.
             return sps.csc_matrix((0, 0))
 
@@ -261,10 +260,10 @@ class MergedOperator(operators.Operator):
         for g in self.mat_dict_grids:
 
             # Get data dictionary for either grid or interface
-            if isinstance(g, pp.Grid):
-                data = gb.node_props(g)
+            if isinstance(g, pp.MortarGrid):
+                data = mdg.interface_data(g)
             else:
-                data = gb.edge_props(g)
+                data = mdg.subdomain_data(g)
 
             mat_dict: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
                 self.mat_dict_key
@@ -277,7 +276,7 @@ class MergedOperator(operators.Operator):
 
         if all([isinstance(m, np.ndarray) for m in mat]):
             if all([m.ndim == 1 for m in mat]):
-                # This is a vector (may happen e.g. for right hand side terms that are
+                # This is a vector (may happen e.g. for right-hand side terms that are
                 # stored as discretization matrices, as may happen for non-linear terms)
                 return np.hstack(mat)
             elif all([m.ndim == 2 for m in mat]):
@@ -288,7 +287,7 @@ class MergedOperator(operators.Operator):
                 elif all([m.shape[1] == 1 for m in mat]):
                     return np.vstack(mat).ravel()
             else:
-                # This should correspond to a 2d array. In prinicple it should be
+                # This should correspond to a 2d array. In principle, it should be
                 # possible to concatenate arrays in the right direction, provided they
                 # have coinciding shapes. However, the use case is not clear, so we
                 # raise an error, and rethink if we ever get here.
