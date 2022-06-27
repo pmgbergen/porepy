@@ -37,7 +37,7 @@ class TestBucket(unittest.TestCase):
     def simple_bucket(self, num_grids):
         gb = pp.MixedDimensionalGrid()
 
-        [gb.add_nodes(MockGrid()) for i in range(num_grids)]
+        [gb.add_subdomains(MockGrid()) for i in range(num_grids)]
 
         return gb
 
@@ -46,51 +46,51 @@ class TestBucket(unittest.TestCase):
         self.assertTrue(gb.size() == 3)
 
     # ----- Tests of adding nodes and edges ----- #
-    def test_add_nodes(self):
+    def test_add_subdomains(self):
         # Simply add grid. Should work.
         gb = pp.MixedDimensionalGrid()
-        gb.add_nodes(MockGrid())
-        gb.add_nodes(MockGrid())
+        gb.add_subdomains(MockGrid())
+        gb.add_subdomains(MockGrid())
 
-    def test_add_nodes_same_grid_twice(self):
+    def test_add_subdomains_same_grid_twice(self):
         # Add the same grid twice. Should raise an exception
         gb = self.simple_bucket(1)
         g = MockGrid()
-        gb.add_nodes(g)
-        self.assertRaises(ValueError, gb.add_nodes, g)
+        gb.add_subdomains(g)
+        self.assertRaises(ValueError, gb.add_subdomains, g)
 
-    def test_add_edge(self):
+    def test_add_interface(self):
         gb = pp.MixedDimensionalGrid()
         g0 = MockGrid(0)
         g1 = MockGrid(1)
         g3 = MockGrid(3)
-        gb.add_nodes(g0)
-        gb.add_nodes(g1)
-        gb.add_nodes(g3)
-        gb.add_edge((g0, g1), None)
-        gb.add_edge((g1, g3), None)
+        gb.add_subdomains(g0)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g3)
+        gb.add_interface((g0, g1), None)
+        gb.add_interface((g1, g3), None)
 
         # Should not be able to add existing edge
-        self.assertRaises(ValueError, gb.add_edge, (g0, g1), None)
+        self.assertRaises(ValueError, gb.add_interface, (g0, g1), None)
         # Should not be able to add couplings three dimensions appart
-        self.assertRaises(ValueError, gb.add_edge, (g0, g3), None)
+        self.assertRaises(ValueError, gb.add_interface, (g0, g3), None)
 
     def test_dimension_ordering_edges(self):
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid(1)
         g2 = MockGrid(2)
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_edge([g1, g2], None)
-        gb.add_edge([g1, g1], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_interface([g1, g2], None)
+        gb.add_interface([g1, g1], None)
         for e, _ in gb.edges():
             self.assertTrue(e[0].dim >= e[1].dim)
 
         gb = pp.MixedDimensionalGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_edge([g2, g1], None)
-        gb.add_edge([g1, g1], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_interface([g2, g1], None)
+        gb.add_interface([g1, g1], None)
         for e, _ in gb.edges():
             self.assertTrue(e[0].dim >= e[1].dim)
 
@@ -100,11 +100,11 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid()
         g2 = MockGrid()
         g3 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_nodes(g3)
-        gb.add_edge([g1, g2], None)
-        gb.add_edge([g2, g3], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_subdomains(g3)
+        gb.add_interface([g1, g2], None)
+        gb.add_interface([g2, g3], None)
 
         neigh_1 = gb.node_neighbors(g1)
         self.assertTrue(neigh_1.size == 1)
@@ -121,11 +121,11 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid(1)
         g2 = MockGrid(2)
         g3 = MockGrid(3)
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_nodes(g3)
-        gb.add_edge([g1, g2], None)
-        gb.add_edge([g2, g3], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_subdomains(g3)
+        gb.add_interface([g1, g2], None)
+        gb.add_interface([g2, g3], None)
 
         neigh_1 = gb.node_neighbors(g1, only_higher=True)
         self.assertTrue(neigh_1.size == 1)
@@ -148,11 +148,11 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid(1)
         g2 = MockGrid(2)
         g3 = MockGrid(3)
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_nodes(g3)
-        gb.add_edge([g1, g2], None)
-        gb.add_edge([g2, g3], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_subdomains(g3)
+        gb.add_interface([g1, g2], None)
+        gb.add_interface([g2, g3], None)
 
         # First test traversal by gb.__iter__
         found = {g1: False, g2: False, g3: False}
@@ -187,10 +187,10 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid(1)
         g2 = MockGrid(2)
         g3 = MockGrid(3)
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_nodes(g3)
-        gb.add_edge([g1, g2], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_subdomains(g3)
+        gb.add_interface([g1, g2], None)
 
         # This edge is defined
         self.assertTrue((g1, g2) in gb)
@@ -222,8 +222,8 @@ class TestBucket(unittest.TestCase):
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid()
         g2 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
 
         p1 = "a"
         p2 = "b"
@@ -252,7 +252,7 @@ class TestBucket(unittest.TestCase):
     def test_overwrite_node_props(self):
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid()
-        gb.add_nodes(g1)
+        gb.add_subdomains(g1)
         key = "foo"
         val = 42
         gb.set_node_prop(g1, key, val)
@@ -263,17 +263,17 @@ class TestBucket(unittest.TestCase):
         gb.add_node_props(key)
         self.assertTrue(gb.node_props(g1, key) is None)
 
-    # -------------- Tests for add_edge_props
+    # -------------- Tests for add_interface_props
 
     def test_add_single_edge_prop(self):
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid()
         g2 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_edge([g1, g2], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_interface([g1, g2], None)
 
-        gb.add_edge_props("a")
+        gb.add_interface_props("a")
 
         for _, d in gb.edges():
             self.assertTrue("a" in d.keys())
@@ -283,12 +283,12 @@ class TestBucket(unittest.TestCase):
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid()
         g2 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
 
-        gb.add_edge([g1, g2], None)
+        gb.add_interface([g1, g2], None)
         # Add property, with reverse order of grid pair
-        gb.add_edge_props("a", edges=[[g2, g1]])
+        gb.add_interface_props("a", edges=[[g2, g1]])
 
         for _, d in gb.edges():
             self.assertTrue("a" in d.keys())
@@ -297,12 +297,12 @@ class TestBucket(unittest.TestCase):
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid()
         g2 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_edge([g1, g2], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_interface([g1, g2], None)
 
         props = ["a", "b"]
-        gb.add_edge_props(props)
+        gb.add_interface_props(props)
 
         for _, d in gb.edges():
             for p in props:
@@ -313,25 +313,25 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid()
         g2 = MockGrid()
         g3 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_nodes(g3)
-        gb.add_edge([g1, g2], None)
-        gb.add_edge([g2, g3], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_subdomains(g3)
+        gb.add_interface([g1, g2], None)
+        gb.add_interface([g2, g3], None)
 
         p1 = "a"
         p2 = "b"
         pboth = "c"
 
         # Add by single grid
-        gb.add_edge_props(p1, [(g1, g2)])
+        gb.add_interface_props(p1, [(g1, g2)])
         # Add by list
-        gb.add_edge_props(p2, [(g2, g3)])
+        gb.add_interface_props(p2, [(g2, g3)])
         # add by list with two items
-        gb.add_edge_props(pboth, [(g1, g2), (g2, g3)])
+        gb.add_interface_props(pboth, [(g1, g2), (g2, g3)])
 
         # Try to add test to non-existing edge. Should give error
-        self.assertRaises(KeyError, gb.add_edge_props, pboth, [[g1, g3]])
+        self.assertRaises(KeyError, gb.add_interface_props, pboth, [[g1, g3]])
 
         for g, d in gb.edges():
             self.assertTrue(pboth in d.keys())
@@ -346,19 +346,19 @@ class TestBucket(unittest.TestCase):
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid()
         g2 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
         e = (g1, g2)
-        gb.add_edge(e, None)
+        gb.add_interface(e, None)
 
         key = "foo"
         val = 42
         gb.set_edge_prop(e, key, val)
 
-        gb.add_edge_props(key, overwrite=False)
+        gb.add_interface_props(key, overwrite=False)
         self.assertTrue(gb.edge_props(e, key) == val)
 
-        gb.add_edge_props(key)
+        gb.add_interface_props(key)
         self.assertTrue(gb.edge_props(e, key) is None)
 
     # ----------- Tests for getters of node properties ----------
@@ -367,7 +367,7 @@ class TestBucket(unittest.TestCase):
 
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid()
-        gb.add_nodes(g1)
+        gb.add_subdomains(g1)
         d = {"a": 1, "b": 2, "c": 3}
 
         keys = d.keys()
@@ -392,11 +392,11 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid()
         g2 = MockGrid()
         g3 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_nodes(g3)
-        gb.add_edge([g1, g2], None)
-        gb.add_edge([g2, g3], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_subdomains(g3)
+        gb.add_interface([g1, g2], None)
+        gb.add_interface([g2, g3], None)
 
         d = {"a": 1, "b": 2, "c": 3}
         keys = d.keys()
@@ -423,9 +423,9 @@ class TestBucket(unittest.TestCase):
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid()
         g2 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_edge([g1, g2], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_interface([g1, g2], None)
 
         d = {"a": 1, "b": 2}
         keys = d.keys()
@@ -453,8 +453,8 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid(1, 2)
         g2 = MockGrid(2, 3)
         gb = pp.MixedDimensionalGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
 
         self.assertTrue(gb.diameter() == 3)
         self.assertTrue(gb.diameter(lambda g: g.dim == 1) == 2)
@@ -467,7 +467,7 @@ class TestBucket(unittest.TestCase):
         # Shift g2 with 1
         g2.nodes = 1 + np.random.random((g2.dim, g2.num_nodes))
 
-        gb.add_nodes([g1, g2])
+        gb.add_subdomains([g1, g2])
 
         bmin, bmax = gb.bounding_box()
 
@@ -488,7 +488,7 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
         g2 = MockGrid(dim=2, num_cells=3, num_faces=7, num_nodes=3)
         gb = pp.MixedDimensionalGrid()
-        gb.add_nodes([g1, g2])
+        gb.add_subdomains([g1, g2])
 
         self.assertTrue(gb.num_cells() == (g1.num_cells + g2.num_cells))
         self.assertTrue(gb.num_faces() == (g1.num_faces + g2.num_faces))
@@ -504,11 +504,11 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid(1)
         g2 = MockGrid(2)
         g3 = MockGrid(3)
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
-        gb.add_nodes(g3)
-        gb.add_edge([g1, g2], None)
-        gb.add_edge([g2, g3], None)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
+        gb.add_subdomains(g3)
+        gb.add_interface([g1, g2], None)
+        gb.add_interface([g2, g3], None)
         self.assertTrue(gb.num_graph_edges() == 2)
         self.assertTrue(gb.num_graph_nodes() == 3)
 
@@ -517,7 +517,7 @@ class TestBucket(unittest.TestCase):
         g1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
         g2 = MockGrid(dim=2, num_cells=3, num_faces=7, num_nodes=3)
         gb = pp.MixedDimensionalGrid()
-        gb.add_nodes([g1, g2])
+        gb.add_subdomains([g1, g2])
         gb.__str__()
         gb.__repr__()
 
@@ -547,8 +547,8 @@ class TestBucket(unittest.TestCase):
         gb = pp.MixedDimensionalGrid()
         g1 = MockGrid()
         g2 = MockGrid()
-        gb.add_nodes(g1)
-        gb.add_nodes(g2)
+        gb.add_subdomains(g1)
+        gb.add_subdomains(g2)
 
         props = ["a", "b", "c"]
         gb.add_node_props(props)
@@ -579,7 +579,7 @@ class TestBucket(unittest.TestCase):
         g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
         g2.compute_geometry()
 
-        gb.add_nodes([g1, g2])
+        gb.add_subdomains([g1, g2])
 
         cond = lambda g: g == g1
         cell_volumes = np.hstack((g1.cell_volumes, g2.cell_volumes))
@@ -596,7 +596,7 @@ class TestBucket(unittest.TestCase):
         g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
         g2.compute_geometry()
 
-        gb.add_nodes([g1, g2])
+        gb.add_subdomains([g1, g2])
         cond = lambda g: g == g1
         cell_centers = np.hstack((g1.cell_centers, g2.cell_centers))
 
@@ -612,7 +612,7 @@ class TestBucket(unittest.TestCase):
         g2.nodes += 0.1 * np.random.random((g2.dim, g2.num_nodes))
         g2.compute_geometry()
 
-        gb.add_nodes([g1, g2])
+        gb.add_subdomains([g1, g2])
 
         cond = lambda g: g == g1
         face_centers = np.hstack((g1.face_centers, g2.face_centers))
