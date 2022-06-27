@@ -124,7 +124,7 @@ def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
     import numba
 
     @numba.jit(nopython=True)
-    def _function_to_compile(lines: np.ndarray):
+    def _function_to_compile(lines: np.ndarray) -> np.ndarray:
         """
         Copy of pp.utils.sort_points.sort_point_pairs. This version is extended
         to multiple chains. Each chain is implicitly assumed to be circular.
