@@ -61,7 +61,7 @@ class EquationManagerSetup:
         x_merged = eq_manager.merge_variables([(g1, "x"), (g2, "x")])
         y_merged = eq_manager.merge_variables([(g1, "y"), (g2, "y")])
 
-        projections = pp.ad.SubdomainProjections(grids=[g1, g2])
+        projections = pp.ad.SubdomainProjections(subdomains=[g1, g2])
         proj = projections.cell_restriction(g2)
 
         # One equation with only simple variables (not merged)

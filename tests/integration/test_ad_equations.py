@@ -57,20 +57,20 @@ def test_md_flow():
             pressure_variable: np.zeros(g.num_cells),
             pp.ITERATE: {pressure_variable: np.zeros(g.num_cells)},
         }
-    for e, d in gb.edges():
-        mg = d["mortar_grid"]
-        pp.initialize_data(mg, d, keyword, {"normal_diffusivity": 1})
+    for intf, data in gb.interfaces(return_data=True):
+        g_primary, g_secondary = gb.interface_to_subdomain_pair(intf)
+        pp.initialize_data(intf, data, keyword, {"normal_diffusivity": 1})
 
-        d[pp.PRIMARY_VARIABLES] = {flux_variable: {"cells": 1}}
-        d[pp.COUPLING_DISCRETIZATION] = {}
-        d[pp.COUPLING_DISCRETIZATION]["coupling"] = {
-            e[0]: (pressure_variable, "diff"),
-            e[1]: (pressure_variable, "diff"),
+        data[pp.PRIMARY_VARIABLES] = {flux_variable: {"cells": 1}}
+        data[pp.COUPLING_DISCRETIZATION] = {}
+        data[pp.COUPLING_DISCRETIZATION]["coupling"] = {
+            g_primary: (pressure_variable, "diff"),
+            g_secondary: (pressure_variable, "diff"),
             e: (flux_variable, coupling_discr),
         }
-        d[pp.STATE] = {
-            flux_variable: np.zeros(mg.num_cells),
-            pp.ITERATE: {flux_variable: np.zeros(mg.num_cells)},
+        data[pp.STATE] = {
+            flux_variable: np.zeros(intf.num_cells),
+            pp.ITERATE: {flux_variable: np.zeros(intf.num_cells)},
         }
 
     dof_manager = pp.DofManager(gb)
@@ -82,24 +82,24 @@ def test_md_flow():
 
     manager = pp.ad.EquationManager(gb, dof_manager)
 
-    grid_list = [g for g, _ in gb]
-    edge_list = [e for e, _ in gb.edges()]
+    subdomains = [g for g in gb.subdomains()]
+    interfaces = [intf for intf in gb.interfaces()]
 
-    node_discr = pp.ad.MpfaAd(keyword, grid_list)
+    node_discr = pp.ad.MpfaAd(keyword, subdomains)
 
-    edge_discr = pp.ad.RobinCouplingAd(keyword, edge_list)
+    edge_discr = pp.ad.RobinCouplingAd(keyword, interfaces)
 
-    bc_val = pp.ad.BoundaryCondition(keyword, grid_list)
+    bc_val = pp.ad.BoundaryCondition(keyword, subdomains)
 
     source = pp.ad.ParameterArray(
-        param_keyword=keyword, array_keyword="source", grids=grid_list
+        param_keyword=keyword, array_keyword="source", subdomains=subdomains
     )
 
-    projections = pp.ad.MortarProjections(gb=gb, grids=grid_list, edges=edge_list)
-    div = pp.ad.Divergence(grids=grid_list)
+    projections = pp.ad.MortarProjections(gb=gb, subdomains=subdomains, interfaces=interfaces)
+    div = pp.ad.Divergence(subdomains=subdomains)
 
-    p = manager.merge_variables([(g, pressure_variable) for g in grid_list])
-    lmbda = manager.merge_variables([(e, flux_variable) for e in edge_list])
+    p = manager.merge_variables([(sd, pressure_variable) for sd in subdomains])
+    lmbda = manager.merge_variables([(intf, flux_variable) for intf in interfaces])
 
     flux = (
         node_discr.flux * p

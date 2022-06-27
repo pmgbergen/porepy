@@ -45,7 +45,7 @@ def test_subdomain_projections(scalar):
         proj_dim = Nd
 
     grid_list = np.array([g for g, _ in gb])
-    proj = pp.ad.SubdomainProjections(grids=grid_list, nd=proj_dim)
+    proj = pp.ad.SubdomainProjections(subdomains=grid_list, nd=proj_dim)
 
     cell_start = np.cumsum(np.hstack((0, np.array([g.num_cells for g in grid_list]))))
     face_start = np.cumsum(np.hstack((0, np.array([g.num_faces for g in grid_list]))))
@@ -169,16 +169,16 @@ def test_mortar_projections(scalar):
 
     ########
     # First test projection between all grids and all interfaces
-    grid_list = np.array([g0, g1, g2, g3])
-    edge_list = [(g0, g1), (g0, g2), (g1, g3), (g2, g3)]
+    subdomains = np.array([g0, g1, g2, g3])
+    interfaces = [mg01, mg02, mg13, mg23]
 
-    proj = pp.ad.MortarProjections(grids=grid_list, edges=edge_list, gb=gb, nd=proj_dim)
+    proj = pp.ad.MortarProjections(subdomains=subdomains, interfaces=interfaces, gb=gb, nd=proj_dim)
 
     cell_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([g.num_cells for g in grid_list])))
+        np.hstack((0, np.array([g.num_cells for g in subdomains])))
     )
     face_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([g.num_faces for g in grid_list])))
+        np.hstack((0, np.array([g.num_faces for g in subdomains])))
     )
 
     f0 = np.hstack(
@@ -223,11 +223,10 @@ def test_mortar_projections(scalar):
 
     # Also test block matrices for the sign of mortar projections.
     # This is a diagonal matrix with first -1, then 1.
-    # If this test fails, something is fundentally wrong.
+    # If this test fails, something is fundamentally wrong.
     vals = np.array([])
-    for e in edge_list:
-        mg = gb.edge_props(e, "mortar_grid")
-        sz = int(np.round(mg.num_cells / 2))
+    for intf in interfaces:
+        sz = int(np.round(intf.num_cells / 2))
         if not scalar:
             sz *= Nd
         vals = np.hstack((vals, -np.ones(sz), np.ones(sz)))
@@ -416,7 +415,7 @@ def test_ad_variable_wrappers():
     ## Next, test edge variables. This should be much the same as the grid variables,
     # so the testing is less thorough.
     # Form an edge variable, evaluate this
-    edge_list = [e for e, _ in gb.edges()]
+    edge_list = [e for e, _ in gb.interfaces()]
     var_edge = eq_manager.merge_variables([(e, mortar_var) for e in edge_list])
 
     edge_inds = np.hstack(
@@ -540,11 +539,11 @@ def test_ad_discretization_class():
     # This is mimicks the old init of Discretization, before it was decided to
     # make that class semi-ABC. Still checks the wrap method
     discr_ad = pp.ad.Discretization()
-    discr_ad.grids = grid_list
+    discr_ad.subdomains = grid_list
     discr_ad._discretization = discr
     pp.ad._ad_utils.wrap_discretization(discr_ad, discr, grid_list)
     sub_discr_ad = pp.ad.Discretization()
-    sub_discr_ad.grids = sub_list
+    sub_discr_ad.subdomains = sub_list
     sub_discr_ad._discretization = sub_discr
     pp.ad._ad_utils.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
 
