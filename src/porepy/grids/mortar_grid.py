@@ -47,7 +47,7 @@ class MortarGrid:
             between the geometrical objects.
         name (list): Information on the formation of the grid, such as the
             constructor, computations of geometry etc.
-        tol (double): Tolerance use when matching grids during update of mortar or
+        tol (double): Tolerance used when matching grids during update of mortar or
             primary / secondary grids.
 
     """
@@ -674,7 +674,7 @@ class MortarGrid:
             mortar_to_secondary_avg() * sign_of_mortar_sides()
 
         NOTE: The flux variables in flow and transport equations are defined as
-        positive from primary to secondary. Hence the two sides have different
+        positive from primary to secondary. Hence, the two sides have different
         conventions, and there is no need to adjust the signs further.
 
         IMPLEMENTATION NOTE: This method will probably not be meaningful if

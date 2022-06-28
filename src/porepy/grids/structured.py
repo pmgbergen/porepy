@@ -12,10 +12,7 @@ import numpy as np
 import scipy as sp
 import scipy.sparse as sps
 
-import porepy as pp
 from porepy.grids.grid import Grid
-
-module_sections = ["grids", "gridding"]
 
 
 class TensorGrid(Grid):
@@ -27,7 +24,6 @@ class TensorGrid(Grid):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         x: np.ndarray,
@@ -38,7 +34,7 @@ class TensorGrid(Grid):
         """
         Constructor for 1D or 2D or 3D tensor grid
 
-        The resulting grid is 1D or 2D or 3D, depending of the number of
+        The resulting grid is 1D or 2D or 3D, depending on the number of
         coordinate lines are provided
 
         Parameters
@@ -65,13 +61,12 @@ class TensorGrid(Grid):
             self.cart_dims = np.array([x.size, y.size, z.size]) - 1
             super().__init__(3, nodes, face_nodes, cell_faces, name)
 
-    @pp.time_logger(sections=module_sections)
     def _create_1d_grid(self, nodes_x):
         """
         Compute grid topology for 1D grids.
 
         This is really a part of the constructor, but put it here to improve
-        readability. Not sure if that is the right choice..
+        readability. Not sure if that is the right choice.
 
         """
 
@@ -109,13 +104,12 @@ class TensorGrid(Grid):
         )
         return nodes, face_nodes, cell_faces
 
-    @pp.time_logger(sections=module_sections)
     def _create_2d_grid(self, nodes_x, nodes_y):
         """
         Compute grid topology for 2D grids.
 
         This is really a part of the constructor, but put it here to improve
-        readability. Not sure if that is the right choice..
+        readability. Not sure if that is the right choice.
 
         """
 
@@ -190,7 +184,6 @@ class TensorGrid(Grid):
         )
         return nodes, face_nodes, cell_faces
 
-    @pp.time_logger(sections=module_sections)
     def _create_3d_grid(self, nodes_x, nodes_y, nodes_z):
 
         num_x = nodes_x.size - 1
@@ -209,7 +202,7 @@ class TensorGrid(Grid):
         num_nodes = num_nodes
 
         x_coord, y_coord, z_coord = np.meshgrid(nodes_x, nodes_y, nodes_z)
-        # This rearangement turned out to work. Not the first thing I tried..
+        # This rearrangement turned out to work. Not the first thing I tried.
         x_coord = np.swapaxes(x_coord, 1, 0).ravel(order="F")
         y_coord = np.swapaxes(y_coord, 1, 0).ravel(order="F")
         z_coord = np.swapaxes(z_coord, 1, 0).ravel(order="F")
@@ -306,7 +299,6 @@ class CartGrid(TensorGrid):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
         """
         Constructor for Cartesian grid
@@ -321,8 +313,6 @@ class CartGrid(TensorGrid):
             Defaults to same as nx, that is, cells of unit size.
 
         """
-
-        #        nx = nx.astype(int)
 
         dims = np.asarray(nx).shape
         xmin, ymin, zmin = 0.0, 0.0, 0.0
