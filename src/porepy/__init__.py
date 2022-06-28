@@ -45,7 +45,7 @@ from porepy.utils.logging import *
 
 from porepy.utils.common_constants import *
 
-from porepy.utils import error
+
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 from porepy.utils import permutations
@@ -195,6 +195,8 @@ from porepy.numerics.time_step_control import TimeSteppingControl
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
+
+from porepy.utils import error
 
 # Modules
 from porepy.fracs import utils as frac_utils
