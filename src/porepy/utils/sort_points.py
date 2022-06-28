@@ -11,7 +11,7 @@ def sort_point_pairs(
     lines: np.ndarray,
     check_circular: Optional[bool] = True,
     is_circular: Optional[bool] = True,
-) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """Sort pairs of numbers to form a chain.
 
     The target application is to sort lines, defined by their
