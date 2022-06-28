@@ -124,13 +124,15 @@ class EquationManager:
 
     def _set_variables(self, mdg: pp.MixedDimensionalGrid):
         # Define variables as specified in the MixedDimensionalGrid
-        variables: Dict[Union[pp.Grid, pp.MortarGrid], str] = dict()
+        variables: Dict[
+            Union[pp.Grid, pp.MortarGrid], dict[str, operators.Variable]
+        ] = dict()
         for sd, sd_data in mdg.subdomains(return_data=True):
             variables[sd] = {}
             for var, info in sd_data[pp.PRIMARY_VARIABLES].items():
                 variables[sd][var] = operators.Variable(var, info, subdomains=[sd])
 
-        for intf, intf_data in mdg.interfaces():
+        for intf, intf_data in mdg.interfaces(return_data=True):
             variables[intf] = {}
             num_cells = intf.num_cells
             for var, info in intf_data[pp.PRIMARY_VARIABLES].items():

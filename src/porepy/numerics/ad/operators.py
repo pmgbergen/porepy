@@ -668,22 +668,22 @@ class Operator:
         assert state is not None
         for (g, var) in dof_manager.block_dof:
             ind = dof_manager.grid_and_variable_to_dofs(g, var)
-            if isinstance(g, tuple):
-                prev_vals[ind] = mdg.edge_props(g, pp.STATE)[var]
+            if isinstance(g, pp.MortarGrid):
+                prev_vals[ind] = mdg.interface_data(g)[pp.STATE][var]
             else:
-                prev_vals[ind] = mdg.node_props(g, pp.STATE)[var]
+                prev_vals[ind] = mdg.subdomain_data(g)[pp.STATE][var]
 
             if populate_state:
-                if isinstance(g, tuple):
+                if isinstance(g, pp.MortarGrid):
                     try:
-                        state[ind] = mdg.edge_props(g, pp.STATE)[pp.ITERATE][var]
+                        state[ind] = mdg.interface_data(g)[pp.STATE][pp.ITERATE][var]
                     except KeyError:
-                        prev_vals[ind] = mdg.edge_props(g, pp.STATE)[var]
+                        prev_vals[ind] = mdg.interface_data(g)[pp.STATE][var]
                 else:
                     try:
-                        state[ind] = mdg.node_props(g, pp.STATE)[pp.ITERATE][var]
+                        state[ind] = mdg.subdomain_data(g)[pp.STATE][pp.ITERATE][var]
                     except KeyError:
-                        state[ind] = mdg.node_props(g, pp.STATE)[var]
+                        state[ind] = mdg.subdomain_data(g)[pp.STATE][var]
 
         # Initialize Ad variables with the current iterates
 
