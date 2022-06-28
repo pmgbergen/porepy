@@ -77,12 +77,12 @@ class AbstractModel:
             box (dict): The bounding box of the domain, defined through minimum and
                 maximum values in each dimension.
         """
-        phys_dims = [1, 1]
-        n_cells = [1, 1]
+        phys_dims = np.array([1, 1])
+        n_cells = np.array([1, 1])
         self.box = pp.geometry.bounding_box.from_points(np.array([[0, 0], phys_dims]).T)
         g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         g.compute_geometry()
-        self.mdg = pp.meshing._assemble_in_bucket([[g]])
+        self.mdg = pp.meshing.subdomains_to_mdg([[g]])
         # If fractures are present, it is advised to call
         # pp.contact_conditions.set_projections(self.mdg)
 
