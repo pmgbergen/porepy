@@ -13,7 +13,11 @@ from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
 
 
-def split_fractures(mdg : pp.MixedDimensionalGrid, sd_pairs: List[Tuple[Tuple[pp.Grid, pp.Grid], sps.spmatrix]], **kwargs,):
+def split_fractures(
+    mdg: pp.MixedDimensionalGrid,
+    sd_pairs: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
+    **kwargs,
+):
     """
     Wrapper function to split all fractures. For each grid in the mdg,
     we locate the corresponding lower-dimensional grids. The faces and
@@ -61,54 +65,57 @@ def split_fractures(mdg : pp.MixedDimensionalGrid, sd_pairs: List[Tuple[Tuple[pp
         if gh.dim < 1:
             # Nothing to do. We can not split 0D grids.
             continue
+
         # Find connected vertices and corresponding edges.
-        
-        neigh_col = []
-        for pair in sd_pairs:
+        low_dim_neigh = []
+
+        matrix_list = []
+
+        for pair, matrix in sd_pairs.items():
             if gh in pair:
-                neigh_col += list(pair)
-        
-        neigh = set(neigh_col).difference(gh)
-        
+                other = list(set(pair).difference({gh}))[0]
+                if other.dim >= gh.dim:
+                    continue
+
+                matrix_list.append(matrix)
+                low_dim_neigh.append(other)
+
+        # Make a set to uniquify the subdomains, subtract gh itself.
+
         # neigh = np.array(mdg.neighboring_subdomains(gh))
 
         # Find the neighbours that are lower dimensional
-        is_low_dim_grid = np.where([w.dim < gh.dim for w in neigh])
-        edges = [(gh, w) for w in neigh[is_low_dim_grid]]
-        if len(edges) == 0:
+        if len(low_dim_neigh) == 0:
             # No lower dim grid. Nothing to do.
             continue
 
-        face_cells = [mdg.edge_props(e, "face_cells") for e in edges]
         # We split all the faces that are connected to a lower-dim grid.
         # The new faces will share the same nodes and properties (normals,
         # etc.)
-        face_cells = split_faces(gh, face_cells)
+        face_cells_modified = split_faces(gh, matrix_list)
 
-        for e, f in zip(edges, face_cells):
-            mdg.add_edge_props("face_cells", [e])
-            mdg.edge_props(e)["face_cells"] = f
+        for gl, matrix in zip(low_dim_neigh, face_cells_modified):
+            sd_pairs[(gh, gl)] = matrix
 
         # We now find which lower-dim nodes correspond to which higher-
         # dim nodes. We split these nodes according to the topology of
         # the connected higher-dim cells. At a X-intersection we split
         # the node into four, while at the fracture boundary it is not split.
 
-        gl = [e[1] for e in edges]
         gl_2_gh_nodes = []
-        for g in gl:
+        for g in low_dim_neigh:
             source = np.atleast_2d(g.global_point_ind).astype(np.int32)
             target = np.atleast_2d(gh.global_point_ind).astype(np.int32)
             _, mapping = setmembership.ismember_rows(source, target)
             gl_2_gh_nodes.append(mapping)
 
-        split_nodes(gh, gl, gl_2_gh_nodes, offset)
+        split_nodes(gh, low_dim_neigh, gl_2_gh_nodes, offset)
 
     # Remove zeros from cell_faces
 
-    [g.cell_faces.eliminate_zeros() for g, _ in mdg]
-    [g.update_boundary_node_tag() for g, _ in mdg]
-    return mdg
+    [g.cell_faces.eliminate_zeros() for g in mdg.subdomains()]
+    [g.update_boundary_node_tag() for g in mdg.subdomains()]
+    return mdg, sd_pairs
 
 
 def split_faces(gh, face_cells):

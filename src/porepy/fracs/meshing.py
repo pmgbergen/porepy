@@ -27,24 +27,26 @@ mortar_sides = mortar_grid.MortarSides
 
 
 def subdomains_to_mdg(
-    subdomains: List[List[pp.Grid]], time_tot: float = None, **kwargs,
+    subdomains: List[List[pp.Grid]],
+    time_tot: float = None,
+    **kwargs,
 ) -> pp.MixedDimensionalGrid:
     """Convert a list of grids to a full MixedDimensionalGrid.
 
-    The list can come from several mesh constructors, both simplex and 
+    The list can come from several mesh constructors, both simplex and
     structured approaches uses this in 2D and 3D.
 
-    The function can not be used on an arbitrary set of grids; they should 
+    The function can not be used on an arbitrary set of grids; they should
     contain information to glue grids together. This will be included for grids
-    created by the standard mixed-dimensional grid constructors. Essentially, 
+    created by the standard mixed-dimensional grid constructors. Essentially,
     do not directly use this function unless you are knowledgeable about how it
     works.
 
     Args:
         subdomains: Subdomains to enter into the Mixed-dimensional grid.
             Sorted per dimension.
-        time_tot (optional): Start time for full mesh construction. Used for 
-            logging. Defaults to None, in which case no information on total 
+        time_tot (optional): Start time for full mesh construction. Used for
+            logging. Defaults to None, in which case no information on total
             time consumption is logged.
         **kwargs: Passed on to subfunctions.
 
@@ -58,20 +60,31 @@ def subdomains_to_mdg(
     _tag_faces(subdomains, check_highest_dim)
     logger.info("Assemble mdg")
     tm_mdg = time.time()
+
+    # Assemble the list of subdomain grids into a mixed-dimensional grid.
+    # This will also identify pairs of neighboring grids (one dimension apart).
+    # Variable node_pairs is a list of tuples, the first item is a pair of neighboring
+    # subdomains (again represented as a tuple), while the second item is a mapping
+    # from faces in the subdomain with the high dimension to cells in the subdomain
+    # of the lower dimension.
     mdg, node_pairs = _assemble_mdg(subdomains)
     logger.info("Done. Elapsed time " + str(time.time() - tm_mdg))
-    
+
     logger.info("Compute geometry")
     tm_geom = time.time()
     mdg.compute_geometry()
 
-    # Split faces and nodes in the grids of various dimensions
     logger.info("Done. Elapsed time " + str(time.time() - tm_geom))
     logger.info("Split fractures")
     tm_split = time.time()
-    split_grid.split_fractures(mdg, node_pairs, **kwargs)
+
+    # Split faces and nodes in the grids of various dimensions
+    mdg, node_pairs = split_grid.split_fractures(mdg, node_pairs, **kwargs)
     logger.info("Done. Elapsed time " + str(time.time() - tm_split))
 
+    # Now that neighboring subdomains are identified, faces and nodes are split, we
+    # are ready to create mortar grids on the interface between subdomains. These
+    # will be added to the mixed-dimensional grid.
     create_interfaces(mdg, node_pairs)
 
     mdg.assign_subdomain_ordering()
@@ -91,11 +104,11 @@ def cart_grid(
     Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
 
     Args:
-        fracs: One list item for each fracture. Each item consist of a 
-            (nd x npt) array describing fracture vertices, where npt is 2 for 
-            2d domains, 4 for 3d domains. The fractures have to be 
-            rectangles(3D) or straight lines(2D) that align with the axis. 
-            The fractures may be intersecting.The fractures will snap to the 
+        fracs: One list item for each fracture. Each item consist of a
+            (nd x npt) array describing fracture vertices, where npt is 2 for
+            2d domains, 4 for 3d domains. The fractures have to be
+            rectangles(3D) or straight lines(2D) that align with the axis.
+            The fractures may be intersecting.The fractures will snap to the
             closest grid faces.
         nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
     **kwargs:
@@ -104,20 +117,20 @@ def cart_grid(
             May also contain fracture tags, options for gridding, etc.
 
     Returns:
-        MixedDimensionalGrid: A complete mixed-dimensional grid where all 
-        fractures are represented as lower dim grids. The higher dim fracture 
-        faces are split in two, and on the edges of the MixedDimensionalGrid 
-        graph the mapping from lower dim cells to higher dim faces are stored 
+        MixedDimensionalGrid: A complete mixed-dimensional grid where all
+        fractures are represented as lower dim grids. The higher dim fracture
+        faces are split in two, and on the edges of the MixedDimensionalGrid
+        graph the mapping from lower dim cells to higher dim faces are stored
         as 'face_cells'. Each face is given boolean tags depending on the type:
         domain_boundary_faces: All faces that lie on the domain boundary
-        (i.e. should be given a boundary condition).fracture_faces: All faces 
-        that are split (i.e. has a connection to a lower dim grid). tip_faces: 
-        A boundary face that is not on the domain boundary, nor coupled to a 
-        lower dimensional domain. The union of the above three is the tag 
+        (i.e. should be given a boundary condition).fracture_faces: All faces
+        that are split (i.e. has a connection to a lower dim grid). tip_faces:
+        A boundary face that is not on the domain boundary, nor coupled to a
+        lower dimensional domain. The union of the above three is the tag
         boundary_faces.
 
     Examples:
-    
+
         >>> frac1 = np.array([[1, 4], [2, 2]])
         >>> frac2 = np.array([[2, 2], [1, 4]])
         >>> fracs = [frac1, frac2]
@@ -368,7 +381,9 @@ def _nodes_per_face(g):
     return n_per_face
 
 
-def _assemble_mdg(subdomains, **kwargs):
+def _assemble_mdg(
+    subdomains, **kwargs
+) -> tuple[pp.MixedDimensionalGrid, dict[tuple[pp.Grid, pp.Grid], sps.spmatrix]]:
     """
     Create a MixedDimensionalGrid from a list of grids.
 
@@ -381,16 +396,16 @@ def _assemble_mdg(subdomains, **kwargs):
         grid.
 
     Returns:
-    MixedDimensionalGrid: A MixedDimensionalGrid class where the mapping 
-    face_cells are given to
-        each edge. face_cells maps from lower-dim cells to higher-dim faces.
+        MixedDimensionalGrid: A MixedDimensionalGrid class where the mapping
+        face_cells are given to each edge. face_cells maps from lower-dim cells to
+        higher-dim faces.
     """
 
     # Create a mixed-dimensional grid
     mdg = MixedDimensionalGrid()
     [mdg.add_subdomains(sd_d) for sd_d in subdomains]
 
-    node_pairs: List[Tuple[Tuple[pp.Grid, pp.Grid], sps.spmatrix]] = []
+    node_pairs: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix] = {}
 
     # We now find the face_cell mapings.
     for dim in range(len(subdomains) - 1):
@@ -450,7 +465,10 @@ def _assemble_mdg(subdomains, **kwargs):
                 # 0d grid is much easier, although getting hold of the single
                 # point index is a bit technical
                 cn_all = np.array(
-                    [np.atleast_1d(lg.global_point_ind)[0] for lg in subdomains[dim + 1]]
+                    [
+                        np.atleast_1d(lg.global_point_ind)[0]
+                        for lg in subdomains[dim + 1]
+                    ]
                 )
                 cell_node_offsets = np.arange(cn_all.size + 1)
                 # Ensure that face-node relation is 1d in this case
@@ -501,21 +519,20 @@ def _assemble_mdg(subdomains, **kwargs):
                     shape=(lg.num_cells, hg.num_faces),
                 )
                 # Add the pairing of subdomains and the cell-face map to the list
-                node_pairs.append(((hg, lg), face_cell_map))
+                node_pairs[(hg, lg)] = face_cell_map
 
     return mdg, node_pairs
 
 
 def create_interfaces(
     mdg: pp.MixedDimensionalGrid,
-    subdomain_pairs: List[Tuple[Tuple[pp.Grid, pp.Grid], sps.spmatrix]],
+    subdomain_pairs: dict[Tuple[pp.Grid, pp.Grid], sps.spmatrix],
 ):
     # loop on all the nodes and create the mortar grids
-    for item in subdomain_pairs:
-        
-        subdomains, face_cells = item
-        hsd, lsd = subdomains
-        
+    for sd_pair, face_cells in subdomain_pairs.items():
+
+        hsd, lsd = sd_pair
+
         # face_cells.indices gives mappings into the lower dimensional
         # cells. Count the number of occurences for each cell.
         num_sides = np.bincount(face_cells.indices)
@@ -541,4 +558,4 @@ def create_interfaces(
             side_g = {mortar_sides.LEFT_SIDE: lsd.copy()}
         mg = mortar_grid.MortarGrid(lsd.dim, side_g, face_cells)
 
-        mdg.add_interface(mg, subdomains, face_cells)
+        mdg.add_interface(mg, sd_pair, face_cells)

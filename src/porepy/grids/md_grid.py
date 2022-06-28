@@ -40,7 +40,7 @@ class MixedDimensionalGrid:
     def __init__(self) -> None:
         self._subdomain_data: Dict[pp.Grid, Dict] = {}
         self._interface_data: Dict[pp.MortarGrid, Dict] = {}
-        self._interface_to_subdomains: Dict[pp.MortarGrid, Tuple[pp.Grid, pp.Grid]]
+        self._interface_to_subdomains: Dict[pp.MortarGrid, Tuple[pp.Grid, pp.Grid]] = {}
         self.name = "Mixed-dimensional Grid"
 
     def __contains__(self, key: Any) -> bool:
