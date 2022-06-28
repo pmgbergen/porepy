@@ -4,26 +4,27 @@
 Module contains common functionalities for discretization based on the mixed
 variational formulation.
 """
-
-from typing import Dict, Tuple
-
+from typing import Union, Optional
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
-module_sections = ["numerics", "discretization", "assembly"]
 
-
-@pp.time_logger(sections=module_sections)
-def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
+def project_flux(
+    mdg: pp.MixedDimensionalGrid,
+    discr,
+    flux: str,
+    P0_flux: np.ndarray,
+    mortar_key: str = "mortar_solution",
+) -> None:
     """
     Save in the grid bucket a piece-wise vector representation of the flux
     for each grid.
 
     Parameters
     ---------
-    gb: the grid bucket
+    mdg: the grid bucket
     discr: discretization class
     flux: identifier of the flux, already split, in the grid bucket
     P0_flux: identifier of the reconstructed flux which will be added to the grid bucket.
@@ -32,34 +33,36 @@ def project_flux(gb, discr, flux, P0_flux, mortar_key="mortar_solution"):
 
     """
 
-    for g, d in gb:
+    for sd, data in mdg.subdomains(return_data=True):
         # we need to recover the flux from the mortar variable before
         # the projection, only lower dimensional edges need to be considered.
-        edge_flux = np.zeros(d[pp.STATE][flux].size)
-        faces = g.tags["fracture_faces"]
+        edge_flux = np.zeros(data[pp.STATE][flux].size)
+        faces = sd.tags["fracture_faces"]
         if np.any(faces):
             # recover the sign of the flux, since the mortar is assumed
             # to point from the higher to the lower dimensional problem
-            _, indices = np.unique(g.cell_faces.indices, return_index=True)
-            sign = sps.diags(g.cell_faces.data[indices], 0)
+            _, indices = np.unique(sd.cell_faces.indices, return_index=True)
+            sign = sps.diags(sd.cell_faces.data[indices], 0)
 
-            for _, d_e in gb.edges_of_node(g):
-                g_m = d_e["mortar_grid"]
+            for intf in mdg.subdomain_to_interfaces(sd):
                 # do not consider the contribution from the mortar grid when the latter is
                 # of the same dimension or codim > 1 (e.g., wells)
-                if g_m.dim == g.dim or g_m.codim > 1:
+                if intf.dim == sd.dim or intf.codim > 1:
                     continue
+
+                data_intf = mdg.interface_data(intf)
                 # project the mortar variable back to the higher dimensional
                 # problem
                 # edge_flux += sign * g_m.mortar_to_primary_int() * d_e[pp.STATE][mortar_key]
                 edge_flux += (
-                    sign * g_m.primary_to_mortar_avg().T * d_e[pp.STATE][mortar_key]
+                    sign
+                    * intf.primary_to_mortar_avg().T
+                    * data_intf[pp.STATE][mortar_key]
                 )
 
-        d[pp.STATE][P0_flux] = discr.project_flux(g, edge_flux + d[pp.STATE][flux], d)
-
-
-# ------------------------------------------------------------------------------#
+        data[pp.STATE][P0_flux] = discr.project_flux(
+            sd, edge_flux + data[pp.STATE][flux], data
+        )
 
 
 class DualElliptic(
@@ -73,7 +76,6 @@ class DualElliptic(
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str, name: str) -> None:
 
         # Identify which parameters to use:
@@ -90,8 +92,7 @@ class DualElliptic(
         # Discretization of vector source terms (gravity)
         self.vector_source_key = "vector_source"
 
-    @pp.time_logger(sections=module_sections)
-    def ndof(self, g: pp.Grid) -> int:
+    def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
 
         In this case number of faces (velocity dofs) plus the number of cells
@@ -103,20 +104,16 @@ class DualElliptic(
         ---------
         g: grid.
 
-        Return
+        Returns
         ------
         dof: the number of degrees of freedom.
 
         """
-        if isinstance(g, pp.Grid):
-            return g.num_cells + g.num_faces
-        else:
-            raise ValueError
+        return sd.num_cells + sd.num_faces
 
-    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
-        self, g: pp.Grid, data: Dict
-    ) -> Tuple[sps.csr_matrix, np.ndarray]:
+        self, sd: pp.Grid, data: dict
+    ) -> tuple[sps.csr_matrix, np.ndarray]:
         """
         Return the matrix and righ-hand side for a discretization of a second
         order elliptic equation using mixed method.
@@ -128,23 +125,22 @@ class DualElliptic(
 
         Return
         ------
-        matrix: sparse csr (g.num_faces+g_num_cells, g.num_faces+g_num_cells)
+        matrix: sparse csr (sd.num_faces + sd.num_cells, sd.num_faces+ sd.num_cells)
             Saddle point matrix obtained from the discretization.
-        rhs: array (g.num_faces+g_num_cells)
+        rhs: array (sd.num_faces+g_num_cells)
             Right-hand side which contains the boundary conditions.
         """
         # First assemble the matrix
-        M = self.assemble_matrix(g, data)
+        M = self.assemble_matrix(sd, data)
 
         # Impose Neumann and Robin boundary conditions, with appropriate scaling of the
         # diagonal element
-        M, bc_weight = self.assemble_neumann_robin(g, data, M, bc_weight=True)
+        M, bc_weight = self.assemble_neumann_robin(sd, data, M, bc_weight=None)
 
         # Assemble right hand side term
-        return M, self.assemble_rhs(g, data, bc_weight)
+        return M, self.assemble_rhs(sd, data, bc_weight)
 
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix(self, g: pp.Grid, data: Dict) -> sps.csr_matrix:
+    def assemble_matrix(self, g: pp.Grid, data: dict) -> sps.csr_matrix:
         """Assemble matrix from an existing discretization."""
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
@@ -152,10 +148,9 @@ class DualElliptic(
         div = matrix_dictionary[self.div_matrix_key]
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
-    @pp.time_logger(sections=module_sections)
     def assemble_neumann_robin(
-        self, g: pp.Grid, data: Dict, M, bc_weight: np.ndarray = None
-    ) -> Tuple[sps.csr_matrix, int]:
+        self, sd: pp.Grid, data: dict, M, bc_weight: Optional[np.ndarray] = None
+    ) -> tuple[sps.csr_matrix, int]:
         """Impose Neumann and Robin boundary discretization on an already assembled
         system matrix.
         """
@@ -166,7 +161,10 @@ class DualElliptic(
         if mass.shape[0] == 0:
             norm = 1
         else:
-            norm = sps.linalg.norm(mass, np.inf) if bc_weight else 1
+            if bc_weight is not None:
+                norm = sps.linalg.norm(mass, np.inf)
+            else:
+                norm = 1
 
         bc = data[pp.PARAMETERS][self.keyword]["bc"]
 
@@ -196,15 +194,14 @@ class DualElliptic(
             # it is assumed that the faces dof are put before the cell dof
             is_rob = np.where(is_rob)[0]
 
-            rob_val = np.zeros(self.ndof(g))
-            rob_val[is_rob] = 1.0 / (bc.robin_weight[is_rob] * g.face_areas[is_rob])
+            rob_val = np.zeros(self.ndof(sd))
+            rob_val[is_rob] = 1.0 / (bc.robin_weight[is_rob] * sd.face_areas[is_rob])
             M += sps.dia_matrix((rob_val, 0), shape=(rob_val.size, rob_val.size))
 
         return M, norm
 
-    @pp.time_logger(sections=module_sections)
     def assemble_rhs(
-        self, g: pp.Grid, data: Dict, bc_weight: float = 1.0
+        self, sd: pp.Grid, data: dict, bc_weight: float = 1.0
     ) -> np.ndarray:
         """
         Return the righ-hand side for a discretization of a second order elliptic
@@ -226,8 +223,8 @@ class DualElliptic(
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         proj = matrix_dictionary[self.vector_proj_key]
 
-        rhs = np.zeros(self.ndof(g))
-        if g.dim == 0:
+        rhs = np.zeros(self.ndof(sd))
+        if sd.dim == 0:
             return rhs
 
         bc = parameter_dictionary["bc"]
@@ -240,7 +237,7 @@ class DualElliptic(
             "vector_source", np.zeros(proj.shape[0])
         )
         # Discretization of the vector source term
-        rhs[: g.num_faces] += proj.T * vector_source
+        rhs[: sd.num_faces] += proj.T * vector_source
 
         if bc is None:
             return rhs
@@ -254,12 +251,12 @@ class DualElliptic(
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         is_dir = np.logical_and(bc.is_dir, np.logical_not(bc.is_internal))
         is_rob = np.logical_and(bc.is_rob, np.logical_not(bc.is_internal))
-        if hasattr(g, "periodic_face_map"):
+        if hasattr(sd, "periodic_face_map"):
             raise NotImplementedError(
                 "Periodic boundary conditions are not implemented for DualElliptic"
             )
 
-        faces, _, sign = sps.find(g.cell_faces)
+        faces, _, sign = sps.find(sd.cell_faces)
         sign = sign[np.unique(faces, return_index=True)[1]]
 
         if np.any(is_dir):
@@ -276,8 +273,7 @@ class DualElliptic(
 
         return rhs
 
-    @pp.time_logger(sections=module_sections)
-    def project_flux(self, g: pp.Grid, u: np.ndarray, data: Dict) -> np.ndarray:
+    def project_flux(self, sd: pp.Grid, u: np.ndarray, data: dict) -> np.ndarray:
         """Project the velocity computed with a dual solver to obtain a
         piecewise constant vector field, one triplet for each cell.
 
@@ -290,19 +286,19 @@ class DualElliptic(
 
         Parameters
         ----------
-        g : grid, or a subclass, with geometry fields computed.
-        u : array (g.num_faces) Velocity at each face.
+        sd : grid, or a subclass, with geometry fields computed.
+        u : array (sd.num_faces) Velocity at each face.
         data: data of the current grid.
 
         Return
         ------
-        P0u : ndarray (3, g.num_faces) Velocity at each cell.
+        P0u : ndarray (3, sd.num_faces) Velocity at each cell.
 
         """
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
 
-        if g.dim == 0:
+        if sd.dim == 0:
             return np.zeros(3).reshape((3, 1))
 
         # Get dictionary for discretization matrix storage
@@ -313,15 +309,14 @@ class DualElliptic(
 
         return proj_u.reshape((3, -1), order="F")
 
-    @pp.time_logger(sections=module_sections)
     def _assemble_neumann_common(
         self,
-        g: pp.Grid,
-        data: Dict,
+        sd: pp.Grid,
+        data: dict,
         M: sps.csr_matrix,
         mass: sps.csr_matrix,
         bc_weight: float = None,
-    ) -> Tuple[sps.csr_matrix, np.ndarray]:
+    ) -> tuple[sps.csr_matrix, np.ndarray]:
         """Impose Neumann boundary discretization on an already assembled
         system matrix.
 
@@ -342,7 +337,7 @@ class DualElliptic(
         # is_dir.
         is_neu = np.logical_and(bc.is_neu, np.logical_not(bc.is_internal))
         if bc and np.any(is_neu):
-            is_neu = np.hstack((is_neu, np.zeros(g.num_cells, dtype=bool)))
+            is_neu = np.hstack((is_neu, np.zeros(sd.num_cells, dtype=bool)))
             is_neu = np.where(is_neu)[0]
 
             # set in an efficient way the essential boundary conditions, by
@@ -357,12 +352,11 @@ class DualElliptic(
         return M, norm
 
     @staticmethod
-    @pp.time_logger(sections=module_sections)
     def _velocity_dof(
-        g: pp.Grid, mg: pp.MortarGrid, hat_E_int: sps.csc_matrix
+        sd: pp.Grid, intf: pp.MortarGrid, hat_E_int: sps.csc_matrix
     ) -> sps.csr_matrix:
         # Recover the information for the grid-grid mapping
-        faces_h, cells_h, sign_h = sps.find(g.cell_faces)
+        faces_h, cells_h, sign_h = sps.find(sd.cell_faces)
         ind_faces_h = np.unique(faces_h, return_index=True)[1]
         cells_h = cells_h[ind_faces_h]
         sign_h = sign_h[ind_faces_h]
@@ -370,17 +364,17 @@ class DualElliptic(
         # Velocity degree of freedom matrix
         U = sps.diags(sign_h)
 
-        shape = (g.num_cells, mg.num_cells)
+        shape = (sd.num_cells, intf.num_cells)
 
         hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
         return hat_E_int
 
-    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_flux(
         self,
-        g: pp.Grid,
-        data: Dict,
-        data_edge: Dict,
+        sd: pp.Grid,
+        data: dict,
+        intf: pp.MortarGrid,
+        data_edge: dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
@@ -420,21 +414,20 @@ class DualElliptic(
         """
 
         # The matrix must be the VEM discretization matrix.
-        mg = data_edge["mortar_grid"]
         if use_secondary_proj:
-            proj = mg.mortar_to_secondary_int()
+            proj = intf.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_primary_int()
+            proj = intf.mortar_to_primary_int()
 
-        hat_E_int = self._velocity_dof(g, mg, proj)
+        hat_E_int = self._velocity_dof(sd, intf, proj)
         cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
 
-    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_source(
         self,
-        g: pp.Grid,
-        data: Dict,
-        data_edge: Dict,
+        sd: pp.Grid,
+        data: dict,
+        intf: pp.MortarGrid,
+        data_edge: dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
@@ -469,20 +462,18 @@ class DualElliptic(
                 Should be either 1 or 2.
 
         """
-        mg = data_edge["mortar_grid"]
-
-        proj = mg.secondary_to_mortar_avg()
+        proj = intf.secondary_to_mortar_avg()
 
         A = proj.T
-        shape = (g.num_faces, A.shape[1])
+        shape = (sd.num_faces, A.shape[1])
         cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
 
-    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace(
         self,
-        g: pp.Grid,
-        data: Dict,
-        data_edge: Dict,
+        sd: pp.Grid,
+        data: dict,
+        intf: pp.MortarGrid,
+        data_edge: dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
@@ -522,21 +513,18 @@ class DualElliptic(
                 used. Needed for periodic boundary conditions.
 
         """
-        mg = data_edge["mortar_grid"]
-
         if use_secondary_proj:
-            proj = mg.mortar_to_secondary_int()
+            proj = intf.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_primary_int()
+            proj = intf.mortar_to_primary_int()
 
-        hat_E_int = self._velocity_dof(g, mg, proj)
+        hat_E_int = self._velocity_dof(sd, intf, proj)
 
         cc[2, self_ind] -= hat_E_int.T * matrix[self_ind, self_ind]
         cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
 
-    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_rhs(
-        self, g, data, data_edge, cc, rhs, self_ind, use_secondary_proj=False
+        self, sd, data, data_edge, cc, rhs, self_ind, use_secondary_proj=False
     ):
         """Assemble the rhs contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -566,11 +554,10 @@ class DualElliptic(
         # Nothing to do here.
         pass
 
-    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_trace_between_interfaces(
         self,
         g: pp.Grid,
-        data_grid: Dict,
+        data_grid: dict,
         data_primary_edge,
         data_secondary_edge,
         cc: np.ndarray,
@@ -603,12 +590,12 @@ class DualElliptic(
         """
         pass
 
-    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_pressure_cell(
         self,
-        g: pp.Grid,
-        data: Dict,
-        data_edge: Dict,
+        sd: pp.Grid,
+        data: dict,
+        intf: pp.MortarGrid,
+        data_edge: dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
@@ -626,7 +613,7 @@ class DualElliptic(
         the node and the mortar grid on the relevant edge.
 
         Parameters:
-            g (Grid): Grid which the condition should be imposed on.
+            sd (Grid): Grid which the condition should be imposed on.
             data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
@@ -645,18 +632,21 @@ class DualElliptic(
                 Should be either 1 or 2.
 
         """
-        mg = data_edge["mortar_grid"]
 
-        proj = mg.secondary_to_mortar_avg()
+        proj = intf.secondary_to_mortar_avg()
 
         A = proj.T
-        shape = (g.num_faces, A.shape[1])
+        shape = (sd.num_faces, A.shape[1])
 
         cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
 
-    @pp.time_logger(sections=module_sections)
     def enforce_neumann_int_bound(
-        self, g: pp.Grid, data_edge: Dict, matrix: np.ndarray, self_ind: int
+        self,
+        sd: pp.Grid,
+        intf: pp.MortarGrid,
+        data_edge: dict,
+        matrix: np.ndarray,
+        self_ind: int,
     ) -> None:
         """Enforce Neumann boundary conditions on a given system matrix.
 
@@ -672,9 +662,7 @@ class DualElliptic(
             self_ind (int): Index in local block system of this grid and variable.
 
         """
-        mg = data_edge["mortar_grid"]
-
-        hat_E_int = self._velocity_dof(g, mg, mg.mortar_to_primary_int())
+        hat_E_int = self._velocity_dof(sd, intf, intf.mortar_to_primary_int())
 
         dof = np.where(hat_E_int.sum(axis=1).A.astype(bool))[0]
         norm = np.linalg.norm(matrix[self_ind, self_ind].diagonal(), np.inf)
@@ -692,54 +680,51 @@ class DualElliptic(
         d[dof] = norm
         matrix[self_ind, self_ind].setdiag(d)
 
-    @pp.time_logger(sections=module_sections)
     def extract_flux(
-        self, g: pp.Grid, solution_array: np.ndarray, data: Dict
+        self, sd: pp.Grid, solution_array: np.ndarray, data: dict
     ) -> np.ndarray:
         """Extract the velocity from a dual virtual element solution.
 
         Parameters
         ----------
         g : grid, or a subclass, with geometry fields computed.
-        up : array (g.num_faces+g.num_cells)
+        up : array (sd.num_faces+sd.num_cells)
             Solution, stored as [velocity,pressure]
         d: data dictionary associated with the grid.
             Unused, but included for consistency reasons.
 
         Return
         ------
-        u : array (g.num_faces)
+        u : array (sd.num_faces)
             Velocity at each face.
 
         """
         # pylint: disable=invalid-name
-        return solution_array[: g.num_faces]
+        return solution_array[: sd.num_faces]
 
-    @pp.time_logger(sections=module_sections)
     def extract_pressure(
-        self, g: pp.Grid, solution_array: np.ndarray, data: Dict
+        self, sd: pp.Grid, solution_array: np.ndarray, data: dict
     ) -> np.ndarray:
         """Extract the pressure from a dual virtual element solution.
 
         Parameters
         ----------
-        g : grid, or a subclass, with geometry fields computed.
-        solution_array : array (g.num_faces+g.num_cells)
+        sd : grid, or a subclass, with geometry fields computed.
+        solution_array : array (sd.num_faces + sd.num_cells)
             Solution, stored as [velocity,pressure]
         d: data dictionary associated with the grid.
             Unused, but included for consistency reasons.
 
         Return
         ------
-        p : array (g.num_cells)
+        p : array (sd.num_cells)
             Pressure at each cell.
 
         """
         # pylint: disable=invalid-name
-        return solution_array[g.num_faces :]
+        return solution_array[sd.num_faces :]
 
     @staticmethod
-    @pp.time_logger(sections=module_sections)
     def _inv_matrix_1d(K: np.ndarray) -> np.ndarray:
         """Explicit inversion of a matrix 1x1.
 
@@ -754,7 +739,6 @@ class DualElliptic(
         return np.array([[1.0 / K[0, 0]]])
 
     @staticmethod
-    @pp.time_logger(sections=module_sections)
     def _inv_matrix_2d(K: np.ndarray) -> np.ndarray:
         """Explicit inversion of a symmetric matrix 2x2.
 
@@ -770,7 +754,6 @@ class DualElliptic(
         return np.array([[K[1, 1], -K[0, 1]], [-K[0, 1], K[0, 0]]]) / det
 
     @staticmethod
-    @pp.time_logger(sections=module_sections)
     def _inv_matrix_3d(K: np.ndarray) -> np.ndarray:
         """Explicit inversion of a symmetric matrix 3x3.
 

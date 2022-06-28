@@ -358,22 +358,22 @@ class SetupContactMechanicsBiot(
         self.fix_only_bottom = False
 
 
-    def _dilation_angle(self, g):
+    def _dilation_angle(self, sd):
         """Nonzero dilation angle.
         """
-        vals = np.pi / 6 * np.ones(g.num_cells)
+        vals = np.pi / 6 * np.ones(sd.num_cells)
         return vals
 
-    def _reference_scalar(self, g: pp.Grid):
-        return self.p_reference * np.ones(g.num_cells)
+    def _reference_scalar(self, sd: pp.Grid):
+        return self.p_reference * np.ones(sd.num_cells)
 
 
-    def _bc_values_scalar(self, g):
+    def _bc_values_scalar(self, sd):
         """
         It may be convenient to have p_dir=p_initial!=0 when investigating p_reference.
         """
-        all_bf, east, west, north, south, _, _ = self._domain_boundary_sides(g)
-        val = np.zeros(g.num_faces)
+        all_bf, east, west, north, south, _, _ = self._domain_boundary_sides(sd)
+        val = np.zeros(sd.num_faces)
         val[north + south] = self.p_initial
         return val
 
@@ -392,18 +392,18 @@ class SetupContactMechanicsBiot(
                 {self.scalar_variable: initial_scalar_value.copy()}
             )
 
-    def _bc_type_mechanics(self, g):
+    def _bc_type_mechanics(self, sd):
         """
         For nonzero reference temperature, we only want to fix one boundary.
         """
         if not self.fix_only_bottom:
-            return super()._bc_type_mechanics(g)
-        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
-        bc = pp.BoundaryConditionVectorial(g, south, "dir")
+            return super()._bc_type_mechanics(sd)
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, south, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the
         # fracture faces.
-        frac_face = g.tags["fracture_faces"]
+        frac_face = sd.tags["fracture_faces"]
         bc.is_neu[:, frac_face] = False
         bc.is_dir[:, frac_face] = True
         return bc

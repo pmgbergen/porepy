@@ -20,6 +20,7 @@ class _AdVariables:
     mortar_flux: pp.ad.Variable
     mortar_proj: pp.ad.MortarProjections
     flux_discretization: Union[pp.ad.MpfaAd, pp.ad.TpfaAd]
+    subdomains: List[pp.Grid]
 
 
 class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
@@ -35,19 +36,20 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
     Public attributes:
         variable (str): Name assigned to the pressure variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
-            including in Paraview export. The default variable name is 'p'.
+            including in ParaView export. The default variable name is 'p'.
         mortar_variable (str): Name assigned to the flux variable on the interfaces.
-            Will be used throughout the simulations, including in Paraview export.
+            Will be used throughout the simulations, including in ParaView export.
             The default mortar variable name is 'mortar_p'.
         parameter_key (str): Keyword used to define parameters and discretizations.
         params (dict): Dictionary of parameters used to control the solution procedure.
             Some frequently used entries are file and folder names for export,
-            mesh sizes...
-        gb (pp.MixedDimensionalGrid): Mixed-dimensional grid. Should be set by a method
+           mesh sizes...
+        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
-        convergence_status (bool): Whether the non-linear iterations has converged.
+        convergence_status (bool): Whether the non-linear iteration has converged.
         linear_solver (str): Specification of linear solver. Only known permissible
             value is 'direct'
+        exporter (pp.Exporter): Used for writing files for visualization.
 
     All attributes are given natural values at initialization of the class.
 
@@ -62,12 +64,13 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.parameter_key: str = "flow"
         self._use_ad = True
         self._ad = _AdVariables()
+        self.exporter: pp.Exporter
 
     def prepare_simulation(self) -> None:
         self.create_grid()
         # Exporter initialization must be done after grid creation.
         self.exporter = pp.Exporter(
-            self.gb, self.params["file_name"], folder_name=self.params["folder_name"]
+            self.mdg, self.params["file_name"], folder_name=self.params["folder_name"]
         )
 
         self._assign_variables()
@@ -88,24 +91,24 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         The parameters fields of the data dictionaries are updated for all
         subdomains and edges (of codimension 1).
         """
-        for g, d in self.gb:
-            bc = self._bc_type(g)
-            bc_values = self._bc_values(g)
+        for sd, data in self.mdg.subdomains(return_data=True):
+            bc = self._bc_type(sd)
+            bc_values = self._bc_values(sd)
 
-            source_values = self._source(g)
+            source_values = self._source(sd)
 
-            specific_volume = self._specific_volume(g)
+            specific_volume = self._specific_volume(sd)
 
-            kappa = self._permeability(g) / self._viscosity(g)
+            kappa = self._permeability(sd) / self._viscosity(sd)
             diffusivity = pp.SecondOrderTensor(
-                kappa * specific_volume * np.ones(g.num_cells)
+                kappa * specific_volume * np.ones(sd.num_cells)
             )
 
-            gravity = self._vector_source(g)
+            gravity = self._vector_source(sd)
 
             pp.initialize_data(
-                g,
-                d,
+                sd,
+                data,
                 self.parameter_key,
                 {
                     "bc": bc,
@@ -113,43 +116,46 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
                     "source": source_values,
                     "second_order_tensor": diffusivity,
                     "vector_source": gravity.ravel("F"),
-                    "ambient_dimension": self.gb.dim_max(),
+                    "ambient_dimension": self.mdg.dim_max(),
                 },
             )
 
         # Assign diffusivity in the normal direction of the fractures.
-        for e, data_edge in self.gb.edges():
-            g_l, g_h = self.gb.nodes_of_edge(e)
-            mg = data_edge["mortar_grid"]
-            if mg.codim == 2:
-                # Codim 2 (well type) interfaces are on the user's own responsibility
+        for intf, intf_data in self.mdg.interfaces(return_data=True):
+            sd_primary, sd_secondary = self.mdg.interface_to_subdomain_pair(intf)
+            if intf.codim == 2:
+                # Co-dimension 2 (well type) interfaces are on the user's own responsibility
                 # and must be handled in run scripts or by subclassing.
                 continue
 
-            a_l = self._aperture(g_l)
-            # Take trace of and then project specific volumes from g_h
-            trace = np.abs(g_h.cell_faces)
-            v_h = mg.primary_to_mortar_avg() * trace * self._specific_volume(g_h)
+            a_secondary = self._aperture(sd_secondary)
+            # Take trace of and then project specific volumes from sd_primary
+            trace = np.abs(sd_primary.cell_faces)
+            v_primary = (
+                intf.primary_to_mortar_avg() * trace * self._specific_volume(sd_primary)
+            )
             # Division by a/2 may be thought of as taking the gradient in the normal
             # direction of the fracture.
-            kappa_l = self._permeability(g_l) / self._viscosity(g_l)
-            normal_diffusivity = mg.secondary_to_mortar_avg() * (kappa_l * 2 / a_l)
-            # The interface flux is to match fluxes across faces of g_h,
+            kappa_l = self._permeability(sd_secondary) / self._viscosity(sd_secondary)
+            normal_diffusivity = intf.secondary_to_mortar_avg() * (
+                kappa_l * 2 / a_secondary
+            )
+            # The interface flux is to match fluxes across faces of sd_primary,
             # and therefore need to be weighted by the corresponding
             # specific volumes
-            normal_diffusivity *= v_h
+            normal_diffusivity *= v_primary
 
             # Vector source/gravity zero by default
-            gravity = self._vector_source(mg)
+            gravity = self._vector_source(intf)
             pp.initialize_data(
-                e,
-                data_edge,
+                intf,
+                intf_data,
                 self.parameter_key,
                 {
                     "normal_diffusivity": normal_diffusivity,
                     "vector_source": gravity.ravel("F"),
-                    "ambient_dimension": self.gb.dim_max(),
-                    "darcy_flux": np.zeros(mg.num_cells),
+                    "ambient_dimension": self.mdg.dim_max(),
+                    "darcy_flux": np.zeros(intf.num_cells),
                 },
             )
 
@@ -190,14 +196,14 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         """
         return np.ones(g.num_cells)
 
-    def _vector_source(self, g: pp.Grid) -> np.ndarray:
+    def _vector_source(self, g: Union[pp.Grid, pp.MortarGrid]) -> np.ndarray:
         """Zero vector source (gravity).
 
         To assign a gravity-like vector source, add a non-zero contribution in
         the last dimension:
             vals[-1] = - pp.GRAVITY_ACCELERATION * fluid_density
         """
-        vals = np.zeros((self.gb.dim_max(), g.num_cells))
+        vals = np.zeros((self.mdg.dim_max(), g.num_cells))
         return vals
 
     def _aperture(self, g: pp.Grid) -> np.ndarray:
@@ -208,7 +214,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         See also specific_volume.
         """
         aperture = np.ones(g.num_cells)
-        if g.dim < self.gb.dim_max():
+        if g.dim < self.mdg.dim_max():
             aperture *= 0.1
         return aperture
 
@@ -216,47 +222,47 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         """
         The specific volume of a cell accounts for the dimension reduction and has
         dimensions [m^(Nd - d)].
-        Typically equals 1 in Nd, the aperture in codimension 1 and the square/cube
+        Typically, equals 1 in Nd, the aperture in codimension 1 and the square/cube
         of aperture in dimension 1 and 0.
         """
         a = self._aperture(g)
-        return np.power(a, self._nd_grid().dim - g.dim)
+        return np.power(a, self._nd_subdomain().dim - g.dim)
 
     def _assign_variables(self) -> None:
         """
         Assign primary variables to the nodes and edges of the grid bucket.
         """
         # First for the nodes
-        for g, d in self.gb:
-            d[pp.PRIMARY_VARIABLES] = {
+        for _, data in self.mdg.subdomains(return_data=True):
+            data[pp.PRIMARY_VARIABLES] = {
                 self.variable: {"cells": 1},
             }
         # Then for the edges
-        for e, d in self.gb.edges():
-            if d["mortar_grid"].codim == 2:
+        for intf, data in self.mdg.interfaces(return_data=True):
+            if intf.codim == 2:
                 continue
             else:
-                d[pp.PRIMARY_VARIABLES] = {
+                data[pp.PRIMARY_VARIABLES] = {
                     self.mortar_variable: {"cells": 1},
                 }
 
     def _create_dof_and_eq_manager(self) -> None:
-        """Create a dof_magaer and eq_maganer based on a mixed-dimensional grid"""
-        self.dof_manager = pp.DofManager(self.gb)
-        self._eq_manager = pp.ad.EquationManager(self.gb, self.dof_manager)
+        """Create a dof_manager and eq_manager based on a mixed-dimensional grid"""
+        self.dof_manager = pp.DofManager(self.mdg)
+        self._eq_manager = pp.ad.EquationManager(self.mdg, self.dof_manager)
 
     def _create_ad_variables(self) -> None:
         """Create the merged variables for potential and mortar flux"""
 
-        grid_list = [g for g, _ in self.gb.nodes()]
-        # Make a list of interfaces, but only for couplings one dimension apart (e.g. not for
-        # couplings that involve wells)
-        edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
         self._ad.pressure = self._eq_manager.merge_variables(
-            [(g, self.variable) for g in grid_list]
+            [(sd, self.variable) for sd in self.mdg.subdomains()]
         )
         self._ad.mortar_flux = self._eq_manager.merge_variables(
-            [(e, self.mortar_variable) for e in edge_list]
+            [
+                (intf, self.mortar_variable)
+                for intf in self.mdg.interfaces()
+                if intf.codim < 2
+            ]
         )
 
     def _assign_equations(self) -> None:
@@ -271,21 +277,21 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         parameter.
         """
 
-        grid_list = [g for g, _ in self.gb.nodes()]
-        self.grid_list = grid_list
-        if len(self.gb.grids_of_dimension(self.gb.dim_max())) != 1:
+        subdomains = [sd for sd in self.mdg.subdomains()]
+        self._ad.subdomains = subdomains
+        if len(list(self.mdg.subdomains(dim=self.mdg.dim_max()))) != 1:
             raise NotImplementedError("This will require further work")
 
-        edge_list = [e for e, d in self.gb.edges() if d["mortar_grid"].codim < 2]
+        interfaces = [intf for intf in self.mdg.interfaces() if intf.codim < 2]
 
         self._ad.mortar_proj = pp.ad.MortarProjections(
-            edges=edge_list, grids=grid_list, gb=self.gb, nd=1
+            interfaces=interfaces, subdomains=subdomains, mdg=self.mdg, nd=1
         )
 
         # Ad representation of discretizations
-        robin_ad = pp.ad.RobinCouplingAd(self.parameter_key, edge_list)
+        robin_ad = pp.ad.RobinCouplingAd(self.parameter_key, interfaces)
 
-        div = pp.ad.Divergence(grids=grid_list)
+        div = pp.ad.Divergence(subdomains=subdomains)
 
         # Ad variables
         p = self._ad.pressure
@@ -295,23 +301,23 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         vector_source_grids = pp.ad.ParameterArray(
             param_keyword=self.parameter_key,
             array_keyword="vector_source",
-            grids=grid_list,
+            subdomains=subdomains,
         )
         vector_source_edges = pp.ad.ParameterArray(
             param_keyword=self.parameter_key,
             array_keyword="vector_source",
-            edges=edge_list,
+            interfaces=interfaces,
         )
-        bc_val = pp.ad.BoundaryCondition(self.parameter_key, grid_list)
+        bc_val = pp.ad.BoundaryCondition(self.parameter_key, subdomains)
         source = pp.ad.ParameterArray(
             param_keyword=self.parameter_key,
             array_keyword="source",
-            grids=grid_list,
+            subdomains=subdomains,
         )
 
         # Ad equations
         subdomain_flow_eq = (
-            div * self._flux(grid_list)
+            div * self._flux(subdomains)
             - self._ad.mortar_proj.mortar_to_secondary_int * mortar_flux
             - source
         )
@@ -374,12 +380,12 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         bc = pp.ad.ParameterArray(
             self.parameter_key,
             array_keyword="bc_values",
-            grids=subdomains,
+            subdomains=subdomains,
         )
         vector_source_subdomains = pp.ad.ParameterArray(
             param_keyword=self.parameter_key,
             array_keyword="vector_source",
-            grids=subdomains,
+            subdomains=subdomains,
         )
 
         flux_discr = pp.ad.MpfaAd(self.parameter_key, subdomains)
@@ -412,7 +418,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
     def _discretize(self) -> None:
         """Discretize all terms"""
         tic = time.time()
-        self._eq_manager.discretize(self.gb)
+        self._eq_manager.discretize(self.mdg)
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
     def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
