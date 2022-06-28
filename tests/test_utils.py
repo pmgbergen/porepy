@@ -47,14 +47,14 @@ def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, variables):
     return sps.bmat(mat, format="csr"), np.concatenate(tuple(b))
 
 
-def setup_flow_assembler(gb, method, data_key=None, coupler=None):
+def setup_flow_assembler(mdg, method, data_key=None, coupler=None):
     """ Setup a standard assembler for the flow problem for a given grid bucket.
 
     The assembler will be set up with primary variable name 'pressure' on the
     GridBucket nodes, and mortar_flux for the mortar variables.
 
     Parameters:
-        gb: GridBucket.
+        mdg: GridBucket.
         method (EllipticDiscretization).
         data_key (str, optional): Keyword used to identify data dictionary for
             node and edge discretization.
@@ -75,29 +75,29 @@ def setup_flow_assembler(gb, method, data_key=None, coupler=None):
     else:
         mixed_form = False
 
-    for g, d in gb:
+    for _, data in mdg.subdomains(return_data=True):
         if mixed_form:
-            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1, "faces": 1}}
+            data[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1, "faces": 1}}
         else:
-            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
-        d[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
-    for e, d in gb.edges():
-        g1, g2 = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {"mortar_flux": {"cells": 1}}
-        d[pp.COUPLING_DISCRETIZATION] = {
+            data[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
+        data[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
+    for intf, data in mdg.interfaces(return_data=True):
+        g2, g1 = mdg.interface_to_subdomain_pair(intf)
+        data[pp.PRIMARY_VARIABLES] = {"mortar_flux": {"cells": 1}}
+        data[pp.COUPLING_DISCRETIZATION] = {
             "lambda": {
                 g1: ("pressure", "diffusive"),
                 g2: ("pressure", "diffusive"),
-                e: ("mortar_flux", coupler),
+                intf: ("mortar_flux", coupler),
             }
         }
-        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
+        data[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    assembler = pp.Assembler(gb)
+    assembler = pp.Assembler(mdg)
     return assembler
 
 
-def solve_and_distribute_pressure(gb, assembler):
+def solve_and_distribute_pressure(mdg, assembler):
     """ Given an assembler, assemble and solve the pressure equation, and distribute
     the result.
 
@@ -198,9 +198,9 @@ def compare_mortar_grids(mg1, mg2):
     return True
 
 def compare_grid_buckets(gb1, gb2):
-    for dim in range(3):
-        grids_1 = gb1.grids_of_dimension(dim)
-        grids_2 = gb2.grids_of_dimension(dim)
+    for dim in range(4):
+        grids_1 = list(gb1.subdomains(dim=dim))
+        grids_2 = list(gb2.subdomains(dim=dim))
         # Two buckets are considered equal only if the grids are returned in the same
         # order. This may be overly restrictive, but it will have to do.
         if len(grids_1) != len(grids_2):
