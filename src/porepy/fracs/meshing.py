@@ -60,7 +60,7 @@ def subdomains_to_mdg(
     tm_mdg = time.time()
     mdg, node_pairs = _assemble_mdg(subdomains)
     logger.info("Done. Elapsed time " + str(time.time() - tm_mdg))
-
+    
     logger.info("Compute geometry")
     tm_geom = time.time()
     mdg.compute_geometry()
@@ -69,10 +69,10 @@ def subdomains_to_mdg(
     logger.info("Done. Elapsed time " + str(time.time() - tm_geom))
     logger.info("Split fractures")
     tm_split = time.time()
-    split_grid.split_fractures(mdg, **kwargs)
+    split_grid.split_fractures(mdg, node_pairs, **kwargs)
     logger.info("Done. Elapsed time " + str(time.time() - tm_split))
 
-    create_mortar_grids(mdg, node_pairs)
+    create_interfaces(mdg, node_pairs)
 
     mdg.assign_subdomain_ordering()
 
@@ -368,7 +368,7 @@ def _nodes_per_face(g):
     return n_per_face
 
 
-def _assemble_mdg(grids, **kwargs):
+def _assemble_mdg(subdomains, **kwargs):
     """
     Create a MixedDimensionalGrid from a list of grids.
 
@@ -388,14 +388,14 @@ def _assemble_mdg(grids, **kwargs):
 
     # Create a mixed-dimensional grid
     mdg = MixedDimensionalGrid()
-    [mdg.add_subdomains(g_d) for g_d in grids]
+    [mdg.add_subdomains(sd_d) for sd_d in subdomains]
 
     node_pairs: List[Tuple[Tuple[pp.Grid, pp.Grid], sps.spmatrix]] = []
 
     # We now find the face_cell mapings.
-    for dim in range(len(grids) - 1):
+    for dim in range(len(subdomains) - 1):
         # If there are no grids of dimension one less, continue.
-        if len(grids[dim + 1]) == 0:
+        if len(subdomains[dim + 1]) == 0:
             continue
 
         # Loop over all grids of the higher dimension, look for lower-dimensional
@@ -403,7 +403,7 @@ def _assemble_mdg(grids, **kwargs):
         # the faces of the higher-dimensional grid. If this face-cell intersection
         # is non-empty, there is a coupling will be made between the higher and
         # lower-dimensional grid, and the face-to-cell relation will be saved.
-        for hg in grids[dim]:
+        for hg in subdomains[dim]:
 
             # We have to specify the number of nodes per face to generate a
             # matrix of the nodes of each face.
@@ -435,7 +435,7 @@ def _assemble_mdg(grids, **kwargs):
                 # for cell-node relations for each grid, hence initialize with
                 # zero.
                 num_cn = [0]
-                for lg in grids[dim + 1]:
+                for lg in subdomains[dim + 1]:
                     # Local cell-node relation
                     cn_loc = lg.cell_nodes().indices.reshape(
                         (n_per_face, lg.num_cells), order="F"
@@ -450,7 +450,7 @@ def _assemble_mdg(grids, **kwargs):
                 # 0d grid is much easier, although getting hold of the single
                 # point index is a bit technical
                 cn_all = np.array(
-                    [np.atleast_1d(lg.global_point_ind)[0] for lg in grids[dim + 1]]
+                    [np.atleast_1d(lg.global_point_ind)[0] for lg in subdomains[dim + 1]]
                 )
                 cell_node_offsets = np.arange(cn_all.size + 1)
                 # Ensure that face-node relation is 1d in this case
@@ -481,7 +481,7 @@ def _assemble_mdg(grids, **kwargs):
 
             # Loop over all lower-dimensional grids; find the cells that had matching
             # faces in hg (should be either none or all the cells).
-            for counter, lg in enumerate(grids[dim + 1]):
+            for counter, lg in enumerate(subdomains[dim + 1]):
                 # Indices of this grid in is_mem and cell_2_face (thanks to the above
                 # expansion, involving tmp)
                 ind = slice(cell_node_offsets[counter], cell_node_offsets[counter + 1])
@@ -501,7 +501,7 @@ def _assemble_mdg(grids, **kwargs):
                     shape=(lg.num_cells, hg.num_faces),
                 )
                 # Add the pairing of subdomains and the cell-face map to the list
-                node_pairs.append((hg, lg), face_cell_map)
+                node_pairs.append(((hg, lg), face_cell_map))
 
     return mdg, node_pairs
 
