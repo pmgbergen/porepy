@@ -135,7 +135,7 @@ def partition_structured(
         xi, yi, zi = np.meshgrid(ind[0], ind[1], ind[2])
         # Combine indices, with appropriate jumps in y and z counting
         glob_dims = xi + yi * coarse_dims[0] + zi * np.prod(coarse_dims[:2])
-        # This just happened to work, may be logical, but the documentanion of
+        # This just happened to work, may be logical, but the documentation of
         # np.meshgrid was hard to comprehend.
         glob_dims = np.swapaxes(np.swapaxes(glob_dims, 1, 2), 0, 1).ravel("C")
 
@@ -146,12 +146,12 @@ def partition_structured(
 def partition_coordinates(
     g: pp.Grid, num_coarse: int, check_connectivity: bool = True
 ) -> np.ndarray:
-    """ "
+    """
     Brute force partitioning of a grid based on cell center coordinates.
 
     The intention at the time of implementation is to provide a partitioning
     for general grids that does not rely on METIS being available. However, if
-    METIS is available, partition_metis should be prefered.
+    METIS is available, partition_metis should be preferred.
 
     The idea is to divide the domain into a coarse Cartesian grid, and then
     assign a coarse partitioning based on the cell center coordinates.
@@ -296,7 +296,7 @@ def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarra
     The target size in general will not be a product of the possible grid
     dimensions (it may be a prime, or it may be outside the bounds [1,
     fine_size]. For concreteness, we seek to have roughly the same number of
-    cells in each directions (given by the Nd-root of the target). If this
+    cells in each direction (given by the Nd-root of the target). If this
     requires more coarse cells in a dimension than there are fine cells there,
     the coarse size is set equal to the fine, and the remaining cells are
     distributed to the other dimensions.
@@ -413,13 +413,16 @@ def extract_subgrid(
     not been tested.
 
     Parameters:
-        g (core.grids.Grid): Grid object, parent
-        c (np.array, dtype=int): Indices of cells to be extracted
-        sort=True (bool): If true c is sorted
-        faces=False (bool): If true c are intrepetred as faces, and the
-                            exptracted grid will be a lower dimensional grid
-                            @pp.time_logger(sections=module_sections)
-                            defined by the these faces
+        g (core.grids.Grid):
+            Grid object, parent
+        c (np.array, dtype=int):
+            Indices of cells to be extracted
+        sort (bool):
+            If true (default), c is sorted
+        faces (bool):
+            If true, c are interpreted as faces, and the
+            extracted grid will be a lower dimensional grid
+            defined by the these faces
         is_planar: (optional) defaults to True. Only used when extracting faces from a
            3d grid. If True the faces f must be planar. Set to False to use this
            function for extracting a non-planar 2D grid, but use at own risk.
@@ -427,7 +430,7 @@ def extract_subgrid(
     Returns:
         Grid: Extracted subgrid. Will share (note, *not* copy)
             geometric fields with the parent grid. Also has an additional
-            field parent_cell_ind giving correspondance between parent and
+            field parent_cell_ind giving correspondence between parent and
             child cells.
         np.ndarray, dtype=int: Index of the extracted faces, ordered so that
             element i is the global index of face i in the subgrid.
@@ -492,7 +495,7 @@ def __extract_submatrix(mat, ind):
     are also returned.
     """
     if mat.getformat() != "csc":
-        raise ValueError("To coulums from a matrix it must be csc")
+        raise ValueError("To extract columns from a matrix, it must be csc")
     sub_mat = pp.matrix_operations.slice_mat(mat, ind)
     cols = sub_mat.indptr
     data = sub_mat.data
@@ -571,8 +574,8 @@ def __extract_cells_from_faces_3d(g, f, is_planar=True):
     is by default assumed to be planar, however, this is mainly because compute_geometry
     does not handle non-planar grids. compute_geometry is used to do a sanity check
     of the extracted grid. if is_planar is set to False, this function should handle
-    non-planar grids, however, this has not been tested thouroghly, and it does not
-    performe the geometric sanity checks.
+    non-planar grids, however, this has not been tested thoroughly, and it does not
+    perform the geometric sanity checks.
 
     Parameters:
     ----------
@@ -639,12 +642,12 @@ def __extract_cells_from_faces_3d(g, f, is_planar=True):
         h.compute_geometry()
         if not np.all(np.isclose(g.face_areas[f], h.cell_volumes)):
             raise AssertionError(
-                """Somethign went wrong in extracting subgrid. Face area of
+                """Something went wrong in extracting subgrid. Face area of
             higher dim is not equal face centers of lower dim grid"""
             )
         if not np.all(np.isclose(g.face_centers[:, f], h.cell_centers)):
             raise AssertionError(
-                """Somethign went wrong in extracting subgrid. Face centers
+                """Something went wrong in extracting subgrid. Face centers
             of higher dim is not equal cell centers of lower dim grid"""
             )
     h.cell_volumes = g.face_areas[f]
@@ -830,7 +833,7 @@ def grid_is_connected(
     is_connected = networkx.is_connected(graph)
 
     # Get the connected components of the network.
-    # networkx gives an generator that produce sets of node indices. Use this
+    # networkx gives a generator that produce sets of node indices. Use this
     # to define a list of numpy arrays.
     component_generator = networkx.connected_components(graph)
     components = [np.array(list(i)) for i in component_generator]

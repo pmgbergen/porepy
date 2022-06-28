@@ -209,7 +209,7 @@ class TetrahedralGrid(Grid):
         """
         Create a tetrahedral grid from a set of point and cells.
 
-        If the cells are not provided a Delaunay tessalation will be
+        If the cells are not provided a Delaunay tesselation will be
         constructed.
 
         Parameters:
@@ -225,8 +225,8 @@ class TetrahedralGrid(Grid):
         # Transform points to column vector if necessary (scipy.Delaunay
         # requires this format)
         if tet is None:
-            tessalation = scipy.spatial.Delaunay(p.transpose())
-            tet = tessalation.simplices.transpose()
+            tesselation = scipy.spatial.Delaunay(p.transpose())
+            tet = tesselation.simplices.transpose()
 
         if name is None:
             name = "TetrahedralGrid"
