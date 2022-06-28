@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def fracture_length_2d(pts, edges):
     """Find the length of 2D fracture traces.
 
-    Parameters:
+    Args:
         pts (np.ndarray, 2 x n_pts): Coordinates of start and endpoints of
             fractures.
         edges (np.ndarary, 2 x n_fracs): Indices of start and endpoint of
@@ -38,7 +38,7 @@ def uniquify_points(pts, edges, tol):
     (either after the points were merged, or because the input was a point
     edge).
 
-    Parameters:
+    Args:
         pts (np.ndarary, n_dim x n_pts): Coordinates of start and endpoints of
             the fractures.
         edges (np.ndarray, n x n_fracs): Indices of start and endpoint of

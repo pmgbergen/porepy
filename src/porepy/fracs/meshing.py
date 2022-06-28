@@ -418,19 +418,19 @@ def _assemble_mdg(
         # the faces of the higher-dimensional grid. If this face-cell intersection
         # is non-empty, there is a coupling will be made between the higher and
         # lower-dimensional grid, and the face-to-cell relation will be saved.
-        for hg in subdomains[dim]:
+        for hsd in subdomains[dim]:
 
             # We have to specify the number of nodes per face to generate a
             # matrix of the nodes of each face.
-            n_per_face = _nodes_per_face(hg)
+            n_per_face = _nodes_per_face(hsd)
 
             # Get the face-node relation for the higher-dimensional grid,
             # stored with one column per face
-            fn_loc = hg.face_nodes.indices.reshape(
-                (n_per_face, hg.num_faces), order="F"
+            fn_loc = hsd.face_nodes.indices.reshape(
+                (n_per_face, hsd.num_faces), order="F"
             )
             # Convert to global numbering
-            fn = hg.global_point_ind[fn_loc]
+            fn = hsd.global_point_ind[fn_loc]
             fn = np.sort(fn, axis=0)
 
             # Get a cell-node relation for the lower-dimensional grids.
@@ -443,7 +443,7 @@ def _assemble_mdg(
 
             # The treatmnet of the lower-dimensional grids is a bit special
             # for point grids (else below)
-            if hg.dim > 1:
+            if hsd.dim > 1:
                 # Data structure for cell-nodes
                 cn = []
                 # Number of cells per grid. Will be used to define offsets
@@ -482,7 +482,7 @@ def _assemble_mdg(
             # Now, for each lower-dimensional grid, either all of none of the cells
             # have been identified as faces in the higher-dimensional grid.
             # (If hg is the highest dimension, there should be a match for all grids
-            # in lg, however, if hg is itself a fracture, lg is an intersection which
+            # in lsd, however, if hsd is itself a fracture, lsd is an intersection which
             # need not involve hg).
 
             # Special treatment if not all cells were found: cell_2_face then only
@@ -499,7 +499,7 @@ def _assemble_mdg(
 
             # Loop over all lower-dimensional grids; find the cells that had matching
             # faces in hg (should be either none or all the cells).
-            for counter, lg in enumerate(subdomains[dim + 1]):
+            for counter, lsd in enumerate(subdomains[dim + 1]):
                 # Indices of this grid in is_mem and cell_2_face (thanks to the above
                 # expansion, involving tmp)
                 ind = slice(cell_node_offsets[counter], cell_node_offsets[counter + 1])
@@ -516,10 +516,10 @@ def _assemble_mdg(
                         np.ones(loc_mem.size, dtype=bool),
                         (np.arange(loc_mem.size), cell_2_face[ind]),
                     ),
-                    shape=(lg.num_cells, hg.num_faces),
+                    shape=(lsd.num_cells, hsd.num_faces),
                 )
                 # Add the pairing of subdomains and the cell-face map to the list
-                node_pairs[(hg, lg)] = face_cell_map
+                node_pairs[(hsd, lsd)] = face_cell_map
 
     return mdg, node_pairs
 
