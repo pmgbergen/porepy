@@ -685,21 +685,21 @@ class FractureNetwork3d(object):
         )
 
         if dfn:
-            grid_list = pp.fracs.simplex.triangle_grid_embedded(file_name)
+            subdomains = pp.fracs.simplex.triangle_grid_embedded(file_name)
         else:
             # Process the gmsh .msh output file, to make a list of grids
-            grid_list = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
+            subdomains = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
                 file_name, constraints
             )
 
         if tags_to_transfer:
-            for id_g, g in enumerate(grid_list[1 - int(dfn)]):
+            for id_g, g in enumerate(subdomains[1 - int(dfn)]):
                 for key in tags_to_transfer:
                     if key not in g.tags:
                         g.tags[key] = self.tags[key][id_g]
 
         # Merge the grids into a mixed-dimensional MixedDimensionalGrid
-        gb = pp.meshing.subdomains_to_mdg(grid_list, **kwargs)
+        gb = pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
         return gb
 
     def prepare_for_gmsh(self, mesh_args, dfn=False, constraints=None) -> GmshData3d:

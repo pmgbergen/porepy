@@ -19,7 +19,7 @@ def network_3d_from_csv(
 
     Lines that start with a # are ignored.
 
-    Parameters:
+    Args:
         file_name (str): path to the csv file
         has_domain (boolean): if the first line in the csv file specify the domain
         tol: (double, optional) geometric tolerance used in the computations.

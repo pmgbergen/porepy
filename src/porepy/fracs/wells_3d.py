@@ -70,7 +70,7 @@ class Well:
     def set_index(self, i: int) -> None:
         """Set index of this fracture.
 
-        Parameters:
+        Args:
             i (int): Index.
 
         """
@@ -105,7 +105,7 @@ class Well:
     def _mesh_size(self, segment_ind: Tuple[int] = None) -> Optional[float]:
         """Return the mesh size for a well or one of its segments.
 
-        Parameters:
+        Args:
             segment_ind (tuple of ints): indices defining the segment.
 
         Can be overwritten to yield well specific or segment specific values.
@@ -198,7 +198,7 @@ class WellNetwork3d:
         The well will be assigned a new index, higher than the maximum
         value currently found in the network.
 
-        Parameters:
+        Args:
             w (Well): Well to be added.
 
         """
@@ -213,7 +213,7 @@ class WellNetwork3d:
     def _mesh_size(self, w: Well, segment_ind: Tuple[int] = None) -> float:
         """Return the mesh size for a well or one of its segments.
 
-        Parameters:
+        Args:
             w (Well): Well for which to access mesh size.
             segment_ind (tuple of ints): indices defining the segment.
 
@@ -389,7 +389,7 @@ def compute_well_fracture_intersections(
     """Compute intersections and store tags identifying which fracture
     and well segments each intersection corresponds.
 
-    Parameters:
+    Args:
         well_network containing the wells, which are assumed to have at least
             two points each (in well.p). Intersection points and tags are added
             and updated in-place.
@@ -451,7 +451,7 @@ def compute_well_rock_matrix_intersections(
     We are assuming convex cells and a single high dimensional grid.
     To speed up the geometrical computation we construct an ADTree.
 
-    Parameters:
+    Args:
         mdg (pp.MixedDimensionalGrid): the mixed-dimensional grid containing all the elements
         cells (np.ndarray, optional): a set of cells that might be considered to construct the
             ADTree. If it is not given the tree is constructed by using all the higher
@@ -565,7 +565,7 @@ def _argsort_points_along_line_segment(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Sort point lying along a segment.
 
-    Parameters:
+    Args:
         seg (array): 3 x npts coordinates of the points to be sorted, assumed
             to lie on a straight line.
 
@@ -606,7 +606,7 @@ def _intersection_segment_fracture(
     tags. If the intersection is on one of the existing points, that point's tag is updated,
     unless ignore_endpoint_tag tag is True (see below).
 
-    Parameters:
+    Args:
         segment_points (array, 3 x npts): coordinates of the points on the line segment,
             sorted as [start, end, *any interior points]
         fracture (pp.Fracture): the fracture to be checked for intersections
@@ -656,7 +656,7 @@ def _intersection_subdomain(
 ) -> pp.PointGrid:
     """Make a point subdomain and add to mdg.
 
-    Parameters:
+    Args:
         point (array, 3 x 1): coordinates.
         mdg: The mixed-dimensional grid.
 
