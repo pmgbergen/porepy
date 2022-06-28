@@ -188,10 +188,10 @@ class ContactModel(pp.ContactMechanics):
         super().__init__(param)
         self._grid_meth = grid_meth
 
-    def _bc_values(self, g):
-        val = np.zeros((g.dim, g.num_faces))
-        tags = g.tags["domain_boundary_faces"]  # + g.tags["domain_boundary_faces"]
-        val[: g.dim, tags] = g.face_centers[: g.dim, tags]
+    def _bc_values(self, sd):
+        val = np.zeros((sd.dim, sd.num_faces))
+        tags = sd.tags["domain_boundary_faces"]  # + g.tags["domain_boundary_faces"]
+        val[: sd.dim, tags] = sd.face_centers[: sd.dim, tags]
         return val.ravel("f")
 
     def create_grid(self):
@@ -223,28 +223,28 @@ class BiotContactModel(pp.ContactMechanicsBiot):
         super().__init__(param)
         self._grid_meth = grid_meth
 
-    def _bc_values_scalar(self, g):
+    def _bc_values_scalar(self, sd):
         # Set pressure values at the domain boundaries.
-        val = np.zeros(g.num_faces)
-        tags = g.tags["domain_boundary_faces"]
-        val[tags] = g.face_centers[: g.dim, tags].sum(axis=0)
+        val = np.zeros(sd.num_faces)
+        tags = sd.tags["domain_boundary_faces"]
+        val[tags] = sd.face_centers[: sd.dim, tags].sum(axis=0)
         return val
 
-    def _bc_values_mechanics(self, g):
+    def _bc_values_mechanics(self, sd):
         # Set displacement values at the domain boundaries.
         # NOTE TO SELF: In a previous version of this test, Dirichlet values were set
         # also on the internal boundary. This, combined with the scaling issue noted
         # below, was sufficient to give mismatch between the Ad and Assembler versions
         # of the code (on Linux, but not on Windows, for some reason). The gut feel is,
         # the scaling issue seem the more likely culprit.
-        val = np.zeros((g.dim, g.num_faces))
-        tags = g.tags["domain_boundary_faces"]
+        val = np.zeros((sd.dim, sd.num_faces))
+        tags = sd.tags["domain_boundary_faces"]
         # IMPLEMENTATION NOTE: If we do not divide by 10 here, a mismatch between the
         # Ad and Assembler code will result for some tests (on Linux, but not on Windows).
         # Dividing by 10 solves the issue. Most likely, but not confirmed, this is
         # caused by a tolerance in the two implementations of the contact mechanics
         # problem, that somehow make the two solutions diverge.
-        val[: g.dim, tags] = g.face_centers[: g.dim, tags] / 10
+        val[: sd.dim, tags] = sd.face_centers[: sd.dim, tags] / 10
 
         return val.ravel("f")
 
@@ -257,7 +257,7 @@ class THMModel(pp.THM):
         super().__init__(param)
         self._grid_meth = grid_meth
 
-    def _scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
+    def _scalar_temperature_coupling_coefficient(self, sd: pp.Grid) -> float:
         """
         TH coupling coefficient.
 
@@ -265,46 +265,46 @@ class THMModel(pp.THM):
         """
         return -1.0e-3
 
-    def _source_scalar(self, g):
-        if g.dim == self._Nd - 1:
+    def _source_scalar(self, sd):
+        if sd.dim == self._Nd - 1:
             val = 1.0
         else:
             val = 0.0
-        return val * g.cell_volumes
+        return val * sd.cell_volumes
 
-    def _source_temperature(self, g):
-        if g.dim == self._Nd - 1:
+    def _source_temperature(self, sd):
+        if sd.dim == self._Nd - 1:
             val = 1.0
         else:
             val = 0.0
-        return val * g.cell_volumes
+        return val * sd.cell_volumes
 
     def create_grid(self):
         create_grid(self)
 
-    def _biot_beta(self, g: pp.Grid) -> Union[float, np.ndarray]:
+    def _biot_beta(self, sd: pp.Grid) -> Union[float, np.ndarray]:
         """
         TM coupling coefficient
         """
-        if g.dim == self._Nd - 1:
+        if sd.dim == self._Nd - 1:
             val = 1
         else:
             val = 0.3
         if self._use_ad:
-            return val * np.ones(g.num_cells)
+            return val * np.ones(sd.num_cells)
         else:
             return val
 
-    def _biot_alpha(self, g: pp.Grid) -> Union[float, np.ndarray]:
+    def _biot_alpha(self, sd: pp.Grid) -> Union[float, np.ndarray]:
         """
         TM coupling coefficient
         """
-        if g.dim == self._Nd - 1:
+        if sd.dim == self._Nd - 1:
             val = 1
         else:
             val = 0.2
         if self._use_ad:
-            return val * np.ones(g.num_cells)
+            return val * np.ones(sd.num_cells)
         else:
             return val
 

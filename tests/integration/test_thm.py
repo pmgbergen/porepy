@@ -296,23 +296,23 @@ class SetupTHM(ProblemDataTime, model.THM):
         self.uy_north = uy_north
         self.scalar_source_value = 0
 
-    def _biot_alpha(self, g):
+    def _biot_alpha(self, sd):
         if hasattr(self, "alpha"):
             return self.alpha
         else:
-            return super()._biot_alpha(g)
+            return super()._biot_alpha(sd)
 
-    def _biot_beta(self, g):
+    def _biot_beta(self, sd):
         if hasattr(self, "beta"):
             return self.beta
         else:
-            return super()._biot_beta(g)
+            return super()._biot_beta(sd)
 
-    def _scalar_temperature_coupling_coefficient(self, g):
+    def _scalar_temperature_coupling_coefficient(self, sd):
         if hasattr(self, "gamma"):
             return self.gamma
         else:
-            return super()._scalar_temperature_coupling_coefficient(g)
+            return super()._scalar_temperature_coupling_coefficient(sd)
 
     def _set_temperature_parameters(self):
         super()._set_temperature_parameters()

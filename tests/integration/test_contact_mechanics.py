@@ -219,32 +219,32 @@ class Model(pp.ContactMechanics):
         self.gb = gb
         self.Nd = gb.dim_max()
 
-    def _bc_values(self, g):
-        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
-        values = np.zeros((g.dim, g.num_faces))
+    def _bc_values(self, sd):
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(sd)
+        values = np.zeros((sd.dim, sd.num_faces))
         values[0, south] = self.ux_south
         values[1, south] = self.uy_south
         values[0, north] = self.ux_north
         values[1, north] = self.uy_north
         return values.ravel("F")
 
-    def _bc_type(self, g):
-        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
-        bc = pp.BoundaryConditionVectorial(g, north + south, "dir")
+    def _bc_type(self, sd):
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, north + south, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the
         # fracture faces.
-        frac_face = g.tags["fracture_faces"]
+        frac_face = sd.tags["fracture_faces"]
         bc.is_neu[:, frac_face] = False
         bc.is_dir[:, frac_face] = True
         return bc
 
-    def _initial_gap(self, g):
-        vals = getattr(self, "initial_gap", np.zeros(g.num_cells))
+    def _initial_gap(self, sd):
+        vals = getattr(self, "initial_gap", np.zeros(sd.num_cells))
         return vals
 
-    def _dilation_angle(self, g):
-        vals = getattr(self, "dilation_angle", 0) * np.ones(g.num_cells)
+    def _dilation_angle(self, sd):
+        vals = getattr(self, "dilation_angle", 0) * np.ones(sd.num_cells)
         return vals
 
 
