@@ -1,7 +1,7 @@
 """
 module for operations on sparse matrices
 """
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -258,7 +258,7 @@ def stack_diag(A: sps.spmatrix, B: sps.spmatrix) -> sps.spmatrix:
 
 def slice_indices(
     A: sps.spmatrix, slice_ind: np.ndarray, return_array_ind: bool = False
-) -> Union[np.ndarray, Tuple[np.ndarray, Union[np.ndarray, slice]]]:
+) -> Union[np.ndarray, tuple[np.ndarray, Union[np.ndarray, slice]]]:
     """
     Function for slicing sparse matrix along rows or columns.
     If A is a csc_matrix A will be sliced along columns, while if A is a
@@ -728,7 +728,7 @@ def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
 
 def block_diag_index(
     m: np.ndarray, n: Optional[np.ndarray] = None
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Get row and column indices for block diagonal matrix
 
@@ -766,7 +766,7 @@ def block_diag_index(
     return i, j
 
 
-def rlencode(A: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def rlencode(A: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Compress matrix by looking for identical columns.
 
     Example usage: Convert a full set of (row or column) indices of a
