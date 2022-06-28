@@ -1,17 +1,14 @@
 """
 Discretization of the source term of an equation tailored for a dual
 (flux-pressure) system. The sources are assigned to the rows starting from
-g.num_faces, that is, to those rows in the saddle point system that represents
+sd.num_faces, that is, to those rows in the saddle point system that represents
 conservation.
 
 """
-
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-
-module_sections = ["numerics", "discretization", "assembly"]
 
 
 class DualScalarSource(pp.numerics.discretization.Discretization):
@@ -24,16 +21,13 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
     rhs = - param.get_source.keyword in a saddle point fashion.
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword="flow"):
         self.keyword = keyword
 
-    @pp.time_logger(sections=module_sections)
-    def ndof(self, g):
-        return g.num_cells + g.num_faces
+    def ndof(self, sd):
+        return sd.num_cells + sd.num_faces
 
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, sd, data):
         """Return the (null) matrix and right-hand side for a discretization of the
         integrated source term. Also discretize the necessary operators if the data
         dictionary does not contain a source term.
@@ -51,10 +45,9 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
             source values are assumed to be integrated over the cell volumes.
 
         """
-        return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
+        return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
 
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, sd, data):
         """Return the (null) matrix and for a discretization of the integrated source
         term. Also discretize the necessary operators if the data dictionary does not
         contain a source term.
@@ -72,14 +65,13 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
 
         return matrix_dictionary["source"]
 
-    @pp.time_logger(sections=module_sections)
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, sd, data):
         """Return the rhs for a discretization of the integrated source term. Also
         discretize the necessary operators if the data dictionary does not contain a
         source term.
 
         Parameters:
-            g (Grid): Computational grid, with geometry fields computed.
+            sd (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
         Returns:
@@ -90,25 +82,24 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
         sources = parameter_dictionary["source"]
-        if not sources.size == g.num_cells:
+        if not sources.size == sd.num_cells:
             raise ValueError("There should be one source value for each cell")
 
         # The sources are assigned to the rows representing conservation.
-        rhs = np.zeros(self.ndof(g))
+        rhs = np.zeros(self.ndof(sd))
         is_p = np.hstack(
-            (np.zeros(g.num_faces, dtype=bool), np.ones(g.num_cells, dtype=bool))
+            (np.zeros(sd.num_faces, dtype=bool), np.ones(sd.num_cells, dtype=bool))
         )
         # A minus sign is apparently needed here to be consistent with the user
         # side convention of the finite volume method
         rhs[is_p] = -sources
         return rhs
 
-    @pp.time_logger(sections=module_sections)
-    def discretize(self, g, data):
+    def discretize(self, sd, data):
         """Discretize an integrated source term.
 
         Parameters:
-            g : grid, or a subclass, with geometry fields computed.
+            sd : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
 
         Stores:
@@ -120,6 +111,6 @@ class DualScalarSource(pp.numerics.discretization.Discretization):
             source values are assumed to be integrated over the cell volumes.
 
         """
-        lhs = sps.csc_matrix((self.ndof(g), self.ndof(g)))
+        lhs = sps.csc_matrix((self.ndof(sd), self.ndof(sd)))
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         matrix_dictionary["source"] = lhs
