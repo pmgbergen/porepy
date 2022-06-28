@@ -91,14 +91,14 @@ class Parameters(Dict):
 
     def __init__(
         self,
-        g: Optional[pp.Grid] = None,
+        g: Optional[GridLike] = None,
         keywords: list[str] = None,
         dictionaries: Optional[list[dict]] = None,
     ):
         """Initialize Data object.
 
         Parameters:
-            g (pp.grid, optional):  Grid where the data is valid. Currently, only number of
+            g (GridLike, optional):  Grid where the data is valid. Currently, only number of
                 cells and faces are accessed.
             keywords: List of keywords to set parameters for. If none is passed, a
                 parameter class without specified keywords is initialized.

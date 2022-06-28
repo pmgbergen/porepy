@@ -79,11 +79,11 @@ GRAVITY_ACCELERATION = 9.80665 * METER / SECOND**2
 CELSIUS = 1.0
 
 
-def CELSIUS_to_KELVIN(celsius):
+def CELSIUS_to_KELVIN(celsius: float) -> float:
     return celsius + 273.15
 
 
-def KELVIN_to_CELSIUS(kelvin):
+def KELVIN_to_CELSIUS(kelvin: float) -> float:
     return kelvin - 273.15
 
 

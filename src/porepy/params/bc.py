@@ -5,9 +5,11 @@ The classes identify faces of a grid which have Dirichlet, Neumann and Robin typ
 boundary conditions. There is one class for scalar problems and one for nd-vectors.
 """
 import warnings
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
+
+import porepy as pp
 
 
 class AbstractBoundaryCondition(object):
@@ -16,7 +18,7 @@ class AbstractBoundaryCondition(object):
     boundary conditions
     """
 
-    def copy(self) -> "AbstractBoundaryCondition":
+    def copy(self):
         """
         Create a deep copy of the boundary condition.
 
@@ -61,7 +63,12 @@ class BoundaryCondition(AbstractBoundaryCondition):
             face i has been assigned a Robin condition.
     """
 
-    def __init__(self, sd: pp.Grid, faces: np.ndarray=None, cond: Optional[Union[list[str], str]] = None):
+    def __init__(
+        self,
+        sd: pp.Grid,
+        faces: np.ndarray = None,
+        cond: Optional[Union[list[str], str]] = None,
+    ):
         """Constructor for BoundaryCondition.
 
         The conditions are specified by face numbers. Faces that do not get an
@@ -216,7 +223,12 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
     """
 
-    def __init__(self, sd: pp.Grid, faces: Optional[np.ndarray] = None, cond: Optional[Union[List[str], str]] = None):
+    def __init__(
+        self,
+        sd: pp.Grid,
+        faces: Optional[np.ndarray] = None,
+        cond: Optional[Union[List[str], str]] = None,
+    ):
         """Constructor for BoundaryConditionVectorial.
 
         The conditions are specified by face numbers. Faces that do not get an
@@ -358,7 +370,9 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                     raise ValueError(f"Unknown boundary condition {s}")
 
 
-def face_on_side(sd: pp.Grid, side: Union[list[str], str], tol: float=1e-8) -> list[np.ndarray]:
+def face_on_side(
+    sd: pp.Grid, side: Union[list[str], str], tol: float = 1e-8
+) -> list[np.ndarray]:
     """Find faces on specified sides of a subdomain.
 
     It is assumed that the grid forms a box in 2d or 3d.
