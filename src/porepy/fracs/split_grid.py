@@ -1,7 +1,7 @@
 """
 Module for splitting a grid at the fractures.
 """
-from typing import List, Optional
+from typing import List, Tuple, Optional
 
 import networkx as nx
 import numpy as np
@@ -13,16 +13,16 @@ from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
 
 
-def split_fractures(bucket, **kwargs):
+def split_fractures(mdg : pp.MixedDimensionalGrid, sd_pairs: List[Tuple[Tuple[pp.Grid, pp.Grid], sps.spmatrix]], **kwargs,):
     """
-    Wrapper function to split all fractures. For each grid in the bucket,
+    Wrapper function to split all fractures. For each grid in the mdg,
     we locate the corresponding lower-dimensional grids. The faces and
     nodes corresponding to these grids are then split, creating internal
     boundaries.
 
     Parameters
     ----------
-    bucket    - A grid bucket
+    mdg    - A mixed-dimensional grid
     **kwargs:
         offset    - FLOAT, defaults to 0. Will perturb the nodes around the
                     faces that are split. NOTE: this is only for visualization.
@@ -30,7 +30,7 @@ def split_fractures(bucket, **kwargs):
 
     Returns
     -------
-    bucket    - A valid bucket where the faces are split at
+    mdg    - A valid mdg where the faces are split at
                 internal boundaries.
 
 
@@ -44,25 +44,33 @@ def split_fractures(bucket, **kwargs):
     >>> f_set = [f_1, f_2]
     >>> domain = {'xmin': -2, 'xmax': 2,
             'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax': 2}
-    >>> bucket = meshing.create_grid(f_set, domain)
-    >>> [g.compute_geometry() for g,_ in bucket]
+    >>> mdg = meshing.create_grid(f_set, domain)
+    >>> [g.compute_geometry() for g,_ in mdg]
     >>>
-    >>> split_grid.split_fractures(bucket, offset=0.1)
-    >>> export_vtk(bucket, "grid")
+    >>> split_grid.split_fractures(mdg, offset=0.1)
+    >>> export_vtk(mdg, "grid")
     """
 
     offset = kwargs.get("offset", 0)
 
-    # For each vertex in the bucket we find the corresponding lower-
+    # For each vertex in the mdg we find the corresponding lower-
     # dimensional grids.
-    for gh, _ in bucket:
+    for gh in mdg.subdomains():
         # add new field to grid
         gh.frac_pairs = np.zeros((2, 0), dtype=np.int32)
         if gh.dim < 1:
             # Nothing to do. We can not split 0D grids.
             continue
         # Find connected vertices and corresponding edges.
-        neigh = np.array(bucket.node_neighbors(gh))
+        
+        neigh_col = []
+        for pair in sd_pairs:
+            if gh in pair:
+                neigh_col += list(pair)
+        
+        neigh = set(neigh_col).difference(gh)
+        
+        # neigh = np.array(mdg.neighboring_subdomains(gh))
 
         # Find the neighbours that are lower dimensional
         is_low_dim_grid = np.where([w.dim < gh.dim for w in neigh])
@@ -71,15 +79,15 @@ def split_fractures(bucket, **kwargs):
             # No lower dim grid. Nothing to do.
             continue
 
-        face_cells = [bucket.edge_props(e, "face_cells") for e in edges]
+        face_cells = [mdg.edge_props(e, "face_cells") for e in edges]
         # We split all the faces that are connected to a lower-dim grid.
         # The new faces will share the same nodes and properties (normals,
         # etc.)
         face_cells = split_faces(gh, face_cells)
 
         for e, f in zip(edges, face_cells):
-            bucket.add_edge_props("face_cells", [e])
-            bucket.edge_props(e)["face_cells"] = f
+            mdg.add_edge_props("face_cells", [e])
+            mdg.edge_props(e)["face_cells"] = f
 
         # We now find which lower-dim nodes correspond to which higher-
         # dim nodes. We split these nodes according to the topology of
@@ -98,9 +106,9 @@ def split_fractures(bucket, **kwargs):
 
     # Remove zeros from cell_faces
 
-    [g.cell_faces.eliminate_zeros() for g, _ in bucket]
-    [g.update_boundary_node_tag() for g, _ in bucket]
-    return bucket
+    [g.cell_faces.eliminate_zeros() for g, _ in mdg]
+    [g.update_boundary_node_tag() for g, _ in mdg]
+    return mdg
 
 
 def split_faces(gh, face_cells):

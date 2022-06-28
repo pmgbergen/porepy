@@ -348,14 +348,14 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
         gmsh.finalize()
 
     if dim == 2:
-        grids = pp.fracs.simplex.triangle_grid_from_gmsh(out_file, **kwargs)
+        subdomains = pp.fracs.simplex.triangle_grid_from_gmsh(out_file, **kwargs)
     elif dim == 3:
-        grids = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
+        subdomains = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
             file_name=out_file, **kwargs
         )
     else:
         raise ValueError(f"Unknown dimension, dim: {dim}")
-    return pp.meshing.grid_list_to_mdg(grids, **kwargs)
+    return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
 
 def dfm_3d_from_fab(

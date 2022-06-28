@@ -269,7 +269,7 @@ class FractureNetwork2d(object):
                         g.tags[key] = self.tags[key][frac][idg]
 
         # Assemble in grid bucket
-        return pp.meshing.grid_list_to_mdg(grid_list, **kwargs)
+        return pp.meshing.subdomains_to_mdg(grid_list, **kwargs)
 
     def prepare_for_gmsh(
         self,
