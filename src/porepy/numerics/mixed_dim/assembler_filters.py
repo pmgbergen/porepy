@@ -30,7 +30,7 @@ class AssemblerFilter(abc.ABC):
     @abc.abstractmethod
     def filter(
         self,
-        grids: Optional[List[grid_like_type]] = None,
+        grids: Optional[grid_like_type] = None,
         variables: Optional[List[str]] = None,
         terms: Optional[List[str]] = None,
     ) -> bool:
@@ -60,7 +60,7 @@ class AllPassFilter(AssemblerFilter):
 
     def filter(
         self,
-        grids: Optional[List[grid_like_type]] = None,
+        grids: Optional[grid_like_type] = None,
         variables: Optional[List[str]] = None,
         terms: Optional[List[str]] = None,
     ) -> bool:
@@ -71,12 +71,12 @@ class AllPassFilter(AssemblerFilter):
         assembler to implement partial discretization or assembly.
 
         Parameters:
-            grid: Grid-like quantity found in a pp.MixedDimensionalGrid.
+            grids: Grid-like quantity found in a pp.MixedDimensionalGrid.
                 Can be either a Grid (MixedDimensionalGrid subdomain), an interface
                 (a MixedDimensionalGrid interface), or a combination of two
                 neighboring grids and an interface.
             variables: A variable, or a list of variables.
-            term: List of terms for discretizations. See Assembler for further
+            terms: List of terms for discretizations. See Assembler for further
                 explanation.
 
         Returns:
@@ -90,9 +90,9 @@ class ListFilter(AssemblerFilter):
     """Filter based on lists of (generalized) grids, variables and terms.
 
     The filter is initialized with lists of grids (specification below),
-    variabels and terms that should pass the filter. The filter function will pass a
+    variables and terms that should pass the filter. The filter function will pass a
     combination of a grid, a set of variables and a term if they are all found
-    in the lists of acceptables.
+    in the lists of acceptable combinations.
 
     If a list of grids, variables and/or  terms are not provided at the time of
     initialization, all objects of this the unspecified type will pass the filter.
@@ -100,7 +100,7 @@ class ListFilter(AssemblerFilter):
     becomes an AllPassFilter.
 
     NOTE: If a list (say of grids) is given as an empty list, the filter will become
-    no-pass fliterThis is to cover cases where dimension-filtering on grids in a
+    no-pass filter. This is to cover cases where dimension-filtering on grids in a
     MixedDimensionalGrid returns a empty list, which should result in no-pass,
     not all-pass behavior. The behavior for variable and term lists is similar.
 
@@ -119,7 +119,7 @@ class ListFilter(AssemblerFilter):
 
     def __init__(
         self,
-        grid_list: Optional[List[grid_like_type]] = None,
+        grid_list: Optional[grid_like_type] = None,
         variable_list: Optional[List[str]] = None,
         term_list: Optional[List[str]] = None,
     ) -> None:
@@ -184,14 +184,14 @@ class ListFilter(AssemblerFilter):
         See class documentation for how to use the filter.
 
         Parameters:
-            grid: Grid-like quantity found in a pp.MixedDimensionalGrid.
+            grids: Grid-like quantity found in a pp.MixedDimensionalGrid.
                 Can be either a Grid (MixedDimensionalGrid subdomain), an interface
                 (a MixedDimensionalGrid interface), or a combination of two
                 neighboring grids and an interface.
             variables: A variable, or a list of variables. A list will be passed
                 for off-diagonal terms (internal to subdomains or interfaces), and for
                 coupling terms.
-            term: Term for a discretization. See Assembler for further explanation.
+            terms: Term for a discretization. See Assembler for further explanation.
 
         Returns:
             boolean: True if the grid-variable-term combination passes the filter.
