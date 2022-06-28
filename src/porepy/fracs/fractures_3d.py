@@ -699,7 +699,7 @@ class FractureNetwork3d(object):
                         g.tags[key] = self.tags[key][id_g]
 
         # Merge the grids into a mixed-dimensional MixedDimensionalGrid
-        gb = pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
+        gb = pp.meshing.grid_list_to_mdg(grid_list, **kwargs)
         return gb
 
     def prepare_for_gmsh(self, mesh_args, dfn=False, constraints=None) -> GmshData3d:

@@ -324,7 +324,7 @@ class WellNetwork3d:
                 g_w = pp.TensorGrid(np.arange(points_subline.shape[1]))
                 g_w.nodes = points_subline.copy()
                 g_w.compute_geometry()
-                gb.add_nodes(g_w)
+                gb.add_subdomains(g_w)
                 g_w.well_num = well_num
                 g_w.name += " well " + str(well_num)
                 g_w.tags["parent_well_index"] = w.index
@@ -661,7 +661,7 @@ def _intersection_grid(point: np.ndarray, gb: pp.MixedDimensionalGrid) -> pp.Poi
     g = pp.PointGrid(point)
     g.history.append("Well-fracture intersection grid")
     g.compute_geometry()
-    gb.add_nodes(g)
+    gb.add_subdomains(g)
     return g
 
 
