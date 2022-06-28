@@ -102,13 +102,13 @@ class MixedDimensionalGrid:
                 return_data = True.
 
         """
-        for grid in self._subdomain_data:
+        for grid, data in self._subdomain_data.items():
             # Filter on dimension if requested.
             if dim is not None and dim != grid.dim:
                 continue
 
             if return_data:
-                yield grid, self._subdomain_data[grid]
+                yield grid, data
             else:
                 yield grid
 
@@ -150,13 +150,13 @@ class MixedDimensionalGrid:
                 return_data = True.
 
         """
-        for intf in self.interfaces:
+        for intf, data in self._interface_data.items():
             # Filter on dimension if requested.
             if dim is not None and dim != intf.dim:
                 continue
 
             if return_data:
-                yield intf, self._interface_data[intf]
+                yield intf, data
             else:
                 yield intf
 
@@ -191,7 +191,7 @@ class MixedDimensionalGrid:
                 self.assign_subdomain_ordering()
 
             subdomain_indexes = [
-                self.subdomain_data(grid, "node_number") for grid in subdomains
+                self.node_number(sd) for sd in subdomains
             ]
             if subdomain_indexes[0] < subdomain_indexes[1]:
                 return subdomain_indexes[0], subdomain_indexes[1]
@@ -431,7 +431,7 @@ class MixedDimensionalGrid:
 
     # ---------- Functionality related to ordering of subdomains
 
-    def node_number(self, sd: pp.Grid):
+    def node_number(self, sd: pp.Grid) -> int:
         """Return node number of a subdomain.
 
         If no node ordering exists, the method calls assign_subdomain_ordering
@@ -476,7 +476,7 @@ class MixedDimensionalGrid:
 
         # Check whether 'node_number' is defined for the grids already.
         ordering_exists = True
-        for _, data in self._subdomain_data:
+        for data in self._subdomain_data.values():
             if "node_number" not in data:
                 ordering_exists = False
         if ordering_exists and not overwrite_existing:
@@ -544,7 +544,7 @@ class MixedDimensionalGrid:
         """
         assert all(["node_number" in self._subdomain_data[sd] for sd in subdomains])
 
-        return sorted(subdomains, key=lambda n: self.subdomain_data(n, "node_number"))
+        return sorted(subdomains, key=lambda n: self.node_number(n))
 
     # ------------- Miscellaneous functions ---------
 
@@ -601,22 +601,23 @@ class MixedDimensionalGrid:
         # projections will be updated twice.
 
         # refine the mortar grids when specified
-        for intf_old, intf_new in intf_map.items():
+        if intf_map is not None:
+            for intf_old, intf_new in intf_map.items():
 
-            # Update interface data.
-            data = self.interface_data(intf_old)
-            self._interface_data[intf_new] = data
+                # Update interface data.
+                data = self.interface_data(intf_old)
+                self._interface_data[intf_new] = data
 
-            # Update mapping from interface to neighboring subdomains.
-            sd_pair = self.interface_to_subdomain_pair[intf_new]
-            self._interface_to_subdomains[intf_new] = sd_pair
+                # Update mapping from interface to neighboring subdomains.
+                sd_pair = self.interface_to_subdomain_pair[intf_new]
+                self._interface_to_subdomains[intf_new] = sd_pair
 
-            # Delete information on old interface.
-            del self._interface_data[intf_old]
-            del self._interface_to_subdomains[intf_old]
+                # Delete information on old interface.
+                del self._interface_data[intf_old]
+                del self._interface_to_subdomains[intf_old]
 
-            # Update mortar projections
-            intf_old.update_mortar(intf_new, tol)
+                # Update mortar projections
+                intf_old.update_mortar(intf_new, tol)
 
         # update the mixed-dimensional considering the new grids instead of the old one.
         if sd_map is not None:
@@ -643,7 +644,7 @@ class MixedDimensionalGrid:
                     elif sd_pair[1] == sd_old:
                         self._interface_to_subdomains[intf] = (sd_pair[0], sd_new)
                         # This is the secondary subdomain for the interface.
-                        intf.update_secondary(sd_new, sd_old, tol)
+                        intf.update_secondary(sd_new, tol)
 
     # ----------- Apply functions to subdomains and interfaces
 
@@ -690,7 +691,7 @@ class MixedDimensionalGrid:
         idx = 0
         for intf, data in self.interfaces(return_data=True):
 
-            sd_primary, sd_secondary = self.subdomains_of_interface(intf)
+            sd_primary, sd_secondary = self.interface_to_subdomain_pair(intf)
             data_primary = self.subdomain_data(sd_primary)
             data_secondary = self.subdomain_data(sd_secondary)
 
@@ -785,7 +786,7 @@ class MixedDimensionalGrid:
             [grid.num_cells for grid in self.subdomains() if cond(grid)], dtype=int
         )
 
-    def num_interface_cells(self, cond: Callable[[pp.Grid], bool] = None) -> int:
+    def num_interface_cells(self, cond: Callable[[pp.MortarGrid], bool] = None) -> int:
         """
         Compute the total number of mortar cells of the mixed-dimensional grid.
 
@@ -824,11 +825,11 @@ class MixedDimensionalGrid:
         return len(self._interface_data)
 
     def __str__(self) -> str:
-        max_dim = self.subdomains_of_dimension(self.dim_max())
-        num_subdomain_data = 0
+        max_dim = self.subdomains(dim=self.dim_max())
+        num_nodes = 0
         num_cells = 0
         for sd in max_dim:
-            num_subdomain_data += sd.num_subdomain_data
+            num_nodes += sd.num_nodes
             num_cells += sd.num_cells
         s = (
             "Mixed-dimensional grid. \n"
@@ -836,7 +837,7 @@ class MixedDimensionalGrid:
             f"Minimum dimension present: {self.dim_min()} \n"
         )
         s += "Size of highest dimensional grid: Cells: " + str(num_cells)
-        s += ". Nodes: " + str(num_subdomain_data) + "\n"
+        s += ". Nodes: " + str(num_nodes) + "\n"
         s += "In lower dimensions: \n"
         for dim in range(self.dim_max() - 1, self.dim_min() - 1, -1):
             num_nodes = 0
@@ -846,14 +847,14 @@ class MixedDimensionalGrid:
                 num_cells += sd.num_cells
 
             s += (
-                f"{len(self.subdomains(dim=dim))} grids of dimension {dim}, with in "
+                f"{len(list(self.subdomains(dim=dim)))} grids of dimension {dim}, with in "
                 f"total {num_cells} cells and {num_nodes} nodes. \n"
             )
 
         s += f"Total number of interfaces: {self.num_subdomains()}\n"
         for dim in range(self.dim_max(), self.dim_min(), -1):
             num_e = 0
-            for intf in self.interfaces(dim=dim):
+            for _ in self.interfaces(dim=dim):
                 num_e += 1
 
             s += f"{num_e} interfaces between grids of dimension {dim} and {dim-1}\n"
@@ -869,25 +870,25 @@ class MixedDimensionalGrid:
 
         if self.num_subdomains() > 0:
             for dim in range(self.dim_max(), self.dim_min() - 1, -1):
-                gl = self.subdomains_of_dimension(dim)
                 nc = 0
-                for g in gl:
-                    nc += g.num_cells
+                num_sd = 0
+                for sd in self.subdomains(dim=dim):
+                    num_sd += 1
+                    nc += sd.num_cells
                 s += (
-                    f"{len(gl)} grids of dimension {dim}" f" with in total {nc} cells\n"
+                    f"{num_sd} grids of dimension {dim}" f" with in total {nc} cells\n"
                 )
         if self.num_interfaces() > 0:
             for dim in range(self.dim_max(), self.dim_min(), -1):
-                num_e = 0
-                num_mc = 0
-                for mg in self.interfaces():
-                    if mg.dim == dim:
-                        num_e += 1
-                        num_mc += mg.num_cells
+                num_intf = 0
+                num_intf_cells = 0
+                for intf in self.interfaces(dim=dim):
+                    num_intf += 1
+                    num_intf_cells += intf.num_cells
 
                 s += (
-                    f"{num_e} interfaces between grids of dimension {dim} and {dim-1}"
-                    f" with in total {num_mc} mortar cells\n"
+                    f"{num_intf} interfaces between grids of dimension {dim} and {dim-1}"
+                    f" with in total {num_intf_cells} mortar cells\n"
                 )
 
         return s
