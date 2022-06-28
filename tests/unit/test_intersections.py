@@ -419,7 +419,7 @@ class SurfaceTesselation(unittest.TestCase):
         p1 = [np.array([[0, 1, 0], [0, 0, 1]])]
         p2 = [np.array([[0, 1, 0], [0, 1, 1]])]
 
-        isect, mappings = pp.intersections.surface_tesselations([p1, p2])
+        isect, mappings = pp.intersections.surface_tessellations([p1, p2])
 
         known_isect = np.array([[0, 0.5, 0], [0, 0.5, 1]])
 
@@ -435,7 +435,7 @@ class SurfaceTesselation(unittest.TestCase):
         p1 = [np.array([[0, 1, 0], [0, 0, 1]])]
         p2 = [np.array([[0, 1, 0], [1, 1, 2]])]
 
-        isect, mappings = pp.intersections.surface_tesselations([p1, p2])
+        isect, mappings = pp.intersections.surface_tessellations([p1, p2])
 
         # Mappings are both identity mappings
 
@@ -448,7 +448,7 @@ class SurfaceTesselation(unittest.TestCase):
         p1 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]])]
         p2 = [np.array([[0, 1, 0], [0, 1, 2]])]
 
-        isect, mappings = pp.intersections.surface_tesselations([p1, p2])
+        isect, mappings = pp.intersections.surface_tessellations([p1, p2])
 
         known_isect = np.array([[0, 1, 0], [0, 1, 1]])
 
@@ -464,7 +464,7 @@ class SurfaceTesselation(unittest.TestCase):
         p1 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]])]
         p2 = [np.array([[0, 1, 1, 0.5, 0], [0, 0, 1, 0.5, 1]])]
 
-        isect, mappings = pp.intersections.surface_tesselations([p1, p2])
+        isect, mappings = pp.intersections.surface_tessellations([p1, p2])
 
         known_isect = p2[0]
 
@@ -481,7 +481,7 @@ class SurfaceTesselation(unittest.TestCase):
         # second is a single triangle
         p2 = [np.array([[0, 1, 0], [0, 1, 2]])]
 
-        isect, mappings = pp.intersections.surface_tesselations([p1, p2])
+        isect, mappings = pp.intersections.surface_tessellations([p1, p2])
 
         # intersection is split in two
         known_isect = [
@@ -518,7 +518,7 @@ class SurfaceTesselation(unittest.TestCase):
             np.array([[0, -1, 0], [0, 1, 2]]),
         ]
 
-        isect, mappings = pp.intersections.surface_tesselations([p1, p2])
+        isect, mappings = pp.intersections.surface_tessellations([p1, p2])
         # No need to test intersection points, they are identical with
         # self.test_two_tessalations_one_with_two_cells()
 
@@ -533,7 +533,7 @@ class SurfaceTesselation(unittest.TestCase):
         # A third, with a single triangle
         p3 = [np.array([[0, 1, 0], [0, 0, 1]])]
 
-        isect, mappings = pp.intersections.surface_tesselations([p1, p2, p3])
+        isect, mappings = pp.intersections.surface_tessellations([p1, p2, p3])
 
         self.assertTrue(len(isect) == 1)
         self.assertTrue(
@@ -559,7 +559,7 @@ class SurfaceTesselation(unittest.TestCase):
         # Second is unit square
         p2 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]])]
 
-        isect, mappings = pp.intersections.surface_tesselations(
+        isect, mappings = pp.intersections.surface_tessellations(
             [p1, p2], return_simplexes=True
         )
 
@@ -607,7 +607,7 @@ class SurfaceTesselation(unittest.TestCase):
         p2 = [np.array([[0, 1, 1, 0.5, 0], [0, 0, 1, 0.5, 1]])]
 
         self.assertRaises(
-            NotImplementedError, pp.intersections.surface_tesselations, [p1, p2], True
+            NotImplementedError, pp.intersections.surface_tessellations, [p1, p2], True
         )
 
 
