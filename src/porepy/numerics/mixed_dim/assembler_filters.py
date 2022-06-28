@@ -144,7 +144,7 @@ class ListFilter(AssemblerFilter):
             self._grid_filter = return_true
 
         else:
-            if len(grid_list) == 0:
+            if isinstance(grid_list, list) and len(grid_list) == 0:
                 # This is considered a no-pass filter.
                 # This will for instance be the case if a MixedDimensionalGrid is filtered
                 # on a dimension that is not present (will return an empty list)
@@ -175,7 +175,7 @@ class ListFilter(AssemblerFilter):
 
     def filter(
         self,
-        grids: Optional[List[grid_like_type]] = None,
+        grids: Optional[grid_like_type] = None,
         variables: Optional[List[str]] = None,
         terms: Optional[List[str]] = None,
     ):
