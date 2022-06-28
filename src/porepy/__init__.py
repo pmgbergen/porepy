@@ -41,8 +41,6 @@ except:
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
 
-from porepy.utils.logging import *
-
 from porepy.utils.common_constants import *
 
 
