@@ -7,7 +7,7 @@ The module is intended to give access to a set of unified
 To access the quantities, invoke pp.KEY.
 
 IMPLEMENTATION NOTE: This module may in the future be moved to an appropriate
-submodule. The access via pp.will remain.
+submodule. The access via pp. will remain.
 
 """
 
@@ -23,7 +23,7 @@ DISCRETIZATION = "discretization"
 # between grids and mortar grids
 COUPLING_DISCRETIZATION = "coupling_discretization"
 
-# Used in data dictionary to declear and keep track of primary variables
+# Used in data dictionary to declare and keep track of primary variables
 PRIMARY_VARIABLES = "primary_variables"
 
 # Used in data dictionary to store parameters for discretizations
