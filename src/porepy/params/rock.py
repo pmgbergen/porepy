@@ -6,35 +6,36 @@ moduli etc.
 Note that thermal expansion coefficients are linear (m/mK) for rocks, but
 volumetric (m^3/m^3) for fluids.
 """
+from typing import Optional
+
 import porepy as pp
 
 module_sections = ["parameters"]
 
 
-def poisson_from_lame(mu, lmbda):
-    """Compute Poisson's ratio from Lame parameters
+def poisson_from_lame(mu: float, lmbda: float) -> float:
+    """Compute Poisson's ratio from Lamé parameters.
 
     Parameters:
-        mu (double): first Lame parameter
-        lmbda (double): Second Lame parameter
+        mu (float): shear modulus (second Lamé parameter)
+        lmbda (float): first Lamé parameter
 
     Returns:
-        double: Poisson's ratio
+        float: Poisson's ratio
 
     """
     return lmbda / (2 * (mu + lmbda))
 
 
-def lame_from_young_poisson(e, nu):
-    """Compute Lame parameters from Young's modulus and Poisson's ratio.
+def lame_from_young_poisson(e: float, nu: float) -> tuple(float, float):
+    """Compute Lamé parameters from Young's modulus and Poisson's ratio.
 
     Parameters:
-        e (double): Young's modulus
-        nu (double): Poisson's ratio
+        e (float): Young's modulus
+        nu (float): Poisson's ratio
 
     Returns:
-        double: First Lame parameter
-        double: Second Lame parameter / shear modulus
+        tuple(float, float): pair of first Lamé parameter and shear modulus
 
     """
     lmbda = e * nu / ((1 + nu) * (1 - 2 * nu))
@@ -43,30 +44,30 @@ def lame_from_young_poisson(e, nu):
     return lmbda, mu
 
 
-def young_from_lame(lmbda, mu):
+def young_from_lame(lmbda: float, mu: float) -> float:
     """
     Compute Young's modulus from Lamé parameters.
 
     Parameters:
-        lmbda (double): First Lame parameter
-        mu: Second Lame parameter / shear modulus
+        lmbda (float): First Lamé parameter
+        mu: Shear modulus (second Lamé parameter)
 
     Returns:
-        double: Young's modulus
+        float: Young's modulus
     """
     return mu * (3 * lmbda + 2 * mu) / (lmbda + mu)
 
 
-def bulk_from_lame(lmbda, mu):
+def bulk_from_lame(lmbda: float, mu: float) -> float:
     """
     Compute bulk modulus from Lamé parameters.
 
     Parameters:
-        lmbda (double): First Lame parameter
-        mu: Second Lame parameter / shear modulus
+        lmbda (float): First Lamé parameter
+        mu: Shear modulus (second Lamé parameter)
 
     Returns:
-        double: bulk modulus
+        float: bulk modulus
     """
     return lmbda + 2 / 3 * mu
 
@@ -75,12 +76,12 @@ class UnitRock(object):
     """Mother of all rocks, all values are unity.
 
     Attributes:
-        PERMEABILITY:
-        POROSITY:
-        LAMBDA: First Lame parameter
-        MU: Second lame parameter / shear modulus
+        PERMEABILITY: Permeability
+        POROSITY: Porosity
+        LAMBDA: First Lamé parameter
+        MU: Shear modulus / Second Lamé parameter
         YOUNG_MODULUS: Young's modulus
-        POISSON_RATIO:
+        POISSON_RATIO: Poisson's ratio
 
     """
 
@@ -99,10 +100,25 @@ class UnitRock(object):
         else:
             self.theta_ref = theta_ref
 
-    def specific_heat_capacity(self, _):
+    def specific_heat_capacity(self, theta: Optional[float] = None) -> float:
+        """Determines specific heat capacity.
+
+        Arguments:
+            theta (float, optional): temperature
+
+        Returns:
+            float: specific heat capacity
+        """
         return 1.0
 
-    def thermal_conductivity(self, theta=None):
+    def thermal_conductivity(self, _) -> float:
+        """Return themal conductivity.
+
+        May depend on temperature, but currently is fixed.
+
+        Returns:
+            float: thermal conductivity
+        """
         return 1.0
 
 
@@ -114,7 +130,12 @@ class SandStone(UnitRock):
 
     """
 
-    def __init__(self, theta_ref=None):
+    def __init__(self, theta_ref: Optional[float] = None):
+        """Initialize material parameters for sand stone.
+
+        Parameters:
+            theta_ref (float, optional): reference temperature in Celsius
+        """
 
         # Fairly permeable rock.
         self.PERMEABILITY = 1 * pp.DARCY
@@ -134,7 +155,15 @@ class SandStone(UnitRock):
 
         self.DENSITY = 2650 * pp.KILOGRAM / pp.METER**3
 
-    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
+    def specific_heat_capacity(self, theta: Optional[float] = None) -> float:
+        """Determines specific heat capacity of sandstone.
+
+        Arguments:
+            theta (float, optional): temperature
+
+        Returns:
+            float: specific heat capacity
+        """
         if theta is None:
             theta = self.theta_ref
         c_ref = 823.82
@@ -152,7 +181,12 @@ class Shale(UnitRock):
 
     """
 
-    def __init__(self, theta_ref=None):
+    def __init__(self, theta_ref: Optional[float] = None):
+        """Initialize material parameters for shale.
+
+        Parameters:
+            theta_ref (float, optional): reference temperature in Celsius
+        """
         # No source for permeability and porosity.
         self.PERMEABILITY = 1e-5 * pp.DARCY
         self.POROSITY = 0.01
@@ -172,7 +206,15 @@ class Shale(UnitRock):
 
         self.DENSITY = 2650 * pp.KILOGRAM / pp.METER**3
 
-    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
+    def specific_heat_capacity(self, theta: Optional[float] = None) -> float:
+        """Determines specific heat capacity of shale.
+
+        Arguments:
+            theta (float, optional): temperature
+
+        Returns:
+            float: specific heat capacity
+        """
         if theta is None:
             theta = self.theta_ref
         c_ref = 794.37
@@ -189,7 +231,12 @@ class Granite(UnitRock):
     https://www.jsg.utexas.edu/tyzhu/files/Some-Useful-Numbers.pdf
     """
 
-    def __init__(self, theta_ref=None):
+    def __init__(self, theta_ref: Optional[float] = None):
+        """Initialize material parameters for granite.
+
+        Parameters:
+            theta_ref (float, optional): reference temperature in Celsius
+        """
         # No source for permeability and porosity
         self.PERMEABILITY = 1e-8 * pp.DARCY
         self.POROSITY = 0.01
@@ -211,7 +258,16 @@ class Granite(UnitRock):
         else:
             self.theta_ref = theta_ref
 
-    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
+    def specific_heat_capacity(self, theta: Optional[float] = None) -> float:
+        """Determines specific heat capacity of granite.
+
+        Arguments:
+            theta (float, optional): temperature
+
+        Returns:
+            float: specific heat capacity
+        """
+
         if theta is None:
             theta = self.theta_ref
         c_ref = 790.0
@@ -219,5 +275,13 @@ class Granite(UnitRock):
         theta_ref = 0
         return c_ref + eta * (theta - theta_ref)
 
-    def thermal_conductivity(self, theta=None):
+    def thermal_conductivity(self, theta: Optional[float] = None) -> float:
+        """Return themal conductivity of granite.
+
+        Parameters:
+            theta (float, optional): temperature in Celsius (not used)
+
+        Returns:
+            float: thermal conductivity
+        """
         return 3.07
