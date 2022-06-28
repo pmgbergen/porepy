@@ -220,11 +220,13 @@ class EllipticDiscretization(Discretization):
         sd_data: Dict,
         intf: pp.MortarGrid,
         intf_data: Dict,
-        cc: Optional[np.ndarray],
+        cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
         use_secondary_proj: bool = False,
+        assemble_matrix=True,
+        assemble_rhs=True,
     ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
@@ -371,7 +373,12 @@ class EllipticDiscretization(Discretization):
 
     @abstractmethod
     def enforce_neumann_int_bound(
-        self, sd: pp.Grid, intf_data: Dict, matrix: np.ndarray, self_ind: int
+        self,
+        sd: pp.Grid,
+        intf: pp.MortarGrid,
+        intf_data: Dict,
+        matrix: np.ndarray,
+        self_ind: int,
     ) -> None:
         """Enforce Neumann boundary conditions on a given system matrix.
 

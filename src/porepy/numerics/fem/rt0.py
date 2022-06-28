@@ -2,30 +2,20 @@
 """
 @author: fumagalli, alessio
 """
-
-import logging
-from typing import Dict
-
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
-# Module-wide logger
-logger = logging.getLogger(__name__)
-module_sections = ["numerics", "discretization"]
-
 
 class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
-    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
-        super(RT0, self).__init__(keyword, "RT0")
+        super().__init__(keyword, "RT0")
         # variable name to store the structure that map a cell to the opposite nodes
         # of the local faces
         self.cell_face_to_opposite_node = "rt0_class_cell_face_to_opposite_node"
 
-    @pp.time_logger(sections=module_sections)
-    def discretize(self, g: pp.Grid, data: Dict) -> None:
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
         """Discretize a second order elliptic equation using using a RT0-P0 method.
 
         We assume the following two sub-dictionaries to be present in the data
@@ -43,9 +33,9 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
                 aperture scalings etc.
 
         matrix_dictionary will be updated with the following entries:
-            mass: sps.csc_matrix (g.num_faces, g.num_faces)
+            mass: sps.csc_matrix (sd.num_faces, sd.num_faces)
                 The mass matrix.
-            div: sps.csc_matrix (g.num_cells, g.num_faces)
+            div: sps.csc_matrix (sd.num_cells, sd.num_faces)
                 The divergence matrix.
 
         Optional parameter:
@@ -60,13 +50,13 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Get dictionary for discretization matrix storage
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # If a 0-d grid is given then we return an identity matrix
-        if g.dim == 0:
-            mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
+        if sd.dim == 0:
+            mass = sps.dia_matrix(([1], 0), (sd.num_faces, sd.num_faces))
             matrix_dictionary[self.mass_matrix_key] = mass
             matrix_dictionary[self.div_matrix_key] = sps.csr_matrix(
-                (g.num_faces, g.num_cells)
+                (sd.num_faces, sd.num_cells)
             )
-            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, g.num_cells))
+            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, sd.num_cells))
             return
 
         # Get dictionary for parameter storage
@@ -74,7 +64,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Retrieve the permeability
         k = parameter_dictionary["second_order_tensor"]
 
-        faces, cells, sign = sps.find(g.cell_faces)
+        faces, cells, sign = sps.find(sd.cell_faces)
         index = np.argsort(cells)
         faces, sign = faces[index], sign[index]
 
@@ -82,14 +72,14 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         # surface coordinates in 1d and 2d)
         deviation_from_plane_tol = data.get("deviation_from_plane_tol", 1e-5)
         c_centers, f_normals, f_centers, R, dim, node_coords = pp.map_geometry.map_grid(
-            g, deviation_from_plane_tol
+            sd, deviation_from_plane_tol
         )
 
-        node_coords = node_coords[: g.dim, :]
+        node_coords = node_coords[: sd.dim, :]
 
         if not data.get("is_tangential", False):
             # Rotate the permeability tensor and delete last dimension
-            if g.dim < 3:
+            if sd.dim < 3:
                 k = k.copy()
                 k.rotate(R)
                 remove_dim = np.where(np.logical_not(dim))[0]
@@ -97,42 +87,42 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
                 k.values = np.delete(k.values, (remove_dim), axis=1)
 
         # Allocate the data to store matrix A entries
-        size_A = np.power(g.dim + 1, 2) * g.num_cells
+        size_A = np.power(sd.dim + 1, 2) * sd.num_cells
         rows_A = np.empty(size_A, dtype=int)
         cols_A = np.empty(size_A, dtype=int)
         data_A = np.empty(size_A)
         idx_A = 0
 
         # Allocate the data to store matrix P entries
-        size_P = 3 * (g.dim + 1) * g.num_cells
+        size_P = 3 * (sd.dim + 1) * sd.num_cells
         rows_P = np.empty(size_P, dtype=int)
         cols_P = np.empty(size_P, dtype=int)
         data_P = np.empty(size_P)
         idx_P = 0
         idx_row_P = 0
 
-        size_HB = g.dim * (g.dim + 1)
+        size_HB = sd.dim * (sd.dim + 1)
         HB = np.zeros((size_HB, size_HB))
-        for it in np.arange(0, size_HB, g.dim):
+        for it in np.arange(0, size_HB, sd.dim):
             HB += np.diagflat(np.ones(size_HB - it), it)
         HB += HB.T
-        HB /= g.dim * g.dim * (g.dim + 1) * (g.dim + 2)
+        HB /= sd.dim * sd.dim * (sd.dim + 1) * (sd.dim + 2)
 
         # define the function to compute the inverse of the permeability matrix
-        if g.dim == 1:
+        if sd.dim == 1:
             inv_matrix = self._inv_matrix_1d
-        elif g.dim == 2:
+        elif sd.dim == 2:
             inv_matrix = self._inv_matrix_2d
-        elif g.dim == 3:
+        elif sd.dim == 3:
             inv_matrix = self._inv_matrix_3d
 
         # compute the oppisite node per face
-        self._compute_cell_face_to_opposite_node(g, data)
+        self._compute_cell_face_to_opposite_node(sd, data)
         cell_face_to_opposite_node = data[self.cell_face_to_opposite_node]
 
-        for c in np.arange(g.num_cells):
+        for c in np.arange(sd.num_cells):
             # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+            loc = slice(sd.cell_faces.indptr[c], sd.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
             # get the opposite node id for each face
@@ -141,11 +131,11 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
             # Compute the H_div-mass local matrix
             A = RT0.massHdiv(
-                inv_matrix(k.values[0 : g.dim, 0 : g.dim, c]),
-                g.cell_volumes[c],
+                inv_matrix(k.values[0 : sd.dim, 0 : sd.dim, c]),
+                sd.cell_volumes[c],
                 coord_loc,
                 sign[loc],
-                g.dim,
+                sd.dim,
                 HB,
             )
 
@@ -177,7 +167,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # Construct the global matrices
         mass = sps.coo_matrix((data_A, (rows_A, cols_A)))
-        div = -g.cell_faces.T
+        div = -sd.cell_faces.T
         proj = sps.coo_matrix((data_P, (rows_P, cols_P)))
 
         matrix_dictionary[self.mass_matrix_key] = mass
@@ -185,7 +175,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         matrix_dictionary[self.vector_proj_key] = proj
 
     @staticmethod
-    @pp.time_logger(sections=module_sections)
     def massHdiv(
         inv_K: np.ndarray,
         c_volume: float,
@@ -198,7 +187,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         Parameters
         ----------
-        K : ndarray (g.dim, g.dim)
+        K : ndarray (sd.dim, sd.dim)
             Permeability of the cell.
         c_volume : scalar
             Cell volume.
@@ -227,7 +216,6 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         return np.dot(C.T, np.dot(N.T, np.dot(HB, np.dot(inv_K_exp, np.dot(N, C)))))
 
     @staticmethod
-    @pp.time_logger(sections=module_sections)
     def faces_to_cell(
         pt: np.ndarray,
         coord: np.ndarray,
@@ -256,9 +244,8 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         P[dim, :] = c_delta / np.einsum("ij,ij->j", f_delta, f_normals)
         return np.dot(R.T, P)
 
-    @pp.time_logger(sections=module_sections)
     def _compute_cell_face_to_opposite_node(
-        self, g: pp.Grid, data: Dict, recompute: bool = False
+        self, sd: pp.Grid, data: dict, recompute: bool = False
     ) -> None:
         """Compute a map that given a face return the node on the opposite side,
         typical request of a Raviart-Thomas approximation.
@@ -279,19 +266,19 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         if not (data.get(self.cell_face_to_opposite_node, None) is None or recompute):
             return
 
-        faces, cells, _ = sps.find(g.cell_faces)
+        faces, cells, _ = sps.find(sd.cell_faces)
         faces = faces[np.argsort(cells)]
 
         # initialize the map
-        cell_face_to_opposite_node = np.empty((g.num_cells, g.dim + 1), dtype=int)
+        cell_face_to_opposite_node = np.empty((sd.num_cells, sd.dim + 1), dtype=int)
 
-        nodes, _, _ = sps.find(g.face_nodes)
-        indptr = g.face_nodes.indptr
+        nodes, _, _ = sps.find(sd.face_nodes)
+        indptr = sd.face_nodes.indptr
 
         # loop on all the cells to construct the map
-        for c in np.arange(g.num_cells):
+        for c in np.arange(sd.num_cells):
             # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+            loc = slice(sd.cell_faces.indptr[c], sd.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
             # get the local nodes, face based
