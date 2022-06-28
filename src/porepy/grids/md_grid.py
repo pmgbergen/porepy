@@ -168,7 +168,7 @@ class MixedDimensionalGrid:
         """Obtain the subdomains of an interface.
 
         The subdomains will be given in descending order with respect their
-        dimension. If the interface is between grids of the same dimension, the subdomain
+        dimension. If the interface is between grids of the same dimension, ascending subdomain
         ordering (as defined by assign_subdomain_ordering()) is used. If no ordering
         of subdomain exists, assign_subdomain_ordering() will be called by this method.
 
@@ -194,9 +194,9 @@ class MixedDimensionalGrid:
                 self.node_number(sd) for sd in subdomains
             ]
             if subdomain_indexes[0] < subdomain_indexes[1]:
-                return subdomain_indexes[0], subdomain_indexes[1]
+                return subdomains[0], subdomains[1]
             else:
-                return subdomain_indexes[1], subdomain_indexes[0]
+                return subdomains[1], subdomains[0]
 
         elif subdomains[0].dim > subdomains[1].dim:
             return subdomains[0], subdomains[1]
