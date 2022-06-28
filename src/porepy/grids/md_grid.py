@@ -73,11 +73,14 @@ class MixedDimensionalGrid:
         # Note that the order of the overloaded methods is important, the version
         # with the default argument must come first. See
         # https://docs.python.org/3/library/typing.html#typing.overload
+        # Also, it is important to have the default argument included here (e.g.,
+        # include all of 'return_data: Literal[False] = False'), but not include it in
+        # the below declaration, where the non-default option is handled.
         ...
 
     @overload
     def subdomains(
-        self, return_data: Literal[True] = True, dim: Optional[int] = None
+        self, return_data: Literal[True], dim: Optional[int] = None
     ) -> Generator[Tuple[pp.Grid, Dict], None, None]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
@@ -124,7 +127,7 @@ class MixedDimensionalGrid:
 
     @overload
     def interfaces(
-        self, return_data: Literal[True] = True, dim: Optional[int] = None
+        self, return_data: Literal[True], dim: Optional[int] = None
     ) -> Generator[Tuple[pp.MortarGrid, Dict], None, None]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
