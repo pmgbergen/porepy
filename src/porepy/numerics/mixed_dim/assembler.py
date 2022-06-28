@@ -16,7 +16,9 @@ GridVariableTerm = namedtuple("GridVariableTerm", ["grid", "row", "col", "term"]
 GridVariableTerm.__doc__ += (
     "Combinations of grids variables and terms found in MixedDimensionalGrid"
 )
-GridVariableTerm.grid.__doc__ = "Item in MixedDimensionalGrid. Can be subdomain or interface."
+GridVariableTerm.grid.__doc__ = (
+    "Item in MixedDimensionalGrid. Can be subdomain or interface."
+)
 GridVariableTerm.row.__doc__ = "Variable name of the row for this term."
 GridVariableTerm.col.__doc__ = (
     "Variable name of the column for this term. "
@@ -261,12 +263,12 @@ class Assembler:
             ]
 
             grid_list: List[grid_list_type] = [g for g in self.mdg.subdomains()]
-            
+
             for intf in self.mdg.interfaces():
                 grid_list += [intf]
                 sd_pair = self.mdg.interface_to_subdomain_pair(intf)
                 grid_list += [(sd_pair[0], sd_pair[1], intf)]
-            
+
             variable_list: List[str] = []
             term_list: List[str] = []
 
@@ -308,7 +310,9 @@ class Assembler:
             # subdomains is marked for update
             if (
                 not (
-                    update_grid[sd_primary] or update_grid[sd_secondary] or update_interface
+                    update_grid[sd_primary]
+                    or update_grid[sd_secondary]
+                    or update_interface
                 )
                 and (sd_primary, sd_secondary, intf) in grid_set
             ):
@@ -316,7 +320,7 @@ class Assembler:
 
         # Create a new filter with only grids marked for update.
         new_filt = pp.assembler_filters.ListFilter(
-            grid_list=list(grid_set), variable_list=variable_list, term_list=term_list
+            grid_list=grid_set, variable_list=variable_list, term_list=term_list
         )
 
         self._operate_on_mdg(operation="update_discretization", filt=new_filt)
@@ -394,7 +398,9 @@ class Assembler:
             raise ValueError("Unknown mdg operation " + str(operation))
 
         # First take care of operations internal to subdomains and interfaces
-        self._operate_on_subdomains_and_interfaces(filt, operation, matrix, rhs, **extra_args)
+        self._operate_on_subdomains_and_interfaces(
+            filt, operation, matrix, rhs, **extra_args
+        )
 
         # Next, handle coupling over interfaces
         self._operate_on_interface_coupling(
@@ -566,8 +572,8 @@ class Assembler:
                 continue
 
             sd_primary, sd_secondary, intf = combination.coupling
-            data_secondary = self.mdg.subdomain_data( sd_secondary)
-            data_primary = self.mdg.subdomain_data( sd_primary)
+            data_secondary = self.mdg.subdomain_data(sd_secondary)
+            data_primary = self.mdg.subdomain_data(sd_primary)
             data_intf = self.mdg.interface_data(intf)
 
             term_key = combination.term
@@ -581,7 +587,7 @@ class Assembler:
             intf_idx: int = self._dof_manager.block_dof[(intf, intf_var_key)]
 
             # Get variable name and block index of the primary grid variable.
-            primary_vals: Tuple[str, str] = coupling.get( sd_primary, None)
+            primary_vals: Tuple[str, str] = coupling.get(sd_primary, None)
             if primary_vals is None:
                 # An empty identifying string will create no problems below.
                 primary_var_key = ""
@@ -599,7 +605,7 @@ class Assembler:
 
                 # Global index associated with the primary variable
                 primary_idx = self._dof_manager.block_dof.get(
-                    ( sd_primary, primary_var_key)
+                    (sd_primary, primary_var_key)
                 )
 
                 # Also define the key to access the matrix of the discretization of
@@ -608,7 +614,7 @@ class Assembler:
                     primary_term_key, primary_var_key, primary_var_key
                 )
             # Do similar operations for the secondary variable.
-            secondary_vals: Tuple[str, str] = coupling.get( sd_secondary, None)
+            secondary_vals: Tuple[str, str] = coupling.get(sd_secondary, None)
             if secondary_vals is None:
                 secondary_var_key = ""
                 secondary_term_key = ""
@@ -621,7 +627,7 @@ class Assembler:
                 secondary_var_key, secondary_term_key = secondary_vals
 
                 secondary_idx = self._dof_manager.block_dof.get(
-                    ( sd_secondary, secondary_var_key)
+                    (sd_secondary, secondary_var_key)
                 )
                 # Also define the key to access the matrix of the discretization of
                 # the secondary variable on the secondary subdomain.
@@ -643,12 +649,20 @@ class Assembler:
             if primary_idx is not None and secondary_idx is not None:
                 if operation == "discretize":
                     intf_discr.discretize(
-                        sd_primary, sd_secondary, data_primary, data_secondary, data_intf
+                        sd_primary,
+                        sd_secondary,
+                        data_primary,
+                        data_secondary,
+                        data_intf,
                     )
 
                 elif operation == "update_discretization":
                     intf_discr.discretize(
-                        sd_primary, sd_secondary, data_primary, data_secondary, data_intf
+                        sd_primary,
+                        sd_secondary,
+                        data_primary,
+                        data_secondary,
+                        data_intf,
                     )
 
                 elif operation == "assemble":
@@ -850,9 +864,7 @@ class Assembler:
             # These restrictions may be loosened somewhat in the future, but a
             # general coupling between different interfaces will not be implemented.
             if operation == "assemble" and intf_discr.intf_coupling_via_high_dim:
-                for other_intf in self.mdg.subdomain_to_interfaces(
-                    sd_primary
-                ):
+                for other_intf in self.mdg.subdomain_to_interfaces(sd_primary):
 
                     # Skip the case where the primary and secondary interface is the same
                     if other_intf == intf:
@@ -892,7 +904,7 @@ class Assembler:
                     # Associate the first variable with primary, the second with
                     # secondary, and the final with interface.
                     data_other = self.mdg.interface_data(other_intf)
-                    
+
                     if assemble_matrix:
                         idx = np.array([primary_idx, intf_idx, oi])
                         loc_mat, _ = self._assign_matrix_vector(
@@ -935,9 +947,7 @@ class Assembler:
                     rhs[mat_key][intf_idx] += loc_rhs[1]  # type:ignore
 
             if operation == "assemble" and intf_discr.intf_coupling_via_low_dim:
-                for other_intf in self.mdg.subdomain_to_interfaces(
-                    sd_secondary
-                ):
+                for other_intf in self.mdg.subdomain_to_interfaces(sd_secondary):
 
                     # Skip the case where the primary and secondary interface is the same
                     if other_intf == intf:
@@ -970,7 +980,7 @@ class Assembler:
                     # Associate the first variable with primary, the second with
                     # secondary, and the final with interface.
                     data_other = self.mdg.interface_data(other_intf)
-                    
+
                     idx = np.array([secondary_idx, intf_idx, oi])
                     loc_mat, _ = self._assign_matrix_vector(
                         self._dof_manager.full_dof[idx],
@@ -1238,7 +1248,7 @@ class Assembler:
                 individual blocks in the matrix.
 
         Returns:
-            dict: Global system matrices, on block form (one per subdomain/interface 
+            dict: Global system matrices, on block form (one per subdomain/interface
                 per variable). There is one item per term (e.g. diffusion/advection)
                 per variable.
             dict: Right hand sides. Similar to the system matrix.
@@ -1410,9 +1420,7 @@ class Assembler:
         """
         return self._dof_manager.num_dofs()
 
-    def variables_of_grid(
-        self, g: Union[pp.Grid, pp.MortarGrid]
-    ) -> List[str]:
+    def variables_of_grid(self, g: Union[pp.Grid, pp.MortarGrid]) -> List[str]:
         """Get all variables defined for a given subdomain or interface.
 
         Args:
@@ -1486,7 +1494,9 @@ class Assembler:
                 )  # for each interface of that grid
                 if self.mdg.interface_to_subdomain_pair(mg)[1]
                 == g  # such that the interface neighbors a lower-dimensional subdomain
-                for var in self.variables_of_grid(mg)  # get all variables on that interface
+                for var in self.variables_of_grid(
+                    mg
+                )  # get all variables on that interface
             }
 
             s += (

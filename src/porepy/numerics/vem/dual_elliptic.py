@@ -474,7 +474,7 @@ class DualElliptic(
         data: dict,
         intf: pp.MortarGrid,
         data_edge: dict,
-        cc: np.ndarray,
+        cc: Optional[np.ndarray],
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,
@@ -519,6 +519,8 @@ class DualElliptic(
             proj = intf.mortar_to_primary_int()
 
         hat_E_int = self._velocity_dof(sd, intf, proj)
+
+        assert cc is not None
 
         cc[2, self_ind] -= hat_E_int.T * matrix[self_ind, self_ind]
         cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int

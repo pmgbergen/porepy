@@ -366,6 +366,7 @@ class FVElliptic(pp.EllipticDiscretization):
                 proj_int = intf.mortar_to_primary_int()
 
         if assemble_matrix:
+            assert cc is not None
             cc[2, self_ind] += (
                 proj * matrix_dictionary[self.bound_pressure_cell_matrix_key]
             )
