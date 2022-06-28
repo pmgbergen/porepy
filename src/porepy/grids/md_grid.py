@@ -578,19 +578,24 @@ class MixedDimensionalGrid:
         self,
         sd_map: Optional[Dict[pp.Grid, pp.Grid]] = None,
         intf_map: Optional[
-            Dict[pp.MortarGrid, Dict[mortar_grid.MortarSides, pp.Grid]]
+            Dict[
+                pp.MortarGrid,
+                Union[pp.MortarGrid, Dict[mortar_grid.MortarSides, pp.Grid]],
+            ]
         ] = None,
         tol: float = 1e-6,
     ) -> None:
         """Replace grids and / or mortar grids in the mixed-dimensional grid.
 
         Args:
-            sd_map (dictionary): Mapping between the old and new grids. Keys are
+            sd_map (dict): Mapping between the old and new grids. Keys are
                 the old grids, and values are the new grids.
-            intf_map (dictionary): Mapping between the old mortar grid and new
+            intf_map (dict): Mapping between the old mortar grid and new
                 (side grids of the) mortar grid. Keys are the old mortar grids,
                 and values are dictionaries with side grid number as keys, and
-                side grids as values.
+                side grids as values. Optionally, the mapping can be directly from old
+                to new MortarGrid (sometimes it is easier to construct the new
+                MortarGrid right away, before replacing it in the mixed-dimensional grid.
             tol (float): Geometric tolerance used when updating mortar projections.
 
         """
@@ -608,20 +613,16 @@ class MixedDimensionalGrid:
         if intf_map is not None:
             for intf_old, intf_new in intf_map.items():
 
-                # Update interface data.
-                data = self.interface_data(intf_old)
-                self._interface_data[intf_new] = data
+                # Update the mortar grid. The update_mortar function in class MortarGrid
+                # performs the update in place, thus the mortar grid will not be
+                # modified in the mixed-dimensional grid itself (thus no changes to
+                # self._interface_data or self._interface_to_subdomains)
+                if isinstance(intf_new, pp.MortarGrid):
+                    side_grids = intf_new.side_grids
+                else:
+                    side_grids = intf_new
 
-                # Update mapping from interface to neighboring subdomains.
-                sd_pair = self.interface_to_subdomain_pair[intf_new]
-                self._interface_to_subdomains[intf_new] = sd_pair
-
-                # Delete information on old interface.
-                del self._interface_data[intf_old]
-                del self._interface_to_subdomains[intf_old]
-
-                # Update mortar projections
-                intf_old.update_mortar(intf_new, tol)
+                intf_old.update_mortar(side_grids, tol)
 
         # update the mixed-dimensional considering the new grids instead of the old one.
         if sd_map is not None:
