@@ -27,7 +27,7 @@ def poisson_from_lame(mu: float, lmbda: float) -> float:
     return lmbda / (2 * (mu + lmbda))
 
 
-def lame_from_young_poisson(e: float, nu: float) -> tuple(float, float):
+def lame_from_young_poisson(e: float, nu: float) -> tuple[float, float]:
     """Compute Lamé parameters from Young's modulus and Poisson's ratio.
 
     Parameters:

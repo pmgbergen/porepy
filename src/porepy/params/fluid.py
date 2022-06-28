@@ -189,9 +189,10 @@ class Water(UnitFluid):
         """
         if theta is None:
             theta = self.theta_ref
+
         theta = pp.CELSIUS_to_KELVIN(theta)
         mu_0 = 2.414 * 1e-5 * (pp.PASCAL * pp.SECOND)
-        return mu_0 * np.power(10, 247.8 / (theta - 140))
+        return mu_0 * np.power(10, 247.8 / (theta - 140.))
 
     def hydrostatic_pressure(
         self, depth: float, theta: Optional[float] = None
