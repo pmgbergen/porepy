@@ -62,6 +62,8 @@ whereas data such as BC values are stored similarly to in the Parameters class, 
 
 data[pp.STATE][keyword]["bc_values"].
 """
+from __future__ import annotations
+
 import numbers
 import warnings
 from typing import Dict, Optional, Union
@@ -70,9 +72,6 @@ import numpy as np
 
 import porepy as pp
 import porepy.params.parameter_dictionaries as dicts
-
-module_sections = ["parameters"]
-GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
 class Parameters(Dict):
@@ -91,14 +90,14 @@ class Parameters(Dict):
 
     def __init__(
         self,
-        g: Optional[GridLike] = None,
+        g: Optional[Union[pp.Grid, pp.MortarGrid]] = None,
         keywords: list[str] = None,
         dictionaries: Optional[list[dict]] = None,
     ):
         """Initialize Data object.
 
         Parameters:
-            g (GridLike, optional):  Grid where the data is valid. Currently, only number of
+            g ( Union[pp.Grid, pp.MortarGrid], optional):  Grid where the data is valid. Currently, only number of
                 cells and faces are accessed.
             keywords: List of keywords to set parameters for. If none is passed, a
                 parameter class without specified keywords is initialized.
@@ -249,7 +248,7 @@ new Parameters class.
 
 
 def initialize_default_data(
-    grid: GridLike,
+    grid: Union[pp.Grid, pp.MortarGrid],
     data: dict,
     parameter_type: str,
     specified_parameters: dict = None,
@@ -262,7 +261,7 @@ def initialize_default_data(
     set of "basic" parameters, depending on the type chosen.
 
     Args:
-        grid (GridLike): The grid. Can be either standard grid, or mortar grid.
+        grid ( Union[pp.Grid, pp.MortarGrid]): The grid. Can be either standard grid, or mortar grid.
         data: Outer data dictionary, to which the parameters will be added.
         parameter_type: Which type of parameters to use for the default assignment.
             Must be one of the following:
@@ -298,7 +297,7 @@ def initialize_default_data(
 
 
 def initialize_data(
-    grid: GridLike,
+    grid: Union[pp.Grid, pp.MortarGrid],
     data: dict,
     keyword: str,
     specified_parameters: Optional[dict] = None,
@@ -310,7 +309,7 @@ def initialize_data(
     in data, the new keyword is added using the update_dictionaries method.
 
     Parameters:
-        grid (GridLike): The grid. Can be either standard grid, or mortar grid.
+        grid ( Union[pp.Grid, pp.MortarGrid]): The grid. Can be either standard grid, or mortar grid.
         data (dict): Outer data dictionary, to which the parameters will be added.
         keyword (str): String identifying the parameters.
         specified_parameters (dict): A dictionary with specified parameters, defaults to

@@ -21,7 +21,6 @@ from porepy.utils.derived_discretizations import implicit_euler as IE_discretiza
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
-module_sections = ["models", "numerics"]
 
 
 class ContactMechanicsBiotAdObjects(

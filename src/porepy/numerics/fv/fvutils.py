@@ -647,7 +647,7 @@ def scalar_tensor_vector_prod(
     Returns:
         nk: sub-face wise product of normal vector and permeability tensor.
         cell_node_blocks pairings of node and cell indices, which together
-            @pp.time_logger(sections=module_sections)
+
             define a sub-cell.
         sub_cell_ind: index of all subcells
     """

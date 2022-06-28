@@ -2,13 +2,15 @@
 Discretization of the source term of an equation for FV methods.
 """
 from __future__ import annotations
+
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.discretization import Discretization
 
 
-class ScalarSource(pp.numerics.discretization.Discretization):
+class ScalarSource(Discretization):
     """
     Discretization of the integrated source term
     int q * dx
@@ -22,7 +24,7 @@ class ScalarSource(pp.numerics.discretization.Discretization):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
-        Paramemeters:
+        Parameters:
             keyword (str): Identifier of all information used for this
                 discretization.
         """

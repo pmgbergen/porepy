@@ -71,7 +71,7 @@ def match_1d(
     # Compute the intersection between the two tessellations.
     # intersect is a list, every list member is a tuple with overlapping
     # cells in grid 1 and 2, and their common area.
-    intersect = pp.intersections.line_tesselation(p_new, p_old, lines_new, lines_old)
+    intersect = pp.intersections.line_tessellation(p_new, p_old, lines_new, lines_old)
 
     num = len(intersect)
     new_g_ind = np.zeros(num, dtype=int)

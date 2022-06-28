@@ -9,8 +9,6 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-module_sections = ["numerics"]
-
 
 class ImplicitMassMatrix(pp.MassMatrix):
     """
@@ -18,7 +16,6 @@ class ImplicitMassMatrix(pp.MassMatrix):
     pp.STATE field of the data dictionary.
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword="flow", variable="pressure"):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization. The time discretization also
@@ -31,7 +28,6 @@ class ImplicitMassMatrix(pp.MassMatrix):
         super().__init__(keyword)
         self.variable = variable
 
-    @pp.time_logger(sections=module_sections)
     def assemble_rhs(self, g, data):
         """Overwrite MassMatrix method to return the correct rhs for an IE time
         discretization, e.g. of the Biot problem.
@@ -47,7 +43,6 @@ class ImplicitMpfa(pp.Mpfa):
     Multiply all contributions by the time step.
     """
 
-    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(self, g, data):
         """Overwrite MPFA method to be consistent with the Biot dt convention."""
         a, b = super().assemble_matrix_rhs(g, data)
@@ -56,7 +51,6 @@ class ImplicitMpfa(pp.Mpfa):
         b = b * dt
         return a, b
 
-    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_flux(
         self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
     ):
@@ -91,7 +85,6 @@ class ImplicitMpfa(pp.Mpfa):
 
         cc[self_ind, 2] += dt * div * bound_flux * proj
 
-    @pp.time_logger(sections=module_sections)
     def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.

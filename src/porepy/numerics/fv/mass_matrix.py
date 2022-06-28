@@ -24,9 +24,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.discretization import Discretization
 
 
-class MassMatrix(pp.numerics.discretization.Discretization):
+class MassMatrix(Discretization):
     """Class that provides the discretization of a L2-mass bilinear form with constant
     test and trial functions.
     """
@@ -35,7 +36,7 @@ class MassMatrix(pp.numerics.discretization.Discretization):
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
-        Paramemeters:
+        Parameters:
             keyword (str): Identifier of all information used for this
                 discretization.
         """

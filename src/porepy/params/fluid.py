@@ -5,13 +5,13 @@ Contains standard values (e.g. found in Wikipedia) for density, thermal properti
 Note that thermal expansion coefficients are linear (m/mK) for rocks, but
 volumetric (m^3/m^3K) for fluids.
 """
+from __future__ import annotations
+
 from typing import Optional
 
 import numpy as np
 
 import porepy as pp
-
-module_sections = ["parameters"]
 
 
 class UnitFluid(object):
@@ -192,7 +192,7 @@ class Water(UnitFluid):
 
         theta = pp.CELSIUS_to_KELVIN(theta)
         mu_0 = 2.414 * 1e-5 * (pp.PASCAL * pp.SECOND)
-        return mu_0 * np.power(10, 247.8 / (theta - 140.))
+        return mu_0 * np.power(10, 247.8 / (theta - 140.0))
 
     def hydrostatic_pressure(
         self, depth: float, theta: Optional[float] = None

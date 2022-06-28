@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import Dict, List, Optional, Tuple, Union, Sequence
-
-from typing import Literal
+from typing import Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -33,7 +31,7 @@ class DofManager:
             Tuple[pp.MortarGrid, str] for edges in the MixedDimensionalGrid.
             The values in block_dof are integers 0, 1, ..., that identify the block
             index of this specific grid (or edge) - variable combination.
-        
+
         full_dof: Is a np.ndarray of int that stores the number of degrees of
             freedom per key-item pair in block_dof. Thus
               len(full_dof) == len(block_dof).
@@ -336,10 +334,9 @@ class DofManager:
         dofs = np.empty(0, dtype=int)
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
 
-        grids: Sequence[GridLike] = (
-            [sd for sd in self.mdg.subdomains()] 
-            + [intf for intf in self.mdg.interfaces()]  # type: ignore
-            )
+        grids: Sequence[GridLike] = [sd for sd in self.mdg.subdomains()] + [
+            intf for intf in self.mdg.interfaces()
+        ]  # type: ignore
         for g in grids:
             for v in var:
                 if (g, v) in self.block_dof:

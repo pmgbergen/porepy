@@ -41,13 +41,12 @@ import scipy.sparse as sps
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
+from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
 logger = logging.getLogger(__name__)
 
 
-class ColoumbContact(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class ColoumbContact(AbstractInterfaceLaw):
     def __init__(self, keyword: str, ambient_dimension: int, discr_h) -> None:
         self.keyword = keyword
 
@@ -670,9 +669,7 @@ def set_projections(
         d_l["tangential_normal_projection"] = projection
 
 
-class ContactTraction(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class ContactTraction(AbstractInterfaceLaw):
     """Discretization class for obtaining contact traction from contact force.
 
     Contact force is the primary variable used in the Model classes. However,

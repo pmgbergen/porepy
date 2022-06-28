@@ -10,9 +10,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 
-class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
+class MVEM(DualElliptic):
     """Implementation of the lowest order mixed virtual element method for scalar
     elliptic equations.
     """

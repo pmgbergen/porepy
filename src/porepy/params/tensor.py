@@ -1,17 +1,12 @@
-# -*- coding: utf-8 -*-
 """
-Created on Sat Feb 27 20:22:25 2016
-
-@author: keile
-
 The tensor module contains classes for second and fourth order tensors,
 intended e.g. for representation of permeability and stiffness, respectively.
 """
+from __future__ import annotations
+
 from typing import Optional
 
 import numpy as np
-
-module_sections = ["parameters"]
 
 
 class SecondOrderTensor(object):
@@ -19,7 +14,7 @@ class SecondOrderTensor(object):
     denotes the number of cells, i.e. the tensor values are stored discretely.
 
     The permeability is always 3-dimensional (since the geometry is always 3D),
-    however, 1D and 2D problems are accomodated by assigning unit values to kzz
+    however, 1D and 2D problems are accommodated by assigning unit values to kzz
     and kyy, and no cross terms.
     """
 

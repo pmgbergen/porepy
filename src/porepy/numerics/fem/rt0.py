@@ -1,14 +1,11 @@
-# -*- coding: utf-8 -*-
-"""
-@author: fumagalli, alessio
-"""
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 
-class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
+class RT0(DualElliptic):
     def __init__(self, keyword: str) -> None:
         super().__init__(keyword, "RT0")
         # variable name to store the structure that map a cell to the opposite nodes
@@ -16,7 +13,7 @@ class RT0(pp.numerics.vem.dual_elliptic.DualElliptic):
         self.cell_face_to_opposite_node = "rt0_class_cell_face_to_opposite_node"
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
-        """Discretize a second order elliptic equation using using a RT0-P0 method.
+        """Discretize a second order elliptic equation using a RT0-P0 method.
 
         We assume the following two sub-dictionaries to be present in the data
         dictionary:

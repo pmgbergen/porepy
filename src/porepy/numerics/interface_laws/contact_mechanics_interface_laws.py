@@ -14,14 +14,12 @@ import scipy.sparse as sps
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
+from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
 logger = logging.getLogger(__name__)
-module_sections = ["numerics"]
 
 
-class PrimalContactCoupling(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class PrimalContactCoupling(AbstractInterfaceLaw):
     """Implement the coupling conditions for the pure mechanics problem.
 
     The primary variables for this formulation are displacement in the ambient dimension,
@@ -363,9 +361,7 @@ class PrimalContactCoupling(
         return matrix, rhs
 
 
-class MatrixScalarToForceBalance(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class MatrixScalarToForceBalance(AbstractInterfaceLaw):
     """
     This class adds the matrix scalar (pressure) contribution to the force balance posed
     on the mortar grid by PrimalContactCoupling.
@@ -501,9 +497,7 @@ class MatrixScalarToForceBalance(
         return matrix, rhs
 
 
-class FractureScalarToForceBalance(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class FractureScalarToForceBalance(AbstractInterfaceLaw):
     """
     This class adds the fracture pressure contribution to the force balance posed on the
     mortar grid by PrimalContactCoupling and modified to account for matrix pressure by
@@ -626,9 +620,7 @@ class FractureScalarToForceBalance(
         return matrix, rhs
 
 
-class DivUCoupling(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class DivUCoupling(AbstractInterfaceLaw):
     """
     Coupling conditions for DivU term.
 

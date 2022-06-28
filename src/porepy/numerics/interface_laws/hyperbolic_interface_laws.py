@@ -8,11 +8,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
+from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
 
-class UpwindCoupling(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class UpwindCoupling(AbstractInterfaceLaw):
     def __init__(self, keyword: str) -> None:
         super().__init__(keyword)
 

@@ -21,7 +21,6 @@ import numpy as np
 import porepy as pp
 
 logger = logging.getLogger(__name__)
-module_sections = ["models", "numerics"]
 
 
 class AbstractModel:
