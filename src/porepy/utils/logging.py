@@ -8,8 +8,8 @@ heading logging; see sample file below.
 By default, logging is switched off. It can be turned on by setting the keyword
 'active' to True.
 
-Logging can be time consuming if applied to functions called many times: Estimates
-indicate that the writting of the log message for a single function call
+Logging can be time-consuming if applied to functions called many times: Estimates
+indicate that the writing of the log message for a single function call
 takes on the order 1e-5 seconds, but when applied to a function called 1000s of times,
 the cost becomes relevant. To log only parts of the code, all functions are classified
 as relevant for the following (overlapping) categories
@@ -93,7 +93,7 @@ path_length = __file__.split(separator).index("porepy")
 
 # @pp.time_logger
 def time_logger(sections):
-    """A decorator that measures ellapsed time for a function."""
+    """A decorator that measures elapsed time for a function."""
 
     # The double nested function is needed to allow decorators with
     # default arguments (it turned out)
@@ -140,26 +140,3 @@ def time_logger(sections):
         return log_time
 
     return inner_func
-
-
-# trace_logger = logging.getLogger("Trace")
-# trace_logger.setLevel(logging.INFO)
-
-
-# if not trace_logger.hasHandlers():
-#    trace_handler = logging.FileHandler("PorePyTraces.log")
-#    trace_handler.setLevel(logging.INFO)
-#    trace_formatter = logging.Formatter("%(message)s")
-#    trace_handler.setFormatter(trace_formatter)
-#    trace_logger.addHandler(trace_handler)
-
-
-# def trace(func):
-#    @functools.wraps(func)
-#    def analyze_args(*args, **kwargs):
-#        msg = f"Calling function {func.__name__}\n"
-#        for a in args:
-#            if isinstance(a, np.ndarray):
-#                s = f"\t numpy array of shape {a.shape} and type {a.dtype}"
-#            elif isinstance(a, sps.spmatrix):
-#                s = f"\t sparse matrix of shape {a.shape} with {a.data.size} nonzeros"
