@@ -175,7 +175,7 @@ def network_2d_from_csv(
 ):
     """Read csv file with fractures to obtain fracture description.
 
-    Create the grid bucket from a set of fractures stored in a csv file and a
+    Create the mixed-dimensional grid from a set of fractures stored in a csv file and a
     domain. In the csv file, we assume one of the two following structures:
 
         a) FID, START_X, START_Y, END_X, END_Y
@@ -355,7 +355,7 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
         )
     else:
         raise ValueError(f"Unknown dimension, dim: {dim}")
-    return pp.meshing.grid_list_to_grid_bucket(grids, **kwargs)
+    return pp.meshing.grid_list_to_mdg(grids, **kwargs)
 
 
 def dfm_3d_from_fab(
@@ -382,12 +382,12 @@ def dfm_3d_from_fab(
         domain = network.bounding_box()
 
     # TODO: No reference to simplex_grid in pp.fracs.meshing.py
-    gb = pp.meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
+    mdg = pp.meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
 
     if return_domain:
-        return gb, domain
+        return mdg, domain
     else:
-        return gb
+        return mdg
 
 
 def network_3d_from_fab(f_name, return_all=False, tol=None):
