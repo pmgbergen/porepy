@@ -15,7 +15,7 @@ import porepy as pp
 from porepy.grids.md_grid import MixedDimensionalGrid
 
 
-class SubcellTopology(object):
+class SubcellTopology:
     """
     Class to represent data of subcell topology (interaction regions) for
     mpsa/mpfa.
@@ -45,7 +45,7 @@ class SubcellTopology(object):
 
     """
 
-    def __init__(self, g):
+    def __init__(self, sd):
         """
         Constructor for subcell topology
 
@@ -53,15 +53,15 @@ class SubcellTopology(object):
         ----------
         g grid
         """
-        self.g = g
+        self.sd = sd
 
         # Indices of neighboring faces and cells. The indices are sorted to
         # simplify later treatment
-        g.cell_faces.sort_indices()
-        face_ind, cell_ind = g.cell_faces.nonzero()
+        sd.cell_faces.sort_indices()
+        face_ind, cell_ind = sd.cell_faces.nonzero()
 
         # Number of faces per node
-        num_face_nodes = np.diff(g.face_nodes.indptr)
+        num_face_nodes = np.diff(sd.face_nodes.indptr)
 
         # Duplicate cell and face indices, so that they can be matched with
         # the nodes
@@ -75,11 +75,11 @@ class SubcellTopology(object):
             (np.ones(face_ind.size), (face_ind, np.arange(face_ind.size))),
             shape=(face_ind.max() + 1, face_ind.size),
         )
-        nodes_duplicated = g.face_nodes * M
+        nodes_duplicated = sd.face_nodes * M
         nodes_duplicated = nodes_duplicated.indices
 
-        face_nodes_indptr = g.face_nodes.indptr
-        face_nodes_indices = g.face_nodes.indices
+        face_nodes_indptr = sd.face_nodes.indptr
+        face_nodes_indices = sd.face_nodes.indices
         face_nodes_data = np.arange(face_nodes_indices.size) + 1
         sub_face_mat = sps.csc_matrix(
             (face_nodes_data, face_nodes_indices, face_nodes_indptr)
@@ -91,30 +91,30 @@ class SubcellTopology(object):
         # The left and right faces should be intrepreted as one face topologically.
         # The face_nodes and cell_faces maps in the grid geometry does not consider
         # this. We therefore have to merge the left subfaces with the right subfaces.
-        if hasattr(g, "periodic_face_map"):
-            sorted_left = np.sort(g.periodic_face_map[0])
-            sorted_right = np.sort(g.periodic_face_map[1])
+        if hasattr(sd, "periodic_face_map"):
+            sorted_left = np.sort(sd.periodic_face_map[0])
+            sorted_right = np.sort(sd.periodic_face_map[1])
             # It should be straightforward to generalize to the case where the faces
-            # are not sorted. You have to first sort g.periodic_face_map[0] and
-            # g.periodic_face_map[1], then use the two sorted arrays to find the left
+            # are not sorted. You have to first sort sd.periodic_face_map[0] and
+            # sd.periodic_face_map[1], then use the two sorted arrays to find the left
             # and right subfaces, then map the subfaces back to the original
-            # g.periodic_face_map.
-            if not np.allclose(sorted_left, g.periodic_face_map[0]):
+            # sd.periodic_face_map.
+            if not np.allclose(sorted_left, sd.periodic_face_map[0]):
                 raise NotImplementedError(
                     "Can not create subcell topology for periodic faces that are not sorted"
                 )
-            if not np.allclose(sorted_right, g.periodic_face_map[1]):
+            if not np.allclose(sorted_right, sd.periodic_face_map[1]):
                 raise NotImplementedError(
                     "Can not create subcell topology for periodic faces that are not sorted"
                 )
-            left_subfaces = np.where(np.isin(faces_duplicated, g.periodic_face_map[0]))[
-                0
-            ]
-            right_subfaces = np.where(
-                np.isin(faces_duplicated, g.periodic_face_map[1])
+            left_subfaces = np.where(
+                np.isin(faces_duplicated, sd.periodic_face_map[0])
             )[0]
-            # We loose the ordering of g.per map using np.isin. But since we have assumed
-            # g.periodic_face_map[0] and g.periodic_face_map[1] to be sorted, we can easily
+            right_subfaces = np.where(
+                np.isin(faces_duplicated, sd.periodic_face_map[1])
+            )[0]
+            # We loose the ordering of sd.per map using np.isin. But since we have assumed
+            # sd.periodic_face_map[0] and sd.periodic_face_map[1] to be sorted, we can easily
             # retrive the ordering by this trick:
             left_subfaces = left_subfaces[np.argsort(faces_duplicated[left_subfaces])]
             right_subfaces = right_subfaces[
@@ -171,8 +171,8 @@ class SubcellTopology(object):
     def __repr__(self):
         s = "Subcell topology with:\n"
         s += str(self.num_cno) + " cells\n"
-        s += str(self.g.num_nodes) + " nodes\n"
-        s += str(self.g.num_faces) + " faces\n"
+        s += str(self.sd.num_nodes) + " nodes\n"
+        s += str(self.sd.num_faces) + " faces\n"
         s += str(self.num_subfno_unique) + " unique subfaces\n"
         s += str(self.fno.size) + " subfaces before pairing face neighbors\n"
         return s
@@ -198,17 +198,17 @@ class SubcellTopology(object):
         sps.matrix, size (self.subfno_unique.size x something)
         """
 
-        sgn = self.g.cell_faces[self.fno, self.cno].A
+        sgn = self.sd.cell_faces[self.fno, self.cno].A
         pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
         return pair_over_subfaces * other
 
     def pair_over_subfaces_nd(self, other):
         """nd-version of pair_over_subfaces, see above."""
-        nd = self.g.dim
+        nd = self.sd.dim
         # For force balance, displacements and stresses on the two sides of the
         # matrices must be paired
         # Operator to create the pairing
-        sgn = self.g.cell_faces[self.fno, self.cno].A
+        sgn = self.sd.cell_faces[self.fno, self.cno].A
         pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
         # vector version, to be used on stresses
         pair_over_subfaces_nd = sps.kron(sps.eye(nd), pair_over_subfaces)
@@ -218,7 +218,7 @@ class SubcellTopology(object):
 # ------------------------ End of class SubcellTopology ----------------------
 
 
-def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
+def compute_dist_face_cell(sd, subcell_topology, eta, return_paired=True):
     """
     Compute vectors from cell centers continuity points on each sub-face.
 
@@ -231,7 +231,7 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
 
     Parameters
     ----------
-    g: Grid
+    sd: Grid
     subcell_topology: Of class subcell topology in this module
     eta: [0,1), eta = 0 gives cont. pt. at face midpoint, eta = 1 means at
         the vertex. If eta is given as a scalar this value will be applied to
@@ -242,7 +242,7 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
 
     Returns
     -------
-    sps.csr() matrix representation of vectors. Size g.nf x (g.nc * g.nd)
+    sps.csr() matrix representation of vectors. Size sd.nf x (sd.nc * sd.nd)
 
     Raises:
     -------
@@ -251,7 +251,7 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     _, blocksz = pp.matrix_operations.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
     )
-    dims = g.dim
+    dims = sd.dim
 
     _, cols = np.meshgrid(subcell_topology.subhfno, np.arange(dims))
     cols += pp.matrix_operations.rldecode(np.cumsum(blocksz) - blocksz[0], blocksz)
@@ -260,14 +260,14 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
     elif np.asarray(eta).size == 1:
         eta_vec = eta * np.ones(subcell_topology.fno.size)
         # Set eta values to zero at the boundary
-        bnd = np.in1d(subcell_topology.fno, g.get_all_boundary_faces())
+        bnd = np.in1d(subcell_topology.fno, sd.get_all_boundary_faces())
         eta_vec[bnd] = 0
     else:
         raise ValueError("size of eta must either be 1 or number of subfaces")
-    cp = g.face_centers[:, subcell_topology.fno] + eta_vec * (
-        g.nodes[:, subcell_topology.nno] - g.face_centers[:, subcell_topology.fno]
+    cp = sd.face_centers[:, subcell_topology.fno] + eta_vec * (
+        sd.nodes[:, subcell_topology.nno] - sd.face_centers[:, subcell_topology.fno]
     )
-    dist = cp - g.cell_centers[:, subcell_topology.cno]
+    dist = cp - sd.cell_centers[:, subcell_topology.cno]
 
     ind_ptr = np.hstack((np.arange(0, cols.size, dims), cols.size))
     mat = sps.csr_matrix((dist.ravel("F"), cols.ravel("F"), ind_ptr))
@@ -278,7 +278,7 @@ def compute_dist_face_cell(g, subcell_topology, eta, return_paired=True):
         return mat
 
 
-def determine_eta(g):
+def determine_eta(sd: pp.Grid) -> float:
     """Set default value for the location of continuity point eta in MPFA and
     MSPA.
 
@@ -286,7 +286,7 @@ def determine_eta(g):
     user has not specified a value.
 
     Parameters:
-        g: Grid for discretization
+        sd: Grid for discretization
 
     Returns:
         double. 1/3 if the grid in known to consist of simplicies (it is one of
@@ -294,20 +294,20 @@ def determine_eta(g):
            not.
     """
 
-    if "StructuredTriangleGrid" in g.name:
+    if "StructuredTriangleGrid" in sd.name:
         return 1 / 3
-    elif "TriangleGrid" in g.name:
+    elif "TriangleGrid" in sd.name:
         return 1 / 3
-    elif "StructuredTetrahedralGrid" in g.name:
+    elif "StructuredTetrahedralGrid" in sd.name:
         return 1 / 3
-    elif "TetrahedralGrid" in g.name:
+    elif "TetrahedralGrid" in sd.name:
         return 1 / 3
     else:
         return 0
 
 
 def find_active_indices(
-    parameter_dictionary: Dict[str, Any], g: pp.Grid
+    parameter_dictionary: Dict[str, Any], sd: pp.Grid
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Process information in parameter dictionary on whether the discretization
     should consider a subgrid. Look for fields in the parameter dictionary called
@@ -342,14 +342,14 @@ def find_active_indices(
     ):
         # Find computational stencil, based on specified cells, faces and nodes.
         active_cells, active_faces = pp.fvutils.cell_ind_for_partial_update(
-            g, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
+            sd, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
         )
         parameter_dictionary["active_cells"] = active_cells
         parameter_dictionary["active_faces"] = active_faces
     else:
         # All cells and faces in the grid should be updated
-        active_cells = np.arange(g.num_cells)
-        active_faces = np.arange(g.num_faces)
+        active_cells = np.arange(sd.num_cells)
+        active_faces = np.arange(sd.num_faces)
         parameter_dictionary["active_cells"] = active_cells
         parameter_dictionary["active_faces"] = active_faces
 
@@ -357,32 +357,32 @@ def find_active_indices(
 
 
 def subproblems(
-    g: pp.Grid, max_memory: int, peak_memory_estimate: int
+    sd: pp.Grid, max_memory: int, peak_memory_estimate: int
 ) -> Generator[
     Tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
 ]:
 
-    if g.dim == 0:
+    if sd.dim == 0:
         # nothing realy to do here
-        loc_faces = np.ones(g.num_faces, dtype=bool)
-        loc_cells = np.ones(g.num_cells, dtype=bool)
-        loc2g_cells = np.ones(g.num_cells, dtype=bool)
-        loc2g_face = np.ones(g.num_faces, dtype=bool)
-        yield g, loc_faces, loc_cells, loc2g_cells, loc2g_face
+        loc_faces = np.ones(sd.num_faces, dtype=bool)
+        loc_cells = np.ones(sd.num_cells, dtype=bool)
+        loc2g_cells = np.ones(sd.num_cells, dtype=bool)
+        loc2g_face = np.ones(sd.num_faces, dtype=bool)
+        yield sd, loc_faces, loc_cells, loc2g_cells, loc2g_face
 
     num_part: int = np.ceil(peak_memory_estimate / max_memory).astype(int)
 
     if num_part == 1:
-        yield g, np.arange(g.num_faces), np.arange(g.num_cells), np.arange(
-            g.num_cells
-        ), np.arange(g.num_faces)
+        yield sd, np.arange(sd.num_faces), np.arange(sd.num_cells), np.arange(
+            sd.num_cells
+        ), np.arange(sd.num_faces)
 
     else:
         # Let partitioning module apply the best available method
-        part: np.ndarray = pp.partition.partition(g, num_part)
+        part: np.ndarray = pp.partition.partition(sd, num_part)
 
         # Cell-node relation
-        cn: sps.csc_matrix = g.cell_nodes()
+        cn: sps.csc_matrix = sd.cell_nodes()
 
         # Loop over all partition regions, construct local problemsac, and transfer
         # discretization to the entire active grid
@@ -393,7 +393,7 @@ def subproblems(
             # To discretize with as little overlap as possible, we use the
             # keyword nodes to specify the update stencil. Find nodes of the
             # local cells.
-            cells_in_partition_boolean = np.zeros(g.num_cells, dtype=bool)
+            cells_in_partition_boolean = np.zeros(sd.num_cells, dtype=bool)
             cells_in_partition_boolean[cells_in_partition] = 1
 
             nodes_in_partition: np.ndarray = np.squeeze(
@@ -402,15 +402,15 @@ def subproblems(
 
             # Find computational stencil, based on the nodes in this partition
             loc_cells, loc_faces = pp.fvutils.cell_ind_for_partial_update(
-                g, nodes=nodes_in_partition
+                sd, nodes=nodes_in_partition
             )
 
             # Extract subgrid, together with mappings between local and active
             # (global, or at least less local) cells
-            sub_g, l2g_faces, _ = pp.partition.extract_subgrid(g, loc_cells)
-            l2g_cells = sub_g.parent_cell_ind
+            sub_sd, l2g_faces, _ = pp.partition.extract_subgrid(sd, loc_cells)
+            l2g_cells = sub_sd.parent_cell_ind
 
-            yield sub_g, loc_faces, cells_in_partition, l2g_cells, l2g_faces
+            yield sub_sd, loc_faces, cells_in_partition, l2g_cells, l2g_faces
 
 
 def remove_nonlocal_contribution(
@@ -480,7 +480,7 @@ def expand_indices_incr(ind, dim, increment):
     return ind_new
 
 
-def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
+def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
     """
     Create mapping from half-faces to faces for vector problems.
     Either fno, subfno and nd should be given or g (and optinally nd) should be
@@ -496,16 +496,16 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, g=None):
         g (pp.Grid): If a grid is supplied the function will set:
             fno = pp.fvutils.SubcellTopology(g).fno_unique
             subfno = pp.fvutils.SubcellTopology(g).subfno_unique
-        nd (int): Optinal, defaults to g.dim. Defines the dimension of the vector.
+        nd (int): Optinal, defaults to sd.dim. Defines the dimension of the vector.
     Returns
     -------
     """
-    if g is not None:
-        s_t = SubcellTopology(g)
+    if sd is not None:
+        s_t = SubcellTopology(sd)
         fno = s_t.fno_unique
         subfno = s_t.subfno_unique
         if nd is None:
-            nd = g.dim
+            nd = sd.dim
     hfi = expand_indices_nd(subfno, nd)
     hf = expand_indices_nd(fno, nd)
     hf2f = sps.coo_matrix(
@@ -579,7 +579,7 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
     return sc2c
 
 
-def scalar_divergence(g: pp.Grid) -> sps.csr_matrix:
+def scalar_divergence(sd: pp.Grid) -> sps.csr_matrix:
     """
     Get divergence operator for a grid.
 
@@ -596,10 +596,10 @@ def scalar_divergence(g: pp.Grid) -> sps.csr_matrix:
     -------
     divergence operator
     """
-    return g.cell_faces.T.tocsr()
+    return sd.cell_faces.T.tocsr()
 
 
-def vector_divergence(g: pp.Grid) -> sps.csr_matrix:
+def vector_divergence(sd: pp.Grid) -> sps.csr_matrix:
     """
     Get vector divergence operator for a grid g
 
@@ -617,18 +617,18 @@ def vector_divergence(g: pp.Grid) -> sps.csr_matrix:
     vector_div (sparse csr matrix), dimensions: nd * (num_cells, num_faces)
     """
     # Scalar divergence
-    scalar_div = g.cell_faces
+    scalar_div = sd.cell_faces
 
     # Vector extension, convert to coo-format to avoid odd errors when one
     # grid dimension is 1 (this may return a bsr matrix)
     # The order of arguments to sps.kron is important.
-    block_div = sps.kron(scalar_div, sps.eye(g.dim)).tocsc()
+    block_div = sps.kron(scalar_div, sps.eye(sd.dim)).tocsc()
 
     return block_div.transpose().tocsr()
 
 
 def scalar_tensor_vector_prod(
-    g: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
+    sd: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
 ) -> Tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
     """
     Compute product of normal vectors and tensors on a sub-cell level.
@@ -637,8 +637,8 @@ def scalar_tensor_vector_prod(
     of sub-cell gradient variables (via the interpretation of the columns in
     nk).
     NOTE: In the local numbering below, in particular in the variables i and j,
-    it is tacitly assumed that g.dim == g.nodes.shape[0] ==
-    g.face_normals.shape[0] etc. See implementation note in main method.
+    it is tacitly assumed that sd.dim == sd.nodes.shape[0] ==
+    sd.face_normals.shape[0] etc. See implementation note in main method.
     Parameters:
         g (pp.Grid): Discretization grid
         k (pp.Second_order_tensor): The permeability tensor
@@ -661,7 +661,7 @@ def scalar_tensor_vector_prod(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
     )
 
-    nd = g.dim
+    nd = sd.dim
 
     # Duplicates in [cno, nno] corresponds to different faces meeting at the
     # same node. There should be exactly nd of these. This test will fail
@@ -678,8 +678,8 @@ def scalar_tensor_vector_prod(
     j += pp.matrix_operations.rldecode(sum_blocksz - blocksz[0], blocksz)
 
     # Distribute faces equally on the sub-faces
-    num_nodes = np.diff(g.face_nodes.indptr)
-    normals = g.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
+    num_nodes = np.diff(sd.face_nodes.indptr)
+    normals = sd.face_normals[:, subcell_topology.fno] / num_nodes[subcell_topology.fno]
 
     # Represent normals and permeability on matrix form
     ind_ptr = np.hstack((np.arange(0, j.size, nd), j.size))
@@ -696,7 +696,7 @@ def scalar_tensor_vector_prod(
     return nk, cell_node_blocks, sub_cell_ind
 
 
-class ExcludeBoundaries(object):
+class ExcludeBoundaries:
     """Wrapper class to store mappings needed in the finite volume discretizations.
     The original use for this class was for exclusion of equations that are
     redundant due to the presence of boundary conditions, hence the name. The use of
@@ -1019,7 +1019,7 @@ class ExcludeBoundaries(object):
 
 
 def partial_update_discretization(
-    g: pp.Grid,  # Grid
+    sd: pp.Grid,  # Grid
     data: Dict,  # full data dictionary for this grid
     keyword: str,  # keyword for the target discretization
     discretize: Callable,  # Discretization operation
@@ -1070,7 +1070,7 @@ def partial_update_discretization(
         vector_face_left = []
 
     if dim is None:
-        dim = g.dim
+        dim = sd.dim
 
     update_info = data["update_discretization"]
     # By default, neither cells nor faces have been updated
@@ -1078,8 +1078,8 @@ def partial_update_discretization(
     update_faces = update_info.get("modified_faces", np.array([], dtype=int))
 
     # Mappings of cells and faces. Default to identity maps
-    cell_map = update_info.get("map_cells", sps.identity(g.num_cells))
-    face_map = update_info.get("map_faces", sps.identity(g.num_faces))
+    cell_map = update_info.get("map_cells", sps.identity(sd.num_cells))
+    face_map = update_info.get("map_faces", sps.identity(sd.num_faces))
 
     # left cell quantities (known example: div_u term in Biot), are a bit special
     # in that they require expanded computational stencils.
@@ -1090,25 +1090,25 @@ def partial_update_discretization(
     # matrices, the latter step is not available, thus the necessary overlap in
     # stencil must be explicitly set.
     if len(vector_cell_left) > 0 or len(scalar_cell_left) > 0:
-        update_cells = pp.partition.overlap(g, update_cells, 1)
+        update_cells = pp.partition.overlap(sd, update_cells, 1)
 
         # We will need the non-updated cells as well (but not faces, for similar
         # reasons as outlined above).
-        passive_cells = np.setdiff1d(np.arange(g.num_cells), update_cells)
+        passive_cells = np.setdiff1d(np.arange(sd.num_cells), update_cells)
 
     do_discretize = False
     # The actual discretization stencil may be larger than the modified cells and
     # faces (if specified).
     _, active_faces = pp.fvutils.cell_ind_for_partial_update(
-        g, cells=update_cells, faces=update_faces
+        sd, cells=update_cells, faces=update_faces
     )
     active_faces = np.unique(active_faces)
 
     # Find the faces next to the active faces. All these may be updated (depending on
     # the type of discretizations present).
-    _, cells, _ = sps.find(g.cell_faces[active_faces])
+    _, cells, _ = sps.find(sd.cell_faces[active_faces])
     active_cells = np.unique(cells)
-    passive_cells = np.setdiff1d(np.arange(g.num_cells), active_cells)
+    passive_cells = np.setdiff1d(np.arange(sd.num_cells), active_cells)
 
     param = data[pp.PARAMETERS][keyword]
     if update_cells.size > 0:
@@ -1167,7 +1167,7 @@ def partial_update_discretization(
 
     # Do the actual discretization
     if do_discretize:
-        discretize(g, data)
+        discretize(sd, data)
 
     # Define new discretization as a combination of mapped and rediscretized
     for key, val in data[pp.DISCRETIZATION_MATRICES][keyword].items():
@@ -1208,7 +1208,7 @@ def partial_update_discretization(
 
 
 def cell_ind_for_partial_update(
-    g: pp.Grid,
+    sd: pp.Grid,
     cells: np.ndarray = None,
     faces: np.ndarray = None,
     nodes: np.ndarray = None,
@@ -1251,7 +1251,7 @@ def cell_ind_for_partial_update(
 
     # Faces that are active, and should have their discretization stencil
     # updated / returned.
-    active_faces = np.zeros(g.num_faces, dtype=bool)
+    active_faces = np.zeros(sd.num_faces, dtype=bool)
 
     # Index of cells to include in the subgrid.
     cell_ind = np.empty(0)
@@ -1285,26 +1285,26 @@ def cell_ind_for_partial_update(
         # illustration, and potentially significantly many more in 3d, in
         # particular for unstructured grids).
 
-        cn = g.cell_nodes()
+        cn = sd.cell_nodes()
 
         # The active faces (to be updated; (o-x and o-o above) are those that
         # share at least one vertex with cells in ind.
-        prim_cells = np.zeros(g.num_cells, dtype=bool)
+        prim_cells = np.zeros(sd.num_cells, dtype=bool)
         prim_cells[cells] = 1
         # Vertexes of the cells
-        active_vertexes = np.zeros(g.num_nodes, dtype=bool)
+        active_vertexes = np.zeros(sd.num_nodes, dtype=bool)
         active_vertexes[np.squeeze(np.where(cn * prim_cells > 0))] = 1
 
         # Faces of the vertexes, these will be the active faces.
         active_face_ind = np.squeeze(
-            np.where(g.face_nodes.transpose() * active_vertexes > 0)
+            np.where(sd.face_nodes.transpose() * active_vertexes > 0)
         )
         active_faces[active_face_ind] = 1
 
         # Secondary vertexes, involved in at least one of the active faces,
         # that is, the faces to be updated. Corresponds to vertexes between o-o
         # above.
-        active_vertexes[np.squeeze(np.where(g.face_nodes * active_faces > 0))] = 1
+        active_vertexes[np.squeeze(np.where(sd.face_nodes * active_faces > 0))] = 1
 
         # Finally, get hold of all cells that shares one of the secondary
         # vertexes.
@@ -1338,33 +1338,33 @@ def cell_ind_for_partial_update(
         # of a face requires a recomputation of all cells that.
         # NOTE: The actual stencil retured is even bigger than above ()
 
-        cf = g.cell_faces
+        cf = sd.cell_faces
         # This avoids overwriting data in cell_faces.
         data = np.ones_like(cf.data)
         cf = sps.csc_matrix((data, cf.indices, cf.indptr))
 
-        primary_faces = np.zeros(g.num_faces, dtype=bool)
+        primary_faces = np.zeros(sd.num_faces, dtype=bool)
         primary_faces[faces] = 1
 
         # The active faces are those sharing a vertex with the primary faces
-        primary_vertex = np.zeros(g.num_nodes, dtype=bool)
-        primary_vertex[np.squeeze(np.where((g.face_nodes * primary_faces) > 0))] = 1
+        primary_vertex = np.zeros(sd.num_nodes, dtype=bool)
+        primary_vertex[np.squeeze(np.where((sd.face_nodes * primary_faces) > 0))] = 1
         active_face_ind = np.squeeze(
-            np.where((g.face_nodes.transpose() * primary_vertex) > 0)
+            np.where((sd.face_nodes.transpose() * primary_vertex) > 0)
         )
         active_faces[active_face_ind] = 1
 
         # Find vertexes of the active faces
-        active_nodes = np.zeros(g.num_nodes, dtype=bool)
-        active_nodes[np.squeeze(np.where((g.face_nodes * active_faces) > 0))] = 1
+        active_nodes = np.zeros(sd.num_nodes, dtype=bool)
+        active_nodes[np.squeeze(np.where((sd.face_nodes * active_faces) > 0))] = 1
 
-        cn = g.cell_nodes()
+        cn = sd.cell_nodes()
 
         # Primary cells, those that share a vertex with the faces
         primary_cells = np.squeeze(np.where((cn.transpose() * active_nodes) > 0))
 
         # Get all nodes of the primary cells. These are the secondary_nodes
-        active_cells = np.zeros(g.num_cells, dtype=bool)
+        active_cells = np.zeros(sd.num_cells, dtype=bool)
         active_cells[primary_cells] = 1
         secondary_nodes = np.where(cn * active_cells)[0]
         active_nodes[secondary_nodes] = 1
@@ -1379,12 +1379,12 @@ def cell_ind_for_partial_update(
         # Pick out all cells that have the specified nodes as a vertex.
         # The active faces will be those that have all their vertexes included
         # in nodes.
-        cn = g.cell_nodes()
+        cn = sd.cell_nodes()
         # Introduce active nodes, and make the input nodes active
         # The data type of active_vertex is int (in contrast to similar cases
         # in other parts of this function), since we will use it to count the
         # number of active face_nodes below.
-        active_vertexes = np.zeros(g.num_nodes, dtype=int)
+        active_vertexes = np.zeros(sd.num_nodes, dtype=int)
         active_vertexes[nodes] = 1
 
         # Find cells that share these nodes
@@ -1394,9 +1394,9 @@ def cell_ind_for_partial_update(
 
         # Multiply face_nodes.transpose() (e.g. node-faces) with the active
         # vertexes to get the number of active nodes perm face
-        num_active_face_nodes = np.array(g.face_nodes.transpose() * active_vertexes)
+        num_active_face_nodes = np.array(sd.face_nodes.transpose() * active_vertexes)
         # Total number of nodes per face
-        num_face_nodes = np.array(g.face_nodes.sum(axis=0))
+        num_face_nodes = np.array(sd.face_nodes.sum(axis=0))
         # Active faces are those where all nodes are active.
         active_face_ind = np.squeeze(
             np.argwhere((num_active_face_nodes == num_face_nodes).ravel("F"))
@@ -1413,7 +1413,7 @@ def cell_ind_for_partial_update(
 
 
 def map_subgrid_to_grid(
-    g: pp.Grid,
+    sd: pp.Grid,
     loc_faces: np.ndarray,
     loc_cells: np.ndarray,
     is_vector: bool,
@@ -1429,17 +1429,17 @@ def map_subgrid_to_grid(
             corresponding cell in the larger grid.
         is_vector (bool): If True, the returned mappings are sized to fit with vector
             variables, with nd elements per cell and face.
-        nd (int, optional): Dimension. Defaults to g.dim.
+        nd (int, optional): Dimension. Defaults to sd.dim.
 
     Retuns:
-        sps.csr_matrix, size (g.num_faces, loc_faces.size): Mapping from local to
-            global faces. If is_vector is True, the size is multiplied with g.dim.
-        sps.csr_matrix, size (loc_cells.size, g.num_cells): Mapping from global to
-            local cells. If is_vector is True, the size is multiplied with g.dim.
+        sps.csr_matrix, size (sd.num_faces, loc_faces.size): Mapping from local to
+            global faces. If is_vector is True, the size is multiplied with sd.dim.
+        sps.csr_matrix, size (loc_cells.size, sd.num_cells): Mapping from global to
+            local cells. If is_vector is True, the size is multiplied with sd.dim.
 
     """
     if nd is None:
-        nd = g.dim
+        nd = sd.dim
 
     num_faces_loc = loc_faces.size
     num_cells_loc = loc_cells.size
@@ -1450,7 +1450,7 @@ def map_subgrid_to_grid(
                 np.ones(num_faces_loc * nd),
                 (expand_indices_nd(loc_faces, nd), np.arange(num_faces_loc * nd)),
             ),
-            shape=(g.num_faces * nd, num_faces_loc * nd),
+            shape=(sd.num_faces * nd, num_faces_loc * nd),
         )
 
         cell_map = sps.csr_matrix(
@@ -1458,16 +1458,16 @@ def map_subgrid_to_grid(
                 np.ones(num_cells_loc * nd),
                 (np.arange(num_cells_loc * nd), expand_indices_nd(loc_cells, nd)),
             ),
-            shape=(num_cells_loc * nd, g.num_cells * nd),
+            shape=(num_cells_loc * nd, sd.num_cells * nd),
         )
     else:
         face_map = sps.csr_matrix(
             (np.ones(num_faces_loc), (loc_faces, np.arange(num_faces_loc))),
-            shape=(g.num_faces, num_faces_loc),
+            shape=(sd.num_faces, num_faces_loc),
         )
         cell_map = sps.csr_matrix(
             (np.ones(num_cells_loc), (np.arange(num_cells_loc), loc_cells)),
-            shape=(num_cells_loc, g.num_cells),
+            shape=(num_cells_loc, sd.num_cells),
         )
     return face_map, cell_map
 
@@ -1635,7 +1635,7 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     return bound
 
 
-def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
+def append_dofs_of_discretization(sd, d, kw1, kw2, k_dof):
     """
     Appends rows to existing discretizations stored as 'stress' and
     'bound_stress' in the data dictionary on the nodes. Only applies to the
@@ -1643,7 +1643,7 @@ def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
     from 'new_faces' in the data dictionary.
     Assumes all new rows and columns should be appended, not inserted to
     the "interior" of the discretization matrices.
-    g -     grid object
+    sd -     grid object
     d -     corresponding data dictionary
     kw1 -   keyword for the stored discretization in the data dictionary,
             e.g. 'flux'
@@ -1656,17 +1656,17 @@ def append_dofs_of_discretization(g, d, kw1, kw2, k_dof):
     n_new_faces = faces.size * k_dof
 
     # kw1
-    new_rows = sps.csr_matrix((n_new_faces, g.num_cells * k_dof - n_new_cells))
-    new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_cells))
+    new_rows = sps.csr_matrix((n_new_faces, sd.num_cells * k_dof - n_new_cells))
+    new_columns = sps.csr_matrix((sd.num_faces * k_dof, n_new_cells))
     d[kw1] = sps.hstack([sps.vstack([d[kw1], new_rows]), new_columns], format="csr")
     # kw2
-    new_rows = sps.csr_matrix((n_new_faces, g.num_faces * k_dof - n_new_faces))
-    new_columns = sps.csr_matrix((g.num_faces * k_dof, n_new_faces))
+    new_rows = sps.csr_matrix((n_new_faces, sd.num_faces * k_dof - n_new_faces))
+    new_columns = sps.csr_matrix((sd.num_faces * k_dof, n_new_faces))
     d[kw2] = sps.hstack([sps.vstack([d[kw2], new_rows]), new_columns], format="csr")
 
 
 def partial_discretization(
-    g, data, tensor, bnd, apertures, partial_discr, physics="flow"
+    sd, data, tensor, bnd, apertures, partial_discr, physics="flow"
 ):
     """
     Perform a partial (local) multi-point discretization on a grid with
@@ -1686,15 +1686,15 @@ def partial_discretization(
         dof_multiplier = 1
     elif physics == "mechanics":
         kw1, kw2 = "stress", "bound_stress"
-        dof_multiplier = g.dim
-    cells = g.tags.get("discretize_cells")
-    faces = g.tags.get("discretize_faces")
-    nodes = g.tags.get("discretize_nodes")
+        dof_multiplier = sd.dim
+    cells = sd.tags.get("discretize_cells")
+    faces = sd.tags.get("discretize_faces")
+    nodes = sd.tags.get("discretize_nodes")
 
     # Update the existing discretization to the right size
-    append_dofs_of_discretization(g, data, kw1, kw2, dof_multiplier)
+    append_dofs_of_discretization(sd, data, kw1, kw2, dof_multiplier)
     trm, bound_flux, affected_faces = partial_discr(
-        g,
+        sd,
         tensor,
         bnd,
         cells=cells,
