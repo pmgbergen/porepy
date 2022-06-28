@@ -1,7 +1,7 @@
 """
 Module for splitting a grid at the fractures.
 """
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 import networkx as nx
 import numpy as np

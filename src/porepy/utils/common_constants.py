@@ -10,11 +10,13 @@ IMPLEMENTATION NOTE: This module may in the future be moved to an appropriate
 submodule. The access via pp. will remain.
 
 """
+from __future__ import annotations
 
 """ Global keywords
 
 Define unified keywords used throughout the software.
 """
+
 # Used in data dictionary to identify discretization objects internally to a
 # grid or mortar grid
 DISCRETIZATION = "discretization"

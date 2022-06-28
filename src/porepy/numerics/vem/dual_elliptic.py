@@ -1,14 +1,16 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Module contains common functionalities for discretization based on the mixed
 variational formulation.
 """
-from typing import Union, Optional
+from typing import Optional
+
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.interface_laws.elliptic_discretization import (
+    EllipticDiscretization,
+)
 
 
 def project_flux(
@@ -65,9 +67,7 @@ def project_flux(
         )
 
 
-class DualElliptic(
-    pp.numerics.interface_laws.elliptic_discretization.EllipticDiscretization
-):
+class DualElliptic(EllipticDiscretization):
     """Parent class for methods based on the mixed variational form of the
     elliptic equation. The class should not be used by itself, but provides a
     sheared implementation of central methods.

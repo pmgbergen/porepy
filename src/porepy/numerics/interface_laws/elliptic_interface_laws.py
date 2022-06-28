@@ -2,7 +2,7 @@
 Coupling conditions between subdomains for elliptic equations.
 
 Current content:
-    Robin-type couplings, as decsribed by Martin et al 2005.
+    Robin-type couplings, as described by Martin et al. 2005.
     Full continuity conditions between subdomains
 
 """
@@ -13,11 +13,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
+from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
 
-class RobinCoupling(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class RobinCoupling(AbstractInterfaceLaw):
     """A condition with resistance to flow between subdomains. Implementation
     of the model studied (though not originally proposed) by Martin et
     al 2005. The equation reads
@@ -919,9 +918,7 @@ class FluxPressureContinuity(RobinCoupling):
         return f"Interface coupling with full pressure flux continuity. Keyword {self.keyword}"
 
 
-class WellCoupling(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class WellCoupling(AbstractInterfaceLaw):
     """Simple version of the classical Peaceman model relating well and fracture
     pressure.
 

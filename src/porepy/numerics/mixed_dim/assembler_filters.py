@@ -16,7 +16,6 @@ from typing import Callable, List, Optional, Tuple, Union
 import porepy as pp
 from porepy import Grid
 
-
 # Discretizations can be defined either on a subdomain, on an
 # interface, or it is a coupling between two subdomains and an interface
 grid_like_type = Union[

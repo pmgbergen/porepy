@@ -1,5 +1,7 @@
 """ Module containing the class for the mortar grid.
 """
+from __future__ import annotations
+
 import warnings
 from enum import Enum
 from typing import Dict, Generator, List, Optional, Tuple, Union

@@ -6,11 +6,11 @@ moduli etc.
 Note that thermal expansion coefficients are linear (m/mK) for rocks, but
 volumetric (m^3/m^3) for fluids.
 """
+from __future__ import annotations
+
 from typing import Optional
 
 import porepy as pp
-
-module_sections = ["parameters"]
 
 
 def poisson_from_lame(mu: float, lmbda: float) -> float:

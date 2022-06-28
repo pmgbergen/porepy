@@ -9,9 +9,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.discretization import Discretization
 
 
-class DualScalarSource(pp.numerics.discretization.Discretization):
+class DualScalarSource(Discretization):
     """
     Discretization of the integrated source term
     int q * dx

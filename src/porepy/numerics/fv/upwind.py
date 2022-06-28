@@ -4,9 +4,10 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.numerics.discretization import Discretization
 
 
-class Upwind(pp.numerics.discretization.Discretization):
+class Upwind(Discretization):
     """
     Discretize a hyperbolic transport equation using a single point upstream
     weighting scheme.

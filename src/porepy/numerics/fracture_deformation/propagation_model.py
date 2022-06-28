@@ -19,6 +19,7 @@ WARNING: This should be considered experimental code and should be used with
 
 """
 import abc
+
 import numpy as np
 import scipy.sparse as sps
 
