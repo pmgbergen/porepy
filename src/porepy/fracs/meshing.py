@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import List, Tuple
+# from typing import List, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -28,7 +28,7 @@ mortar_sides = mortar_grid.MortarSides
 
 
 def subdomains_to_mdg(
-    subdomains: List[List[pp.Grid]],
+    subdomains: list[list[pp.Grid]],
     time_tot: float = None,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
@@ -99,7 +99,7 @@ def subdomains_to_mdg(
 
 
 def cart_grid(
-    fracs: List[np.ndarray], nx: np.ndarray, **kwargs
+    fracs: list[np.ndarray], nx: np.ndarray, **kwargs
 ) -> pp.MixedDimensionalGrid:
     """
     Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
@@ -158,7 +158,7 @@ def cart_grid(
 
 
 def tensor_grid(
-    fracs: List[np.ndarray], x: np.ndarray, y=None, z=None, **kwargs
+    fracs: list[np.ndarray], x: np.ndarray, y=None, z=None, **kwargs
 ) -> pp.MixedDimensionalGrid:
     """
     Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
