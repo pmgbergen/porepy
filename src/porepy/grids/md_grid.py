@@ -7,20 +7,20 @@ intersections  along with a surrounding matrix in the form of a MixedDimensional
 
 """
 from __future__ import annotations
+
 import warnings
 from typing import (
     Any,
     Callable,
-    Literal,
-    Iterator,
     Dict,
     Generator,
     Iterable,
     List,
+    Literal,
     Optional,
     Tuple,
     Union,
-    overload
+    overload,
 )
 
 import numpy as np
@@ -65,8 +65,9 @@ class MixedDimensionalGrid:
 
     # --------- Iterators -------------------------
     @overload
-    def subdomains(self, return_data: Literal[False]=False, dim: Optional[int] = None
-                   ) -> Generator[pp.Grid, None, None]:
+    def subdomains(
+        self, return_data: Literal[False] = False, dim: Optional[int] = None
+    ) -> Generator[pp.Grid, None, None]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         # Note that the order of the overloaded methods is important, the version
@@ -75,8 +76,9 @@ class MixedDimensionalGrid:
         ...
 
     @overload
-    def subdomains(self, return_data: Literal[True]=True, dim: Optional[int] = None
-                   ) -> Generator[Tuple[pp.Grid, Dict], None, None]:
+    def subdomains(
+        self, return_data: Literal[True] = True, dim: Optional[int] = None
+    ) -> Generator[Tuple[pp.Grid, Dict], None, None]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         ...
@@ -113,19 +115,20 @@ class MixedDimensionalGrid:
                 yield grid
 
     @overload
-    def interfaces(self, return_data: Literal[False]=False, dim: Optional[int] = None
-                   ) -> Generator[pp.MortarGrid, None, None]:
+    def interfaces(
+        self, return_data: Literal[False] = False, dim: Optional[int] = None
+    ) -> Generator[pp.MortarGrid, None, None]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         ...
 
     @overload
-    def interfaces(self, return_data: Literal[True]=True, dim: Optional[int] = None
-                   ) -> Generator[Tuple[pp.MortarGrid, Dict], None, None]:
+    def interfaces(
+        self, return_data: Literal[True] = True, dim: Optional[int] = None
+    ) -> Generator[Tuple[pp.MortarGrid, Dict], None, None]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         ...
-
 
     def interfaces(
         self, return_data: bool = False, dim: Optional[int] = None
@@ -190,9 +193,7 @@ class MixedDimensionalGrid:
             ):
                 self.assign_subdomain_ordering()
 
-            subdomain_indexes = [
-                self.node_number(sd) for sd in subdomains
-            ]
+            subdomain_indexes = [self.node_number(sd) for sd in subdomains]
             if subdomain_indexes[0] < subdomain_indexes[1]:
                 return subdomains[0], subdomains[1]
             else:
@@ -875,9 +876,7 @@ class MixedDimensionalGrid:
                 for sd in self.subdomains(dim=dim):
                     num_sd += 1
                     nc += sd.num_cells
-                s += (
-                    f"{num_sd} grids of dimension {dim}" f" with in total {nc} cells\n"
-                )
+                s += f"{num_sd} grids of dimension {dim}" f" with in total {nc} cells\n"
         if self.num_interfaces() > 0:
             for dim in range(self.dim_max(), self.dim_min(), -1):
                 num_intf = 0
