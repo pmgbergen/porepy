@@ -431,6 +431,25 @@ class MixedDimensionalGrid:
 
     # ---------- Functionality related to ordering of subdomains
 
+    def node_number(self, sd: pp.Grid):
+        """Return node number of a subdomain.
+
+        If no node ordering exists, the method calls assign_subdomain_ordering
+        to create one.
+
+        Args:
+            sd:
+                Subdomain to be identified.
+
+        Returns:
+            Integer node number identifying the subdomain.
+
+        """
+        data = self.subdomain_data(sd)
+        if "node_number" not in data:
+            self.assign_subdomain_ordering()
+        return data["node_number"]
+
     def assign_subdomain_ordering(self, overwrite_existing: bool = True) -> None:
         """
         Assign an ordering of the subdomains in the mixed-dimensional, stored as the
