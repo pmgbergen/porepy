@@ -162,7 +162,7 @@ def split_faces(gh, face_cells):
 
 def split_specific_faces(
     gh: pp.Grid,
-    face_cell_list: List[sps.spmatrix],
+    face_cell_list: list[sps.spmatrix],
     faces: np.ndarray,
     cells: np.ndarray,
     gl_ind: int,
@@ -196,7 +196,7 @@ def split_specific_faces(
         # fractures the cells lie.
         if non_planar:
             # In this case, a loop over the elements in face_id should do the job.
-            flag_array: List[int] = []
+            flag_array: list[int] = []
             for fi in face_id:
                 n = np.reshape(gh.face_normals[:, fi], (3, 1))
                 n = n / np.linalg.norm(n)
@@ -345,7 +345,7 @@ def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     gh.tags["fracture_faces"][frac_id] = True
     gh.tags["tip_faces"][frac_id] = False
     update_fields = gh.tags.keys()
-    update_values: List[List[np.ndarray]] = [[]] * len(update_fields)
+    update_values: list[list[np.ndarray]] = [[]] * len(update_fields)
     for i, key in enumerate(update_fields):
         # faces related tags are doubled and the value is inherit from the original
         if key.endswith("_faces"):
@@ -356,11 +356,11 @@ def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
 
 
 def _update_face_cells(
-    face_cells: List[sps.spmatrix],
+    face_cells: list[sps.spmatrix],
     face_id: np.ndarray,
     i: int,
     cell_id: Optional[np.ndarray] = None,
-) -> List[sps.spmatrix]:
+) -> list[sps.spmatrix]:
     """
     Add duplicate faces to connection map between lower-dim grids
     and higher dim grids. To be run after duplicate_faces.
