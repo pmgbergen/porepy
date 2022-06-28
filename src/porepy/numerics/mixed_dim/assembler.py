@@ -320,7 +320,9 @@ class Assembler:
 
         # Create a new filter with only grids marked for update.
         new_filt = pp.assembler_filters.ListFilter(
-            grid_list=grid_set, variable_list=variable_list, term_list=term_list
+            grid_list=list(grid_set)[0],
+            variable_list=variable_list,
+            term_list=term_list,
         )
 
         self._operate_on_mdg(operation="update_discretization", filt=new_filt)
