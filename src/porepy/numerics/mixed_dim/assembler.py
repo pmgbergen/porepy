@@ -642,7 +642,6 @@ class Assembler:
             mat_key = self._variable_term_key(
                 term_key, intf_var_key, secondary_var_key, primary_var_key
             )
-
             # Now there are three options (and a fourth, invalid one):
             # The standard case is that both secondary and primary variables
             # are used in the coupling. Alternatively, only one of the primary or secondary is
@@ -653,6 +652,7 @@ class Assembler:
                     intf_discr.discretize(
                         sd_primary,
                         sd_secondary,
+                        intf,
                         data_primary,
                         data_secondary,
                         data_intf,
@@ -662,6 +662,7 @@ class Assembler:
                     intf_discr.discretize(
                         sd_primary,
                         sd_secondary,
+                        intf,
                         data_primary,
                         data_secondary,
                         data_intf,
@@ -713,6 +714,7 @@ class Assembler:
                         tmp_mat = intf_discr.assemble_matrix(
                             sd_primary,
                             sd_secondary,
+                            intf,
                             data_primary,
                             data_secondary,
                             data_intf,
@@ -722,6 +724,7 @@ class Assembler:
                         loc_rhs = intf_discr.assemble_rhs(
                             sd_primary,
                             sd_secondary,
+                            intf,
                             data_primary,
                             data_secondary,
                             data_intf,
@@ -731,6 +734,7 @@ class Assembler:
                         tmp_mat, loc_rhs = intf_discr.assemble_matrix_rhs(
                             sd_primary,
                             sd_secondary,
+                            intf,
                             data_primary,
                             data_secondary,
                             data_intf,
@@ -757,7 +761,7 @@ class Assembler:
                         # Finally take care of the right hand side
                         assert rhs is not None
                         rhs[mat_key][[primary_idx, secondary_idx, intf_idx]] += loc_rhs
-
+                    
             elif primary_idx is not None:
                 # TODO: Term filters are not applied to this case
                 # secondary_idx is None
@@ -851,7 +855,7 @@ class Assembler:
                     if not assemble_matrix_only:
                         assert rhs is not None
                         rhs[mat_key][[secondary_idx, intf_idx]] += loc_rhs
-
+                        
             else:
                 raise ValueError(
                     "Invalid combination of variables on subdomain-interface relation"
@@ -913,7 +917,6 @@ class Assembler:
                             self._dof_manager.full_dof[idx],
                             sps_matrix,
                         )
-
                         (
                             tmp_mat,
                             loc_rhs,
@@ -921,8 +924,10 @@ class Assembler:
                             sd_primary,
                             data_primary,
                             intf,
+                            self.mdg.interface_to_subdomain_pair(intf),
                             data_intf,
                             other_intf,
+                            self.mdg.interface_to_subdomain_pair(other_intf),
                             data_other,
                             loc_mat,
                             assemble_matrix=assemble_matrix,
@@ -938,13 +943,14 @@ class Assembler:
                             sd_primary,
                             data_primary,
                             intf,
+                            self.mdg.interface_to_subdomain_pair(intf),
                             data_intf,
                             other_intf,
+                            self.mdg.interface_to_subdomain_pair(intf),
                             data_other,
                             loc_mat,
                             assemble_matrix=assemble_matrix,
-                            assemble_rhs=assemble_rhs,
-                        )
+                            assemble_rhs=assemble_rhs,                        )
 
                     rhs[mat_key][intf_idx] += loc_rhs[1]  # type:ignore
 
@@ -1494,7 +1500,7 @@ class Assembler:
                 for mg in self.mdg.subdomain_to_interfaces(  # type:ignore
                     g
                 )  # for each interface of that grid
-                if self.mdg.interface_to_subdomain_pair(mg)[1]
+                if self.mdg.interface_to_subdomain_pair(mg)[0]
                 == g  # such that the interface neighbors a lower-dimensional subdomain
                 for var in self.variables_of_grid(
                     mg

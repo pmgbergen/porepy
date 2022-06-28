@@ -63,7 +63,7 @@ class AbstractInterfaceLaw(abc.ABC):
         data_intf: Dict,
     ) -> None:
         """Discretize the interface law and store the discretization in the
-        edge data.
+        interface data.
 
         The discretization matrix will be stored in the data dictionary of this
         interface.
