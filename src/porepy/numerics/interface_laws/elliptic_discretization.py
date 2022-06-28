@@ -220,7 +220,7 @@ class EllipticDiscretization(Discretization):
         sd_data: Dict,
         intf: pp.MortarGrid,
         intf_data: Dict,
-        cc: np.ndarray,
+        cc: Optional[np.ndarray],
         matrix: np.ndarray,
         rhs: np.ndarray,
         self_ind: int,

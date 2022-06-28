@@ -427,7 +427,7 @@ class RobinCoupling(
             matrix += cc
 
             self.discr_primary.enforce_neumann_int_bound(
-                sd_primary, data_intf, matrix, primary_ind
+                sd_primary, intf, data_intf, matrix, primary_ind
             )
 
         if assemble_rhs:
@@ -904,13 +904,13 @@ class FluxPressureContinuity(RobinCoupling):
         rhs = rhs_primary + rhs_secondary
 
         self.discr_primary.enforce_neumann_int_bound(
-            sd_primary, data_intf, matrix, primary_ind
+            sd_primary, intf, data_intf, matrix, primary_ind
         )
 
         # Consider this terms only if the grids are of the same dimension
         if sd_primary.dim == sd_secondary.dim:
             self.discr_secondary.enforce_neumann_int_bound(
-                sd_secondary, data_intf, matrix, secondary_ind
+                sd_secondary, intf, data_intf, matrix, secondary_ind
             )
 
         return matrix, rhs
