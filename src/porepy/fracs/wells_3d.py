@@ -4,10 +4,10 @@ Module for well representation in Well and WellNetworks.
 A well is a polyline of at least nsegs=1 segment defined through a list of
 npts=nsegs+1 points. Wells are connected in a network.
 
-After defining and meshing a fracture network, the wells may be added to the gb
+After defining and meshing a fracture network, the wells may be added to the mdg
 by
     compute_well_fracture_intersections(well_network, fracture_network)
-    well_network.mesh(gb)
+    well_network.mesh(mdg)
 """
 import logging
 from typing import Dict, Iterator, List, Optional, Tuple
@@ -134,7 +134,7 @@ class WellNetwork3d:
     Collection of Wells with geometrical information.
 
     Facilitates meshing of all wells in the network and their addition to
-    a grid bucket, see mesh method.
+    a mixed-dimensional grid, see mesh method.
 
     Attributes:
         _wells (list of Fracture): All fractures forming the network.
@@ -165,7 +165,7 @@ class WellNetwork3d:
             wells (list of Well, optional): Wells that make up the network.
                 Defaults to None, which will create a domain empty of wells.
             domain (dictionary): Domain specification.
-            tol (double, optional): Tolerance used in geometric tolerations. Defaults
+            tol (double, optional): Tolerance used in geometric computations. Defaults
                 to 1e-8.
             parameters (dictionary, optional): E.g. mesh parameters.
 
@@ -187,6 +187,7 @@ class WellNetwork3d:
         if domain is None:
             domain = {}
         self.domain: Dict = domain
+        self.tol = tol
 
         # Assign an empty tag dictionary
         self.tags: Dict[str, List[bool]] = {}
@@ -226,7 +227,7 @@ class WellNetwork3d:
         return size
 
     def mesh(self, mdg: pp.MixedDimensionalGrid) -> None:
-        """Produce grids for the network's wells and add to existing grid bucket.
+        """Produce grids for the network's wells and add to existing mixed-dimensional grid.
 
         One grid is constructed for each subline extending between two fracture
         intersections. In the simplest case, the well is a (poly)line with two
@@ -237,17 +238,17 @@ class WellNetwork3d:
         Example topology for well intersecting two fractures, terminating at the
         lowermost:
 
-                    |
-        g_well_0    |
-                    |
-                    * e(g_isec_0, g_well_0)
-        g_isec_0    . * e(g_isec_0, g_frac_0)  ___________ g_frac_0 (2d)
-                    * e(g_isec_0, g_well_1)
-                    |
-        g_well_1    |
-                    |
-                    * e(g_isec_1, g_well_1)
-        g_isec_1    . * e(g_isec_1, g_frac_1)  ____________ g_frac_1 (2d)
+                     |
+        sd_well_0    |
+                     |
+                     * e(sd_isec_0, sd_well_0)
+        sd_isec_0    . * e(sd_isec_0, sd_frac_0)  ___________ sd_frac_0 (2d)
+                     * e(sd_isec_0, sd_well_1)
+                     |
+        sd_well_1    |
+                     |
+                     * e(sd_isec_1, sd_well_1)
+        sd_isec_1    . * e(sd_isec_1, sd_frac_1)  ____________ sd_frac_1 (2d)
 
         Note that all edge grids (*) are zero-dimensional, and that those
         connected with the fracture have co-dimension 2!
@@ -288,8 +289,8 @@ class WellNetwork3d:
             # edge between that grid and the fracture in question. Note that
             # the edge with the first well segment is added below.
             if tags_w[0].size > 0:
-                g_isec = _intersection_grid(w.p[:, 0], mdg)
-                _add_fracture_2_intersection_edge(g_isec, tags_w[0], mdg)
+                sd_isec = _intersection_subdomain(w.p[:, 0], mdg)
+                _add_fracture_2_intersection_interface(sd_isec, tags_w[0], mdg)
                 endp_frac_tags[0] = True
 
             for inds_seg, seg in w.segments():
@@ -306,7 +307,7 @@ class WellNetwork3d:
 
                 if tags_seg[1].size == 0:
                     if inds_seg[1] == w.num_points() - 1:
-                        # We're at the well end and it corresponds to an internal
+                        # We're at the well end, and it corresponds to an internal
                         # tip
                         endp_tip_tags[1] = True
                         endp_frac_tags[1] = False
@@ -333,12 +334,14 @@ class WellNetwork3d:
                 # point is not a tip
                 if not endp_tip_tags[1]:
                     endp_frac_tags[1] = True
-                    g_isec = _intersection_grid(seg[:, 1], mdg)
+                    sd_isec = _intersection_subdomain(seg[:, 1], mdg)
 
                     # Add interfaces between intersection grid and both fracture and
                     # well grid.
-                    _add_well_2_intersection_edge(g_isec, sd_w, mdg)
-                    _add_fracture_2_intersection_edge(g_isec, tags_w[inds_seg[1]], mdg)
+                    _add_well_2_intersection_interface(sd_w, sd_isec, mdg)
+                    _add_fracture_2_intersection_interface(
+                        sd_isec, tags_w[inds_seg[1]], mdg
+                    )
                 # Further, if the new segment's first end point corresponds to
                 # an intersection (as opposed to a global boundary or internal tip),
                 # add the interface between this segment and that intersection.
@@ -347,10 +350,10 @@ class WellNetwork3d:
                     # endpoint of this subline. Last one if we have not added
                     # for the second endpoint, in which case it's the penultimate 0d grid
                     previous_ind = -1 - endp_frac_tags[1]
-                    previous_g_isec = mdg.grids_of_dimension(self.well_dim - 1)[
+                    previous_g_isec = list(mdg.subdomains(dim=self.well_dim - 1))[
                         previous_ind
                     ]  # EK, is there a preferred method?
-                    _add_well_2_intersection_edge(previous_g_isec, sd_w, mdg)
+                    _add_well_2_intersection_interface(sd_w, previous_g_isec, mdg)
 
                 # Finally, update tags for the well's faces (boundary, tip, fracture).
                 bounding_planes = (
@@ -449,7 +452,7 @@ def compute_well_rock_matrix_intersections(
     To speed up the geometrical computation we construct an ADTree.
 
     Parameters:
-        mdg (pp.MixedDimensionalGrid): the grid bucket containing all the elements
+        mdg (pp.MixedDimensionalGrid): the mixed-dimensional grid containing all the elements
         cells (np.ndarray, optional): a set of cells that might be considered to construct the
             ADTree. If it is not given the tree is constructed by using all the higher
             dimensional grid cells
@@ -461,19 +464,19 @@ def compute_well_rock_matrix_intersections(
     # Extract the dimension of the rock matrix, assumed to be of highest dimension
     dim_max: int = mdg.dim_max()
     # We assume only one single higher dimensional grid, needed for the ADTree
-    g_max: pp.Grid = mdg.grids_of_dimension(dim_max)[0]
+    sd_max: pp.Grid = list(mdg.subdomains(dim=dim_max))[0]
     # Construct an ADTree for fast computation
-    tree = pp.adtree.ADTree(2 * g_max.dim, g_max.dim)
-    tree.from_grid(g_max, cells)
+    tree = pp.adtree.ADTree(2 * sd_max.dim, sd_max.dim)
+    tree.from_grid(sd_max, cells)
 
     # Extract the grids of the wells of co-dimension 2
-    gs_w: List[pp.Grid] = [
-        g for g in mdg.grids_of_dimension(dim_max - 2) if hasattr(g, "well_num")
+    well_subdomains: List[pp.Grid] = [
+        g for g in mdg.subdomains(dim=dim_max - 2) if hasattr(g, "well_num")
     ]
 
-    # Pre-compute some well informations
+    # Pre-compute some well information
     nodes_w = []
-    for sd_w in gs_w:
+    for sd_w in well_subdomains:
         sd_w_cn = sd_w.cell_nodes()
         sd_w_cells = np.arange(sd_w.num_cells)
         # get the cells of the 0d as segments (start, end)
@@ -485,15 +488,15 @@ def compute_well_rock_matrix_intersections(
         )
 
     # Operate on the rock matrix grid
-    faces, cells, _ = sps.find(g_max.cell_faces.tocsc())
+    faces, cells, _ = sps.find(sd_max.cell_faces.tocsc())
     cells_order = np.argsort(cells)  # type: ignore
     faces = faces[cells_order]
 
-    nodes, *_ = sps.find(g_max.face_nodes)
-    indptr = g_max.face_nodes.indptr
+    nodes, *_ = sps.find(sd_max.face_nodes)
+    indptr = sd_max.face_nodes.indptr
 
     # Loop on all the well grids
-    for sd_w, n_w in zip(gs_w, nodes_w):
+    for sd_w, n_w in zip(well_subdomains, nodes_w):
         # extract the start and end point of the segments
         start = sd_w.nodes[:, n_w[0]]
         end = sd_w.nodes[:, n_w[1]]
@@ -512,12 +515,14 @@ def compute_well_rock_matrix_intersections(
             # Loop on all the higher dimensional cells
             for c in seg_cells:
                 # For the current cell retrieve its faces
-                loc = slice(g_max.cell_faces.indptr[c], g_max.cell_faces.indptr[c + 1])
+                loc = slice(
+                    sd_max.cell_faces.indptr[c], sd_max.cell_faces.indptr[c + 1]
+                )
                 faces_loc = faces[loc]
                 # Get the local nodes, face based
                 poly = np.array(
                     [
-                        g_max.nodes[:, nodes[indptr[f] : indptr[f + 1]]]
+                        sd_max.nodes[:, nodes[indptr[f] : indptr[f + 1]]]
                         for f in faces_loc
                     ]
                 )
@@ -535,16 +540,14 @@ def compute_well_rock_matrix_intersections(
         # primary to secondary map
         primary_secondary_map = sps.csc_matrix(
             (primary_secondary_data, (primary_secondary_I, primary_secondary_J)),
-            shape=(sd_w.num_cells, g_max.num_cells),
+            shape=(sd_w.num_cells, sd_max.num_cells),
         )
 
-        # add a new edge to the grid bucket
-        mdg.add_edge((g_max, sd_w), primary_secondary_map)
-        d_e = mdg.edge_props((g_max, sd_w))
+        # Add a new edge to the mixed-dimensional grid
 
-        # create the mortar grid
+        # Create the mortar grid
         side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_w.copy()}
-        mg = pp.MortarGrid(sd_w.dim, side_g, codim=g_max.dim - sd_w.dim)
+        mg = pp.MortarGrid(sd_w.dim, side_g, codim=sd_max.dim - sd_w.dim)
         # set the maps
         mg._primary_to_mortar_int = primary_secondary_map
         mg._primary_to_mortar_avg = primary_secondary_map.copy()
@@ -553,7 +556,8 @@ def compute_well_rock_matrix_intersections(
         mg._set_projections()
         # compute the geometry and save the mortar grid
         mg.compute_geometry()
-        d_e["mortar_grid"] = mg
+
+        mdg.add_interface(mg, (sd_max, sd_w), primary_secondary_map)
 
 
 def _argsort_points_along_line_segment(
@@ -647,58 +651,63 @@ def _intersection_segment_fracture(
     return segment_points, tags
 
 
-def _intersection_grid(point: np.ndarray, mdg: pp.MixedDimensionalGrid) -> pp.PointGrid:
-    """Make a point grid and add to mdg.
+def _intersection_subdomain(
+    point: np.ndarray, mdg: pp.MixedDimensionalGrid
+) -> pp.PointGrid:
+    """Make a point subdomain and add to mdg.
 
     Parameters:
         point (array, 3 x 1): coordinates.
-        mdg: The grid bucket.
+        mdg: The mixed-dimensional grid.
 
     Returns:
         PointGrid
     """
-    g = pp.PointGrid(point)
-    g.history.append("Well-fracture intersection grid")
-    g.compute_geometry()
-    mdg.add_subdomains(g)
-    return g
+    sd = pp.PointGrid(point)
+    sd.history.append("Well-fracture intersection grid")
+    sd.compute_geometry()
+    mdg.add_subdomains(sd)
+    return sd
 
 
-def _add_fracture_2_intersection_edge(
-    g_l: pp.Grid, frac_num: int, mdg: pp.MixedDimensionalGrid
+def _add_fracture_2_intersection_interface(
+    sd_secondary: pp.Grid, frac_num: int, mdg: pp.MixedDimensionalGrid
 ) -> None:
     """
     Does not check that the well lies _inside_ a fracture cell and not on the
     face between two cells.
     """
-    for g, _ in mdg:
-        if g.frac_num == frac_num:
-            g_h = g
+    for sd in mdg.subdomains():
+        if sd.frac_num == frac_num:
+            sd_primary = sd
             break  # EK, is there a preferred method?
-    cell_l = np.array([0], dtype=int)
-    cell_h = g_h.closest_cell(g_l.cell_centers)
+    cell_primary = sd_primary.closest_cell(sd_secondary.cell_centers)
+    cell_secondary = np.array([0], dtype=int)
+
     cell_cell_map = sps.coo_matrix(
-        (np.ones(1, dtype=bool), (cell_l, cell_h)), shape=(g_l.num_cells, g_h.num_cells)
+        (np.ones(1, dtype=bool), (cell_secondary, cell_primary)),
+        shape=(sd_secondary.num_cells, sd_primary.num_cells),
     )
-    _add_edge(0, g_l, g_h, mdg, cell_cell_map)
+    _add_interface(0, sd_primary, sd_secondary, mdg, cell_cell_map)
 
 
-def _add_well_2_intersection_edge(
-    g_l: pp.Grid, g_h: pp.Grid, mdg: pp.MixedDimensionalGrid
+def _add_well_2_intersection_interface(
+    sd_primary: pp.Grid, sd_secondary: pp.Grid, mdg: pp.MixedDimensionalGrid
 ) -> None:
     cell_l = np.array([0], dtype=int)
-    vec = g_h.face_centers - g_l.cell_centers
+    vec = sd_primary.face_centers - sd_secondary.cell_centers
     face_h = np.array([np.argmin(np.sum(np.power(vec, 2), axis=0))], dtype=int)
     face_cell_map = sps.coo_matrix(
-        (np.ones(1, dtype=bool), (cell_l, face_h)), shape=(g_l.num_cells, g_h.num_faces)
+        (np.ones(1, dtype=bool), (cell_l, face_h)),
+        shape=(sd_secondary.num_cells, sd_primary.num_faces),
     )
-    _add_edge(0, g_l, g_h, mdg, face_cell_map)
+    _add_interface(0, sd_primary, sd_secondary, mdg, face_cell_map)
 
 
-def _add_edge(
+def _add_interface(
     dim: int,
-    g_l: pp.Grid,
-    g_h: pp.Grid,
+    sd_primary: pp.Grid,
+    sd_secondary: pp.Grid,
     mdg: pp.MixedDimensionalGrid,
     primary_secondary_map: sps.coo_matrix,
 ) -> None:
@@ -706,18 +715,16 @@ def _add_edge(
 
     Both grids should already be present in the bucket.
     Parameters:
-        g_l: is the intersection point grid.
-        g_h. represents fracture or well.
+        sd_primary. represents fracture or well.
+        sd_secondary: is the intersection point grid.
         mdg: MixedDimensionalGrid to which the edge will be added.
         primary_secondary_map (sps.coo_matrix): Map between cells_l and either faces_h
             (codim=1) or cells_h (codim=2).
     """
-    codim = g_h.dim - g_l.dim
-    edge = (g_h, g_l)
-    mdg.add_edge(edge, primary_secondary_map)
-    d_e = mdg.edge_props(edge)
-    side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: g_l.copy()}
+    codim = sd_primary.dim - sd_secondary.dim
+    subdomain_pair = (sd_primary, sd_secondary)
+    side_g = {pp.grids.mortar_grid.MortarSides.LEFT_SIDE: sd_secondary.copy()}
     mg = pp.MortarGrid(dim, side_g, primary_secondary_map, codim=codim)
     mg._primary_to_mortar_int = primary_secondary_map
     mg.compute_geometry()
-    d_e["mortar_grid"] = mg
+    mdg.add_interface(mg, subdomain_pair, primary_secondary_map)
