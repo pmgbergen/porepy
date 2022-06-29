@@ -8,6 +8,7 @@ classes handling the arising coupling terms are provided.
 
 import logging
 import time
+from typing import Dict
 
 import numpy as np
 import scipy.sparse as sps
@@ -648,7 +649,15 @@ class DivUCoupling(AbstractInterfaceLaw):
         # ambient dimension
         return (intf.dim + 1) * intf.num_cells
 
-    def discretize(self, sd_primary, sd_secondary, data_h, data_l, data_intf):
+    def discretize(
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: Dict,
+        data_secondary: Dict,
+        data_intf: Dict,
+    ):
         """
         Nothing to do
         """
