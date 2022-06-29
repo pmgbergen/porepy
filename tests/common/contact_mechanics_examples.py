@@ -35,22 +35,21 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
                 the fracture endpoints.
             box (dict): The bounding box of the domain, defined through minimum and
                 maximum values in each dimension.
-            gb (pp.GridBucket): The produced grid bucket.
-            Nd (int): The dimension of the matrix, i.e., the highest dimension in the
+            mdg (pp.MixedDimensionalGrid): The produced grid bucket.
+            nd (int): The dimension of the matrix, i.e., the highest dimension in the
                 grid bucket.
 
         """
         x_endpoints = np.array([0.2, 0.8])
-        gb, self.box = gb, self.box = pp.grid_buckets_2d.single_horizontal(
+        self.mdg, self.box = mdg, self.box = pp.grid_buckets_2d.single_horizontal(
             self.mesh_args,
             x_endpoints,
         )
 
         # Set projections to local coordinates for all fractures
-        pp.contact_conditions.set_projections(gb)
+        pp.contact_conditions.set_projections(self.mdg)
 
-        self.gb = gb
-        self._Nd = self.gb.dim_max()
+        self.nd = self.mdg.dim_max()
 
     def _domain_boundary_sides(self, g):
         """
@@ -63,7 +62,7 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
         west = g.face_centers[0] < box["xmin"] + tol
         north = g.face_centers[1] > box["ymax"] - tol
         south = g.face_centers[1] < box["ymin"] + tol
-        if self._Nd == 2:
+        if self.nd == 2:
             top = np.zeros(g.num_faces, dtype=bool)
             bottom = top.copy()
         else:
