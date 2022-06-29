@@ -421,7 +421,7 @@ class RobinCoupling(AbstractInterfaceLaw):
                 # normal diffusivity.
                 cc[2, block] = diffusivity_discr * cc[2, block]
             # Add mortar flux to the interface equation
-            cc[2, 2] += sps.diags(np.ones(data_intf["mortar_grid"].num_cells))
+            cc[2, 2] += sps.diags(np.ones(intf.num_cells))
 
             matrix += cc
 
