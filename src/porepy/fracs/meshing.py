@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import time
-# from typing import List, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -527,7 +526,7 @@ def _assemble_mdg(
 
 def create_interfaces(
     mdg: pp.MixedDimensionalGrid,
-    subdomain_pairs: dict[Tuple[pp.Grid, pp.Grid], sps.spmatrix],
+    subdomain_pairs: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
 ):
     # loop on all the nodes and create the mortar grids
     for sd_pair, face_cells in subdomain_pairs.items():
