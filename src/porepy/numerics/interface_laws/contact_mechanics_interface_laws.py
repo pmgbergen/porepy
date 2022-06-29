@@ -85,7 +85,7 @@ class PrimalContactCoupling(AbstractInterfaceLaw):
         # It is therefore constructed here.
 
         self.discr_secondary.discretize(
-            sd_primary, sd_secondary, data_h, data_l, data_intf
+            sd_primary, sd_secondary, intf, data_h, data_l, data_intf
         )
 
         logger.debug("Done. Elapsed time {}".format(time.time() - tic))
@@ -126,9 +126,9 @@ class PrimalContactCoupling(AbstractInterfaceLaw):
         cc, rhs = self._define_local_block_matrix(
             sd_primary,
             sd_secondary,
+            intf,
             self.discr_primary,
             self.discr_secondary,
-            intf,
             matrix,
         )
         # IMPLEMENTATION NOTE: The current implementation is geared towards
@@ -174,7 +174,9 @@ class PrimalContactCoupling(AbstractInterfaceLaw):
             traction_discr,
             displacement_jump_discr,
             rhs_secondary,
-        ) = self.discr_secondary.assemble_matrix_rhs(sd_secondary, data_secondary)
+        ) = self.discr_secondary.assemble_matrix_rhs(
+            sd_primary, sd_secondary, intf, data_primary, data_secondary, data_intf, cc
+        )
         # The contact forces. Can be applied directly, these are in their own
         # local coordinate systems.
         cc[secondary_ind, secondary_ind] = traction_discr
