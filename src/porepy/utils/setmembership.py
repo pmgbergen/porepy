@@ -39,8 +39,8 @@ def unique_rows(
 
 
 def ismember_rows(
-    a: np.ndarray[Any, np.dtype[np.float64]],
-    b: np.ndarray[Any, np.dtype[np.float64]],
+    a: np.ndarray[Any, np.dtype[np.int64]],
+    b: np.ndarray[Any, np.dtype[np.int64]],
     sort: float = True,
 ) -> Tuple[np.ndarray[Any, np.dtype[np.bool_]], np.ndarray[Any, np.dtype[np.int64]]]:
     """
