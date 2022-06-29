@@ -582,7 +582,7 @@ class Mpfa(pp.FVElliptic):
         if sd.dim == 2:
             # Rotate the grid into the xy plane and delete third dimension. First
             # make a copy to avoid alterations to the input grid
-            g = sd.copy()
+            sd = sd.copy()
             (
                 cell_centers,
                 face_normals,
@@ -590,7 +590,7 @@ class Mpfa(pp.FVElliptic):
                 R,
                 _,
                 nodes,
-            ) = pp.map_geometry.map_grid(g)
+            ) = pp.map_geometry.map_grid(sd)
             sd.cell_centers = cell_centers
             sd.face_normals = face_normals
             sd.face_centers = face_centers
@@ -605,7 +605,7 @@ class Mpfa(pp.FVElliptic):
         # Define subcell topology, that is, the local numbering of faces, subfaces,
         # sub-cells and nodes. This numbering is used throughout the
         # discretization.
-        subcell_topology = pp.fvutils.SubcellTopology(g)
+        subcell_topology = pp.fvutils.SubcellTopology(sd)
 
         # Below, the boundary conditions should be defined on the subfaces.
         if bnd.num_faces == subcell_topology.num_subfno_unique:

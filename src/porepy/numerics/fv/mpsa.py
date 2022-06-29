@@ -152,7 +152,7 @@ class Mpsa(Discretization):
                 eta = 1 at the vertex. If not given, porepy tries to set an optimal
                 value. If a float is given this value is set to all subfaces, except the
                 boundary (where, 0 is used). If eta is a np.ndarray its size should
-                equal SubcellTopology(g).num_subfno.
+                equal SubcellTopology(sd).num_subfno.
 
         matrix_dictionary will be updated with the following entries:
             stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)
@@ -169,7 +169,7 @@ class Mpsa(Discretization):
 
         Parameters
         ----------
-        g (pp.Grid): grid, or a subclass, with geometry fields computed.
+        sd (pp.Grid): grid, or a subclass, with geometry fields computed.
         data (dict): For entries, see above.
 
         """
@@ -1104,7 +1104,7 @@ class Mpsa(Discretization):
             eta (float or ndarray, range=[0,1)): Optional. Parameter determining the point
                 at which the displacement is evaluated. If eta is a nd-array it should be on
                 the size of subcell_topology.num_subfno. If eta is not given the method will
-                call fvutils.determine_eta(g) to set it.
+                call fvutils.determine_eta(sd) to set it.
         Returns:
             scipy.sparse.csr_matrix (sd.dim*num_sub_faces, sd.dim*num_cells):
                 displacement reconstruction for the displacement at the half faces. This is
@@ -1820,7 +1820,7 @@ class Mpsa(Discretization):
     def _reduce_grid_constit_2d(
         self, sd: pp.Grid, constit: pp.FourthOrderTensor
     ) -> Tuple[pp.Grid, pp.FourthOrderTensor]:
-        g = sd.copy()
+        sd = sd.copy()
 
         (
             cell_centers,
@@ -1829,7 +1829,7 @@ class Mpsa(Discretization):
             _,
             _,
             nodes,
-        ) = pp.map_geometry.map_grid(g)
+        ) = pp.map_geometry.map_grid(sd)
         sd.cell_centers = cell_centers
         sd.face_normals = face_normals
         sd.face_centers = face_centers
