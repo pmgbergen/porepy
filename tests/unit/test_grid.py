@@ -24,7 +24,7 @@ class TestDiameterComputation(unittest.TestCase):
     def test_cell_diameters_2d(self):
         g = pp.CartGrid([3, 2], [1, 1])
         cell_diameters = g.cell_diameters()
-        known = np.repeat(np.sqrt(0.5 ** 2 + 1.0 / 3.0 ** 2), g.num_cells)
+        known = np.repeat(np.sqrt(0.5**2 + 1.0 / 3.0**2), g.num_cells)
         self.assertTrue(np.allclose(cell_diameters, known))
 
     def test_cell_diameters_3d(self):
@@ -127,7 +127,7 @@ class TestComputeGeometry(unittest.TestCase):
         g = pp.CartGrid([1, 1], [5000, 5000])
         g.compute_geometry()
         known_areas = 5000 * np.ones(4)
-        known_volumes = 5000 ** 2 * np.ones(1)
+        known_volumes = 5000**2 * np.ones(1)
         known_normals = np.array([[1, 0, 0], [1, 0, 0], [0, 1, 0], [0, 1, 0]]).T * 5000
         known_f_centr = (
             np.array([[0, 0.5, 0], [1, 0.5, 0], [0.5, 0, 0], [0.5, 1, 0]]).T * 5000
@@ -605,14 +605,14 @@ class TestGridMappings1d(unittest.TestCase):
         left_side = pp.PointGrid(np.array([0, 0, 0]).T)
         left_side.compute_geometry()
 
-        mg = pp.grids.mortar_grid.MortarGrid(0, {"0": left_side}, face_faces)
+        intf = pp.grids.mortar_grid.MortarGrid(0, {"0": left_side}, face_faces)
 
-        self.assertTrue(mg.num_cells == 1)
-        self.assertTrue(mg.num_sides() == 1)
-        self.assertTrue(np.all(mg.primary_to_mortar_avg().A == [1, 0, 0]))
-        self.assertTrue(np.all(mg.primary_to_mortar_int().A == [1, 0, 0]))
-        self.assertTrue(np.all(mg.secondary_to_mortar_avg().A == [0, 0, 1]))
-        self.assertTrue(np.all(mg.secondary_to_mortar_int().A == [0, 0, 1]))
+        self.assertTrue(intf.num_cells == 1)
+        self.assertTrue(intf.num_sides() == 1)
+        self.assertTrue(np.all(intf.primary_to_mortar_avg().A == [1, 0, 0]))
+        self.assertTrue(np.all(intf.primary_to_mortar_int().A == [1, 0, 0]))
+        self.assertTrue(np.all(intf.secondary_to_mortar_avg().A == [0, 0, 1]))
+        self.assertTrue(np.all(intf.secondary_to_mortar_int().A == [0, 0, 1]))
 
     def test_merge_two_grids(self):
         """
@@ -631,14 +631,14 @@ class TestGridMappings1d(unittest.TestCase):
         left_side = pp.PointGrid(np.array([2, 0, 0]).T)
         left_side.compute_geometry()
 
-        mg = pp.grids.mortar_grid.MortarGrid(0, {"0": left_side}, face_faces)
+        intf = pp.grids.mortar_grid.MortarGrid(0, {"0": left_side}, face_faces)
 
-        self.assertTrue(mg.num_cells == 1)
-        self.assertTrue(mg.num_sides() == 1)
-        self.assertTrue(np.all(mg.primary_to_mortar_avg().A == [0, 1, 0]))
-        self.assertTrue(np.all(mg.primary_to_mortar_int().A == [0, 1, 0]))
-        self.assertTrue(np.all(mg.secondary_to_mortar_avg().A == [0, 1]))
-        self.assertTrue(np.all(mg.secondary_to_mortar_int().A == [0, 1]))
+        self.assertTrue(intf.num_cells == 1)
+        self.assertTrue(intf.num_sides() == 1)
+        self.assertTrue(np.all(intf.primary_to_mortar_avg().A == [0, 1, 0]))
+        self.assertTrue(np.all(intf.primary_to_mortar_int().A == [0, 1, 0]))
+        self.assertTrue(np.all(intf.secondary_to_mortar_avg().A == [0, 1]))
+        self.assertTrue(np.all(intf.secondary_to_mortar_int().A == [0, 1]))
 
 
 @pytest.mark.parametrize(
@@ -663,31 +663,35 @@ def test_pickle_grid(g):
 
     test_utils.delete_file(fn)
 
-@pytest.mark.parametrize("g",[         pp.PointGrid([0, 0, 0]),
+
+@pytest.mark.parametrize(
+    "g",
+    [
+        pp.PointGrid([0, 0, 0]),
         pp.CartGrid([2]),
         pp.CartGrid([2, 2]),
-        pp.StructuredTriangleGrid([2, 2]),]
+        pp.StructuredTriangleGrid([2, 2]),
+    ],
 )
 def test_pickle_mortar_grid(g):
-    fn = 'tmp.grid'
+    fn = "tmp.grid"
     g.compute_geometry()
-    mg = pp.MortarGrid(g.dim, {0: g, 1: g})
+    intf = pp.MortarGrid(g.dim, {0: g, 1: g})
 
-    pickle.dump(mg, open(fn, 'wb'))
-    mg_read = pickle.load(open(fn, 'rb'))
+    pickle.dump(intf, open(fn, "wb"))
+    intf_read = pickle.load(open(fn, "rb"))
 
-    test_utils.compare_mortar_grids(mg, mg_read)
+    test_utils.compare_mortar_grids(intf, intf_read)
 
-    mg_one_sided = pp.MortarGrid(g.dim, {0: g})
+    intf_one_sided = pp.MortarGrid(g.dim, {0: g})
 
-    pickle.dump(mg, open(fn, 'wb'))
-    mg_read = pickle.load(open(fn, 'rb'))
+    pickle.dump(intf, open(fn, "wb"))
+    intf_read = pickle.load(open(fn, "rb"))
 
-    test_utils.compare_mortar_grids(mg_one_sided, mg_read)
+    test_utils.compare_mortar_grids(intf_one_sided, intf_read)
 
     test_utils.delete_file(fn)
 
 
 if __name__ == "__main__":
-
     unittest.main()
