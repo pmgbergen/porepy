@@ -15,29 +15,28 @@ class TestDilation(unittest.TestCase):
             pp.run_time_dependent_model(setup, {"convergence_tol": 1e-10})
         else:
             pp.run_stationary_model(setup, {"convergence_tol": 1e-10})
-        gb = setup.gb
+        mdg = setup.mdg
 
-        nd = gb.dim_max()
+        nd = mdg.dim_max()
+        sd_2 = list(mdg.subdomains(dim=nd))[0]
+        sd_1 = list(mdg.subdomains(dim=nd - 1))[0]
+        intf = mdg.subdomain_pair_to_interface((sd_1, sd_2))
+        intf_data = mdg.interface_data(intf)
 
-        g2 = gb.grids_of_dimension(2)[0]
-        g1 = gb.grids_of_dimension(1)[0]
+        sd_1_data = mdg.subdomain_data(sd_1)
 
-        d_m = gb.edge_props((g1, g2))
-        d_1 = gb.node_props(g1)
 
-        mg = d_m["mortar_grid"]
-
-        u_mortar = d_m[pp.STATE][setup.mortar_displacement_variable]
-        contact_force = d_1[pp.STATE][setup.contact_traction_variable]
+        u_mortar = intf_data[pp.STATE][setup.mortar_displacement_variable]
+        contact_force = sd_1_data[pp.STATE][setup.contact_traction_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_secondary_avg(nd=nd)
-            * mg.sign_of_mortar_sides(nd=nd)
+            intf.mortar_to_secondary_avg(nd=nd)
+            * intf.sign_of_mortar_sides(nd=nd)
             * u_mortar
         )
-        projection = d_1["tangential_normal_projection"]
+        projection = sd_1_data["tangential_normal_projection"]
 
-        project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
+        project_to_local = projection.project_tangential_normal(int(intf.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
         u_mortar_local_decomposed = u_mortar_local.reshape((2, -1), order="F")
 
@@ -215,24 +214,24 @@ class SetupContactMechanics(
         fractures. The two sides of the fractures are coupled together with a
         mortar grid.
         """
-        # Only make grid if not already available. This is necessary to avoid issuse
+        # Only make grid if not already available. This is necessary to avoid issues
         # with TestDilation().test_two_steps()
-        if not hasattr(self, "gb"):
+        if not hasattr(self, "mdg"):
             rotate_fracture = getattr(self, "rotate_fracture", False)
             endpoints = getattr(self, "fracture_endpoints", np.array([0.3, 0.7]))
             if rotate_fracture:
-                self.gb, self.box = pp.grid_buckets_2d.single_vertical(
+                self.mdg, self.box = pp.grid_buckets_2d.single_vertical(
                     self.mesh_args, endpoints
                 )
             else:
-                self.gb, self.box = pp.grid_buckets_2d.single_horizontal(
+                self.mdg, self.box = pp.grid_buckets_2d.single_horizontal(
                     self.mesh_args, endpoints
                 )
 
             # Set projections to local coordinates for all fractures
-            pp.contact_conditions.set_projections(self.gb)
+            pp.contact_conditions.set_projections(self.mdg)
 
-            self._Nd = self.gb.dim_max()
+            self.nd = self.mdg.dim_max()
 
     def _bc_values(self, g):
         _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
@@ -261,8 +260,8 @@ class SetupContactMechanics(
     def _set_parameters(self):
         super()._set_parameters()
         dilation_angle = getattr(self, "dilation_angle", 0)
-        for g, d in self.gb:
-            if g.dim < self._Nd:
+        for g, d in self.mdg.subdomains(return_data=True):
+            if g.dim < self.nd:
 
                 initial_gap = getattr(self, "initial_gap", np.zeros(g.num_cells))
 
