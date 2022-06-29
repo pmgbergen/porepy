@@ -389,7 +389,7 @@ class LineTesselation(unittest.TestCase):
         p2 = np.array([[0.4, 0.4, 0.1], [1.0, 1.0, 0.1]]).T
         l1 = np.array([[0, 1], [1, 2]]).T
         l2 = np.array([[0, 1]]).T
-        intersect = pp.intersections.line_tesselation(p1, p2, l1, l2)
+        intersect = pp.intersections.line_tessellation(p1, p2, l1, l2)
         self.assertTrue(len(intersect) == 0)
 
     def test_tesselation_do(self):
@@ -397,15 +397,15 @@ class LineTesselation(unittest.TestCase):
         p2 = np.array([[0.25, 0.25, 0], [1.0, 1.0, 0]]).T
         l1 = np.array([[0, 1], [1, 2]]).T
         l2 = np.array([[0, 1]]).T
-        intersections = pp.intersections.line_tesselation(p1, p2, l1, l2)
+        intersections = pp.intersections.line_tessellation(p1, p2, l1, l2)
         for inter in intersections:
             if inter[0] == 0:
                 if inter[1] == 0:
-                    self.assertTrue(inter[2] == np.sqrt(0.25 ** 2 + 0.25 ** 2))
+                    self.assertTrue(inter[2] == np.sqrt(0.25**2 + 0.25**2))
                     continue
             elif inter[0] == 1:
                 if inter[1] == 1:
-                    self.assertTrue(inter[2] == np.sqrt(0.5 ** 2 + 0.5 ** 2))
+                    self.assertTrue(inter[2] == np.sqrt(0.5**2 + 0.5**2))
             else:
                 self.assertTrue(False)
 
@@ -578,8 +578,8 @@ class SurfaceTesselation(unittest.TestCase):
         num_isect = len(isect)
         self.assertTrue(num_known == num_isect)
 
-        found_isect = np.zeros(num_isect, dtype=np.bool)
-        found_known_isect = np.zeros(num_known, dtype=np.bool)
+        found_isect = np.zeros(num_isect, dtype=bool)
+        found_known_isect = np.zeros(num_known, dtype=bool)
 
         for i in range(num_isect):
             for k in range(num_known):
