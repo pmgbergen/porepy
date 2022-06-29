@@ -63,10 +63,6 @@ def subdomains_to_mdg(
 
     # Assemble the list of subdomain grids into a mixed-dimensional grid.
     # This will also identify pairs of neighboring grids (one dimension apart).
-    # Variable node_pairs is a list of tuples, the first item is a pair of neighboring
-    # subdomains (again represented as a tuple), while the second item is a mapping
-    # from faces in the subdomain with the high dimension to cells in the subdomain
-    # of the lower dimension.
     mdg, node_pairs = _assemble_mdg(subdomains)
     logger.info("Done. Elapsed time " + str(time.time() - tm_mdg))
 
@@ -493,7 +489,7 @@ def _assemble_mdg(
                 # If something goes wrong here, we will likely get an index of -1
                 # when initializing the sparse matrix below - that should be a
                 # clear indicator.
-                tmp = -np.ones(is_mem.size, dtype=np.int)
+                tmp = -np.ones(is_mem.size, dtype=int)
                 tmp[is_mem] = cell_2_face
                 cell_2_face = tmp
 
@@ -526,10 +522,24 @@ def _assemble_mdg(
 
 def create_interfaces(
     mdg: pp.MixedDimensionalGrid,
-    subdomain_pairs: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
+    subdomains_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
 ):
-    # loop on all the nodes and create the mortar grids
-    for sd_pair, face_cells in subdomain_pairs.items():
+    
+    """
+    Create interfaces for a given MixedDimensionalGrid.
+
+    Args:
+        mdg: The mixed-dimensional grid where the interfaces are built.
+        subdomains_to_face_cell_map: A dictionary of subdomains mapped to a 
+            face-cell map. The first item shows two neighboring subdomains. 
+            The second item is a mapping between faces in the high dimension 
+            subdomain and cells in the low dimension subdomain.
+
+    """    
+    
+    
+    # loop on all the subdomain pairs and create the mortar grids
+    for sd_pair, face_cells in subdomains_to_face_cell_map.items():
 
         hsd, lsd = sd_pair
 
