@@ -103,7 +103,7 @@ class TestBoundaries(unittest.TestCase):
         g = pp.CartGrid([1, 1])
         g.nodes = np.random.random((g.dim, g.num_nodes))
 
-        bmin, bmax = g.bounding_box()
+        bmin, bmax = pp.bounding_box.from_grid(g)
         self.assertTrue(np.allclose(bmin, g.nodes.min(axis=1)))
         self.assertTrue(np.allclose(bmax, g.nodes.max(axis=1)))
 
