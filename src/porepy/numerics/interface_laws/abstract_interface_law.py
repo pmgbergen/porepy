@@ -19,10 +19,10 @@ class AbstractInterfaceLaw(abc.ABC):
         keyword (str): Used to identify the right parameter dictionary from the full
             data dictionary of this grid.
         intf_coupling_via_high_dim (boolean): If True, assembly will allow for a direct
-            coupling between different edges. The class must then implement the function
+            coupling between different interfaces. The class must then implement the function
             assemble_intf_coupling_via_high_dim().
         intf_coupling_via_low_dim (boolean): If True, assembly will allow for a direct
-            coupling between different edges. The class must then implement the function
+            coupling between different interfaces. The class must then implement the function
             assemble_intf_coupling_via_low_dim().
 
     """
@@ -73,7 +73,7 @@ class AbstractInterfaceLaw(abc.ABC):
             sd_secondary: Grid of the secondary domain.
             data_primary: Data dictionary for the primary domain.
             data_secondary: Data dictionary for the secondary domain.
-            data_intf: Data dictionary for the edge between the domains.
+            data_intf: Data dictionary for the interface between the domains.
 
         """
         pass
@@ -111,7 +111,7 @@ class AbstractInterfaceLaw(abc.ABC):
             sd_secondary: Grid of the secondary domain.
             data_primary: Data dictionary for the primary domain.
             data_secondary: Data dictionary for the secondary domain.
-            data_intf: Data dictionary for the edge between the domains.
+            data_intf: Data dictionary for the interface between the domains.
 
         """
         self.discretize(
@@ -139,7 +139,7 @@ class AbstractInterfaceLaw(abc.ABC):
             sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the interface between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -175,7 +175,7 @@ class AbstractInterfaceLaw(abc.ABC):
             sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the interface between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -217,7 +217,7 @@ class AbstractInterfaceLaw(abc.ABC):
             sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the interface between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -259,7 +259,7 @@ class AbstractInterfaceLaw(abc.ABC):
             sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the interface between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -272,6 +272,13 @@ class AbstractInterfaceLaw(abc.ABC):
                 side of this coupling. Index 0, 1 and 2 represent the primary,
                 secondary and mortar variable, respectively.
 
+        Raises:
+            ValueError if the number of degrees of freedom associated to the
+                discretization matrices (primary and secondary) do not match
+                the number of dofs of the matrix.
+            ValueError if the number of degrees of freedom associated to the
+                interface discretization does not match the number of dofs
+                given by the matrix.
         """
         primary_ind = 0
         secondary_ind = 1
@@ -301,7 +308,7 @@ class AbstractInterfaceLaw(abc.ABC):
                 )
             elif not self.ndof(intf) == matrix[primary_ind, mortar_ind].shape[1]:
                 raise ValueError(
-                    """The number of dofs of the edge discretization given
+                    """The number of dofs of the interface discretization given
                 in the coupling discretization must match the number of dofs given by the
                 matrix.
                 """
@@ -341,7 +348,7 @@ class AbstractInterfaceLaw(abc.ABC):
             sd_secondary: Grid on the other neighboring subdomain.
             data_primary: Data dictionary for the primary suddomain
             data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains
+            data_intf: Data dictionary for the interface between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         Returns:
@@ -383,7 +390,7 @@ class AbstractInterfaceLaw(abc.ABC):
                 )
             elif not dof_mortar_secondary == matrix[grid_ind, secondary_ind].shape[1]:
                 raise ValueError(
-                    """The number of dofs of the edge discretization given
+                    """The number of dofs of the interface discretization given
                 in the coupling discretization must match the number of dofs given by the
                 matrix.
                 """
@@ -441,9 +448,9 @@ class AbstractInterfaceLaw(abc.ABC):
             g_between (pp.Grid): Grid of the higher dimensional neighbor to the
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
-            intf_primary (tuple of grids): The grids of the primary edge
+            intf_primary (tuple of grids): The grids of the primary interface
             data_intf_primary (dict): Data dictionary of the primary interface.
-            intf_secondary (tuple of grids): The grids of the secondary edge.
+            intf_secondary (tuple of grids): The grids of the secondary interface.
             data_intf_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
             assemble_matrix (optional): If True (defalut), contributions to local matrix
@@ -463,7 +470,7 @@ class AbstractInterfaceLaw(abc.ABC):
         """
         if self.intf_coupling_via_high_dim:
             raise NotImplementedError(
-                """Interface laws with edge couplings via the high
+                """Interface laws with interface couplings via the high
                                       dimensional grid must implement this model"""
             )
 
@@ -505,9 +512,9 @@ class AbstractInterfaceLaw(abc.ABC):
             g_between (pp.Grid): Grid of the lower-dimensional neighbor to the
                 main interface
             data_between (dict): Data dictionary of the intermediate grid.
-            intf_primary (tuple of grids): The grids of the primary edge
+            intf_primary (tuple of grids): The grids of the primary interface
             data_intf_primary (dict): Data dictionary of the primary interface.
-            intf_secondary (tuple of grids): The grids of the secondary edge.
+            intf_secondary (tuple of grids): The grids of the secondary interface.
             data_intf_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
             assemble_matrix (optional): If True (defalut), contributions to local matrix
@@ -526,7 +533,7 @@ class AbstractInterfaceLaw(abc.ABC):
         """
         if self.intf_coupling_via_low_dim:
             raise NotImplementedError(
-                """Interface laws with edge couplings via the high
+                """Interface laws with interface couplings via the high
                                       dimensional grid must implement this model"""
             )
         else:

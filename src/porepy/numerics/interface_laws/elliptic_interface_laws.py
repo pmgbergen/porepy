@@ -91,9 +91,9 @@ class RobinCoupling(AbstractInterfaceLaw):
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf: Dict,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
     ):
         """Discretize the interface law and store the discretization in the
         edge data.
@@ -102,17 +102,17 @@ class RobinCoupling(AbstractInterfaceLaw):
             sd_primary: Grid of the primary domanin.
             sd_secondary: Grid of the secondary domain.
             intf (pp.MortarGrid): Mortar grid on the interface between the subdomains.
-            data_primary: Data dictionary for the primary domain.
-            data_secondary: Data dictionary for the secondary domain.
-            data_intf: Data dictionary for the edge between the domains.
+            sd_data_primary: Data dictionary for the primary domain.
+            sd_data_secondary: Data dictionary for the secondary domain.
+            intf_data: Data dictionary for the edge between the domains.
 
         """
-        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_intf[
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = intf_data[
             pp.DISCRETIZATION_MATRICES
         ][self.keyword]
-        parameter_dictionary_edge: Dict = data_intf[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_edge: Dict = intf_data[pp.PARAMETERS][self.keyword]
 
-        parameter_dictionary_h: Dict = data_primary[pp.PARAMETERS][
+        parameter_dictionary_h: Dict = sd_data_primary[pp.PARAMETERS][
             self._primary_keyword
         ]
 
@@ -202,9 +202,9 @@ class RobinCoupling(AbstractInterfaceLaw):
         sd_primary,
         sd_secondary,
         intf,
-        data_primary,
-        data_secondary,
-        data_intf,
+        sd_data_primary,
+        sd_data_secondary,
+        intf_data,
         matrix,
     ):
         """Assemble the dicretization of the interface law, and its impact on
@@ -213,9 +213,9 @@ class RobinCoupling(AbstractInterfaceLaw):
         Parameters:
             sd_primary: Grid on one neighboring subdomain.
             sd_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains.
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains.
                 If gravity is taken into consideration, the parameter sub-
                 dictionary should contain something like a/2 * g, where
                 g is the ambient_dimension x n_mortar_cells gravity vector
@@ -234,9 +234,9 @@ class RobinCoupling(AbstractInterfaceLaw):
             sd_primary,
             sd_secondary,
             intf,
-            data_primary,
-            data_secondary,
-            data_intf,
+            sd_data_primary,
+            sd_data_secondary,
+            intf_data,
             matrix,
             assemble_rhs=False,
         )
@@ -246,9 +246,9 @@ class RobinCoupling(AbstractInterfaceLaw):
         sd_primary,
         sd_secondary,
         intf,
-        data_primary,
-        data_secondary,
-        data_intf,
+        sd_data_primary,
+        sd_data_secondary,
+        intf_data,
         matrix,
     ):
         """Assemble the dicretization of the interface law, and its impact on
@@ -257,9 +257,9 @@ class RobinCoupling(AbstractInterfaceLaw):
         Parameters:
             sd_primary: Grid on one neighboring subdomain.
             sd_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains.
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains.
                 If gravity is taken into consideration, the parameter sub-
                 dictionary should contain something like a/2 * g, where
                 g is the ambient_dimension x n_mortar_cells gravity vector
@@ -275,9 +275,9 @@ class RobinCoupling(AbstractInterfaceLaw):
         return self._assemble(
             sd_primary,
             sd_secondary,
-            data_primary,
-            data_secondary,
-            data_intf,
+            sd_data_primary,
+            sd_data_secondary,
+            intf_data,
             matrix,
             assemble_matrix=False,
         )
@@ -287,9 +287,9 @@ class RobinCoupling(AbstractInterfaceLaw):
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf: Dict,
+        sd_data_primary: dict,
+        sd_data_secondary: dict,
+        intf_data: dict,
         matrix: sps.spmatrix,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Assemble the dicretization of the interface law, and its impact on
@@ -298,9 +298,9 @@ class RobinCoupling(AbstractInterfaceLaw):
         Parameters:
             sd_primary: Grid on one neighboring subdomain.
             sd_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains.
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains.
                 If gravity is taken into consideration, the parameter sub-
                 dictionary should contain something like a/2 * g, where
                 g is the ambient_dimension x n_mortar_cells gravity vector
@@ -321,31 +321,31 @@ class RobinCoupling(AbstractInterfaceLaw):
             sd_primary,
             sd_secondary,
             intf,
-            data_primary,
-            data_secondary,
-            data_intf,
+            sd_data_primary,
+            sd_data_secondary,
+            intf_data,
             matrix,
         )
 
     def _assemble(
         self,
-        sd_primary,
-        sd_secondary,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary,
-        data_secondary,
-        data_intf,
-        matrix,
-        assemble_matrix=True,
-        assemble_rhs=True,
+        sd_data_primary: dict,
+        sd_data_secondary: dict,
+        intf_data: dict,
+        matrix: sps.spmatrix,
+        assemble_matrix: bool = True,
+        assemble_rhs: bool = True,
     ):
         """Actual implementation of assembly. May skip matrix and rhs if specified."""
 
-        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_intf[
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = intf_data[
             pp.DISCRETIZATION_MATRICES
         ][self.keyword]
         diffusivity_discr = matrix_dictionary_edge[self.mortar_discr_matrix_key]
-        parameter_dictionary_edge = data_intf[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_edge = intf_data[pp.PARAMETERS][self.keyword]
 
         primary_ind = 0
         secondary_ind = 1
@@ -385,7 +385,7 @@ class RobinCoupling(AbstractInterfaceLaw):
         # Assembly of contribution from boundary pressure must be called even if only
         # matrix or rhs must be assembled.
         self.discr_primary.assemble_int_bound_pressure_trace(
-            sd_primary, data_primary, intf, data_intf, cc, matrix, rhs, primary_ind
+            sd_primary, sd_data_primary, intf, intf_data, cc, matrix, rhs, primary_ind
         )
         if assemble_matrix:
             # Appease mypy
@@ -393,13 +393,20 @@ class RobinCoupling(AbstractInterfaceLaw):
 
             # Calls only for matrix assembly
             self.discr_primary.assemble_int_bound_flux(
-                sd_primary, data_primary, intf, data_intf, cc, matrix, rhs, primary_ind
+                sd_primary,
+                sd_data_primary,
+                intf,
+                intf_data,
+                cc,
+                matrix,
+                rhs,
+                primary_ind,
             )
             self.discr_secondary.assemble_int_bound_pressure_cell(
                 sd_secondary,
-                data_secondary,
+                sd_data_secondary,
                 intf,
-                data_intf,
+                intf_data,
                 cc,
                 matrix,
                 rhs,
@@ -407,9 +414,9 @@ class RobinCoupling(AbstractInterfaceLaw):
             )
             self.discr_secondary.assemble_int_bound_source(
                 sd_secondary,
-                data_secondary,
+                sd_data_secondary,
                 intf,
-                data_intf,
+                intf_data,
                 cc,
                 matrix,
                 rhs,
@@ -426,7 +433,7 @@ class RobinCoupling(AbstractInterfaceLaw):
             matrix += cc
 
             self.discr_primary.enforce_neumann_int_bound(
-                sd_primary, intf, data_intf, matrix, primary_ind
+                sd_primary, intf, intf_data, matrix, primary_ind
             )
 
         if assemble_rhs:
@@ -464,28 +471,28 @@ class RobinCoupling(AbstractInterfaceLaw):
 
     def assemble_intf_coupling_via_high_dim(
         self,
-        g: pp.Grid,
-        data_grid: Dict,
+        sd: pp.Grid,
+        sd_data: dict,
         intf_primary: pp.MortarGrid,
         sd_pair_primary: Tuple[pp.Grid, pp.Grid],
-        data_primary_edge: Dict,
+        intf_data_primary: dict,
         intf_secondary: pp.MortarGrid,
         sd_pair_secondary: Tuple[pp.Grid, pp.Grid],
-        data_secondary_edge: Dict,
+        intf_data_secondary: dict,
         matrix,
-        assemble_matrix=True,
-        assemble_rhs=True,
+        assemble_matrix: bool = True,
+        assemble_rhs: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Represent the impact on a primary interface of the mortar (thus boundary)
         flux on a secondary interface.
 
         Parameters:
-            g (pp.Grid): Grid of the higher dimensional neighbor to the main interface.
-            data_grid (dict): Data dictionary of the intermediate grid.
+            sd (pp.Grid): Grid of the higher dimensional neighbor to the main interface.
+            sd_data (dict): Data dictionary of the intermediate grid.
             intf_primary (tuple of grids): The grids of the primary edge
-            data_intf_primary (dict): Data dictionary of the primary interface.
+            intf_data_primary (dict): Data dictionary of the primary interface.
             intf_secondary (tuple of grids): The grids of the secondary edge.
-            data_intf_secondary (dict): Data dictionary of the secondary interface.
+            intf_data_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
 
         Returns:
@@ -501,11 +508,11 @@ class RobinCoupling(AbstractInterfaceLaw):
 
         if assemble_matrix:
             cc, rhs = self._define_local_block_matrix_intf_coupling(
-                g, self.discr_primary, intf_primary, intf_secondary, matrix
+                sd, self.discr_primary, intf_primary, intf_secondary, matrix
             )
         else:
             rhs = self._define_local_block_matrix_intf_coupling(
-                g,
+                sd,
                 self.discr_primary,
                 intf_primary,
                 intf_secondary,
@@ -513,7 +520,7 @@ class RobinCoupling(AbstractInterfaceLaw):
                 create_matrix=False,
             )
 
-        matrix_dictionary_edge = data_primary_edge[pp.DISCRETIZATION_MATRICES][
+        matrix_dictionary_edge = intf_data_primary[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
 
@@ -528,17 +535,17 @@ class RobinCoupling(AbstractInterfaceLaw):
             # discretization is applied on the relevant mortar grid.
             if (
                 sd_pair_primary[0].dim == sd_pair_primary[1].dim
-                and sd_pair_primary[0] == g
+                and sd_pair_primary[0] == sd
             ):
                 proj_pressure = intf_primary.secondary_to_mortar_avg()
             if (
                 sd_pair_secondary[0].dim == sd_pair_secondary[1].dim
-                and sd_pair_secondary[0] == g
+                and sd_pair_secondary[0] == sd
             ):
                 proj_flux = intf_secondary.mortar_to_secondary_int()
             # Assemble contribution between higher dimensions.
             self.discr_primary.assemble_int_bound_pressure_trace_between_interfaces(
-                g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
+                sd, sd_data, proj_pressure, proj_flux, cc, matrix, rhs
             )
             # Scale the equations (this will modify from K^-1 to K scaling if relevant)
 
@@ -604,18 +611,18 @@ class FluxPressureContinuity(RobinCoupling):
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf: Dict,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
     ) -> None:
         """Nothing really to do here
 
         Parameters:
             sd_primary: Grid of the primary domanin.
             sd_secondary: Grid of the secondary domain.
-            data_primary: Data dictionary for the primary domain.
-            data_secondary: Data dictionary for the secondary domain.
-            data_intf: Data dictionary for the edge between the domains.
+            sd_data_primary: Data dictionary for the primary domain.
+            sd_data_secondary: Data dictionary for the secondary domain.
+            intf_data: Data dictionary for the edge between the domains.
 
         """
         pass
@@ -625,9 +632,9 @@ class FluxPressureContinuity(RobinCoupling):
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf: Dict,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
         matrix: np.ndarray,
     ) -> np.ndarray:
         """Assemble the dicretization of the interface law, and its impact on
@@ -636,9 +643,9 @@ class FluxPressureContinuity(RobinCoupling):
         Parameters:
             sd_primary: Grid on one neighboring subdomain.
             sd_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         """
@@ -685,9 +692,9 @@ class FluxPressureContinuity(RobinCoupling):
         cc_primary = None
         self.discr_primary.assemble_int_bound_pressure_trace_rhs(
             sd_primary,
-            data_primary,
+            sd_data_primary,
             intf,
-            data_intf,
+            intf_data,
             cc_primary,
             rhs_primary,
             primary_ind,
@@ -696,9 +703,9 @@ class FluxPressureContinuity(RobinCoupling):
             cc_secondary = None
             self.discr_secondary.assemble_int_bound_pressure_trace_rhs(
                 sd_secondary,
-                data_secondary,
+                sd_data_secondary,
                 intf,
-                data_intf,
+                intf_data,
                 cc_secondary,
                 rhs_secondary,
                 secondary_ind,
@@ -716,9 +723,9 @@ class FluxPressureContinuity(RobinCoupling):
         sd_primary,
         sd_secondary,
         intf,
-        data_primary,
-        data_secondary,
-        data_intf,
+        sd_data_primary,
+        sd_data_secondary,
+        intf_data,
         matrix,
     ):
         """Assemble the dicretization of the interface law, and its impact on
@@ -727,9 +734,9 @@ class FluxPressureContinuity(RobinCoupling):
         Parameters:
             sd_primary: Grid on one neighboring subdomain.
             sd_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
             matrix_secondary: original discretization for the secondary subdomain
 
@@ -738,9 +745,9 @@ class FluxPressureContinuity(RobinCoupling):
             sd_primary,
             sd_secondary,
             intf,
-            data_primary,
-            data_secondary,
-            data_intf,
+            sd_data_primary,
+            sd_data_secondary,
+            intf_data,
             matrix,
         )
         return A
@@ -750,9 +757,9 @@ class FluxPressureContinuity(RobinCoupling):
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf: Dict,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
         matrix: np.ndarray,
     ):
         """Assemble the dicretization of the interface law, and its impact on
@@ -761,9 +768,9 @@ class FluxPressureContinuity(RobinCoupling):
         Parameters:
             sd_primary: Grid on one neighboring subdomain.
             sd_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_intf: Data dictionary for the edge between the subdomains
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         """
@@ -804,9 +811,9 @@ class FluxPressureContinuity(RobinCoupling):
 
         self.discr_primary.assemble_int_bound_pressure_trace(
             sd_primary,
-            data_primary,
+            sd_data_primary,
             intf,
-            data_intf,
+            intf_data,
             cc_primary,
             matrix,
             rhs_primary,
@@ -814,9 +821,9 @@ class FluxPressureContinuity(RobinCoupling):
         )
         self.discr_primary.assemble_int_bound_flux(
             sd_primary,
-            data_primary,
+            sd_data_primary,
             intf,
-            data_intf,
+            intf_data,
             cc_primary,
             matrix,
             rhs_primary,
@@ -828,9 +835,9 @@ class FluxPressureContinuity(RobinCoupling):
             # imposing the same condition with a different sign, due to the normal
             self.discr_secondary.assemble_int_bound_pressure_trace(
                 sd_secondary,
-                data_secondary,
+                sd_data_secondary,
                 intf,
-                data_intf,
+                intf_data,
                 cc_secondary,
                 matrix,
                 rhs_secondary,
@@ -840,9 +847,9 @@ class FluxPressureContinuity(RobinCoupling):
 
             self.discr_secondary.assemble_int_bound_flux(
                 sd_secondary,
-                data_secondary,
+                sd_data_secondary,
                 intf,
-                data_intf,
+                intf_data,
                 cc_secondary,
                 matrix,
                 rhs_secondary,
@@ -864,9 +871,9 @@ class FluxPressureContinuity(RobinCoupling):
             # through the lower dimensional object.
             self.discr_secondary.assemble_int_bound_pressure_cell(
                 sd_secondary,
-                data_secondary,
+                sd_data_secondary,
                 intf,
-                data_intf,
+                intf_data,
                 cc_secondary,
                 matrix,
                 rhs_secondary,
@@ -875,9 +882,9 @@ class FluxPressureContinuity(RobinCoupling):
 
             self.discr_secondary.assemble_int_bound_source(
                 sd_secondary,
-                data_secondary,
+                sd_data_secondary,
                 intf,
-                data_intf,
+                intf_data,
                 cc_secondary,
                 matrix,
                 rhs_secondary,
@@ -903,13 +910,13 @@ class FluxPressureContinuity(RobinCoupling):
         rhs = rhs_primary + rhs_secondary
 
         self.discr_primary.enforce_neumann_int_bound(
-            sd_primary, intf, data_intf, matrix, primary_ind
+            sd_primary, intf, intf_data, matrix, primary_ind
         )
 
         # Consider this terms only if the grids are of the same dimension
         if sd_primary.dim == sd_secondary.dim:
             self.discr_secondary.enforce_neumann_int_bound(
-                sd_secondary, intf, data_intf, matrix, secondary_ind
+                sd_secondary, intf, intf_data, matrix, secondary_ind
             )
 
         return matrix, rhs
@@ -978,9 +985,9 @@ class WellCoupling(AbstractInterfaceLaw):
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf: Dict,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
     ) -> None:
         """Discretize the Peaceman interface law and store the discretization in the
         edge data.
@@ -988,24 +995,24 @@ class WellCoupling(AbstractInterfaceLaw):
         Parameters:
             sd_primary: Grid of the primary domanin.
             sd_secondary: Grid of the secondary domain.
-            data_primary: Data dictionary for the primary domain.
-            data_secondary: Data dictionary for the secondary domain.
-            data_intf: Data dictionary for the edge between the domains.
+            sd_data_primary: Data dictionary for the primary domain.
+            sd_data_secondary: Data dictionary for the secondary domain.
+            intf_data: Data dictionary for the edge between the domains.
 
         Implementational note: The computation of equivalent radius is highly simplified
         and ignores discretization and anisotropy effects. For more advanced alternatives,
         see the MRST book, https://www.cambridge.org/core/books/an-introduction-to-
         reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
         """
-        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_intf[
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = intf_data[
             pp.DISCRETIZATION_MATRICES
         ][self.keyword]
-        parameter_dictionary_edge: Dict = data_intf[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_edge: Dict = intf_data[pp.PARAMETERS][self.keyword]
 
-        parameter_dictionary_h: Dict = data_primary[pp.PARAMETERS][
+        parameter_dictionary_h: Dict = sd_data_primary[pp.PARAMETERS][
             self._primary_keyword
         ]
-        parameter_dictionary_l: Dict = data_secondary[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_l: Dict = sd_data_secondary[pp.PARAMETERS][self.keyword]
 
         # projection matrix
         proj_h = intf.primary_to_mortar_avg()
@@ -1093,9 +1100,9 @@ class WellCoupling(AbstractInterfaceLaw):
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf: Dict,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
         matrix: sps.spmatrix,
     ) -> Tuple[np.ndarray, np.ndarray]:
         pass
