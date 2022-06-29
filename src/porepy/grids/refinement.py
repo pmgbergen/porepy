@@ -278,9 +278,9 @@ class GridSequenceIterator:
             raise StopIteration()
 
         else:
-            gb = self._factory._generate(self._counter)
+            mdg: pp.MixedDimensionalGrid = self._factory._generate(self._counter)
             self._counter += 1
-            return gb
+            return mdg
 
 
 class GridSequenceFactory(abc.ABC):
@@ -383,16 +383,16 @@ class GridSequenceFactory(abc.ABC):
 
         self._gmsh.write(out_file_name)  # Write the result to '.msh' file
 
-        gb = pp.fracture_importer.dfm_from_gmsh(out_file_name, self.dim)
-        pp.contact_conditions.set_projections(gb)
-        return gb
+        mdg = pp.fracture_importer.dfm_from_gmsh(out_file_name, self.dim)
+        pp.contact_conditions.set_projections(mdg)
+        return mdg
 
     def _generate_unstructured(self, counter: int):
         net = self._network.copy()
         mesh_args = self._mesh_parameters[counter]
         grid_param = self._grid_parameters
-        gb = net.mesh(mesh_args, **grid_param)
-        return gb
+        mdg = net.mesh(mesh_args, **grid_param)
+        return mdg
 
     def _set_parameters(self, param):
         self._refinement_mode = param["mode"]
