@@ -23,7 +23,7 @@ class Tpfa(pp.FVElliptic):
     def __init__(self, keyword: str) -> None:
         super().__init__(keyword)
 
-    def discretize(self, sd: pp.Grid, data: dict):
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
         """
         Discretize the second order elliptic equation using two-point flux approximation.
 
@@ -66,10 +66,9 @@ class Tpfa(pp.FVElliptic):
             folk.uib.no/fciia/elliptisk.pdf. Activated by adding the entry
             Aavatsmark_transmissibilities: True   to the data dictionary.
 
-        Parameters
-        ----------
-        g (pp.Grid): grid, or a subclass, with geometry fields computed.
-        data (dict): For entries, see above.
+        Parametrs:
+            sd (pp.Grid): Grid with geometry fields computed.
+            data (dict): For entries, see above.
         """
         # Get the dictionaries for storage of data and discretization matrices
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]

@@ -46,6 +46,7 @@ class MVEM(DualElliptic):
         is_tangential: Whether the lower-dimensional permeability tensor has been
             rotated to the fracture plane. Defaults to False. Stored in the data
             dictionary.
+
         """
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
@@ -248,7 +249,7 @@ class MVEM(DualElliptic):
         return A, Pi_s
 
     @staticmethod
-    def check_conservation(sd, u):
+    def check_conservation(sd: pp.Grid, u: np.ndarray) -> np.ndarray:
         """
         Return the local conservation of mass in the cells.
         Parameters

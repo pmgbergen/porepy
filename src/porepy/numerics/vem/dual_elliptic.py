@@ -95,18 +95,11 @@ class DualElliptic(EllipticDiscretization):
     def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
 
-        In this case number of faces (velocity dofs) plus the number of cells
-        (pressure dof). If a mortar grid is given the number of dof are equal to
-        the number of cells, we are considering an inter-dimensional interface
-        with flux variable as mortars.
+        Args:
+            sd (pp.Grid): A grid.
 
-        Parameter
-        ---------
-        g: grid.
-
-        Returns
-        ------
-        dof: the number of degrees of freedom.
+        Returns:
+            int: The number of degrees of freedom.
 
         """
         return sd.num_cells + sd.num_faces
@@ -114,21 +107,19 @@ class DualElliptic(EllipticDiscretization):
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.csr_matrix, np.ndarray]:
-        """
-        Return the matrix and righ-hand side for a discretization of a second
-        order elliptic equation using mixed method.
+        """Return the matrix and right-hand side for a discretization of a second
+        order elliptic equation.
 
-        Parameters
-        ----------
-        g : grid, or a subclass, with geometry fields computed.
-        data: dictionary to store the data.
+        Args:
+            sd (pp.Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
 
-        Return
-        ------
-        matrix: sparse csr (sd.num_faces + sd.num_cells, sd.num_faces+ sd.num_cells)
-            Saddle point matrix obtained from the discretization.
-        rhs: array (sd.num_faces+g_num_cells)
-            Right-hand side which contains the boundary conditions.
+        Returns:
+            scipy.sparse.csr_matrix: System matrix of this discretization. The size of
+                the matrix will depend on the specific discretization.
+            np.ndarray: Right-hand side vector with representation of boundary
+                conditions. The size of the vector will depend on the discretization.
+
         """
         # First assemble the matrix
         M = self.assemble_matrix(sd, data)
@@ -141,7 +132,17 @@ class DualElliptic(EllipticDiscretization):
         return M, self.assemble_rhs(sd, data, bc_weight)
 
     def assemble_matrix(self, g: pp.Grid, data: dict) -> sps.csr_matrix:
-        """Assemble matrix from an existing discretization."""
+        """Assemble matrix from an existing discretization.
+
+        Args:
+            sd (pp.Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+
+        Returns:
+            scipy.sparse.csr_matrix: System matrix of this discretization. The
+                size of the matrix will depend on the specific discretization.
+
+        """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
         mass = matrix_dictionary[self.mass_matrix_key]
@@ -203,15 +204,18 @@ class DualElliptic(EllipticDiscretization):
     def assemble_rhs(
         self, sd: pp.Grid, data: dict, bc_weight: float = 1.0
     ) -> np.ndarray:
-        """
-        Return the righ-hand side for a discretization of a second order elliptic
-        equation using RT0-P0 method. See self.matrix_rhs for a detaild
-        description.
+        """Return the righ-hand side for a discretization of a second order elliptic
+        equation.
 
-        Additional parameter:
-        --------------------
-        bc_weight: to use the infinity norm of the matrix to impose the
-            boundary conditions. Default 1.
+        Args:
+            sd (Grid): Computational grid, with geometry fields computed.
+            data (dictionary): With data stored.
+            bc_weight (float): to use the infinity norm of the matrix to impose the
+                boundary conditions. Default 1.
+
+        Returns:
+            np.ndarray: Right hand side vector with representation of boundary
+                conditions. The size of the vector will depend on the discretization.
 
         """
         # Allow short variable names in backend function
@@ -689,10 +693,10 @@ class DualElliptic(EllipticDiscretization):
 
         Parameters
         ----------
-        g : grid, or a subclass, with geometry fields computed.
+        sd : grid, or a subclass, with geometry fields computed.
         up : array (sd.num_faces+sd.num_cells)
             Solution, stored as [velocity,pressure]
-        d: data dictionary associated with the grid.
+        data: data dictionary associated with the grid.
             Unused, but included for consistency reasons.
 
         Return
@@ -714,7 +718,7 @@ class DualElliptic(EllipticDiscretization):
         sd : grid, or a subclass, with geometry fields computed.
         solution_array : array (sd.num_faces + sd.num_cells)
             Solution, stored as [velocity,pressure]
-        d: data dictionary associated with the grid.
+        data: data dictionary associated with the grid.
             Unused, but included for consistency reasons.
 
         Return
