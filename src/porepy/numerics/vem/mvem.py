@@ -4,8 +4,6 @@ Module with implementation of the mixed virtual element method.
 The main class is MVEM.
 
 """
-from typing import Dict, Tuple
-
 import numpy as np
 import scipy.sparse as sps
 
@@ -21,7 +19,7 @@ class MVEM(DualElliptic):
     def __init__(self, keyword: str) -> None:
         super().__init__(keyword, "MVEM")
 
-    def discretize(self, sd: pp.Grid, data: Dict) -> None:
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
         """Discretize a second order elliptic equation using a dual virtual element
         method.
 
@@ -67,7 +65,7 @@ class MVEM(DualElliptic):
         # Get dictionary for parameter storage
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         # Retrieve the permeability
-        k = parameter_dictionary["second_order_tensor"]
+        k: pp.SecondOrderTensor = parameter_dictionary["second_order_tensor"]
         # Identity tensor for vector source computation
         identity = pp.SecondOrderTensor(kxx=np.ones(sd.num_cells))
 
@@ -190,7 +188,7 @@ class MVEM(DualElliptic):
         sign: np.ndarray,
         diam: float,
         weight: float = 0.0,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
@@ -255,7 +253,7 @@ class MVEM(DualElliptic):
         Return the local conservation of mass in the cells.
         Parameters
         ----------
-        g: grid, or a subclass.
+        sd: grid, or a subclass.
         u : array (sd.num_faces) velocity at each face.
         """
         faces, cells, sign = sps.find(sd.cell_faces)
