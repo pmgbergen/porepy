@@ -624,10 +624,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         super()._assign_equations()
 
         # Now, assign the two flow equations not present in the parent model.
-        subdomains: List[pp.Grid] = [g for g, _ in self.mdg]
+        subdomains: List[pp.Grid] = [sd for sd in self.mdg.subdomains()]
 
         interfaces = [
-            e for e, d in self.mdg.interfaces() if d["mortar_grid"].codim == 1
+            intf for intf in self.mdg.interfaces() if intf.codim == 1
         ]
 
         # Construct equations
@@ -1148,7 +1148,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Then for the edges
         for intf, data in self.mdg.interfaces(return_data=True):
-            if data["mortar_grid"].codim == 1:
+            if intf.codim == 1:
                 data[pp.PRIMARY_VARIABLES].update(
                     {self.mortar_scalar_variable: {"cells": 1}}
                 )
