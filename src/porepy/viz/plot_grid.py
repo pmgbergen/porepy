@@ -38,7 +38,7 @@ def plot_grid(
     (info option 'n'), and the normal at the face (info option 'o'). If info is
     set to 'all' all the information are displayed.
 
-    Parameters:
+    Args:
         grid (pp.Grid or pp.MixedDimensionalGrid): subdomain or mixed-dimensional grid.
         cell_value (str or array, optional) if g is a single grid then cell scalar field to be
             represented (only 1d and 2d). If g is a mixed-dimensional grid the name (key)
@@ -93,7 +93,7 @@ def save_img(
     (info option 'n'), and the normal at the face (info option 'o'). If info is
     set to 'all' all the informations are displayed.
 
-    Parameters:
+    Args:
         name: the name of the file
         grid (pp.Grid or pp.MixedDimensionalGrid): subdomain or mixed-dimensional grid.
         cell_value (array or string, optional): if g is a single grid then cell scalar
@@ -129,7 +129,7 @@ def plot_sd(
     """
     Plot data on a subdomain and provided data.
 
-    Parameters:
+    Args:
         sd (pp.Grid): Subdomain
         cell_value (np.ndarray): cell-wise scalar values, will be represented by the color
         of the cells.
@@ -220,7 +220,7 @@ def plot_mdg(
     """
     Plot a mixed-dimensional grid and selected data.
 
-    Parameters:
+    Args:
         mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid
         cell_value (str): key to scalar cell values, will be represented by the color
         of the cells.
@@ -337,7 +337,7 @@ class _Arrow3D(FancyArrowPatch):
         Provide the coordinates of both vertices as xs, ys and zs, each a list of the head
         and tail values.
 
-        Parameters:
+        Args:
             xs (list of np.ndarray): two-element list of x-coordinates of head and tail points
             ys (list of np.ndarray): two-element list of y-coordinates of head and tail points
             zs (list of np.ndarray): two-element list of z-coordinates of head and tail points
@@ -355,7 +355,7 @@ class _Arrow3D(FancyArrowPatch):
     def draw(self, renderer) -> None:
         """Draw arrows using the given renderer.
 
-        Parameters:
+        Args:
             renderer: Renderer
         """
         # Render the 3d coordinates of the arrows as preparation for plotting in the 2d plane.
@@ -371,7 +371,7 @@ def _quiver(sd: pp.Grid, vector_value: np.ndarray, ax: mpl.axes.Axes, **kwargs) 
     """
     Draws arrows representing vectors.
 
-    Parameters:
+    Args:
         sd (pp.Grid): subdomain.
         vector_value (np.ndarray): 3 x n, where n equals either the number of faces or number
             of cells of the grids. Defines the starting point of the plotted vectors.
@@ -435,7 +435,7 @@ def _plot_sd_xd(
     Wrapper function to plot subdomain of arbitrary dimension. In 1d and 2d, the cell_value
     is represented by cell color. vector_value is shown as as arrows.
 
-    Parameters:
+    Args:
         sd (pp.Grid): subdomain
         cell_value (np.ndarray): scalar cell data
         vector_value (np.ndarray, optional): vector cell or face data
@@ -461,7 +461,7 @@ def _lim(nodes: np.ndarray) -> tuple[list[float], list[float], list[float]]:
     """
     Extracts the x, y and z limits of a node array.
 
-    Parameters:
+    Args:
         nodes (np.ndarray): 3d node array
     """
     # Determine min and max values for each compononent of all coordinates
@@ -478,7 +478,7 @@ def _color_map(
     """
     Constructs a color map and sets the extremal values of the value range.
 
-    Parameters:
+    Args:
         extr_value (np.ndarray): two-element iterable object containing min and
             max values used as limits of the color map
         cmap_type (str): keyword
@@ -499,7 +499,7 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
     centers, respectively. If "O" is present, the face normals are printed. If info is "ALL",
     all options are considered.
 
-    Parameters:
+    Args:
         sd (pp.Grid): subdomain
         info (str): extra information to the plot. C, F, and N add cell, face and
             node numbers, respectively. O gives a plot of the face normals.
@@ -510,7 +510,7 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
     def _disp(i: int, p: np.ndarray, c, m):
         """Add single scatter plot to ax.
 
-        Parameters:
+        Args:
             i (int): integer identifier to be added at given position
             p (np.ndarray): position
             c: color
@@ -522,7 +522,7 @@ def _add_info(sd: pp.Grid, info: str, ax: mpl.axis.Axis, **kwargs) -> None:
     def _disp_loop(v: np.ndarray, c, m):
         """Loop over disp.
 
-        Parameters:
+        Args:
             v: positions
             c: color
             m: marker
@@ -554,7 +554,7 @@ def _plot_sd_0d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
     """
     Plot the 0d grid g as a circle on the axis ax.
 
-    Parameters:
+    Args:
         sd (pp.Grid): 0d subdomain
         ax (matplotlib axis): axis
         kwargs (optional): Keyword arguments
@@ -569,7 +569,7 @@ def _plot_sd_1d(
     """
     Plot the 1d grid g to the axis ax, with cell_value represented by the cell coloring.
 
-    Parameters:
+    Args:
         sd (pp.Grid): 1d subdomain
         cell_value (np.ndarray): cell values
         as (matplotlib axis): axis
@@ -624,7 +624,7 @@ def _plot_sd_2d(sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axis.Axis, **kwargs
     """
     Plot the 2d grid g to the axis ax, with cell_value represented by the cell coloring.
 
-    Parameters:
+    Args:
         sd (pp.Grid): 2d subdomain
         cell_value (np.ndarray): cell values
         kwargs (optional): Keyword arguments:
@@ -698,7 +698,7 @@ def _plot_sd_3d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
     """
     Plot the 3d subdomain to the axis ax.
 
-    Parameters:
+    Args:
         sd (pp.Grid): 3d subdomain
         ax (matplotlib axis): axis
         kwargs (optional): Keyword arguments:
