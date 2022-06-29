@@ -1,7 +1,8 @@
 """
 Tests for the standard grids of the grid_bucket_2d module.
 
-Some of these tests are sensitive to meshing or node ordering. If this turns out to cause problems, we deactivate the corresponding asserts.
+Some of these tests are sensitive to meshing or node ordering. If this turns out to cause problems,
+we deactivate the corresponding asserts.
 """
 import unittest
 
@@ -23,17 +24,17 @@ class TestMixedDimensionalGrids(unittest.TestCase):
     """
 
     def check_matrix(self, grid_type):
-        gb = self.gb
+        mdg = self.mdg
         if grid_type.lower() == "simplex":
-            self.assertTrue(isinstance(gb.grids_of_dimension(2)[0], pp.TriangleGrid))
+            self.assertTrue(isinstance(list(mdg.subdomains(dim=2))[0], pp.TriangleGrid))
         elif grid_type.lower() == "cartesian":
-            self.assertTrue(isinstance(gb.grids_of_dimension(2)[0], pp.CartGrid))
+            self.assertTrue(isinstance(list(mdg.subdomains(dim=2))[0], pp.CartGrid))
         else:
             raise Exception("Unknown grid type specified")
 
     def check_fractures(self, n_fracs, n_frac_cells):
-        self.assertTrue(len(self.gb.grids_of_dimension(1)) == n_fracs)
-        for i, g in enumerate(self.gb.grids_of_dimension(1)):
+        self.assertTrue(len(list(self.mdg.subdomains(dim=1))) == n_fracs)
+        for i, g in enumerate(list(self.mdg.subdomains(dim=1))):
             self.assertEqual(n_frac_cells[i], g.num_cells)
 
     def check_fracture_coordinates(self, cell_centers, face_centers):
@@ -42,12 +43,12 @@ class TestMixedDimensionalGrids(unittest.TestCase):
         This check may be sensitive to gmsh options etc. If so, it should probably
         be deactivated for the test case for which it fails.
         """
-        for i, g in enumerate(self.gb.grids_of_dimension(1)):
+        for i, g in enumerate(list(self.mdg.subdomains(dim=1))):
             self.assertTrue(np.all(np.isclose(g.cell_centers, cell_centers[i])))
             self.assertTrue(np.all(np.isclose(g.face_centers, face_centers[i])))
 
     def check_intersections(self, n_intersections):
-        self.assertTrue(len(self.gb.grids_of_dimension(0)) == n_intersections)
+        self.assertTrue(len(list(self.mdg.subdomains(dim=0))) == n_intersections)
 
     def check_domain(self, x_length, y_length):
         d = self.domain
@@ -60,7 +61,7 @@ class TestMixedDimensionalGrids(unittest.TestCase):
         mesh_size_fracs of 0.2 and a fracture crossing the domain at y=0.5.
         """
 
-        self.gb, _ = pp.grid_buckets_2d.single_horizontal()
+        self.mdg, _ = pp.grid_buckets_2d.single_horizontal()
         self.check_matrix("simplex")
         self.check_fractures(1, [5])
         cc = np.vstack(
@@ -76,7 +77,7 @@ class TestMixedDimensionalGrids(unittest.TestCase):
         Test the single horizontal gb generator for a cartesian grid, 6 by 2 cells and
         a fracture extending from (1/6, 1/2) to (1, 1/2).
         """
-        self.gb, _ = pp.grid_buckets_2d.single_horizontal(
+        self.mdg, _ = pp.grid_buckets_2d.single_horizontal(
             [6, 2], [1 / 6, 1], simplex=False
         )
         self.check_matrix("cartesian")
@@ -97,7 +98,7 @@ class TestMixedDimensionalGrids(unittest.TestCase):
         Test the two intersecting fractures gb generator for the default values: simplex
         grid, mesh_size_fracs of 0.2 and two fractures intersecting at (0.5, 0.5).
         """
-        self.gb, _ = pp.grid_buckets_2d.two_intersecting()
+        self.mdg, _ = pp.grid_buckets_2d.two_intersecting()
         self.check_matrix("simplex")
         self.check_fractures(2, [6, 6])
         cc = np.arange(1 / 12, 1, 1 / 6)
@@ -114,7 +115,7 @@ class TestMixedDimensionalGrids(unittest.TestCase):
         Test the two intersecting fractures gb generator for a cartesian grid, 4 by 4
         cells and the vertical fracture extending from y=1/4 to y=3/4.
         """
-        self.gb, _ = pp.grid_buckets_2d.two_intersecting(
+        self.mdg, _ = pp.grid_buckets_2d.two_intersecting(
             [4, 4], y_endpoints=[1 / 4, 3 / 4], simplex=False
         )
         self.check_matrix("cartesian")
@@ -137,7 +138,7 @@ class TestMixedDimensionalGrids(unittest.TestCase):
         Test the gb generator for the regular case of the benchmark study. No coarsening
         is applied.
         """
-        self.gb, self.domain = pp.grid_buckets_2d.benchmark_regular(
+        self.mdg, self.domain = pp.grid_buckets_2d.benchmark_regular(
             {"mesh_size_frac": 1 / 2}
         )
         self.check_matrix("simplex")
@@ -150,7 +151,7 @@ class TestMixedDimensionalGrids(unittest.TestCase):
         Test the gb generator for the regular case of the benchmark study. No coarsening
         is applied.
         """
-        self.gb, self.domain = pp.grid_buckets_2d.seven_fractures_one_L_intersection(
+        self.mdg, self.domain = pp.grid_buckets_2d.seven_fractures_one_L_intersection(
             {"mesh_size_frac": 1 / 5}
         )
         self.check_matrix("simplex")
