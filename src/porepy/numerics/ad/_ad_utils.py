@@ -170,7 +170,9 @@ def discretize_from_list(
                 g_primary, g_secondary = mdg.interface_to_subdomain_pair(g)
                 d_primary = mdg.subdomain_data(g_primary)
                 d_secondary = mdg.subdomain_data(g_secondary)
-                discr.discretize(g_primary, g_secondary, d_primary, d_secondary, data)
+                discr.discretize(
+                    g_primary, g_secondary, g, d_primary, d_secondary, data
+                )
             else:
                 data = mdg.subdomain_data(g)
                 try:
