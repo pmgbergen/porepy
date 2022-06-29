@@ -75,7 +75,9 @@ def subdomains_to_mdg(
     tm_split = time.time()
 
     # Split faces and nodes in the grids of various dimensions
-    mdg, node_pairs = split_grid.split_fractures(mdg, sd_pair_to_face_cell_map, **kwargs)
+    mdg, node_pairs = split_grid.split_fractures(
+        mdg, sd_pair_to_face_cell_map, **kwargs
+    )
     logger.info("Done. Elapsed time " + str(time.time() - tm_split))
 
     # Now that neighboring subdomains are identified, faces and nodes are split, we
@@ -384,28 +386,29 @@ def _assemble_mdg(
     Create a MixedDimensionalGrid from a list of grids.
 
     Args:
-        subdomains: A list of lists of grids. Each element in the list is a 
+        subdomains: A list of lists of grids. Each element in the list is a
             list of all grids of a the same dimension. It is assumed that the
-            grids are sorted from high dimensional grids to low dimensional 
-            grids. All grids must also have the mapping g.global_point_ind 
+            grids are sorted from high dimensional grids to low dimensional
+            grids. All grids must also have the mapping g.global_point_ind
             which maps the local nodes of the grid to the nodes of the highest
             dimensional grid.
 
     Returns:
-        MixedDimensionalGrid: 
+        MixedDimensionalGrid:
             A MixedDimensionalGrid class where the mapping face_cells are given
-            to each edge. face_cells maps from lower-dim cells to higher-dim 
+            to each edge. face_cells maps from lower-dim cells to higher-dim
             faces.
-        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a 
-            face-cell map. The first item represents two neighboring 
-            subdomains. The second item is a mapping between faces in the high 
+        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a
+            face-cell map. The first item represents two neighboring
+            subdomains. The second item is a mapping between faces in the high
             dimension subdomain and cells in the low dimension subdomain.
-            
+
     """
 
     # Create a mixed-dimensional grid
     mdg = MixedDimensionalGrid()
-    [mdg.add_subdomains(sd_d) for sd_d in subdomains]
+    for sd_d in subdomains:
+        mdg.add_subdomains(sd_d)
 
     sd_pair_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix] = {}
 
@@ -530,20 +533,19 @@ def create_interfaces(
     mdg: pp.MixedDimensionalGrid,
     sd_pair_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
 ):
-    
+
     """
     Create interfaces for a given MixedDimensionalGrid.
 
     Args:
         mdg: The mixed-dimensional grid where the interfaces are built.
-        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a 
-            face-cell map. The first item represents two neighboring 
-            subdomains. The second item is a mapping between faces in the high 
+        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a
+            face-cell map. The first item represents two neighboring
+            subdomains. The second item is a mapping between faces in the high
             dimension subdomain and cells in the low dimension subdomain.
 
-    """    
-    
-    
+    """
+
     # loop on all the subdomain pairs and create the mortar grids
     for sd_pair, face_cells in sd_pair_to_face_cell_map.items():
 
