@@ -71,7 +71,7 @@ def generate_coarse_grid(g, subdiv):
 
     or with a grid bucket:
     subdiv = np.array([0,0,1,1,1,1,3,4,6,4,6,4])
-    generate_coarse_grid(gb, subdiv)
+    generate_coarse_grid(mdg, subdiv)
 
     """
     if isinstance(g, grid.Grid):
@@ -82,7 +82,7 @@ def generate_coarse_grid(g, subdiv):
         _generate_coarse_grid_single(g, subdiv, False)
 
     if isinstance(g, md_grid.MixedDimensionalGrid):
-        _generate_coarse_grid_gb(g, subdiv)
+        _generate_coarse_grid_mdg(g, subdiv)
 
 
 # ------------------------------------------------------------------------------#
@@ -229,13 +229,13 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
         return np.array([cell_faces_unique, cell_faces_id])
 
 
-def _generate_coarse_grid_gb(gb, subdiv):
+def _generate_coarse_grid_mdg(mdg, subdiv):
     """
     Specific function for a grid bucket. Use the common interface instead.
     """
 
     if not isinstance(subdiv, dict):
-        g = list(gb.subdomains(dim=gb.dim_max()))[0]
+        g = list(mdg.subdomains(dim=mdg.dim_max()))[0]
         subdiv = {g: subdiv}
 
     for g, (_, partition) in subdiv.items():
@@ -245,10 +245,10 @@ def _generate_coarse_grid_gb(gb, subdiv):
 
         # Update all the primary_to_mortar_int for all the 'edges' connected to the grid
         # We update also all the face_cells
-        for intf in gb.subdomain_to_interfaces(g):
+        for intf in mdg.subdomain_to_interfaces(g):
             # The indices that need to be mapped to the new grid
 
-            data = gb.interface_data(intf)
+            data = mdg.interface_data(intf)
 
             projections = [
                 intf.primary_to_mortar_int().tocsr(),
@@ -322,22 +322,22 @@ def _tpfa_matrix(g, perm=None):
     return solver.assemble_matrix(g, data)
 
 
-def generate_seeds(gb):
+def generate_seeds(mdg):
     """
     Giving the higher dimensional grid in a grid bucket, generate the seed for
     the tip of lower
     """
     seeds = np.empty(0, dtype=int)
 
-    if isinstance(gb, grid.Grid):
+    if isinstance(mdg, grid.Grid):
         return seeds
 
     # Extract the higher dimensional grid
-    g_h = list(gb.subdomains(dim=gb.dim_max()))[0]
+    g_h = list(mdg.subdomains(dim=mdg.dim_max()))[0]
     g_h_faces, g_h_cells, _ = sps.find(g_h.cell_faces)
 
     # Extract the 1-codimensional grids
-    gs = list(gb.subdomains(dim=gb.dim_max() - 1))
+    gs = list(mdg.subdomains(dim=mdg.dim_max() - 1))
 
     for g in gs:
         tips = np.where(g.tags["tip_faces"])[0]
@@ -346,7 +346,7 @@ def generate_seeds(gb):
         cells = np.unique(cells[index])
 
         # recover the mapping between the secondary and the primary grid
-        mg = gb.subdomain_pair_to_interface((g_h, g))
+        mg = mdg.subdomain_pair_to_interface((g_h, g))
         primary_to_mortar = mg.primary_to_mortar_int()
         secondary_to_mortar = mg.secondary_to_mortar_int()
         # this is the old face_cells mapping
