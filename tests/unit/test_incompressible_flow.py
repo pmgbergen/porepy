@@ -33,10 +33,11 @@ def compare_dicts(d1, d2):
 class FlowModel(pp.IncompressibleFlow):
     def create_grid(self):
         if self.params["n_fracs"] == 1:
-            self.gb, self.box = pp.grid_buckets_2d.single_horizontal()
+            self.mdg, self.box = pp.grid_buckets_2d.single_horizontal()
         elif self.params["n_fracs"] == 2:
-            self.gb, self.box = pp.grid_buckets_2d.two_intersecting()
-        pp.contact_conditions.set_projections(self.gb)
+            self.mdg, self.box = pp.grid_buckets_2d.two_intersecting()
+        pp.contact_conditions.set_projections(self.mdg)
+
 
 def test_incompressible_flow_model_no_modification():
     """Test that the raw incompressible flow model with no modifications can be run with
@@ -45,6 +46,7 @@ def test_incompressible_flow_model_no_modification():
     """
     model = pp.IncompressibleFlow({"use_ad": True})
     pp.run_stationary_model(model, {})
+
 
 @pytest.mark.parametrize(
     "n_fracs",
@@ -68,7 +70,7 @@ def test_prepare_simulation(model, n_fracs):
     num_dofs = 0
     # Loop over dictionaries and assert that the correct sets of variables,
     # parameters, initial values are present
-    for g, d in model.gb:
+    for g, d in model.mdg:
         var_list = d[pp.PRIMARY_VARIABLES].keys()
         compare_keywords(var_list, ["p"])
 
@@ -94,7 +96,7 @@ def test_prepare_simulation(model, n_fracs):
 
         num_dofs += g.num_cells
 
-    for e, d in model.gb.edges():
+    for e, d in model.mdg.edges():
         var_list = list(d[pp.PRIMARY_VARIABLES].keys())
         compare_keywords(var_list, ["mortar_p"])
 
@@ -126,12 +128,12 @@ def test_dimension_reduction(model, n_fracs):
     params = {"n_fracs": n_fracs}
     model = FlowModel(params)
     model.prepare_simulation()
-    for g, d in model.gb:
+    for g, d in model.mdg:
         aperture = np.ones(g.num_cells)
-        if g.dim < model.gb.dim_max():
+        if g.dim < model.mdg.dim_max():
             aperture *= 0.1
         assert np.all(np.isclose(model._aperture(g), aperture))
-        specific_volume = np.power(aperture, model.gb.dim_max() - g.dim)
+        specific_volume = np.power(aperture, model.mdg.dim_max() - g.dim)
         assert np.all(np.isclose(model._specific_volume(g), specific_volume))
 
 
