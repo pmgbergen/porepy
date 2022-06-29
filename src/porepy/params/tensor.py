@@ -29,7 +29,7 @@ class SecondOrderTensor(object):
     ):
         """Initialize permeability
 
-        Parameters:
+        Args:
             kxx (np.ndarray): Nc array, with cell-wise values of kxx permeability.
             kyy (optional, np.ndarray): Nc array of kyy. Default equal to kxx.
             kzz (optional, np.ndarray): Nc array of kzz. Default equal to kxx.
@@ -167,10 +167,14 @@ class FourthOrderTensor(object):
     ):
         """Constructor for fourth order tensor on Lame-parameter form
 
-        Parameters:
+        Args:
             mu (numpy.ndarray): Nc array of shear modulus (second lame parameter).
             lmbda (numpy.ndarray): Nc array of first lame parameter.
             phi (Optional numpy.ndarray): Nc array (not used)
+
+        Raises:
+            ValueError if mu, lmbda, or phi (if not None) are no 1d arrays
+            ValueError if the lengths of mu, lmbda, and phi (if not None) are not matching
         """
 
         if not isinstance(mu, np.ndarray):
