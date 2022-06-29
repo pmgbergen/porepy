@@ -12,7 +12,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.grids.md_grid import MixedDimensionalGrid
 
 
 class SubcellTopology:
@@ -49,9 +48,8 @@ class SubcellTopology:
         """
         Constructor for subcell topology
 
-        Parameters
-        ----------
-        g grid
+        Args:
+            sd: grid
         """
         self.sd = sd
 
@@ -59,7 +57,6 @@ class SubcellTopology:
         # simplify later treatment
         sd.cell_faces.sort_indices()
         face_ind, cell_ind = sd.cell_faces.nonzero()
-
         # Number of faces per node
         num_face_nodes = np.diff(sd.face_nodes.indptr)
 
@@ -189,13 +186,11 @@ class SubcellTopology:
         The method is intended used for combining forces, fluxes,
         displacements and pressures, as used in MPSA / MPFA.
 
-        Parameters
-        ----------
-        other: sps.matrix, size (self.subhfno.size x something)
+        Args:
+            other: sps.matrix, size (self.subhfno.size x something)
 
         Returns
-        -------
-        sps.matrix, size (self.subfno_unique.size x something)
+            sps.matrix, size (self.subfno_unique.size x something)
         """
 
         sgn = self.sd.cell_faces[self.fno, self.cno].A
@@ -229,24 +224,21 @@ def compute_dist_face_cell(sd, subcell_topology, eta, return_paired=True):
     On the boundary, eta is set to zero, thus the continuity point is at the
     face center
 
-    Parameters
-    ----------
-    sd: Grid
-    subcell_topology: Of class subcell topology in this module
-    eta: [0,1), eta = 0 gives cont. pt. at face midpoint, eta = 1 means at
-        the vertex. If eta is given as a scalar this value will be applied to
-        all subfaces except the boundary faces, where eta=0 will be enforced.
-        If the length of eta equals the number of subfaces, eta[i] will be used
-        in the computation of the continuity point of the subface s_t.subfno_unique[i].
-        Note that eta=0 at the boundary is ONLY enforced for scalar eta.
+    Args:
+        sd: Grid
+        subcell_topology: Of class subcell topology in this module
+        eta: [0,1), eta = 0 gives cont. pt. at face midpoint, eta = 1 means at
+            the vertex. If eta is given as a scalar this value will be applied to
+            all subfaces except the boundary faces, where eta=0 will be enforced.
+            If the length of eta equals the number of subfaces, eta[i] will be used
+            in the computation of the continuity point of the subface s_t.subfno_unique[i].
+            Note that eta=0 at the boundary is ONLY enforced for scalar eta.
 
     Returns
-    -------
-    sps.csr() matrix representation of vectors. Size sd.nf x (sd.nc * sd.nd)
+        sps.csr() matrix representation of vectors. Size sd.nf x (sd.nc * sd.nd)
 
     Raises:
-    -------
-    ValueError if the size of eta is not 1 or subcell_topology.num_subfno_unique.
+        ValueError if the size of eta is not 1 or subcell_topology.num_subfno_unique.
     """
     _, blocksz = pp.matrix_operations.rlencode(
         np.vstack((subcell_topology.cno, subcell_topology.nno))
@@ -285,7 +277,7 @@ def determine_eta(sd: pp.Grid) -> float:
     The function is intended to give a best estimate of eta in cases where the
     user has not specified a value.
 
-    Parameters:
+    Args:
         sd: Grid for discretization
 
     Returns:
@@ -317,7 +309,7 @@ def find_active_indices(
     If no relevant information is found, the active indices are all cells and
     faces in the grid.
 
-    Parameters:
+    Args:
         parameter_dictionary (dict): Parameters, potentially containing fields
             "specified_cells", "specified_faces", "specified_nodes".
         g (pp.Grid): Grid to be discretized.
@@ -450,14 +442,12 @@ def expand_indices_nd(ind, nd, direction="F"):
     >>> __expand_indices_nd(i, 3, "C")
     (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
 
-    Parameters
-    ----------
-    ind
-    nd
-    direction
+    Args:
+        ind
+        nd
+        direction
 
     Returns
-    -------
 
     """
     dim_inds = np.arange(nd)
@@ -486,8 +476,7 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
     Either fno, subfno and nd should be given or g (and optinally nd) should be
     given.
 
-    Parameters
-    ----------
+    Args:
     EITHER:
        fno (np.ndarray): face numbering in sub-cell topology based on unique subfno
        subfno (np.ndarrary): sub-face numbering
@@ -497,8 +486,8 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
             fno = pp.fvutils.SubcellTopology(g).fno_unique
             subfno = pp.fvutils.SubcellTopology(g).subfno_unique
         nd (int): Optinal, defaults to sd.dim. Defines the dimension of the vector.
+
     Returns
-    -------
     """
     if sd is not None:
         s_t = SubcellTopology(sd)
@@ -521,7 +510,7 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
     For example, discretization of div_g-term in mpfa with gravity,
     where g is a cell-center vector (dim nd)
 
-    Parameters
+    Args:
         nd: dimension
         sub_cell_index: sub-cell indices
         cell_index: cell indices
@@ -550,7 +539,7 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
     For example, discretization of grad_p-term in Biot,
     where p is a cell-center scalar
 
-    Parameters
+    Args:
         nd: dimension
         sub_cell_index: sub-cell indices
         cell_index: cell indices
@@ -588,13 +577,11 @@ def scalar_divergence(sd: pp.Grid) -> sps.csr_matrix:
 
     See also vector_divergence(g)
 
-    Parameters
-    ----------
-    g grid
+    Args:
+        sd (pp.Grid): grid
 
     Returns
-    -------
-    divergence operator
+        divergence operator
     """
     return sd.cell_faces.T.tocsr()
 
@@ -608,13 +595,11 @@ def vector_divergence(sd: pp.Grid) -> sps.csr_matrix:
     then the x-equation for face 1. Correspondingly, the first row
     represents x-component in first cell etc.
 
-    Parameters
-    ----------
-    g grid
+    Args:
+        sd (pp.Grid): grid
 
     Returns
-    -------
-    vector_div (sparse csr matrix), dimensions: nd * (num_cells, num_faces)
+        vector_div (sparse csr matrix), dimensions: nd * (num_cells, num_faces)
     """
     # Scalar divergence
     scalar_div = sd.cell_faces
@@ -639,8 +624,8 @@ def scalar_tensor_vector_prod(
     NOTE: In the local numbering below, in particular in the variables i and j,
     it is tacitly assumed that sd.dim == sd.nodes.shape[0] ==
     sd.face_normals.shape[0] etc. See implementation note in main method.
-    Parameters:
-        g (pp.Grid): Discretization grid
+    Args:
+        sd (pp.Grid): Discretization grid
         k (pp.Second_order_tensor): The permeability tensor
         subcell_topology (fvutils.SubcellTopology): Wrapper class containing
             subcell numbering.
@@ -720,37 +705,35 @@ class ExcludeBoundaries:
         component per subface, while if bound.bc_type=="vector" we assign nd
         components per subface.
 
-        Parameters
-        ----------
-        subcell_topology (pp.SubcellTopology)
-        bound (pp.BoundaryCondition / pp.BoundaryConditionVectorial)
-        nd (int)
+        Args:
+            subcell_topology (pp.SubcellTopology)
+            bound (pp.BoundaryCondition / pp.BoundaryConditionVectorial)
+            nd (int)
 
         Attributes:
-        ----------
-        basis_matrix: sps.csc_matrix, mapping from all subfaces/components to all
-            subfaces/components. Will be applied to other before the exclusion
-            operator for the functions self.exlude...(other, transform),
-            if transform==True.
-        robin_weight: sps.csc_matrix, mapping from all subfaces/components to all
-            subfaces/components. Gives the weight that is applied to the displacement in
-            the Robin condition.
-        exclude_neu: sps.csc_matrix, mapping from all subfaces/components to those having
-            pressure continuity
-        exclude_dir: sps.csc_matrix, mapping from all subfaces/components to those having
-            flux continuity
-        exclude_neu_dir: sps.csc_matrix, mapping from all subfaces/components to those
-            having both pressure and flux continuity (i.e., Robin + internal)
-        exclude_neu_rob: sps.csc_matrix, mapping from all subfaces/components to those
-            not having Neumann or Robin conditions (i.e., Dirichlet + internal)
-        exclude_rob_dir: sps.csc_matrix, mapping from all subfaces/components to those
-            not having Robin or Dirichlet conditions (i.e., Neumann + internal)
-        exclude_bnd: sps.csc_matrix, mapping from all subfaces/components to internal
-            subfaces/components.
-        keep_neu: sps.csc_matrix, mapping from all subfaces/components to only Neumann
-            subfaces/components.
-        keep_rob: sps.csc_matrix, mapping from all subfaces/components to only Robin
-            subfaces/components.
+            basis_matrix: sps.csc_matrix, mapping from all subfaces/components to all
+                subfaces/components. Will be applied to other before the exclusion
+                operator for the functions self.exlude...(other, transform),
+                if transform==True.
+            robin_weight: sps.csc_matrix, mapping from all subfaces/components to all
+                subfaces/components. Gives the weight that is applied to the displacement in
+                the Robin condition.
+            exclude_neu: sps.csc_matrix, mapping from all subfaces/components to those having
+                pressure continuity
+            exclude_dir: sps.csc_matrix, mapping from all subfaces/components to those having
+                flux continuity
+            exclude_neu_dir: sps.csc_matrix, mapping from all subfaces/components to those
+                having both pressure and flux continuity (i.e., Robin + internal)
+            exclude_neu_rob: sps.csc_matrix, mapping from all subfaces/components to those
+                not having Neumann or Robin conditions (i.e., Dirichlet + internal)
+            exclude_rob_dir: sps.csc_matrix, mapping from all subfaces/components to those
+                not having Robin or Dirichlet conditions (i.e., Neumann + internal)
+            exclude_bnd: sps.csc_matrix, mapping from all subfaces/components to internal
+                subfaces/components.
+            keep_neu: sps.csc_matrix, mapping from all subfaces/components to only Neumann
+                subfaces/components.
+            keep_rob: sps.csc_matrix, mapping from all subfaces/components to only Robin
+                subfaces/components.
         """
         self.nd = nd
         self.bc_type = bound.bc_type
@@ -804,7 +787,6 @@ class ExcludeBoundaries:
         subface i.
 
         Example:
-        --------
         # We have two subfaces in dimension 2.
         self.num_subfno = 4
         self.nd = 2
@@ -880,7 +862,7 @@ class ExcludeBoundaries:
         Mapping to exclude faces/components with Dirichlet boundary conditions from
         local systems.
 
-        Parameters:
+        Args:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
@@ -899,7 +881,7 @@ class ExcludeBoundaries:
         Mapping to exclude faces/components with Neumann boundary conditions from
         local systems.
 
-        Parameters:
+        Args:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
@@ -916,7 +898,7 @@ class ExcludeBoundaries:
         Mapping to exclude faces/components with Neumann and Robin boundary
         conditions from local systems.
 
-        Parameters:
+        Args:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
@@ -934,7 +916,7 @@ class ExcludeBoundaries:
         Mapping to exclude faces/components with Neumann and Dirichlet boundary
         conditions from local systems.
 
-        Parameters:
+        Args:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
@@ -951,7 +933,7 @@ class ExcludeBoundaries:
         Mapping to exclude faces/components with Robin and Dirichlet boundary
         conditions from local systems.
 
-        Parameters:
+        Args:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
@@ -967,7 +949,7 @@ class ExcludeBoundaries:
         """Mapping to exclude faces/component with any boundary condition from
         local systems.
 
-        Parameters:
+        Args:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
@@ -985,7 +967,7 @@ class ExcludeBoundaries:
         Mapping to exclude faces/components that is not on the Robin boundary
         conditions from local systems.
 
-        Parameters:
+        Args:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
@@ -1002,7 +984,7 @@ class ExcludeBoundaries:
         Mapping to exclude faces/components that is not on the Neumann boundary
         conditions from local systems.
 
-        Parameters:
+        Args:
             other (scipy.sparse matrix): Matrix of local equations for
                 continuity of flux and pressure.
 
@@ -1233,7 +1215,7 @@ def cell_ind_for_partial_update(
     regions are close to touching. This is however speculation at the time of
     writing.
 
-    Parameters:
+    Args:
         g (core.grids.grid): grid to be discretized
         cells (np.array, int, optional): Index of cells on which to base the
             subgrid computation. Defaults to None.
@@ -1421,7 +1403,7 @@ def map_subgrid_to_grid(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Obtain mappings from the cells and faces of a subgrid back to a larger grid.
 
-    Parameters:
+    Args:
         g (pp.Grid): The larger grid.
         loc_faces (np.ndarray): For each face in the subgrid, the index of the
             corresponding face in the larger grid.
@@ -1473,7 +1455,7 @@ def map_subgrid_to_grid(
 
 
 def compute_darcy_flux(
-    gb,
+    mdg,
     keyword="flow",
     keyword_store=None,
     d_name="darcy_flux",
@@ -1484,11 +1466,11 @@ def compute_darcy_flux(
     from_iterate=False,
 ):
     """
-    Computes darcy_flux over all faces in the entire grid /grid bucket given
+    Computes darcy_flux over all faces in the entire mixed-dimensional grid given
     pressures for all nodes, provided as node properties.
 
     Parameter:
-    gb: grid bucket with the following data fields for all nodes/grids:
+    mgd: mixed-dimensional grid with the following data fields for all nodes/grids:
         'flux': Internal discretization of fluxes.
         'bound_flux': Discretization of boundary fluxes.
         'pressure': Pressure values for each cell of the grid (overwritten by p_name).
@@ -1505,19 +1487,19 @@ def compute_darcy_flux(
         field is stored by in the dictionary.
     lam_name (str): defaults to 'mortar_solution'. The keyword that the mortar flux
         field is stored by in the dictionary.
-    data (dictionary): defaults to None. If gb is mono-dimensional grid the data
-        dictionary must be given. If gb is a multi-dimensional grid, this variable has
+    data (dictionary): defaults to None. If mdg is mono-dimensional grid the data
+        dictionary must be given. If mdg is a multi-dimensional grid, this variable has
         no effect.
 
     Returns:
-        gb, the same grid bucket with the added field 'darcy_flux' added to all
-        node data fields. Note that the fluxes between grids will be added only
-        at the gb edge, not at the node fields. The signs of the darcy_flux
-        correspond to the directions of the normals, in the edge/coupling case
-        those of the higher grid. For edges beteween grids of equal dimension,
-        there is an implicit assumption that all normals point from the second
-        to the first of the sorted grids (gb.sorted_nodes_of_edge(e)).
-
+        pp.MixedDimensionalGrid: the same mixed-dimensional grid with the added
+        field 'darcy_flux' added to all subdomain data fields. Note that the
+        fluxes between grids will be added only at the mdg edge, not at the node
+        fields. The signs of the darcy_flux correspond to the directions of the
+        normals, in the edge/coupling case those of the higher grid. For edges
+        beteween grids of equal dimension, there is an implicit assumption
+        that all normals point from the second to the first of the sorted grids
+        (mdg.sorted_nodes_of_edge(e)).
     """
 
     def extract_variable(d, var):
@@ -1543,9 +1525,7 @@ def compute_darcy_flux(
 
     if keyword_store is None:
         keyword_store = keyword
-    if not isinstance(gb, MixedDimensionalGrid) and not isinstance(
-        gb, pp.MixedDimensionalGrid
-    ):
+    if not isinstance(mdg, pp.MixedDimensionalGrid):
         parameter_dictionary = data[pp.PARAMETERS][keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
@@ -1560,43 +1540,45 @@ def compute_darcy_flux(
 
     # Compute fluxes from pressures internal to the subdomain, and for global
     # boundary conditions.
-    for g, d in gb:
-        parameter_dictionary = d[pp.PARAMETERS][keyword]
-        matrix_dictionary = d[pp.DISCRETIZATION_MATRICES][keyword]
+    for sd, sd_data in mdg.subdomains(return_data=True):
+        parameter_dictionary = sd_data[pp.PARAMETERS][keyword]
+        matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][keyword]
         if "flux" in matrix_dictionary:
-            dis = calculate_flux(parameter_dictionary, matrix_dictionary, d)
+            dis = calculate_flux(parameter_dictionary, matrix_dictionary, sd_data)
         else:
             raise ValueError(
                 """Darcy_Flux can only be computed if a flux-based
                              discretization has been applied"""
             )
 
-        d[pp.PARAMETERS][keyword_store][d_name] = dis
+        sd_data[pp.PARAMETERS][keyword_store][d_name] = dis
     # Compute fluxes over internal faces, induced by the mortar flux. These
     # are a critical part of what makes MPFA consistent, but will not be
     # present for TPFA.
     # Note that fluxes over faces on the subdomain boundaries are not included,
     # these are already accounted for in the mortar solution.
-    for e, d in gb.edges():
-        if d["mortar_grid"].codim > 1:
-            d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(
-                d, well_name
+    for intf, intf_data in mdg.interfaces(return_data=True):
+        if intf.codim > 1:
+            intf_data[pp.PARAMETERS][keyword_store][d_name] = extract_variable(
+                intf_data, well_name
             ).copy()
             continue
-        g_h = gb.nodes_of_edge(e)[1]
-        d_h = gb.node_props(g_h)
+        sd_primary = mdg.interface_to_subdomain_pair(intf)[0]
+        sd_data_primary = mdg.subdomain_data(sd_primary)
         # The mapping mortar_to_hat_bc contains is composed of a mapping to
         # faces on the higher-dimensional grid, and computation of the induced
         # fluxes.
 
-        bound_flux = d_h[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
+        bound_flux = sd_data_primary[pp.DISCRETIZATION_MATRICES][keyword]["bound_flux"]
         induced_flux = bound_flux * (
-            d["mortar_grid"].mortar_to_primary_int() * extract_variable(d, lam_name)
+            intf.mortar_to_primary_int() * extract_variable(intf_data, lam_name)
         )
         # Remove contribution directly on the boundary faces.
-        induced_flux[g_h.tags["fracture_faces"]] = 0
-        d_h[pp.PARAMETERS][keyword_store][d_name] += induced_flux
-        d[pp.PARAMETERS][keyword_store][d_name] = extract_variable(d, lam_name).copy()
+        induced_flux[sd_primary.tags["fracture_faces"]] = 0
+        sd_data_primary[pp.PARAMETERS][keyword_store][d_name] += induced_flux
+        intf_data[pp.PARAMETERS][keyword_store][d_name] = extract_variable(
+            intf_data, lam_name
+        ).copy()
 
 
 def boundary_to_sub_boundary(bound, subcell_topology):
@@ -1604,18 +1586,16 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     Convert a boundary condition defined for faces to a boundary condition defined by
     subfaces.
 
-    Parameters:
-    -----------
+    Args:
     bound (pp.BoundaryCondition/pp.BoundarConditionVectorial):
         Boundary condition given for faces.
     subcell_topology (pp.fvutils.SubcellTopology):
         The subcell topology defining the finite volume subgrid.
 
     Returns:
-    --------
-    pp.BoundarCondition/pp.BoundarConditionVectorial: An instance of the
-        BoundaryCondition/BoundaryConditionVectorial class, where all face values of
-        bound has been copied to the subfaces as defined by subcell_topology.
+        pp.BoundarCondition/pp.BoundarConditionVectorial: An instance of the
+            BoundaryCondition/BoundaryConditionVectorial class, where all face values of
+            bound has been copied to the subfaces as defined by subcell_topology.
     """
     bound = bound.copy()
     bound.is_dir = np.atleast_2d(bound.is_dir)[:, subcell_topology.fno_unique].squeeze()
