@@ -66,14 +66,14 @@ def plot_grid(
 
     # Grid is a subdomain
     if isinstance(grid, pp.Grid):
-        assert isinstance(cell_value, np.ndarray)
-        assert isinstance(vector_value, np.ndarray)
+        assert cell_value is None or isinstance(cell_value, np.ndarray)
+        assert vector_value is None or isinstance(vector_value, np.ndarray)
         plot_sd(grid, cell_value, vector_value, info, **kwargs)
 
     # Grid is a mixed-dimensional grid
     if isinstance(grid, pp.MixedDimensionalGrid):
-        assert isinstance(cell_value, str)
-        assert isinstance(vector_value, str)
+        assert cell_value is None or isinstance(cell_value, str)
+        assert vector_value is None or isinstance(vector_value, str)
         plot_mdg(grid, cell_value, vector_value, info, **kwargs)
 
 
@@ -121,8 +121,8 @@ def save_img(
 
 def plot_sd(
     sd: pp.Grid,
-    cell_value: np.ndarray,
-    vector_value: np.ndarray,
+    cell_value: Optional[np.ndarray],
+    vector_value: Optional[np.ndarray],
     info: Optional[str],
     **kwargs
 ) -> None:
@@ -212,8 +212,8 @@ def plot_sd(
 
 def plot_mdg(
     mdg: pp.MixedDimensionalGrid,
-    cell_value: str,
-    vector_value: str,
+    cell_value: Optional[str],
+    vector_value: Optional[str],
     info: Optional[str] = None,
     **kwargs
 ) -> None:
@@ -426,7 +426,7 @@ def _quiver(sd: pp.Grid, vector_value: np.ndarray, ax: mpl.axes.Axes, **kwargs) 
 
 def _plot_sd_xd(
     sd: pp.Grid,
-    cell_value: np.ndarray,
+    cell_value: Optional[np.ndarray],
     vector_value: Optional[np.ndarray],
     ax: mpl.axis.Axis,
     **kwargs
@@ -564,7 +564,7 @@ def _plot_sd_0d(sd: pp.Grid, ax: mpl.axis.Axis, **kwargs) -> None:
 
 
 def _plot_sd_1d(
-    sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axis.Axis, **kwargs
+    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axis.Axis, **kwargs
 ) -> None:
     """
     Plot the 1d grid g to the axis ax, with cell_value represented by the cell coloring.
@@ -585,7 +585,7 @@ def _plot_sd_1d(
 
     # Define the coloring of cells. If a color map is provided, use that.
     # Otherwise, use a fixed color.
-    if kwargs.get("color_map"):
+    if kwargs.get("color_map") and cell_value is not None:
         scalar_map = kwargs["color_map"]
         alpha = kwargs.get("alpha", 1)
 
@@ -593,11 +593,14 @@ def _plot_sd_1d(
             return scalar_map.to_rgba(value, alpha)
 
     else:
-        # FIXME why do we need the following line?
+        # Force cell_value to be an array (if None previously), and 0.
         cell_value = np.zeros(sd.num_cells)
 
         def _color_edge(value: float) -> str:
             return "k"
+
+    # Make mypy happy
+    assert isinstance(cell_value, np.ndarray)
 
     # Fetch mask defining which cells to plot
     cells = kwargs.get("cells", np.ones(sd.num_cells, dtype=bool))
@@ -620,7 +623,9 @@ def _plot_sd_1d(
         ax.add_collection3d(poly)
 
 
-def _plot_sd_2d(sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axis.Axis, **kwargs):
+def _plot_sd_2d(
+    sd: pp.Grid, cell_value: Optional[np.ndarray], ax: mpl.axis.Axis, **kwargs
+):
     """
     Plot the 2d grid g to the axis ax, with cell_value represented by the cell coloring.
 
@@ -641,19 +646,22 @@ def _plot_sd_2d(sd: pp.Grid, cell_value: np.ndarray, ax: mpl.axis.Axis, **kwargs
     # Define the coloring of cells. If a color map is provided, use that.
     # Otherwise, use a fixed color.
     alpha = kwargs.get("alpha", 1)
-    if kwargs.get("color_map"):
+    if kwargs.get("color_map") and cell_value is not None:
         scalar_map = kwargs["color_map"]
 
         def _color_face(value):
             return scalar_map.to_rgba(value, alpha)
 
     else:
-        # FIXME why do we need the following line?
+        # Force cell_value to be an array (if None previously), and 0.
         cell_value = np.zeros(sd.num_cells)
         rgb = kwargs.get("rgb", [1, 0, 0])
 
         def _color_face(value):
             return np.r_[rgb, alpha]
+
+    # Make mypy happy
+    assert isinstance(cell_value, np.ndarray)
 
     # Fetch mask defining which cells to plot
     cells = kwargs.get("cells", np.ones(sd.num_cells, dtype=bool))
