@@ -28,12 +28,12 @@ class ImplicitMassMatrix(pp.MassMatrix):
         super().__init__(keyword)
         self.variable = variable
 
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, sd: pp.Grid, sd_data: dict):
         """Overwrite MassMatrix method to return the correct rhs for an IE time
         discretization, e.g. of the Biot problem.
         """
-        matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        previous_solution = data[pp.STATE][self.variable]
+        matrix_dictionary = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword]
+        previous_solution = sd_data[pp.STATE][self.variable]
 
         return matrix_dictionary["mass"] * previous_solution
 
@@ -43,41 +43,48 @@ class ImplicitMpfa(pp.Mpfa):
     Multiply all contributions by the time step.
     """
 
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(self, sd: pp.Grid, sd_data: dict):
         """Overwrite MPFA method to be consistent with the Biot dt convention."""
-        a, b = super().assemble_matrix_rhs(g, data)
-        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
+        a, b = super().assemble_matrix_rhs(sd, sd_data)
+        dt = sd_data[pp.PARAMETERS][self.keyword]["time_step"]
         a = a * dt
         b = b * dt
         return a, b
 
     def assemble_int_bound_flux(
-        self, g, data, data_edge, cc, matrix, rhs, self_ind, use_secondary_proj=False
-    ):
+        self,
+        sd: pp.Grid,
+        sd_data: dict,
+        intf: pp.MortarGrid,
+        intf_data: dict,
+        cc: np.ndarray,
+        matrix: sps.spmatrix,
+        rhs: np.ndarray,
+        self_ind: int,
+        use_secondary_proj: bool = False,
+    ) -> None:
         """
         Overwrite the MPFA method to be consistent with the Biot dt convention
         """
-        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
+        dt = sd_data[pp.PARAMETERS][self.keyword]["time_step"]
 
-        div = g.cell_faces.T
+        div = sd.cell_faces.T
 
-        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][
+        bound_flux = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.bound_flux_matrix_key
         ]
         # Projection operators to grid
-        mg = data_edge["mortar_grid"]
-
         if use_secondary_proj:
-            proj = mg.mortar_to_secondary_int()
+            proj = intf.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_primary_int()
+            proj = intf.mortar_to_primary_int()
 
-        if g.dim > 0 and bound_flux.shape[0] != g.num_faces:
+        if sd.dim > 0 and bound_flux.shape[0] != sd.num_faces:
             # If bound flux is given as sub-faces we have to map it from sub-faces
             # to faces
-            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
             bound_flux = hf2f * bound_flux
-        if g.dim > 0 and bound_flux.shape[1] != proj.shape[0]:
+        if sd.dim > 0 and bound_flux.shape[1] != proj.shape[0]:
             raise ValueError(
                 """Inconsistent shapes. Did you define a
             sub-face boundary condition but only a face-wise mortar?"""
@@ -85,7 +92,17 @@ class ImplicitMpfa(pp.Mpfa):
 
         cc[self_ind, 2] += dt * div * bound_flux * proj
 
-    def assemble_int_bound_source(self, g, data, data_edge, cc, matrix, rhs, self_ind):
+    def assemble_int_bound_source(
+        self,
+        sd: pp.Grid,
+        sd_data: dict,
+        intf: pp.MortarGrid,
+        intf_data: dict,
+        cc: np.ndarray,
+        matrix: sps.spmatrix,
+        rhs: np.ndarray,
+        self_ind: int,
+    ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
@@ -98,10 +115,11 @@ class ImplicitMpfa(pp.Mpfa):
         the node and the mortar grid on the relevant edge.
 
         Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
+            sd (pp.Grid): Grid which the condition should be imposed on.
+            sd_data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
+            intf (pp.MortarGrid): interface
+            intf_data (dict): Data dictionary for the interface in the
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
@@ -115,10 +133,8 @@ class ImplicitMpfa(pp.Mpfa):
                 Should be either 1 or 2.
 
         """
-        mg = data_edge["mortar_grid"]
-
-        proj = mg.mortar_to_secondary_int()
-        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
+        proj = intf.mortar_to_secondary_int()
+        dt = sd_data[pp.PARAMETERS][self.keyword]["time_step"]
         cc[self_ind, 2] -= proj * dt
 
 
@@ -131,38 +147,45 @@ class ImplicitTpfa(pp.Tpfa):
 
     """
 
-    def assemble_matrix_rhs(self, sd, data):
+    def assemble_matrix_rhs(self, sd: pp.Grid, sd_data: dict):
         """Overwrite MPFA method to be consistent with the Biot dt convention."""
-        a, b = super().assemble_matrix_rhs(sd, data)
+        a, b = super().assemble_matrix_rhs(sd, sd_data)
 
-        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
+        dt = sd_data[pp.PARAMETERS][self.keyword]["time_step"]
         a = a * dt
         b = b * dt
         return a, b
 
     def assemble_int_bound_flux(
-        self, sd, data, data_intf, cc, matrix, rhs, self_ind, use_secondary_proj=False
-    ):
+        self,
+        sd: pp.Grid,
+        sd_data: dict,
+        intf: pp.MortarGrid,
+        intf_data: dict,
+        cc: np.ndarray,
+        matrix: sps.spmatrix,
+        rhs: np.ndarray,
+        self_ind: int,
+        use_secondary_proj: bool = False,
+    ) -> None:
         """
         Overwrite the MPFA method to be consistent with the Biot dt convention
         """
-        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
+        dt = sd_data[pp.PARAMETERS][self.keyword]["time_step"]
 
         div = sd.cell_faces.T
 
-        bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_flux"]
+        bound_flux = sd_data[pp.DISCRETIZATION_MATRICES][self.keyword]["bound_flux"]
         # Projection operators to grid
-        mg = data_intf["mortar_grid"]
-
         if use_secondary_proj:
-            proj = mg.mortar_to_secondary_int()
+            proj = intf.mortar_to_secondary_int()
         else:
-            proj = mg.mortar_to_primary_int()
+            proj = intf.mortar_to_primary_int()
 
         if sd.dim > 0 and bound_flux.shape[0] != sd.num_faces:
             # If bound flux is given as sub-faces we have to map it from sub-faces
             # to faces
-            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=sd)
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
             bound_flux = hf2f * bound_flux
         if sd.dim > 0 and bound_flux.shape[1] != proj.shape[0]:
             raise ValueError(
@@ -172,7 +195,17 @@ class ImplicitTpfa(pp.Tpfa):
 
         cc[self_ind, 2] += dt * div * bound_flux * proj
 
-    def assemble_int_bound_source(self, sd, data, data_intf, cc, matrix, rhs, self_ind):
+    def assemble_int_bound_source(
+        self,
+        sd: pp.Grid,
+        sd_data: dict,
+        intf: pp.MortarGrid,
+        intf_data: dict,
+        cc: np.ndarray,
+        matrix: sps.spmatrix,
+        rhs: np.ndarray,
+        self_ind: int,
+    ) -> None:
         """Abstract method. Assemble the contribution from an internal
         boundary, manifested as a source term.
 
@@ -185,10 +218,11 @@ class ImplicitTpfa(pp.Tpfa):
         the node and the mortar grid on the relevant edge.
 
         Parameters:
-            sd (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
+            sd (pp.Grid): Grid which the condition should be imposed on.
+            sd_data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
-            data_intf (dictionary): Data dictionary for the edge in the
+            intf (pp.MortarGrid): interface
+            intf_data (dictionary): Data dictionary for the edge in the
                 mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
@@ -202,10 +236,8 @@ class ImplicitTpfa(pp.Tpfa):
                 Should be either 1 or 2.
 
         """
-        mg = data_intf["mortar_grid"]
-
-        proj = mg.mortar_to_secondary_int()
-        dt = data[pp.PARAMETERS][self.keyword]["time_step"]
+        proj = intf.mortar_to_secondary_int()
+        dt = sd_data[pp.PARAMETERS][self.keyword]["time_step"]
         cc[self_ind, 2] -= proj * dt
 
 
@@ -217,12 +249,14 @@ class ImplicitUpwind(pp.Upwind):
     regardless of the direction of the flux on the boundary.
     """
 
-    def assemble_matrix_rhs(self, sd, data):
+    def assemble_matrix_rhs(
+        self, sd: pp.Grid, sd_data: dict
+    ) -> tuple[sps.spmatrix, np.ndarray]:
         if sd.dim == 0:
-            data["flow_faces"] = sps.csr_matrix([0.0])
+            sd_data["flow_faces"] = sps.csr_matrix([0.0])
             return sps.csr_matrix([0.0]), np.array([0.0])
 
-        parameter_dictionary = data[pp.PARAMETERS]
+        parameter_dictionary = sd_data[pp.PARAMETERS]
         dt = parameter_dictionary[self.keyword]["time_step"]
         # Obtain the cell-wise advection weights
         w = (
@@ -231,7 +265,7 @@ class ImplicitUpwind(pp.Upwind):
             )[0]
             * dt
         )
-        a, b = super().assemble_matrix_rhs(sd, data)
+        a, b = super().assemble_matrix_rhs(sd, sd_data)
         a = a * sps.diags(w)
         b = b * sps.diags(w)
         return a, b
@@ -244,28 +278,29 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
 
     def assemble_matrix_rhs(
         self,
-        sd_primary,
-        sd_secondary,
-        intf,
-        data_primary,
-        data_secondary,
-        data_intf,
-        matrix,
-    ):
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        sd_data_primary: dict,
+        sd_data_secondary: dict,
+        intf_data: dict,
+        matrix: sps.spmatrix,
+    ) -> tuple[sps.spmatrix, np.ndarray]:
         """
         Construct the matrix (and right-hand side) for the coupling conditions.
         Note: the right-hand side is not implemented now.
 
         Parameters:
+            sd_primary (pp.Grid): grid of higher dimension
+            sd_secondary (pp.Grid): grid of lower dimension
+            intf (pp.MortarGrid): interface
+            sd_data_primary (dict): dictionary which stores the data for the higher
+                dimensional grid
+            sd_data_secondary (dict): dictionary which stores the data for the lower
+                dimensional grid
+            intf_data (dict): dictionary which stores the data for the edges of the
+                grid bucket
             matrix: Uncoupled discretization matrix.
-            sd_primary: grid of higher dimension
-            sd_secondary: grid of lower dimension
-            data_primary: dictionary which stores the data for the higher dimensional
-                grid
-            data_secondary: dictionary which stores the data for the lower dimensional
-                grid
-            data_intf: dictionary which stores the data for the edges of the grid
-                bucket
 
         Returns:
             cc: block matrix which store the contribution of the coupling
@@ -276,9 +311,9 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # Normal component of the velocity from the higher dimensional grid
 
         # @ALL: This should perhaps be defined by a globalized keyword
-        parameter_dictionary_primary = data_primary[pp.PARAMETERS]
-        parameter_dictionary_secondary = data_secondary[pp.PARAMETERS]
-        lam_flux = data_intf[pp.PARAMETERS][self.keyword]["darcy_flux"]
+        parameter_dictionary_primary = sd_data_primary[pp.PARAMETERS]
+        parameter_dictionary_secondary = sd_data_secondary[pp.PARAMETERS]
+        lam_flux = intf_data[pp.PARAMETERS][self.keyword]["darcy_flux"]
         dt = parameter_dictionary_primary[self.keyword]["time_step"]
         w_primary = (
             parameter_dictionary_primary.expand_scalars(
@@ -341,7 +376,7 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
         # Recover the information for the grid-grid mapping
         cc[2, 2] = -sps.eye(intf.num_cells)
 
-        if data_primary["node_number"] == data_secondary["node_number"]:
+        if sd_data_primary["node_number"] == sd_data_secondary["node_number"]:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])
