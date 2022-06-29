@@ -8,7 +8,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.grids import grid, md_grid
+from porepy.grids import grid
 from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
 
 
@@ -81,7 +81,7 @@ def generate_coarse_grid(g, subdiv):
             subdiv = subdiv[g][1]
         _generate_coarse_grid_single(g, subdiv, False)
 
-    if isinstance(g, md_grid.MixedDimensionalGrid):
+    if isinstance(g, pp.MixedDimensionalGrid):
         _generate_coarse_grid_mdg(g, subdiv)
 
 
@@ -306,7 +306,7 @@ def _tpfa_matrix(g, perm=None):
         Two-point flux approximation matrix
 
     """
-    if isinstance(g, md_grid.MixedDimensionalGrid):
+    if isinstance(g, pp.MixedDimensionalGrid):
         g = list(g.subdomains(dim=g.dim_max()))[0]
 
     if perm is None:
@@ -360,25 +360,27 @@ def generate_seeds(mdg):
     return seeds
 
 
-def create_aggregations(g, **kwargs):
+def create_aggregations(grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs):
     """Create a cell partition based on their volumes.
 
     Parameter:
-        g: grid or grid bucket
+        grid (pp.Grid, or pp.MixedDimensionalGrid): subdomain or mixed-dimensional grid
 
     Return:
         partition: partition of the cells for the coarsening algorithm
 
     """
+    # Extract the higher dimensional grids and store in a list
+    if isinstance(grid, pp.MixedDimensionalGrid):
+        grid_list: list[pp.Grid] = list(grid.subdomains(dim=grid.dim_max()))
+    elif isinstance(grid, pp.Grid):
+        grid_list = [grid]
+    else:
+        raise ValueError("Only subdomains and mixed-dimensional grids supported.")
 
-    # Extract the higher dimensional grids
-    if isinstance(g, md_grid.MixedDimensionalGrid):
-        g = g.get_grids(lambda g_: g_.dim == g.dim_max())
-
-    g_list = np.atleast_1d(g)
     partition = dict()
 
-    for g in g_list:
+    for g in grid_list:
         partition_local = -np.ones(g.num_cells, dtype=int)
 
         volumes = g.cell_volumes.copy()
@@ -441,7 +443,7 @@ def create_aggregations(g, **kwargs):
             part_neighbors = partition_local[neighbors]
             neighbors = neighbors[part_neighbors != part_cell]
             if neighbors.size == 0:
-                volumes_checked = np.inf
+                volumes_checked[:] = np.inf
                 which_cell = volumes_checked < mean
                 continue
             smallest = np.argmin(volumes[neighbors])
