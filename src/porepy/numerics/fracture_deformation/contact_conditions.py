@@ -623,7 +623,7 @@ def set_projections(
             continue
 
         # Neigboring grids
-        sd_secondary, sd_primary = gb.interface_to_subdomain_pair(intf)
+        sd_primary, sd_secondary = gb.interface_to_subdomain_pair(intf)
 
         # Find faces of the higher dimensional grid that coincide with the mortar
         # grid. Go via the primary to mortar projection
