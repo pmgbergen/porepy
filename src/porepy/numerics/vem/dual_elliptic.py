@@ -135,7 +135,7 @@ class DualElliptic(EllipticDiscretization):
 
         # Impose Neumann and Robin boundary conditions, with appropriate scaling of the
         # diagonal element
-        M, bc_weight = self.assemble_neumann_robin(sd, data, M, bc_weight=None)
+        M, bc_weight = self.assemble_neumann_robin(sd, data, M, bc_weight=True)
 
         # Assemble right hand side term
         return M, self.assemble_rhs(sd, data, bc_weight)
@@ -149,7 +149,7 @@ class DualElliptic(EllipticDiscretization):
         return sps.bmat([[mass, div.T], [div, None]], format="csr")
 
     def assemble_neumann_robin(
-        self, sd: pp.Grid, data: dict, M, bc_weight: Optional[np.ndarray] = None
+        self, sd: pp.Grid, data: dict, M, bc_weight: bool = False
     ) -> tuple[sps.csr_matrix, int]:
         """Impose Neumann and Robin boundary discretization on an already assembled
         system matrix.
@@ -161,7 +161,7 @@ class DualElliptic(EllipticDiscretization):
         if mass.shape[0] == 0:
             norm = 1
         else:
-            if bc_weight is not None:
+            if bc_weight:
                 norm = sps.linalg.norm(mass, np.inf)
             else:
                 norm = 1
