@@ -1,7 +1,7 @@
 """
 Module for splitting a grid at the fractures.
 """
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import networkx as nx
 import numpy as np
@@ -114,7 +114,9 @@ def split_fractures(
     # Remove zeros from cell_faces
 
     [g.cell_faces.eliminate_zeros() for g in mdg.subdomains()]
-    [g.update_boundary_node_tag() for g in mdg.subdomains()]
+    for g in mdg.subdomains():
+        g.update_boundary_node_tag()
+
     return mdg, sd_pairs
 
 
