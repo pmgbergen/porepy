@@ -230,25 +230,28 @@ class ColoumbContactAd(Discretization):
 
 
 class ContactTractionAd(Discretization):
-    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid]) -> None:
+    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid], low_dim_subdomains: List[pp.Grid]) -> None:
+        """
+
+        Args:
+            keyword:
+                Parameter key
+            interfaces:
+                Fracture-matrix interfaces
+            low_dim_subdomains:
+                Fracture subdomains
+        """
         self.interfaces = interfaces
 
         # Special treatment is needed to cover the case when the edge list happens to
         # be empty.
         if len(interfaces) > 0:
             dim = list(set([intf.dim for intf in interfaces]))
-            # FIXME: No access to subdomains
-            low_dim_subdomains: List[pp.Grid] = []
-            if not len(dim) == 1:
-                raise ValueError(
-                    "Expected unique dimension of subdomains with contact problems"
-                )
         else:
             # The assigned dimension value should never be used for anything, so we
             # set a negative value to indicate this (not sure how the parameter is used)
             # in the real contact discretization.
             dim = [-1]
-            low_dim_subdomains = []
 
         self._discretization = pp.ContactTraction(
             keyword, ambient_dimension=dim[0], discr_h=pp.Mpsa(keyword)

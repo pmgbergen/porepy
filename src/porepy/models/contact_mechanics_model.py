@@ -726,7 +726,7 @@ class ContactMechanics(AbstractModel):
             [(sd, self.contact_traction_variable) for sd in fracture_subdomains]
         )
         discr = pp.ad.ContactTractionAd(
-            self.mechanics_parameter_key, matrix_fracture_interfaces
+            self.mechanics_parameter_key, matrix_fracture_interfaces, fracture_subdomains
         )
         self._ad.contact_traction = discr.traction_scaling * self._ad.contact_force
 
@@ -806,9 +806,9 @@ class ContactMechanics(AbstractModel):
         """
         mdg, nd = self.mdg, self.nd
 
-        sd_nd: pp.Grid = mdg._nd_grid()
+        sd_nd: pp.Grid = self._nd_subdomain()
 
-        fracture_subdomains: List[pp.Grid] = mdg.subdomains(dim=nd - 1).tolist()
+        fracture_subdomains: List[pp.Grid] = list(mdg.subdomains(dim=nd - 1))
         self._num_frac_cells = np.sum([g.num_cells for g in fracture_subdomains])
 
         matrix_fracture_interfaces = [
@@ -876,8 +876,8 @@ class ContactMechanics(AbstractModel):
         subdomains: List[pp.Grid] = [sd for sd in self.mdg.subdomains()]
         fracture_subdomains: List[pp.Grid] = list(self.mdg.subdomains(dim=self.nd - 1))
         fracture_matrix_interfaces: List[pp.MortarGrid] = [
-            self.mdg.subdomain_pair_to_interface((self._nd_subdomain(), g))
-            for g in fracture_subdomains
+            self.mdg.subdomain_pair_to_interface((self._nd_subdomain(), sd))
+            for sd in fracture_subdomains
         ]
 
         # Store number of fracture cells
