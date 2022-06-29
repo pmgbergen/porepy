@@ -599,6 +599,8 @@ class MixedDimensionalGrid:
             tol (float): Geometric tolerance used when updating mortar projections.
 
         """
+        # Ensure sorting of equi-dimensional subdomain pairs is possible:
+        self.assign_subdomain_ordering(overwrite_existing=False)
         # The operation is carried out in three steps:
         # 1) Update the mortar grid. This will also update projections to and from the
         #    mortar grids so that they are valid for the new mortar grid, but not with
@@ -631,7 +633,6 @@ class MixedDimensionalGrid:
                 # Update the subdomain data
                 data = self._subdomain_data[sd_old]
                 self._subdomain_data[sd_new] = data
-                del self._subdomain_data[sd_old]
 
                 # Loop over interfaces, look for ones which has the subdomain to be
                 # replaced as one of its neighbors.
@@ -650,6 +651,9 @@ class MixedDimensionalGrid:
                         self._interface_to_subdomains[intf] = (sd_pair[0], sd_new)
                         # This is the secondary subdomain for the interface.
                         intf.update_secondary(sd_new, tol)
+                # This must be done after the loop, in case data is required to sort
+                # subdomains by node number
+                del self._subdomain_data[sd_old]
 
     # ----------- Apply functions to subdomains and interfaces
 
