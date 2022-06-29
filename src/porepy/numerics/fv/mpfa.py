@@ -2,6 +2,7 @@
 Implementation of the multi-point flux approximation O-method.
 
 """
+from typing import Optional
 import numpy as np
 import scipy.sparse as sps
 
@@ -9,26 +10,24 @@ import porepy as pp
 
 
 class Mpfa(pp.FVElliptic):
-    def __init__(self, keyword):
+    def __init__(self, keyword: str) -> None:
         super(pp.Mpfa, self).__init__(keyword)
 
-    def ndof(self, sd: pp.Grid):
+    def ndof(self, sd: pp.Grid) -> int:
         """
         Return the number of degrees of freedom associated to the method.
         In this case number of cells (pressure dof).
 
-        Parameter
-        ---------
-        sd: grid, or a subclass.
+        Args:
+            sd (pp.Grid): A grid.
 
-        Return
-        ------
-        dof: the number of degrees of freedom.
+        Returns:
+            int: the number of degrees of freedom.
 
         """
         return sd.num_cells
 
-    def discretize(self, sd: pp.Grid, data: dict):
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
         """
         Discretize the second order elliptic equation using multi-point flux
         approximation.
@@ -402,7 +401,7 @@ class Mpfa(pp.FVElliptic):
                 self.bound_pressure_vector_source_matrix_key
             ] = bound_pressure_vector_source_glob
 
-    def update_discretization(self, sd: pp.Grid, data: dict):
+    def update_discretization(self, sd: pp.Grid, data: dict) -> None:
         """Update discretization.
 
         The updates can generally come as a combination of two forms:
@@ -1444,7 +1443,9 @@ class Mpfa(pp.FVElliptic):
         return loc_c
 
 
-def reconstruct_presssure(sd: pp.Grid, subcell_topology, eta):
+def reconstruct_presssure(
+    sd: pp.Grid, subcell_topology, eta: Optional[float]
+) -> tuple[sps.spmatrix, sps.spmatrix]:
     """
     Function for reconstructing the pressure at the half faces given the
     local gradients. For a subcell Ks associated with cell K and node s, the
@@ -1457,7 +1458,7 @@ def reconstruct_presssure(sd: pp.Grid, subcell_topology, eta):
     here is the average of the two. Note that at the continuity points the two
     pressures will by construction be equal.
 
-    Parameters:
+    Args:
         sd: Grid
         subcell_topology: Wrapper class for numbering of subcell faces, cells
             etc.
@@ -1465,6 +1466,7 @@ def reconstruct_presssure(sd: pp.Grid, subcell_topology, eta):
             at which the pressures is evaluated. If eta is a nd-array it should be on
             the size of subcell_topology.num_subfno. If eta is not given the method will
             call fvutils.determine_eta(g) to set it.
+
     Returns:
         scipy.sparse.csr_matrix (num_sub_faces, num_cells):
             pressure reconstruction for the displacement at the half faces. This is
@@ -1472,6 +1474,7 @@ def reconstruct_presssure(sd: pp.Grid, subcell_topology, eta):
         scipy.sparse.csr_matrix (num_sub_faces, num_faces):
             Pressure reconstruction for the pressures at the half faces.
             This is the contribution from the boundary conditions.
+
     """
 
     if eta is None:

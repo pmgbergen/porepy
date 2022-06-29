@@ -34,18 +34,14 @@ class FVElliptic(pp.EllipticDiscretization):
         self.vector_source_matrix_key = "vector_source"
         self.bound_pressure_vector_source_matrix_key = "bound_pressure_vector_source"
 
-    def ndof(self, sd):
-        """
-        Return the number of degrees of freedom associated to the method.
-        In this case number of cells (pressure dof).
+    def ndof(self, sd: np.ndarray) -> int:
+        """Return the number of degrees of freedom associated to the method.
 
-        Parameter
-        ---------
-        sd: grid, or a subclass.
+        Args:
+            sd (pp.Grid): A grid.
 
-        Return
-        ------
-        dof: the number of degrees of freedom.
+        Returns:
+            int: The number of degrees of freedom.
 
         """
         return sd.num_cells
@@ -55,8 +51,8 @@ class FVElliptic(pp.EllipticDiscretization):
         The method is trivial for finite volume methods, with the pressure
         being the only primary variable.
 
-        Parameters:
-            g (grid): To which the solution array belongs.
+        Args:
+            sd (pp.Grid): To which the solution array belongs.
             solution_array (np.array): Solution for this grid obtained from
                 either a mono-dimensional or a mixed-dimensional problem.
             data (dictionary): Data dictionary associated with the grid. Not used,
@@ -72,8 +68,8 @@ class FVElliptic(pp.EllipticDiscretization):
 
         The flux is computed from the discretization and the given pressure solution.
 
-        Parameters:
-            g (grid): To which the solution array belongs.
+        Args:
+            sd (pp.Grid): To which the solution array belongs.
             solution_array (np.array): Solution for this grid obtained from
                 either a mono-dimensional or a mixed-dimensional problem. Will
                 correspond to the pressure solution.
@@ -93,38 +89,14 @@ class FVElliptic(pp.EllipticDiscretization):
 
         return flux * solution_array + bound_flux * bc_val
 
-    def assemble_matrix_rhs(self, sd, data):
+    def assemble_matrix_rhs(
+        self, sd: pp.Grid, data: dict
+    ) -> tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix and right-hand side for a discretization of a second
         order elliptic equation.
 
-        Also discretize the necessary operators if the data dictionary does not
-        contain a transmissibility matrix. In that case, we assume the following two
-        sub-dictionaries to be present in the data dictionary:
-            parameter_dictionary, storing all parameters.
-                Stored in data[pp.PARAMETERS][self.keyword].
-            matrix_dictionary, for storage of discretization matrices.
-                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]
-
-        parameter_dictionary contains the entries:
-            second_order_tensor: (pp.SecondOrderTensor) Permeability defined cell-wise.
-            bc: (pp.BoundaryCondition) boundary conditions.
-            bc_values: array (self.num_faces) The boundary condition values.
-            Optional parameters: See the discretize methods.
-
-        After discretization, matrix_dictionary will be updated with the following
-        entries:
-            flux: sps.csc_matrix (g.num_faces, sd.num_cells)
-                Flux discretization, cell center contribution.
-            bound_flux: sps.csc_matrix (g.num_faces, sd.num_faces)
-                Flux discretization, face contribution.
-            bound_pressure_cell: sps.csc_matrix (g.num_faces, sd.num_cells)
-                Operator for reconstructing the pressure trace, cell center
-                contribution.
-            bound_pressure_face: sps.csc_matrix (g.num_faces, sd.num_faces)
-                Operator for reconstructing the pressure trace, face contribution.
-
-        Parameters:
-            g (Grid): Computational grid, with geometry fields computed.
+        Args:
+            sd (pp.Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
         Returns:
@@ -132,25 +104,23 @@ class FVElliptic(pp.EllipticDiscretization):
                 the matrix will depend on the specific discretization.
             np.ndarray: Right-hand side vector with representation of boundary
                 conditions. The size of the vector will depend on the discretization.
+
         """
 
         return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
 
-    def assemble_matrix(self, sd, data):
+    def assemble_matrix(self, sd: pp.Grid, data: dict) -> sps.spmatrix:
         """Return the matrix for a discretization of a second order elliptic equation
         using a FV method.
 
-        Also discretize the necessary operators if the data dictionary does not contain
-        a discretization of the boundary equation. For the required fields of the data
-        dictionary, see the assemble_matrix_rhs and discretize methods.
-
-        Parameters:
-            g (Grid): Computational grid, with geometry fields computed.
+        Args:
+            sd (pp.Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
         Returns:
             scipy.sparse.csr_matrix: System matrix of this discretization. The
                 size of the matrix will depend on the specific discretization.
+
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
@@ -164,21 +134,18 @@ class FVElliptic(pp.EllipticDiscretization):
 
         return M
 
-    def assemble_rhs(self, sd, data):
+    def assemble_rhs(self, sd: pp.Grid, data: dict) -> np.ndarray:
         """Return the right-hand side for a discretization of a second order elliptic
         equation using a finite volume method.
 
-        Also discretize the necessary operators if the data dictionary does not contain
-        a discretization of the boundary equation. For the required fields of the data
-        dictionary, see the assemble_matrix_rhs and discretize methods.
-
-        Parameters:
+        Args:
             sd (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
         Returns:
             np.ndarray: Right hand side vector with representation of boundary
                 conditions. The size of the vector will depend on the discretization.
+
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
 
@@ -228,7 +195,7 @@ class FVElliptic(pp.EllipticDiscretization):
         Implementations of this method will use an interplay between the grid
         on the node and the mortar grid on the relevant edge.
 
-        Parameters:
+        Args:
             g (Grid): Grid which the condition should be imposed on.
             data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -286,8 +253,8 @@ class FVElliptic(pp.EllipticDiscretization):
         Implementations of this method will use an interplay between the grid on
         the node and the mortar grid on the relevant edge.
 
-        Parameters:
-            g (Grid): Grid which the condition should be imposed on.
+        Args:
+            sd (Grid): Grid which the condition should be imposed on.
             data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
@@ -333,8 +300,8 @@ class FVElliptic(pp.EllipticDiscretization):
         Implementations of this method will use an interplay between the grid on
         the node and the mortar grid on the relevant edge.
 
-        Parameters:
-            g (Grid): Grid which the condition should be imposed on.
+        Args:
+            sd (Grid): Grid which the condition should be imposed on.
             data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
             data_edge (dictionary): Data dictionary for the edge in the
@@ -400,7 +367,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         For details, see self.assemble_int_bound_pressure_trace()
 
-        Parameters:
+        Args:
             g (Grid): Grid which the condition should be imposed on.
             data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -451,7 +418,7 @@ class FVElliptic(pp.EllipticDiscretization):
         """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
-        Parameters:
+        Args:
             g (Grid): Grid which the condition should be imposed on.
             data_grid (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -493,7 +460,7 @@ class FVElliptic(pp.EllipticDiscretization):
         Implementations of this method will use an interplay between the grid on
         the node and the mortar grid on the relevant edge.
 
-        Parameters:
+        Args:
             g (Grid): Grid which the condition should be imposed on.
             data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -522,7 +489,7 @@ class FVElliptic(pp.EllipticDiscretization):
         The method is void for finite volume approaches, but is implemented
         to be compatible with the general framework.
 
-        Parameters:
+        Args:
             g (Grid): On which the equation is discretized
             data (dictionary): Of data related to the discretization.
             matrix (scipy.sparse.matrix): Discretization matrix to be modified.
@@ -553,7 +520,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
         """
         Formal discretization method - nothing to do here.
 
-        Parameters
+        Args
         ----------
         g (pp.Grid): grid, or a subclass.
         data (dict).
@@ -564,7 +531,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
     def assemble_matrix(self, sd, data):
         """Assemble system matrix. Will be zero matrix of appropriate size.
 
-        Parameters:
+        Args:
             g (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
@@ -577,7 +544,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
     def assemble_rhs(self, sd, data):
         """Assemble right hand side vector. Will be zero vector of appropriate size.
 
-        Parameters:
+        Args:
             g (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
@@ -598,7 +565,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
         require a flux in the higher-dimensional grid. Therefore raise an error if
         this method is invoked.
 
-        Parameters:
+        Args:
             g (Grid): Grid which the condition should be imposed on.
             data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -633,7 +600,7 @@ class EllipticDiscretizationZeroPermeability(FVElliptic):
         require a flux in the higher-dimensional grid. Therefore raise an error if
         this method is invoked.
 
-        Parameters:
+        Args:
             g (Grid): Grid which the condition should be imposed on.
             data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.

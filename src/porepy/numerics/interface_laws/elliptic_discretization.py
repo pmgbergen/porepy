@@ -8,7 +8,7 @@ must honor. This is particularly useful to ensure uniformity when coupling
 discretizations between dimensions by interface laws.
 """
 from abc import abstractmethod
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -70,12 +70,12 @@ class EllipticDiscretization(Discretization):
         return self.keyword + "_"
 
     @abstractmethod
-    def ndof(self, g: pp.Grid) -> int:
+    def ndof(self, sd: pp.Grid) -> int:
         """Abstract method. Return the number of degrees of freedom associated to the
         method.
 
-        Parameters
-            g (grid): Computational grid
+        Args:
+            sd (grid): Computational grid.
 
         Returns:
             int: the number of degrees of freedom.
@@ -83,13 +83,13 @@ class EllipticDiscretization(Discretization):
         """
         pass
 
-    def extract_pressure(self, sd: pp.Grid, solution_array: np.ndarray, data: Dict):
+    def extract_pressure(self, sd: pp.Grid, solution_array: np.ndarray, data: dict):
         """Abstract method. Extract the pressure part of a solution.
 
         The implementation will depend what the primary variables of the specific
         implementation are.
 
-        Parameters:
+        Args:
             sd (pp.Grid): To which the solution array belongs.
             solution_array (np.array): Solution for this grid obtained from
                 either a mono-dimensional or a mixed-dimensional problem.
@@ -103,7 +103,7 @@ class EllipticDiscretization(Discretization):
         """
         raise NotImplementedError("Method not implemented")
 
-    def extract_flux(self, sd: pp.Grid, solution_array: np.ndarray, data: Dict):
+    def extract_flux(self, sd: pp.Grid, solution_array: np.ndarray, data: dict):
         """Abstract method. Extract the pressure part of a solution.
 
         The implementation will depend what are the primary variables of the specific
@@ -111,7 +111,7 @@ class EllipticDiscretization(Discretization):
 
         TODO: We should incrude the boundary condition as well?
 
-        Parameters:
+        Args:
             sd (grid): To which the solution array belongs.
             solution_array (np.array): Solution for this grid obtained from
                 either a mono-dimensional or a mixed-dimensional problem. Will
@@ -128,9 +128,9 @@ class EllipticDiscretization(Discretization):
     def assemble_int_bound_flux(
         self,
         sd: pp.Grid,
-        sd_data: Dict,
+        sd_data: dict,
         intf: pp.MortarGrid,
-        intf_data: Dict,
+        intf_data: dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
@@ -148,7 +148,7 @@ class EllipticDiscretization(Discretization):
         Implementations of this method will use an interplay between the grid on
         the node and the mortar grid on the relevant edge.
 
-        Parameters:
+        Args:
             sd (Grid): Grid which the condition should be imposed on.
             sd_data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -174,9 +174,9 @@ class EllipticDiscretization(Discretization):
     def assemble_int_bound_source(
         self,
         sd: pp.Grid,
-        sd_data: Dict,
+        sd_data: dict,
         intf: pp.MortarGrid,
-        intf_data: Dict,
+        intf_data: dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
@@ -193,8 +193,8 @@ class EllipticDiscretization(Discretization):
         Implementations of this method will use an interplay between the grid on
         the node and the mortar grid on the relevant edge.
 
-        Parameters:
-            g (Grid): Grid which the condition should be imposed on.
+        Args:
+            sd (Grid): Grid which the condition should be imposed on.
             data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
             data_intf (dictionary): Data dictionary for the edge in the
@@ -217,9 +217,9 @@ class EllipticDiscretization(Discretization):
     def assemble_int_bound_pressure_trace(
         self,
         sd: pp.Grid,
-        sd_data: Dict,
+        sd_data: dict,
         intf: pp.MortarGrid,
-        intf_data: Dict,
+        intf_data: dict,
         cc: Optional[np.ndarray],
         matrix: np.ndarray,
         rhs: np.ndarray,
@@ -239,7 +239,7 @@ class EllipticDiscretization(Discretization):
         Implementations of this method will use an interplay between the grid on
         the node and the mortar grid on the relevant edge.
 
-        Parameters:
+        Args:
             sd (Grid): Grid which the condition should be imposed on.
             sd_data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -272,7 +272,7 @@ class EllipticDiscretization(Discretization):
 
         For details, see self.assemble_int_bound_pressure_trace()
 
-        Parameters:
+        Args:
             sd (Grid): Grid which the condition should be imposed on.
             sd_data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -297,7 +297,7 @@ class EllipticDiscretization(Discretization):
     def assemble_int_bound_pressure_trace_between_interfaces(
         self,
         sd: pp.Grid,
-        sd_data: Dict,
+        sd_data: dict,
         proj_primary: sps.spmatrix,
         proj_secondary: sps.spmatrix,
         cc: np.ndarray,
@@ -307,7 +307,7 @@ class EllipticDiscretization(Discretization):
         """Assemble the contribution from an internal
         boundary, manifested as a condition on the boundary pressure.
 
-        Parameters:
+        Args:
             sd (Grid): Grid which the condition should be imposed on.
             sd_data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -332,9 +332,9 @@ class EllipticDiscretization(Discretization):
     def assemble_int_bound_pressure_cell(
         self,
         sd: pp.Grid,
-        sd_data: Dict,
+        sd_data: dict,
         intf: pp.MortarGrid,
-        intf_data: Dict,
+        intf_data: dict,
         cc: np.ndarray,
         matrix: np.ndarray,
         rhs: np.ndarray,
@@ -351,7 +351,7 @@ class EllipticDiscretization(Discretization):
         Implementations of this method will use an interplay between the grid on
         the node and the mortar grid on the relevant edge.
 
-        Parameters:
+        Args:
             sd (Grid): Grid which the condition should be imposed on.
             sd_data (dictionary): Data dictionary for the node in the
                 mixed-dimensional grid.
@@ -376,7 +376,7 @@ class EllipticDiscretization(Discretization):
         self,
         sd: pp.Grid,
         intf: pp.MortarGrid,
-        intf_data: Dict,
+        intf_data: dict,
         matrix: np.ndarray,
         self_ind: int,
     ) -> None:
@@ -387,8 +387,8 @@ class EllipticDiscretization(Discretization):
 
         The discretization matrix should be modified in place.
 
-        Parameters:
-            g (Grid): On which the equation is discretized
+        Args:
+            sd (Grid): On which the equation is discretized
             data (dictionary): Of data related to the discretization.
             matrix (scipy.sparse.matrix): Discretization matrix to be modified.
 
