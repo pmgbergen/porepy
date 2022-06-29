@@ -103,19 +103,19 @@ class ProblemDataTime:
         with_fracture = getattr(self, "with_fracture", True)
         simplex = getattr(self, "simplex", True)
         if with_fracture:
-            gb, self.box = pp.grid_buckets_2d.single_horizontal(
+            mdg, self.box = pp.grid_buckets_2d.single_horizontal(
                 self.mesh_args, simplex=simplex
             )
-            pp.contact_conditions.set_projections(gb)
+            pp.contact_conditions.set_projections(mdg)
         else:
             nx = getattr(self, "nx", [3, 3])
-            gb = pp.meshing.cart_grid([], nx, physdims=[1, 1])
+            mdg = pp.meshing.cart_grid([], nx, physdims=[1, 1])
             self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
-        self.gb = gb
-        self._Nd = gb.dim_max()
+        self.mdg = mdg
+        self.nd = mdg.dim_max()
 
     def _source_scalar(self, g):
-        if g.dim == self._Nd:
+        if g.dim == self.nd:
             values = np.zeros(g.num_cells)
         else:
             values = self.scalar_source_value * np.ones(g.num_cells)
@@ -153,24 +153,25 @@ class ProblemDataTime:
         values[1, north] = self.uy_north * (self.time > 0.1)
         return values.ravel("F")
 
-    def _compute_aperture(self, g, from_iterate=True):
+    def _compute_aperture(self, sd, from_iterate=True):
         self.initial_aperture = 1e-4
-        apertures = np.ones(g.num_cells)
-        gb = self.gb
-        if g.dim == (self._Nd - 1):
+        apertures = np.ones(sd.num_cells)
+        mdg = self.mdg
+        if sd.dim == (self.nd - 1):
             # Initial aperture
             apertures *= self.initial_aperture
 
-            data = gb.node_props(g)
+            data = mdg.subdomain_data(sd)
             proj = data["tangential_normal_projection"]
 
             # Reconstruct the displacement solution on the fracture
-            g_h = gb.node_neighbors(g)[0]
-            assert g_h.dim == self._Nd
-            data_edge = gb.edge_props((g, g_h))
+            sd_h = list(mdg.neighboring_subdomains(sd))[0]
+            assert sd_h.dim == self.nd
+            intf = mdg.subdomain_pair_to_interface((sd, sd_h))
+            data_edge = mdg.interface_data(intf)
             if pp.STATE in data_edge:
                 u_mortar_local = self.reconstruct_local_displacement_jump(
-                    data_edge, projection=proj, from_iterate=from_iterate
+                    intf, projection=proj, from_iterate=from_iterate
                 )
                 # Magnitudes of normal and tangential components
                 norm_u_n = np.absolute(u_mortar_local[-1])
