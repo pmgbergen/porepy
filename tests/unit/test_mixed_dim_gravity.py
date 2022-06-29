@@ -90,7 +90,7 @@ class TestMixedDimGravity(unittest.TestCase):
             }
             pp.initialize_data(sd, data, "flow", parameter_dictionary)
 
-        for intf, data in mdg.edges():
+        for intf, data in mdg.interfaces(return_data=True):
             a = aperture * np.ones(intf.num_cells)
             gravity = np.zeros((mdg.dim_max(), intf.num_cells))
             # Angle of zero means force vector of [0, -1]
@@ -207,30 +207,28 @@ class TestMixedDimGravity(unittest.TestCase):
         sd_2d = self.grid_2d()
         sd_1d = self.grid_1d()
 
-        mdg = pp.meshing.subdomains_to_mdg([[sd_2d], [sd_1d]])
+        mdg, _ = pp.meshing._assemble_mdg([[sd_2d], [sd_1d]])
 
-        for intf, data in mdg.interfaces(return_data=True):
-            a = np.zeros((sd_2d.num_faces, sd_1d.num_cells))
-            a[2, 1] = 1
-            a[3, 0] = 1
-            a[7, 0] = 1
-            a[8, 1] = 1
-            data["face_cells"] = sps.csc_matrix(a.T)
-        pp.meshing.create_interfaces(mdg)
+        a = np.zeros((sd_2d.num_faces, sd_1d.num_cells))
+        a[2, 1] = 1
+        a[3, 0] = 1
+        a[7, 0] = 1
+        a[8, 1] = 1
+        face_cells = sps.csc_matrix(a.T)
+        pp.meshing.create_interfaces(mdg, {(sd_2d, sd_1d): face_cells})
 
         sd_2d_new = self.grid_2d(pert_node=pert_node)
         sd_1d_new = self.grid_1d(num_1d)
-        mdg.replace_grids(g_map={sd_2d: sd_2d_new, sd_1d: sd_1d_new})
-        for intf, data in mdg.edges():
-            mg = data["mortar_grid"]
+        mdg.replace_subdomains_and_interfaces(sd_map={sd_2d: sd_2d_new, sd_1d: sd_1d_new})
+        intf = list(mdg.interfaces())[0]
 
         new_side_grids = {
             s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
-            for s, g in mg.side_grids.items()
+            for s, g in intf.side_grids.items()
         }
-        mg.update_mortar(new_side_grids, tol=1e-4)
+        intf.update_mortar(new_side_grids, tol=1e-4)
 
-        mdg.assign_node_ordering()
+        mdg.assign_subdomain_ordering()
         self.mdg = mdg
 
     def set_grids_2d(
@@ -248,28 +246,26 @@ class TestMixedDimGravity(unittest.TestCase):
 
         mdg = pp.meshing.cart_grid([f1], N, **{"physdims": physdims})
         mdg.compute_geometry()
-        mdg.assign_node_ordering()
+        mdg.assign_subdomain_ordering()
         if num_nodes_mortar is None:
             self.mdg = mdg
             return
 
-        for e, d in mdg.edges():
+        for intf in mdg.interfaces():
 
-            mg = d["mortar_grid"]
             new_side_grids = {
                 s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
-                for s, g in mg.side_grids.items()
+                for s, g in intf.side_grids.items()
             }
 
-            mg.update_mortar(new_side_grids, tol=1e-4)
+            intf.update_mortar(new_side_grids, tol=1e-4)
             # refine the 1d-physical grid
-            old_g = mdg.nodes_of_edge(e)[0]
+            _, old_g = mdg.interface_to_subdomain_pair(intf)
             new_g = pp.refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
             new_g.compute_geometry()
 
-            mdg.update_nodes({old_g: new_g})
-            mg = d["mortar_grid"]
-            mg.update_secondary(new_g, tol=1e-4)
+            mdg.replace_subdomains_and_interfaces({old_g: new_g})
+            intf.update_secondary(new_g, tol=1e-4)
         self.mdg = mdg
 
     def solve(self, method):
