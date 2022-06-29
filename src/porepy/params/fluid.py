@@ -25,7 +25,7 @@ class UnitFluid(object):
     def __init__(self, theta_ref: Optional[float] = None):
         """Initialization of unit fluid.
 
-        Parameters:
+        Args:
             theta_ref (float, optional): reference temperature in Celsius.
         """
         if theta_ref is None:
@@ -39,7 +39,7 @@ class UnitFluid(object):
     def thermal_expansion(self, delta_theta: float) -> float:
         """Returns thermal expansion with unit m^3 / m^3 K, i.e. volumetric.
 
-        Parameters:
+        Args:
             delta_theta (float): temperature increment in Celsius.
 
         Returns:
@@ -50,7 +50,7 @@ class UnitFluid(object):
     def density(self, theta: Optional[float] = None) -> float:
         """Returns fluid density with unit: kg / m^3.
 
-        Parameters:
+        Args:
             theta (float): temperature in Celsius.
 
         Returns:
@@ -61,7 +61,7 @@ class UnitFluid(object):
     def thermal_conductivity(self, theta: Optional[float] = None) -> float:
         """Returns thermal conductivity with unit : W / m K.
 
-        Parameters:
+        Args:
             theta (float, optional): temperature in Celsius
 
         Returns:
@@ -72,7 +72,7 @@ class UnitFluid(object):
     def specific_heat_capacity(self, theta: Optional[float] = None) -> float:
         """Returns specific heat capacity with  units: J / kg K.
 
-        Parameters:
+        Args:
             theta (float, optional): temperature in Celsius
 
         Returns:
@@ -83,7 +83,7 @@ class UnitFluid(object):
     def dynamic_viscosity(self, theta: Optional[float] = None) -> float:
         """Returns dynamic viscosity with unit: Pa s.
 
-        Parameters:
+        Args:
             theta (float, optional): temperature in Celsius
 
         Returns:
@@ -96,7 +96,7 @@ class UnitFluid(object):
     ) -> float:
         """Returns hydrostatic pressure in Pa.
 
-        Parameters:
+        Args:
             depth (float): depth in meters
             theta (float): temperature in Celsius
 
@@ -120,7 +120,7 @@ class Water(UnitFluid):
     def thermal_expansion(self, delta_theta: float) -> float:
         """Returns thermal expansion with unit m^3 / m^3 K, i.e. volumetric.
 
-        Parameters:
+        Args:
             delta_theta (float): temperature increment in Celsius.
 
         Returns:
@@ -135,7 +135,7 @@ class Water(UnitFluid):
     def density(self, theta: Optional[float] = None) -> float:
         """Returns fluid density with unit: kg / m^3.
 
-        Parameters:
+        Args:
             theta (float): temperature in Celsius.
 
         Returns:
@@ -150,7 +150,7 @@ class Water(UnitFluid):
     def thermal_conductivity(self, theta: Optional[float] = None) -> float:
         """Returns thermal conductivity with unit : W / m K.
 
-        Parameters:
+        Args:
             theta (float, optional): temperature in Celsius
 
         Returns:
@@ -168,7 +168,7 @@ class Water(UnitFluid):
     def specific_heat_capacity(self, theta: Optional[float] = None) -> float:
         """Returns specific heat capacity with  units: J / kg K.
 
-        Parameters:
+        Args:
             theta (float, optional): temperature in Celsius
 
         Returns:
@@ -181,7 +181,7 @@ class Water(UnitFluid):
     def dynamic_viscosity(self, theta: Optional[float] = None) -> float:
         """Returns dynamic viscosity with unit: Pa s.
 
-        Parameters:
+        Args:
             theta (float, optional): temperature in Celsius
 
         Returns:
@@ -199,7 +199,7 @@ class Water(UnitFluid):
     ) -> float:
         """Returns hydrostatic pressure in Pa.
 
-        Parameters:
+        Args:
             depth (float): depth in meters
             theta (float): temperature in Celsius
 

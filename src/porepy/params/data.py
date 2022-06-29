@@ -90,15 +90,15 @@ class Parameters(Dict):
 
     def __init__(
         self,
-        g: Optional[Union[pp.Grid, pp.MortarGrid]] = None,
+        grid: Optional[Union[pp.Grid, pp.MortarGrid]] = None,
         keywords: list[str] = None,
         dictionaries: Optional[list[dict]] = None,
     ):
         """Initialize Data object.
 
-        Parameters:
-            g ( Union[pp.Grid, pp.MortarGrid], optional):  Grid where the data is valid. Currently, only number of
-                cells and faces are accessed.
+        Args:
+            grid (pp.Grid or pp.MortarGrid, optional): Grid where the data is valid.
+                Currently, only number of cells and faces are accessed.
             keywords: List of keywords to set parameters for. If none is passed, a
                 parameter class without specified keywords is initialized.
             dictionaries (list of dictionaries, optional): List of dictionaries with
@@ -109,7 +109,7 @@ class Parameters(Dict):
         if not dictionaries:
             dictionaries = []
         self.update_dictionaries(keywords, dictionaries)
-        self.grid = g
+        self.grid = grid
 
     def __repr__(self):
         s = "Data object for physical processes "
@@ -126,7 +126,7 @@ class Parameters(Dict):
 
         Use either the dictionaries OR the property_ids / values.
 
-        Parameters:
+        Args:
             keywords (list): list of n_phys strings addressing different physical processes.
             dictionaries (list of dictionaries, optional): list of n_phys dictionaries with
                 the properties to be updated. If not provided, empty dictionaries are used
@@ -162,7 +162,7 @@ class Parameters(Dict):
         modify_parameters should update the parameters for both keywords. Note that this
         will not work for Numbers, which are immutable in Python.
 
-        Parameters:
+        Args:
             keyword_add (str): The keyword to whose dictionary the parameters are to be
                 added.
             keyword_get (str): The keyword from whose dictionary the parameters are to be
@@ -178,7 +178,7 @@ class Parameters(Dict):
         Brute force method to ensure a parameter is updated/overwritten for all
         keywords where they are defined.
 
-        Parameters:
+        Args:
             parameters (list[str]): List of (existing) parameters to be overwritten.
             values (list): List of new values (bool, scalars, arrays etc.).
         """
@@ -195,7 +195,7 @@ class Parameters(Dict):
         Usage: Ensure consistent parameter updates, see set_from_other. Does not work
         on Numbers.
 
-        Parameters:
+        Args:
             keyword (str): Keyword addressing the physical process.
             parameters (list[str]): List of (existing) parameters to be updated.
             values (list): List of new values. There are implicit assumptions on the values;
@@ -216,7 +216,7 @@ class Parameters(Dict):
         Used e.g. for parameters which may be heterogeneous in space (cellwise),
         but are often homogeneous and assigned as a scalar.
 
-        Parameters:
+        Args:
             n_vals (int): Size of the expanded arrays. E.g. g.num_cells
             keyword (str): The parameter keyword.
             parameters (list[str]): List of parameters.
@@ -251,7 +251,7 @@ def initialize_default_data(
     grid: Union[pp.Grid, pp.MortarGrid],
     data: dict,
     parameter_type: str,
-    specified_parameters: dict = None,
+    specified_parameters: Optional[dict] = None,
     keyword: Optional[str] = None,
 ) -> dict:
     """Initialize a data dictionary for a single keyword.
@@ -261,14 +261,15 @@ def initialize_default_data(
     set of "basic" parameters, depending on the type chosen.
 
     Args:
-        grid ( Union[pp.Grid, pp.MortarGrid]): The grid. Can be either standard grid, or mortar grid.
-        data: Outer data dictionary, to which the parameters will be added.
-        parameter_type: Which type of parameters to use for the default assignment.
-            Must be one of the following:
-                "flow", "transport" and "mechanics".
-        specified_parameters: A dictionary with specified parameters, overriding the
-            default values. Defaults to an empty dictionary (only default values).
-        keyword: String to identify the parameters. Defaults to the parameter type.
+        grid (pp.Grid or pp.MortarGrid): Grid to which data should be attached.
+        data (dict): Outer data dictionary, to which the parameters will be added.
+        parameter_type (str): Which type of parameters to use for the default assignment.
+            Must be one of the following: "flow", "transport" and "mechanics".
+        specified_parameters (dict, optional): A dictionary with specified parameters,
+            overriding the default values. Defaults to an empty dictionary (only default
+            values).
+        keyword (str, optional):  String to identify the parameters. Defaults to the
+            parameter type.
 
      Returns:
         dict: The filled data dictionary.
@@ -308,12 +309,12 @@ def initialize_data(
     matrix dictionary in the proper fields of data. If there is a Parameters object
     in data, the new keyword is added using the update_dictionaries method.
 
-    Parameters:
-        grid ( Union[pp.Grid, pp.MortarGrid]): The grid. Can be either standard grid, or mortar grid.
+    Args:
+        grid (pp.Grid or pp.MortarGrid): Grid to which data should be attached.
         data (dict): Outer data dictionary, to which the parameters will be added.
         keyword (str): String identifying the parameters.
-        specified_parameters (dict): A dictionary with specified parameters, defaults to
-            empty dictionary.
+        specified_parameters (dict, optional): A dictionary with specified parameters, defaults
+            to empty dictionary.
 
     Returns:
         dict: The filled dictionary.
@@ -335,7 +336,7 @@ def set_state(data: dict, state: Optional[dict] = None) -> dict:
     data dictionary. If there is a state dictionary in data, the new state is added
     using the update method of dictionaries.
 
-    Parameters:
+    Args:
         data (dict): Outer data dictionary, to which the parameters will be added.
         state (dict, Optional): A dictionary with the state, set to an empty dictionary if
             not provided.
@@ -357,7 +358,7 @@ def set_iterate(data: dict, iterate: Optional[dict] = None) -> dict:
     Same as set_state for subfield pp.ITERATE
     Also checks whether pp.STATE field is set, and adds it if not, see set_state.
 
-    Parameters:
+    Args:
         data (dict): Outer data dictionary, to which the parameters will be added.
         iterate (dict, Optional): A dictionary with the state, set to an empty dictionary if
             not provided.
@@ -386,7 +387,7 @@ def modify_variable(variable, new_value) -> None:
         np.ndarray, the arrays should have the same shape, and new_value must be
             convertible to variable.dtype
 
-    Parameters:
+    Args:
         variable: The variable.
         new_value: The new value to be assigned to the variable.
 
@@ -413,7 +414,7 @@ def modify_variable(variable, new_value) -> None:
 def add_nonpresent_dictionary(dictionary: dict, key: str) -> None:
     """Check if key is in the dictionary, if not add it with an empty dictionary.
 
-    Parameters:
+    Args:
         dictionary (dict): Dictionary to be updated.
         key (str): Keyword to be added to the dictionary if missing.
     """
@@ -429,7 +430,7 @@ def add_discretization_matrix_keyword(dictionary: dict, keyword: str) -> dict:
     discretization matrix storage in discretization operators (e.g. the storage of
     "flux" by the Tpfa().discretize function).
 
-    Parameters:
+    Args:
         dictionary (dict): Main dictionary, typically stored on a subdomain.
         keyword (str): The keyword used for linking parameters and discretization operators.
 

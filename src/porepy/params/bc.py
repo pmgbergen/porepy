@@ -68,7 +68,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
     def __init__(
         self,
         sd: pp.Grid,
-        faces: np.ndarray = None,
+        faces: Optional[np.ndarray] = None,
         cond: Optional[Union[list[str], str]] = None,
     ):
         """Constructor for BoundaryCondition.
@@ -76,12 +76,19 @@ class BoundaryCondition(AbstractBoundaryCondition):
         The conditions are specified by face numbers. Faces that do not get an
         explicit condition will have Neumann conditions assigned.
 
-        Parameters:
-            sd (pp.Grid): For which boundary conditions are set.
+        Args:
+            sd (pp.Grid): Subdomain for which boundary conditions are set.
             faces (np.ndarray): Faces for which conditions are assigned.
             cond (list of str or str): Conditions on the faces, in the same order as
                 used in faces. Should be as long as faces. The list elements
                 should be one of "dir", "neu", "rob".
+
+        Raises:
+            ValueError if faces are a boolean array with size not matching the number of faces.
+            ValueError if internal faces are marked
+            ValueError if the numbers of boundary condition types and faces are not matching
+            ValueError if another keyword is used as for the boundary condition type than
+                "dir", "neu" or "rob"
 
         Example:
             # Assign Dirichlet conditions on the left side of a subdomain; implicit
@@ -236,7 +243,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
         The conditions are specified by face numbers. Faces that do not get an
         explicit condition will have Neumann conditions assigned.
 
-        Parameters:
+        Args:
             sd (pp.Grid): For which boundary conditions are set.
             faces (np.ndarray, optional): Faces for which conditions are assigned.
             cond (list of str or str, optional): Conditions on the faces, in the same order
@@ -337,8 +344,23 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
         return s
 
-    def set_bc(self, faces, cond):
+    def set_bc(
+        self, faces: Optional[np.ndarray], cond: Optional[Union[str, list[str]]]
+    ) -> None:
+        """Define a single boundary condition.
 
+        Args:
+            faces (np.ndarray, optional): Boolean array determining which face is
+                considered.
+            cond (str or list of str, optional): Boundary condition type
+
+        Raises:
+            ValueError if faces are a boolean array with size not matching the number of faces.
+            ValueError if internal faces are marked
+            ValueError if the numbers of boundary condition types and faces are not matching
+            ValueError if another keyword is used as for the boundary condition type than
+                "dir", "neu" or "rob"
+        """
         if faces is not None:
             # Validate arguments
             assert cond is not None
@@ -383,7 +405,7 @@ def face_on_side(
     (xmax / east), (ymin / south), (ymax / north), (zmin, bottom),
     (zmax / top).
 
-    Parameters:
+    Args:
         sd (pp.Grid): Subdomain for which we want to find faces.
         side (str, or list of str): Sides for which we want to find the
             boundary faces.
@@ -395,6 +417,8 @@ def face_on_side(
             ordering). Arrays contain global indices of faces laying on
             that side.
 
+    Raises:
+        ValueError if not supported keyword is used to identify a boundary part
     """
     if isinstance(side, str):
         side = [side]
