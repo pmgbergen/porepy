@@ -235,7 +235,7 @@ def _generate_coarse_grid_gb(gb, subdiv):
     """
 
     if not isinstance(subdiv, dict):
-        g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+        g = list(gb.subdomains(dim=gb.dim_max()))[0]
         subdiv = {g: subdiv}
 
     for g, (_, partition) in subdiv.items():
