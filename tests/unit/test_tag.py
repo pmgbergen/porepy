@@ -48,15 +48,15 @@ def test_node_is_fracture_tip_2d():
     # 4 has one node at the domain boundary - should not be a tip node
 
     fracs = [f1, f2, f3, f4]
-    gb = pp.meshing.cart_grid(fracs, nx=np.array([4, 4]))
+    mdg = pp.meshing.cart_grid(fracs, nx=np.array([4, 4]))
 
-    g = gb.grids_of_dimension(2)[0]
+    sd = list(mdg.subdomains(dim=2))[0]
 
     # Base comparison on coordinates (safe on Cartesian grids), then we don't have to deal
     # with changing node indices
     known_tips = np.array([[1, 1, 3, 3], [2, 3, 3, 1], [0, 0, 0, 0]])
 
-    _compare_tip_nodes(g, known_tips)
+    _compare_tip_nodes(sd, known_tips)
 
 def test_node_is_fracture_tip_3d():
 
@@ -79,8 +79,8 @@ def test_node_is_fracture_tip_3d():
     # nodes at z=1 and z=4 are tips, but not z=2, z=3.
     f5 = np.array([[1, 1, 1, 1], [3, 3, 5, 5], [1, 4, 4, 1]])
 
-    gb = pp.meshing.cart_grid([f1, f2, f3, f4, f5], dims)
-    g = gb.grids_of_dimension(3)[0]
+    mdg = pp.meshing.cart_grid([f1, f2, f3, f4, f5], dims)
+    sd = list(mdg.subdomains(dim=3))[0]
 
     # Gather the tip nodes from one fracture at a time
     known_tips_1 = f1
@@ -92,7 +92,7 @@ def test_node_is_fracture_tip_3d():
     known_tips_5 = np.array([[1, 1, 1, 1, 1], [3, 4, 5, 5, 4], [4, 4, 4, 1, 1]])
 
     known_tips = np.hstack((known_tips_1, known_tips_2, known_tips_3, known_tips_4, known_tips_5))
-    _compare_tip_nodes(g, known_tips)
+    _compare_tip_nodes(sd, known_tips)
 
 
 class BasicsTest(unittest.TestCase):
@@ -817,46 +817,46 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
 
     def test_tag_2d_1d_cart(self):
-        gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
+        mdg, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
-        for g, _ in gb:
+        for sd in mdg.subdomains():
 
-            if g.dim == 1:
+            if sd.dim == 1:
                 self.assertTrue(
-                    np.array_equal(g.tags["fracture_faces"], [False] * g.num_faces)
+                    np.array_equal(sd.tags["fracture_faces"], [False] * sd.num_faces)
                 )
                 self.assertTrue(
-                    np.array_equal(g.tags["fracture_nodes"], [False] * g.num_nodes)
+                    np.array_equal(sd.tags["fracture_nodes"], [False] * sd.num_nodes)
                 )
                 self.assertTrue(
-                    np.array_equal(g.tags["tip_faces"], [False] * g.num_faces)
+                    np.array_equal(sd.tags["tip_faces"], [False] * sd.num_faces)
                 )
                 self.assertTrue(
-                    np.array_equal(g.tags["tip_nodes"], [False] * g.num_nodes)
+                    np.array_equal(sd.tags["tip_nodes"], [False] * sd.num_nodes)
                 )
                 known = [0, 4]
-                computed = np.where(g.tags["domain_boundary_faces"])[0]
+                computed = np.where(sd.tags["domain_boundary_faces"])[0]
                 self.assertTrue(np.array_equal(computed, known))
                 known = [0, 4]
-                computed = np.where(g.tags["domain_boundary_nodes"])[0]
+                computed = np.where(sd.tags["domain_boundary_nodes"])[0]
                 self.assertTrue(np.array_equal(computed, known))
 
-            if g.dim == 2:
+            if sd.dim == 2:
                 known = [28, 29, 30, 31, 40, 41, 42, 43]
-                computed = np.where(g.tags["fracture_faces"])[0]
+                computed = np.where(sd.tags["fracture_faces"])[0]
                 self.assertTrue(np.array_equal(computed, known))
                 known = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-                computed = np.where(g.tags["fracture_nodes"])[0]
+                computed = np.where(sd.tags["fracture_nodes"])[0]
                 print(computed, known)
                 self.assertTrue(np.array_equal(computed, known))
                 self.assertTrue(
-                    np.array_equal(g.tags["tip_faces"], [False] * g.num_faces)
+                    np.array_equal(sd.tags["tip_faces"], [False] * sd.num_faces)
                 )
                 self.assertTrue(
-                    np.array_equal(g.tags["tip_nodes"], [False] * g.num_nodes)
+                    np.array_equal(sd.tags["tip_nodes"], [False] * sd.num_nodes)
                 )
                 known = [0, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 36, 37, 38, 39]
-                computed = np.where(g.tags["domain_boundary_faces"])[0]
+                computed = np.where(sd.tags["domain_boundary_faces"])[0]
                 self.assertTrue(np.array_equal(computed, known))
                 known = [
                     0,
@@ -878,75 +878,75 @@ class BasicsTest(unittest.TestCase):
                     28,
                     29,
                 ]
-                computed = np.where(g.tags["domain_boundary_nodes"])[0]
+                computed = np.where(sd.tags["domain_boundary_nodes"])[0]
                 self.assertTrue(np.array_equal(computed, known))
 
     def test_tag_2d_1d_cart_complex(self):
-        gb, _ = pp.grid_buckets_2d.two_intersecting(
+        mdg, _ = pp.grid_buckets_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
 
-        for g, _ in gb:
+        for sd in mdg.subdomains():
 
-            if g.dim == 0:
-                self.assertTrue(np.sum(g.tags["fracture_faces"]) == 0)
-                self.assertTrue(np.sum(g.tags["fracture_nodes"]) == 0)
-                self.assertTrue(np.sum(g.tags["tip_faces"]) == 0)
-                self.assertTrue(np.sum(g.tags["tip_nodes"]) == 0)
-                self.assertTrue(np.sum(g.tags["domain_boundary_faces"]) == 0)
-                self.assertTrue(np.sum(g.tags["domain_boundary_nodes"]) == 0)
+            if sd.dim == 0:
+                self.assertTrue(np.sum(sd.tags["fracture_faces"]) == 0)
+                self.assertTrue(np.sum(sd.tags["fracture_nodes"]) == 0)
+                self.assertTrue(np.sum(sd.tags["tip_faces"]) == 0)
+                self.assertTrue(np.sum(sd.tags["tip_nodes"]) == 0)
+                self.assertTrue(np.sum(sd.tags["domain_boundary_faces"]) == 0)
+                self.assertTrue(np.sum(sd.tags["domain_boundary_nodes"]) == 0)
 
-            if g.dim == 1 and g.nodes[1, 0] == 0.5:
+            if sd.dim == 1 and sd.nodes[1, 0] == 0.5:
                 known = [2, 5]
-                computed = np.where(g.tags["fracture_faces"])[0]
+                computed = np.where(sd.tags["fracture_faces"])[0]
                 self.assertTrue(np.array_equal(known, computed))
                 known = [2, 3]
-                computed = np.where(g.tags["fracture_nodes"])[0]
+                computed = np.where(sd.tags["fracture_nodes"])[0]
                 self.assertTrue(np.array_equal(known, computed))
                 self.assertTrue(
-                    np.array_equal(g.tags["tip_faces"], [False] * g.num_faces)
+                    np.array_equal(sd.tags["tip_faces"], [False] * sd.num_faces)
                 )
                 self.assertTrue(
-                    np.array_equal(g.tags["tip_nodes"], [False] * g.num_nodes)
+                    np.array_equal(sd.tags["tip_nodes"], [False] * sd.num_nodes)
                 )
                 known = [0, 4]
-                computed = np.where(g.tags["domain_boundary_faces"])[0]
+                computed = np.where(sd.tags["domain_boundary_faces"])[0]
                 self.assertTrue(np.array_equal(computed, known))
                 known = [0, 5]
-                computed = np.where(g.tags["domain_boundary_nodes"])[0]
+                computed = np.where(sd.tags["domain_boundary_nodes"])[0]
                 self.assertTrue(np.array_equal(computed, known))
 
-            if g.dim == 1 and g.nodes[0, 0] == 0.5:
+            if sd.dim == 1 and sd.nodes[0, 0] == 0.5:
                 known = [1, 3]
-                computed = np.where(g.tags["fracture_faces"])[0]
+                computed = np.where(sd.tags["fracture_faces"])[0]
                 self.assertTrue(np.array_equal(known, computed))
                 known = [1, 2]
-                computed = np.where(g.tags["fracture_nodes"])[0]
+                computed = np.where(sd.tags["fracture_nodes"])[0]
                 self.assertTrue(np.array_equal(known, computed))
                 known = [0, 2]
-                computed = np.where(g.tags["tip_faces"])[0]
+                computed = np.where(sd.tags["tip_faces"])[0]
                 self.assertTrue(np.array_equal(known, computed))
                 known = [0, 3]
-                computed = np.where(g.tags["tip_nodes"])[0]
+                computed = np.where(sd.tags["tip_nodes"])[0]
                 self.assertTrue(np.array_equal(known, computed))
-                self.assertTrue(np.sum(g.tags["domain_boundary_faces"]) == 0)
-                self.assertTrue(np.sum(g.tags["domain_boundary_nodes"]) == 0)
+                self.assertTrue(np.sum(sd.tags["domain_boundary_faces"]) == 0)
+                self.assertTrue(np.sum(sd.tags["domain_boundary_nodes"]) == 0)
 
-            if g.dim == 2:
+            if sd.dim == 2:
                 known = [7, 12, 28, 29, 30, 31, 40, 41, 42, 43, 44, 45]
-                computed = np.where(g.tags["fracture_faces"])[0]
+                computed = np.where(sd.tags["fracture_faces"])[0]
                 self.assertTrue(np.array_equal(computed, known))
                 known = [7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 24]
-                computed = np.where(g.tags["fracture_nodes"])[0]
+                computed = np.where(sd.tags["fracture_nodes"])[0]
                 self.assertTrue(np.array_equal(computed, known))
                 self.assertTrue(
-                    np.array_equal(g.tags["tip_faces"], [False] * g.num_faces)
+                    np.array_equal(sd.tags["tip_faces"], [False] * sd.num_faces)
                 )
                 self.assertTrue(
-                    np.array_equal(g.tags["tip_nodes"], [False] * g.num_nodes)
+                    np.array_equal(sd.tags["tip_nodes"], [False] * sd.num_nodes)
                 )
                 known = [0, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 36, 37, 38, 39]
-                computed = np.where(g.tags["domain_boundary_faces"])[0]
+                computed = np.where(sd.tags["domain_boundary_faces"])[0]
                 self.assertTrue(np.array_equal(computed, known))
                 known = [
                     0,
@@ -968,7 +968,7 @@ class BasicsTest(unittest.TestCase):
                     30,
                     31,
                 ]
-                computed = np.where(g.tags["domain_boundary_nodes"])[0]
+                computed = np.where(sd.tags["domain_boundary_nodes"])[0]
                 self.assertTrue(np.array_equal(computed, known))
 
 
