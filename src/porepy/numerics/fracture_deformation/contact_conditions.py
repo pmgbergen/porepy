@@ -32,7 +32,10 @@ fractures are in contact. The relation [u_n^{k+1}] = g of eqs. 30 and 31 becomes
 with Dg = dg/du_t. For the above g, we have Dg = tan(dilation_angle) * u_t / || u_t ||.
 For the case u_t = 0, we extend the Jacobian to 0, i.e.
     dg/du_t(|| u_t || = 0) = 0.
+
 """
+from __future__ import annotations
+
 import logging
 from typing import Optional
 
