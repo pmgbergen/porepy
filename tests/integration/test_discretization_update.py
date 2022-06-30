@@ -77,7 +77,7 @@ def test_propagation(geometry, method):
     # Get MixedDimensionalGrid and splitting schedule
     gb, faces_to_split = geometry()
 
-    sd_top = list(gb.subdomains(dim=gb.dim_max()))[0]
+    sd_top = gb.subdomains(dim=gb.dim_max())[0]
     g_1, g_2 = gb.subdomains(dim=1)
 
     # Make the splitting schedule on the format expected by fracture propagation

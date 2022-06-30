@@ -947,9 +947,9 @@ class TestUpwindCoupling(unittest.TestCase):
         # 2D cell variables as weights
 
         mdg = self.generate_grid()
-        sd_2 = list(mdg.subdomains(dim=2))[0]
-        sd_1 = list(mdg.subdomains(dim=1))[0]
-        intf = list(mdg.interfaces())[0]
+        sd_2 = mdg.subdomains(dim=2)[0]
+        sd_1 = mdg.subdomains(dim=1)[0]
+        intf = mdg.interfaces()[0]
 
         data_2 = mdg.subdomain_data(sd_2)
         data_1 = mdg.subdomain_data(sd_1)
@@ -964,7 +964,9 @@ class TestUpwindCoupling(unittest.TestCase):
         upwind_coupler = pp.UpwindCoupling("transport")
         upwind_coupler.discretize(sd_2, sd_1, intf, data_2, data_1, data_intf)
 
-        matrix, _ = upwind_coupler.assemble_matrix_rhs(sd_2, sd_1, intf, data_2, data_1, data_intf, zero_mat)
+        matrix, _ = upwind_coupler.assemble_matrix_rhs(
+            sd_2, sd_1, intf, data_2, data_1, data_intf, zero_mat
+        )
 
         matrix_2 = np.array(
             [
@@ -995,9 +997,9 @@ class TestUpwindCoupling(unittest.TestCase):
         # 1D cell variables as weights
 
         mdg = self.generate_grid()
-        sd_2 = list(mdg.subdomains(dim=2))[0]
-        sd_1 = list(mdg.subdomains(dim=1))[0]
-        intf = list(mdg.interfaces())[0]
+        sd_2 = mdg.subdomains(dim=2)[0]
+        sd_1 = mdg.subdomains(dim=1)[0]
+        intf = mdg.interfaces()[0]
 
         data_2 = mdg.subdomain_data(sd_2)
         data_1 = mdg.subdomain_data(sd_1)
@@ -1011,7 +1013,9 @@ class TestUpwindCoupling(unittest.TestCase):
         upwind_coupler = pp.UpwindCoupling("transport")
 
         upwind_coupler.discretize(sd_2, sd_1, intf, data_2, data_1, data_intf)
-        matrix, _ = upwind_coupler.assemble_matrix_rhs(sd_2, sd_1, intf, data_2, data_1, data_intf, zero_mat)
+        matrix, _ = upwind_coupler.assemble_matrix_rhs(
+            sd_2, sd_1, intf, data_2, data_1, data_intf, zero_mat
+        )
 
         matrix_2 = np.array(
             [

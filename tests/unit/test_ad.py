@@ -104,7 +104,7 @@ def test_subdomain_projections(scalar):
         assert _compare_matrices(proj.face_prolongation(sd), known_face_proj.T)
 
     # Project between the full grid and both 1d grids (to combine two grids)
-    g1, g2 = list(mdg.subdomains(dim=1))
+    g1, g2 = mdg.subdomains(dim=1)
     rc1, cc1, dc1, rf1, cf1, df1 = _mat_inds(
         g1.num_cells,
         g1.num_faces,
@@ -161,9 +161,9 @@ def test_mortar_projections(scalar):
     NF = sum([sd.num_faces for sd in mdg.subdomains()]) * proj_dim
     NMC = sum([intf.num_cells for intf in mdg.interfaces()]) * proj_dim
 
-    g0 = list(mdg.subdomains(dim=2))[0]
-    g1, g2 = list(mdg.subdomains(dim=1))
-    g3 = list(mdg.subdomains(dim=0))[0]
+    g0 = mdg.subdomains(dim=2)[0]
+    g1, g2 = mdg.subdomains(dim=1)
+    g3 = mdg.subdomains(dim=0)[0]
 
     intf01 = mdg.subdomain_pair_to_interface((g0, g1))
     intf02 = mdg.subdomain_pair_to_interface((g0, g2))
@@ -378,9 +378,9 @@ def test_ad_variable_wrappers():
             double_iterate[inds] = 2 * iterate_map[g]
 
     subdomains = [
-        list(mdg.subdomains(dim=2))[0],
-        *list(mdg.subdomains(dim=1)),
-        list(mdg.subdomains(dim=0))[0],
+        mdg.subdomains(dim=2)[0],
+        *mdg.subdomains(dim=1),
+        mdg.subdomains(dim=0)[0],
     ]
 
     # Generate merged variables via the EquationManager.
@@ -431,7 +431,7 @@ def test_ad_variable_wrappers():
     )
 
     # Finally, test a single variable; everything should work then as well
-    g = list(mdg.subdomains(dim=2))[0]
+    g = mdg.subdomains(dim=2)[0]
     v1 = eq_manager.variable(g, var)
     v2 = eq_manager.variable(g, var2)
 

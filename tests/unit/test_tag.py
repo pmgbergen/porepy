@@ -50,13 +50,14 @@ def test_node_is_fracture_tip_2d():
     fracs = [f1, f2, f3, f4]
     mdg = pp.meshing.cart_grid(fracs, nx=np.array([4, 4]))
 
-    sd = list(mdg.subdomains(dim=2))[0]
+    sd = mdg.subdomains(dim=2)[0]
 
     # Base comparison on coordinates (safe on Cartesian grids), then we don't have to deal
     # with changing node indices
     known_tips = np.array([[1, 1, 3, 3], [2, 3, 3, 1], [0, 0, 0, 0]])
 
     _compare_tip_nodes(sd, known_tips)
+
 
 def test_node_is_fracture_tip_3d():
 
@@ -80,18 +81,24 @@ def test_node_is_fracture_tip_3d():
     f5 = np.array([[1, 1, 1, 1], [3, 3, 5, 5], [1, 4, 4, 1]])
 
     mdg = pp.meshing.cart_grid([f1, f2, f3, f4, f5], dims)
-    sd = list(mdg.subdomains(dim=3))[0]
+    sd = mdg.subdomains(dim=3)[0]
 
     # Gather the tip nodes from one fracture at a time
     known_tips_1 = f1
-    known_tips_2 = np.array([[2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-                             [1, 1, 1, 1, 2, 3, 4, 4, 4, 4, 2],
-                             [1, 2, 3, 4, 4, 4, 4, 3, 2, 1, 1]])
+    known_tips_2 = np.array(
+        [
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [1, 1, 1, 1, 2, 3, 4, 4, 4, 4, 2],
+            [1, 2, 3, 4, 4, 4, 4, 3, 2, 1, 1],
+        ]
+    )
     known_tips_3 = np.array([[3, 3], [2, 2], [2, 3]])
     known_tips_4 = np.array([[3, 3, 3], [3, 3, 3], [1, 2, 3]])
     known_tips_5 = np.array([[1, 1, 1, 1, 1], [3, 4, 5, 5, 4], [4, 4, 4, 1, 1]])
 
-    known_tips = np.hstack((known_tips_1, known_tips_2, known_tips_3, known_tips_4, known_tips_5))
+    known_tips = np.hstack(
+        (known_tips_1, known_tips_2, known_tips_3, known_tips_4, known_tips_5)
+    )
     _compare_tip_nodes(sd, known_tips)
 
 

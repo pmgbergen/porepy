@@ -70,7 +70,7 @@ class BasicsTest(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 1}
         gb = network.mesh(mesh_args)
 
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_0_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -90,7 +90,7 @@ class BasicsTest(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 1}
         gb = network.mesh(mesh_args)
 
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_0_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -116,7 +116,7 @@ class BasicsTest(unittest.TestCase):
         mesh_args = {"mesh_size_frac": 1}
 
         gb = network.mesh(mesh_args, constraints=np.array([0]))
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -153,7 +153,7 @@ class BasicsTest(unittest.TestCase):
 
         network = pp.FractureNetwork2d(p, e, domain=domain)
         gb = network.mesh(mesh_args, constraints=np.array([0]))
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -193,7 +193,7 @@ class BasicsTest(unittest.TestCase):
         network = pp.FractureNetwork2d(p, e, domain=domain)
         mesh_args = {"mesh_size_frac": 1}
         gb = network.mesh(mesh_args, constraints=np.arange(2))
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -242,7 +242,7 @@ class BasicsTest(unittest.TestCase):
         network = pp.FractureNetwork2d(p, e, domain=domain)
         mesh_args = {"mesh_size_frac": 1}
         gb = network.mesh(mesh_args, constraints=np.array([0, 1]))
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -281,7 +281,7 @@ class BasicsTest(unittest.TestCase):
         gb, _ = pp.grid_buckets_2d.single_horizontal(
             {"mesh_size_frac": 1}, x_endpoints=[0.25, 0.75]
         )
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -313,7 +313,7 @@ class BasicsTest(unittest.TestCase):
             {"mesh_size_frac": 0.125}, x_endpoints=[0.25, 0.75]
         )
 
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_1_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -346,7 +346,7 @@ class BasicsTest(unittest.TestCase):
         gb, _ = pp.grid_buckets_2d.two_intersecting(
             {"mesh_size_frac": 1}, x_endpoints=[0.0, 0.75], y_endpoints=[0.25, 0.75]
         )
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -396,7 +396,7 @@ class BasicsTest(unittest.TestCase):
 
         mesh_args = {"mesh_size_frac": 1}
         gb = network.mesh(mesh_args, constraints=constraints)
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))
@@ -445,7 +445,7 @@ class BasicsTest(unittest.TestCase):
         network = pp.FractureNetwork2d(p, e, domain=domain)
         mesh_args = {"mesh_size_frac": 1}
         gb = network.mesh(mesh_args, constraints=np.array([0, 1]))
-        g = list(gb.subdomains(dim=2))[0]
+        g = gb.subdomains(dim=2)[0]
 
         tag = np.where(g.tags["domain_boundary_line_2_faces"])[0]
         self.assertTrue(np.allclose(g.face_centers[1, tag], 0))

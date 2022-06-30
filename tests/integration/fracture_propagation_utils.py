@@ -206,18 +206,18 @@ def check_equivalent_md_grids(md_grids, decimals=12):
     cell_maps_l, face_maps_l = num_md_grids * [{}], num_md_grids * [{}]
 
     # Check that all md-grids have the same number of grids in the lower dimension
-    num_grids_l: int = len(list(md_grids[0].subdomains(dim=dim_h - 1)))
+    num_grids_l: int = len(md_grids[0].subdomains(dim=dim_h - 1))
     for mdg in md_grids:
-        assert len(list(mdg.subdomains(dim=dim_h - 1))) == num_grids_l
+        assert len(mdg.subdomains(dim=dim_h - 1)) == num_grids_l
 
     for dim in range(dim_l, dim_h + 1):
-        for target_grid in range(len(list(md_grids[0].subdomains(dim=dim)))):
+        for target_grid in range(len(md_grids[0].subdomains(dim=dim))):
 
             n_cells, n_faces, n_nodes = np.empty(0), np.empty(0), np.empty(0)
             nodes, face_centers, cell_centers = [], [], []
             cell_faces, face_nodes = [], []
             for mdg in md_grids:
-                sd = list(mdg.subdomains(dim=dim))[target_grid]
+                sd = mdg.subdomains(dim=dim)[target_grid]
                 n_cells = np.append(n_cells, sd.num_cells)
                 n_faces = np.append(n_faces, sd.num_faces)
                 n_nodes = np.append(n_nodes, sd.num_nodes)
@@ -246,7 +246,7 @@ def check_equivalent_md_grids(md_grids, decimals=12):
             sd_0 = md_grids[0].subdomains(dim=dim)[target_grid]
             for i in range(1, num_md_grids):
                 mdg = md_grids[i]
-                sd = list(mdg.subdomains(dim=dim))[target_grid]
+                sd = mdg.subdomains(dim=dim)[target_grid]
                 cell_map, face_map, node_map = make_maps(sd_0, sd, mdg.dim_max())
                 mapped_cf = sd.cell_faces[face_map][:, cell_map]
                 mapped_fn = sd.face_nodes[node_map][:, face_map]
@@ -267,7 +267,7 @@ def check_equivalent_md_grids(md_grids, decimals=12):
                     assert np.all(np.isclose(sd_0.tags[key], sd.tags[key][face_map]))
 
     # Mortar grids
-    sd_primary_0 = list(md_grids[0].subdomains(dim=dim_h))[0]
+    sd_primary_0 = md_grids[0].subdomains(dim=dim_h)[0]
     for target_grid in range(len(md_grids[0].subdomains(dim=dim_l))):
         sd_secondary_0 = md_grids[0].subdomains(dim=dim_l)[target_grid]
         intf_0 = md_grids[0].subdomain_pair_to_interface((sd_primary_0, sd_secondary_0))
@@ -275,7 +275,9 @@ def check_equivalent_md_grids(md_grids, decimals=12):
         for i in range(1, num_md_grids):
             sd_secondary_i = md_grids[i].subdomains(dim=dim_l)[target_grid]
             sd_primary_i = md_grids[i].subdomains(dim=dim_h)[0]
-            intf_i = md_grids[i].subdomain_pair_to_interface((sd_primary_i, sd_secondary_i))
+            intf_i = md_grids[i].subdomain_pair_to_interface(
+                (sd_primary_i, sd_secondary_i)
+            )
             proj_i = intf_i.primary_to_mortar_int()
             cm = cell_maps_l[i][sd_secondary_i]
             cm_extended = np.append(cm, cm + cm.size)

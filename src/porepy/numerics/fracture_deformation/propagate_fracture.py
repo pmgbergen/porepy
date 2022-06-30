@@ -44,7 +44,7 @@ def propagate_fractures(
     """
 
     dim_primary: int = mdg.dim_max()
-    sd_primary: pp.Grid = list(mdg.subdomains(dim=dim_primary))[0]
+    sd_primary: pp.Grid = mdg.subdomains(dim=dim_primary)[0]
 
     n_old_faces_h: int = sd_primary.num_faces
 
@@ -284,8 +284,6 @@ def propagate_fractures(
             data_secondary["new_cells"],
             data_primary["new_faces"],
         )
-
-
 
         # Get hold of the new interface data dictionary, in case something happened with
         # the mapping when replacing the interface.
@@ -930,8 +928,8 @@ def _tag_affected_cells_and_faces(mdg):
     """
     dim_primary = mdg.dim_max()
     dim_secondary = mdg.dim_min()
-    sd_primary = list(mdg.subdomains(dim=dim_primary))[0]
-    sd_secondary = list(mdg.subdomains(dim=dim_secondary))[0]
+    sd_primary = mdg.subdomains(dim=dim_primary)[0]
+    sd_secondary = mdg.subdomains(dim=dim_secondary)[0]
     data_primary = mdg.subdomain_data(sd_primary)
     data_secondary = mdg.subdomain_data(sd_secondary)
     cells_l = data_secondary["new_cells"]

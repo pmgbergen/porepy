@@ -18,7 +18,7 @@ class TestFaceTags(unittest.TestCase):
         grids = meshing.cart_grid(f_set, nx, physdims=nx)
 
         # 2D grid:
-        g_2d = list(grids.subdomains(dim=2))[0]
+        g_2d = grids.subdomains(dim=2)[0]
 
         f_tags_2d = np.array(
             [

@@ -112,7 +112,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         assembler.distribute_variable(p)
 
         if method == "mvem":
-            g2d = list(gb.subdomains(dim=2))[0]
+            g2d = gb.subdomains(dim=2)[0]
             p_n = np.zeros(sum([g.num_cells for g in gb.subdomains()]))
             for g, d in gb.subdomains(return_data=True):
                 if g.dim == 2:
@@ -485,8 +485,8 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
                 "mesh_size_bound": 0.3 * alpha_2d,
             }
             gbn = network.mesh(mesh_size)
-            go = list(gb.subdomains(dim=2))[0]
-            gn = list(gbn.subdomains(dim=2))[0]
+            go = gb.subdomains(dim=2)[0]
+            gn = gbn.subdomains(dim=2)[0]
             gn.compute_geometry()
             gmap[go] = gn
 

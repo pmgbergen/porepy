@@ -102,7 +102,7 @@ class ConformingFracturePropagation(FracturePropagation):
         # It may not be the most pythonic approach, though.
         mdg = self.mdg
 
-        if len(list(mdg.subdomains(dim=mdg.dim_max() - 2))) > 0:
+        if len(mdg.subdomains(dim=mdg.dim_max() - 2)) > 0:
             warnings.warn(
                 "Fracture propogation with intersecting fractures has not been tested"
             )

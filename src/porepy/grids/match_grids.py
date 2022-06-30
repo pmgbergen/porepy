@@ -514,8 +514,8 @@ def mdg_refinement(
 
     """
 
-    subdomains = list(mdg.subdomains())
-    subdomains_ref = list(mdg_ref.subdomains())
+    subdomains = mdg.subdomains()
+    subdomains_ref = mdg_ref.subdomains()
 
     assert len(subdomains) == len(
         subdomains_ref
