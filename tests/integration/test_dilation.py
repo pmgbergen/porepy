@@ -18,13 +18,12 @@ class TestDilation(unittest.TestCase):
         mdg = setup.mdg
 
         nd = mdg.dim_max()
-        sd_2 = list(mdg.subdomains(dim=nd))[0]
-        sd_1 = list(mdg.subdomains(dim=nd - 1))[0]
+        sd_2 = mdg.subdomains(dim=nd)[0]
+        sd_1 = mdg.subdomains(dim=nd - 1)[0]
         intf = mdg.subdomain_pair_to_interface((sd_1, sd_2))
         intf_data = mdg.interface_data(intf)
 
         sd_1_data = mdg.subdomain_data(sd_1)
-
 
         u_mortar = intf_data[pp.STATE][setup.mortar_displacement_variable]
         contact_force = sd_1_data[pp.STATE][setup.contact_traction_variable]
@@ -78,7 +77,7 @@ class TestDilation(unittest.TestCase):
         self.assertTrue(np.all(contact_force[1] < setup.zero_tol))
 
     def test_displace_south_xy_constant_gap(self):
-        """ Displace also in x direction to test same as above for sliding."""
+        """Displace also in x direction to test same as above for sliding."""
         setup = SetupContactMechanics(
             ux_south=0.01, uy_south=0.001, ux_north=0, uy_north=0
         )
@@ -92,7 +91,7 @@ class TestDilation(unittest.TestCase):
         self.assertTrue(np.all(contact_force[1] < setup.zero_tol))
 
     def test_displace_south_x_nonconstant_gap(self):
-        """ Displace also in x direction to test same as above for sliding."""
+        """Displace also in x direction to test same as above for sliding."""
         setup = SetupContactMechanics(
             ux_south=0.1, uy_south=0.0, ux_north=0, uy_north=0
         )
@@ -146,7 +145,7 @@ class TestDilation(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(contact_force, 0)))
 
     def test_displace_south_throughgoing_fracture(self):
-        """ Displace also in x direction to test same as above for sliding."""
+        """Displace also in x direction to test same as above for sliding."""
         setup = SetupContactMechanics(
             ux_south=0.1, uy_south=0.0, ux_north=0, uy_north=0
         )

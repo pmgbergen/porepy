@@ -18,10 +18,10 @@ class TestMeshing(unittest.TestCase):
         mdg = pp.meshing.cart_grid(f_set, [3, 3, 3])
         mdg.compute_geometry()
 
-        list_sd_3 = list(mdg.subdomains(dim=3))
-        list_sd_2 = list(mdg.subdomains(dim=2))
-        list_sd_1 = list(mdg.subdomains(dim=1))
-        list_sd_0 = list(mdg.subdomains(dim=0))
+        list_sd_3 = mdg.subdomains(dim=3)
+        list_sd_2 = mdg.subdomains(dim=2)
+        list_sd_1 = mdg.subdomains(dim=1)
+        list_sd_0 = mdg.subdomains(dim=0)
 
         self.assertTrue(len(list_sd_3) == 1)
         self.assertTrue(len(list_sd_2) == 2)
@@ -51,10 +51,10 @@ class TestMeshing(unittest.TestCase):
         mdg = pp.meshing.cart_grid(f_set, [2, 2, 2])
         mdg.compute_geometry()
 
-        list_sd_3 = list(mdg.subdomains(dim=3))
-        list_sd_2 = list(mdg.subdomains(dim=2))
-        list_sd_1 = list(mdg.subdomains(dim=1))
-        list_sd_0 = list(mdg.subdomains(dim=0))
+        list_sd_3 = mdg.subdomains(dim=3)
+        list_sd_2 = mdg.subdomains(dim=2)
+        list_sd_1 = mdg.subdomains(dim=1)
+        list_sd_0 = mdg.subdomains(dim=0)
 
         self.assertTrue(len(list_sd_3) == 1)
         self.assertTrue(len(list_sd_2) == 2)
@@ -87,10 +87,10 @@ class TestMeshing(unittest.TestCase):
         mdg = pp.meshing.cart_grid(f_set, [3, 3, 3])
         mdg.compute_geometry()
 
-        list_sd_3 = list(mdg.subdomains(dim=3))
-        list_sd_2 = list(mdg.subdomains(dim=2))
-        list_sd_1 = list(mdg.subdomains(dim=1))
-        list_sd_0 = list(mdg.subdomains(dim=0))
+        list_sd_3 = mdg.subdomains(dim=3)
+        list_sd_2 = mdg.subdomains(dim=2)
+        list_sd_1 = mdg.subdomains(dim=1)
+        list_sd_0 = mdg.subdomains(dim=0)
 
         self.assertTrue(len(list_sd_3) == 1)
         self.assertTrue(len(list_sd_2) == 3)

@@ -26,15 +26,15 @@ class TestMixedDimensionalGrids(unittest.TestCase):
     def check_matrix(self, grid_type):
         mdg = self.mdg
         if grid_type.lower() == "simplex":
-            self.assertTrue(isinstance(list(mdg.subdomains(dim=2))[0], pp.TriangleGrid))
+            self.assertTrue(isinstance(mdg.subdomains(dim=2)[0], pp.TriangleGrid))
         elif grid_type.lower() == "cartesian":
-            self.assertTrue(isinstance(list(mdg.subdomains(dim=2))[0], pp.CartGrid))
+            self.assertTrue(isinstance(mdg.subdomains(dim=2)[0], pp.CartGrid))
         else:
             raise Exception("Unknown grid type specified")
 
     def check_fractures(self, n_fracs, n_frac_cells):
-        self.assertTrue(len(list(self.mdg.subdomains(dim=1))) == n_fracs)
-        for i, g in enumerate(list(self.mdg.subdomains(dim=1))):
+        self.assertTrue(len(self.mdg.subdomains(dim=1)) == n_fracs)
+        for i, g in enumerate(self.mdg.subdomains(dim=1)):
             self.assertEqual(n_frac_cells[i], g.num_cells)
 
     def check_fracture_coordinates(self, cell_centers, face_centers):
@@ -43,12 +43,12 @@ class TestMixedDimensionalGrids(unittest.TestCase):
         This check may be sensitive to gmsh options etc. If so, it should probably
         be deactivated for the test case for which it fails.
         """
-        for i, g in enumerate(list(self.mdg.subdomains(dim=1))):
+        for i, g in enumerate(self.mdg.subdomains(dim=1)):
             self.assertTrue(np.all(np.isclose(g.cell_centers, cell_centers[i])))
             self.assertTrue(np.all(np.isclose(g.face_centers, face_centers[i])))
 
     def check_intersections(self, n_intersections):
-        self.assertTrue(len(list(self.mdg.subdomains(dim=0))) == n_intersections)
+        self.assertTrue(len(self.mdg.subdomains(dim=0)) == n_intersections)
 
     def check_domain(self, x_length, y_length):
         d = self.domain

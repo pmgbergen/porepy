@@ -82,7 +82,7 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
         D = np.min(D, axis=1)
         R = 200
         beta = 10
-        friction_coefficient = 0.5 * (1 + beta * np.exp(-R * D ** 2))
+        friction_coefficient = 0.5 * (1 + beta * np.exp(-R * D**2))
         return friction_coefficient
 
 
@@ -164,7 +164,7 @@ class ProblemDataTime:
             proj = data["tangential_normal_projection"]
 
             # Reconstruct the displacement solution on the fracture
-            sd_h = list(mdg.neighboring_subdomains(sd))[0]
+            sd_h = mdg.neighboring_subdomains(sd)[0]
             assert sd_h.dim == self.nd
             intf = mdg.subdomain_pair_to_interface((sd, sd_h))
             data_edge = mdg.interface_data(intf)

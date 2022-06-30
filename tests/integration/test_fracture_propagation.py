@@ -41,7 +41,7 @@ def _single_fracture_two_steps_2d():
     # either fundamentally wrong with the propagation, or a basic assumption is broken.
     fracs = [np.array([[1, 2], [1, 1]])]
     mdg = pp.meshing.cart_grid(fracs, [4, 3])
-    sd_1 = list(mdg.subdomains(dim=mdg.dim_max() - 1))[0]
+    sd_1 = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
 
     # Target cells
     targets = [{sd_1: np.array([21, 19])}, {sd_1: np.array([22])}]
@@ -59,7 +59,7 @@ def _single_fracture_multiple_steps_3d():
     fracs = [np.array([[1, 1, 1, 1], [1, 2, 2, 1], [1, 1, 2, 2]])]
     mdg = pp.meshing.cart_grid(fracs, [2, 3, 3])
 
-    sd_1 = list(mdg.subdomains(dim=mdg.dim_max() - 1))[0]
+    sd_1 = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
     targets = [{sd_1: np.array([10, 4])}, {sd_1: np.array([1, 7, 16])}]
     angles = [{sd_1: np.array([0, 0])}, {sd_1: np.array([0, 0, 0])}]
 
@@ -80,8 +80,8 @@ def _two_fractures_multiple_steps_3d():
     ]
     mdg = pp.meshing.cart_grid(fracs, [4, 3, 3])
 
-    sd_1 = list(mdg.subdomains(dim=mdg.dim_max() - 1))[0]
-    g2 = list(mdg.subdomains(dim=mdg.dim_max() - 1))[1]
+    sd_1 = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
+    g2 = mdg.subdomains(dim=mdg.dim_max() - 1)[1]
 
     targets = [
         {sd_1: np.array([16, 6]), g2: np.array([], dtype=int)},
@@ -128,7 +128,7 @@ def test_pick_propagation_face_conforming_propagation(generate):
     pp.contact_conditions.set_projections(mdg)
 
     # Bookkeeping
-    sd_primary = list(mdg.subdomains(dim=mdg.dim_max()))[0]
+    sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
     data_primary = mdg.subdomain_data(sd_primary)
     data_primary[pp.STATE] = {}
 
@@ -144,7 +144,9 @@ def test_pick_propagation_face_conforming_propagation(generate):
         propagation_map = {}
 
         # Loop over all fracture grids
-        for sd_frac, data_frac in mdg.subdomains(dim=mdg.dim_max() - 1, return_data=True):
+        for sd_frac, data_frac in mdg.subdomains(
+            dim=mdg.dim_max() - 1, return_data=True
+        ):
 
             # Data dictionaries
             intf = mdg.subdomain_pair_to_interface((sd_primary, sd_frac))
@@ -178,7 +180,9 @@ def test_pick_propagation_face_conforming_propagation(generate):
             }
 
             # Use the functionality to find faces to split
-            model._pick_propagation_faces(sd_primary, sd_frac, data_primary, data_frac, intf_data)
+            model._pick_propagation_faces(
+                sd_primary, sd_frac, data_primary, data_frac, intf_data
+            )
             _, face, _ = sps.find(intf_data["propagation_face_map"])
 
             # This is the test, the targets and the identified faces should be the same
@@ -220,9 +224,9 @@ class FaceSplittingHostGrid(unittest.TestCase):
 
         # Pick out the 1d grids in each bucket. These will be used to set which faces
         # in the 2d grid to split
-        g2 = list(mdg_2.subdomains(dim=1))[0]
-        g3 = list(mdg_3.subdomains(dim=1))[0]
-        g4 = list(mdg_4.subdomains(dim=1))[0]
+        g2 = mdg_2.subdomains(dim=1)[0]
+        g3 = mdg_3.subdomains(dim=1)[0]
+        g4 = mdg_4.subdomains(dim=1)[0]
 
         # Do the splitting
         pp.propagate_fracture.propagate_fractures(mdg_2, {g2: np.array([15, 16])})
@@ -251,9 +255,9 @@ class FaceSplittingHostGrid(unittest.TestCase):
 
         # Pick out the 2d grids in each bucket. These will be used to set which faces
         # in the 3d grid to split
-        g2 = list(mdg_2.subdomains(dim=2))[0]
-        g3 = list(mdg_3.subdomains(dim=2))[0]
-        g4 = list(mdg_4.subdomains(dim=2))[0]
+        g2 = mdg_2.subdomains(dim=2)[0]
+        g3 = mdg_3.subdomains(dim=2)[0]
+        g4 = mdg_4.subdomains(dim=2)[0]
 
         # Do the splitting
         pp.propagate_fracture.propagate_fractures(mdg_2, {g2: np.array([53, 54])})
@@ -288,8 +292,8 @@ class FaceSplittingHostGrid(unittest.TestCase):
         mdg_3 = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
 
         # Get the fracture grids
-        sd_1 = list(mdg.subdomains(dim=1))[0]
-        g2 = list(mdg.subdomains(dim=1))[1]
+        sd_1 = mdg.subdomains(dim=1)[0]
+        g2 = mdg.subdomains(dim=1)[1]
 
         # First propagation step
         faces = {sd_1: np.array([27]), g2: np.array([32])}
@@ -314,16 +318,16 @@ class FaceSplittingHostGrid(unittest.TestCase):
         #
         # The second step requests opening of the two flanking faces
         mdg = self._make_grid()
-        g_frac = list(mdg.subdomains(dim=2))[0]
+        g_frac = mdg.subdomains(dim=2)[0]
 
         faces_to_split = [[43], [41, 45]]
 
-        g = list(mdg.subdomains(dim=2))[0]
+        g = mdg.subdomains(dim=2)[0]
         cc = g.cell_centers
         fc = g.face_centers
         cv = g.cell_volumes
 
-        gh = list(mdg.subdomains(dim=3))[0]
+        gh = mdg.subdomains(dim=3)[0]
 
         new_fc = [
             np.array([[1.5, 2, 1.5], [1, 1.5, 2], [1.5, 2, 1.5]]),
@@ -351,16 +355,16 @@ class FaceSplittingHostGrid(unittest.TestCase):
         # The second step requests the opening of the middle face, the final step
         # the second flaking face.
         mdg = self._make_grid()
-        g_frac = list(mdg.subdomains(dim=2))[0]
+        g_frac = mdg.subdomains(dim=2)[0]
 
         faces_to_split = [[41], [43], [45]]
 
-        g = list(mdg.subdomains(dim=2))[0]
+        g = mdg.subdomains(dim=2)[0]
         cc = g.cell_centers
         fc = g.face_centers
         cv = g.cell_volumes
 
-        gh = list(mdg.subdomains(dim=3))[0]
+        gh = mdg.subdomains(dim=3)[0]
 
         new_fc = [
             np.array([[1.5, 2, 1.5], [0, 0.5, 1], [1.5, 2, 1.5]]),
@@ -386,16 +390,16 @@ class FaceSplittingHostGrid(unittest.TestCase):
         #
         # The second step requests opening of the middle face from both sides.
         mdg = self._make_grid()
-        g_frac = list(mdg.subdomains(dim=2))[0]
+        g_frac = mdg.subdomains(dim=2)[0]
 
         faces_to_split = [[41, 45], [43, 43]]
 
-        g = list(mdg.subdomains(dim=2))[0]
+        g = mdg.subdomains(dim=2)[0]
         cc = g.cell_centers
         fc = g.face_centers
         cv = g.cell_volumes
 
-        gh = list(mdg.subdomains(dim=3))[0]
+        gh = mdg.subdomains(dim=3)[0]
 
         new_fc = [
             np.array(
@@ -424,8 +428,8 @@ class FaceSplittingHostGrid(unittest.TestCase):
         # Check that the geometry of a (propagated) MixedDimensionalGrid corresponds to a given
         # known geometry.
 
-        gh = list(mdg.subdomains(dim=mdg.dim_max()))[0]
-        g = list(mdg.subdomains(dim=mdg.dim_max() - 1))[0]
+        gh = mdg.subdomains(dim=mdg.dim_max())[0]
+        g = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
         new_cc = gh.face_centers[:, split]
         if len(split) == 1:
             new_cc = new_cc.reshape((-1, 1))
@@ -677,8 +681,8 @@ class PropagationCriteria(unittest.TestCase):
         # Set for convenient access without passing around:
         self.nd = dim
         self.mdg = mdg
-        self.sd_primary = list(mdg.subdomains(dim=dim))[0]
-        self.g_l = list(mdg.subdomains(dim=dim - 1))[0]
+        self.sd_primary = mdg.subdomains(dim=dim)[0]
+        self.g_l = mdg.subdomains(dim=dim - 1)[0]
 
     def _verify(self, sifs, propagate, angles):
         data_h = self.mdg.subdomain_data(self.sd_primary)
@@ -724,7 +728,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         frac = [np.array([[1, 2], [1, 1]])]
         mdg = pp.meshing.cart_grid(frac, [5, 2])
 
-        g_frac = list(mdg.subdomains(dim=1))[0]
+        g_frac = mdg.subdomains(dim=1)[0]
         # Two prolongation steps for the fracture.
         split_faces = [{g_frac: np.array([19])}, {g_frac: np.array([20])}]
         self._verify(mdg, split_faces)
@@ -736,7 +740,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         frac = [np.array([[1, 2], [1, 1]]), np.array([[2, 3], [2, 2]])]
         mdg = pp.meshing.cart_grid(frac, [5, 3])
 
-        g_1, g_2 = list(mdg.subdomains(dim=1))
+        g_1, g_2 = mdg.subdomains(dim=1)
 
         # Two prolongation steps for the fracture.
         # In the first step, one fracture grows, one is stuck.
@@ -754,8 +758,8 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         # new variables are added with correct values
 
         # Individual grids
-        g_2d = list(mdg.subdomains(dim=2))[0]
-        g_1d = list(mdg.subdomains(dim=1))
+        g_2d = mdg.subdomains(dim=2)[0]
+        g_1d = mdg.subdomains(dim=1)
 
         # Model used for fracture propagation
         model = MockPropagationModel({})
@@ -810,9 +814,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         for g in g_1d:
             x[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = cell_val_1d[g]
             intf = mdg.subdomain_pair_to_interface((g_2d, g))
-            x[
-                dof_manager.grid_and_variable_to_dofs(intf, self.mv)
-            ] = cell_val_mortar[g]
+            x[dof_manager.grid_and_variable_to_dofs(intf, self.mv)] = cell_val_mortar[g]
 
         # Keep track of the previous values for each grid.
         # Not needed in 2d, where no updates are expected
@@ -885,9 +887,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
                 ## Check mortar grid - see 1d case above for comments
                 intf = mdg.subdomain_pair_to_interface((g_2d, g))
-                x_mortar = x_new[
-                    dof_manager.grid_and_variable_to_dofs(intf, self.mv)
-                ]
+                x_mortar = x_new[dof_manager.grid_and_variable_to_dofs(intf, self.mv)]
 
                 sz = int(np.round(val_mortar_prev[g].size / 2))
 
@@ -896,13 +896,13 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 truth_mortar = np.r_[
                     val_mortar_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 42),
-                    val_mortar_prev[g][sz: 2 * sz],
+                    val_mortar_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 42),
                 ]
                 truth_iterate = np.r_[
                     val_mortar_iterate_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 42),
-                    val_mortar_iterate_prev[g][sz: 2 * sz],
+                    val_mortar_iterate_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 42),
                 ]
                 d = mdg.interface_data(intf)
@@ -912,12 +912,10 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 self.assertTrue(
                     np.all(d[pp.STATE][pp.ITERATE][self.mv] == truth_iterate)
                 )
-                x_new[
-                    dof_manager.grid_and_variable_to_dofs(intf, self.mv)
-                ] = np.r_[
+                x_new[dof_manager.grid_and_variable_to_dofs(intf, self.mv)] = np.r_[
                     val_mortar_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
-                    val_mortar_prev[g][sz: 2 * sz],
+                    val_mortar_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
                 val_mortar_prev[g] = x_new[
@@ -926,7 +924,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 val_mortar_iterate_prev[g] = np.r_[
                     val_mortar_iterate_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
-                    val_mortar_iterate_prev[g][sz: 2 * sz],
+                    val_mortar_iterate_prev[g][sz : 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
                 d[pp.STATE][self.mv] = val_mortar_prev[g]
