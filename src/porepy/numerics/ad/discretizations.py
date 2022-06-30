@@ -230,7 +230,12 @@ class ColoumbContactAd(Discretization):
 
 
 class ContactTractionAd(Discretization):
-    def __init__(self, keyword: str, interfaces: List[pp.MortarGrid], low_dim_subdomains: List[pp.Grid]) -> None:
+    def __init__(
+        self,
+        keyword: str,
+        interfaces: List[pp.MortarGrid],
+        low_dim_subdomains: List[pp.Grid],
+    ) -> None:
         """
 
         Args:
