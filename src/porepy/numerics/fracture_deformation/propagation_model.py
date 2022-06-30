@@ -1,5 +1,5 @@
 """
-Module indended for combining fracture propagation with complex multiphysics,
+Module indented for combining fracture propagation with complex multi-physics,
 as represented in the model classes.
 
 This module contains a partial implementation of propagation, confer other modules
@@ -13,8 +13,8 @@ WARNING: This should be considered experimental code and should be used with
 
     The code structure for fracture propagation cannot be considered fixed, and it
     may be fundamentally restructured at unknown points in the future. If you use
-    this functionality, please notify the maintainers (preferrably by an email to
-    Eirik.Keilegavlen@uib.no), so that we may keep your usecases in mind if a major
+    this functionality, please notify the maintainers (preferably by an email to
+    Eirik.Keilegavlen@uib.no), so that we may keep your use-cases in mind if a major
     overhaul of the code is undertaken.
 
 """
@@ -29,7 +29,7 @@ import porepy as pp
 class FracturePropagation(abc.ABC):
     """Abstract base class for fracture propagation methods.
 
-    The class is indended used together with a subclass of AbstractModel,
+    The class is indented used together with a subclass of AbstractModel,
     using dual inheritance.
 
     WARNING: This should be considered experimental code and should be used with
@@ -41,7 +41,7 @@ class FracturePropagation(abc.ABC):
         The code structure for fracture propagation cannot be considered fixed, and it
         may be fundamentally restructured at unknown points in the future. If you use
         this functionality, please notify the maintainers (Eirik.Keilegavlen@uib.no),
-        so that we may keep your usecases in mind if a major overhaul of the code is
+        so that we may keep your use-cases in mind if a major overhaul of the code is
         undertaken.
 
     Known subclasses are:
@@ -51,17 +51,17 @@ class FracturePropagation(abc.ABC):
 
     @abc.abstractmethod
     def __init__(self, assembler):
-        # Abtract init, aimed at appeasing mypy. In practice, these attributes should
+        # Abstract init, aimed at appeasing mypy. In practice, these attributes should
         # come from combining this class with a mechanical model.
         self.assembler = assembler
         self.mdg = self.assembler.mdg
-        self._Nd = self.mdg.dim_max()
+        self.nd = self.mdg.dim_max()
 
     @abc.abstractmethod
     def evaluate_propagation(self) -> None:
         """Evaluate propagation of fractures based on the current solution.
 
-        Impementation of the method will differ between propagation criretia,
+        Implementation of the method will differ between propagation criteria,
         whether the adaptive meshing is applied etc.
         """
 
@@ -80,8 +80,8 @@ class FracturePropagation(abc.ABC):
 
         Parameters
         ----------
-        g : pp.Grid
-            Grid.
+        sd : pp.Grid
+            Subdomain grid.
         d : Dict
             Data dictionary. Should contain a field cell_index_map (an sps.spmatrix)
             which maps from old to new cell indices.

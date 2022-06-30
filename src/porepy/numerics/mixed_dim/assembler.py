@@ -333,7 +333,7 @@ class Assembler:
         """Run the discretization operation on discretizations specified in
         the mixed-dimensional grid.
 
-        Discretization can be applied selectively to specific discretization objcets
+        Discretization can be applied selectively to specific discretization objects
         in the MixedDimensionalGrid by passing an appropriate filter. See pp.assembler_filters
         for details, in particular the class ListFilter.
 
@@ -1193,7 +1193,7 @@ class Assembler:
     def update_dof_count(self) -> None:
         """Update the count of degrees of freedom related to a MixedDimensionalGrid.
 
-        The method loops thruogh the defined combinations of grids (standard or mortar)
+        The method loops through the defined combinations of grids (standard or mortar)
         and variables, and updates the number of fine-scale degree of freedom for this
         combination. The system size will be updated if the grid has changed or
         (perhaps less realistically) a variable has had its number of dofs per grid
@@ -1203,7 +1203,7 @@ class Assembler:
         is to define a new assembler object.
 
         """
-        # Loop over identified grid-varibale combinations
+        # Loop over identified grid-variable combinations
         for key, index in self._dof_manager.block_dof.items():
             # Grid quantity (grid or interface), and variable
             grid, variable = key
@@ -1212,8 +1212,6 @@ class Assembler:
                 d = self.mdg.subdomain_data(grid)
             else:  # This is an interface
                 d = self.mdg.interface_data(grid)
-                # Also fetch mortar grid
-                grid = d["mortar_grid"]
 
             # Dofs related to cell
             dof: Dict[str, int] = d[pp.PRIMARY_VARIABLES][variable]
@@ -1232,7 +1230,7 @@ class Assembler:
         self, sps_matrix: Type[csc_or_csr_matrix]
     ) -> Tuple[Dict[str, csc_or_csr_matrix], Dict[str, np.ndarray]]:
         """
-        Initialize a set of matrices (for left hand sides) and vectors (rhs)
+        Initialize a set of matrices (for left-hand sides) and vectors (rhs)
         for all operators associated with a variable (example: a temperature
         variable in an advection-diffusion problem will typically have two
         operators, one for advection, one for diffusion).
