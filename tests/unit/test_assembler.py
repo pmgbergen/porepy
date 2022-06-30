@@ -1503,7 +1503,7 @@ class TestAssembler(unittest.TestCase):
         dof_manager = pp.DofManager(mdg)
         assembler = pp.Assembler(mdg, dof_manager)
         A, _ = assembler.assemble_matrix_rhs()
-        
+
         e1_ind = dof_manager.block_dof[(e1, edge_var)]
         e2_ind = dof_manager.block_dof[(e2, edge_var)]
 
@@ -1966,7 +1966,7 @@ class TestAssemblerFilters(unittest.TestCase):
         self.assertFalse(filter.filter(grids=[g1], variables=[var2]))
 
 
-#TestAssembler().test_direct_edge_coupling()
+# TestAssembler().test_direct_edge_coupling()
 TestAssemblerFilters().test_list_filter_grid_keyword()
 if __name__ == "__main__":
     unittest.main()
