@@ -1,5 +1,5 @@
 """
-Integration tests for the Biot modell, with and without contact mechanics.
+Integration tests for the Biot model, with and without contact mechanics.
 
 We have the full Biot equations in the matrix, and mass conservation and contact
 conditions in the non-intersecting fracture. For the contact mechanical part of this
@@ -18,14 +18,15 @@ class TestTHM(unittest.TestCase):
     def _solve(self, setup):
         pp.run_time_dependent_model(setup, params={})
 
-        gb = setup.gb
+        mdg = setup.mdg
+        nd = mdg.dim_max()
+        sd = list(mdg.subdomains(dim=nd))[0]
 
-        g = gb.grids_of_dimension(setup._Nd)[0]
-        d = gb.node_props(g)
+        data = mdg.subdomain_data(sd)
 
-        u = d[pp.STATE][setup.displacement_variable]
-        p = d[pp.STATE][setup.scalar_variable]
-        T = d[pp.STATE][setup.temperature_variable]
+        u = data[pp.STATE][setup.displacement_variable]
+        p = data[pp.STATE][setup.scalar_variable]
+        T = data[pp.STATE][setup.temperature_variable]
 
         return u, p, T
 
@@ -97,31 +98,28 @@ class TestContactMechanicsTHM(unittest.TestCase):
     def _solve(self, setup):
         pp.run_time_dependent_model(setup, {"convergence_tol": 1e-6})
 
-        gb = setup.gb
+        mdg = setup.mdg
 
-        nd = setup._Nd
+        nd = mdg.dim_max()
+        sd_2 = list(mdg.subdomains(dim=nd))[0]
+        sd_1 = list(mdg.subdomains(dim=nd - 1))[0]
+        intf = mdg.subdomain_pair_to_interface((sd_1, sd_2))
+        intf_data = mdg.interface_data(intf)
+        sd_1_data = mdg.subdomain_data(sd_1)
 
-        g2 = gb.grids_of_dimension(nd)[0]
-        g1 = gb.grids_of_dimension(nd - 1)[0]
-
-        d_m = gb.edge_props((g1, g2))
-        d_1 = gb.node_props(g1)
-
-        mg = d_m["mortar_grid"]
-
-        u_mortar = d_m[pp.STATE][setup.mortar_displacement_variable]
-        contact_force = d_1[pp.STATE][setup.contact_traction_variable]
-        fracture_pressure = d_1[pp.STATE][setup.scalar_variable]
-        fracture_temperature = d_1[pp.STATE][setup.temperature_variable]
+        u_mortar = intf_data[pp.STATE][setup.mortar_displacement_variable]
+        contact_force = sd_1_data[pp.STATE][setup.contact_traction_variable]
+        fracture_pressure = sd_1_data[pp.STATE][setup.scalar_variable]
+        fracture_temperature = sd_1_data[pp.STATE][setup.temperature_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_secondary_avg(nd=nd)
-            * mg.sign_of_mortar_sides(nd=nd)
+            intf.mortar_to_secondary_avg(nd=nd)
+            * intf.sign_of_mortar_sides(nd=nd)
             * u_mortar
         )
-        projection = d_1["tangential_normal_projection"]
+        projection = sd_1_data["tangential_normal_projection"]
 
-        project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
+        project_to_local = projection.project_tangential_normal(int(intf.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
         u_mortar_local_decomposed = u_mortar_local.reshape((nd, -1), order="F")
 
@@ -318,8 +316,8 @@ class SetupTHM(ProblemDataTime, model.THM):
         super()._set_temperature_parameters()
         if hasattr(self, "advection_weight"):
             w = self.advection_weight
-            for g, d in self.gb:
-                d[pp.PARAMETERS][self.temperature_parameter_key]["advection_weight"] = w
+            for _, data in self.mdg.subdomains(return_data=True):
+                data[pp.PARAMETERS][self.temperature_parameter_key]["advection_weight"] = w
 
 
 if __name__ == "__main__":
