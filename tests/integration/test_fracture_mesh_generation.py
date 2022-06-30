@@ -47,18 +47,18 @@ class TestDFMMeshGeneration(unittest.TestCase):
                     return False
             return True
 
-        bb = pp.bounding_box.from_points(list(mdg.subdomains(dim=3))[0].nodes)
+        bb = pp.bounding_box.from_points(mdg.subdomains(dim=3)[0].nodes)
 
         self.assertTrue(compare_bounding_boxes(bb, domain))
 
-        self.assertTrue(len(fractures) == len(list(mdg.subdomains(dim=2))))
-        self.assertTrue(expected_num_1d_grids == len(list(mdg.subdomains(dim=1))))
-        self.assertTrue(expected_num_0d_grids == len(list(mdg.subdomains(dim=0))))
+        self.assertTrue(len(fractures) == len(mdg.subdomains(dim=2)))
+        self.assertTrue(expected_num_1d_grids == len(mdg.subdomains(dim=1)))
+        self.assertTrue(expected_num_0d_grids == len(mdg.subdomains(dim=0)))
 
         # Loop over all fractures, find the grid with the corresponding frac_num. Check
         # that their bounding boxes are the same.
         for fi, f in enumerate(fractures):
-            for g in list(mdg.subdomains(dim=2)):
+            for g in mdg.subdomains(dim=2):
                 if g.frac_num == fi:
                     self.assertTrue(
                         compare_bounding_boxes(
@@ -104,7 +104,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
             for k in ["xmax", "ymax", "zmax"]:
                 box["coord"][k] = max(box["coord"][k], update[k])
 
-        for g in list(mdg.subdomains(dim=1)):
+        for g in mdg.subdomains(dim=1):
             n = mdg.neighboring_subdomains(g, only_higher=True)
             box = pp.bounding_box.from_points(g.nodes)
 
@@ -123,7 +123,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
                 compare_bounding_boxes(coord, pp.bounding_box.from_points(isect.coord))
             )
 
-        for g in list(mdg.subdomains(dim=0)):
+        for g in mdg.subdomains(dim=0):
             found = False
             for p in isect_pt:
                 if test_utils.compare_arrays(p, g.cell_centers):
@@ -133,7 +133,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
         for p in isect_pt:
             found = False
-            for g in list(mdg.subdomains(dim=0)):
+            for g in mdg.subdomains(dim=0):
                 if test_utils.compare_arrays(p, g.cell_centers):
                     found = True
                     break
@@ -1003,7 +1003,7 @@ class TestDFMNonConvexDomain(unittest.TestCase):
         network = pp.FractureNetwork3d([f_1], domain=self.non_convex_polyhedron)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
         mdg = network.mesh(mesh_args)
-        self.assertTrue(len(list(mdg.subdomains(dim=2))) == 2)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 2)
 
     def test_fracture_cut_not_split_by_domain(self):
         self.setUp()
@@ -1018,7 +1018,7 @@ class TestDFMNonConvexDomain(unittest.TestCase):
         # non-convexity.
         # The size of the domain here is set by how the fracture pieces are merged
         # into convex parts.
-        self.assertTrue(len(list(mdg.subdomains(dim=2))) == 3)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 3)
 
 
 class Test2dDomain(unittest.TestCase):
@@ -1039,49 +1039,49 @@ class Test2dDomain(unittest.TestCase):
         self.setUp()
         network = pp.FractureNetwork2d(domain=self.domain)
         mdg = network.mesh(self.mesh_args)
-        self.assertTrue(len(list(mdg.subdomains(dim=2))) == 1)
-        self.assertTrue(len(list(mdg.subdomains(dim=1))) == 0)
-        self.assertTrue(len(list(mdg.subdomains(dim=0))) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
     def test_one_fracture(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
         mdg = network.mesh(self.mesh_args)
-        self.assertTrue(len(list(mdg.subdomains(dim=2))) == 1)
-        self.assertTrue(len(list(mdg.subdomains(dim=1))) == 1)
-        self.assertTrue(len(list(mdg.subdomains(dim=0))) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
     def test_two_fractures(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
         mdg = network.mesh(self.mesh_args)
-        self.assertTrue(len(list(mdg.subdomains(dim=2))) == 1)
-        self.assertTrue(len(list(mdg.subdomains(dim=1))) == 2)
-        self.assertTrue(len(list(mdg.subdomains(dim=0))) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 2)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 1)
 
     def test_one_constraint(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
         mdg = network.mesh(self.mesh_args, constraints=np.array([0]))
-        self.assertTrue(len(list(mdg.subdomains(dim=2))) == 1)
-        self.assertTrue(len(list(mdg.subdomains(dim=1))) == 0)
-        self.assertTrue(len(list(mdg.subdomains(dim=0))) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
     def test_two_constraints(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
         mdg = network.mesh(self.mesh_args, constraints=np.arange(2))
-        self.assertTrue(len(list(mdg.subdomains(dim=2))) == 1)
-        self.assertTrue(len(list(mdg.subdomains(dim=1))) == 0)
-        self.assertTrue(len(list(mdg.subdomains(dim=0))) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
     def test_one_fracture_one_constraint(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
         mdg = network.mesh(self.mesh_args, constraints=np.array(1))
-        self.assertTrue(len(list(mdg.subdomains(dim=2))) == 1)
-        self.assertTrue(len(list(mdg.subdomains(dim=1))) == 1)
-        self.assertTrue(len(list(mdg.subdomains(dim=0))) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
 
 class TestStructuredGrids(unittest.TestCase):
@@ -1139,10 +1139,10 @@ class TestStructuredGrids(unittest.TestCase):
             )
         )
         for mdg in mdgs:
-            list_sd_3 = list(mdg.subdomains(dim=3))
-            list_sd_2 = list(mdg.subdomains(dim=2))
-            list_sd_1 = list(mdg.subdomains(dim=1))
-            list_sd_0 = list(mdg.subdomains(dim=0))
+            list_sd_3 = mdg.subdomains(dim=3)
+            list_sd_2 = mdg.subdomains(dim=2)
+            list_sd_1 = mdg.subdomains(dim=1)
+            list_sd_0 = mdg.subdomains(dim=0)
 
             self.assertTrue(len(list_sd_3) == 1)
             self.assertTrue(len(list_sd_2) == 3)

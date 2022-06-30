@@ -47,8 +47,8 @@ def grid_error(
 
     errors: Dict = {}
 
-    grids = list(mdg.subdomains())
-    grids_ref = list(mdg_ref.subdomains())
+    grids = mdg.subdomains()
+    grids_ref = mdg_ref.subdomains()
     n_grids = len(grids)
 
     for i in np.arange(n_grids):

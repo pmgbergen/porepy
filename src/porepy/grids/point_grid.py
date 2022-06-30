@@ -6,10 +6,9 @@ from porepy.grids.grid import Grid
 
 class PointGrid(Grid):
     def __init__(self, pt: np.ndarray, name: str = None) -> None:
-        """
-        Constructor for 0D grid
+        """Constructor for 0D grid.
 
-        Parameters
+        Args:
             pt (np.array): Point which represent the grid.
             name (str): Name of grid, passed to super constructor.
 
@@ -35,4 +34,4 @@ class PointGrid(Grid):
         nodes = np.zeros((3, 0))
         self.cell_centers = pt
 
-        super(PointGrid, self).__init__(0, nodes, face_nodes, cell_faces, name)
+        super().__init__(0, nodes, face_nodes, cell_faces, name)

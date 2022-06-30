@@ -3,6 +3,7 @@ Implementation of the multi-point flux approximation O-method.
 
 """
 from typing import Optional
+
 import numpy as np
 import scipy.sparse as sps
 

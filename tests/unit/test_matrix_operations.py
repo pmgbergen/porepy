@@ -320,7 +320,7 @@ class TestSparseMath(unittest.TestCase):
     def test_csr_matrix_from_single_block(self):
 
         block_size = 2
-        arr = np.arange(block_size ** 2).reshape((block_size, block_size))
+        arr = np.arange(block_size**2).reshape((block_size, block_size))
 
         known = np.array([[0, 1], [2, 3]])
         value = pp.matrix_operations.csr_matrix_from_blocks(
@@ -331,7 +331,7 @@ class TestSparseMath(unittest.TestCase):
 
         # Larger block
         block_size = 3
-        arr = np.arange(block_size ** 2).reshape((block_size, block_size))
+        arr = np.arange(block_size**2).reshape((block_size, block_size))
 
         known = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
         value = pp.matrix_operations.csr_matrix_from_blocks(

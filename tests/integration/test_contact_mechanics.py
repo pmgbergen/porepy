@@ -8,7 +8,6 @@ import numpy as np
 import porepy as pp
 
 
-
 def test_contact_mechanics_model_no_modification():
     """Test that the raw contact mechanics model with no modifications can be run with
     no error messages. Failure of this test would signify rather fundamental problems
@@ -19,15 +18,14 @@ def test_contact_mechanics_model_no_modification():
 
 
 class TestContactMechanics(unittest.TestCase):
-
     def _solve(self, setup):
         pp.run_stationary_model(setup, {"convergence_tol": 1e-10, "max_iterations": 20})
         mdg = setup.mdg
 
         nd = mdg.dim_max()
 
-        sd_2 = list(mdg.subdomains(dim=nd))[0]
-        sd_1 = list(mdg.subdomains(dim=nd-1))[0]
+        sd_2 = mdg.subdomains(dim=nd)[0]
+        sd_1 = mdg.subdomains(dim=nd - 1)[0]
         intf = mdg.subdomain_pair_to_interface((sd_1, sd_2))
         d_m = mdg.interface_data(intf)
         d_1 = mdg.subdomain_data(sd_1)
@@ -50,21 +48,30 @@ class TestContactMechanics(unittest.TestCase):
 
         return u_frac_local_decomposed, contact_force
 
-    def _compare_ad(self, ux_south=0, uy_south=0, ux_north=0, uy_north=0, dim=2, dilation_angle=0):
+    def _compare_ad(
+        self, ux_south=0, uy_south=0, ux_north=0, uy_north=0, dim=2, dilation_angle=0
+    ):
         model = Model(ux_south, uy_south, ux_north, uy_north, dim, dilation_angle)
         model_ad = Model(ux_south, uy_south, ux_north, uy_north, dim, dilation_angle)
         model_ad._use_ad = True
         displacement, force = self._solve(model)
         displacement_ad, force_ad = self._solve(model_ad)
         # Use norm for comparison to allow for non-unique tangential basis
-        assert(np.all(np.isclose(np.linalg.norm(displacement, axis=0), np.linalg.norm(displacement_ad, axis=0), atol=1e-7)))
-        assert(np.all(np.isclose(displacement[-1], displacement_ad[-1])))
-        assert(np.all(np.isclose(force[-1], force_ad[-1])))
-        assert(np.all(np.isclose(np.linalg.norm(force, axis=0), np.linalg.norm(force_ad, axis=0))))
+        assert np.all(
+            np.isclose(
+                np.linalg.norm(displacement, axis=0),
+                np.linalg.norm(displacement_ad, axis=0),
+                atol=1e-7,
+            )
+        )
+        assert np.all(np.isclose(displacement[-1], displacement_ad[-1]))
+        assert np.all(np.isclose(force[-1], force_ad[-1]))
+        assert np.all(
+            np.isclose(np.linalg.norm(force, axis=0), np.linalg.norm(force_ad, axis=0))
+        )
         return displacement, force
 
     def test_pull_north_positive_opening(self):
-
 
         u_frac, contact_force = self._compare_ad(uy_north=0.001)
 
@@ -108,7 +115,6 @@ class TestContactMechanics(unittest.TestCase):
     def test_push_south_zero_opening(self):
         u_frac, contact_force = self._compare_ad(uy_south=0.001)
 
-
         # All components should be closed in the normal direction
         self.assertTrue(np.abs(np.sum(u_frac[1])) < 1e-5)
 
@@ -128,7 +134,9 @@ class TestContactMechanics(unittest.TestCase):
 
     def test_closed_shear_dilation(self):
 
-        u_frac, contact_force = self._compare_ad(ux_north=0.1, uy_north=-0.02, dilation_angle = 0.1)
+        u_frac, contact_force = self._compare_ad(
+            ux_north=0.1, uy_north=-0.02, dilation_angle=0.1
+        )
         # All components should be closed in the normal direction
         self.assertTrue(np.all(u_frac[1] > 1e-10))
 
@@ -137,7 +145,6 @@ class TestContactMechanics(unittest.TestCase):
         self.assertTrue(np.all(np.abs(contact_force) > 1e-5))
 
     def test_closed_shear_3d(self):
-
 
         u_frac, contact_force = self._compare_ad(ux_north=0.01, uy_north=-0.005, dim=3)
 
@@ -149,8 +156,9 @@ class TestContactMechanics(unittest.TestCase):
 
     def test_closed_shear_3d_dilation(self):
 
-
-        u_frac, contact_force = self._compare_ad(ux_north=0.01, uy_north=-0.001, dim=3, dilation_angle = 0.1)
+        u_frac, contact_force = self._compare_ad(
+            ux_north=0.01, uy_north=-0.001, dim=3, dilation_angle=0.1
+        )
         # All components should be closed in the normal direction
         self.assertTrue(np.all(u_frac[-1] > 1e-10))
 
@@ -159,7 +167,6 @@ class TestContactMechanics(unittest.TestCase):
 
     def test_open_shear_3d(self):
 
-
         u_frac, contact_force = self._compare_ad(ux_north=0.01, uy_north=0.01, dim=3)
 
         # All components should be open in the normal direction
@@ -167,6 +174,7 @@ class TestContactMechanics(unittest.TestCase):
 
         # The contact force should be zero
         self.assertTrue(np.all(np.abs(contact_force) < 1e-10))
+
 
 class Model(pp.ContactMechanics):
     def __init__(self, ux_south, uy_south, ux_north, uy_north, dim, dilation_angle):
@@ -200,13 +208,12 @@ class Model(pp.ContactMechanics):
             network = pp.FractureNetwork2d(self.frac_pts, frac_edges, domain=self.box)
         else:
             self.box.update({"zmin": 0, "zmax": 1})
-            pts = np.array([[.2, .2, .8, .8],
-                            [.5, .5, .5, .5],
-                            [.2, .8, .8, .2]])
+            pts = np.array(
+                [[0.2, 0.2, 0.8, 0.8], [0.5, 0.5, 0.5, 0.5], [0.2, 0.8, 0.8, 0.2]]
+            )
             if rotate_fracture:
-                pts[1] = [.2, .2, .8, .8]
+                pts[1] = [0.2, 0.2, 0.8, 0.8]
             network = pp.FractureNetwork3d([pp.Fracture(pts)], domain=self.box)
-
 
         # Generate the mixed-dimensional mesh
         mdg = network.mesh(self.params["mesh_args"])

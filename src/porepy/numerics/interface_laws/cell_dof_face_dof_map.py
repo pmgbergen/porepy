@@ -6,8 +6,11 @@ In this way no equations are explicitly associated
 and some of the interface operators are provided.
 """
 from typing import Optional
+from warnings import warn
+
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
 
 
@@ -148,6 +151,15 @@ class CellDofFaceDofMap:
             np.ndarray: Zero right hand side vector.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         return np.zeros(self.ndof(sd))
 
     def assemble_int_bound_flux(
@@ -184,6 +196,15 @@ class CellDofFaceDofMap:
                 used. Needed for periodic boundary conditions.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         raise NotImplementedError("Method not implemented")
 
     def assemble_int_bound_source(
@@ -218,6 +239,15 @@ class CellDofFaceDofMap:
                 Should be either 0 or 1.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         proj = intf.secondary_to_mortar_avg()
 
         cc[self_ind, 2] -= proj.T
@@ -290,6 +320,15 @@ class CellDofFaceDofMap:
                 Should be either 0 or 1.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         proj = intf.secondary_to_mortar_avg()
 
         cc[2, self_ind] -= proj

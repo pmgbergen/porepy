@@ -29,7 +29,7 @@ class TestBiot(unittest.TestCase):
 
         mdg = setup.mdg
 
-        sd = list(mdg.subdomains(dim=setup.nd))[0]
+        sd = mdg.subdomains(dim=setup.nd)[0]
         data = mdg.subdomain_data(sd)
 
         u = data[pp.STATE][setup.displacement_variable]
@@ -126,8 +126,8 @@ class TestContactMechanicsBiot(unittest.TestCase):
         mdg = setup.mdg
         nd = setup.nd
 
-        sd_2 = list(mdg.subdomains(dim=nd))[0]
-        sd_1 = list(mdg.subdomains(dim=nd - 1))[0]
+        sd_2 = mdg.subdomains(dim=nd)[0]
+        sd_1 = mdg.subdomains(dim=nd - 1)[0]
         intf = mdg.subdomain_pair_to_interface((sd_1, sd_2))
         d_m = mdg.interface_data(intf)
         d_1 = mdg.subdomain_data(sd_1)
@@ -137,9 +137,9 @@ class TestContactMechanicsBiot(unittest.TestCase):
         fracture_pressure = d_1[pp.STATE][setup.scalar_variable]
 
         displacement_jump_global_coord = (
-                intf.mortar_to_secondary_avg(nd=nd)
-                * intf.sign_of_mortar_sides(nd=nd)
-                * u_mortar
+            intf.mortar_to_secondary_avg(nd=nd)
+            * intf.sign_of_mortar_sides(nd=nd)
+            * u_mortar
         )
         projection = d_1["tangential_normal_projection"]
 
@@ -153,7 +153,7 @@ class TestContactMechanicsBiot(unittest.TestCase):
 
     def _verify_aperture_computation(self, setup, u_mortar):
         # Verify the computation of apertures.
-        sd = list(setup.mdg.subdomains(dim=setup.nd - 1))[0]
+        sd = setup.mdg.subdomains(dim=setup.nd - 1)[0]
         opening = np.abs(u_mortar[1])
         aperture = setup._compute_aperture(sd, from_iterate=False)
 
@@ -354,16 +354,13 @@ class SetupContactMechanicsBiot(
         self.zero_tol = 1e-8
         self.fix_only_bottom = False
 
-
     def _dilation_angle(self, sd):
-        """Nonzero dilation angle.
-        """
+        """Nonzero dilation angle."""
         vals = np.pi / 6 * np.ones(sd.num_cells)
         return vals
 
     def _reference_scalar(self, sd: pp.Grid):
         return self.p_reference * np.ones(sd.num_cells)
-
 
     def _bc_values_scalar(self, sd):
         """

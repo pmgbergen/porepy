@@ -985,8 +985,8 @@ class ContactModel3d(ContactModel2d):
 
         mdg = pp.meshing.cart_grid([f], np.array([1, 1, 2]))
 
-        g3 = list(mdg.subdomains(dim=3))[0]
-        g2 = list(mdg.subdomains(dim=2))[0]
+        g3 = mdg.subdomains(dim=3)[0]
+        g2 = mdg.subdomains(dim=2)[0]
 
         xn3 = g3.nodes
         hit3 = np.logical_and.reduce((xn3[0] > 0.5, xn3[2] > 0.5, xn3[2] < 1.5))

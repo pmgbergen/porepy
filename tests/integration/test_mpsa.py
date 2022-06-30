@@ -1235,7 +1235,7 @@ class RobinBoundTest(unittest.TestCase):
         network = pp.FractureNetwork3d([], domain=box)
         mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
         mdg = network.mesh(mesh_args)
-        sd = list(mdg.subdomains(dim=3))[0]
+        sd = mdg.subdomains(dim=3)[0]
         c = pp.FourthOrderTensor(np.ones(sd.num_cells), np.ones(sd.num_cells))
         robin_weight = 1.0
 

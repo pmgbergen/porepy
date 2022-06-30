@@ -139,17 +139,17 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # the same.
         mdg, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
 
-        intf_old = list(mdg.interfaces())[0]
+        intf_old = mdg.interfaces()[0]
 
         old_projection = intf_old.primary_to_mortar_int().copy()
 
-        sd_old = list(mdg.subdomains(dim=2))[0]
+        sd_old = mdg.subdomains(dim=2)[0]
         sd_new = sd_old.copy()
 
         mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
 
         # Get mortar grid again
-        intf_new = list(mdg.interfaces())[0]
+        intf_new = mdg.interfaces()[0]
 
         new_projection = intf_new.primary_to_mortar_int()
 
@@ -161,10 +161,10 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
 
         mdg, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
 
-        intf_old = list(mdg.interfaces())[0]
+        intf_old = mdg.interfaces()[0]
 
         old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = list(mdg.subdomains(dim=2))[0]
+        sd_old = mdg.subdomains(dim=2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
@@ -172,17 +172,17 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
         mdg_new.compute_geometry()
 
-        sd_new = list(mdg_new.subdomains(dim=2))[0]
+        sd_new = mdg_new.subdomains(dim=2)[0]
 
         mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
 
         # Get mortar grid again
-        intf_new = list(mdg.interfaces())[0]
+        intf_new = mdg.interfaces()[0]
 
         new_projection = intf_new.primary_to_mortar_avg()
 
         # Check shape
-        
+
         self.assertTrue(new_projection.shape[0] == old_projection.shape[0])
         self.assertTrue(new_projection.shape[1] == sd_new.num_faces)
         # Projection sums to unity.
@@ -203,25 +203,25 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         mdg, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
-        intf_old = list(mdg.interfaces())[0]
+        intf_old = mdg.interfaces()[0]
         old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = list(mdg.subdomains(dim=2))[0]
+        sd_old = mdg.subdomains(dim=2)[0]
 
         # Create a new, coarser 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
         mdg_new, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
 
-        sd_new = list(mdg_new.subdomains(dim=2))[0]
+        sd_new = mdg_new.subdomains(dim=2)[0]
 
         mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
 
         # Get mortar grid again
-        intf_new = list(mdg.interfaces())[0]
+        intf_new = mdg.interfaces()[0]
 
         new_projection_avg = intf_new.primary_to_mortar_avg()
         new_projection_int = intf_new.primary_to_mortar_int()
-        
+
         # Check shape
         self.assertTrue(new_projection_avg.shape[0] == old_projection.shape[0])
         self.assertTrue(new_projection_avg.shape[1] == sd_new.num_faces)
@@ -255,17 +255,17 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
 
         mdg, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
 
-        intf_old = list(mdg.interfaces())[0]
+        intf_old = mdg.interfaces()[0]
 
         old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = list(mdg.subdomains(dim=2))[0]
+        sd_old = mdg.subdomains(dim=2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
         mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
-        sd_new = list(mdg_new.subdomains(dim=2))[0]
+        sd_new = mdg_new.subdomains(dim=2)[0]
 
         # By construction of the split grid, we know that the nodes at
         # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
@@ -278,13 +278,13 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
 
         # Get mortar grid again
-        intf_new = list(mdg.interfaces())[0]
+        intf_new = mdg.interfaces()[0]
 
         new_projection_avg = intf_new.primary_to_mortar_avg()
         new_projection_int = intf_new.primary_to_mortar_int()
 
         # Check shape
-        
+
         self.assertTrue(new_projection_avg.shape[0] == old_projection.shape[0])
         self.assertTrue(new_projection_avg.shape[1] == sd_new.num_faces)
 
@@ -317,17 +317,17 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
 
         mdg, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
-        intf_old = list(mdg.interfaces())[0]
+        intf_old = mdg.interfaces()[0]
 
         old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = list(mdg.subdomains(dim=2))[0]
+        sd_old = mdg.subdomains(dim=2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
         mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
-        sd_new = list(mdg_new.subdomains(dim=2))[0]
+        sd_new = mdg_new.subdomains(dim=2)[0]
 
         # By construction of the split grid, we know that the nodes at
         # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
@@ -340,7 +340,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
 
         # Get mortar grid again
-        intf_new = list(mdg.interfaces())[0]
+        intf_new = mdg.interfaces()[0]
 
         new_projection_avg = intf_new.primary_to_mortar_avg()
         new_projection_int = intf_new.primary_to_mortar_int()
@@ -370,7 +370,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # It seems the mortar grid is designed so that the first cell is
         # associated with face 9 in the old grid. This is split into 2/5 face
         # 8 and 3/5 face 9.
-        
+
         self.assertTrue(np.abs(new_projection_avg[0, 8] - 0.4 < 1e-6))
         self.assertTrue(np.abs(new_projection_avg[0, 9] - 0.6 < 1e-6))
         # The second cell in mortar grid is still fully connected to face 9
@@ -385,17 +385,17 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # 1d lines
         mdg, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
-        intf_old = list(mdg.interfaces())[0]
+        intf_old = mdg.interfaces()[0]
 
         old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = list(mdg.subdomains(dim=2))[0]
+        sd_old = mdg.subdomains(dim=2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
         mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
-        sd_new = list(mdg_new.subdomains(dim=2))[0]
+        sd_new = mdg_new.subdomains(dim=2)[0]
 
         # By construction of the split grid, we know that the nodes at
         # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
@@ -422,7 +422,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
 
         # Get mortar grid again
-        intf_new = list(mdg.interfaces())[0]
+        intf_new = mdg.interfaces()[0]
 
         new_projection_avg = intf_new.primary_to_mortar_avg()
         new_projection_int = intf_new.primary_to_mortar_int()
@@ -456,17 +456,17 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # 1d lines. Also perturb nodes along the segment.
         mdg, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
-        intf_old = list(mdg.interfaces())[0]
+        intf_old = mdg.interfaces()[0]
 
         old_projection = intf_old.primary_to_mortar_int().copy()
-        sd_old = list(mdg.subdomains(dim=2))[0]
+        sd_old = mdg.subdomains(dim=2)[0]
 
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
         mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
 
-        sd_new = list(mdg_new.subdomains(dim=2))[0]
+        sd_new = mdg_new.subdomains(dim=2)[0]
         # By construction of the split grid, we know that the nodes at
         # (0.5, 0.5) are no 5 and 6, and that no 5 is associated with the
         # face belonging to the lower cells.
@@ -487,7 +487,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
 
         mdg.replace_subdomains_and_interfaces({sd_old: sd_new})
         # Get mortar grid again
-        intf_new = list(mdg.interfaces())[0]
+        intf_new = mdg.interfaces()[0]
 
         new_projection_avg = intf_new.primary_to_mortar_avg()
         new_projection_int = intf_new.primary_to_mortar_int()
@@ -516,7 +516,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # It seems the mortar grid is designed so that the first cell is
         # associated with face 9 in the old grid. This is split into 2/5 face
         # 8 and 3/5 face 9.
-        
+
         self.assertTrue(np.abs(new_projection_avg[0, 8] - 0.4 < 1e-6))
         self.assertTrue(np.abs(new_projection_avg[0, 9] - 0.6 < 1e-6))
         # The second cell in mortar grid is still fully connected to face 9
@@ -1038,7 +1038,7 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
     def _mortar_grids(self, mdg):
         mg1 = None
         mg2 = None
-        
+
         for intf in mdg.interfaces():
             _, gl = mdg.interface_to_subdomain_pair(intf)
             if gl.dim == 1:
@@ -1056,7 +1056,7 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         proj_1_l = mg1.secondary_to_mortar_int().copy()
 
         gn = self.grid_1d(2)
-        go = list(mdg.subdomains(dim=1))[0]
+        go = mdg.subdomains(dim=1)[0]
         mdg.replace_subdomains_and_interfaces({go: gn})
 
         mg1, mg2 = self._mortar_grids(mdg)
@@ -1077,7 +1077,7 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         proj_2_l = mg2.secondary_to_mortar_int().copy()
 
         gn = self.grid_2d_two_cells()
-        go = list(mdg.subdomains(dim=2))[0]
+        go = mdg.subdomains(dim=2)[0]
         mdg.replace_subdomains_and_interfaces(sd_map={go: gn})
 
         mg1, mg2 = self._mortar_grids(mdg)
@@ -1096,7 +1096,7 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         proj_2_h = mg2.primary_to_mortar_int().copy()
 
         gn = self.grid_2d_four_cells_no_1d()
-        go = list(mdg.subdomains(dim=2))[0]
+        go = mdg.subdomains(dim=2)[0]
         mdg.replace_subdomains_and_interfaces({go: gn})
 
         mg1, mg2 = self._mortar_grids(mdg)
@@ -1120,7 +1120,7 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         proj_2_h = mg2.primary_to_mortar_int().copy()
 
         gn = self.grid_2d_four_cells_no_1d(pert=True)
-        go = list(mdg.subdomains(dim=2))[0]
+        go = mdg.subdomains(dim=2)[0]
         mdg.replace_subdomains_and_interfaces({go: gn})
 
         _, mg2 = self._mortar_grids(mdg)
@@ -1147,7 +1147,7 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         proj_2_l = mg2.secondary_to_mortar_int().copy()
 
         gn = self.grid_2d_two_cells()
-        go = list(mdg.subdomains(dim=2))[0]
+        go = mdg.subdomains(dim=2)[0]
         mdg.replace_subdomains_and_interfaces({go: gn})
 
         mg1, mg2 = self._mortar_grids(mdg)
@@ -1170,7 +1170,7 @@ class TestReplace1dand2dGridsIn3dDomain(unittest.TestCase):
         proj_1_l = mg1.secondary_to_mortar_int().copy()
 
         gn = self.grid_2d_four_cells(pert=True, move_interior_point=True)
-        go = list(mdg.subdomains(dim=2))[0]
+        go = mdg.subdomains(dim=2)[0]
         mdg.replace_subdomains_and_interfaces({go: gn})
 
         mg1, mg2 = self._mortar_grids(mdg)

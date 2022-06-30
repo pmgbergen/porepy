@@ -20,7 +20,7 @@ class TestTHM(unittest.TestCase):
 
         mdg = setup.mdg
         nd = mdg.dim_max()
-        sd = list(mdg.subdomains(dim=nd))[0]
+        sd = mdg.subdomains(dim=nd)[0]
 
         data = mdg.subdomain_data(sd)
 
@@ -101,8 +101,8 @@ class TestContactMechanicsTHM(unittest.TestCase):
         mdg = setup.mdg
 
         nd = mdg.dim_max()
-        sd_2 = list(mdg.subdomains(dim=nd))[0]
-        sd_1 = list(mdg.subdomains(dim=nd - 1))[0]
+        sd_2 = mdg.subdomains(dim=nd)[0]
+        sd_1 = mdg.subdomains(dim=nd - 1)[0]
         intf = mdg.subdomain_pair_to_interface((sd_1, sd_2))
         intf_data = mdg.interface_data(intf)
         sd_1_data = mdg.subdomain_data(sd_1)
@@ -317,7 +317,9 @@ class SetupTHM(ProblemDataTime, model.THM):
         if hasattr(self, "advection_weight"):
             w = self.advection_weight
             for _, data in self.mdg.subdomains(return_data=True):
-                data[pp.PARAMETERS][self.temperature_parameter_key]["advection_weight"] = w
+                data[pp.PARAMETERS][self.temperature_parameter_key][
+                    "advection_weight"
+                ] = w
 
 
 if __name__ == "__main__":

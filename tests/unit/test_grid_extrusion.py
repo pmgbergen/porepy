@@ -586,16 +586,15 @@ class TestMixedDimensionalGridExtrusion(unittest.TestCase):
         f = np.array([[1, 3], [1, 1]])
         mdg = pp.meshing.cart_grid([f], [4, 2])
 
-        sd_2 = list(mdg.subdomains(dim=2))[0]
-        sd_1 = list(mdg.subdomains(dim=1))[0]
+        sd_2 = mdg.subdomains(dim=2)[0]
+        sd_1 = mdg.subdomains(dim=1)[0]
 
         z = np.array([0, 1, 2])
         mdg_new, g_map = pp.grid_extrusion.extrude_grid_bucket(mdg, z)
 
         for dim in range(mdg.dim_max()):
             self.assertTrue(
-                len(list(mdg.subdomains(dim=dim)))
-                == len(list(mdg_new.subdomains(dim=dim + 1)))
+                len(mdg.subdomains(dim=dim)) == len(mdg_new.subdomains(dim=dim + 1))
             )
 
         # Get hold of interface grids. We know there is a single interface in each
@@ -652,7 +651,7 @@ class TestMixedDimensionalGridExtrusion(unittest.TestCase):
             intf_new.mortar_to_primary_int() * intf_new.sign_of_mortar_sides()
         )
         # Get the extruded cells next to the mortar grid. Same ordering as extruded_faces
-        g3 = list(mdg_new.subdomains(dim=3))[0]
+        g3 = mdg_new.subdomains(dim=3)[0]
         extruded_cells = g3.cell_faces[extruded_faces].tocsr().indices
 
         # coordinates
@@ -674,7 +673,7 @@ class TestMixedDimensionalGridExtrusion(unittest.TestCase):
             np.logical_or(np.all(sgn[neg_dist] > 0), np.all(sgn[neg_dist] < 0))
         )
 
-        g_1_new = list(mdg_new.subdomains(dim=2))[0]
+        g_1_new = mdg_new.subdomains(dim=2)[0]
 
         # All mortar cells should be associated with two cells in secondary
         secondary_cells_in_range_from_mortar = (
@@ -703,7 +702,7 @@ class TestMixedDimensionalGridExtrusion(unittest.TestCase):
 
         # Do a simple test on grid geometry; if this fails, there is a more fundamental
         # problem that should be picked up by simpler tests.
-        sd = list(mdg_new.subdomains(dim=2))[1]
+        sd = mdg_new.subdomains(dim=2)[1]
         self.assertTrue(np.allclose(sd.cell_centers, np.array([[2], [1.5], [0.5]])))
 
 

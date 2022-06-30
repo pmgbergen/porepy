@@ -47,7 +47,7 @@ class _QuadraticFunc:
         def f(*args):
             val = 0
             for (coeff, x) in zip(self.coeff, args):
-                val += coeff * x ** 2
+                val += coeff * x**2
             return val
 
         return f

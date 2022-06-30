@@ -21,7 +21,7 @@ def _two_fractures_overlapping_regions():
     # Region with two fractures that are pretty close; the update stencil for fv methods
     # due to update of each over them will basically include the entire grid.
     # Two prolongation steps for the fracture.
-    # In the first step, one fracutre grows, one is stuck.
+    # In the first step, one fracture grows, one is stuck.
     # In second step, the second fracture grows in both ends
 
     frac = [np.array([[1, 2], [1, 1]]), np.array([[2, 3], [2, 2]])]
@@ -77,7 +77,7 @@ def test_propagation(geometry, method):
     # Get MixedDimensionalGrid and splitting schedule
     gb, faces_to_split = geometry()
 
-    sd_top = list(gb.subdomains(dim=gb.dim_max()))[0]
+    sd_top = gb.subdomains(dim=gb.dim_max())[0]
     g_1, g_2 = gb.subdomains(dim=1)
 
     # Make the splitting schedule on the format expected by fracture propagation
@@ -120,7 +120,7 @@ def test_propagation(geometry, method):
         pp.propagate_fracture.propagate_fractures(gb, split)
 
         # Make parameters for the new grid
-        data = gb.subdomain_properties(sd_top)
+        data = gb.subdomain_data(sd_top)
         set_param(sd_top, data)
 
         # Transfer information on new faces and cells from the format used
