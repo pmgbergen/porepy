@@ -7,6 +7,7 @@ The module is quite useful for simple visualization purposes. For more advanced
 visualization, especially in 3d, we recommend exporting the information to vtu using the
 exporter module found in this folder.
 """
+from __future__ import annotations
 
 import string
 from typing import Optional, Union
