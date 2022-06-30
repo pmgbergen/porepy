@@ -2,9 +2,9 @@
 The module contains the Assembler class, which is responsible for assembly of
 system matrix and right hand side for a general multi-domain, multi-physics problem.
 """
-from warnings import warn
 from collections import namedtuple
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -46,8 +46,8 @@ class Assembler:
 
     def __init_subclass__(cls, **kwargs):
         msg = """The Assembler class is deprecated, and will be deleted from PorePy,
-        most likely during the second half of 2022. 
-        
+        most likely during the second half of 2022.
+
         To set up mixed-dimensional or multiphysics models, confer the model classes
         (highly recommended), or use the algorithmic differentiation framework.
         """
@@ -68,8 +68,8 @@ class Assembler:
 
         """
         msg = """The Assembler class is deprecated, and will be deleted from PorePy,
-        most likely during the second half of 2022. 
-        
+        most likely during the second half of 2022.
+
         To set up mixed-dimensional or multiphysics models, confer the model classes
         (highly recommended), or use the algorithmic differentiation framework.
         """

@@ -2,8 +2,9 @@
 Module contains common functionalities for discretization based on the mixed
 variational formulation.
 """
-from warnings import warn
+from __future__ import annotations
 from typing import Optional
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -419,7 +420,7 @@ class DualElliptic(EllipticDiscretization):
         """
         msg = """This function is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional elliptic problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
@@ -477,7 +478,7 @@ class DualElliptic(EllipticDiscretization):
         """
         msg = """This function is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional elliptic problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
@@ -536,7 +537,7 @@ class DualElliptic(EllipticDiscretization):
         """
         msg = """This function is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional elliptic problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
@@ -666,7 +667,7 @@ class DualElliptic(EllipticDiscretization):
         """
         msg = """This function is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional elliptic problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
