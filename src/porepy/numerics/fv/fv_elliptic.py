@@ -1,6 +1,7 @@
 """
 Module contains superclass for mpfa and tpfa.
 """
+from warnings import warn
 import numpy as np
 import scipy.sparse as sps
 
@@ -220,6 +221,15 @@ class FVElliptic(pp.EllipticDiscretization):
                 used. Needed for periodic boundary conditions.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         div = sd.cell_faces.T
 
         bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][
@@ -276,6 +286,15 @@ class FVElliptic(pp.EllipticDiscretization):
                 Should be either 1 or 2.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         proj = intf.mortar_to_secondary_int()
 
         cc[self_ind, 2] -= proj
@@ -325,6 +344,14 @@ class FVElliptic(pp.EllipticDiscretization):
                 used. Needed for periodic boundary conditions.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
@@ -392,6 +419,15 @@ class FVElliptic(pp.EllipticDiscretization):
                 used. Needed for periodic boundary conditions.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
@@ -442,6 +478,14 @@ class FVElliptic(pp.EllipticDiscretization):
                 the primary and secondary interface, respectively.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
 
         matrix_dictionary = data_grid[pp.DISCRETIZATION_MATRICES][self.keyword]
 
@@ -482,6 +526,15 @@ class FVElliptic(pp.EllipticDiscretization):
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         proj = intf.secondary_to_mortar_avg()
 
         cc[2, self_ind] -= proj

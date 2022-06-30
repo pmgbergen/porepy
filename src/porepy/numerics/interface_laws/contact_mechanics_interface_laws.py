@@ -5,6 +5,7 @@ We provide a class for coupling the higher-dimensional mechanical discretization
 tractions on the fractures. Also, in the case of coupled physics (Biot and the like),
 classes handling the arising coupling terms are provided.
 """
+from warnings import warn
 import logging
 import time
 
@@ -49,6 +50,15 @@ class PrimalContactCoupling(AbstractInterfaceLaw):
         discr_secondary,
         use_surface_discr: bool = False,
     ):
+        msg = """This class is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional contact problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         super(PrimalContactCoupling, self).__init__(keyword)
         self.mortar_displacement_variable = "mortar_u"
         self.discr_primary = discr_primary
@@ -416,6 +426,15 @@ class MatrixScalarToForceBalance(AbstractInterfaceLaw):
                 secondary pressure, respectively. Used for #DOFs. In FV, one cell
                 variable is expected.
         """
+        msg = """This class is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional contact problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         super(MatrixScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
         self.discr_primary = discr_primary
@@ -562,6 +581,15 @@ class FractureScalarToForceBalance(AbstractInterfaceLaw):
                 parameters.
 
         """
+        msg = """This class is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional contact problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         super(FractureScalarToForceBalance, self).__init__(keyword)
         # Set node discretizations
         self.discr_primary = discr_primary
@@ -682,6 +710,14 @@ class DivUCoupling(AbstractInterfaceLaw):
         discr_secondary,
         keyword=None,
     ):
+        msg = """This class is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional contact problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
         super().__init__(keyword)
         # Set variable names for the vector variable on the nodes (displacement), used
         # to access solutions from previous time steps.

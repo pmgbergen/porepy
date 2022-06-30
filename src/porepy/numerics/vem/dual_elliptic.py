@@ -2,6 +2,7 @@
 Module contains common functionalities for discretization based on the mixed
 variational formulation.
 """
+from warnings import warn
 from typing import Optional
 
 import numpy as np
@@ -416,6 +417,14 @@ class DualElliptic(EllipticDiscretization):
                 used. Needed for periodic boundary conditions.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
 
         # The matrix must be the VEM discretization matrix.
         if use_secondary_proj:
@@ -466,6 +475,14 @@ class DualElliptic(EllipticDiscretization):
                 Should be either 1 or 2.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
         proj = intf.secondary_to_mortar_avg()
 
         A = proj.T
@@ -517,6 +534,15 @@ class DualElliptic(EllipticDiscretization):
                 used. Needed for periodic boundary conditions.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         if use_secondary_proj:
             proj = intf.mortar_to_secondary_int()
         else:
@@ -638,6 +664,14 @@ class DualElliptic(EllipticDiscretization):
                 Should be either 1 or 2.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+        
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
 
         proj = intf.secondary_to_mortar_avg()
 
