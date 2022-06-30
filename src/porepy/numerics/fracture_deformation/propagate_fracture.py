@@ -75,7 +75,7 @@ def propagate_fractures(
     ]
 
     # The propagation is divided into two main steps:
-    # First, update the geomtry of the fracture grids, and, simultaneously, the higher
+    # First, update the geometry of the fracture grids, and, simultaneously, the higher
     # dimensional grid (the former will be updated once, the latter may undergo several
     # update steps, depending on how many fractures propagate).
     # Second, update the mortar grids. This is done after all fractures have been
@@ -101,8 +101,8 @@ def propagate_fractures(
         data_secondary["new_faces"] = np.empty(0, dtype=int)
 
         # Step 1:
-        # Uniquify the faces to be split. Amongs others, this avoids trouble when
-        # a faces is requested split twice, from two neighboring faces
+        # Uniquify the faces to be split. Among others, this avoids trouble when
+        # a face is requested split twice, from two neighboring faces
         faces_h = np.unique(np.atleast_1d(np.array(faces[sd_secondary])))
         split_faces = np.append(split_faces, faces_h)
 
@@ -202,7 +202,7 @@ def propagate_fractures(
             sd_primary, sd_secondary, new_cells, n_old_cells_l, n_old_faces_l
         )
 
-        # Finally some bookkeeping that can become useful in a larger-scale simulation.
+        # Finally, some bookkeeping that can become useful in a larger-scale simulation.
 
         # Mark both grids for a partial update
         data_primary["partial_update"] = True
@@ -215,7 +215,7 @@ def propagate_fractures(
             data_secondary["new_faces"], new_faces_l
         )
 
-        # Create mappings between the old and and faces and cells in sd_secondary
+        # Create mappings between the old and new faces and cells in sd_secondary
         arr = np.arange(n_old_faces_l)
         face_map_l = sps.coo_matrix(
             (np.ones(n_old_faces_l, dtype=int), (arr, arr)),
@@ -276,7 +276,7 @@ def propagate_fractures(
         data_edge = mdg.interface_data(intf_old)
         _, sd_secondary = mdg.interface_to_subdomain_pair(intf_old)
         data_secondary = mdg.subdomain_data(sd_secondary)
-        intf_new = _update_mortar_grid(
+        intf_old = _update_mortar_grid(
             sd_primary,
             sd_secondary,
             intf_old,
@@ -284,12 +284,12 @@ def propagate_fractures(
             data_secondary["new_cells"],
             data_primary["new_faces"],
         )
-        # Replace the mortar grid
-        mdg.replace_subdomains_and_interfaces(intf_map={intf_old: intf_new})
+
+
 
         # Get hold of the new interface data dictionary, in case something happened with
         # the mapping when replacing the interface.
-        data_edge = mdg.interface_data(intf_new)
+        data_edge = mdg.interface_data(intf_old)
 
         # Mapping of cell indices on the mortar grid is composed by the corresponding
         # map for sd_secondary.
@@ -297,7 +297,7 @@ def propagate_fractures(
         data_edge["cell_index_map"] = cell_map
 
         # Also update projection operators
-        pp.contact_conditions.set_projections(mdg, [intf_new])
+        pp.contact_conditions.set_projections(mdg, [intf_old])
 
 
 def _update_mortar_grid(
@@ -328,7 +328,7 @@ def _update_mortar_grid(
 
     #
     for ci in new_cells:
-        # Find the occurences of this new cell in the face-cell map.
+        # Find the occurrences of this new cell in the face-cell map.
         # There should be exactly two of these.
         hit = np.where(ci == cells)[0]
         assert hit.size == 2
@@ -376,8 +376,13 @@ def _update_mortar_grid(
         d_e["face_cells"],
         face_duplicate_ind=other_side_new,
     )
-
-    return mg_new
+    # Update old grid with values from the new one. This is similar to redoing initialization.
+    fields = ["side_grids", "sides", "num_cells", "cell_volumes", "cell_centers"]
+    for field in fields:
+        setattr(intf, field, getattr(mg_new, field))
+    intf._init_projections(d_e["face_cells"], other_side_new)
+    intf._set_projections()
+    return intf
 
 
 def _update_geometry(
@@ -891,6 +896,7 @@ def _split_fracture_extension(
         intf = mdg.subdomain_pair_to_interface(pair)
         data = mdg.interface_data(intf)
         face_cell_list.append(data["face_cells"])
+        intf_list.append(intf)
 
     # We split all the faces that are connected to faces_h
     # The new faces will share the same nodes and properties (normals,

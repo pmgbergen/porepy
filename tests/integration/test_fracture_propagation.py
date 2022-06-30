@@ -3,12 +3,12 @@ Tests of the propagation of fractures.
 
 Content:
   * test_pick_propagation_face_conforming_propagation: Given a critically stressed
-    fracture tip in the lower-dimensional grid, find which face in the higher-dimensinoal
+    fracture tip in the lower-dimensional grid, find which face in the higher-dimensional
     grid should be split.
   * FaceSplittingHostGrid: Various consistency tests for splitting faces in the higher
     dimensional grid, resembling propagation.
   * PropagationCriteria: Tests i) SIF computation by displacement correlation, ii)
-    tags for which tips to propagate iii) propagion angles (only asserts all angles are zero).
+    tags for which tips to propagate iii) propagation angles (only asserts all angles are zero).
   * VariableMappingInitializationUpdate: Checks that mapping of variables and
     assignment of new variable values in the FracturePropagation classes are correct.
 
@@ -22,8 +22,8 @@ import numpy as np
 import porepy as pp
 import scipy.sparse as sps
 
-from tests.integration.fracture_propagation_utils import check_equivalent_buckets
-from tests.integration import setup_mixed_dimensional_grids as setup_gb
+from tests.integration.fracture_propagation_utils import check_equivalent_md_grids
+from tests.integration import setup_mixed_dimensional_grids as setup_mdg
 from tests.test_utils import compare_arrays
 
 
@@ -40,15 +40,15 @@ def _single_fracture_two_steps_2d():
     # This is (almost) the simplest possible case, so if the test fails, something is
     # either fundamentally wrong with the propagation, or a basic assumption is broken.
     fracs = [np.array([[1, 2], [1, 1]])]
-    gb = pp.meshing.cart_grid(fracs, [4, 3])
-    g1 = gb.grids_of_dimension(gb.dim_max() - 1)[0]
+    mdg = pp.meshing.cart_grid(fracs, [4, 3])
+    sd_1 = list(mdg.subdomains(dim=mdg.dim_max() - 1))[0]
 
     # Target cells
-    targets = [{g1: np.array([21, 19])}, {g1: np.array([22])}]
+    targets = [{sd_1: np.array([21, 19])}, {sd_1: np.array([22])}]
     # Always propagate in a straight line
-    angles = [{g1: np.array([0, 0])}, {g1: np.array([0])}]
+    angles = [{sd_1: np.array([0, 0])}, {sd_1: np.array([0])}]
 
-    return gb, targets, angles
+    return mdg, targets, angles
 
 
 def _single_fracture_multiple_steps_3d():
@@ -57,13 +57,13 @@ def _single_fracture_multiple_steps_3d():
     # Second step propagates in three directions, including both newly formed faces,
     # and the original fracture.
     fracs = [np.array([[1, 1, 1, 1], [1, 2, 2, 1], [1, 1, 2, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 3, 3])
+    mdg = pp.meshing.cart_grid(fracs, [2, 3, 3])
 
-    g1 = gb.grids_of_dimension(gb.dim_max() - 1)[0]
-    targets = [{g1: np.array([10, 4])}, {g1: np.array([1, 7, 16])}]
-    angles = [{g1: np.array([0, 0])}, {g1: np.array([0, 0, 0])}]
+    sd_1 = list(mdg.subdomains(dim=mdg.dim_max() - 1))[0]
+    targets = [{sd_1: np.array([10, 4])}, {sd_1: np.array([1, 7, 16])}]
+    angles = [{sd_1: np.array([0, 0])}, {sd_1: np.array([0, 0, 0])}]
 
-    return gb, targets, angles
+    return mdg, targets, angles
 
 
 def _two_fractures_multiple_steps_3d():
@@ -78,22 +78,22 @@ def _two_fractures_multiple_steps_3d():
         np.array([[1, 1, 1, 1], [1, 2, 2, 1], [1, 1, 2, 2]]),
         np.array([[3, 3, 3, 3], [1, 2, 2, 1], [1, 1, 2, 2]]),
     ]
-    gb = pp.meshing.cart_grid(fracs, [4, 3, 3])
+    mdg = pp.meshing.cart_grid(fracs, [4, 3, 3])
 
-    g1 = gb.grids_of_dimension(gb.dim_max() - 1)[0]
-    g2 = gb.grids_of_dimension(gb.dim_max() - 1)[1]
+    sd_1 = list(mdg.subdomains(dim=mdg.dim_max() - 1))[0]
+    g2 = list(mdg.subdomains(dim=mdg.dim_max() - 1))[1]
 
     targets = [
-        {g1: np.array([16, 6]), g2: np.array([], dtype=int)},
-        {g1: np.array([1, 11, 26]), g2: np.array([8])},
+        {sd_1: np.array([16, 6]), g2: np.array([], dtype=int)},
+        {sd_1: np.array([1, 11, 26]), g2: np.array([8])},
     ]
 
     angles = [
-        {g1: np.array([0, 0]), g2: np.array([], dtype=int)},
-        {g1: np.array([0, 0, 0]), g2: np.array([0])},
+        {sd_1: np.array([0, 0]), g2: np.array([], dtype=int)},
+        {sd_1: np.array([0, 0, 0]), g2: np.array([0])},
     ]
 
-    return gb, targets, angles
+    return mdg, targets, angles
 
 
 @pytest.mark.parametrize(
@@ -110,13 +110,13 @@ def test_pick_propagation_face_conforming_propagation(generate):
     _pick_propagation_faces() in ConformingFracturePropagation.
 
     The overall idea of the test is to give a MixedDimensionalGrid, and a sequence of target
-    faces in g_h to be split, based on face indices. For each target face, the
+    faces in sd_primary to be split, based on face indices. For each target face, the
     closest (by distance) of the tip faces in g_l is found, and tagged for propagation.
-    We then call the function to be tested to identify the face in g_h which should be
+    We then call the function to be tested to identify the face in sd_primary which should be
     propagated, and verify that the identified face is indeed the target.
 
     A key assumption in the above reasoning is that the propagation angle is known, and
-    fixed to zero; non-zero values can also be accomodated, but that case is outside
+    fixed to zero; non-zero values can also be accommodated, but that case is outside
     the standard coverage of the current functionality for fracture propagation.
 
     """
@@ -124,18 +124,18 @@ def test_pick_propagation_face_conforming_propagation(generate):
     mech_key = "mechanics"
 
     # Get problem geometry and description
-    gb, targets, angles = generate()
-    pp.contact_conditions.set_projections(gb)
+    mdg, targets, angles = generate()
+    pp.contact_conditions.set_projections(mdg)
 
     # Bookkeeping
-    g_h = gb.grids_of_dimension(gb.dim_max())[0]
-    d_h = gb.node_props(g_h)
-    d_h[pp.STATE] = {}
+    sd_primary = list(mdg.subdomains(dim=mdg.dim_max()))[0]
+    data_primary = mdg.subdomain_data(sd_primary)
+    data_primary[pp.STATE] = {}
 
     # Propagation model; assign this some necessary fields.
     model = pp.ConformingFracturePropagation({})
     model.mechanics_parameter_key = mech_key
-    model._Nd = gb.dim_max()
+    model.nd = mdg.dim_max()
 
     # Loop over all propagation steps
     for step_target, step_angle in zip(targets, angles):
@@ -144,34 +144,33 @@ def test_pick_propagation_face_conforming_propagation(generate):
         propagation_map = {}
 
         # Loop over all fracture grids
-        for g_l in gb.grids_of_dimension(gb.dim_max() - 1):
+        for sd_frac, data_frac in mdg.subdomains(dim=mdg.dim_max() - 1, return_data=True):
 
             # Data dictionaries
-            d_l = gb.node_props(g_l)
-            d_e = gb.edge_props((g_h, g_l))
+            intf = mdg.subdomain_pair_to_interface((sd_primary, sd_frac))
+            intf_data = mdg.interface_data(intf)
 
             # Faces on the tip o the fracture
-            tip_faces = np.where(g_l.tags["tip_faces"])[0]
+            tip_faces = np.where(sd_frac.tags["tip_faces"])[0]
 
             # Data structure to tag tip faces to propagate from, and angles
-            prop_face = np.zeros(g_l.num_faces, dtype=np.bool)
-            prop_angle = np.zeros(g_l.num_faces)
+            prop_face = np.zeros(sd_frac.num_faces, dtype=np.bool)
+            prop_angle = np.zeros(sd_frac.num_faces)
 
             # Loop over all targets for this grid, tag faces to propagate
-            for ti, ang in zip(step_target[g_l], step_angle[g_l]):
-
+            for ti, ang in zip(step_target[sd_frac], step_angle[sd_frac]):
                 # Coordinate of the face center of the target face
-                fch = g_h.face_centers[:, ti].reshape((-1, 1))
+                fch = sd_primary.face_centers[:, ti].reshape((-1, 1))
                 # Find the face in g_l (among tip faces) that is closest to this face
                 hit = np.argmin(
-                    np.sum((g_l.face_centers[:, tip_faces] - fch) ** 2, axis=0)
+                    np.sum((sd_frac.face_centers[:, tip_faces] - fch) ** 2, axis=0)
                 )
                 # Tag this face for propagation.
                 prop_face[tip_faces[hit]] = 1
                 prop_angle[tip_faces[hit]] = ang
 
             # Store information on what to propagate for this fracture
-            d_l[pp.PARAMETERS] = {
+            data_frac[pp.PARAMETERS] = {
                 mech_key: {
                     "propagation_angle_normal": prop_angle,
                     "propagate_faces": prop_face,
@@ -179,20 +178,20 @@ def test_pick_propagation_face_conforming_propagation(generate):
             }
 
             # Use the functionality to find faces to split
-            model._pick_propagation_faces(g_h, g_l, d_h, d_l, d_e)
-            _, face, _ = sps.find(d_e["propagation_face_map"])
+            model._pick_propagation_faces(sd_primary, sd_frac, data_primary, data_frac, intf_data)
+            _, face, _ = sps.find(intf_data["propagation_face_map"])
 
             # This is the test, the targets and the identified faces should be the same
-            assert np.all(np.sort(face) == np.sort(step_target[g_l]))
+            assert np.all(np.sort(face) == np.sort(step_target[sd_frac]))
 
             # Store propagation map for this face - this is necessary to split the faces
             # and do the test for multiple propagation steps
-            propagation_map[g_l] = face
+            propagation_map[sd_frac] = face
 
         # We have updated the propagation map for all fractures, and can split faces in
-        # g_h
-        pp.propagate_fracture.propagate_fractures(gb, propagation_map)
-        # .. on to the next propagation step.
+        # sd_primary
+        pp.propagate_fracture.propagate_fractures(mdg, propagation_map)
+        # ... on to the next propagation step.
 
 
 class FaceSplittingHostGrid(unittest.TestCase):
@@ -209,31 +208,31 @@ class FaceSplittingHostGrid(unittest.TestCase):
         This central test checks that certain geometry, connectivity and tags
         are independent of whether the fracture is
         1 premade in its final form
-        2-3 grown in a single step (from two different inital fractures)
+        2-3 grown in a single step (from two different initial fractures)
         4 grown in two steps
         """
 
         # Generate grid buckets
-        gb_1 = setup_gb.grid_2d_1d([4, 2], 0, 0.75)
-        gb_2 = setup_gb.grid_2d_1d([4, 2], 0, 0.25)
-        gb_3 = setup_gb.grid_2d_1d([4, 2], 0, 0.50)
-        gb_4 = setup_gb.grid_2d_1d([4, 2], 0, 0.25)
+        mdg_1 = setup_mdg.grid_2d_1d([4, 2], 0, 0.75)
+        mdg_2 = setup_mdg.grid_2d_1d([4, 2], 0, 0.25)
+        mdg_3 = setup_mdg.grid_2d_1d([4, 2], 0, 0.50)
+        mdg_4 = setup_mdg.grid_2d_1d([4, 2], 0, 0.25)
 
         # Pick out the 1d grids in each bucket. These will be used to set which faces
         # in the 2d grid to split
-        g2 = gb_2.grids_of_dimension(1)[0]
-        g3 = gb_3.grids_of_dimension(1)[0]
-        g4 = gb_4.grids_of_dimension(1)[0]
+        g2 = list(mdg_2.subdomains(dim=1))[0]
+        g3 = list(mdg_3.subdomains(dim=1))[0]
+        g4 = list(mdg_4.subdomains(dim=1))[0]
 
         # Do the splitting
-        pp.propagate_fracture.propagate_fractures(gb_2, {g2: np.array([15, 16])})
-        pp.propagate_fracture.propagate_fractures(gb_3, {g3: np.array([16])})
+        pp.propagate_fracture.propagate_fractures(mdg_2, {g2: np.array([15, 16])})
+        pp.propagate_fracture.propagate_fractures(mdg_3, {g3: np.array([16])})
         # The fourth bucket is split twice
-        pp.propagate_fracture.propagate_fractures(gb_4, {g4: np.array([15])})
-        pp.propagate_fracture.propagate_fractures(gb_4, {g4: np.array([16])})
+        pp.propagate_fracture.propagate_fractures(mdg_4, {g4: np.array([15])})
+        pp.propagate_fracture.propagate_fractures(mdg_4, {g4: np.array([16])})
 
         # Check that the four grid buckets are equivalent
-        check_equivalent_buckets([gb_1, gb_2, gb_3, gb_4])
+        check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
 
     def test_equivalence_3d(self):
         """
@@ -241,90 +240,90 @@ class FaceSplittingHostGrid(unittest.TestCase):
         This central test checks that certain geometry, connectivity and tags
         are independent of whether the fracture is
         1 premade in its final form
-        2-3 grown in a single step (from two different inital fractures)
+        2-3 grown in a single step (from two different initial fractures)
         4 grown in two steps
         """
         # Make buckets
-        gb_1 = setup_gb.grid_3d_2d([4, 2, 2], 0, 0.75)
-        gb_2 = setup_gb.grid_3d_2d([4, 2, 2], 0, 0.25)
-        gb_3 = setup_gb.grid_3d_2d([4, 2, 2], 0, 0.50)
-        gb_4 = setup_gb.grid_3d_2d([4, 2, 2], 0, 0.25)
+        mdg_1 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.75)
+        mdg_2 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.25)
+        mdg_3 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.50)
+        mdg_4 = setup_mdg.grid_3d_2d([4, 2, 2], 0, 0.25)
 
         # Pick out the 2d grids in each bucket. These will be used to set which faces
         # in the 3d grid to split
-        g2 = gb_2.grids_of_dimension(2)[0]
-        g3 = gb_3.grids_of_dimension(2)[0]
-        g4 = gb_4.grids_of_dimension(2)[0]
+        g2 = list(mdg_2.subdomains(dim=2))[0]
+        g3 = list(mdg_3.subdomains(dim=2))[0]
+        g4 = list(mdg_4.subdomains(dim=2))[0]
 
         # Do the splitting
-        pp.propagate_fracture.propagate_fractures(gb_2, {g2: np.array([53, 54])})
-        pp.propagate_fracture.propagate_fractures(gb_3, {g3: np.array([54])})
+        pp.propagate_fracture.propagate_fractures(mdg_2, {g2: np.array([53, 54])})
+        pp.propagate_fracture.propagate_fractures(mdg_3, {g3: np.array([54])})
         # The fourth bucket is split twice
-        pp.propagate_fracture.propagate_fractures(gb_4, {g4: np.array([53])})
-        pp.propagate_fracture.propagate_fractures(gb_4, {g4: np.array([54])})
+        pp.propagate_fracture.propagate_fractures(mdg_4, {g4: np.array([53])})
+        pp.propagate_fracture.propagate_fractures(mdg_4, {g4: np.array([54])})
 
         # Check that the four grid buckets are equivalent
-        check_equivalent_buckets([gb_1, gb_2, gb_3, gb_4])
+        check_equivalent_md_grids([mdg_1, mdg_2, mdg_3, mdg_4])
 
     def test_two_fractures_2d(self):
         """
         Two fractures growing towards each other, but not meeting.
 
-        Tests simultanous growth of two fractures in multiple steps, and growth
+        Tests simultaneous growth of two fractures in multiple steps, and growth
         of one fracture in the presence of an inactive one.
         """
         f_1 = np.array([[0, 0.25], [0.5, 0.5]])
         f_2 = np.array([[1.75, 2], [0.5, 0.5]])
-        gb = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
+        mdg = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
 
         f_1 = np.array([[0, 0.5], [0.5, 0.5]])
         f_2 = np.array([[1.5, 2], [0.5, 0.5]])
-        gb_1 = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
+        mdg_1 = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
 
         f_1 = np.array([[0, 0.75], [0.5, 0.5]])
         f_2 = np.array([[1.25, 2], [0.5, 0.5]])
-        gb_2 = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
+        mdg_2 = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
 
         f_1 = np.array([[0, 1.0], [0.5, 0.5]])
-        gb_3 = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
+        mdg_3 = pp.meshing.cart_grid([f_1, f_2], [8, 2], physdims=[2, 1])
 
         # Get the fracture grids
-        g1 = gb.grids_of_dimension(1)[0]
-        g2 = gb.grids_of_dimension(1)[1]
+        sd_1 = list(mdg.subdomains(dim=1))[0]
+        g2 = list(mdg.subdomains(dim=1))[1]
 
         # First propagation step
-        faces = {g1: np.array([27]), g2: np.array([32])}
-        pp.propagate_fracture.propagate_fractures(gb, faces)
-        check_equivalent_buckets([gb, gb_1])
+        faces = {sd_1: np.array([27]), g2: np.array([32])}
+        pp.propagate_fracture.propagate_fractures(mdg, faces)
+        check_equivalent_md_grids([mdg, mdg_1])
 
         # Second step
-        faces = {g1: np.array([28]), g2: np.array([31])}
-        pp.propagate_fracture.propagate_fractures(gb, faces)
-        check_equivalent_buckets([gb, gb_2])
+        faces = {sd_1: np.array([28]), g2: np.array([31])}
+        pp.propagate_fracture.propagate_fractures(mdg, faces)
+        check_equivalent_md_grids([mdg, mdg_2])
 
         # Final step - only one of the fractures grow
-        faces = {g1: np.array([29]), g2: np.array([], dtype=int)}
-        pp.propagate_fracture.propagate_fractures(gb, faces)
-        check_equivalent_buckets([gb, gb_3])
+        faces = {sd_1: np.array([29]), g2: np.array([], dtype=int)}
+        pp.propagate_fracture.propagate_fractures(mdg, faces)
+        check_equivalent_md_grids([mdg, mdg_3])
 
     def test_two_propagation_steps_3d(self):
         # Starting from a fracture one cell wide, three cells long, the first step
-        # opens faces on the middle of the fracutre, so that it looks roughly like
+        # opens faces in the middle of the fracture, so that it looks roughly like
         #  O O O   <- Initial fracture
         #    0     <- face opened in the first step
         #
         # The second step requests opening of the two flanking faces
-        gb = self._make_grid()
-        g_frac = gb.grids_of_dimension(2)[0]
+        mdg = self._make_grid()
+        g_frac = list(mdg.subdomains(dim=2))[0]
 
         faces_to_split = [[43], [41, 45]]
 
-        g = gb.grids_of_dimension(2)[0]
+        g = list(mdg.subdomains(dim=2))[0]
         cc = g.cell_centers
         fc = g.face_centers
         cv = g.cell_volumes
 
-        gh = gb.grids_of_dimension(3)[0]
+        gh = list(mdg.subdomains(dim=3))[0]
 
         new_fc = [
             np.array([[1.5, 2, 1.5], [1, 1.5, 2], [1.5, 2, 1.5]]),
@@ -338,30 +337,30 @@ class FaceSplittingHostGrid(unittest.TestCase):
         num_nodes = gh.num_nodes + np.array([0, 8])
 
         for si, split in enumerate(faces_to_split):
-            pp.propagate_fracture.propagate_fractures(gb, {g_frac: np.array(split)})
+            pp.propagate_fracture.propagate_fractures(mdg, {g_frac: np.array(split)})
             cc, fc, cv = self._verify(
-                gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
+                mdg, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
             )
 
     def test_three_from_bottom(self):
         # Starting from a fracture one cell wide, three cells long, the first step
-        # opens one flanking face of the fracutre, so that it looks roughly like
+        # opens one flanking face of the fracture, so that it looks roughly like
         #  O O O   <- Initial fracture
         #  0       <- face opened in the first step
         #
-        # The second step requests the opening of the middle face, the final step the
+        # The second step requests the opening of the middle face, the final step
         # the second flaking face.
-        gb = self._make_grid()
-        g_frac = gb.grids_of_dimension(2)[0]
+        mdg = self._make_grid()
+        g_frac = list(mdg.subdomains(dim=2))[0]
 
         faces_to_split = [[41], [43], [45]]
 
-        g = gb.grids_of_dimension(2)[0]
+        g = list(mdg.subdomains(dim=2))[0]
         cc = g.cell_centers
         fc = g.face_centers
         cv = g.cell_volumes
 
-        gh = gb.grids_of_dimension(3)[0]
+        gh = list(mdg.subdomains(dim=3))[0]
 
         new_fc = [
             np.array([[1.5, 2, 1.5], [0, 0.5, 1], [1.5, 2, 1.5]]),
@@ -374,9 +373,9 @@ class FaceSplittingHostGrid(unittest.TestCase):
         num_nodes = gh.num_nodes + np.array([2, 4, 8])
 
         for si, split in enumerate(faces_to_split):
-            pp.propagate_fracture.propagate_fractures(gb, {g_frac: np.array(split)})
+            pp.propagate_fracture.propagate_fractures(mdg, {g_frac: np.array(split)})
             cc, fc, cv = self._verify(
-                gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
+                mdg, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
             )
 
     def test_open_face_from_two_sides_simultaneously(self):
@@ -386,17 +385,17 @@ class FaceSplittingHostGrid(unittest.TestCase):
         #  O   O   <- faces opened in the first step
         #
         # The second step requests opening of the middle face from both sides.
-        gb = self._make_grid()
-        g_frac = gb.grids_of_dimension(2)[0]
+        mdg = self._make_grid()
+        g_frac = list(mdg.subdomains(dim=2))[0]
 
         faces_to_split = [[41, 45], [43, 43]]
 
-        g = gb.grids_of_dimension(2)[0]
+        g = list(mdg.subdomains(dim=2))[0]
         cc = g.cell_centers
         fc = g.face_centers
         cv = g.cell_volumes
 
-        gh = gb.grids_of_dimension(3)[0]
+        gh = list(mdg.subdomains(dim=3))[0]
 
         new_fc = [
             np.array(
@@ -414,19 +413,19 @@ class FaceSplittingHostGrid(unittest.TestCase):
         num_nodes = gh.num_nodes + np.array([4, 8])
 
         for si, split in enumerate(faces_to_split):
-            pp.propagate_fracture.propagate_fractures(gb, {g_frac: np.array(split)})
+            pp.propagate_fracture.propagate_fractures(mdg, {g_frac: np.array(split)})
             cc, fc, cv = self._verify(
-                gb, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
+                mdg, split, cc, fc, cv, new_cell_volumes[si], new_fc[si], num_nodes[si]
             )
 
     #### Helpers below
 
-    def _verify(self, gb, split, cc, fc, cv, new_cell_volumes, new_fc, num_nodes):
+    def _verify(self, mdg, split, cc, fc, cv, new_cell_volumes, new_fc, num_nodes):
         # Check that the geometry of a (propagated) MixedDimensionalGrid corresponds to a given
         # known geometry.
 
-        gh = gb.grids_of_dimension(gb.dim_max())[0]
-        g = gb.grids_of_dimension(gb.dim_max() - 1)[0]
+        gh = list(mdg.subdomains(dim=mdg.dim_max()))[0]
+        g = list(mdg.subdomains(dim=mdg.dim_max() - 1))[0]
         new_cc = gh.face_centers[:, split]
         if len(split) == 1:
             new_cc = new_cc.reshape((-1, 1))
@@ -440,7 +439,7 @@ class FaceSplittingHostGrid(unittest.TestCase):
 
         self.assertTrue(np.allclose(g.cell_volumes, cv))
 
-        proj = gb.node_props(g)["tangential_normal_projection"]
+        proj = mdg.subdomain_data(g)["tangential_normal_projection"]
         self.assertTrue(proj.normals.shape[1] == g.num_cells)
         self.assertTrue(
             np.logical_or(np.all(proj.normals[2] < 0), np.all(proj.normals[2] > 0))
@@ -471,17 +470,17 @@ class FaceSplittingHostGrid(unittest.TestCase):
         # Not sure why the grid ended up like that, but there you go.
 
         frac_1 = np.array([[0, 1, 1, 0], [0, 0, 3, 3], [1, 1, 1, 1]])
-        gb = pp.meshing.cart_grid([frac_1], [2, 3, 2])
+        mdg = pp.meshing.cart_grid([frac_1], [2, 3, 2])
 
-        for g, _ in gb:
-            hit = g.nodes[0] > 1.5
-            g.nodes[2, hit] += 1
+        for sd in mdg.subdomains():
+            hit = sd.nodes[0] > 1.5
+            sd.nodes[2, hit] += 1
 
-        gb.compute_geometry()
+        mdg.compute_geometry()
 
-        pp.contact_conditions.set_projections(gb)
+        pp.contact_conditions.set_projections(mdg)
 
-        return gb
+        return mdg
 
 
 class MockPropagationModel(pp.ConformingFracturePropagation):
@@ -506,9 +505,9 @@ class PropagationCriteria(unittest.TestCase):
     """Test of functionality to compute sifs and evaluate propagation onset and angle.
 
     Test logic:
-        1. Set up 2d or 3d gb with single fracture.
+        1. Set up 2d or 3d mdg with single fracture.
         2. Assign displacement and minimal parameters. To help assigning to the right
-        side of the interface, the former are specified according to cells in g_h
+        side of the interface, the former are specified according to cells in sd_primary
         and mapped using trace and projection.
         3. Compute the expected i) SIFs (purely tensile - i.e. K_II = K_III = 0),
         ii) propagation tips and iii) angles (all zero in tension).
@@ -542,7 +541,7 @@ class PropagationCriteria(unittest.TestCase):
         u_bot and u_top are the u_h in the neighbouring cells on the two sides of the fracture.
         Ordering is hard-coded according to the grids defined in _make_grid
         """
-        u_h = np.zeros(self.nd * self.g_h.num_cells)
+        u_h = np.zeros(self.nd * self.sd_primary.num_cells)
         if self.nd == 3:
             u_h[0:6] = u_bot.ravel(order="f")
             u_h[12:18] = u_top.ravel(order="f")
@@ -551,15 +550,14 @@ class PropagationCriteria(unittest.TestCase):
             u_h[10:14] = u_top.ravel(order="f")
 
         # Project to interface
-        e = (self.g_h, self.g_l)
-        d_j = self.gb.edge_props(e)
-        mg = d_j["mortar_grid"]
-        trace = np.abs(pp.fvutils.vector_divergence(self.g_h)).T
-        u_j = mg.primary_to_mortar_avg(nd=self.nd) * trace * u_h
+        intf = self.mdg.subdomain_pair_to_interface((self.sd_primary, self.g_l))
+        d_j = self.mdg.interface_data(intf)
+        trace = np.abs(pp.fvutils.vector_divergence(self.sd_primary)).T
+        u_j = intf.primary_to_mortar_avg(nd=self.nd) * trace * u_h
         pp.set_iterate(d_j, {self.model.mortar_displacement_variable: u_j})
 
         # Parameters used by the propagation class
-        for g, d in self.gb:
+        for g, d in self.mdg.subdomains(return_data=True):
             if g.dim == self.nd:
                 param = {"shear_modulus": self.mu, "poisson_ratio": self.poisson}
             else:
@@ -667,27 +665,28 @@ class PropagationCriteria(unittest.TestCase):
 
     def _make_grid(self, dim):
         if dim == 3:
-            gb = setup_gb.grid_3d_2d()
+            mdg = setup_mdg.grid_3d_2d()
         else:
-            gb = setup_gb.grid_2d_1d([4, 2], 0.25, 0.75)
-        gb.compute_geometry()
+            mdg = setup_mdg.grid_2d_1d([4, 2], 0.25, 0.75)
+        mdg.compute_geometry()
 
-        pp.contact_conditions.set_projections(gb)
+        pp.contact_conditions.set_projections(mdg)
 
         # Model needs to know dimension
-        self.model._Nd = dim
+        self.model.nd = dim
         # Set for convenient access without passing around:
         self.nd = dim
-        self.gb = gb
-        self.g_h = gb.grids_of_dimension(dim)[0]
-        self.g_l = gb.grids_of_dimension(dim - 1)[0]
+        self.mdg = mdg
+        self.sd_primary = list(mdg.subdomains(dim=dim))[0]
+        self.g_l = list(mdg.subdomains(dim=dim - 1))[0]
 
     def _verify(self, sifs, propagate, angles):
-        data_h = self.gb.node_props(self.g_h)
-        data_l = self.gb.node_props(self.g_l)
+        data_h = self.mdg.subdomain_data(self.sd_primary)
+        data_l = self.mdg.subdomain_data(self.g_l)
         p_l = data_l[pp.PARAMETERS][self.model.mechanics_parameter_key]
-        data_edge = self.gb.edge_props((self.g_h, self.g_l))
-        self.model._displacement_correlation(self.g_l, data_h, data_l, data_edge)
+        intf = self.mdg.subdomain_pair_to_interface((self.sd_primary, self.g_l))
+        data_edge = self.mdg.interface_data(intf)
+        self.model._displacement_correlation(self.g_l, intf, data_h, data_l, data_edge)
 
         self.model._propagation_criterion(data_l)
 
@@ -721,46 +720,46 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
     def test_single_fracture_propagate(self):
         # Domain with 5x2 cells. The fracture is initially one face long, and will be
-        # propageted to be three faces long, in two steps.
+        # propagated to be three faces long, in two steps.
         frac = [np.array([[1, 2], [1, 1]])]
-        gb = pp.meshing.cart_grid(frac, [5, 2])
+        mdg = pp.meshing.cart_grid(frac, [5, 2])
 
-        g_frac = gb.grids_of_dimension(1)[0]
+        g_frac = list(mdg.subdomains(dim=1))[0]
         # Two prolongation steps for the fracture.
         split_faces = [{g_frac: np.array([19])}, {g_frac: np.array([20])}]
-        self._verify(gb, split_faces)
+        self._verify(mdg, split_faces)
 
     def test_two_fractures_propagate_both(self):
         # Domain with 5x3 cells, with two fractures.
-        # Both fractures areinitially one face long, and will be propagated in two steps
+        # Both fractures are initially one face long, and will be propagated in two steps
 
         frac = [np.array([[1, 2], [1, 1]]), np.array([[2, 3], [2, 2]])]
-        gb = pp.meshing.cart_grid(frac, [5, 3])
+        mdg = pp.meshing.cart_grid(frac, [5, 3])
 
-        g_1, g_2 = gb.grids_of_dimension(1)
+        g_1, g_2 = list(mdg.subdomains(dim=1))
 
         # Two prolongation steps for the fracture.
-        # In the first step, one fracutre grows, one is stuck.
+        # In the first step, one fracture grows, one is stuck.
         # In second step, the second fracture grows in both ends
         split_faces = [
             {g_1: np.array([25]), g_2: np.array([])},
             {g_1: np.array([26]), g_2: np.array([29, 31])},
         ]
 
-        self._verify(gb, split_faces)
+        self._verify(mdg, split_faces)
 
-    def _verify(self, gb, split_faces):
+    def _verify(self, mdg, split_faces):
         # Common function for all tests.
         # Propagate fracture, verify that variables are mapped correctly, and that
         # new variables are added with correct values
 
         # Individual grids
-        g_2d = gb.grids_of_dimension(2)[0]
-        g_1d = gb.grids_of_dimension(1)
+        g_2d = list(mdg.subdomains(dim=2))[0]
+        g_1d = list(mdg.subdomains(dim=1))
 
         # Model used for fracture propagation
         model = MockPropagationModel({})
-        model.gb = gb
+        model.mdg = mdg
 
         # Cell variable in 2d. Should stay constant throughout the process.
         cell_val_2d = np.random.rand(g_2d.num_cells)
@@ -777,7 +776,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         # Define variables on all grids.
         # Initialize the state by the known variable, and the iterate as twice that value
         # (mostly a why not)
-        d = gb.node_props(g_2d)
+        d = mdg.subdomain_data(g_2d)
         d[pp.PRIMARY_VARIABLES] = {self.cv2: {"cells": 1}}
         d[pp.STATE] = {
             self.cv2: cell_val_2d,
@@ -785,14 +784,15 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         }
 
         for g in g_1d:
-            d = gb.node_props(g)
+            d = mdg.subdomain_data(g)
             d[pp.PRIMARY_VARIABLES] = {self.cv1: {"cells": var_sz_1d}}
             d[pp.STATE] = {
                 self.cv1: cell_val_1d[g],
                 pp.ITERATE: {self.cv1: np.array(2 * cell_val_1d[g])},
             }
+            intf = mdg.subdomain_pair_to_interface((g_2d, g))
 
-            d = gb.edge_props((g_2d, g))
+            d = mdg.interface_data(intf)
             d[pp.PRIMARY_VARIABLES] = {self.mv: {"cells": var_sz_mortar}}
             d[pp.STATE] = {
                 self.mv: cell_val_mortar[g],
@@ -800,8 +800,8 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
             }
 
         # Define assembler, thereby a dof ordering
-        dof_manager = pp.DofManager(gb)
-        assembler = pp.Assembler(gb, dof_manager)
+        dof_manager = pp.DofManager(mdg)
+        assembler = pp.Assembler(mdg, dof_manager)
         model.assembler = assembler
 
         # Define and initialize a state vector
@@ -809,8 +809,9 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
         x[dof_manager.grid_and_variable_to_dofs(g_2d, self.cv2)] = cell_val_2d
         for g in g_1d:
             x[dof_manager.grid_and_variable_to_dofs(g, self.cv1)] = cell_val_1d[g]
+            intf = mdg.subdomain_pair_to_interface((g_2d, g))
             x[
-                dof_manager.grid_and_variable_to_dofs((g_2d, g), self.mv)
+                dof_manager.grid_and_variable_to_dofs(intf, self.mv)
             ] = cell_val_mortar[g]
 
         # Keep track of the previous values for each grid.
@@ -825,7 +826,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
             # Propagate the fracture. This will also generate mappings from old to new
             # cells
-            pp.propagate_fracture.propagate_fractures(gb, split)
+            pp.propagate_fracture.propagate_fractures(mdg, split)
 
             # Update variables
             x_new = model._map_variables(x)
@@ -838,7 +839,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 )
             )
             # Also check that pp.STATE and ITERATE has been correctly updated
-            d = gb.node_props(g_2d)
+            d = mdg.subdomain_data(g_2d)
             self.assertTrue(np.all(d[pp.STATE][self.cv2] == cell_val_2d))
             self.assertTrue(
                 np.all(d[pp.STATE][pp.ITERATE][self.cv2] == 2 * cell_val_2d)
@@ -846,7 +847,6 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
 
             # Loop over all 1d grids, check both grid and the associated mortar grid
             for g in g_1d:
-
                 num_new_cells = split[g].size
 
                 # mapped variable
@@ -861,7 +861,7 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 self.assertTrue(np.allclose(x_1d, truth_1d))
 
                 # Also check that pp.STATE and ITERATE has been correctly updated
-                d = gb.node_props(g)
+                d = mdg.subdomain_data(g)
                 self.assertTrue(np.all(d[pp.STATE][self.cv1] == truth_1d))
                 self.assertTrue(
                     np.all(d[pp.STATE][pp.ITERATE][self.cv1] == truth_iterate)
@@ -884,8 +884,9 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 d[pp.STATE][pp.ITERATE][self.cv1] = val_1d_iterate_prev[g]
 
                 ## Check mortar grid - see 1d case above for comments
+                intf = mdg.subdomain_pair_to_interface((g_2d, g))
                 x_mortar = x_new[
-                    dof_manager.grid_and_variable_to_dofs((g_2d, g), self.mv)
+                    dof_manager.grid_and_variable_to_dofs(intf, self.mv)
                 ]
 
                 sz = int(np.round(val_mortar_prev[g].size / 2))
@@ -895,38 +896,37 @@ class VariableMappingInitializationUnderPropagation(unittest.TestCase):
                 truth_mortar = np.r_[
                     val_mortar_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 42),
-                    val_mortar_prev[g][sz : 2 * sz],
+                    val_mortar_prev[g][sz: 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 42),
                 ]
                 truth_iterate = np.r_[
                     val_mortar_iterate_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 42),
-                    val_mortar_iterate_prev[g][sz : 2 * sz],
+                    val_mortar_iterate_prev[g][sz: 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 42),
                 ]
-                d = gb.edge_props((g_2d, g))
+                d = mdg.interface_data(intf)
 
                 self.assertTrue(np.all(x_mortar == truth_mortar))
                 self.assertTrue(np.all(d[pp.STATE][self.mv] == truth_mortar))
                 self.assertTrue(
                     np.all(d[pp.STATE][pp.ITERATE][self.mv] == truth_iterate)
                 )
-
                 x_new[
-                    dof_manager.grid_and_variable_to_dofs((g_2d, g), self.mv)
+                    dof_manager.grid_and_variable_to_dofs(intf, self.mv)
                 ] = np.r_[
                     val_mortar_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
-                    val_mortar_prev[g][sz : 2 * sz],
+                    val_mortar_prev[g][sz: 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
                 val_mortar_prev[g] = x_new[
-                    dof_manager.grid_and_variable_to_dofs((g_2d, g), self.mv)
+                    dof_manager.grid_and_variable_to_dofs(intf, self.mv)
                 ]
                 val_mortar_iterate_prev[g] = np.r_[
                     val_mortar_iterate_prev[g][:sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
-                    val_mortar_iterate_prev[g][sz : 2 * sz],
+                    val_mortar_iterate_prev[g][sz: 2 * sz],
                     np.full(var_sz_mortar * num_new_cells, 43),
                 ]
                 d[pp.STATE][self.mv] = val_mortar_prev[g]
