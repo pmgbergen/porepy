@@ -13,7 +13,7 @@ Acknowledgements:
 from __future__ import annotations
 
 import itertools
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -108,22 +108,22 @@ class Grid:
         face_nodes: sps.csc_matrix,
         cell_faces: sps.csc_matrix,
         name: str,
-        history: Optional[Union[List[str], str]] = None,
-        external_tags: Optional[Dict[str, np.ndarray]] = None,
+        history: Optional[Union[list[str], str]] = None,
+        external_tags: Optional[dict[str, np.ndarray]] = None,
     ) -> None:
-        """Initialize the grid
+        """Initialize the grid.
 
         See class documentation for further description of parameters.
 
-        Parameters
-        ----------
-        dim (int): grid dimension
-        nodes (np.ndarray): node coordinates.
-        face_nodes (sps.csc_matrix): Face-node relations.
-        cell_faces (sps.csc_matrix): Cell-face relations
-        history (str or list of str): Information on the formation of the grid.
-        name (str): Name of grid
-        tags (dict): Tags for nodes and grids. Will be constructed if not provided.
+        Args:
+            dim (int): grid dimension.
+            nodes (np.ndarray): node coordinates.
+            face_nodes (sps.csc_matrix): Face-node relations.
+            cell_faces (sps.csc_matrix): Cell-face relations.
+            history (str or list of str): Information on the formation of the grid.
+            name (str): Name of grid.
+            tags (dict): Tags for nodes and grids. Will be constructed if not provided.
+
         """
         if not (dim >= 0 and dim <= 3):
             raise ValueError("A grid has to be 0, 1, 2, or 3.")
@@ -136,7 +136,7 @@ class Grid:
         self.name: str = name
 
         if history is None:
-            self.history: List[str] = []
+            self.history: list[str] = []
         elif isinstance(history, list):
             self.history = history
         else:  # history is str
@@ -162,7 +162,7 @@ class Grid:
 
         # Add tag for the boundary faces
         if external_tags is None:
-            self.tags: Dict[str, np.ndarray] = {}
+            self.tags: dict[str, np.ndarray] = {}
             self.initiate_face_tags()
             self.update_boundary_face_tag()
 
@@ -174,8 +174,7 @@ class Grid:
             self._check_tags()
 
     def copy(self) -> pp.Grid:
-        """
-        Create a deep copy of the grid.
+        """Create a deep copy of the grid.
 
         Returns:
             grid: A deep copy of self. All attributes will also be copied.
@@ -206,10 +205,7 @@ class Grid:
         return h
 
     def __repr__(self) -> str:
-        """
-        Implementation of __repr__
-
-        """
+        """Implementation of __repr__"""
         s = f"Grid with name {self.name}" + "\n"
         s = "Grid history: " + ", ".join(self.history) + "\n"
         s += "Number of cells " + str(self.num_cells) + "\n"
@@ -259,8 +255,8 @@ class Grid:
 
         The method could have been called from the constructor, however,
         in cases where the grid is modified after the initial construction (
-        say, grid refinement), this may lead to costly, unnecessary
-        computations.
+        say, grid refinement), this may lead to costly, unnecessary computations.
+
         """
 
         self.history.append("Compute geometry")
@@ -280,7 +276,9 @@ class Grid:
         self.face_centers = self.nodes
         self.face_normals = np.zeros((3, 0))  # not well-defined
 
-        self.cell_volumes = np.ones(self.num_cells)
+        # Force cell volume to have data type float, so that mypy does not get confused
+        # for higher-dimensional grids.
+        self.cell_volumes = np.ones(self.num_cells, dtype=float)
         if not hasattr(self, "cell_centers"):
             raise ValueError("Can not compute geometry of 0d grid without cell centers")
         # Here, we should assign the cell centers, however this does nothing:
@@ -405,7 +403,7 @@ class Grid:
         self.face_centers = np.dot(R.T, self.face_centers)
         self.cell_centers = np.dot(R.T, self.cell_centers)
 
-    def _compute_geometry_3d(self):
+    def _compute_geometry_3d(self) -> None:
         """
         Helper function to compute geometry for 3D grids
 
@@ -608,8 +606,7 @@ class Grid:
         self.cell_volumes = cell_volumes
 
     def cell_nodes(self) -> sps.csc_matrix:
-        """
-        Obtain mapping between cells and nodes.
+        """Obtain mapping between cells and nodes.
 
         Returns:
             sps.csc_matrix, size num_nodes x num_cells: Value 1 indicates a
@@ -642,28 +639,36 @@ class Grid:
         return internal_nodes
 
     def get_all_boundary_faces(self) -> np.ndarray:
-        """
-        Get indices of all faces tagged as either fractures, domain boundary or
+        """Get indices of all faces tagged as either fractures, domain boundary or
         tip.
+
+        Returns:
+            np.ndarray: Index of all boundary faces.
+
         """
         return self._indices(tags.all_face_tags(self.tags))
 
     def get_all_boundary_nodes(self) -> np.ndarray:
-        """
-        Get indices of all nodes tagged as either fractures, domain boundary or
+        """Get indices of all nodes tagged as either fractures, domain boundary or
         tip.
+
+        Returns:
+            np.ndarray: Index of all boundary nodes.
+
         """
         return self._indices(tags.all_node_tags(self.tags))
 
     def get_boundary_faces(self) -> np.ndarray:
-        """
-        Get indices of all faces tagged as domain boundary.
+        """Get indices of all faces tagged as domain boundary.
+
+        Returns:
+            np.ndarray: Index of all domain boundary faces.
+
         """
         return self._indices(self.tags["domain_boundary_faces"])
 
     def get_internal_faces(self) -> np.ndarray:
-        """
-        Get internal face ids of the grid
+        """Get internal face ids of the grid.
 
         Returns:
             np.ndarray (1d), index of internal faces.
@@ -674,8 +679,7 @@ class Grid:
         )
 
     def get_boundary_nodes(self) -> np.ndarray:
-        """
-        Get nodes on the boundary
+        """Get nodes on the boundary.
 
         Returns:
             np.ndarray (1d), index of nodes on the boundary
@@ -697,18 +701,20 @@ class Grid:
         a one to one mapping between the periodic boundary faces (i.e., matching
         faces).
 
-        Parameters:
-        periodic_face_map (np.ndarray, int, 2 x # periodic faces): Defines the periodic
-            faces. Face index periodic_face_map[0, i] is periodic with face index
-            periodic_face_map[1, i]. The given map is stored to the attribute periodic_face_map
+        Args:
+            periodic_face_map (np.ndarray, int, 2 x # periodic faces): Defines the
+                periodic faces. Face index periodic_face_map[0, i] is periodic with face
+                index periodic_face_map[1, i]. The given map is stored to the attribute
+                periodic_face_map.
 
         New attributes:
-        periodic_face_map (np.ndarray, int, 2 x # periodic faces): See periodic_face_map
-            in Parameters.
+            periodic_face_map (np.ndarray, int, 2 x # periodic faces): See
+               periodic_face_map in Args.
 
         Changes attributes:
-        tags["domain_boundary_faces"]: The domain boundary tags are set to False
-            for all faces in periodic_face_map.
+            tags["domain_boundary_faces"]: The domain boundary tags are set to False
+                for all faces in periodic_face_map.
+
         """
         if periodic_face_map.shape[0] != 2:
             raise ValueError("dimension 0 of periodic_face_map must be of size 2")
@@ -743,7 +749,7 @@ class Grid:
         """
         Compute the cell diameters. If self.dim == 0, return 0
 
-        Parameters:
+        Args:
             cn (optional): cell nodes map, previously already computed.
             Otherwise, a call to self.cell_nodes is provided.
 
@@ -831,11 +837,11 @@ class Grid:
 
     def signs_and_cells_of_boundary_faces(
         self, faces: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Get the direction of the normal vector (inward or outwards from a cell)
         and the cell neighbour of _boundary_ faces.
 
-        Parameters:
+        Args:
             faces: (ndarray) indices of faces that you want to know the sign for. The
                 faces must be boundary faces.
 
@@ -863,7 +869,7 @@ class Grid:
 
     def closest_cell(
         self, p: np.ndarray, return_distance: bool = False
-    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
         """For a set of points, find closest cell by cell center.
 
         If several centers have the same distance, one of them will be
@@ -872,13 +878,14 @@ class Grid:
         For dim < 3, no checks are made if the point is in the plane / line
         of the grid.
 
-        Parameters:
+        Args:
             p (np.ndarray, 3xn): Point coordinates. If p.shape[0] < 3,
                 additional points will be treated as zeros.
 
         Returns:
             np.ndarray of ints: For each point, index of the cell with center
                 closest to the point.
+
         """
         p = np.atleast_2d(p)
         if p.shape[0] < 3:

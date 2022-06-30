@@ -4,7 +4,7 @@ Various methods to refine a grid.
 """
 import abc
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Optional, Union
 
 import gmsh
 import numpy as np
@@ -25,7 +25,7 @@ def distort_grid_1d(
 
     The perturbations will not perturb the topology of the mesh.
 
-    Parameters:
+    Args:
          g (pp.grid): To be perturbed. Modifications will happen in place.
          ratio (int, optional, defaults to 0.1): Perturbation ratio. A node can be
               moved at most half the distance in towards any of its
@@ -36,7 +36,7 @@ def distort_grid_1d(
              explicitly included as fixed_node
 
     Returns:
-         grid: With distorted nodes
+         pp.Grid: With distorted nodes
 
     """
     if fixed_nodes is None:
@@ -59,12 +59,12 @@ def distort_grid_1d(
 def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     """Refine cells in a 1d grid.
 
-    Parameters:
+    Args:
         g (pp.Grid): A 1d grid, to be refined.
-        ratio (int):
+        ratio (int): Refinement level.
 
     Returns:
-        grid: New grid, with finer cells.
+        pp.Grid: New grid, with finer cells.
 
     """
 
@@ -139,7 +139,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     return g
 
 
-def refine_triangle_grid(g: pp.TriangleGrid) -> Tuple[pp.TriangleGrid, np.ndarray]:
+def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarray]:
     """Uniform refinement of triangle grid, all cells are split into four
     subcells by combining existing nodes and face centrers.
 
@@ -148,7 +148,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> Tuple[pp.TriangleGrid, np.ndarra
     extends straightforwardly, but obtaining the node in the corner defined
     by faces may be a bit tricky.
 
-    Parameters:
+    Args:
         g (pp.TriangleGrid). To be refined.
 
     Returns:
@@ -219,7 +219,7 @@ def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: Optional[float] = 1e-6) -> pp
     the old and new grids are coinciding. Use with care, in particular for
     grids with internal boundaries.
 
-    Parameters:
+    Args:
         g_old (pp.Grid): 1d grid to be replaced.
         num_nodes (int): Number of nodes in the new grid.
         tol (double, optional): Tolerance used to compare node coordinates
@@ -312,7 +312,7 @@ class GridSequenceFactory(abc.ABC):
     """
 
     def __init__(
-        self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: Dict
+        self, network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d], params: dict
     ) -> None:
         """
         Construct a GridSequenceFactory.
@@ -320,7 +320,7 @@ class GridSequenceFactory(abc.ABC):
         Args:
             network (Union[pp.FractureNetwork2d, pp.FractureNetwork3d]): Define domain
                 to be discretized.
-            params (Dict): Parameter dictionary. See class documentation for details.
+            params (dict): Parameter dictionary. See class documentation for details.
 
         """
         self._network = network.copy()
