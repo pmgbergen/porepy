@@ -5,8 +5,8 @@ multipliers for the interface law. Use this module for the co-dimensional object
 In this way no equations are explicitly associated
 and some of the interface operators are provided.
 """
-from warnings import warn
 from typing import Optional
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -153,7 +153,7 @@ class CellDofFaceDofMap:
         """
         msg = """This function is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
@@ -198,7 +198,7 @@ class CellDofFaceDofMap:
         """
         msg = """This function is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
@@ -241,7 +241,7 @@ class CellDofFaceDofMap:
         """
         msg = """This function is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
@@ -322,7 +322,7 @@ class CellDofFaceDofMap:
         """
         msg = """This function is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.

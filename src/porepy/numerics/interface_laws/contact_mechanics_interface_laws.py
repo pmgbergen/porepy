@@ -5,9 +5,10 @@ We provide a class for coupling the higher-dimensional mechanical discretization
 tractions on the fractures. Also, in the case of coupled physics (Biot and the like),
 classes handling the arising coupling terms are provided.
 """
-from warnings import warn
+from __future__ import annotations
 import logging
 import time
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -52,7 +53,7 @@ class PrimalContactCoupling(AbstractInterfaceLaw):
     ):
         msg = """This class is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional contact problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
@@ -428,7 +429,7 @@ class MatrixScalarToForceBalance(AbstractInterfaceLaw):
         """
         msg = """This class is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional contact problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
@@ -583,7 +584,7 @@ class FractureScalarToForceBalance(AbstractInterfaceLaw):
         """
         msg = """This class is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional contact problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
@@ -712,7 +713,7 @@ class DivUCoupling(AbstractInterfaceLaw):
     ):
         msg = """This class is deprecated and will be removed, most likely in the
         second half of 2022.
-        
+
         To assemble mixed-dimensional contact problems, the recommended solution is
         either to use the models, or to use the automatic differentiation framework
         directly.
