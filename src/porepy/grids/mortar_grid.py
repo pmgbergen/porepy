@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 from enum import Enum
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import Generator, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -57,18 +57,18 @@ class MortarGrid:
     def __init__(
         self,
         dim: int,
-        side_grids: Dict[MortarSides, pp.Grid],
+        side_grids: dict[MortarSides, pp.Grid],
         primary_secondary: sps.spmatrix = None,
         codim: int = 1,
-        name: Union[str, List[str]] = "",
+        name: Union[str, list[str]] = "",
         face_duplicate_ind: Optional[np.ndarray] = None,
         tol: float = 1e-6,
-    ):
+    ) -> None:
         """Initialize the mortar grid
 
         See class documentation for further description of parameters.
 
-        Parameters:
+        Args:
             dim (int): grid dimension
             side_grids (dictionary of Grid): grid on each side.
             primary_secondary (sps.csc_matrix): Cell-face relations between the higher
@@ -92,7 +92,7 @@ class MortarGrid:
             raise ValueError("All the mortar grids have to have the same dimension")
         self.dim = dim
         self.codim = codim
-        self.side_grids: Dict[MortarSides, pp.Grid] = side_grids.copy()
+        self.side_grids: dict[MortarSides, pp.Grid] = side_grids.copy()
         self.sides: np.ndarray = np.array(list(self.side_grids.keys()))
 
         if not (self.num_sides() == 1 or self.num_sides() == 2):
@@ -183,7 +183,7 @@ class MortarGrid:
     ### Methods to update the mortar grid, or the neighboring grids.
 
     def update_mortar(
-        self, new_side_grids: Dict[MortarSides, pp.Grid], tol: float = None
+        self, new_side_grids: dict[MortarSides, pp.Grid], tol: float = None
     ) -> None:
         """
         Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
@@ -437,26 +437,27 @@ class MortarGrid:
         self._check_mappings()
 
     def num_sides(self) -> int:
-        """
-        Shortcut to compute the number of sides, it has to be 2 or 1.
+        """Shortcut to compute the number of sides, it has to be 2 or 1.
 
-        Return:
-            Number of sides.
+        Returns:
+            int: Number of sides.
+
         """
         return len(self.side_grids)
 
     def project_to_side_grids(
         self,
-    ) -> Generator[Tuple[sps.spmatrix, pp.Grid], None, None]:
+    ) -> Generator[tuple[sps.spmatrix, pp.Grid], None, None]:
         """Generator for the side grids (pp.Grid) representation of the mortar
         cells, and projection operators from the mortar cells, combining cells on all
         the sides, to the specific side grids.
 
         Yields:
-            grid (pp.Grid): PorePy grid representing one of the sides of the
+            pp.Grid: PorePy grid representing one of the sides of the
                 mortar grid. Can be used for standard discretizations.
-            proj (sps.csc_matrix): Projection from the mortar cells to this
+            sps.csc_matrix: Projection from the mortar cells to this
                 side grid.
+
         """
         counter = 0
         for grid in self.side_grids.values():
@@ -482,7 +483,7 @@ class MortarGrid:
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
-        Parameters:
+        Args:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
 
@@ -503,7 +504,7 @@ class MortarGrid:
 
         This mapping is intended for extensive properties, e.g. sources.
 
-        Parameters:
+        Args:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
 
@@ -525,7 +526,7 @@ class MortarGrid:
 
         This mapping is intended for intensive properties, e.g. pressures.
 
-        Parameters:
+        Args:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
 
@@ -547,7 +548,7 @@ class MortarGrid:
 
         This mapping is intended for intensive properties, e.g. pressures.
 
-        Parameters:
+        Args:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
 
@@ -556,10 +557,6 @@ class MortarGrid:
                 Size: g_secondary.num_cells x mortar_grid.num_cells.
         """
         return self._convert_to_vector_variable(self._secondary_to_mortar_avg, nd)
-
-    # IMPLEMENTATION NOTE: The reverse projections, from mortar to primary/secondary are
-    # found by taking transposes, and switching average and integration (since we are
-    # changing which side we are taking the area relative to.
 
     def mortar_to_primary_int(self, nd: int = 1) -> sps.spmatrix:
         """Project values from the mortar to faces of primary, by summing quantities
@@ -571,7 +568,7 @@ class MortarGrid:
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
-        Parameters:
+        Args:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
 
@@ -592,7 +589,7 @@ class MortarGrid:
 
         This mapping is intended for extensive properties, e.g. fluxes.
 
-        Parameters:
+        Args:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
 
@@ -615,7 +612,7 @@ class MortarGrid:
 
         This mapping is intended for intensive properties, e.g. pressures.
 
-        Parameters:
+        Args:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
 
@@ -637,7 +634,7 @@ class MortarGrid:
 
         This mapping is intended for intensive properties, e.g. pressures.
 
-        Parameters:
+        Args:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
 
@@ -682,7 +679,7 @@ class MortarGrid:
         IMPLEMENTATION NOTE: This method will probably not be meaningful if
         applied to mortar grids where the two side grids are non-matching.
 
-        Parameters:
+        Args:
             nd (int, optional): Spatial dimension of the projected quantity.
                 Defaults to 1 (mapping for scalar quantities).
         Returns:
@@ -727,16 +724,16 @@ class MortarGrid:
         self,
         primary_secondary: sps.spmatrix,
         face_duplicate_ind: Optional[np.ndarray] = None,
-    ):
+    ) -> None:
         """Initialize projections from primary and secondary to mortar.
 
-        Parameters:
-        primary_secondary (sps.spmatrix): projection from the primary to the secondary.
-            It is assumed that the primary, secondary and mortar grids are all matching.
-        face_duplicate_ind (np.ndarray, optional): Which faces should be considered
-                duplicates, and mapped to the second of the side_grids. If not provided,
-                duplicate faces will be inferred from the indices of the faces. Will
-                only be used if len(side_Grids) == 2.
+        Args:
+            primary_secondary (sps.spmatrix): projection from the primary to the secondary.
+                It is assumed that the primary, secondary and mortar grids are all matching.
+            face_duplicate_ind (np.ndarray, optional): Which faces should be considered
+                    duplicates, and mapped to the second of the side_grids. If not provided,
+                    duplicate faces will be inferred from the indices of the faces. Will
+                    only be used if len(side_Grids) == 2.
 
         """
         # primary_secondary is a mapping from the cells (faces if secondary.dim == primary.dim)
