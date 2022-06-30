@@ -32,7 +32,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
-            g,
+            sd,
             self.file_name,
             self.folder,
             binary=False,
@@ -52,7 +52,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
-            g,
+            sd,
             self.file_name,
             self.folder,
             binary=False,
@@ -72,7 +72,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
-            g,
+            sd,
             self.file_name,
             self.folder,
             binary=False,
@@ -84,11 +84,11 @@ class MeshioExporterTest(unittest.TestCase):
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._single_subdomain_2d_cart_grid_vtu())
 
-    def test_single_grid_2d_polytop(self):
-        g = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
-        g.compute_geometry()
-        pp.coarsening.generate_coarse_grid(g, [0, 1, 3, 3, 1, 1, 2, 2])
-        g.compute_geometry()
+    def test_single_subdomain_2d_polytop(self):
+        sd = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
+        sd.compute_geometry()
+        pp.coarsening.generate_coarse_grid(sd, [0, 1, 3, 3, 1, 1, 2, 2])
+        sd.compute_geometry()
 # TODO try out both Structured TriangleGrid and CartGrid
 #=======
 #    def test_single_subdomain_2d_polytop_grid(self):
@@ -102,7 +102,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
-            g,
+            sd,
             self.file_name,
             self.folder,
             binary=False,
@@ -122,7 +122,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
-            g,
+            sd,
             self.file_name,
             self.folder,
             binary=False,
@@ -142,7 +142,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
-            g,
+            sd,
             self.file_name,
             self.folder,
             binary=False,
@@ -166,7 +166,7 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
-            g,
+            sd,
             self.file_name,
             self.folder,
             binary=False,
@@ -176,11 +176,11 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_grid_3d_polytop_grid_vtu())
+        self.assertTrue(content == self._single_subdomain_3d_polytop_grid_vtu())
 
     # NOTE: Suggest removing this test.
-    def test_gb_1(self):
-        gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
+    def test_mdg_1(self):
+        mdg, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
         for sd, sd_data in mdg.subdomains(return_data=True):
             pp.set_state(
@@ -192,7 +192,7 @@ class MeshioExporterTest(unittest.TestCase):
             )
 
         save = pp.Exporter(
-            gb,
+            mdg,
             self.file_name,
             self.folder,
             binary=False,
@@ -237,7 +237,7 @@ class MeshioExporterTest(unittest.TestCase):
             )
 
         save = pp.Exporter(
-            gb,
+            mdg,
             self.file_name,
             self.folder,
             binary=False,
@@ -257,38 +257,36 @@ class MeshioExporterTest(unittest.TestCase):
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._mdg_2_mortar_grid_1_vtu())
 
-    def test_gb_3(self):
-        gb, _ = pp.grid_buckets_2d.two_intersecting(
+    def test_mdg_3(self):
+        mdg, _ = pp.grid_buckets_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
-        gb.add_node_props(["dummy_scalar", "dummy_vector"])
 
-        for g, d in gb:
+        for sd, sd_data in mdg.subdomains(return_data=True):
             pp.set_state(
-                d,
+                sd_data,
                 {
-                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
-                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+                    "dummy_scalar": np.ones(sd.num_cells) * sd.dim,
+                    "dummy_vector": np.ones((3, sd.num_cells)) * sd.dim,
                 },
             )
 
-        for e, d in gb.edges():
-            g = d["mortar_grid"]
+        for intf, intf_data in mdg.interfaces(return_data=True):
             pp.set_state(
-                d,
+                intf_data,
                 {
-                    "dummy_scalar": np.zeros(g.num_cells),
-                    "unique_dummy_scalar": np.zeros(g.num_cells),
+                    "dummy_scalar": np.zeros(intf.num_cells),
+                    "unique_dummy_scalar": np.zeros(intf.num_cells),
                 },
             )
 
-        subdomains_1d = gb.get_grids(lambda g: g.dim==1).tolist()
-        subdomains_2d = gb.get_grids(lambda g: g.dim==2).tolist()
-        g_2d = subdomains_2d[0]
-        interfaces = [e for e, d in gb.edges() if d["mortar_grid"].dim == 1]
+        subdomains_1d = mdg.subdomains(dim=1) 
+        subdomains_2d = mdg.subdomains(dim=2) 
+        sd_2d = subdomains_2d[0]
+        #interfaces_1d = mdg.interfaces(dim=1) # FIXME not used below
 
         save = pp.Exporter(
-            gb,
+            mdg,
             self.file_name,
             self.folder,
             binary=False,
@@ -298,20 +296,20 @@ class MeshioExporterTest(unittest.TestCase):
             (subdomains_1d, "dummy_scalar"),
             "dummy_vector",
             "unique_dummy_scalar",
-            (g_2d, "cc", g_2d.cell_centers)
+            (sd_2d, "cc", sd_2d.cell_centers)
         ])
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_3_grid_1_vtu())
+        self.assertTrue(content == self._mdg_3_grid_1_vtu())
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_3_grid_2_vtu())
+        self.assertTrue(content == self._mdg_3_grid_2_vtu())
 
         with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_3_mortar_grid_1_vtu())
+        self.assertTrue(content == self._mdg_3_mortar_grid_1_vtu())
 
     def test_constant_data(self):
         g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
@@ -3796,7 +3794,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_3d_cart_grid_vtu(self):
+    def _single_subdomain_3d_cart_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -5370,7 +5368,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_3d_polytop_grid_vtu(self):
+    def _single_subdomain_3d_polytop_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -6093,7 +6091,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_1_grid_1_vtu(self):
+    def _mdg_1_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -6210,7 +6208,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_1_grid_2_vtu(self):
+    def _mdg_1_grid_2_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -6590,7 +6588,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_1_mortar_grid_vtu(self):
+    def _mdg_1_mortar_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -6736,7 +6734,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_2_grid_1_vtu(self):
+    def _mdg_2_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -6894,7 +6892,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_2_grid_2_vtu(self):
+    def _mdg_2_grid_2_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -7280,7 +7278,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_2_mortar_grid_1_vtu(self):
+    def _mdg_2_mortar_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -7522,7 +7520,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_3_grid_1_vtu(self):
+    def _mdg_3_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -7680,7 +7678,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_3_grid_2_vtu(self):
+    def _mdg_3_grid_2_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -8098,7 +8096,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _gb_3_mortar_grid_1_vtu(self):
+    def _mdg_3_mortar_grid_1_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
