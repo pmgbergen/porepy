@@ -29,7 +29,7 @@ def plot_grid(
     cell_value: Optional[Union[np.ndarray, str]] = None,
     vector_value: Optional[Union[np.ndarray, str]] = None,
     info: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Plot the (possibly mixed-dimensional) grid with data in a 3d framework.
@@ -84,7 +84,7 @@ def save_img(
     cell_value: Optional[Union[np.ndarray, str]] = None,
     vector_value: Optional[Union[np.ndarray, str]] = None,
     info: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Plot and save the grid in a 3d framework.
@@ -125,7 +125,7 @@ def plot_sd(
     cell_value: Optional[np.ndarray],
     vector_value: Optional[np.ndarray],
     info: Optional[str],
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Plot data on a subdomain and provided data.
@@ -216,7 +216,7 @@ def plot_mdg(
     cell_value: Optional[str],
     vector_value: Optional[str],
     info: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Plot a mixed-dimensional grid and selected data.
@@ -284,7 +284,7 @@ def plot_mdg(
             sd_data.get(pp.STATE, {}).get(cell_value, None),
             sd_data.get(pp.STATE, {}).get(vector_value, None),
             ax,
-            **kwargs
+            **kwargs,
         )
 
     # Determine limits of axis based on the min and max values of grid coordinates
@@ -331,7 +331,7 @@ class _Arrow3D(FancyArrowPatch):
         ys: list[np.ndarray],
         zs: list[np.ndarray],
         *args,
-        **kwargs
+        **kwargs,
     ):
         """
         Each arrow comes with head and tail points, denoting their start and end points.
@@ -440,7 +440,7 @@ def _plot_sd_xd(
     cell_value: Optional[np.ndarray],
     vector_value: Optional[np.ndarray],
     ax: mpl.axis.Axis,
-    **kwargs
+    **kwargs,
 ) -> None:
     """
     Wrapper function to plot subdomain of arbitrary dimension. In 1d and 2d, the cell_value
