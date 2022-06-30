@@ -2,6 +2,7 @@
 The module contains the Assembler class, which is responsible for assembly of
 system matrix and right hand side for a general multi-domain, multi-physics problem.
 """
+from warnings import warn
 from collections import namedtuple
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
@@ -43,6 +44,18 @@ class Assembler:
 
     """
 
+    def __init_subclass__(cls, **kwargs):
+        msg = """The Assembler class is deprecated, and will be deleted from PorePy,
+        most likely during the second half of 2022. 
+        
+        To set up mixed-dimensional or multiphysics models, confer the model classes
+        (highly recommended), or use the algorithmic differentiation framework.
+        """
+
+        """This throws a deprecation warning on subclassing."""
+        warn(msg, DeprecationWarning, stacklevel=2)
+        super().__init_subclass__(**kwargs)
+
     def __init__(
         self, mdg: pp.MixedDimensionalGrid, dof_manager: Optional[pp.DofManager] = None
     ) -> None:
@@ -54,6 +67,15 @@ class Assembler:
                 variable and discretization information, see tutorial for details.
 
         """
+        msg = """The Assembler class is deprecated, and will be deleted from PorePy,
+        most likely during the second half of 2022. 
+        
+        To set up mixed-dimensional or multiphysics models, confer the model classes
+        (highly recommended), or use the algorithmic differentiation framework.
+        """
+
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         self.mdg = mdg
 
         if dof_manager is None:
