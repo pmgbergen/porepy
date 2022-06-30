@@ -542,7 +542,8 @@ class ConformingFracturePropagation(FracturePropagation):
             e0 = tip_bases[0, :, i]
             propagation_vector = np.dot(R, e0)
             # Pick the candidate closest to the propagation point,
-            # i.e. corresponding to the smallest angle between propagation vector and face center vector
+            # i.e. corresponding to the smallest angle between propagation vector and
+            # face center vector
             distances = pp.geometry.distances.point_pointset(
                 propagation_vector, face_center_vecs
             )

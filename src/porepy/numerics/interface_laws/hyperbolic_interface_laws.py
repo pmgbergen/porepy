@@ -261,7 +261,7 @@ class UpwindCoupling(AbstractInterfaceLaw):
         aperture_secondary = data_secondary["param"].get_aperture()
         phi_secondary = data_secondary["param"].get_porosity()
         darcy_flux = np.zeros(sd_primary.num_faces)
-        darcy_flux[intf.high_to_mortar_int.nonzero()[1]] = data_intf[d_name]
+        darcy_flux[intf.primary_to_mortar_int().nonzero()[1]] = data_intf[d_name]
         if sd_primary.dim == sd_secondary.dim:
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).

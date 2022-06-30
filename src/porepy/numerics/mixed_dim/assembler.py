@@ -74,20 +74,24 @@ class Assembler:
 
     @staticmethod
     def _variable_term_key(term: str, key_1: str, key_2: str, key_3: str = None) -> str:
-        """Get the key-variable combination used to identify a specific term in the equation.
+        """Get the key-variable combination used to identify a specific term in the
+        equation.
 
-        For subdomains and internally to interfaces in the MixedDimensionalGrid (i.e. fixed-dimensional grids),
-        the variable name is formed by combining the name of one or two primary variables,
-        and the name of term (all of which are defined in the data dictionary
-        of this subdomain / interface. As examples:
+        For subdomains and internally to interfaces in the MixedDimensionalGrid (i.e.
+        fixed-dimensional grids), the variable name is formed by combining the name of
+        one or two primary variables, and the name of term all of which are defined in
+        the data dictionary of this subdomain / interface.
+
+        As examples:
             - An advection-diffusion equation will typically have two terms, say,
                 advection_temperature, diffusion_temperature
             - For a coupled flow-temperature discretization, the coupling (off-diagonal)
                 terms may have identifiers 'coupling_temperature_flow' and
                 'coupling_flow_temperature'
 
-        For couplings between interfaces and subdomains, a three variable combination is needed,
-        identifying variable names on the interface and the respective neighboring subdomains.
+        For couplings between interfaces and subdomains, a three variable combination is
+        needed, identifying variable names on the interface and the respective
+        neighboring subdomains.
 
         NOTE: The naming of variables and terms are left to the user. For examples
         on how to set this up, confer the tutorial parameter_asignment_assembler_setup
@@ -97,8 +101,8 @@ class Assembler:
             key_1 (str): Variable name.
             key_2 (str): Variable name
             key_3 (str, optional): Variable name. If not provided, a 2-variable
-                identifier is returned, that is, we are not working on a subdomain-interface
-                coupling.
+                identifier is returned, that is, we are not working on a
+                subdomain-interface coupling.
 
         Returns:
             str: Identifier for this combination of term and variables.
@@ -131,9 +135,9 @@ class Assembler:
         For examples on how to use the assembler, confer the tutorial
         parameter_assignment_assembler_setup.ipynb. Here, we list the main capabilities
         of the assembler:
-            * Assign an arbitrary number of variables on each subdomain and interface in the grid
-              bucket. Allow for general couplings between the variables internal to each
-              subdomain / interface.
+            * Assign an arbitrary number of variables on each subdomain and interface in
+              the mixed-dimensional. Allow for general couplings between the variables
+              internal to each subdomain / interface.
             * Assign general coupling schemes between interfaces and  one or both neighboring
               subdomains. There are no limitations on variable naming conventions in the
               coupling.
@@ -761,7 +765,7 @@ class Assembler:
                         # Finally take care of the right hand side
                         assert rhs is not None
                         rhs[mat_key][[primary_idx, secondary_idx, intf_idx]] += loc_rhs
-                    
+
             elif primary_idx is not None:
                 # TODO: Term filters are not applied to this case
                 # secondary_idx is None
@@ -855,7 +859,7 @@ class Assembler:
                     if not assemble_matrix_only:
                         assert rhs is not None
                         rhs[mat_key][[secondary_idx, intf_idx]] += loc_rhs
-                        
+
             else:
                 raise ValueError(
                     "Invalid combination of variables on subdomain-interface relation"
@@ -950,7 +954,8 @@ class Assembler:
                             data_other,
                             loc_mat,
                             assemble_matrix=assemble_matrix,
-                            assemble_rhs=assemble_rhs,                        )
+                            assemble_rhs=assemble_rhs,
+                        )
 
                     rhs[mat_key][intf_idx] += loc_rhs[1]  # type:ignore
 
@@ -1460,7 +1465,8 @@ class Assembler:
             f"Minimum grid dimension: {self.mdg.dim_min()}.\n"
         )
         for dim in range(self.mdg.dim_max(), self.mdg.dim_min() - 1, -1):
-            s += f"In dimension {dim}: {len([sd for sd in self.mdg.subdomains(dim=dim)])} grids.\n"
+            s += f"In dimension {dim}: {len([sd for sd in self.mdg.subdomains(dim=dim)])}"
+            s += "grids.\n"
             unique_vars = {
                 key[1]
                 for key in self._dof_manager.block_dof.keys()

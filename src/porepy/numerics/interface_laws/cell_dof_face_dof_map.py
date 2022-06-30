@@ -6,8 +6,10 @@ In this way no equations are explicitly associated
 and some of the interface operators are provided.
 """
 from typing import Optional
+
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
 
 
