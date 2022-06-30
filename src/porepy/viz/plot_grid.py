@@ -351,6 +351,16 @@ class _Arrow3D(FancyArrowPatch):
         # Store the coordinates
         self._verts3d = xs, ys, zs
 
+    def do_3d_projection(self, renderer=None):
+        """Auxiliary method, needed when using matplotlib>=3.5.
+        See: https://github.com/matplotlib/matplotlib/issues/21688
+        """
+        xs3d, ys3d, zs3d = self._verts3d
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, self.axes.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+
+        return np.min(zs)
+
     # FIXME: typing
     def draw(self, renderer) -> None:
         """Draw arrows using the given renderer.
