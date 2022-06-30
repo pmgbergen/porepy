@@ -34,7 +34,7 @@ class FVElliptic(pp.EllipticDiscretization):
         self.vector_source_matrix_key = "vector_source"
         self.bound_pressure_vector_source_matrix_key = "bound_pressure_vector_source"
 
-    def ndof(self, sd: np.ndarray) -> int:
+    def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
 
         Args:
@@ -46,7 +46,9 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         return sd.num_cells
 
-    def extract_pressure(self, sd, solution_array, data):
+    def extract_pressure(
+        self, sd: pp.Grid, solution_array: np.ndarray, data: dict
+    ) -> np.ndarray:
         """Extract the pressure part of a solution.
         The method is trivial for finite volume methods, with the pressure
         being the only primary variable.
@@ -60,10 +62,13 @@ class FVElliptic(pp.EllipticDiscretization):
         Returns:
             np.array (g.num_cells): Pressure solution vector. Will be identical
                 to solution_array.
+
         """
         return solution_array
 
-    def extract_flux(self, sd, solution_array, data):
+    def extract_flux(
+        self, sd: pp.Grid, solution_array: np.ndarray, data: dict
+    ) -> np.ndarray:
         """Extract the flux related to a solution.
 
         The flux is computed from the discretization and the given pressure solution.
@@ -127,7 +132,7 @@ class FVElliptic(pp.EllipticDiscretization):
         div = pp.fvutils.scalar_divergence(sd)
         flux = matrix_dictionary[self.flux_matrix_key]
         if flux.shape[0] != sd.num_faces:
-            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=sd)
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
             flux = hf2f * flux
 
         M = div * flux
@@ -151,7 +156,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         bound_flux = matrix_dictionary[self.bound_flux_matrix_key]
         if sd.dim > 0 and bound_flux.shape[0] != sd.num_faces:
-            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=sd)
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
             bound_flux = hf2f * bound_flux
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]

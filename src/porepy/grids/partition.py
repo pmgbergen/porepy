@@ -5,6 +5,7 @@ Intended support is by Cartesian indexing, and METIS-based.
 
 """
 import warnings
+
 import numpy as np
 import scipy.sparse as sps
 

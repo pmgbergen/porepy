@@ -348,7 +348,7 @@ class ImplicitUpwindCoupling(pp.UpwindCoupling):
 
         # Find upwind weighting. if flag is True we use the upper weights
         # if flag is False we use the lower weighs
-        flag = (lam_flux > 0).astype(np.float)
+        flag = (lam_flux > 0).astype(float)
         not_flag = 1 - flag
 
         # assemble matrices

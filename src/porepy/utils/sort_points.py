@@ -1,6 +1,6 @@
 """ Functions to sort points and edges belonging to geometric objects.
 """
-from typing import Optional, Tuple, Union
+from typing import Optional
 
 import numpy as np
 
@@ -9,9 +9,9 @@ import porepy as pp
 
 def sort_point_pairs(
     lines: np.ndarray,
-    check_circular: Optional[bool] = True,
+    check_circular: bool = True,
     is_circular: Optional[bool] = True,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Sort pairs of numbers to form a chain.
 
     The target application is to sort lines, defined by their
@@ -20,19 +20,18 @@ def sort_point_pairs(
     The algorithm is brute-force, using a double for-loop. This can
     surely be improved.
 
-    Parameters:
-    lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume
-        that the points are stored in the first two rows.
-    check_circular: Verify that the sorted polyline form a circle.
-                    Defaults to true.
-    ordering: np.array, return in the original order if a line is flipped or not
-    is_circular: if the lines form a closed set. Default is True.
+    Args:
+        lines (np.ndarray, 2xn): the line pairs. If lines has more than 2 rows, we assume
+            that the points are stored in the first two rows.
+        check_circular (bool): Verify that the sorted polyline form a circle.
+        is_circular (bool): if the lines form a closed set. Default is True.
 
     Returns:
-    sorted_lines: np.ndarray, 2xn, sorted line pairs. If lines had more than 2 rows,
-        the extra are sorted accordingly.
-    sort_ind: np.ndarray, n: Sorted column indices, so that
-        sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual columns
+        np.ndarray, 2xn: sorted line pairs. If lines had more than 2 rows,
+            the extra are sorted accordingly.
+        np.ndarray, n: Sorted column indices, so that
+            sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual
+            columns
 
     """
 
@@ -112,7 +111,7 @@ def sort_point_plane(
     The algorithm assumes a star-shaped disposition of the points with respect
     the centre.
 
-    Parameters:
+    Args:
         pts: np.ndarray, 3xn, the points.
         centre: np.ndarray, 3x1, the face centre.
         normal: (optional) the normal of the plane, otherwise three points are
@@ -146,7 +145,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     a common plane, methods based on geometry are at best cumbersome. This
     approach should work also in those cases.
 
-    Parameters:
+    Args:
         t (np.ndarray, 3 x n_tri): Triangulation to have vertexes ordered.
 
     Returns:
