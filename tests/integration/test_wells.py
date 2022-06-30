@@ -3,8 +3,8 @@ Tests of the well class. In particular, functionality for constructing the
 well network and the resulting updates to the grid bucket are tested.
 
 Content:
-  * Addition of one well to gbs with one or two 2d fractures.
-  * Addition of two wells to gbs with one or three 2d fractures.
+  * Addition of one well to mdgs with one or two 2d fractures.
+  * Addition of two wells to mdgs with one or three 2d fractures.
 Both tests check for number of grids, number of edges and three types of face
 tags. Grid node ordering is tacitly assumed - if the assumption is broken, the
 well implementation should also be revisited.
@@ -17,15 +17,15 @@ import porepy as pp
 from typing import List
 
 
-def _generate_gb(fracture_indices: List[int], well_indices: List[int]):
-    """Construct networks and generate gb.
+def _generate_mdg(fracture_indices: List[int], well_indices: List[int]):
+    """Construct networks and generate mdg.
 
     Parameters:
         fracture_indices (list): which fractures to use.
         well_indices (list): which wells to use.
 
     Returns:
-        pp.GridBucket: grid bucket with matrix, fractures, wells and well-fracture
+        pp.MixedDimensionalGrid: grid bucket with matrix, fractures, wells and well-fracture
             intersection grids + all interfaces
     """
     domain = pp.grids.standard_grids.utils.unit_domain(3)
@@ -48,7 +48,7 @@ def _generate_gb(fracture_indices: List[int], well_indices: List[int]):
     wells = [pp.Well(well_coords[i]) for i in well_indices]
     well_network = pp.WellNetwork3d(wells, domain, parameters={"mesh_size": 1})
 
-    gb = fracture_network.mesh({"mesh_size_frac": 1, "mesh_size_min": 1})
+    mdg = fracture_network.mesh({"mesh_size_frac": 1, "mesh_size_min": 1})
 
     # Compute intersections
     pp.fracs.wells_3d.compute_well_fracture_intersections(
@@ -56,9 +56,9 @@ def _generate_gb(fracture_indices: List[int], well_indices: List[int]):
     )
     # Mesh fractures and add fracture + intersection grids to grid bucket along
     # with these grids' new interfaces to fractures.
-    well_network.mesh(gb)
+    well_network.mesh(mdg)
 
-    return gb
+    return mdg
 
 
 @pytest.mark.parametrize(
@@ -76,7 +76,7 @@ def test_add_one_well(
     tip_faces: List[List[int]],
 ) -> None:
     """Compute intersection between one well and the fracture network, mesh and
-    add well grids to gb.
+    add well grids to mdg.
 
     Parameters:
         fracture_indices (list): which fractures to use.
@@ -85,24 +85,24 @@ def test_add_one_well(
         tip_faces (list): Each item is the expected tip face tags for one well grid,
             assumed to have two faces each.
     """
-    gb = _generate_gb(fracture_indices, [0])
+    mdg = _generate_mdg(fracture_indices, [0])
     # One 3d grid, n_frac 2d grids, n_frac 1d well grids + one if none of the
     # fractures are on the well endpoint and n_frac intersections between
     # fractures and well
     n_int = (0 in fracture_indices) + (1 in fracture_indices)
     n_end = 2 in fracture_indices
     n_frac = n_int + n_end
-    assert gb.num_graph_nodes() == (1 + 3 * n_frac + (1 - n_end))
+    assert mdg.num_subdomains() == (1 + 3 * n_frac + (1 - n_end))
 
     # 3d-2d: n_frac between matrix and fractures,
     # 2d-0d: n_frac
     # 1d-0d: 2 between well and intersection for each internal fracture and 1 for
     # endpoint fracture
-    assert gb.num_graph_edges() == (n_frac + n_frac + 2 * n_int + n_end)
+    assert mdg.num_interfaces() == (n_frac + n_frac + 2 * n_int + n_end)
 
     # Only the first well grid should be on the global boundary
     boundary_faces = [[1, 0], [0, 0], [0, 0]]
-    for ind, well_grid in enumerate(gb.grids_of_dimension(1)):
+    for ind, well_grid in enumerate(mdg.subdomains(dim=1)):
         assert np.all(np.isclose(well_grid.tags["fracture_faces"], fracture_faces[ind]))
         assert np.all(np.isclose(well_grid.tags["tip_faces"], tip_faces[ind]))
         assert np.all(
@@ -118,7 +118,7 @@ b_tags_0 = [[1, 0], [0, 0], [1, 0]]
 # Number of grids and intersections, numbers in sums sorted by descending dimension.
 # Grids: One 3d, 1 fracture, 2 + 1 well grids and 1 + 1 intersections.
 # Interfaces: 1 3d-2d, 2+1 well-fracture 1+1 fracture-intersection
-gb_data_0 = [1 + 1 + 3 + 2, 1 + 3 + 2]
+mdg_data_0 = [1 + 1 + 3 + 2, 1 + 3 + 2]
 
 # All three fractures. frac 2 only intersects well 0
 # First three well grids (first dimension below) correspond to well 0,
@@ -129,14 +129,14 @@ b_tags_1 = [[1, 0], [0, 0], [0, 0], [1, 0], [0, 0]]
 # Number of grids and intersections, numbers in sums sorted by descending dimension.
 # Grids: One 3d, 3 fracture, 3 + 2 well grids and 3 + 2 intersections.
 # Interfaces: 3 3d-2d, 3+2 well-fracture and 5+3 fracture-intersection
-gb_data_1 = [1 + 3 + 5 + 5, 3 + 5 + 8]
+mdg_data_1 = [1 + 3 + 5 + 5, 3 + 5 + 8]
 
 
 @pytest.mark.parametrize(
-    "fracture_indices, fracture_faces, tip_faces, boundary_faces, gb_data",
+    "fracture_indices, fracture_faces, tip_faces, boundary_faces, mdg_data",
     [
-        ([1], f_tags_0, t_tags_0, b_tags_0, gb_data_0),
-        ([0, 1, 2], f_tags_1, t_tags_1, b_tags_1, gb_data_1),
+        ([1], f_tags_0, t_tags_0, b_tags_0, mdg_data_0),
+        ([0, 1, 2], f_tags_1, t_tags_1, b_tags_1, mdg_data_1),
     ],
 )
 def test_add_two_wells(
@@ -144,10 +144,10 @@ def test_add_two_wells(
     fracture_faces: List[List[int]],
     tip_faces: List[List[int]],
     boundary_faces: List[List[int]],
-    gb_data: List[int],
+    mdg_data: List[int],
 ) -> None:
     """Compute intersection between two well and the fracture network, mesh and
-    add well grids to gb.
+    add well grids to mdg.
 
     Parameters:
         fracture_indices (list): which fractures to use.
@@ -157,14 +157,14 @@ def test_add_two_wells(
             assumed to have two faces each.
         boundary_faces (list): Each item is the expected boundary face tags for one
             well grid, assumed to have two faces each.
-        gb_data (list): expected number of grids and number of edges.
+        mdg_data (list): expected number of grids and number of interfaces.
     """
-    gb = _generate_gb(fracture_indices, [0, 1])
-    assert np.isclose(gb.num_graph_nodes(), gb_data[0])
-    assert np.isclose(gb.num_graph_edges(), gb_data[1])
+    mdg = _generate_mdg(fracture_indices, [0, 1])
+    assert np.isclose(mdg.num_subdomains(), mdg_data[0])
+    assert np.isclose(mdg.num_interfaces(), mdg_data[1])
 
     # Only the first well grid should be on the global boundary
-    for ind, well_grid in enumerate(gb.grids_of_dimension(1)):
+    for ind, well_grid in enumerate(mdg.subdomains(dim=1)):
         assert np.all(np.isclose(well_grid.tags["fracture_faces"], fracture_faces[ind]))
         assert np.all(np.isclose(well_grid.tags["tip_faces"], tip_faces[ind]))
         assert np.all(
@@ -174,25 +174,24 @@ def test_add_two_wells(
 
 def test_add_one_well_with_matrix() -> None:
     """Compute intersection between one well and the rock matrix mesh."""
-    gb = _generate_gb([], [1])
+    mdg = _generate_mdg([], [1])
     # add the coupling between the rock matrix and the well
-    pp.fracs.wells_3d.compute_well_rock_matrix_intersections(gb)
+    pp.fracs.wells_3d.compute_well_rock_matrix_intersections(mdg)
 
-    # check the number of graph nodes and edges
-    assert gb.num_graph_nodes() == 2
-    assert gb.num_graph_edges() == 1
+    # check the number of subdomains and interfaces
+    assert mdg.num_subdomains() == 2
+    assert mdg.num_interfaces() == 1
 
     # check the well grid
-    for well_grid in gb.grids_of_dimension(1):
+    for well_grid in mdg.subdomains(dim=1):
         assert well_grid.num_cells == 1
         assert well_grid.num_faces == 2
         assert well_grid.num_nodes == 2
 
-    for e, d in gb.edges():
-        mg = d["mortar_grid"]
-        assert mg.num_sides() == 1
-        assert mg.num_cells == 1
-        assert np.allclose(mg.mortar_to_secondary_int().todense(), 1)
+    for intf, data in mdg.interfaces(return_data=True):
+        assert intf.num_sides() == 1
+        assert intf.num_cells == 1
+        assert np.allclose(intf.mortar_to_secondary_int().todense(), 1)
         known = np.array(
             [
                 0.175,
@@ -221,4 +220,4 @@ def test_add_one_well_with_matrix() -> None:
                 0.0,
             ]
         )
-        assert np.allclose(mg.mortar_to_primary_int().A.flatten(), known)
+        assert np.allclose(intf.mortar_to_primary_int().A.flatten(), known)

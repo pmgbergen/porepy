@@ -87,7 +87,7 @@ def half_space_interior_point(
     ----------
     n : np.ndarray, size 3 x num_planes
         This is the normal vectors of the half planes. The normal vectors
-        vectors are assumed to be coherently oriented for all the half spaces
+        are assumed to be coherently oriented for all the half spaces
         (inward or outward).
     x0 : np.ndarray, size 3 x num_planes
         Point on the boundary of the half-spaces. Half space i is given

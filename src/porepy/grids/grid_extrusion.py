@@ -24,24 +24,28 @@ import porepy as pp
 from porepy.grids import mortar_grid
 
 
-def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket, Dict]:
-    """Extrude a GridBucket by extending all fixed-dimensional grids in the z-direction.
+def extrude_grid_bucket(
+    mdg: pp.MixedDimensionalGrid, z: np.ndarray
+) -> Tuple[pp.MixedDimensionalGrid, Dict]:
+    """Extrude a MixedDimensionalGrid by extending all fixed-dimensional grids in the z-direction.
 
     In practice, the original grid bucket will be 2d, and the result is 3d.
 
-    The returned GridBucket is fully functional, including mortar grids on the gb edges.
-    The data dictionaries on nodes and edges are mainly empty. Data can be transferred from
-    the original GridBucket via the returned map between old and new grids.
+    The returned MixedDimensionalGrid is fully functional, including mortar grids on the mdg
+    edges. The data dictionaries on nodes and edges are mainly empty. Data can be transferred
+    from the original MixedDimensionalGrid via the returned map between old and new grids.
 
     Parameters:
-        gb (pp.GridBukcet): Mixed-dimensional grid to be extruded. Should be 2d.
-        z (np.ndarray): z-coordinates of the nodes in the extruded grid. Should be
+        mdg
+            Mixed-dimensional grid to be extruded. Should be 2d.
+        z
+            z-coordinates of the nodes in the extruded grid. Should be
             either non-negative or non-positive, and be sorted in increasing or
             decreasing order, respectively.
 
     Returns:
-        gb (pp.GridBucket): Mixed-dimensional grid, 3d. The data dictionaries on nodes and
-            edges are mostly empty.
+        mdg_new (pp.MixedDimensionalGrid): Mixed-dimensional grid, 3d. The data dictionaries on
+            nodes and edges are mostly empty.
         dict: Mapping from individual grids in the old bucket to the corresponding
             extruded grids in the new one. The dictionary values are a namedtuple with
             elements grid (new grid), cell_map and face_map, where the two latter
@@ -49,8 +53,8 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
 
     """
 
-    # New GridBucket. to be filled in
-    gb_new: pp.GridBucket = pp.GridBucket()
+    # New MixedDimensionalGrid. to be filled in
+    mdg_new: pp.MixedDimensionalGrid = pp.MixedDimensionalGrid()
 
     # Data structure for mapping between old and new grids
     g_map = {}
@@ -59,24 +63,24 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
     Mapping = namedtuple("Mapping", ["grid", "cell_map", "face_map"])
 
     # Loop over all grids in the old bucket, extrude the grid, save mapping information
-    for g, _ in gb:
-        g_new, cell_map, face_map = extrude_grid(g, z)
+    for sd in mdg.subdomains():
+        g_new, cell_map, face_map = extrude_grid(sd, z)
 
-        if hasattr(g, "frac_num"):
-            g_new.frac_num = g.frac_num
+        if hasattr(sd, "frac_num"):
+            g_new.frac_num = sd.frac_num
 
-        gb_new.add_nodes([g_new])
+        mdg_new.add_subdomains([g_new])
 
-        g_map[g] = Mapping(g_new, cell_map, face_map)
+        g_map[sd] = Mapping(g_new, cell_map, face_map)
 
     # Loop over all edges in the old grid, create corresponding edges in the new gb.
     # Also define mortar_grids
-    for e, d in gb.edges():
+    for intf, intf_data in mdg.interfaces(return_data=True):
 
         # grids of the old edge, extruded version of each grid
-        gl, gh = gb.nodes_of_edge(e)
-        gl_new = g_map[gl].grid
-        gh_new = g_map[gh].grid
+        sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
+        sd_primary_new = g_map[sd_primary].grid
+        sd_secondary_new = g_map[sd_secondary].grid
 
         # Next, we need the cell-face mapping for the new grid.
         # The idea is to first find the old map, then replace each cell-face relation
@@ -84,15 +88,15 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         # matching due to the extrusion algorithm, and second that the cell-map and
         # face-map stores indices in increasing layer index, so that the first cell
         # and first face both are in the first layer, thus they match, etc.).
-        face_cells_old = d["face_cells"]
+        face_cells_old = intf_data["face_cells"]
 
         # cells (in low-dim grid) and faces in high-dim grid that define the same
         # geometric quantity
         cells, faces, _ = sps.find(face_cells_old)
 
         # Cell-map for the low-dimensional grid, face-map for the high-dim
-        cell_map = g_map[gl].cell_map
-        face_map = g_map[gh].face_map
+        cell_map = g_map[sd_secondary].cell_map
+        face_map = g_map[sd_primary].face_map
 
         # Data structure for the new face-cell map
         rows = np.empty(0, dtype=int)
@@ -122,35 +126,33 @@ def extrude_grid_bucket(gb: pp.GridBucket, z: np.ndarray) -> Tuple[pp.GridBucket
         data = np.ones(rows.size, dtype=bool)
         # Create new face-cell map
         face_cells_new = sps.coo_matrix(
-            (data, (rows, cols)), shape=(gl_new.num_cells, gh_new.num_faces)
+            (data, (rows, cols)),
+            shape=(sd_secondary_new.num_cells, sd_primary_new.num_faces),
         ).tocsc()
 
-        # Define the new edge
-        new_edge: Tuple[pp.Grid, pp.Grid] = (gh_new, gl_new)
-        # Add to new gb, together with the new face-cell map
-        gb_new.add_edge(new_edge, face_cells_new)
-
-        # Create a mortar grid, add to data of new edge
+        # Create a mortar grid and add as a new interface of the new mdg
         if len(face_on_other_side) == 0:  # Only one side
             side_g = {
-                mortar_grid.MortarSides.LEFT_SIDE: gl_new.copy(),
+                mortar_grid.MortarSides.LEFT_SIDE: sd_secondary_new.copy(),
             }
         else:
             side_g = {
-                mortar_grid.MortarSides.LEFT_SIDE: gl_new.copy(),
-                mortar_grid.MortarSides.RIGHT_SIDE: gl_new.copy(),
+                mortar_grid.MortarSides.LEFT_SIDE: sd_secondary_new.copy(),
+                mortar_grid.MortarSides.RIGHT_SIDE: sd_secondary_new.copy(),
             }
 
         # Construct mortar grid, with instructions on which faces belong to which side
-        mg = pp.MortarGrid(
-            gl_new.dim, side_g, face_cells_new, face_duplicate_ind=face_on_other_side
+        mg_new = pp.MortarGrid(
+            sd_secondary_new.dim,
+            side_g,
+            face_cells_new,
+            face_duplicate_ind=face_on_other_side,
         )
+        # Add to new gb, together with the new face-cell map
+        subdomain_pair_new = (sd_primary_new, sd_secondary_new)
+        mdg_new.add_interface(mg_new, subdomain_pair_new, face_cells_new)
 
-        d_new = gb_new.edge_props((gh_new, gl_new))
-
-        d_new["mortar_grid"] = mg
-
-    return gb_new, g_map
+    return mdg_new, g_map
 
 
 def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
@@ -230,7 +232,7 @@ def _extrude_2d(
     # Number of cell layers, one less than the nodes
     num_cell_layers = num_node_layers - 1
 
-    # Short hand for the number of cells in the 2d grid
+    # Shorthand for the number of cells in the 2d grid
     nc_2d = g.num_cells
     nf_2d = g.num_faces
     nn_2d = g.num_nodes
@@ -246,7 +248,7 @@ def _extrude_2d(
     # faces as there are cells in the 2d grid
     nf_3d = nf_2d * num_cell_layers + nc_2d * num_node_layers
 
-    ## Nodes - only coorinades are needed
+    ## Nodes - only coordinates are needed
     # The nodes in the 2d grid are copied for all layers, with the z-coordinates changed
     # for each layer. This means that for a vertical pilar, the face-node and cell-node
     # relations can be inferred from that in the original 2d grid, with index increments
@@ -334,11 +336,11 @@ def _extrude_2d(
 
     # Next, deal with the horizontal faces. The face-node relation is based on the
     # cell-node relation of the 2d grid.
-    # The structure of this constrution is a bit more involved than for the vertical
+    # The structure of this construction is a bit more involved than for the vertical
     # faces, since the 2d cells have an unknown, and generally varying, number of nodes
     cn_2d = g.cell_nodes()
 
-    # Short hand for node indices of each cell.
+    # Shorthand for node indices of each cell.
     cn_ind_2d = cn_2d.indices.copy()
 
     # Similar to the vertical faces, the face-node relation in 3d should match the
@@ -378,7 +380,7 @@ def _extrude_2d(
 
     # Compressed column storage for horizontal faces: Store node indices
     fn_rows_horizontal = np.array([], dtype=int)
-    # .. and pointers to the start of new faces
+    # ... and pointers to the start of new faces
     fn_cols_horizontal = np.array(0, dtype=int)
     # Loop over all layers of nodes (one more than number of cells)
     # This means that the horizontal faces of a given cell is given by its index (bottom)
@@ -411,7 +413,7 @@ def _extrude_2d(
     # Finally, construct the face-node sparse matrix
     face_nodes = sps.csc_matrix((data, indices, indptr), shape=(nn_3d, nf_3d))
 
-    ### Next the cell-faces.
+    ## Next the cell-faces.
     # Similar to the face-nodes, the easiest option is first to deal with the vertical
     # faces, which can be inferred directly from faces in the 2d grid, and then the
     # horizontal direction.
@@ -431,13 +433,13 @@ def _extrude_2d(
     cf_data_2d = g.cell_faces.data
 
     cf_rows_vertical = np.array([], dtype=int)
-    # For the cells, we will store the number of facqes for each cell. This will later
+    # For the cells, we will store the number of faces for each cell. This will later
     # be expanded to a full set of cell indices
     cf_vertical_cell_count = np.array([], dtype=int)
     cf_data_vertical = np.array([], dtype=bool)
 
     for k in range(num_cell_layers):
-        # The face indices are found from the 2d information, with increaments that
+        # The face indices are found from the 2d information, with increments that
         # reflect how many layers of vertical faces there are below
         cf_rows_vertical = np.hstack((cf_rows_vertical, cf_rows_2d + k * nf_2d))
         # The diff here gives the number of faces per cell
@@ -787,7 +789,6 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
 def _create_mappings(
     g: pp.Grid, g_new: pp.Grid, num_cell_layers: int
 ) -> Tuple[np.ndarray, np.ndarray]:
-
     cell_map = np.empty(g.num_cells, dtype=object)
     for c in range(g.num_cells):
         cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
@@ -803,7 +804,7 @@ def _create_mappings(
 
     for fm in face_map:
         # The vertical faces should have num_cell_layers items.
-        # Horizontal faces are not added to to the face_map.
+        # Horizontal faces are not added to the face_map.
         if fm.size != num_cell_layers:
             raise ValueError("Face map of wrong size")
 

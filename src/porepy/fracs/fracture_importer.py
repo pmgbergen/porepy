@@ -19,7 +19,7 @@ def network_3d_from_csv(
 
     Lines that start with a # are ignored.
 
-    Parameters:
+    Args:
         file_name (str): path to the csv file
         has_domain (boolean): if the first line in the csv file specify the domain
         tol: (double, optional) geometric tolerance used in the computations.
@@ -175,7 +175,7 @@ def network_2d_from_csv(
 ):
     """Read csv file with fractures to obtain fracture description.
 
-    Create the grid bucket from a set of fractures stored in a csv file and a
+    Create the mixed-dimensional grid from a set of fractures stored in a csv file and a
     domain. In the csv file, we assume one of the two following structures:
 
         a) FID, START_X, START_Y, END_X, END_Y
@@ -307,11 +307,11 @@ def network_2d_from_csv(
         return network
 
 
-def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.GridBucket:
-    """Generate a GridBucket from a gmsh file.
+def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid:
+    """Generate a MixedDimensionalGrid from a gmsh file.
 
     If the provided file is input for gmsh (.geo, not .msh), gmsh will be called
-    to generate the mesh before the GridBucket is constructed.
+    to generate the mesh before the MixedDimensionalGrid is constructed.
 
     Parameters:
         file_name (str): Name of gmsh in and out file. Should have extsion .geo
@@ -320,7 +320,7 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.GridBucket:
         dim (int): Dimension of the problem. Should be 2 or 3.
 
     Returns:
-        GridBucket: Mixed-dimensional grid as contained in the gmsh file.
+        MixedDimensionalGrid: Mixed-dimensional grid as contained in the gmsh file.
 
     """
 
@@ -348,14 +348,14 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.GridBucket:
         gmsh.finalize()
 
     if dim == 2:
-        grids = pp.fracs.simplex.triangle_grid_from_gmsh(out_file, **kwargs)
+        subdomains = pp.fracs.simplex.triangle_grid_from_gmsh(out_file, **kwargs)
     elif dim == 3:
-        grids = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
+        subdomains = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
             file_name=out_file, **kwargs
         )
     else:
         raise ValueError(f"Unknown dimension, dim: {dim}")
-    return pp.meshing.grid_list_to_grid_bucket(grids, **kwargs)
+    return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
 
 def dfm_3d_from_fab(
@@ -382,12 +382,12 @@ def dfm_3d_from_fab(
         domain = network.bounding_box()
 
     # TODO: No reference to simplex_grid in pp.fracs.meshing.py
-    gb = pp.meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
+    mdg = pp.meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
 
     if return_domain:
-        return gb, domain
+        return mdg, domain
     else:
-        return gb
+        return mdg
 
 
 def network_3d_from_fab(f_name, return_all=False, tol=None):

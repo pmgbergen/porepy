@@ -930,8 +930,8 @@ class TestUpwindCoupling(unittest.TestCase):
         # --------- horizontal fracture
         # |   |   |
         # --------
-        gb, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
-        return gb
+        mdg, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        return mdg
 
     def block_matrix(self, gs):
         def ndof(g):
@@ -946,24 +946,25 @@ class TestUpwindCoupling(unittest.TestCase):
         # 2D grid to 1D grid. The upwind weighting should in this case choose the
         # 2D cell variables as weights
 
-        gb = self.generate_grid()
-        g2 = gb.grids_of_dimension(2)[0]
-        g1 = gb.grids_of_dimension(1)[0]
+        mdg = self.generate_grid()
+        sd_2 = list(mdg.subdomains(dim=2))[0]
+        sd_1 = list(mdg.subdomains(dim=1))[0]
+        intf = list(mdg.interfaces())[0]
 
-        d2 = gb.node_props(g2)
-        d1 = gb.node_props(g1)
-        de = gb.edge_props((g1, g2))
+        data_2 = mdg.subdomain_data(sd_2)
+        data_1 = mdg.subdomain_data(sd_1)
+        data_intf = mdg.interface_data(intf)
 
-        zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
+        zero_mat = self.block_matrix([sd_2, sd_1, intf])
 
-        lam = np.arange(de["mortar_grid"].num_cells)
-        de[pp.PARAMETERS] = {"transport": {"darcy_flux": lam}}
-        de[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
+        lam = np.arange(intf.num_cells)
+        data_intf[pp.PARAMETERS] = {"transport": {"darcy_flux": lam}}
+        data_intf[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         upwind_coupler = pp.UpwindCoupling("transport")
-        upwind_coupler.discretize(g2, g1, d2, d1, de)
+        upwind_coupler.discretize(sd_2, sd_1, intf, data_2, data_1, data_intf)
 
-        matrix, _ = upwind_coupler.assemble_matrix_rhs(g2, g1, d2, d1, de, zero_mat)
+        matrix, _ = upwind_coupler.assemble_matrix_rhs(sd_2, sd_1, intf, data_2, data_1, data_intf, zero_mat)
 
         matrix_2 = np.array(
             [
@@ -993,24 +994,24 @@ class TestUpwindCoupling(unittest.TestCase):
         # 1D grid to 2D grid. The upwind weighting should in this case choose the
         # 1D cell variables as weights
 
-        gb = self.generate_grid()
-        g2 = gb.grids_of_dimension(2)[0]
-        g1 = gb.grids_of_dimension(1)[0]
+        mdg = self.generate_grid()
+        sd_2 = list(mdg.subdomains(dim=2))[0]
+        sd_1 = list(mdg.subdomains(dim=1))[0]
+        intf = list(mdg.interfaces())[0]
 
-        d2 = gb.node_props(g2)
-        d1 = gb.node_props(g1)
-        de = gb.edge_props((g1, g2))
+        data_2 = mdg.subdomain_data(sd_2)
+        data_1 = mdg.subdomain_data(sd_1)
+        data_intf = mdg.interface_data(intf)
+        zero_mat = self.block_matrix([sd_2, sd_1, intf])
 
-        zero_mat = self.block_matrix([g2, g1, de["mortar_grid"]])
-
-        lam = np.arange(de["mortar_grid"].num_cells)
-        de[pp.PARAMETERS] = {"transport": {"darcy_flux": -lam}}
-        de[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
+        lam = np.arange(intf.num_cells)
+        data_intf[pp.PARAMETERS] = {"transport": {"darcy_flux": -lam}}
+        data_intf[pp.DISCRETIZATION_MATRICES] = {"transport": {}}
 
         upwind_coupler = pp.UpwindCoupling("transport")
 
-        upwind_coupler.discretize(g2, g1, d2, d1, de)
-        matrix, _ = upwind_coupler.assemble_matrix_rhs(g2, g1, d2, d1, de, zero_mat)
+        upwind_coupler.discretize(sd_2, sd_1, intf, data_2, data_1, data_intf)
+        matrix, _ = upwind_coupler.assemble_matrix_rhs(sd_2, sd_1, intf, data_2, data_1, data_intf, zero_mat)
 
         matrix_2 = np.array(
             [

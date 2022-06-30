@@ -33,10 +33,11 @@ def compare_dicts(d1, d2):
 class FlowModel(pp.IncompressibleFlow):
     def create_grid(self):
         if self.params["n_fracs"] == 1:
-            self.gb, self.box = pp.grid_buckets_2d.single_horizontal()
+            self.mdg, self.box = pp.grid_buckets_2d.single_horizontal()
         elif self.params["n_fracs"] == 2:
-            self.gb, self.box = pp.grid_buckets_2d.two_intersecting()
-        pp.contact_conditions.set_projections(self.gb)
+            self.mdg, self.box = pp.grid_buckets_2d.two_intersecting()
+        pp.contact_conditions.set_projections(self.mdg)
+
 
 def test_incompressible_flow_model_no_modification():
     """Test that the raw incompressible flow model with no modifications can be run with
@@ -45,6 +46,7 @@ def test_incompressible_flow_model_no_modification():
     """
     model = pp.IncompressibleFlow({"use_ad": True})
     pp.run_stationary_model(model, {})
+
 
 @pytest.mark.parametrize(
     "n_fracs",
@@ -68,14 +70,14 @@ def test_prepare_simulation(model, n_fracs):
     num_dofs = 0
     # Loop over dictionaries and assert that the correct sets of variables,
     # parameters, initial values are present
-    for g, d in model.gb:
-        var_list = d[pp.PRIMARY_VARIABLES].keys()
+    for sd, data in model.mdg.subdomains(return_data=True):
+        var_list = data[pp.PRIMARY_VARIABLES].keys()
         compare_keywords(var_list, ["p"])
 
-        known_initial = {"p": np.zeros(g.num_cells)}
-        state = d[pp.STATE].copy().pop(pp.ITERATE)
+        known_initial = {"p": np.zeros(sd.num_cells)}
+        state = data[pp.STATE].copy().pop(pp.ITERATE)
         compare_dicts(state, known_initial)
-        compare_dicts(d[pp.STATE][pp.ITERATE], known_initial)
+        compare_dicts(data[pp.STATE][pp.ITERATE], known_initial)
 
         param_list = [
             "bc",
@@ -85,29 +87,28 @@ def test_prepare_simulation(model, n_fracs):
             "second_order_tensor",
             "ambient_dimension",
         ]
-        if g.dim > 0:
+        if sd.dim > 0:
             param_list += [
                 "active_cells",
                 "active_faces",
             ]
-        compare_keywords(d[pp.PARAMETERS]["flow"].keys(), param_list)
+        compare_keywords(data[pp.PARAMETERS]["flow"].keys(), param_list)
 
-        num_dofs += g.num_cells
+        num_dofs += sd.num_cells
 
-    for e, d in model.gb.edges():
-        var_list = list(d[pp.PRIMARY_VARIABLES].keys())
+    for intf, data in model.mdg.interfaces(return_data=True):
+        var_list = list(data[pp.PRIMARY_VARIABLES].keys())
         compare_keywords(var_list, ["mortar_p"])
 
-        mg = d["mortar_grid"]
-        known_initial = {"mortar_p": np.zeros(mg.num_cells)}
-        state = d[pp.STATE].copy().pop(pp.ITERATE)
+        known_initial = {"mortar_p": np.zeros(intf.num_cells)}
+        state = data[pp.STATE].copy().pop(pp.ITERATE)
         compare_dicts(state, known_initial)
-        compare_dicts(d[pp.STATE][pp.ITERATE], known_initial)
+        compare_dicts(data[pp.STATE][pp.ITERATE], known_initial)
 
         param_list = ["vector_source", "normal_diffusivity", "ambient_dimension"]
-        compare_keywords(d[pp.PARAMETERS]["flow"].keys(), param_list)
+        compare_keywords(data[pp.PARAMETERS]["flow"].keys(), param_list)
 
-        num_dofs += mg.num_cells
+        num_dofs += intf.num_cells
 
     assert model.dof_manager.num_dofs() == num_dofs
     equations = ["subdomain_flow", "interface_flow"]
@@ -126,13 +127,13 @@ def test_dimension_reduction(model, n_fracs):
     params = {"n_fracs": n_fracs}
     model = FlowModel(params)
     model.prepare_simulation()
-    for g, d in model.gb:
-        aperture = np.ones(g.num_cells)
-        if g.dim < model.gb.dim_max():
+    for sd in model.mdg.subdomains():
+        aperture = np.ones(sd.num_cells)
+        if sd.dim < model.mdg.dim_max():
             aperture *= 0.1
-        assert np.all(np.isclose(model._aperture(g), aperture))
-        specific_volume = np.power(aperture, model.gb.dim_max() - g.dim)
-        assert np.all(np.isclose(model._specific_volume(g), specific_volume))
+        assert np.all(np.isclose(model._aperture(sd), aperture))
+        specific_volume = np.power(aperture, model.mdg.dim_max() - sd.dim)
+        assert np.all(np.isclose(model._specific_volume(sd), specific_volume))
 
 
 @pytest.fixture

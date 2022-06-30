@@ -1,17 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  8 13:37:55 2017
-
-@author: eke001
-"""
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Nov  5 11:19:02 2017
-
-@author: eke001
+"""Test merging of grids
 """
 import unittest
 

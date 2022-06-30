@@ -14,19 +14,16 @@ WARNING: This should be considered experimental code and should be used with
     The code structure for fracture propagation cannot be considered fixed, and it
     may be fundamentally restructured at unknown points in the future. If you use
     this functionality, please notify the maintainers (preferrably by an email to
-    Eirik.Keilegavlen@uib.no),so that we may keep your usecases in mind if a major
+    Eirik.Keilegavlen@uib.no), so that we may keep your usecases in mind if a major
     overhaul of the code is undertaken.
 
 """
 import abc
-from typing import Dict
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-
-module_sections = ["grids", "numerics", "models"]
 
 
 class FracturePropagation(abc.ABC):
@@ -53,16 +50,14 @@ class FracturePropagation(abc.ABC):
     """
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def __init__(self, assembler):
         # Abtract init, aimed at appeasing mypy. In practice, these attributes should
         # come from combining this class with a mechanical model.
         self.assembler = assembler
-        self.gb = self.assembler.gb
-        self._Nd = self.gb.dim_max()
+        self.mdg = self.assembler.mdg
+        self._Nd = self.mdg.dim_max()
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def evaluate_propagation(self) -> None:
         """Evaluate propagation of fractures based on the current solution.
 
@@ -71,13 +66,11 @@ class FracturePropagation(abc.ABC):
         """
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def has_propagated(self) -> bool:
         """Should return True if fractures were propagated in the previous step."""
 
-    @pp.time_logger(sections=module_sections)
     def _initialize_new_variable_values(
-        self, g: pp.Grid, d: Dict, var: str, dofs: Dict[str, int]
+        self, sd: pp.Grid, d: dict, var: str, dofs: dict[str, int]
     ) -> np.ndarray:
         """
         Initialize a new variable field with the right size for a new variable.
@@ -114,7 +107,6 @@ class FracturePropagation(abc.ABC):
         vals = np.zeros(n_new * cell_dof)
         return vals
 
-    @pp.time_logger(sections=module_sections)
     def _map_variables(self, x: np.ndarray) -> np.ndarray:
         """
         Map variables from old to new grids in d[pp.STATE] and d[pp.STATE][pp.ITERATE].
@@ -142,19 +134,20 @@ class FracturePropagation(abc.ABC):
         """
         # Obtain old solution vector. The values are extracted in the first two loops
         # and mapped and updated in the last two, after update_dof_count has been called.
-        for g, d in self.gb:
+        for sd, data in self.mdg.subdomains(return_data=True):
+
             # First check if cells and faces have been updated, by checking if index maps are
             # available. If this is not the case, there is no need to map variables.
-            if not ("cell_index_map" in d and "face_index_map" in d):
+            if not ("cell_index_map" in data and "face_index_map" in data):
                 continue
 
-            cell_map: sps.spmatrix = d["cell_index_map"]
+            cell_map: sps.spmatrix = data["cell_index_map"]
 
-            d[pp.STATE]["old_solution"] = {}
-            for var, dofs in d[pp.PRIMARY_VARIABLES].items():
+            data[pp.STATE]["old_solution"] = {}
+            for var, dofs in data[pp.PRIMARY_VARIABLES].items():
                 # Copy old solution vector values
-                d[pp.STATE]["old_solution"][var] = x[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(g, var)
+                data[pp.STATE]["old_solution"][var] = x[
+                    self.assembler._dof_manager.grid_and_variable_to_dofs(sd, var)
                 ]
 
                 # Only cell-based dofs have been considered so far.
@@ -171,34 +164,34 @@ class FracturePropagation(abc.ABC):
 
                 # Map old solution
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                d[pp.STATE][var] = mapping * d[pp.STATE][var]
+                data[pp.STATE][var] = mapping * data[pp.STATE][var]
 
                 # Initialize new values
                 new_ind = self._new_dof_inds(mapping)
-                new_vals = self._initialize_new_variable_values(g, d, var, dofs)
-                d[pp.STATE][var][new_ind] = new_vals
+                new_vals = self._initialize_new_variable_values(sd, data, var, dofs)
+                data[pp.STATE][var][new_ind] = new_vals
 
                 # Repeat for iterate:
-                if var in d[pp.STATE][pp.ITERATE].keys():
-                    d[pp.STATE][pp.ITERATE][var] = (
-                        mapping * d[pp.STATE][pp.ITERATE][var]
+                if var in data[pp.STATE][pp.ITERATE].keys():
+                    data[pp.STATE][pp.ITERATE][var] = (
+                        mapping * data[pp.STATE][pp.ITERATE][var]
                     )
-                    d[pp.STATE][pp.ITERATE][var][new_ind] = new_vals
+                    data[pp.STATE][pp.ITERATE][var][new_ind] = new_vals
 
-        for e, d in self.gb.edges():
+        for intf, data in self.mdg.interfaces(return_data=True):
 
             # Check if the mortar grid geometry has been updated.
-            if "cell_index_map" not in d:
+            if "cell_index_map" not in data:
                 # No need to do anything
                 continue
 
-            d[pp.STATE]["old_solution"] = {}
-            cell_map = d["cell_index_map"]
+            data[pp.STATE]["old_solution"] = {}
+            cell_map = data["cell_index_map"]
 
-            for var, dofs in d[pp.PRIMARY_VARIABLES].items():
+            for var, dofs in data[pp.PRIMARY_VARIABLES].items():
                 # Copy old solution vector values
-                d[pp.STATE]["old_solution"][var] = x[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(e, var)
+                data[pp.STATE]["old_solution"][var] = x[
+                    self.assembler._dof_manager.grid_and_variable_to_dofs(intf, var)
                 ]
 
                 # Only cell-based dofs have been considered so far.
@@ -206,19 +199,19 @@ class FracturePropagation(abc.ABC):
 
                 # Map old solution
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                d[pp.STATE][var] = mapping * d[pp.STATE][var]
+                data[pp.STATE][var] = mapping * data[pp.STATE][var]
 
                 # Initialize new values
                 new_ind = self._new_dof_inds(mapping)
-                new_vals = self._initialize_new_variable_values(e, d, var, dofs)
-                d[pp.STATE][var][new_ind] = new_vals
+                new_vals = self._initialize_new_variable_values(intf, data, var, dofs)
+                data[pp.STATE][var][new_ind] = new_vals
 
                 # Repeat for iterate
-                if var in d[pp.STATE][pp.ITERATE].keys():
-                    d[pp.STATE][pp.ITERATE][var] = (
-                        mapping * d[pp.STATE][pp.ITERATE][var]
+                if var in data[pp.STATE][pp.ITERATE].keys():
+                    data[pp.STATE][pp.ITERATE][var] = (
+                        mapping * data[pp.STATE][pp.ITERATE][var]
                     )
-                    d[pp.STATE][pp.ITERATE][var][new_ind] = new_vals
+                    data[pp.STATE][pp.ITERATE][var][new_ind] = new_vals
 
         # Update the assembler's counting of dofs
         self.assembler.update_dof_count()
@@ -226,52 +219,52 @@ class FracturePropagation(abc.ABC):
         x_new = np.zeros(self.assembler.num_dof())
         # For each grid-variable pair, map old solution and initialize for new
         # DOFs.
-        for g, d in self.gb:
+        for sd, data in self.mdg.subdomains(return_data=True):
             # Check if there has been updates to this grid.
-            if not ("cell_index_map" in d and "face_index_map" in d):
+            if not ("cell_index_map" in data and "face_index_map" in data):
                 continue
 
-            cell_map = d["cell_index_map"]
+            cell_map = data["cell_index_map"]
 
-            for var, dofs in d[pp.PRIMARY_VARIABLES].items():
+            for var, dofs in data[pp.PRIMARY_VARIABLES].items():
                 # Update consist of two parts: First map the old solution to the new
                 # grid, second populate newly formed cells.
 
                 # Mapping of old variables
                 cell_dof = dofs.get("cells")
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                x_new[self.assembler._dof_manager.grid_and_variable_to_dofs(g, var)] = (
-                    mapping * d[pp.STATE]["old_solution"][var]
-                )
+                x_new[
+                    self.assembler._dof_manager.grid_and_variable_to_dofs(sd, var)
+                ] = (mapping * data[pp.STATE]["old_solution"][var])
 
                 # Index of newly formed variables
                 new_ind = self._new_dof_inds(mapping)
                 # Values of newly formed variables
-                new_vals = self._initialize_new_variable_values(g, d, var, dofs)
+                new_vals = self._initialize_new_variable_values(sd, data, var, dofs)
                 # Update newly formed variables
                 x_new[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(g, var)[
+                    self.assembler._dof_manager.grid_and_variable_to_dofs(sd, var)[
                         new_ind
                     ]
                 ] = new_vals
 
-        for e, d in self.gb.edges():
-            # Same procedure as for nodes, see above for comments
-            if "cell_index_map" not in d:
+        for intf, data in self.mdg.interfaces(return_data=True):
+            # Same procedure as for subdomains, see above for comments
+            if "cell_index_map" not in data:
                 continue
 
-            cell_map = d["cell_index_map"]
+            cell_map = data["cell_index_map"]
 
-            for var, dofs in d[pp.PRIMARY_VARIABLES].items():
+            for var, dofs in data[pp.PRIMARY_VARIABLES].items():
                 cell_dof = dofs.get("cells")
                 mapping = sps.kron(cell_map, sps.eye(cell_dof))
-                x_new[self.assembler._dof_manager.grid_and_variable_to_dofs(e, var)] = (
-                    mapping * d[pp.STATE]["old_solution"][var]
-                )
-                new_ind = self._new_dof_inds(mapping)
-                new_vals = self._initialize_new_variable_values(e, d, var, dofs)
                 x_new[
-                    self.assembler._dof_manager.grid_and_variable_to_dofs(e, var)[
+                    self.assembler._dof_manager.grid_and_variable_to_dofs(intf, var)
+                ] = (mapping * data[pp.STATE]["old_solution"][var])
+                new_ind = self._new_dof_inds(mapping)
+                new_vals = self._initialize_new_variable_values(intf, data, var, dofs)
+                x_new[
+                    self.assembler._dof_manager.grid_and_variable_to_dofs(intf, var)[
                         new_ind
                     ]
                 ] = new_vals
@@ -279,7 +272,6 @@ class FracturePropagation(abc.ABC):
         # Store the mapped solution vector
         return x_new
 
-    @pp.time_logger(sections=module_sections)
     def _new_dof_inds(self, mapping: sps.spmatrix) -> np.ndarray:
         """
         The new DOFs/geometric entities are those which do not correspond to an

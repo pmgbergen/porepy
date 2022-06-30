@@ -7,14 +7,16 @@ The module is intended to give access to a set of unified
 To access the quantities, invoke pp.KEY.
 
 IMPLEMENTATION NOTE: This module may in the future be moved to an appropriate
-submodule. The access via pp.will remain.
+submodule. The access via pp. will remain.
 
 """
+from __future__ import annotations
 
 """ Global keywords
 
 Define unified keywords used throughout the software.
 """
+
 # Used in data dictionary to identify discretization objects internally to a
 # grid or mortar grid
 DISCRETIZATION = "discretization"
@@ -23,7 +25,7 @@ DISCRETIZATION = "discretization"
 # between grids and mortar grids
 COUPLING_DISCRETIZATION = "coupling_discretization"
 
-# Used in data dictionary to declear and keep track of primary variables
+# Used in data dictionary to declare and keep track of primary variables
 PRIMARY_VARIABLES = "primary_variables"
 
 # Used in data dictionary to store parameters for discretizations
@@ -79,11 +81,11 @@ GRAVITY_ACCELERATION = 9.80665 * METER / SECOND**2
 CELSIUS = 1.0
 
 
-def CELSIUS_to_KELVIN(celsius):
+def CELSIUS_to_KELVIN(celsius: float) -> float:
     return celsius + 273.15
 
 
-def KELVIN_to_CELSIUS(kelvin):
+def KELVIN_to_CELSIUS(kelvin: float) -> float:
     return kelvin - 273.15
 
 

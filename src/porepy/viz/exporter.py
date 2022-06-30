@@ -1,13 +1,12 @@
 """
 Module for exporting to vtu for (e.g. ParaView) visualization using the vtk module.
 
-The Exporter class contains methods for exporting a grid or grid bucket with
-associated data to the vtu format. For grid buckets with multiple grids, one
+The Exporter class contains methods for exporting a single grid or mixed-dimensional
+with associated data to the vtu format. For mixed-dimensional grids, one
 vtu file is printed for each grid. For transient simulations with multiple
 time steps, a single pvd file takes care of the ordering of all printed vtu
 files.
 """
-import logging
 import os
 import sys
 from collections import namedtuple
@@ -17,11 +16,6 @@ import meshio
 import numpy as np
 
 import porepy as pp
-
-# Module-wide logger
-logger = logging.getLogger(__name__)
-
-# Introduce types used below
 
 # Object type to store data to export.
 Field = namedtuple("Field", ["name", "values"])
@@ -268,7 +262,6 @@ class Exporter:
                 the file corresponding to this specific time step.
             gb (Union[pp.Grid, pp.Gridbucket], optional): grid or gridbucket
                 if it is not fixed and should be updated.
-
         """
 
         # Update the grid (bucket) but only if allowed, i.e., the initial grid
@@ -1165,11 +1158,11 @@ class Exporter:
         if dim == 0:
             return None
         elif dim == 1:
-            return self._export_1d(gs)
+            return self._export_grid_1d(grids)
         elif dim == 2:
-            return self._export_2d(gs)
+            return self._export_grid_2d(grids)
         elif dim == 3:
-            return self._export_3d(gs)
+            return self._export_grid_3d(grids)
         else:
             raise ValueError(f"Unknown dimension {dim}")
 

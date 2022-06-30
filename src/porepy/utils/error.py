@@ -1,29 +1,32 @@
+from __future__ import annotations
+
 import logging
-from typing import Dict, List
+from typing import Callable, Dict, List, Union
 
 import numpy as np
 
 import porepy as pp
 
 logger = logging.getLogger(__name__)
+GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
 def grid_error(
-    gb: "pp.GridBucket",
-    gb_ref: "pp.GridBucket",
+    mdg: pp.MixedDimensionalGrid,
+    mdg_ref: pp.MixedDimensionalGrid,
     variable: List[str],
     variable_dof: List[int],
 ) -> dict:
     """Compute grid errors a grid bucket and refined reference grid bucket
 
-    Assumes that the coarse grid bucket has a node property
-    'coarse_fine_cell_mapping' assigned on each grid, which
+    Assumes that the coarse grid bucket has a property
+    'coarse_fine_cell_mapping' assigned on each subdomain, which
     maps from coarse to fine cells according to the method
     'coarse_fine_cell_mapping(...)'.
 
     Parameters
     ----------
-    gb, gb_ref : pp.GridBucket
+    mdg, mdg_ref : pp.MixedDimensionalGrid
         Coarse and fine grid buckets, respectively
     variable : List[str]
         which variables to compute error over
@@ -44,17 +47,17 @@ def grid_error(
 
     errors: Dict = {}
 
-    grids = gb.get_grids()
-    grids_ref = gb_ref.get_grids()
+    grids = list(mdg.subdomains())
+    grids_ref = list(mdg_ref.subdomains())
     n_grids = len(grids)
 
     for i in np.arange(n_grids):
         g, g_ref = grids[i], grids_ref[i]
-        mapping = gb.node_props(g, "coarse_fine_cell_mapping")
+        mapping = mdg.subdomain_data(g)["coarse_fine_cell_mapping"]
 
         # Get states
-        data = gb.node_props(g)
-        data_ref = gb_ref.node_props(g_ref)
+        data = mdg.subdomain_data(g)
+        data_ref = mdg_ref.subdomain_data(g_ref)
         states = data[pp.STATE]
         states_ref = data_ref[pp.STATE]
 
@@ -114,7 +117,7 @@ def grid_error(
     return errors
 
 
-def interpolate(g, fun):
+def interpolate(g: GridLike, fun: Callable):
     """
     Interpolate a scalar or vector function on the cell centers of the grid.
 
@@ -146,16 +149,16 @@ def interpolate(g, fun):
     return np.array([fun(pt) for pt in g.cell_centers.T]).T
 
 
-def norm_L2(g, val):
+def norm_L2(g: GridLike, val: np.ndarray):
     """
     Compute the L2 norm of a scalar or vector field.
 
     Parameters
     ----------
-    g : grid
+    g:
         Grid, or a subclass, with geometry fields computed.
-    val : np.ndarray (dim of val, g.num_cells)
-        Scalar or vector field.
+    val:
+        Scalar or vector field (dim of val = g.num_cells).
 
     Return
     ------
@@ -178,7 +181,7 @@ def norm_L2(g, val):
     return np.sqrt(np.sum([norm_sq(v) for v in val]))
 
 
-def error_L2(g, val, val_ex, relative=True):
+def error_L2(g: GridLike, val: np.ndarray, val_ex: np.ndarray, relative: bool = True):
     """
     Compute the L2 error of a scalar or vector field with respect to a reference
     field. It is possible to compute the relative error (default) or the

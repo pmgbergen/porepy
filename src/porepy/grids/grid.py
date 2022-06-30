@@ -33,7 +33,7 @@ class Grid:
     This will be introduced later.
 
     Attributes:
-        Comes in tthree classes. Topologogical information, defined at
+        Comes in three classes. Topological information, defined at
         construction time:
 
         dim (int): dimension. Should be 0 or 1 or 2 or 3
@@ -56,7 +56,7 @@ class Grid:
         ---
 
         Geometric information, obtained by call to compute_geometry():
-        Assumes the nodes of each face are ordered according to the right
+        Assumes the nodes of each face are ordered according to the right-
         hand rule.
         face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]
         are the nodes of face i, which should be ordered counter-clockwise.
@@ -79,7 +79,7 @@ class Grid:
 
         ----
 
-        Other fieds: These may only be assigned to certain grids, use with
+        Other fields: These may only be assigned to certain grids, use with
         caution:
 
         frac_num (int): Index of the fracture the grid corresponds to. Take
@@ -275,7 +275,7 @@ class Grid:
             self._compute_geometry_3d()
 
     def _compute_geometry_0d(self) -> None:
-        "Compute 0D geometry"
+        """Compute 0D geometry"""
         self.face_areas = np.zeros(0)
         self.face_centers = self.nodes
         self.face_normals = np.zeros((3, 0))  # not well-defined
@@ -287,7 +287,7 @@ class Grid:
         # self.cell_centers = self.cell_centers
 
     def _compute_geometry_1d(self) -> None:
-        "Compute 1D geometry"
+        """Compute 1D geometry"""
 
         self.face_areas = np.ones(self.num_faces)
 
@@ -320,7 +320,7 @@ class Grid:
         v = fc - cc
         # Prolong the vector from cell to face center in the direction of the
         # normal vector. If the prolonged vector is shorter, the normal should
-        # flipped
+        # be flipped
         vn = v + nrm(v) * self.face_normals[:, fi[idx]] * 0.001
         flip = np.logical_or(
             np.logical_and(nrm(v) > nrm(vn), sgn > 0),
@@ -329,7 +329,7 @@ class Grid:
         self.face_normals[:, flip] *= -1
 
     def _compute_geometry_2d(self) -> None:
-        "Compute 2D geometry, with method motivated by similar MRST function"
+        """Compute 2D geometry, with method motivated by similar MRST function"""
 
         R = pp.map_geometry.project_plane_matrix(self.nodes)
         self.nodes = np.dot(R, self.nodes)
@@ -389,7 +389,7 @@ class Grid:
         v = fc - cc
         # Prolong the vector from cell to face center in the direction of the
         # normal vector. If the prolonged vector is shorter, the normal should
-        # flipped
+        # be flipped
         vn = (
             v
             + nrm(v) * self.face_normals[:, fi[idx]] / self.face_areas[fi[idx]] * 0.001
@@ -430,7 +430,7 @@ class Grid:
         )
 
         # Index of next node on the edge list. Note that this assumes the
-        # elements in face_nodes is stored in an ordered fasion
+        # elements in face_nodes is stored in an ordered fashion
         next_node = np.arange(num_face_nodes) + 1
         # Close loops, for face i, the next node is the first of face i
         next_node[face_node_ptr[1:] - 1] = face_node_ptr[:-1]
@@ -582,15 +582,15 @@ class Grid:
 
         # Volumes of tetrahedra are now given by the dot product between the
         #  outer normal (which is area weighted, and thus represent the base
-        #  of the tet), with the distancance from temporary cell center (the
-        # dot product gives the hight).
+        #  of the tet), with the distance from temporary cell center (the
+        # dot product gives the height).
         tet_volumes = np.sum(dist_cellcenter_subface * outer_normals, axis=0) / 3
 
         # Sometimes the sub-tet volumes can have a volume of numerical zero.
         # Why this is so is not clear, but for the moment, we allow for a
         # slightly negative value.
         if not np.all(tet_volumes > -1e-12):  # On the fly test
-            raise ValueError("Some tets have negative volume")
+            raise ValueError("Some tetrahedra have negative volume")
 
         # The cell volumes are now found by summing sub-tetrahedra
         cell_volumes = np.bincount(cell_numbers, weights=tet_volumes)
@@ -630,7 +630,7 @@ class Grid:
 
     def get_internal_nodes(self) -> np.ndarray:
         """
-        Get internal nodes id of the grid.
+        Get internal node ids of the grid.
 
         Returns:
             np.ndarray (1D), index of internal nodes.
@@ -663,7 +663,7 @@ class Grid:
 
     def get_internal_faces(self) -> np.ndarray:
         """
-        Get internal faces id of the grid
+        Get internal face ids of the grid
 
         Returns:
             np.ndarray (1d), index of internal faces.
@@ -745,7 +745,7 @@ class Grid:
 
         Parameters:
             cn (optional): cell nodes map, previously already computed.
-            Otherwise a call to self.cell_nodes is provided.
+            Otherwise, a call to self.cell_nodes is provided.
 
         Returns:
             np.array, num_cells: values of the cell diameter for each cell
@@ -775,7 +775,7 @@ class Grid:
 
     def cell_face_as_dense(self) -> np.ndarray:
         """
-        Obtain the cell-face relation in the from of two rows, rather than a
+        Obtain the cell-face relation in the form of two rows, rather than a
         sparse matrix. This alternative format can be useful in some cases.
 
         Each column in the array corresponds to a face, and the elements in
@@ -860,21 +860,6 @@ class Grid:
         sgn, ci = sgn[fi_sorted], ci[fi_sorted]
         sgn, ci = sgn[IC], ci[IC]
         return sgn, ci
-
-    def bounding_box(self) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Return the bounding box of the grid.
-
-        Returns:
-            np.array (size 3): Minimum node coordinates in each direction.
-            np.array (size 3): Maximum node coordinates in each direction.
-
-        """
-        if self.dim == 0:
-            coords = self.cell_centers
-        else:
-            coords = self.nodes
-        return np.amin(coords, axis=1), np.amax(coords, axis=1)
 
     def closest_cell(
         self, p: np.ndarray, return_distance: bool = False

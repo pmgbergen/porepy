@@ -55,7 +55,7 @@ We immediately observe that the n-dimensional "points", the structure
 contains true points in 2 or 3 dimensions, and rectangles or
 parallelepipeds, which can be represented by "points" in 4 and 6
 dimensions, with the writing (xmin, ymin, zmin, xmax, ymax, zmax).
-Other geometical objects are represented by their bounding box.
+Other geometrical objects are represented by their bounding box.
 To avoid floating point problems, all the "points" are rescaled in [0, 1].
 
 A search in the tree gives a list of all possible nodes that may
@@ -93,7 +93,6 @@ class ADTNode:
         Parameters:
             key (Any): The key associated to the node
             box (np.ndarray): The bounding box of the node
-            dim (int): Physical dimension of the object
         """
         self.key: Any = key
         self.box: np.ndarray = np.atleast_1d(np.asarray(box))
@@ -146,7 +145,7 @@ class ADTree:
         nodes (list): the list of nodes as ADTNode
         region_min (float): to scale the bounding box of all the elements in [0, 1]^phys_dim
             we need the minimum corner point of the all region
-        delta (float): a paramenter to scale and get all the bounding box of the elements in
+        delta (float): a parameter to scale and get all the bounding box of the elements in
             [0, 1]^phys_dim
         LEFT (int): define the index of the left child, being equal to 0
         RIGHT (int): define the index of the right child, being equal to 1
@@ -358,7 +357,7 @@ class ADTree:
 
         """
         self.g = g
-        # Get the goemetrical informations cell to nodes
+        # Get the geometrical information cell-to-nodes
         g_cell_nodes = self.g.cell_nodes()
         g_nodes, g_cells, _ = sps.find(g_cell_nodes)
 

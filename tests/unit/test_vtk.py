@@ -10,6 +10,7 @@ import os
 import unittest
 
 import numpy as np
+
 import porepy as pp
 
 class MeshioExporterTest(unittest.TestCase):
@@ -23,12 +24,12 @@ class MeshioExporterTest(unittest.TestCase):
         second = data.find("-->")
         return data[:first] + data[second:]
 
-    def test_single_grid_1d(self):
-        g = pp.CartGrid(3, 1)
-        g.compute_geometry()
+    def test_single_subdomain_1d(self):
+        sd = pp.CartGrid(3, 1)
+        sd.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+        dummy_scalar = np.ones(sd.num_cells) * sd.dim
+        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
             g,
@@ -41,34 +42,14 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_grid_1d_grid_vtu())
+        self.assertTrue(content == self._single_subdomain_1d_vtu())
 
-    def test_single_grid_2d_simplex(self):
-        g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
-        g.compute_geometry()
+    def test_single_subdomain_2d_simplex_grid(self):
+        sd = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
+        sd.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
-
-        save = pp.Exporter(
-            g,
-            self.file_name,
-            self.folder,
-            binary=False,
-            export_constants_separately = False
-        )
-        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
-        with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
-            content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_grid_2d_simplex_grid_vtu())
-
-    def test_single_grid_2d_cart(self):
-        g = pp.CartGrid([4] * 2, [1] * 2)
-        g.compute_geometry()
-
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+        dummy_scalar = np.ones(sd.num_cells) * sd.dim
+        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
             g,
@@ -81,16 +62,44 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_grid_2d_cart_grid_vtu())
+        self.assertTrue(content == self._single_subdomain_2d_simplex_grid_vtu())
+
+    def test_single_subdomain_2d_cart_grid(self):
+        sd = pp.CartGrid([4] * 2, [1] * 2)
+        sd.compute_geometry()
+
+        dummy_scalar = np.ones(sd.num_cells) * sd.dim
+        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
+
+        save = pp.Exporter(
+            g,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
+        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
+
+        with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
+            content = self.sliceout(content_file.read())
+        self.assertTrue(content == self._single_subdomain_2d_cart_grid_vtu())
 
     def test_single_grid_2d_polytop(self):
         g = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
         g.compute_geometry()
         pp.coarsening.generate_coarse_grid(g, [0, 1, 3, 3, 1, 1, 2, 2])
         g.compute_geometry()
+# TODO try out both Structured TriangleGrid and CartGrid
+#=======
+#    def test_single_subdomain_2d_polytop_grid(self):
+#        sd = pp.CartGrid([3, 2], [1] * 2)
+#        sd.compute_geometry()
+#        pp.coarsening.generate_coarse_grid(sd, [0, 0, 1, 0, 1, 1])
+#        sd.compute_geometry()
+#>>>>>>> upstream/grid_tree
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+        dummy_scalar = np.ones(sd.num_cells) * sd.dim
+        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
             g,
@@ -103,34 +112,14 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_grid_2d_polytop_grid_vtu())
+        self.assertTrue(content == self._single_subdomain_2d_polytop_grid_vtu())
 
-    def test_single_grid_3d_simplex(self):
-        g = pp.StructuredTetrahedralGrid([3] * 3, [1] * 3)
-        g.compute_geometry()
+    def test_single_subdomain_3d_simplex_grid(self):
+        sd = pp.StructuredTetrahedralGrid([3] * 3, [1] * 3)
+        sd.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
-
-        save = pp.Exporter(
-            g,
-            self.file_name,
-            self.folder,
-            binary=False,
-            export_constants_separately = False
-        )
-        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
-        with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
-            content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_grid_3d_simplex_grid_vtu())
-
-    def test_single_grid_3d_cart(self):
-        g = pp.CartGrid([4] * 3, [1] * 3)
-        g.compute_geometry()
-
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+        dummy_scalar = np.ones(sd.num_cells) * sd.dim
+        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
             g,
@@ -143,18 +132,38 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_grid_3d_cart_grid_vtu())
+        self.assertTrue(content == self._single_subdomain_3d_simplex_grid_vtu())
 
-    def test_single_grid_3d_polytop(self):
-        g = pp.CartGrid([3, 2, 3], [1] * 3)
-        g.compute_geometry()
+    def test_single_subdomain_3d_cart_grid(self):
+        sd = pp.CartGrid([4] * 3, [1] * 3)
+        sd.compute_geometry()
+
+        dummy_scalar = np.ones(sd.num_cells) * sd.dim
+        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
+
+        save = pp.Exporter(
+            g,
+            self.file_name,
+            self.folder,
+            binary=False,
+            export_constants_separately = False
+        )
+        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
+
+        with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
+            content = self.sliceout(content_file.read())
+        self.assertTrue(content == self._single_subdomain_3d_cart_grid_vtu())
+
+    def test_single_subdomain_3d_polytop_grid(self):
+        sd = pp.CartGrid([3, 2, 3], [1] * 3)
+        sd.compute_geometry()
         pp.coarsening.generate_coarse_grid(
-            g, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
+            sd, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
         )
-        g.compute_geometry()
+        sd.compute_geometry()
 
-        dummy_scalar = np.ones(g.num_cells) * g.dim
-        dummy_vector = np.ones((3, g.num_cells)) * g.dim
+        dummy_scalar = np.ones(sd.num_cells) * sd.dim
+        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
 
         save = pp.Exporter(
             g,
@@ -173,14 +182,12 @@ class MeshioExporterTest(unittest.TestCase):
     def test_gb_1(self):
         gb, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
 
-        gb.add_node_props(["scalar_dummy", "dummy_vector"])
-
-        for g, d in gb:
+        for sd, sd_data in mdg.subdomains(return_data=True):
             pp.set_state(
-                d,
+                sd_data,
                 {
-                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
-                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+                    "dummy_scalar": np.ones(sd.num_cells) * sd.dim,
+                    "dummy_vector": np.ones((3, sd.num_cells)) * sd.dim,
                 },
             )
 
@@ -195,39 +202,37 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_1_grid_1_vtu())
+        self.assertTrue(content == self._mdg_1_grid_1_vtu())
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_1_grid_2_vtu())
+        self.assertTrue(content == self._mdg_1_grid_2_vtu())
 
         with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_1_mortar_grid_vtu())
+        self.assertTrue(content == self._mdg_1_mortar_grid_vtu())
 
     # TODO Do we need this test if we have the subsequent one?
-    def test_gb_2(self):
-        gb, _ = pp.grid_buckets_2d.two_intersecting(
+    def test_mdg_2(self):
+        mdg, _ = pp.grid_buckets_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
-        gb.add_node_props(["dummy_scalar", "dummy_vector"])
 
-        for g, d in gb:
+        for sd, sd_data in mdg.subdomains(return_data=True):
             pp.set_state(
-                d,
+                sd_data,
                 {
-                    "dummy_scalar": np.ones(g.num_cells) * g.dim,
-                    "dummy_vector": np.ones((3, g.num_cells)) * g.dim,
+                    "dummy_scalar": np.ones(sd.num_cells) * sd.dim,
+                    "dummy_vector": np.ones((3, sd.num_cells)) * sd.dim,
                 },
             )
 
-        for e, d in gb.edges():
-            g = d["mortar_grid"]
+        for intf, intf_data in mdg.interfaces(return_data=True):
             pp.set_state(
-                d,
+                intf_data,
                 {
-                    "dummy_scalar": np.zeros(g.num_cells),
-                    "unique_dummy_scalar": np.zeros(g.num_cells),
+                    "dummy_scalar": np.zeros(intf.num_cells),
+                    "unique_dummy_scalar": np.zeros(intf.num_cells),
                 },
             )
 
@@ -242,15 +247,15 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_2_grid_1_vtu())
+        self.assertTrue(content == self._mdg_2_grid_1_vtu())
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_2_grid_2_vtu())
+        self.assertTrue(content == self._mdg_2_grid_2_vtu())
 
         with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._gb_2_mortar_grid_1_vtu())
+        self.assertTrue(content == self._mdg_2_mortar_grid_1_vtu())
 
     def test_gb_3(self):
         gb, _ = pp.grid_buckets_2d.two_intersecting(
@@ -384,7 +389,7 @@ class MeshioExporterTest(unittest.TestCase):
     ## Below follows functions that return strings that reproduce the exact output of
     # the test functions at a time when the code was considered trustworthy.
 
-    def _single_grid_1d_grid_vtu(self):
+    def _single_subdomain_1d_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -479,7 +484,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_2d_simplex_grid_vtu(self):
+    def _single_subdomain_2d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -808,7 +813,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_2d_cart_grid_vtu(self):
+    def _single_subdomain_2d_cart_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -1154,7 +1159,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_2d_polytop_grid_vtu(self):
+    def _single_subdomain_2d_polytop_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
@@ -1284,7 +1289,7 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _single_grid_3d_simplex_grid_vtu(self):
+    def _single_subdomain_3d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
 <VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
 <!--This file was created by -->
