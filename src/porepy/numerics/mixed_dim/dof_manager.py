@@ -43,7 +43,8 @@ class DofManager:
         """Set up a DofManager for a mixed-dimensional grid.
 
         Parameters:
-            mdg (pp.MixedDimensionalGrid): MixedDimensionalGrid representing the mixed-dimensional grid.
+            mdg (pp.MixedDimensionalGrid): MixedDimensionalGrid representing the
+                mixed-dimensional grid.
 
         """
 
@@ -133,9 +134,9 @@ class DofManager:
         the output.
 
         Parameters:
-            grids (pp.Grid or pp.MixedDimensionalGrid edge): List of grids, edges (in the MixedDimensionalGrid)
-                or combinations of the two. If not provided, all grids and edges that are
-                assigned variables will be considered.
+            grids (pp.Grid or pp.MixedDimensionalGrid edge): List of grids, edges (in the
+                MixedDimensionalGrid) or combinations of the two. If not provided, all
+            grids and edges that are assigned variables will be considered.
             variables (str): Name of variables. If not provided, all variables assigned
                 to at least one grid or variable will be considered).
             sort_by (str): Should take one of the values 'grids', 'variables' or an empty
@@ -147,8 +148,9 @@ class DofManager:
         Returns:
             Information on the range for grid-variable combinations. The format will
             depend on the value of sort_by: If set to grids, a dictionary with grids as
-            keys will be returned, correspondingly for variables. If not specified, unsorted
-            grid-variable combinations are returned.
+            keys will be returned, correspondingly for variables. If not specified,
+            unsorted grid-variable combinations are returned.
+
             If return_str is True, the information will instead be returned as a string,
             with formatting determined on the value of sort_by.
 
@@ -335,8 +337,8 @@ class DofManager:
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
 
         grids: Sequence[GridLike] = [sd for sd in self.mdg.subdomains()] + [
-            intf for intf in self.mdg.interfaces()
-        ]  # type: ignore
+            intf for intf in self.mdg.interfaces()  # type: ignore
+        ]
         for g in grids:
             for v in var:
                 if (g, v) in self.block_dof:

@@ -350,7 +350,7 @@ class WellNetwork3d:
                     # endpoint of this subline. Last one if we have not added
                     # for the second endpoint, in which case it's the penultimate 0d grid
                     previous_ind = -1 - endp_frac_tags[1]
-                    previous_g_isec = list(mdg.subdomains(dim=self.well_dim - 1))[
+                    previous_g_isec = mdg.subdomains(dim=self.well_dim - 1)[
                         previous_ind
                     ]  # EK, is there a preferred method?
                     _add_well_2_intersection_interface(sd_w, previous_g_isec, mdg)
@@ -464,7 +464,7 @@ def compute_well_rock_matrix_intersections(
     # Extract the dimension of the rock matrix, assumed to be of highest dimension
     dim_max: int = mdg.dim_max()
     # We assume only one single higher dimensional grid, needed for the ADTree
-    sd_max: pp.Grid = list(mdg.subdomains(dim=dim_max))[0]
+    sd_max: pp.Grid = mdg.subdomains(dim=dim_max)[0]
     # Construct an ADTree for fast computation
     tree = pp.adtree.ADTree(2 * sd_max.dim, sd_max.dim)
     tree.from_grid(sd_max, cells)

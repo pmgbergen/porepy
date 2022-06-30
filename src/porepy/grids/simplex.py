@@ -30,23 +30,22 @@ class TriangleGrid(Grid):
         tri: Optional[np.ndarray] = None,
         name: Optional[str] = None,
     ) -> None:
-        """
-        Create triangular grid from point cloud.
+        """Create triangular grid from point cloud.
 
         If no triangulation is provided, Delaunay will be applied.
+
+        Args:
+            p (np.ndarray, 2 x num_nodes): Point coordinates.
+            tri (np.ndarray, 3 x num_cells): Cell-node connections. If not
+                provided, a Delaunay triangulation will be applied.
+            name (str, optional): Name of grid type. Defaults to None, in which
+                case  'TriangleGrid' will be assigned.
 
         Examples:
         >>> p = np.random.rand(2, 10)
         >>> tri = scipy.spatial.Delaunay(p.transpose()).simplices
         >>> g = TriangleGrid(p, tri.transpose())
 
-        Parameters
-        ----------
-        p (np.ndarray, 2 x num_nodes): Point coordinates
-        tri (np.ndarray, 3 x num_cells): Cell-node connections. If not
-        provided, a Delaunay triangulation will be applied
-        name (str, optional): Name of grid type. Defaults to None, in which
-            case  'TriangleGrid' will be assigned.
         """
 
         self.dim = 2
@@ -108,10 +107,8 @@ class TriangleGrid(Grid):
 
         super().__init__(2, nodes, face_nodes, cell_faces, name)
 
-    def cell_node_matrix(self):
-        """Get cell-node relations in a Nc x 3 matrix
-        Perhaps move this method to a superclass when tet-grids are implemented
-        """
+    def cell_node_matrix(self) -> np.ndarray:
+        """Get cell-node relations in a Nc x 3 matrix."""
 
         # Absolute value needed since cellFaces can be negative
         cn = self.face_nodes * np.abs(self.cell_faces) * sps.eye(self.num_cells)
@@ -134,8 +131,13 @@ class StructuredTriangleGrid(TriangleGrid):
     """
 
     def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
-        """
-        Construct a triangular grid by splitting Cartesian cells in two.
+        """Construct a triangular grid by splitting Cartesian cells in two.
+
+        Args:
+            nx (np.ndarray, size 2): number of cells in each direction of the
+                underlying Cartesian grid.
+            physdims (np.ndarray, size 2): domain size. Defaults to nx,
+                thus Cartesian cells are unit squares.
 
         Examples:
         Grid on the unit cube
@@ -143,12 +145,6 @@ class StructuredTriangleGrid(TriangleGrid):
         >>> physdims = np.ones(2)
         >>> g = simplex.StructuredTriangleGrid(nx, physdims)
 
-        Parameters
-        ----------
-        nx (np.ndarray, size 2): number of cells in each direction of
-        underlying Cartesian grid
-        physdims (np.ndarray, size 2): domain size. Defaults to nx,
-        thus Cartesian cells are unit squares
         """
         nx = np.asarray(nx)
         assert nx.size == 2
@@ -205,14 +201,14 @@ class TetrahedralGrid(Grid):
         p: np.ndarray,
         tet: Optional[np.ndarray] = None,
         name: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Create a tetrahedral grid from a set of point and cells.
 
         If the cells are not provided a Delaunay tesselation will be
         constructed.
 
-        Parameters:
+        Args:
             p (np.array, 3xn_pt): Coordinates of vertices
             tet (np.array, 4xn_tet, optional): Cell vertices. If none is
                 provided, a Delaunay triangulation will be performed.
@@ -325,8 +321,7 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
     """
 
     def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
-        """
-        Construct a triangular grid by splitting Cartesian cells in two.
+        """Construct a triangular grid by splitting Cartesian cells in two.
 
         Examples:
         Grid on the unit cube
@@ -334,12 +329,11 @@ class StructuredTetrahedralGrid(TetrahedralGrid):
         >>> physdims = np.ones(2)
         >>> g = simplex.StructuredTriangleGrid(nx, physdims)
 
-        Parameters
-        ----------
-        nx (np.ndarray, size 2): number of cells in each direction of
-        underlying Cartesian grid
-        physdims (np.ndarray, size 2): domain size. Defaults to nx,
-        thus Cartesian cells are unit squares
+        Args:
+            nx (np.ndarray, size 2): number of cells in each direction of the
+                underlying Cartesian grid.
+            physdims (np.ndarray, size 2): domain size. Defaults to nx,
+                thus Cartesian cells are unit squares.
         """
         nx = np.asarray(nx).astype(int)
         assert nx.size == 3

@@ -235,7 +235,7 @@ def _generate_coarse_grid_mdg(mdg, subdiv):
     """
 
     if not isinstance(subdiv, dict):
-        g = list(mdg.subdomains(dim=mdg.dim_max()))[0]
+        g = mdg.subdomains(dim=mdg.dim_max())[0]
         subdiv = {g: subdiv}
 
     for g, (_, partition) in subdiv.items():
@@ -307,7 +307,7 @@ def _tpfa_matrix(g, perm=None):
 
     """
     if isinstance(g, pp.MixedDimensionalGrid):
-        g = list(g.subdomains(dim=g.dim_max()))[0]
+        g = g.subdomains(dim=g.dim_max())[0]
 
     if perm is None:
         perm = pp.SecondOrderTensor(np.ones(g.num_cells))
@@ -333,11 +333,11 @@ def generate_seeds(mdg):
         return seeds
 
     # Extract the higher dimensional grid
-    g_h = list(mdg.subdomains(dim=mdg.dim_max()))[0]
+    g_h = mdg.subdomains(dim=mdg.dim_max())[0]
     g_h_faces, g_h_cells, _ = sps.find(g_h.cell_faces)
 
     # Extract the 1-codimensional grids
-    gs = list(mdg.subdomains(dim=mdg.dim_max() - 1))
+    gs = mdg.subdomains(dim=mdg.dim_max() - 1)
 
     for g in gs:
         tips = np.where(g.tags["tip_faces"])[0]
@@ -372,7 +372,7 @@ def create_aggregations(grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs)
     """
     # Extract the higher dimensional grids and store in a list
     if isinstance(grid, pp.MixedDimensionalGrid):
-        grid_list: list[pp.Grid] = list(grid.subdomains(dim=grid.dim_max()))
+        grid_list: list[pp.Grid] = grid.subdomains(dim=grid.dim_max())
     elif isinstance(grid, pp.Grid):
         grid_list = [grid]
     else:
@@ -516,7 +516,7 @@ def create_partition(A, g, seeds=None, **kwargs):
 
     # NOTE: Extract the higher dimensional grids, we suppose it is unique
     if isinstance(g, pp.MixedDimensionalGrid):
-        g_high = list(g.subdomains(dim=g.dim_max()))[0]
+        g_high = g.subdomains(dim=g.dim_max())[0]
     else:
         g_high = g
 

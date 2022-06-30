@@ -210,7 +210,7 @@ class BasicsTest(unittest.TestCase):
         gb = pp.meshing.cart_grid([f], [4, 2, 2])
         gb.compute_geometry()
 
-        g = list(gb.subdomains(dim=gb.dim_max()))[0]
+        g = gb.subdomains(dim=gb.dim_max())[0]
         part = np.zeros(g.num_cells)
         part[g.cell_centers[0, :] < 2.0] = 1
         co.generate_coarse_grid(gb, (None, part))
@@ -241,7 +241,7 @@ class BasicsTest(unittest.TestCase):
             gb = pp.meshing.cart_grid([f1, f2], [6, 6, 6])
             gb.compute_geometry()
 
-            g = list(gb.subdomains(dim=gb.dim_max()))[0]
+            g = gb.subdomains(dim=gb.dim_max())[0]
             part = np.zeros(g.num_cells)
             p1, p2 = g.cell_centers[0, :] < 3.0, g.cell_centers[2, :] < 3.0
             part[np.logical_and(p1, p2)] = 1

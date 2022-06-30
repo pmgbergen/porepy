@@ -67,7 +67,7 @@ class MixedDimensionalGrid:
     @overload
     def subdomains(
         self, return_data: Literal[False] = False, dim: Optional[int] = None
-    ) -> Generator[pp.Grid, None, None]:
+    ) -> list[pp.Grid]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         # Note that the order of the overloaded methods is important, the version
@@ -81,17 +81,17 @@ class MixedDimensionalGrid:
     @overload
     def subdomains(
         self, return_data: Literal[True], dim: Optional[int] = None
-    ) -> Generator[Tuple[pp.Grid, Dict], None, None]:
+    ) -> list[Tuple[pp.Grid, Dict]]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         ...
 
     def subdomains(
         self, return_data: bool = False, dim: Optional[int] = None
-    ) -> Generator[Union[pp.Grid, Tuple[pp.Grid, Dict]], None, None]:
-        """Iterator over the subdomains in the MixedDimensionalGrid.
+    ) -> Union[list[pp.Grid], list[Tuple[pp.Grid, Dict]]]:
+        """Get a list of all subdomains in the mixed-dimensional grid.
 
-        Optionally, the iterator can filter subdomains on dimension. Also, the data
+        Optionally, the subdomains can be filtered on dimension. Also, the data
         dictionary belonging to the subdomain can be returned.
 
         Args:
@@ -101,26 +101,29 @@ class MixedDimensionalGrid:
             dim (int, optional): If provided, only subdomains of the specified dimension
                 will be returned.
 
-        Yields:
-            pp.Grid: Grid associated with the current subdomain.
-            dict: Data dictionary associated with the subdomain. Only returned if
-                return_data = True.
+        Returns:
+            list: Either, list of grids associated with subdomains (default), or
+                (if return_data=True) list of tuples, where the first tuple item is the
+                subdomain grid, the second is the associated data dictionary.
 
         """
-        for grid, data in self._subdomain_data.items():
-            # Filter on dimension if requested.
-            if dim is not None and dim != grid.dim:
-                continue
-
-            if return_data:
-                yield grid, data
-            else:
-                yield grid
+        if return_data:
+            subdomains_and_data: list[tuple[pp.Grid, dict]] = []
+            for sd, data in self._subdomain_data.items():
+                if dim is None or dim == sd.dim:
+                    subdomains_and_data.append((sd, data))
+            return subdomains_and_data
+        else:
+            subdomains: list[pp.Grid] = []
+            for sd in self._subdomain_data:
+                if dim is None or dim == sd.dim:
+                    subdomains.append(sd)
+            return subdomains
 
     @overload
     def interfaces(
         self, return_data: Literal[False] = False, dim: Optional[int] = None
-    ) -> Generator[pp.MortarGrid, None, None]:
+    ) -> list[pp.MortarGrid]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         ...
@@ -128,43 +131,44 @@ class MixedDimensionalGrid:
     @overload
     def interfaces(
         self, return_data: Literal[True], dim: Optional[int] = None
-    ) -> Generator[Tuple[pp.MortarGrid, Dict], None, None]:
+    ) -> list[Tuple[pp.MortarGrid, dict]]:
         # Method signature intended to define type hint.
         # https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/
         ...
 
     def interfaces(
         self, return_data: bool = False, dim: Optional[int] = None
-    ) -> Generator[Union[pp.MortarGrid, Tuple[pp.MortarGrid, Dict]], None, None]:
-        """
-        Iterator over the MortarGrids belonging to interfaces in the
-        MixedDimensionalGrid.
+    ) -> Union[list[pp.MortarGrid], list[Tuple[pp.MortarGrid, Dict]]]:
+        """Get a list of all interfaces in the mixed-dimensional grid.
 
-        Optionally, the iterator can filter interfaces on dimension. Also, the data
-        dictionary belonging to the interface can be returned.
+        Optionally, the interfaces can be filtered on dimension. Also, the data
+        dictionary belonging to the interfaces can be returned.
 
         Args:
             return_data (boolean, optional): If True, the data dictionary of the
-                subdomain will be returned together with the interface grids. Defaults
-                to False.
-            dim (int, optional): If provided, only interfaces  of the specified
-                dimension will be returned.
+                interface will be returned together with the inerface mortar grids.
+                Defaults to False.
+            dim (int, optional): If provided, only interfaces of the specified dimension
+                will be returned.
 
-        Yields:
-            MortarGrid: Grid on the interface.
-            dict: Data dictionary associated with the subdomain. Only returned if
-                return_data = True.
+        Returns:
+            list: Either, list of mortar grids associated with interfaces (default), or
+                (if return_data=True) list of tuples, where the first tuple item is the
+                interface mortar grid, the second is the associated data dictionary.
 
         """
-        for intf, data in self._interface_data.items():
-            # Filter on dimension if requested.
-            if dim is not None and dim != intf.dim:
-                continue
-
-            if return_data:
-                yield intf, data
-            else:
-                yield intf
+        if return_data:
+            interfaces_and_data: list[tuple[pp.MortarGrid, dict]] = []
+            for intf, data in self._interface_data.items():
+                if dim is None or dim == intf.dim:
+                    interfaces_and_data.append((intf, data))
+            return interfaces_and_data
+        else:
+            interfaces: list[pp.MortarGrid] = []
+            for intf in self._interface_data:
+                if dim is None or dim == intf.dim:
+                    interfaces.append(intf)
+            return interfaces
 
     # ---------- Navigate within the graph --------
 

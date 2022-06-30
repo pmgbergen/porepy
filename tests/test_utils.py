@@ -11,7 +11,7 @@ import porepy as pp
 
 
 def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, variables):
-    """ Permute the matrix and rhs from assembler order to a specified order.
+    """Permute the matrix and rhs from assembler order to a specified order.
 
     Args:
         A: global solution matrix as returned by Assembler.assemble_matrix_rhs.
@@ -48,7 +48,7 @@ def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, variables):
 
 
 def setup_flow_assembler(mdg, method, data_key=None, coupler=None):
-    """ Setup a standard assembler for the flow problem for a given grid bucket.
+    """Setup a standard assembler for the flow problem for a given grid bucket.
 
     The assembler will be set up with primary variable name 'pressure' on the
     GridBucket nodes, and mortar_flux for the mortar variables.
@@ -98,7 +98,7 @@ def setup_flow_assembler(mdg, method, data_key=None, coupler=None):
 
 
 def solve_and_distribute_pressure(mdg, assembler):
-    """ Given an assembler, assemble and solve the pressure equation, and distribute
+    """Given an assembler, assemble and solve the pressure equation, and distribute
     the result.
 
     Parameters:
@@ -112,7 +112,7 @@ def solve_and_distribute_pressure(mdg, assembler):
 
 
 def compare_arrays(a, b, tol=1e-4, sort=True):
-    """ Compare two arrays and check that they are equal up to a column permutation.
+    """Compare two arrays and check that they are equal up to a column permutation.
 
     Typical usage is to compare coordinate arrays.
 
@@ -146,19 +146,23 @@ def compare_arrays(a, b, tol=1e-4, sort=True):
 
 
 def delete_file(file_name):
-    """ Delete a file if it exist. Cleanup after tests.
-    """
+    """Delete a file if it exist. Cleanup after tests."""
     if os.path.exists(file_name):
         os.remove(file_name)
 
+
 def compare_grids(g1, g2):
-    """ Compare two grids. They are considered equal if the topology and geometry is the
+    """Compare two grids. They are considered equal if the topology and geometry is the
     same.
     """
     if g1.dim != g2.dim:
         return False
 
-    if (g1.num_cells, g1.num_faces, g1.num_nodes) != (g2.num_cells, g2.num_faces, g2.num_nodes):
+    if (g1.num_cells, g1.num_faces, g1.num_nodes) != (
+        g2.num_cells,
+        g2.num_faces,
+        g2.num_nodes,
+    ):
         return False
 
     dfn = g1.face_nodes - g2.face_nodes
@@ -181,6 +185,7 @@ def compare_grids(g1, g2):
     # checked, thus the grids are identical.
     return True
 
+
 def compare_mortar_grids(mg1, mg2):
     if mg1.dim != mg2.dim:
         return False
@@ -197,10 +202,11 @@ def compare_mortar_grids(mg1, mg2):
 
     return True
 
+
 def compare_grid_buckets(gb1, gb2):
     for dim in range(4):
-        grids_1 = list(gb1.subdomains(dim=dim))
-        grids_2 = list(gb2.subdomains(dim=dim))
+        grids_1 = gb1.subdomains(dim=dim)
+        grids_2 = gb2.subdomains(dim=dim)
         # Two buckets are considered equal only if the grids are returned in the same
         # order. This may be overly restrictive, but it will have to do.
         if len(grids_1) != len(grids_2):

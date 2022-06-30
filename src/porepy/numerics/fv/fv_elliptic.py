@@ -1,6 +1,8 @@
 """
 Module contains superclass for mpfa and tpfa.
 """
+from warnings import warn
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -34,7 +36,7 @@ class FVElliptic(pp.EllipticDiscretization):
         self.vector_source_matrix_key = "vector_source"
         self.bound_pressure_vector_source_matrix_key = "bound_pressure_vector_source"
 
-    def ndof(self, sd: np.ndarray) -> int:
+    def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
 
         Args:
@@ -46,7 +48,9 @@ class FVElliptic(pp.EllipticDiscretization):
         """
         return sd.num_cells
 
-    def extract_pressure(self, sd, solution_array, data):
+    def extract_pressure(
+        self, sd: pp.Grid, solution_array: np.ndarray, data: dict
+    ) -> np.ndarray:
         """Extract the pressure part of a solution.
         The method is trivial for finite volume methods, with the pressure
         being the only primary variable.
@@ -60,10 +64,13 @@ class FVElliptic(pp.EllipticDiscretization):
         Returns:
             np.array (g.num_cells): Pressure solution vector. Will be identical
                 to solution_array.
+
         """
         return solution_array
 
-    def extract_flux(self, sd, solution_array, data):
+    def extract_flux(
+        self, sd: pp.Grid, solution_array: np.ndarray, data: dict
+    ) -> np.ndarray:
         """Extract the flux related to a solution.
 
         The flux is computed from the discretization and the given pressure solution.
@@ -127,7 +134,7 @@ class FVElliptic(pp.EllipticDiscretization):
         div = pp.fvutils.scalar_divergence(sd)
         flux = matrix_dictionary[self.flux_matrix_key]
         if flux.shape[0] != sd.num_faces:
-            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=sd)
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
             flux = hf2f * flux
 
         M = div * flux
@@ -151,7 +158,7 @@ class FVElliptic(pp.EllipticDiscretization):
 
         bound_flux = matrix_dictionary[self.bound_flux_matrix_key]
         if sd.dim > 0 and bound_flux.shape[0] != sd.num_faces:
-            hf2f = pp.fvutils.map_hf_2_f(nd=1, g=sd)
+            hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
             bound_flux = hf2f * bound_flux
 
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
@@ -215,6 +222,15 @@ class FVElliptic(pp.EllipticDiscretization):
                 used. Needed for periodic boundary conditions.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         div = sd.cell_faces.T
 
         bound_flux = data[pp.DISCRETIZATION_MATRICES][self.keyword][
@@ -271,6 +287,15 @@ class FVElliptic(pp.EllipticDiscretization):
                 Should be either 1 or 2.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         proj = intf.mortar_to_secondary_int()
 
         cc[self_ind, 2] -= proj
@@ -320,6 +345,14 @@ class FVElliptic(pp.EllipticDiscretization):
                 used. Needed for periodic boundary conditions.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
 
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
@@ -387,6 +420,15 @@ class FVElliptic(pp.EllipticDiscretization):
                 used. Needed for periodic boundary conditions.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
 
@@ -437,6 +479,14 @@ class FVElliptic(pp.EllipticDiscretization):
                 the primary and secondary interface, respectively.
 
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
 
         matrix_dictionary = data_grid[pp.DISCRETIZATION_MATRICES][self.keyword]
 
@@ -477,6 +527,15 @@ class FVElliptic(pp.EllipticDiscretization):
             self_ind (int): Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
         """
+        msg = """This function is deprecated and will be removed, most likely in the
+        second half of 2022.
+
+        To assemble mixed-dimensional elliptic problems, the recommended solution is
+        either to use the models, or to use the automatic differentiation framework
+        directly.
+        """
+        warn(msg, DeprecationWarning, stacklevel=2)
+
         proj = intf.secondary_to_mortar_avg()
 
         cc[2, self_ind] -= proj

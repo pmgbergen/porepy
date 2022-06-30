@@ -83,8 +83,8 @@ def test_md_flow():
 
     manager = pp.ad.EquationManager(mdg, dof_manager)
 
-    subdomains = list(mdg.subdomains())
-    interfaces = list(mdg.interfaces())
+    subdomains = mdg.subdomains()
+    interfaces = mdg.interfaces()
 
     node_discr = pp.ad.MpfaAd(keyword, subdomains)
 
@@ -205,7 +205,7 @@ class ContactModel(pp.ContactMechanics):
 def create_grid(model):
     np.random.seed(0)
     model.mdg = model._grid_meth()
-    xn = list(model.mdg.subdomains(dim=model.mdg.dim_max()))[0].nodes
+    xn = model.mdg.subdomains(dim=model.mdg.dim_max())[0].nodes
     box = {
         "xmin": xn[0].min(),
         "xmax": xn[0].max(),
@@ -290,7 +290,7 @@ class THMModel(pp.THM):
         TM coupling coefficient
         """
         if sd.dim == self.mdg.dim_max() - 1:
-            val = 1.
+            val = 1.0
         else:
             val = 0.3
         if self._use_ad:
@@ -303,7 +303,7 @@ class THMModel(pp.THM):
         TM coupling coefficient
         """
         if sd.dim == self.mdg.dim_max() - 1:
-            val = 1.
+            val = 1.0
         else:
             val = 0.2
         if self._use_ad:

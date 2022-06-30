@@ -119,7 +119,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.set_params(mdg, kn=1e-6, kf=1e-6)
 
         self.run_mpfa(mdg)
-        sd_2d = list(mdg.subdomains(dim=2))[0]
+        sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
         p = data[pp.STATE]["pressure"]
         self.assertTrue(np.allclose(p, sd_2d.cell_centers[1], rtol=1e-5))
@@ -130,7 +130,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.set_params(mdg, kn=1e-6, kf=1e-6)
 
         self.run_vem(mdg)
-        sd_2d = list(mdg.subdomains(dim=2))[0]
+        sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
         p = data[pp.STATE]["pressure"]
         self.assertTrue(np.allclose(p, sd_2d.cell_centers[1], rtol=1e-5))
@@ -141,7 +141,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.set_params(mdg, kn=1e-6, kf=1e-6)
 
         self.run_RT0(mdg)
-        sd_2d = list(mdg.subdomains(dim=2))[0]
+        sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
         p = data[pp.STATE]["pressure"]
         self.assertTrue(np.allclose(p, sd_2d.cell_centers[1], rtol=1e-5))
@@ -152,14 +152,14 @@ class TestImmersedFracture(unittest.TestCase):
         self.set_params(mdg, kn=1e4, kf=1e3)
 
         self.run_mpfa(mdg)
-        sd_2d = list(mdg.subdomains(dim=2))[0]
+        sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
         p = data[pp.STATE]["pressure"]
         mdg = self.create_grid()
         self.set_params(mdg, kn=1e4, kf=1e3)
 
         self.run_mpfa(mdg)
-        sd_2d = list(mdg.subdomains(dim=2))[0]
+        sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
         p_flipped = data[pp.STATE]["pressure"]
 
@@ -171,7 +171,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.set_params(mdg, kn=1e4, kf=1e3)
 
         self.run_vem(mdg)
-        sd_2d = list(mdg.subdomains(dim=2))[0]
+        sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
         p = data[pp.STATE]["pressure"]
 
@@ -179,7 +179,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.set_params(mdg, kn=1e4, kf=1e3)
 
         self.run_vem(mdg)
-        sd_2d = list(mdg.subdomains(dim=2))[0]
+        sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
         p_flipped = data[pp.STATE]["pressure"]
 
@@ -191,7 +191,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.set_params(mdg, kn=1e4, kf=1e3)
 
         self.run_RT0(mdg)
-        sd_2d = list(mdg.subdomains(dim=2))[0]
+        sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
         p = data[pp.STATE]["pressure"]
 
@@ -199,7 +199,7 @@ class TestImmersedFracture(unittest.TestCase):
         self.set_params(mdg, kn=1e4, kf=1e3)
 
         self.run_RT0(mdg)
-        sd_2d = list(mdg.subdomains(dim=2))[0]
+        sd_2d = mdg.subdomains(dim=2)[0]
         data = mdg.subdomain_data(sd_2d)
         p_flipped = data[pp.STATE]["pressure"]
 

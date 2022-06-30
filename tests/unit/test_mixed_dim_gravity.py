@@ -104,7 +104,6 @@ class TestMixedDimGravity(unittest.TestCase):
             }
             pp.initialize_data(intf, data, "flow", parameter_dictionary)
 
-
     def grid_2d(self, pert_node: bool = False) -> pp.Grid:
         """
         Make a 2d unit square simplex grid with six cells:
@@ -219,8 +218,10 @@ class TestMixedDimGravity(unittest.TestCase):
 
         sd_2d_new = self.grid_2d(pert_node=pert_node)
         sd_1d_new = self.grid_1d(num_1d)
-        mdg.replace_subdomains_and_interfaces(sd_map={sd_2d: sd_2d_new, sd_1d: sd_1d_new})
-        intf = list(mdg.interfaces())[0]
+        mdg.replace_subdomains_and_interfaces(
+            sd_map={sd_2d: sd_2d_new, sd_1d: sd_1d_new}
+        )
+        intf = mdg.interfaces()[0]
 
         new_side_grids = {
             s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
@@ -305,14 +306,14 @@ class TestMixedDimGravity(unittest.TestCase):
         0 (bottom) to -1- aperture (top).
         """
         mdg = self.mdg
-        sd_primary = list(mdg.subdomains(dim=mdg.dim_max()))[0]
+        sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
         p_primary = mdg.subdomain_data(sd_primary)[pp.STATE]["pressure"]
         # The cells above the fracture
         h = sd_primary.cell_centers[1]
         ind = h > 0.5
         p_known = -(a * ind + h) * np.cos(angle)
         self.assertTrue(np.allclose(p_primary, p_known, rtol=1e-3, atol=1e-3))
-        sd_secondary = list(mdg.subdomains(dim = mdg.dim_max() - 1))[0]
+        sd_secondary = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
         p_secondary = mdg.subdomain_data(sd_secondary)[pp.STATE]["pressure"]
         # Half the additional jump is added to the fracture pressure
         h = sd_secondary.cell_centers[1]

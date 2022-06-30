@@ -36,7 +36,7 @@ class TestSimpleMeshing(unittest.TestCase):
                 assert counter < num_ref
                 dim = mdg.dim_max()
                 if counter > 0:
-                    assert mdg.num_subdomain_cells() == num_cells_prev * (2 ** dim)
+                    assert mdg.num_subdomain_cells() == num_cells_prev * (2**dim)
                 num_cells_prev = mdg.num_subdomain_cells()
 
     def test_unstructured(self):
@@ -92,7 +92,7 @@ class TestSimpleMeshing(unittest.TestCase):
             for dim in range(dim):
                 # Since there are no true fractures in the network (only constraints)
                 # there should be no lower-dimensional grids
-                assert len(list(mdg.subdomains(dim=dim))) == 0
+                assert len(mdg.subdomains(dim=dim)) == 0
 
 
 if __name__ == "__main__":

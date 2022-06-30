@@ -626,9 +626,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         # Now, assign the two flow equations not present in the parent model.
         subdomains: List[pp.Grid] = [sd for sd in self.mdg.subdomains()]
 
-        interfaces = [
-            intf for intf in self.mdg.interfaces() if intf.codim == 1
-        ]
+        interfaces = [intf for intf in self.mdg.interfaces() if intf.codim == 1]
 
         # Construct equations
         subdomain_flow_eq: pp.ad.Operator = self._subdomain_flow_equation(subdomains)
@@ -661,7 +659,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         super()._set_ad_projections()
         mdg, ad = self.mdg, self._ad
         subdomains: List[pp.Grid] = [sd for sd in mdg.subdomains()]
-        fracture_subdomains: List[pp.Grid] = list(mdg.subdomains(dim=self.nd - 1))
+        fracture_subdomains: List[pp.Grid] = mdg.subdomains(dim=self.nd - 1)
         ad.subdomain_projections_scalar = pp.ad.SubdomainProjections(
             subdomains=subdomains
         )
@@ -798,7 +796,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
 
         ad = self._ad
-        g_frac: List[pp.Grid] = list(self.mdg.subdomains(dim=self.nd - 1))
+        g_frac: List[pp.Grid] = self.mdg.subdomains(dim=self.nd - 1)
         mass_discr = pp.ad.MassMatrixAd(self.scalar_parameter_key, subdomains)
 
         # Flow parameters
@@ -1328,7 +1326,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             # Finally, discretize terms on the lower-dimensional subdomains. This can be done
             # in the traditional way, as there is no Biot discretization here.
             for dim in range(0, self.nd):
-                grid_list = list(self.mdg.subdomains(dim=dim))
+                grid_list = self.mdg.subdomains(dim=dim)
                 if len(grid_list) > 0:
                     filt = pp.assembler_filters.ListFilter(grid_list=grid_list)
                     self.assembler.discretize(filt=filt)

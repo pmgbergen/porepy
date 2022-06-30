@@ -94,7 +94,6 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
         self.assertTrue(np.allclose(theta, theta_known))
 
-
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_left_right(self):
@@ -136,7 +135,6 @@ class BasicsTest(unittest.TestCase):
         for intf, data in mdg.interfaces(return_data=True):
             pp.initialize_data(intf, data, "transport", {})
 
-
         add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
 
         dof_manager = pp.DofManager(mdg)
@@ -177,7 +175,6 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
         self.assertTrue(np.allclose(rhs, rhs_known, rtol, atol))
         self.assertTrue(np.allclose(theta, theta_known, rtol, atol))
-
 
     # ------------------------------------------------------------------------------#
 
@@ -1000,7 +997,6 @@ class BasicsTest(unittest.TestCase):
         rhs_known = np.array([0.5, 0.5, 0.01, 0.0, 0.0])
 
         theta_known = np.array([1, 1, 1, 0, 0])
-
 
         rtol = 1e-15
         atol = rtol

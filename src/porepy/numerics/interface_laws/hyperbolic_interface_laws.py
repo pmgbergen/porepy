@@ -221,6 +221,7 @@ class UpwindCoupling(AbstractInterfaceLaw):
         self,
         sd_primary,
         sd_secondary,
+        intf: pp.MortarGrid,
         data_primary,
         data_secondary,
         data_intf,
@@ -259,9 +260,8 @@ class UpwindCoupling(AbstractInterfaceLaw):
         aperture_primary = data_primary["param"].get_aperture()
         aperture_secondary = data_secondary["param"].get_aperture()
         phi_secondary = data_secondary["param"].get_porosity()
-        intf = data_intf["mortar_grid"]
         darcy_flux = np.zeros(sd_primary.num_faces)
-        darcy_flux[intf.high_to_mortar_int.nonzero()[1]] = data_intf[d_name]
+        darcy_flux[intf.primary_to_mortar_int().nonzero()[1]] = data_intf[d_name]
         if sd_primary.dim == sd_secondary.dim:
             # More or less same as below, except we have cell_cells in the place
             # of face_cells (see grid_bucket.duplicate_without_dimension).

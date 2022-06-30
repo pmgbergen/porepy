@@ -485,7 +485,7 @@ class ContactMechanics(AbstractModel):
 
     def _nd_subdomain(self) -> pp.Grid:
         """Get the grid of the highest dimension. Assumes self.mdg is set."""
-        return list(self.mdg.subdomains(dim=self.nd))[0]
+        return self.mdg.subdomains(dim=self.nd)[0]
 
     def _bc_type(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions: Dirichlet on all global boundaries,
@@ -696,10 +696,10 @@ class ContactMechanics(AbstractModel):
             self.dof_manager = pp.DofManager(mdg)
         self._eq_manager = pp.ad.EquationManager(mdg, self.dof_manager)
         sd_primary: pp.Grid = self._nd_subdomain()
-        fracture_subdomains: List[pp.Grid] = list(mdg.subdomains(dim=nd - 1))
+        fracture_subdomains: List[pp.Grid] = mdg.subdomains(dim=nd - 1)
         self._num_frac_cells = np.sum([sd.num_cells for sd in fracture_subdomains])
 
-        if len(list(mdg.subdomains(dim=nd))) != 1:
+        if len(mdg.subdomains(dim=nd)) != 1:
             # Some parts of the code have been partially prepared for
             # this case, other parts require adjustment.
             raise NotImplementedError("This will require further work")
@@ -726,7 +726,9 @@ class ContactMechanics(AbstractModel):
             [(sd, self.contact_traction_variable) for sd in fracture_subdomains]
         )
         discr = pp.ad.ContactTractionAd(
-            self.mechanics_parameter_key, matrix_fracture_interfaces, fracture_subdomains
+            self.mechanics_parameter_key,
+            matrix_fracture_interfaces,
+            fracture_subdomains,
         )
         self._ad.contact_traction = discr.traction_scaling * self._ad.contact_force
 
@@ -808,7 +810,7 @@ class ContactMechanics(AbstractModel):
 
         sd_nd: pp.Grid = self._nd_subdomain()
 
-        fracture_subdomains: List[pp.Grid] = list(mdg.subdomains(dim=nd - 1))
+        fracture_subdomains: List[pp.Grid] = mdg.subdomains(dim=nd - 1)
         self._num_frac_cells = np.sum([g.num_cells for g in fracture_subdomains])
 
         matrix_fracture_interfaces = [
@@ -874,7 +876,7 @@ class ContactMechanics(AbstractModel):
         ad = self._ad
 
         subdomains: List[pp.Grid] = [sd for sd in self.mdg.subdomains()]
-        fracture_subdomains: List[pp.Grid] = list(self.mdg.subdomains(dim=self.nd - 1))
+        fracture_subdomains: List[pp.Grid] = self.mdg.subdomains(dim=self.nd - 1)
         fracture_matrix_interfaces: List[pp.MortarGrid] = [
             self.mdg.subdomain_pair_to_interface((self._nd_subdomain(), sd))
             for sd in fracture_subdomains
