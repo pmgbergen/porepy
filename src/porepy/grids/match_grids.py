@@ -33,7 +33,7 @@ def match_1d(
     It is assumed that the two grids are aligned, with common start and
     endpoints.
 
-    Parameters:
+    Args:
         new_g (pp.Grid). Target grid for the mapping. Should have dimension 1.
         old_g (pp.Grid). Original grid. Should have dimension 1.
         tol (float): Tolerance used to filter away false overlaps caused by
@@ -115,7 +115,7 @@ def match_2d(
     It is assumed that the two grids are aligned, with common start and
     endpoints.
 
-    Parameters:
+    Args:
         new_g (pp.Grid). Target grid for the mapping. Should have dimension 1.
         old_g (pp.Grid). Original grid. Should have dimension 1.
         tol (float): Tolerance used to filter away false overlaps caused by
@@ -139,11 +139,31 @@ def match_2d(
         rot = pp.map_geometry.project_plane_matrix(p - center, normal)
         return rot.dot(p - center)[:2]
 
-    shape = (new_g.dim + 1, new_g.num_cells)
-    cn_new_g = new_g.cell_nodes().indices.reshape(shape, order="F")
+    # Represent the cells in terms of their vertexes. This representation will be passed
+    # to the external library shapely, which has efficient methods for matching
+    # tessallations.
+    #
+    # IMPLEMENTATION NOTE: For now, the interface to shapely can only deal with
+    # simplex cells. This is not a limitation of shapely itself, which can handle
+    # general polygons. Thus the below restrictions (look for ValueError) can be relaxed
+    # by modifying the interface pp.intersections.triangulations.
+    cn_new = new_g.cell_nodes().tocsc()
+    if not np.all(np.diff(cn_new.indptr) == (new_g.dim + 1)):
+        # See above implementation note for how to relax this restriction.
+        raise ValueError(
+            "Matching of 2d grids has only been implemented for simplex grids."
+        )
 
-    shape = (old_g.dim + 1, old_g.num_cells)
-    cn_old_g = old_g.cell_nodes().indices.reshape(shape, order="F")
+    cn_new_array = cn_new.indices.reshape((new_g.dim + 1, new_g.num_cells), order="F")
+
+    cn_old = old_g.cell_nodes().tocsc()
+    if not np.all(np.diff(cn_old.indptr) == (new_g.dim + 1)):
+        # See above implementation note for how to relax this restriction.
+        raise ValueError(
+            "Matching of 2d grids has only been implemented for simplex grids."
+        )
+
+    cn_old_array = cn_old.indices.reshape((old_g.dim + 1, old_g.num_cells), order="F")
 
     # Center points around mean
     cc = np.mean(new_g.nodes, axis=1).reshape((3, 1))
@@ -155,7 +175,10 @@ def match_2d(
 
     # Calculate intersection
     isect = pp.intersections.triangulations(
-        proj_pts(new_g.nodes, cc, n), proj_pts(old_g.nodes, cc, n), cn_new_g, cn_old_g
+        proj_pts(new_g.nodes, cc, n),
+        proj_pts(old_g.nodes, cc, n),
+        cn_new_array,
+        cn_old_array,
     )
 
     num = len(isect)
