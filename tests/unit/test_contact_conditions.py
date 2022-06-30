@@ -71,9 +71,9 @@ class ContactConditionColoumb2d(unittest.TestCase):
         # Recover the projection matrix used in the mapping between local and global
         # coordinates.
         # The tangent vector is in the first row, normal in the second
-        proj = model.gb.node_props(model.g1)["tangential_normal_projection"].projection[
-            :, :, 0
-        ]
+        proj = model.mdg.subdomain_data(model.sd_1)[
+            "tangential_normal_projection"
+        ].projection[:, :, 0]
 
         # The normal vector is considered positive if it points in the y-direction.
         self.pos_normal = proj[1, 1] > 0
@@ -729,9 +729,11 @@ class ContactModel2d(ContactMechanics):
 
         self.create_grid()
 
-        pp.contact_conditions.set_projections(self.gb)
+        pp.contact_conditions.set_projections(self.mdg)
 
-        proj = self.gb.node_props(self.g1)["tangential_normal_projection"].projection
+        proj = self.mdg.subdomain_data(self.sd_1)[
+            "tangential_normal_projection"
+        ].projection
         if pos_tangent and proj[0, 0, 0] < 0:
             proj[0] *= -1
         elif not pos_tangent and proj[0, 0, 0] > 0:
@@ -743,12 +745,12 @@ class ContactModel2d(ContactMechanics):
 
         self._set_parameters()
 
-        data = self.gb.node_props(self.g2)
+        data = self.mdg.subdomain_data(self.sd_2)
         data[pp.PARAMETERS][self.mechanics_parameter_key]["inverter"] = "python"
 
         self._assign_variables()
         self._assign_discretizations()
-        self.assembler = pp.Assembler(self.gb, self.dof_manager)
+        self.assembler = pp.Assembler(self.mdg, self.dof_manager)
         self.set_state(u_mortar, contact_force)
         self._discretize()
 
@@ -760,10 +762,10 @@ class ContactModel2d(ContactMechanics):
         A, b = assembler.assemble_matrix_rhs()
 
         dof_mortar = dof_manager.grid_and_variable_to_dofs(
-            self.edge, self.mortar_displacement_variable
+            self.intf, self.mortar_displacement_variable
         )
         dof_contact = dof_manager.grid_and_variable_to_dofs(
-            self.g1, self.contact_traction_variable
+            self.sd_1, self.contact_traction_variable
         )
 
         A_mc = A[dof_mortar][:, dof_contact].toarray()
@@ -772,7 +774,7 @@ class ContactModel2d(ContactMechanics):
 
         b_c = b[dof_contact]
 
-        data_l = self.gb.node_props(self.g1)[pp.STATE][pp.ITERATE]
+        data_l = self.mdg.subdomain_data(self.sd_1)[pp.STATE][pp.ITERATE]
         penetration = data_l["penetration"]
         sliding = data_l["sliding"]
 
@@ -836,8 +838,8 @@ class ContactModel2d(ContactMechanics):
         g_1d = pp.Grid(1, frac_pt, fn_1d, cf_1d, "mock_1d_grid")
         g_1d.compute_geometry()
 
-        gb = pp.GridBucket()
-        gb.add_nodes([g_2d, g_1d])
+        mdg = pp.MixedDimensionalGrid()
+        mdg.add_subdomains([g_2d, g_1d])
 
         # Construct mortar grid
         side_grids = {
@@ -852,32 +854,29 @@ class ContactModel2d(ContactMechanics):
             (data, (row, col)), shape=(g_1d.num_cells, g_2d.num_faces)
         ).tocsc()
 
-        mg = pp.MortarGrid(1, side_grids, face_cells_mortar)
+        intf = pp.MortarGrid(1, side_grids, face_cells_mortar)
 
-        edge = (g_2d, g_1d)
-        gb.add_edge(edge, face_cells_mortar)
-        d = gb.edge_props(edge)
+        sd_pair = (g_2d, g_1d)
+        mdg.add_interface(intf, sd_pair, face_cells_mortar)
 
-        d["mortar_grid"] = mg
+        self.mdg = mdg
+        self.nd = 2
 
-        self.gb = gb
-        self._Nd = 2
-
-        self.g1 = g_1d
-        self.g2 = g_2d
-        self.edge = edge
-        self.mg = mg
+        self.sd_1 = g_1d
+        self.sd_2 = g_2d
+        self.sd_pair = sd_pair
+        self.intf = intf
 
     def set_state(self, u_mortar, contact_force):
         # Replacement for the method 'initial_condition'. Change name to avoid
         # conflict with different parameters.
 
-        for g, d in self.gb:
-            if g.dim == self._Nd:
+        for sd, data in self.mdg.subdomains(return_data=True):
+            if sd.dim == self.nd:
                 # Initialize displacement variable
-                state = {self.displacement_variable: np.zeros(g.num_cells * self._Nd)}
+                state = {self.displacement_variable: np.zeros(sd.num_cells * self.nd)}
 
-            elif g.dim == self._Nd - 1:
+            elif sd.dim == self.nd - 1:
                 # Initialize contact variable
                 traction = contact_force
                 state = {
@@ -889,12 +888,11 @@ class ContactModel2d(ContactMechanics):
                 }
             else:
                 state = {}
-            pp.set_state(d, state)
+            pp.set_state(data, state)
 
-        for _, d in self.gb.edges():
-            mg = d["mortar_grid"]
+        for intf, data in self.mdg.interfaces(return_data=True):
 
-            if mg.dim == self._Nd - 1:
+            if intf.dim == self.nd - 1:
                 state = {
                     # Set a zero state in previous time step
                     self.mortar_displacement_variable: 0 * u_mortar,
@@ -904,7 +902,7 @@ class ContactModel2d(ContactMechanics):
                 }
             else:
                 state = {}
-            pp.set_state(d, state)
+            pp.set_state(data, state)
 
 
 class ContactModel3d(ContactModel2d):
@@ -962,13 +960,13 @@ class ContactModel3d(ContactModel2d):
         elif not pos_normal and proj[2, 2] > 0:
             proj[2] *= -1
 
-        self.gb.node_props(self.g1)["tangential_normal_projection"].projection[
+        self.mdg.subdomain_data(self.sd_1)["tangential_normal_projection"].projection[
             :, :, 0
         ] = proj
 
         self.set_parameters()
 
-        data = self.gb.node_props(self.g2)
+        data = self.mdg.subdomain_data(self.sd_2)
         data[pp.PARAMETERS][self.mechanics_parameter_key]["inverter"] = "python"
 
         self.assign_variables()
@@ -985,10 +983,10 @@ class ContactModel3d(ContactModel2d):
 
         f = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
 
-        gb = pp.meshing.cart_grid([f], np.array([1, 1, 2]))
+        mdg = pp.meshing.cart_grid([f], np.array([1, 1, 2]))
 
-        g3 = gb.grids_of_dimension(3)[0]
-        g2 = gb.grids_of_dimension(2)[0]
+        g3 = list(mdg.subdomains(dim=3))[0]
+        g2 = list(mdg.subdomains(dim=2))[0]
 
         xn3 = g3.nodes
         hit3 = np.logical_and.reduce((xn3[0] > 0.5, xn3[2] > 0.5, xn3[2] < 1.5))
@@ -1001,16 +999,16 @@ class ContactModel3d(ContactModel2d):
         xn3[2, hit3] += df * s
         xn2[2, hit2] += df * s
 
-        self.gb = gb
+        self.mdg = mdg
         self.g3 = g3
-        self.g2 = g2
+        self.sd_2 = g2
 
-        self.Nd = 3
+        self.nd = 3
 
-        for e, d in gb.edges():
-            self.edge = e
-            self.mg = e["mortar_grid"]
+        for intf in mdg.interfaces():
+            self.sd_pair = mdg.interface_to_subdomain_pair(intf)
 
 
 if __name__ == "__main__":
+    ContactConditionColoumb2d().test_neg_rot_no_penetration_neg_tangent_neg_normal()
     unittest.main()

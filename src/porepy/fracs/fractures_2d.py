@@ -194,7 +194,7 @@ class FractureNetwork2d(object):
         clear_gmsh: bool = False,
         **kwargs,
     ):
-        """Create GridBucket (mixed-dimensional grid) for this fracture network.
+        """Create MixedDimensionalGrid (mixed-dimensional grid) for this fracture network.
 
         Parameters:
             mesh_args: Arguments passed on to mesh size control
@@ -222,7 +222,7 @@ class FractureNetwork2d(object):
                 geometry before adding a new one. Defaults to False.
 
         Returns:
-            GridBucket: Mixed-dimensional mesh.
+            MixedDimensionalGrid: Mixed-dimensional mesh.
 
         """
         if file_name is None:
@@ -246,13 +246,13 @@ class FractureNetwork2d(object):
 
         if dfn:
             # Create list of grids
-            grid_list = porepy.fracs.simplex.line_grid_from_gmsh(
+            subdomains = porepy.fracs.simplex.line_grid_from_gmsh(
                 file_name, constraints=constraints
             )
 
         else:
             # Create list of grids
-            grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
+            subdomains = porepy.fracs.simplex.triangle_grid_from_gmsh(
                 file_name, constraints=constraints
             )
 
@@ -263,13 +263,13 @@ class FractureNetwork2d(object):
             frac = np.setdiff1d(
                 np.arange(self.edges.shape[1]), constraints, assume_unique=True
             )
-            for idg, g in enumerate(grid_list[1 - int(dfn)]):
+            for idg, g in enumerate(subdomains[1 - int(dfn)]):
                 for key in np.atleast_1d(tags_to_transfer):
                     if key not in g.tags:
                         g.tags[key] = self.tags[key][frac][idg]
 
         # Assemble in grid bucket
-        return pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
+        return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
     def prepare_for_gmsh(
         self,
@@ -283,7 +283,7 @@ class FractureNetwork2d(object):
         """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
 
-        NOTE: Consider to use the mesh() function instead to get a ready GridBucket.
+        NOTE: Consider to use the mesh() function instead to get a ready MixedDimensionalGrid.
 
         Parameters:
             mesh_args: Arguments passed on to mesh size control
@@ -298,7 +298,7 @@ class FractureNetwork2d(object):
                 the surrounding matrix) is created.
 
         Returns:
-            GridBucket: Mixed-dimensional mesh.
+            MixedDimensionalGrid: Mixed-dimensional mesh.
 
         """
 

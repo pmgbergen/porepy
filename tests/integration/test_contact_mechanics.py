@@ -22,29 +22,27 @@ class TestContactMechanics(unittest.TestCase):
 
     def _solve(self, setup):
         pp.run_stationary_model(setup, {"convergence_tol": 1e-10, "max_iterations": 20})
-        gb = setup.gb
+        mdg = setup.mdg
 
-        nd = gb.dim_max()
+        nd = mdg.dim_max()
 
-        g2 = gb.grids_of_dimension(nd)[0]
-        g1 = gb.grids_of_dimension(nd-1)[0]
-
-        d_m = gb.edge_props((g1, g2))
-        d_1 = gb.node_props(g1)
-
-        mg = d_m["mortar_grid"]
+        sd_2 = list(mdg.subdomains(dim=nd))[0]
+        sd_1 = list(mdg.subdomains(dim=nd-1))[0]
+        intf = mdg.subdomain_pair_to_interface((sd_1, sd_2))
+        d_m = mdg.interface_data(intf)
+        d_1 = mdg.subdomain_data(sd_1)
 
         u_interface = d_m[pp.STATE][setup.mortar_displacement_variable]
         contact_force = d_1[pp.STATE][setup.contact_traction_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_secondary_avg(nd=nd)
-            * mg.sign_of_mortar_sides(nd=nd)
+            intf.mortar_to_secondary_avg(nd=nd)
+            * intf.sign_of_mortar_sides(nd=nd)
             * u_interface
         )
         projection = d_1["tangential_normal_projection"]
 
-        project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
+        project_to_local = projection.project_tangential_normal(int(intf.num_cells / 2))
         u_frac_local = project_to_local * displacement_jump_global_coord
         u_frac_local_decomposed = u_frac_local.reshape((nd, -1), order="F")
 
@@ -182,18 +180,18 @@ class Model(pp.ContactMechanics):
         self.uy_south = uy_south
         self.ux_north = ux_north
         self.uy_north = uy_north
-        self._Nd = dim
+        self.nd = dim
         self.dilation_angle = dilation_angle
 
     def create_grid(self):
         """
-        Method that creates and returns the GridBucket of a 2D domain with six
+        Method that creates and returns the MixedDimensionalGrid of a 2D domain with six
         fractures. The two sides of the fractures are coupled together with a
         mortar grid.
         """
         rotate_fracture = getattr(self, "rotate_fracture", False)
         self.box = {"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1}
-        if self._Nd == 2:
+        if self.nd == 2:
             if rotate_fracture:
                 self.frac_pts = np.array([[0.7, 0.3], [0.3, 0.7]])
             else:
@@ -211,40 +209,40 @@ class Model(pp.ContactMechanics):
 
 
         # Generate the mixed-dimensional mesh
-        gb = network.mesh(self.params["mesh_args"])
+        mdg = network.mesh(self.params["mesh_args"])
 
         # Set projections to local coordinates for all fractures
-        pp.contact_conditions.set_projections(gb)
+        pp.contact_conditions.set_projections(mdg)
 
-        self.gb = gb
-        self.Nd = gb.dim_max()
+        self.mdg = mdg
+        self.nd = mdg.dim_max()
 
-    def _bc_values(self, g):
-        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
-        values = np.zeros((g.dim, g.num_faces))
+    def _bc_values(self, sd):
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(sd)
+        values = np.zeros((sd.dim, sd.num_faces))
         values[0, south] = self.ux_south
         values[1, south] = self.uy_south
         values[0, north] = self.ux_north
         values[1, north] = self.uy_north
         return values.ravel("F")
 
-    def _bc_type(self, g):
-        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
-        bc = pp.BoundaryConditionVectorial(g, north + south, "dir")
+    def _bc_type(self, sd):
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, north + south, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the
         # fracture faces.
-        frac_face = g.tags["fracture_faces"]
+        frac_face = sd.tags["fracture_faces"]
         bc.is_neu[:, frac_face] = False
         bc.is_dir[:, frac_face] = True
         return bc
 
-    def _initial_gap(self, g):
-        vals = getattr(self, "initial_gap", np.zeros(g.num_cells))
+    def _initial_gap(self, sd):
+        vals = getattr(self, "initial_gap", np.zeros(sd.num_cells))
         return vals
 
-    def _dilation_angle(self, g):
-        vals = getattr(self, "dilation_angle", 0) * np.ones(g.num_cells)
+    def _dilation_angle(self, sd):
+        vals = getattr(self, "dilation_angle", 0) * np.ones(sd.num_cells)
         return vals
 
 

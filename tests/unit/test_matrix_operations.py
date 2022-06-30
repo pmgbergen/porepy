@@ -1,3 +1,7 @@
+"""
+Tests for matrix operations for zeroing rows/columns, efficient slicing, stacking,
+merging and construction from arrays.
+"""
 import unittest
 import pytest
 
@@ -384,12 +388,13 @@ class TestSparseMath(unittest.TestCase):
     "mat", [np.arange(6).reshape((3, 2)), np.arange(6).reshape((2, 3))]
 )
 def test_optimized_storage(mat):
-    # Check that the optimized sparse storage chooses format according to whether the
-    # matrix has more columns or rows or oposite.
+    """Check that the optimized sparse storage chooses format according to whether the
+    matrix has more columns or rows or opposite.
 
-    # Convert input matrix to sparse storage. For the moment, the matrix format is chosen
-    # according to the number of rows and columns only, thus the lack of true sparsity
-    # does not matter.
+    Convert input matrix to sparse storage. For the moment, the matrix format is chosen
+    according to the number of rows and columns only, thus the lack of true sparsity
+    does not matter.
+    """
     A = sps.csc_matrix(mat)
 
     optimized = pp.matrix_operations.optimized_compressed_storage(A)

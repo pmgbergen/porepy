@@ -27,13 +27,13 @@ class TestBiot(unittest.TestCase):
     def _solve(self, setup):
         pp.run_time_dependent_model(setup, {})
 
-        gb = setup.gb
+        mdg = setup.mdg
 
-        g = gb.grids_of_dimension(setup._Nd)[0]
-        d = gb.node_props(g)
+        sd = list(mdg.subdomains(dim=setup.nd))[0]
+        data = mdg.subdomain_data(sd)
 
-        u = d[pp.STATE][setup.displacement_variable]
-        p = d[pp.STATE][setup.scalar_variable]
+        u = data[pp.STATE][setup.displacement_variable]
+        p = data[pp.STATE][setup.scalar_variable]
 
         return u, p
 
@@ -123,30 +123,27 @@ class TestContactMechanicsBiot(unittest.TestCase):
     def _solve(self, setup):
         pp.run_time_dependent_model(setup, {"convergence_tol": 1e-6})
 
-        gb = setup.gb
+        mdg = setup.mdg
+        nd = setup.nd
 
-        nd = setup._Nd
-
-        g2 = gb.grids_of_dimension(nd)[0]
-        g1 = gb.grids_of_dimension(nd - 1)[0]
-
-        d_m = gb.edge_props((g1, g2))
-        d_1 = gb.node_props(g1)
-
-        mg = d_m["mortar_grid"]
+        sd_2 = list(mdg.subdomains(dim=nd))[0]
+        sd_1 = list(mdg.subdomains(dim=nd - 1))[0]
+        intf = mdg.subdomain_pair_to_interface((sd_1, sd_2))
+        d_m = mdg.interface_data(intf)
+        d_1 = mdg.subdomain_data(sd_1)
 
         u_mortar = d_m[pp.STATE][setup.mortar_displacement_variable]
         contact_force = d_1[pp.STATE][setup.contact_traction_variable]
         fracture_pressure = d_1[pp.STATE][setup.scalar_variable]
 
         displacement_jump_global_coord = (
-            mg.mortar_to_secondary_avg(nd=nd)
-            * mg.sign_of_mortar_sides(nd=nd)
-            * u_mortar
+                intf.mortar_to_secondary_avg(nd=nd)
+                * intf.sign_of_mortar_sides(nd=nd)
+                * u_mortar
         )
         projection = d_1["tangential_normal_projection"]
 
-        project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
+        project_to_local = projection.project_tangential_normal(int(intf.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
         u_mortar_local_decomposed = u_mortar_local.reshape((nd, -1), order="F")
 
@@ -156,9 +153,9 @@ class TestContactMechanicsBiot(unittest.TestCase):
 
     def _verify_aperture_computation(self, setup, u_mortar):
         # Verify the computation of apertures.
-        g = setup.gb.grids_of_dimension(setup._Nd - 1)[0]
+        sd = list(setup.mdg.subdomains(dim=setup.nd - 1))[0]
         opening = np.abs(u_mortar[1])
-        aperture = setup._compute_aperture(g, from_iterate=False)
+        aperture = setup._compute_aperture(sd, from_iterate=False)
 
         self.assertTrue(np.allclose(aperture, setup.initial_aperture + opening))
 
@@ -358,22 +355,22 @@ class SetupContactMechanicsBiot(
         self.fix_only_bottom = False
 
 
-    def _dilation_angle(self, g):
+    def _dilation_angle(self, sd):
         """Nonzero dilation angle.
         """
-        vals = np.pi / 6 * np.ones(g.num_cells)
+        vals = np.pi / 6 * np.ones(sd.num_cells)
         return vals
 
-    def _reference_scalar(self, g: pp.Grid):
-        return self.p_reference * np.ones(g.num_cells)
+    def _reference_scalar(self, sd: pp.Grid):
+        return self.p_reference * np.ones(sd.num_cells)
 
 
-    def _bc_values_scalar(self, g):
+    def _bc_values_scalar(self, sd):
         """
         It may be convenient to have p_dir=p_initial!=0 when investigating p_reference.
         """
-        all_bf, east, west, north, south, _, _ = self._domain_boundary_sides(g)
-        val = np.zeros(g.num_faces)
+        all_bf, east, west, north, south, _, _ = self._domain_boundary_sides(sd)
+        val = np.zeros(sd.num_faces)
         val[north + south] = self.p_initial
         return val
 
@@ -383,27 +380,27 @@ class SetupContactMechanicsBiot(
         """
         super()._initial_condition()
 
-        for g, d in self.gb:
+        for sd, data in self.mdg.subdomains(return_data=True):
             # Initial value for the scalar variable.
-            initial_scalar_value = self.p_initial * np.ones(g.num_cells)
-            d[pp.STATE].update({self.scalar_variable: initial_scalar_value})
+            initial_scalar_value = self.p_initial * np.ones(sd.num_cells)
+            data[pp.STATE].update({self.scalar_variable: initial_scalar_value})
 
-            d[pp.STATE][pp.ITERATE].update(
+            data[pp.STATE][pp.ITERATE].update(
                 {self.scalar_variable: initial_scalar_value.copy()}
             )
 
-    def _bc_type_mechanics(self, g):
+    def _bc_type_mechanics(self, sd):
         """
         For nonzero reference temperature, we only want to fix one boundary.
         """
         if not self.fix_only_bottom:
-            return super()._bc_type_mechanics(g)
-        _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
-        bc = pp.BoundaryConditionVectorial(g, south, "dir")
+            return super()._bc_type_mechanics(sd)
+        _, _, _, north, south, _, _ = self._domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, south, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the
         # fracture faces.
-        frac_face = g.tags["fracture_faces"]
+        frac_face = sd.tags["fracture_faces"]
         bc.is_neu[:, frac_face] = False
         bc.is_dir[:, frac_face] = True
         return bc

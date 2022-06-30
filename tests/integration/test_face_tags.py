@@ -18,7 +18,7 @@ class TestFaceTags(unittest.TestCase):
         grids = meshing.cart_grid(f_set, nx, physdims=nx)
 
         # 2D grid:
-        g_2d = grids.grids_of_dimension(2)[0]
+        g_2d = list(grids.subdomains(dim=2))[0]
 
         f_tags_2d = np.array(
             [
@@ -92,7 +92,7 @@ class TestFaceTags(unittest.TestCase):
         self.assertTrue(np.all(g_2d.tags["domain_boundary_faces"] == d_tags_2d))
 
         # 1D grids:
-        for g_1d in grids.grids_of_dimension(1):
+        for g_1d in grids.subdomains(dim=1):
             f_tags_1d = np.array([False, True, False, True])
             if g_1d.face_centers[0, 0] > 0.1:
                 t_tags_1d = np.array([True, False, False, False])

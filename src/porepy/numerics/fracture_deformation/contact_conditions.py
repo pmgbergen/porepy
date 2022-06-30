@@ -34,20 +34,19 @@ For the case u_t = 0, we extend the Jacobian to 0, i.e.
     dg/du_t(|| u_t || = 0) = 0.
 """
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
+from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
 logger = logging.getLogger(__name__)
 
 
-class ColoumbContact(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class ColoumbContact(AbstractInterfaceLaw):
     def __init__(self, keyword: str, ambient_dimension: int, discr_h) -> None:
         self.keyword = keyword
 
@@ -74,7 +73,13 @@ class ColoumbContact(
         return g.num_cells * self.dim
 
     def discretize(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: dict,
+        data_secondary: dict,
+        data_edge: dict,
     ) -> None:
         """Discretize the contact conditions using a semi-smooth Newton
         approach.
@@ -88,13 +93,13 @@ class ColoumbContact(
         projection operator associated with the surface. The contact forces
         should be interpreted as tangential and normal to this plane.
 
-        Parameters in data_l:
-            "friction_coefficient": float or np.ndarray (g_l.num_cells). A float
+        Parameters in data_secondary:
+            "friction_coefficient": float or np.ndarray (sd_secondary.num_cells). A float
         is interpreted as a homogenous coefficient for all cells of the fracture.
             "c_num": float. Numerical parameter, defaults to 100. The sensitivity
         is currently unknown.
 
-        Optional parameters: float or np.ndarray (g_l.num_cells), all default to 0:
+        Optional parameters: float or np.ndarray (sd_secondary.num_cells), all default to 0:
             "initial_gap": The gap (minimum normal opening) in the undeformed state.
             "dilation_angle": Angle for dilation relation, see above.
             "cohesion": Threshold value for tangential traction.
@@ -121,7 +126,7 @@ class ColoumbContact(
         #   gut feel says yes, but I'm not sure.
 
         # Process input
-        parameters_l = data_l[pp.PARAMETERS]
+        parameters_l = data_secondary[pp.PARAMETERS]
 
         # Numerical parameter, value and sensitivity is currently unknown.
         # The thesis of Hueeber is probably a good place to look for information.
@@ -144,7 +149,7 @@ class ColoumbContact(
 
         defaults = [None, 0, 0, 0]
         vals = parameters_l.expand_scalars(
-            g_l.num_cells, self.keyword, cellwise_parameters, defaults
+            sd_secondary.num_cells, self.keyword, cellwise_parameters, defaults
         )
         friction_coefficient, initial_gap, dilation_angle, cohesion = (
             vals[0],
@@ -153,20 +158,20 @@ class ColoumbContact(
             vals[3],
         )
 
-        mg = data_edge["mortar_grid"]
-
         # In an attempt to reduce the sensitivity of the numerical parameter on the
         # model parameters, we scale it with area and an order-of-magnitude estimate
         # for the elastic moduli.
-        area = g_l.cell_volumes
+        area = sd_secondary.cell_volumes
 
-        parameters_h = data_h[pp.PARAMETERS][self.discr_h.keyword]
-        constit_h = parameters_h["fourth_order_tensor"]
+        parameters_primary = data_primary[pp.PARAMETERS][self.discr_h.keyword]
+        constit_primary = parameters_primary["fourth_order_tensor"]
         mean_constit = (
-            mg.mortar_to_secondary_avg()
-            * mg.primary_to_mortar_avg()
+            intf.mortar_to_secondary_avg()
+            * intf.primary_to_mortar_avg()
             * 0.5
-            * np.abs(g_h.cell_faces * (constit_h.mu + constit_h.lmbda))
+            * np.abs(
+                sd_primary.cell_faces * (constit_primary.mu + constit_primary.lmbda)
+            )
         )
 
         c_num_normal = c_num * mean_constit * area
@@ -182,10 +187,10 @@ class ColoumbContact(
         # IMPLEMENATION NOTE: It is paramount that this projection is used for all
         # operations relating to this surface, or else directions of normal vectors
         # will get confused.
-        projection = data_l["tangential_normal_projection"]
+        projection = data_secondary["tangential_normal_projection"]
 
         # The contact force is already computed in local coordinates
-        contact_force = data_l[pp.STATE][pp.ITERATE][self.contact_variable]
+        contact_force = data_secondary[pp.STATE][pp.ITERATE][self.contact_variable]
 
         # Pick out the tangential and normal direction of the contact force.
         # The contact force of the first cell is in the first self.dim elements
@@ -196,7 +201,7 @@ class ColoumbContact(
         tangential_indices = np.setdiff1d(np.arange(contact_force.size), normal_indices)
         contact_force_normal = contact_force[normal_indices]
         contact_force_tangential = contact_force[tangential_indices].reshape(
-            (self.dim - 1, g_l.num_cells), order="F"
+            (self.dim - 1, sd_secondary.num_cells), order="F"
         )
 
         # The displacement jump (in global coordinates) is found by switching the
@@ -212,36 +217,36 @@ class ColoumbContact(
             self.mortar_displacement_variable
         ]
         displacement_jump_global_coord_iterate = (
-            mg.mortar_to_secondary_avg(nd=self.dim)
-            * mg.sign_of_mortar_sides(nd=self.dim)
+            intf.mortar_to_secondary_avg(nd=self.dim)
+            * intf.sign_of_mortar_sides(nd=self.dim)
             * previous_displacement_iterate
         )
         displacement_jump_global_coord_time = (
-            mg.mortar_to_secondary_avg(nd=self.dim)
-            * mg.sign_of_mortar_sides(nd=self.dim)
+            intf.mortar_to_secondary_avg(nd=self.dim)
+            * intf.sign_of_mortar_sides(nd=self.dim)
             * previous_displacement_time
         )
         # Rotated displacement jumps. These are in the local coordinates, on
         # the lower-dimensional grid. For the normal direction, we consider the absolute
         # displacement, not that relative to the initial state.
-        displacement_jump_normal = projection.project_normal(g_l.num_cells) * (
+        displacement_jump_normal = projection.project_normal(sd_secondary.num_cells) * (
             displacement_jump_global_coord_iterate
         )
-        # The jump in the tangential direction is in g_l.dim columns, one per
+        # The jump in the tangential direction is in sd_secondary.dim columns, one per
         # dimension in the tangential direction. For the tangential direction, we
         # consider the relative displacement.
         displacement_jump_tangential = (
-            projection.project_tangential(g_l.num_cells)
+            projection.project_tangential(sd_secondary.num_cells)
             * (
                 displacement_jump_global_coord_iterate
                 - displacement_jump_global_coord_time
             )
-        ).reshape((self.dim - 1, g_l.num_cells), order="F")
+        ).reshape((self.dim - 1, sd_secondary.num_cells), order="F")
 
         cumulative_tangential_jump = (
-            projection.project_tangential(g_l.num_cells)
+            projection.project_tangential(sd_secondary.num_cells)
             * (displacement_jump_global_coord_iterate)
-        ).reshape((self.dim - 1, g_l.num_cells), order="F")
+        ).reshape((self.dim - 1, sd_secondary.num_cells), order="F")
 
         # Compute gap if it is a function of tangential jump, i.e.
         # g = g(u) + g_0 (careful with sign!)
@@ -257,7 +262,7 @@ class ColoumbContact(
         ind = np.logical_not(
             np.isclose(cumulative_tangential_jump, 0, rtol=self.tol, atol=self.tol)
         )[0]
-        d_gap = np.zeros((g_l.dim, g_l.num_cells))
+        d_gap = np.zeros((sd_secondary.dim, sd_secondary.num_cells))
         # Compute dg/du_t where u_t is nonzero
         tan = np.atleast_2d(np.tan(dilation_angle)[ind])
         d_gap[:, ind] = (
@@ -405,33 +410,46 @@ class ColoumbContact(
 
         data_displacement = np.array(displacement_weight).ravel(order="C")
 
-        data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
+        data_secondary[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.traction_matrix_key
         ] = pp.matrix_operations.csr_matrix_from_blocks(
             data_traction, self.dim, num_blocks
         )
-        data_l[pp.DISCRETIZATION_MATRICES][self.keyword][
+        data_secondary[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.displacement_matrix_key
         ] = pp.matrix_operations.csr_matrix_from_blocks(
             data_displacement, self.dim, num_blocks
         )
-        data_l[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_matrix_key] = rhs
+        data_secondary[pp.DISCRETIZATION_MATRICES][self.keyword][
+            self.rhs_matrix_key
+        ] = rhs
 
         # Also store the contact state
-        data_l[pp.STATE][pp.ITERATE]["penetration"] = penetration_bc
-        data_l[pp.STATE][pp.ITERATE]["sliding"] = sliding_bc
+        data_secondary[pp.STATE][pp.ITERATE]["penetration"] = penetration_bc
+        data_secondary[pp.STATE][pp.ITERATE]["sliding"] = sliding_bc
 
-    def assemble_matrix_rhs(self, g: pp.Grid, data: Dict):
+    def assemble_matrix_rhs(
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: dict,
+        data_secondary: dict,
+        data_intf: dict,
+        matrix: np.ndarray,
+    ):
         # Generate matrix for the coupling. This can probably be generalized
         # once we have decided on a format for the general variables
-        traction_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
+        traction_coefficient = data_secondary[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.traction_matrix_key
         ]
-        displacement_coefficient = data[pp.DISCRETIZATION_MATRICES][self.keyword][
-            self.displacement_matrix_key
-        ]
+        displacement_coefficient = data_secondary[pp.DISCRETIZATION_MATRICES][
+            self.keyword
+        ][self.displacement_matrix_key]
 
-        rhs = data[pp.DISCRETIZATION_MATRICES][self.keyword][self.rhs_matrix_key]
+        rhs = data_secondary[pp.DISCRETIZATION_MATRICES][self.keyword][
+            self.rhs_matrix_key
+        ]
 
         return traction_coefficient, displacement_coefficient, rhs
 
@@ -507,7 +525,7 @@ class ColoumbContact(
 
     def _sliding_coefficients(
         self, Tt: np.ndarray, ut: np.ndarray, bf: np.ndarray, c: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Compute the regularized versions of coefficients L, v and r, defined in
         Eq. (32) and section 3.2.1 in Berge et al. and used in Eq. (31).
@@ -575,12 +593,12 @@ class ColoumbContact(
 
 
 def set_projections(
-    gb: pp.GridBucket, edges: Optional[List[Tuple[pp.Grid, pp.Grid]]] = None
+    gb: pp.MixedDimensionalGrid, interfaces: Optional[list[pp.MortarGrid]] = None
 ) -> None:
     """Define a local coordinate system, and projection matrices, for all
     grids of co-dimension 1.
 
-    The function adds one item to the data dictionary of all GridBucket edges
+    The function adds one item to the data dictionary of all MixedDimensionalGrid edges
     that neighbors a co-dimension 1 grid, defined as:
         key: tangential_normal_projection, value: pp.TangentialNormalProjection
             provides projection to the surface of the lower-dimensional grid
@@ -591,37 +609,34 @@ def set_projections(
     It is assumed that the surface is planar.
 
     """
-    if edges is None:
-        edges = [e for e, _ in gb.edges()]
+    if interfaces is None:
+        interfaces = [e for e in gb.interfaces()]
 
     # Information on the vector normal to the surface is not available directly
     # from the surface grid (it could be constructed from the surface geometry,
     # which spans the tangential plane). We instead get the normal vector from
     # the adjacent higher dimensional grid.
     # We therefore access the grids via the edges of the mixed-dimensional grid.
-    for e in edges:
-        d_m = gb.edge_props(e)
-
-        mg = d_m["mortar_grid"]
+    for intf in interfaces:
         # Only consider edges where the lower-dimensional neighbor is of co-dimension 1
-        if not mg.dim == (gb.dim_max() - 1):
+        if not intf.dim == (gb.dim_max() - 1):
             continue
 
         # Neigboring grids
-        g_l, g_h = gb.nodes_of_edge(e)
+        sd_primary, sd_secondary = gb.interface_to_subdomain_pair(intf)
 
         # Find faces of the higher dimensional grid that coincide with the mortar
         # grid. Go via the primary to mortar projection
         # Convert matrix to csr, then the relevant face indices are found from
         # the (column) indices
-        faces_on_surface = mg.primary_to_mortar_int().tocsr().indices
+        faces_on_surface = intf.primary_to_mortar_int().tocsr().indices
 
         # Find out whether the boundary faces have outwards pointing normal vectors
         # Negative sign implies that the normal vector points inwards.
-        sgn, _ = g_h.signs_and_cells_of_boundary_faces(faces_on_surface)
+        sgn, _ = sd_primary.signs_and_cells_of_boundary_faces(faces_on_surface)
 
         # Unit normal vector
-        unit_normal = g_h.face_normals[: g_h.dim] / g_h.face_areas
+        unit_normal = sd_primary.face_normals[: sd_primary.dim] / sd_primary.face_areas
         # Ensure all normal vectors on the relevant surface points outwards
         unit_normal[:, faces_on_surface] *= sgn
 
@@ -629,11 +644,13 @@ def set_projections(
 
         # which coincides with this mortar grid, so we kill off all entries for the
         # "other" side:
-        unit_normal[:, mg._ind_face_on_other_side] = 0
+        unit_normal[:, intf._ind_face_on_other_side] = 0
 
         # Project to the mortar and then to the fracture
-        outwards_unit_vector_mortar = mg.primary_to_mortar_int().dot(unit_normal.T).T
-        normal_lower = mg.mortar_to_secondary_int().dot(outwards_unit_vector_mortar.T).T
+        outwards_unit_vector_mortar = intf.primary_to_mortar_int().dot(unit_normal.T).T
+        normal_lower = (
+            intf.mortar_to_secondary_int().dot(outwards_unit_vector_mortar.T).T
+        )
 
         # NOTE: The normal vector is based on the first cell in the mortar grid,
         # and will be pointing from that cell towards the other side of the
@@ -647,14 +664,12 @@ def set_projections(
         # construction internally in TangentialNormalProjection.
         projection = pp.TangentialNormalProjection(normal_lower)
 
-        d_l = gb.node_props(g_l)
+        d_l = gb.subdomain_data(sd_secondary)
         # Store the projection operator in the lower-dimensional data
         d_l["tangential_normal_projection"] = projection
 
 
-class ContactTraction(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class ContactTraction(AbstractInterfaceLaw):
     """Discretization class for obtaining contact traction from contact force.
 
     Contact force is the primary variable used in the Model classes. However,
@@ -673,16 +688,17 @@ class ContactTraction(
         self.area_matrix_key = "fracture_area"
         self.discr_h = discr_h
 
-    def ndof(self, g) -> int:
-        return g.num_cells * self.dim
+    def ndof(self, sd) -> int:
+        return sd.num_cells * self.dim
 
     def discretize(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_interface: Dict,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: dict,
+        data_secondary: dict,
+        data_interface: dict,
     ) -> None:
         """Discretize the conversion from contact force to contact traction.
 
@@ -691,15 +707,15 @@ class ContactTraction(
 
         Parameters
         ----------
-        g_primary : pp.Grid
+        sd_primary : pp.Grid
             Grid of the matrix subdomain.
-        g_secondary : pp.Grid
+        sd_secondary : pp.Grid
             Grid of the fracture subdomain.
-        data_primary : Dict
+        data_primary : dict
             Data dictionary of the matrix subdomain.
-        data_secondary : Dict
+        data_secondary : dict
             Data dictionary of the fracture subdomain.
-        data_interface : Dict
+        data_interface : dict
             Data dictionary of the matrix-fracture interface.
 
         Returns
@@ -709,20 +725,20 @@ class ContactTraction(
 
         """
 
-        mg = data_interface["mortar_grid"]
+        area = sd_secondary.cell_volumes
 
-        area = g_secondary.cell_volumes
-
-        parameters_h = data_primary[pp.PARAMETERS][self.discr_h.keyword]
-        constit_h = parameters_h["fourth_order_tensor"]
+        parameters_primary = data_primary[pp.PARAMETERS][self.discr_h.keyword]
+        constit_primary = parameters_primary["fourth_order_tensor"]
         mean_constit = (
-            mg.mortar_to_secondary_avg()
-            * mg.primary_to_mortar_avg()
+            intf.mortar_to_secondary_avg()
+            * intf.primary_to_mortar_avg()
             * 0.5
-            * np.abs(g_primary.cell_faces * (constit_h.mu + constit_h.lmbda))
+            * np.abs(
+                sd_primary.cell_faces * (constit_primary.mu + constit_primary.lmbda)
+            )
         )
 
-        traction_scaling = np.kron(1 / (mean_constit * area), np.ones(g_primary.dim))
+        traction_scaling = np.kron(1 / (mean_constit * area), np.ones(sd_primary.dim))
 
         data_secondary[pp.DISCRETIZATION_MATRICES][self.keyword][
             self.traction_scaling_matrix_key
@@ -730,11 +746,12 @@ class ContactTraction(
 
     def assemble_matrix_rhs(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_interface: Dict,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        data_primary: dict,
+        data_secondary: dict,
+        data_interface: dict,
         matrix,
     ):
         """Abstract method required by base class.
@@ -745,15 +762,15 @@ class ContactTraction(
 
         Parameters
         ----------
-        g_primary : pp.Grid
+        sd_primary : pp.Grid
             Higher-dimensional grid.
-        g_secondary : pp.Grid
+        sd_secondary : pp.Grid
             Lower-dimensional grid.
-        data_primary : Dict
-            Data dictionary corresponding to g_primary.
-        data_secondary : Dict
-            Data dictionary corresponding to g_secondary.
-        data_interface : Dict
+        data_primary : dict
+            Data dictionary corresponding to sd_primary.
+        data_secondary : dict
+            Data dictionary corresponding to sd_secondary.
+        data_interface : dict
             Data dictionary corresponding to the interface.
         matrix : TYPE
             Discretization matrix.

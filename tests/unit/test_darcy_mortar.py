@@ -18,7 +18,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
     def set_param_flow(self, gb, no_flow=False, kn=1e3, method="mpfa"):
         # Set up flow field with uniform flow in y-direction
         kw = "flow"
-        for g, d in gb:
+        for g, d in gb.subdomains(return_data=True):
             parameter_dictionary = {}
 
             perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
@@ -46,9 +46,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
             d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-        gb.add_edge_props("kn")
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
+        for mg, d in gb.interfaces(return_data=True):
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
@@ -57,7 +55,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         discretization_key = kw + "_" + pp.DISCRETIZATION
 
-        for g, d in gb:
+        for g, d in gb.subdomains(return_data=True):
             # Choose discretization and define the solver
             if method == "mpfa":
                 discr = pp.Mpfa(kw)
@@ -68,7 +66,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
             d[discretization_key] = discr
 
-        for _, d in gb.edges():
+        for _, d in gb.interfaces(return_data=True):
             d[discretization_key] = pp.RobinCoupling(kw, discr)
 
     def set_grids(self, N, num_nodes_mortar, num_nodes_1d, physdims=[1, 1]):
@@ -76,27 +74,26 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
 
         gb = pp.meshing.cart_grid([f1], N, **{"physdims": physdims})
         gb.compute_geometry()
-        gb.assign_node_ordering()
+        gb.assign_subdomain_ordering()
 
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
+        for intf in gb.interfaces():
+            pass
 
         new_side_grids = {
             s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
-            for s, g in mg.side_grids.items()
+            for s, g in intf.side_grids.items()
         }
 
-        mg.update_mortar(new_side_grids, tol=1e-4)
+        intf.update_mortar(new_side_grids, tol=1e-4)
 
         # refine the 1d-physical grid
-        old_g = gb.nodes_of_edge(e)[0]
+        old_g = gb.interface_to_subdomain_pair(intf)[1]
         new_g = pp.refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
         new_g.compute_geometry()
 
-        gb.update_nodes({old_g: new_g})
-        mg = d["mortar_grid"]
+        gb.replace_subdomains_and_interfaces(sd_map={old_g: new_g})
 
-        mg.update_secondary(new_g, tol=1e-4)
+        intf.update_secondary(new_g, tol=1e-4)
 
         return gb
 
@@ -115,9 +112,9 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         assembler.distribute_variable(p)
 
         if method == "mvem":
-            g2d = gb.grids_of_dimension(2)[0]
-            p_n = np.zeros(gb.num_cells())
-            for g, d in gb:
+            g2d = list(gb.subdomains(dim=2))[0]
+            p_n = np.zeros(sum([g.num_cells for g in gb.subdomains()]))
+            for g, d in gb.subdomains(return_data=True):
                 if g.dim == 2:
                     p_n[: g2d.num_cells] = d[pp.STATE]["pressure"][g.num_faces :]
                 else:
@@ -127,7 +124,7 @@ class TestMortar2dSingleFractureCartesianGrid(unittest.TestCase):
         return p
 
     def verify_cv(self, gb):
-        for g, d in gb.nodes():
+        for g, d in gb.subdomains(return_data=True):
             p = d[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
@@ -488,14 +485,14 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
                 "mesh_size_bound": 0.3 * alpha_2d,
             }
             gbn = network.mesh(mesh_size)
-            go = gb.grids_of_dimension(2)[0]
-            gn = gbn.grids_of_dimension(2)[0]
+            go = list(gb.subdomains(dim=2))[0]
+            gn = list(gbn.subdomains(dim=2))[0]
             gn.compute_geometry()
             gmap[go] = gn
 
         # Refine 1d grids
         if alpha_1d is not None:
-            for g, d in gb:
+            for g, d in gb.subdomains(return_data=True):
                 if g.dim == 1:
                     if alpha_1d > 1:
                         num_nodes = 1 + int(alpha_1d) * g.num_cells
@@ -508,17 +505,15 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         # Refine mortar grid
         mg_map = {}
         if alpha_mortar is not None:
-            for e, d in gb.edges():
-                mg = d["mortar_grid"]
+            for mg, d in gb.interfaces(return_data=True):
                 if mg.dim == 1:
                     mg_map[mg] = {}
                     for s, g in mg.side_grids.items():
                         num_nodes = int(g.num_nodes * alpha_mortar)
                         mg_map[mg][s] = pp.refinement.remesh_1d(g, num_nodes=num_nodes)
 
-        gb.replace_grids(gmap, mg_map, tol=1e-4)
-
-        gb.assign_node_ordering()
+        gb.replace_subdomains_and_interfaces(sd_map=gmap, intf_map=mg_map, tol=1e-4)
+        gb.assign_subdomain_ordering()
 
         self.set_params(gb)
 
@@ -526,7 +521,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
 
     def set_params(self, gb):
         kw = "flow"
-        for g, d in gb:
+        for g, d in gb.subdomains(return_data=True):
             parameter_dictionary = {}
 
             perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
@@ -552,10 +547,8 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
             d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-        gb.add_edge_props("kn")
         kn = 1e7
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
+        for mg, d in gb.interfaces(return_data=True):
 
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
@@ -570,7 +563,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         # are not matching (one may get lucky, though). Thus the coarse error
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
-        for g, d in gb.nodes():
+        for g, d in gb.subdomains(return_data=True):
             p = d[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
@@ -591,7 +584,7 @@ class TestMortar2DSimplexGridStandardMeshing(unittest.TestCase):
         A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
         assembler.distribute_variable(p)
-        for g, d in gb:
+        for g, d in gb.subdomains(return_data=True):
             d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
     def test_mpfa_one_frac(self):
@@ -748,7 +741,7 @@ class TestMortar3D(unittest.TestCase):
 
     def set_params(self, gb):
         kw = "flow"
-        for g, d in gb:
+        for g, d in gb.subdomains(return_data=True):
             parameter_dictionary = {}
 
             perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
@@ -772,17 +765,16 @@ class TestMortar3D(unittest.TestCase):
             d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
         kn = 1e7
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
+        for intf, d in gb.interfaces():
 
-            flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
+            flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(intf.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
             )
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
     def verify_cv(self, gb):
-        for g, d in gb.nodes():
+        for g, d in gb.subdomains(return_data=True):
             p = d[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=1e-3, atol=1e-3))
 
@@ -913,23 +905,24 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
     def setup(self, remove_tags=False, num_1d=3, pert_node=False, flip_normal=False):
         g2 = self.grid_2d()
         g1 = self.grid_1d()
-        gb = pp.meshing._assemble_in_bucket([[g2], [g1]])
+        gb, sd_map = pp.meshing._assemble_mdg([[g2], [g1]])
 
-        gb.add_edge_props("face_cells")
-        for e, d in gb.edges():
-            a = np.zeros((g2.num_faces, g1.num_cells))
-            a[2, 1] = 1
-            a[3, 0] = 1
-            a[7, 0] = 1
-            a[8, 1] = 1
-            d["face_cells"] = sps.csc_matrix(a.T)
-        pp.meshing.create_mortar_grids(gb)
+        a = np.zeros((g2.num_faces, g1.num_cells))
+        a[2, 1] = 1
+        a[3, 0] = 1
+        a[7, 0] = 1
+        a[8, 1] = 1
+        face_cells = sps.csc_matrix(a.T)
+
+        sd_map = {(g2, g1): face_cells}
+
+        pp.meshing.create_interfaces(gb, sd_map)
 
         g_new_2d = self.grid_2d(pert_node=pert_node, flip_normal=flip_normal)
         g_new_1d = self.grid_1d(num_1d)
-        gb.replace_grids(g_map={g2: g_new_2d, g1: g_new_1d})
+        gb.replace_subdomains_and_interfaces(sd_map={g2: g_new_2d, g1: g_new_1d})
 
-        gb.assign_node_ordering()
+        gb.assign_subdomain_ordering()
 
         self.set_params(gb)
         return gb
@@ -938,7 +931,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         # Set up flow field with uniform flow in y-direction
         kw = "flow"
         kn = 1e6
-        for g, d in gb:
+        for g, d in gb.subdomains(return_data=True):
             parameter_dictionary = {}
 
             perm = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
@@ -966,9 +959,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
             d[pp.PARAMETERS] = pp.Parameters(g, [kw], [parameter_dictionary])
             d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-        gb.add_edge_props("kn")
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
+        for mg, d in gb.interfaces(return_data=True):
             flow_dictionary = {"normal_diffusivity": 2 * kn * np.ones(mg.num_cells)}
             d[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries=[flow_dictionary]
@@ -982,7 +973,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         # are not matching (one may get lucky, though). Thus the coarse error
         # tolerance. The current value turned out to be sufficient for all
         # tests considered herein.
-        for g, d in gb.nodes():
+        for g, d in gb.subdomains(return_data=True):
             p = d[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, g.cell_centers[1], rtol=tol, atol=tol))
 
@@ -1002,7 +993,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         key = "flow"
         method = pp.MVEM(key)
         self._solve(gb, method, key)
-        for g, d in gb:
+        for g, d in gb.subdomains(return_data=True):
             d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
             d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
@@ -1010,7 +1001,7 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
         key = "flow"
         method = pp.RT0(key)
         self._solve(gb, method, key)
-        for g, d in gb:
+        for g, d in gb.subdomains(return_data=True):
             d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
             d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
 
@@ -1091,5 +1082,4 @@ class TestMortar2DSimplexGrid(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestMortar2dSingleFractureCartesianGrid().test_tpfa_matching_grids_refine_mortar_uniform_flow()
     unittest.main()

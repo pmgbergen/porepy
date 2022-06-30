@@ -184,7 +184,7 @@ def points_segments(p, start, end):
     Also return closest points on the segments.
 
     Parameters:
-        p (np.array, ndxn): Individual points
+        p (np.array, nd x n): Individual points
         start (np.ndarray, nd x n_segments): Start points of segments.
         end (np.ndarray, nd x n_segments): End point of segments
 
@@ -217,7 +217,7 @@ def points_segments(p, start, end):
     cp = np.zeros((num_p, num_l, nd))
 
     # We need to compare all points to all segments.
-    # The implemtation uses an outer for-loop, followed by an inner (almost)
+    # The implementation uses an outer for-loop, followed by an inner (almost)
     # vectorized part. Time consumption depends on the number of iterations in
     # the outer loop, so make a choice depending on whether there are more
     # segments or points. For borderline cases, more elaborate choices may be

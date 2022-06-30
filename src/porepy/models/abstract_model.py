@@ -21,7 +21,6 @@ import numpy as np
 import porepy as pp
 
 logger = logging.getLogger(__name__)
-module_sections = ["models", "numerics"]
 
 
 class AbstractModel:
@@ -31,10 +30,10 @@ class AbstractModel:
     Public attributes:
         params (Dict): Simulation specific parameters. Which items are admissible
             depends on the model in question.
-        convergence_status (bool): Whether the non-linear iterations has converged.
+        convergence_status (bool): Whether the non-linear iteration has converged.
         linear_solver (str): Specification of linear solver. Only known permissible
             value is 'direct'.
-        dof_mansager (pp.DofManager): Degree of freedom manager.
+        dof_manager (pp.DofManager): Degree of freedom manager.
     """
 
     def __init__(self, params: Optional[Dict] = None):
@@ -61,8 +60,12 @@ class AbstractModel:
         self._nonlinear_iteration: int = 0
         assert isinstance(self.params["use_ad"], bool)
         self._use_ad = self.params["use_ad"]
+
+        # Define attributes to be assigned later
         self._eq_manager: pp.ad.EquationManager
         self.dof_manager: pp.DofManager
+        self.mdg: pp.MixedDimensionalGrid
+        self.box: dict
 
     def create_grid(self) -> None:
         """Create the grid bucket.
@@ -70,20 +73,18 @@ class AbstractModel:
         A unit square grid with no fractures is assigned by default.
 
         The method assigns the following attributes to self:
-            gb (pp.GridBucket): The produced grid bucket.
+            mdg (pp.MixedDimensionalGrid): The produced grid bucket.
             box (dict): The bounding box of the domain, defined through minimum and
                 maximum values in each dimension.
         """
-        phys_dims = [1, 1]
-        n_cells = [1, 1]
-        self.box: Dict = pp.geometry.bounding_box.from_points(
-            np.array([[0, 0], phys_dims]).T
-        )
+        phys_dims = np.array([1, 1])
+        n_cells = np.array([1, 1])
+        self.box = pp.geometry.bounding_box.from_points(np.array([[0, 0], phys_dims]).T)
         g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         g.compute_geometry()
-        self.gb: pp.GridBucket = pp.meshing._assemble_in_bucket([[g]])
+        self.mdg = pp.meshing.subdomains_to_mdg([[g]])
         # If fractures are present, it is advised to call
-        # pp.contact_conditions.set_projections(self.gb)
+        # pp.contact_conditions.set_projections(self.mdg)
 
     def _initial_condition(self) -> None:
         """Set initial guess for the variables."""
@@ -105,7 +106,7 @@ class AbstractModel:
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
 
-        Possible usage is to update time-dependent parameters, discertizations etc.
+        Possible usage is to update time-dependent parameters, discretizations etc.
 
         """
         raise NotImplementedError
@@ -113,7 +114,7 @@ class AbstractModel:
     def before_newton_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
-        Possible usage is to update non-linear parameters, discertizations etc.
+        Possible usage is to update non-linear parameters, discretizations etc.
 
         """
         raise NotImplementedError
@@ -152,7 +153,7 @@ class AbstractModel:
             raise ValueError("Tried solving singular matrix for the linear problem.")
 
     def after_simulation(self) -> None:
-        """Run at the end of simulation. Can be used for cleaup etc."""
+        """Run at the end of simulation. Can be used for cleanup etc."""
         raise NotImplementedError
 
     def check_convergence(
@@ -170,7 +171,7 @@ class AbstractModel:
                 iteration.
             init_solution (np.array): Solution obtained from the previous time-step.
             nl_params (dict): Dictionary of parameters used for the convergence check.
-                Which items are required will depend on the converegence test to be
+                Which items are required will depend on the convergence test to be
                 implemented.
 
         Returns:
@@ -231,7 +232,7 @@ class AbstractModel:
     ## Utility methods
     def _l2_norm_cell(self, g: pp.Grid, val: np.ndarray) -> float:
         """
-        Compute the cell volume weighted norm of a vector-valued cellwise quantity for
+        Compute the cell volume weighted norm of a vector-valued cell-wise quantity for
         a given grid.
 
         Parameters:
@@ -249,15 +250,15 @@ class AbstractModel:
         elif nc * g.dim == sz:
             nd = g.dim
         else:
-            raise ValueError("Have not conisdered this type of unknown vector")
+            raise ValueError("Have not considered this type of unknown vector")
 
         norm = np.sqrt(np.reshape(val**2, (nd, nc), order="F") * g.cell_volumes)
 
         return np.sum(norm)
 
-    def _nd_grid(self) -> pp.Grid:
-        """Get the grid of the highest dimension. Assumes self.gb is set."""
-        return self.gb.grids_of_dimension(self.gb.dim_max())[0]
+    def _nd_subdomain(self) -> pp.Grid:
+        """Get the grid of the highest dimension. Assumes self.mdg is set."""
+        return list(self.mdg.subdomains(dim=self.mdg.dim_max()))[0]
 
     def _export(self) -> None:
         """Method to export the solution to using an Exporter.
@@ -284,13 +285,13 @@ class AbstractModel:
         box = self.box
         east = g.face_centers[0] > box["xmax"] - tol
         west = g.face_centers[0] < box["xmin"] + tol
-        if self.gb.dim_max() == 1:
+        if self.mdg.dim_max() == 1:
             north = np.zeros(g.num_faces, dtype=bool)
             south = north.copy()
         else:
             north = g.face_centers[1] > box["ymax"] - tol
             south = g.face_centers[1] < box["ymin"] + tol
-        if self.gb.dim_max() < 3:
+        if self.mdg.dim_max() < 3:
             top = np.zeros(g.num_faces, dtype=bool)
             bottom = top.copy()
         else:
