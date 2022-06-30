@@ -62,7 +62,7 @@ def grid_sequence(basedim, num_levels, grid_type, pert=0, ref_rate=2, domain=Non
     if domain is None:
         domain = np.ones(dim)
     for iter1 in range(num_levels):
-        nx = basedim * ref_rate ** iter1
+        nx = basedim * ref_rate**iter1
         g = make_grid(grid_type, nx, domain, dim)
         if pert > 0:
             dx = np.max(domain / nx)
@@ -80,7 +80,7 @@ def grid_sequence_fixed_lines(
         domain = np.ones(dim)
 
     for iter1 in range(num_levels):
-        nx = basedim * ref_rate ** iter1
+        nx = basedim * ref_rate**iter1
         g = make_grid(grid_type, nx, domain, dim)
 
         if pert > 0:

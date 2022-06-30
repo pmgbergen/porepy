@@ -38,10 +38,12 @@ class MockGrid(pp.CartGrid):
     def bounding_box(self):
         return self.box
 
+
 class MockMortarGrid:
     def __init__(self, dim, side_grids):
-        self.dim=dim
-        self.side_grids=side_grids
+        self.dim = dim
+        self.side_grids = side_grids
+
 
 def mock_mortar_grid(sd_primary: pp.Grid, sd_secondary: pp.Grid) -> pp.MortarGrid:
     """Construct mock mortar grid.
@@ -63,14 +65,17 @@ def mock_mortar_grid(sd_primary: pp.Grid, sd_secondary: pp.Grid) -> pp.MortarGri
         ind = np.arange(sd_secondary.num_cells)
     else:
         shape_0 = sd_primary.num_faces
-        ind = sd_primary.get_boundary_faces()[:sd_secondary.num_cells]
+        ind = sd_primary.get_boundary_faces()[: sd_secondary.num_cells]
     array = np.zeros((shape_0, sd_secondary.num_cells))
 
-    array[ind, np.arange(sd_secondary.num_cells)]=1
-    map = sps.csc_matrix(array)#(([1], ([0], [0])), shape=(shape_0, sd_secondary.num_cells))
+    array[ind, np.arange(sd_secondary.num_cells)] = 1
+    map = sps.csc_matrix(
+        array
+    )  # (([1], ([0], [0])), shape=(shape_0, sd_secondary.num_cells))
     mg = pp.MortarGrid(sd_secondary.dim, {"left": sd_secondary}, primary_secondary=map)
     return mg
     # return MockMortarGrid(sd_secondary.dim, {"left": sd_primary, "right": sd_secondary})
+
 
 class TestMixedDimensionalGrid(unittest.TestCase):
     def simple_mdg(self, num_grids):
@@ -79,7 +84,6 @@ class TestMixedDimensionalGrid(unittest.TestCase):
         [mdg.add_subdomains(MockGrid()) for _ in range(num_grids)]
 
         return mdg
-
 
     # ----- Tests of adding nodes and edges ----- #
     def test_add_subdomains(self):
