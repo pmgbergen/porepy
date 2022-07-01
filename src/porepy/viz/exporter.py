@@ -1678,7 +1678,7 @@ class Exporter:
             raise ImportError("Numba not available on the system")
 
         # Just in time compilation
-        @numba.njit("b1(f8[:,:], i4[:,:])", cache=True)
+        @numba.njit("b1(f8[:,:], i4[:,:])", cache=True, parallel=True)
         def _function_to_compile(nodes, cn_indices):
             """
             Test whether the node numbering for each cell complies
@@ -1695,7 +1695,7 @@ class Exporter:
             correct_format = True
 
             # Test each cell separately
-            for i in range(cn_indices.shape[0]):
+            for i in numba.prange(cn_indices.shape[0]):
 
                 # Assume initially that the cell is a hex
                 is_hex = True
