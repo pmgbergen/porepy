@@ -1,6 +1,8 @@
 """
 Module for splitting a grid at the fractures.
 """
+from __future__ import annotations
+
 from typing import Optional
 
 import networkx as nx

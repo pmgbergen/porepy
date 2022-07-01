@@ -7,6 +7,8 @@ The implementation is based on the weakly symmetric version of MPSA, described i
         IJNME, 2017.
 
 """
+from __future__ import annotations
+
 import logging
 from time import time
 from typing import Any, Dict, Tuple

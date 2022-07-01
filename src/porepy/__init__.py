@@ -89,7 +89,7 @@ from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
 from porepy.grids.point_grid import PointGrid
 from porepy.grids import match_grids
-from porepy.grids.standard_grids import grid_buckets_2d, grid_buckets_3d
+from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 from porepy.grids import grid_extrusion
 from porepy.utils import grid_utils
 from porepy.utils import adtree
