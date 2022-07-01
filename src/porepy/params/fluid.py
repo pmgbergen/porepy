@@ -5,16 +5,29 @@ Contains standard values (e.g. found in Wikipedia) for density, thermal properti
 Note that thermal expansion coefficients are linear (m/mK) for rocks, but
 volumetric (m^3/m^3K) for fluids.
 """
+from __future__ import annotations
+
+from typing import Optional
+
 import numpy as np
 
 import porepy as pp
 
-module_sections = ["parameters"]
 
+class UnitFluid(object):
+    """Mother of all fluids, with properties equal 1.
 
-class UnitFluid:
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, theta_ref=None):
+    Attributes:
+        COMPRESSIBILITY: fluid compressibility
+        BULK: bulk modulus
+    """
+
+    def __init__(self, theta_ref: Optional[float] = None):
+        """Initialization of unit fluid.
+
+        Args:
+            theta_ref (float, optional): reference temperature in Celsius.
+        """
         if theta_ref is None:
             self.theta_ref = 20 * (pp.CELSIUS)
         else:
@@ -23,39 +36,78 @@ class UnitFluid:
         self.COMPRESSIBILITY = 1 / pp.PASCAL
         self.BULK = 1 / self.COMPRESSIBILITY
 
-    @pp.time_logger(sections=module_sections)
-    def thermal_expansion(self, delta_theta):
-        """Units: m^3 / m^3 K, i.e. volumetric"""
+    def thermal_expansion(self, delta_theta: float) -> float:
+        """Returns thermal expansion with unit m^3 / m^3 K, i.e. volumetric.
+
+        Args:
+            delta_theta (float): temperature increment in Celsius.
+
+        Returns:
+            float: themal expansion
+        """
         return 1
 
-    @pp.time_logger(sections=module_sections)
-    def density(self, theta=None):  # theta in CELSIUS
-        """Units: kg / m^3"""
+    def density(self, theta: Optional[float] = None) -> float:
+        """Returns fluid density with unit: kg / m^3.
+
+        Args:
+            theta (float): temperature in Celsius.
+
+        Returns:
+            float: density
+        """
         return 1
 
-    @pp.time_logger(sections=module_sections)
-    def thermal_conductivity(self, theta=None):  # theta in CELSIUS
-        """Units: W / m K"""
+    def thermal_conductivity(self, theta: Optional[float] = None) -> float:
+        """Returns thermal conductivity with unit : W / m K.
+
+        Args:
+            theta (float, optional): temperature in Celsius
+
+        Returns:
+            float: thermal conductivity
+        """
         return 1
 
-    @pp.time_logger(sections=module_sections)
-    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
-        """Units: J / kg K"""
+    def specific_heat_capacity(self, theta: Optional[float] = None) -> float:
+        """Returns specific heat capacity with  units: J / kg K.
+
+        Args:
+            theta (float, optional): temperature in Celsius
+
+        Returns:
+            float: specific heat capacity
+        """
         return 1
 
-    @pp.time_logger(sections=module_sections)
-    def dynamic_viscosity(self, theta=None):  # theta in CELSIUS
-        """Units: Pa s"""
+    def dynamic_viscosity(self, theta: Optional[float] = None) -> float:
+        """Returns dynamic viscosity with unit: Pa s.
+
+        Args:
+            theta (float, optional): temperature in Celsius
+
+        Returns:
+            float: dynamic viscosity
+        """
         return 1
 
-    @pp.time_logger(sections=module_sections)
-    def hydrostatic_pressure(self, depth, theta=None):
+    def hydrostatic_pressure(
+        self, depth: float, theta: Optional[float] = None
+    ) -> float:
+        """Returns hydrostatic pressure in Pa.
+
+        Args:
+            depth (float): depth in meters
+            theta (float): temperature in Celsius
+
+        Returns:
+            float: hydrostatic pressure
+        """
         rho = self.density(theta)
         return rho * depth * pp.GRAVITY_ACCELERATION + pp.ATMOSPHERIC_PRESSURE
 
 
-class Water:
-    @pp.time_logger(sections=module_sections)
+class Water(UnitFluid):
     def __init__(self, theta_ref=None):
         if theta_ref is None:
             self.theta_ref = 20 * (pp.CELSIUS)
@@ -65,27 +117,45 @@ class Water:
         self.COMPRESSIBILITY = 4e-10 / pp.PASCAL  # Moderate dependency on theta
         self.BULK = 1 / self.COMPRESSIBILITY
 
-    @pp.time_logger(sections=module_sections)
-    def thermal_expansion(self, delta_theta):
-        """Units: m^3 / m^3 K, i.e. volumetric"""
+    def thermal_expansion(self, delta_theta: float) -> float:
+        """Returns thermal expansion with unit m^3 / m^3 K, i.e. volumetric.
+
+        Args:
+            delta_theta (float): temperature increment in Celsius.
+
+        Returns:
+            float: themal expansion
+        """
         return (
             0.0002115
             + 1.32 * 1e-6 * delta_theta
             + 1.09 * 1e-8 * np.power(delta_theta, 2)
         )
 
-    @pp.time_logger(sections=module_sections)
-    def density(self, theta=None):  # theta in CELSIUS
-        """Units: kg / m^3"""
+    def density(self, theta: Optional[float] = None) -> float:
+        """Returns fluid density with unit: kg / m^3.
+
+        Args:
+            theta (float): temperature in Celsius.
+
+        Returns:
+            float: density
+        """
         if theta is None:
             theta = self.theta_ref
         theta_0 = 10 * (pp.CELSIUS)
         rho_0 = 999.8349 * (pp.KILOGRAM / pp.METER**3)
         return rho_0 / (1.0 + self.thermal_expansion(theta - theta_0))
 
-    @pp.time_logger(sections=module_sections)
-    def thermal_conductivity(self, theta=None):  # theta in CELSIUS
-        """Units: W / m K"""
+    def thermal_conductivity(self, theta: Optional[float] = None) -> float:
+        """Returns thermal conductivity with unit : W / m K.
+
+        Args:
+            theta (float, optional): temperature in Celsius
+
+        Returns:
+            float: thermal conductivity
+        """
         if theta is None:
             theta = self.theta_ref
         return (
@@ -95,23 +165,46 @@ class Water:
             + 6.71 * 1e-9 * np.power(theta, 3)
         )
 
-    @pp.time_logger(sections=module_sections)
-    def specific_heat_capacity(self, theta=None):  # theta in CELSIUS
-        """Units: J / kg K"""
+    def specific_heat_capacity(self, theta: Optional[float] = None) -> float:
+        """Returns specific heat capacity with  units: J / kg K.
+
+        Args:
+            theta (float, optional): temperature in Celsius
+
+        Returns:
+            float: specific heat capacity
+        """
         if theta is None:
             theta = self.theta_ref
         return 4245 - 1.841 * theta
 
-    @pp.time_logger(sections=module_sections)
-    def dynamic_viscosity(self, theta=None):  # theta in CELSIUS
-        """Units: Pa s"""
+    def dynamic_viscosity(self, theta: Optional[float] = None) -> float:
+        """Returns dynamic viscosity with unit: Pa s.
+
+        Args:
+            theta (float, optional): temperature in Celsius
+
+        Returns:
+            float: dynamic viscosity
+        """
         if theta is None:
             theta = self.theta_ref
+
         theta = pp.CELSIUS_to_KELVIN(theta)
         mu_0 = 2.414 * 1e-5 * (pp.PASCAL * pp.SECOND)
-        return mu_0 * np.power(10, 247.8 / (theta - 140))
+        return mu_0 * np.power(10, 247.8 / (theta - 140.0))
 
-    @pp.time_logger(sections=module_sections)
-    def hydrostatic_pressure(self, depth, theta=None):
+    def hydrostatic_pressure(
+        self, depth: float, theta: Optional[float] = None
+    ) -> float:
+        """Returns hydrostatic pressure in Pa.
+
+        Args:
+            depth (float): depth in meters
+            theta (float): temperature in Celsius
+
+        Returns:
+            float: hydrostatic pressure
+        """
         rho = self.density(theta)
         return rho * depth * pp.GRAVITY_ACCELERATION + pp.ATMOSPHERIC_PRESSURE

@@ -32,10 +32,10 @@ def test_subdomain_projections(scalar):
     """
 
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 2])
-    NC = gb.num_cells()
-    NF = gb.num_faces()
-    Nd = gb.dim_max()
+    mdg = pp.meshing.cart_grid(fracs, [2, 2])
+    NC = sum([sd.num_cells for sd in mdg.subdomains()])
+    NF = sum([sd.num_faces for sd in mdg.subdomains()])
+    Nd = mdg.dim_max()
 
     if scalar:
         proj_dim = 1
@@ -44,11 +44,15 @@ def test_subdomain_projections(scalar):
         NF *= Nd
         proj_dim = Nd
 
-    grid_list = np.array([g for g, _ in gb])
-    proj = pp.ad.SubdomainProjections(grids=grid_list, nd=proj_dim)
+    subdomains = np.array([sd for sd in mdg.subdomains()])
+    proj = pp.ad.SubdomainProjections(subdomains=subdomains, nd=proj_dim)
 
-    cell_start = np.cumsum(np.hstack((0, np.array([g.num_cells for g in grid_list]))))
-    face_start = np.cumsum(np.hstack((0, np.array([g.num_faces for g in grid_list]))))
+    cell_start = np.cumsum(
+        np.hstack((0, np.array([sd.num_cells for sd in subdomains])))
+    )
+    face_start = np.cumsum(
+        np.hstack((0, np.array([sd.num_faces for sd in subdomains])))
+    )
 
     # Helper method to get indices for sparse matrices
     def _mat_inds(nc, nf, grid_ind, scalar, Nd, cell_start, face_start):
@@ -71,11 +75,11 @@ def test_subdomain_projections(scalar):
         return row_cell, col_cell, data_cell, row_face, col_face, data_face
 
     # Test projection of one fracture at a time for the full set of grids
-    for g in grid_list:
+    for sd in subdomains:
 
-        ind = _list_ind_of_grid(grid_list, g)
+        ind = _list_ind_of_grid(subdomains, sd)
 
-        nc, nf = g.num_cells, g.num_faces
+        nc, nf = sd.num_cells, sd.num_faces
 
         num_rows_cell = nc
         num_rows_face = nf
@@ -94,17 +98,17 @@ def test_subdomain_projections(scalar):
             (data_face, (row_face, col_face)), shape=(num_rows_face, NF)
         ).tocsr()
 
-        assert _compare_matrices(proj.cell_restriction(g), known_cell_proj)
-        assert _compare_matrices(proj.cell_prolongation(g), known_cell_proj.T)
-        assert _compare_matrices(proj.face_restriction(g), known_face_proj)
-        assert _compare_matrices(proj.face_prolongation(g), known_face_proj.T)
+        assert _compare_matrices(proj.cell_restriction(sd), known_cell_proj)
+        assert _compare_matrices(proj.cell_prolongation(sd), known_cell_proj.T)
+        assert _compare_matrices(proj.face_restriction(sd), known_face_proj)
+        assert _compare_matrices(proj.face_prolongation(sd), known_face_proj.T)
 
     # Project between the full grid and both 1d grids (to combine two grids)
-    g1, g2 = gb.grids_of_dimension(1)
+    g1, g2 = mdg.subdomains(dim=1)
     rc1, cc1, dc1, rf1, cf1, df1 = _mat_inds(
         g1.num_cells,
         g1.num_faces,
-        _list_ind_of_grid(grid_list, g1),
+        _list_ind_of_grid(subdomains, g1),
         scalar,
         Nd,
         cell_start,
@@ -113,7 +117,7 @@ def test_subdomain_projections(scalar):
     rc2, cc2, dc2, rf2, cf2, df2 = _mat_inds(
         g2.num_cells,
         g2.num_faces,
-        _list_ind_of_grid(grid_list, g2),
+        _list_ind_of_grid(subdomains, g2),
         scalar,
         Nd,
         cell_start,
@@ -145,57 +149,59 @@ def test_subdomain_projections(scalar):
 def test_mortar_projections(scalar):
     # Test of mortar projections between mortar grids and standard subdomain grids.
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 2])
-    Nd = gb.dim_max()
+    mdg = pp.meshing.cart_grid(fracs, [2, 2])
+    Nd = mdg.dim_max()
 
     if scalar:
         proj_dim = 1
     else:
         proj_dim = Nd
 
-    NC = gb.num_cells() * proj_dim
-    NF = gb.num_faces() * proj_dim
-    NMC = gb.num_mortar_cells() * proj_dim
+    NC = sum([sd.num_cells for sd in mdg.subdomains()]) * proj_dim
+    NF = sum([sd.num_faces for sd in mdg.subdomains()]) * proj_dim
+    NMC = sum([intf.num_cells for intf in mdg.interfaces()]) * proj_dim
 
-    g0 = gb.grids_of_dimension(2)[0]
-    g1, g2 = gb.grids_of_dimension(1)
-    g3 = gb.grids_of_dimension(0)[0]
+    g0 = mdg.subdomains(dim=2)[0]
+    g1, g2 = mdg.subdomains(dim=1)
+    g3 = mdg.subdomains(dim=0)[0]
 
-    mg01 = gb.edge_props((g0, g1), "mortar_grid")
-    mg02 = gb.edge_props((g0, g2), "mortar_grid")
+    intf01 = mdg.subdomain_pair_to_interface((g0, g1))
+    intf02 = mdg.subdomain_pair_to_interface((g0, g2))
 
-    mg13 = gb.edge_props((g1, g3), "mortar_grid")
-    mg23 = gb.edge_props((g2, g3), "mortar_grid")
+    intf13 = mdg.subdomain_pair_to_interface((g1, g3))
+    intf23 = mdg.subdomain_pair_to_interface((g2, g3))
 
     ########
     # First test projection between all grids and all interfaces
-    grid_list = np.array([g0, g1, g2, g3])
-    edge_list = [(g0, g1), (g0, g2), (g1, g3), (g2, g3)]
+    subdomains = np.array([g0, g1, g2, g3])
+    interfaces = [intf01, intf02, intf13, intf23]
 
-    proj = pp.ad.MortarProjections(grids=grid_list, edges=edge_list, gb=gb, nd=proj_dim)
+    proj = pp.ad.MortarProjections(
+        subdomains=subdomains, interfaces=interfaces, mdg=mdg, nd=proj_dim
+    )
 
     cell_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([g.num_cells for g in grid_list])))
+        np.hstack((0, np.array([g.num_cells for g in subdomains])))
     )
     face_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([g.num_faces for g in grid_list])))
+        np.hstack((0, np.array([g.num_faces for g in subdomains])))
     )
 
     f0 = np.hstack(
         (
-            sps.find(mg01.mortar_to_primary_int(nd=proj_dim))[0],
-            sps.find(mg02.mortar_to_primary_int(nd=proj_dim))[0],
+            sps.find(intf01.mortar_to_primary_int(nd=proj_dim))[0],
+            sps.find(intf02.mortar_to_primary_int(nd=proj_dim))[0],
         )
     )
-    f1 = sps.find(mg13.mortar_to_primary_int(nd=proj_dim))[0]
-    f2 = sps.find(mg23.mortar_to_primary_int(nd=proj_dim))[0]
+    f1 = sps.find(intf13.mortar_to_primary_int(nd=proj_dim))[0]
+    f2 = sps.find(intf23.mortar_to_primary_int(nd=proj_dim))[0]
 
-    c1 = sps.find(mg01.mortar_to_secondary_int(nd=proj_dim))[0]
-    c2 = sps.find(mg02.mortar_to_secondary_int(nd=proj_dim))[0]
+    c1 = sps.find(intf01.mortar_to_secondary_int(nd=proj_dim))[0]
+    c2 = sps.find(intf02.mortar_to_secondary_int(nd=proj_dim))[0]
     c3 = np.hstack(
         (
-            sps.find(mg13.mortar_to_secondary_int(nd=proj_dim))[0],
-            sps.find(mg23.mortar_to_secondary_int(nd=proj_dim))[0],
+            sps.find(intf13.mortar_to_secondary_int(nd=proj_dim))[0],
+            sps.find(intf23.mortar_to_secondary_int(nd=proj_dim))[0],
         )
     )
 
@@ -223,11 +229,10 @@ def test_mortar_projections(scalar):
 
     # Also test block matrices for the sign of mortar projections.
     # This is a diagonal matrix with first -1, then 1.
-    # If this test fails, something is fundentally wrong.
+    # If this test fails, something is fundamentally wrong.
     vals = np.array([])
-    for e in edge_list:
-        mg = gb.edge_props(e, "mortar_grid")
-        sz = int(np.round(mg.num_cells / 2))
+    for intf in interfaces:
+        sz = int(np.round(intf.num_cells / 2))
         if not scalar:
             sz *= Nd
         vals = np.hstack((vals, -np.ones(sz), np.ones(sz)))
@@ -240,41 +245,41 @@ def test_mortar_projections(scalar):
 def test_boundary_condition(scalar):
     """Test of boundary condition representation."""
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 2])
+    mdg = pp.meshing.cart_grid(fracs, [2, 2])
 
-    grid_list = np.array([g for g, _ in gb])
+    subdomains = np.array([g for g in mdg.subdomains()])
 
-    Nd = gb.dim_max()
+    Nd = mdg.dim_max()
     key = "foo"
 
     # Start of all faces
-    face_start = np.cumsum(np.hstack((0, np.array([g.num_faces for g in grid_list]))))
+    face_start = np.cumsum(np.hstack((0, np.array([g.num_faces for g in subdomains]))))
 
     # Build values of known values (to be filled during assignment of bcs)
     if scalar:
-        known_values = np.zeros(gb.num_faces())
+        known_values = np.zeros(sum([sd.num_faces for sd in mdg.subdomains()]))
     else:
-        known_values = np.zeros(gb.num_faces() * Nd)
+        known_values = np.zeros(sum([sd.num_faces for sd in mdg.subdomains()]) * Nd)
         # If vector problem, all faces have Nd numbers
         face_start *= Nd
 
     # Loop over grids, assign values, keep track of assigned values
-    for g, d in gb:
-        grid_ind = _list_ind_of_grid(grid_list, g)
+    for sd, data in mdg.subdomains(return_data=True):
+        grid_ind = _list_ind_of_grid(subdomains, sd)
         if scalar:
-            values = np.random.rand(g.num_faces)
+            values = np.random.rand(sd.num_faces)
         else:
-            values = np.random.rand(g.num_faces * Nd)
+            values = np.random.rand(sd.num_faces * Nd)
 
-        d[pp.PARAMETERS] = {key: {"bc_values": values}}
+        data[pp.PARAMETERS] = {key: {"bc_values": values}}
 
         # Put face values in the right place in the vector of knowns
         face_inds = np.arange(face_start[grid_ind], face_start[grid_ind + 1])
         known_values[face_inds] = values
 
     # Ad representation of the boundary conditions. Parse.
-    bc = pp.ad.BoundaryCondition(key, grid_list)
-    val = bc.parse(gb)
+    bc = pp.ad.BoundaryCondition(key, subdomains)
+    val = bc.parse(mdg)
 
     assert np.allclose(val, known_values)
 
@@ -289,7 +294,7 @@ def test_ad_variable_wrappers():
     # variables in a setting of multple variables, including merged variables.
 
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 2])
+    mdg = pp.meshing.cart_grid(fracs, [2, 2])
 
     state_map = {}
     iterate_map = {}
@@ -311,49 +316,48 @@ def test_ad_variable_wrappers():
         if d.data.size > 0:
             assert np.max(np.abs(d.data)) < 1e-10
 
-    for g, d in gb:
-        if g.dim == 1:
+    for sd, data in mdg.subdomains(return_data=True):
+        if sd.dim == 1:
             num_dofs = 2
         else:
             num_dofs = 1
 
-        d[pp.PRIMARY_VARIABLES] = {var: {"cells": num_dofs}}
+        data[pp.PRIMARY_VARIABLES] = {var: {"cells": num_dofs}}
 
-        val_state = np.random.rand(g.num_cells * num_dofs)
-        val_iterate = np.random.rand(g.num_cells * num_dofs)
+        val_state = np.random.rand(sd.num_cells * num_dofs)
+        val_iterate = np.random.rand(sd.num_cells * num_dofs)
 
-        d[pp.STATE] = {var: val_state, pp.ITERATE: {var: val_iterate}}
-        state_map[g] = val_state
-        iterate_map[g] = val_iterate
+        data[pp.STATE] = {var: val_state, pp.ITERATE: {var: val_iterate}}
+        state_map[sd] = val_state
+        iterate_map[sd] = val_iterate
 
         # Add a second variable to the 2d grid, just for the fun of it
-        if g.dim == 2:
-            d[pp.PRIMARY_VARIABLES][var2] = {"cells": 1}
-            val_state = np.random.rand(g.num_cells)
-            val_iterate = np.random.rand(g.num_cells)
-            d[pp.STATE][var2] = val_state
-            d[pp.STATE][pp.ITERATE][var2] = val_iterate
-            state_map_2[g] = val_state
-            iterate_map_2[g] = val_iterate
+        if sd.dim == 2:
+            data[pp.PRIMARY_VARIABLES][var2] = {"cells": 1}
+            val_state = np.random.rand(sd.num_cells)
+            val_iterate = np.random.rand(sd.num_cells)
+            data[pp.STATE][var2] = val_state
+            data[pp.STATE][pp.ITERATE][var2] = val_iterate
+            state_map_2[sd] = val_state
+            iterate_map_2[sd] = val_iterate
 
-    for e, d in gb.edges():
-        mg = d["mortar_grid"]
-        if mg.dim == 1:
+    for intf, data in mdg.interfaces(return_data=True):
+        if intf.dim == 1:
             num_dofs = 2
         else:
             num_dofs = 1
 
-        d[pp.PRIMARY_VARIABLES] = {mortar_var: {"cells": num_dofs}}
+        data[pp.PRIMARY_VARIABLES] = {mortar_var: {"cells": num_dofs}}
 
-        val_state = np.random.rand(mg.num_cells * num_dofs)
-        val_iterate = np.random.rand(mg.num_cells * num_dofs)
+        val_state = np.random.rand(intf.num_cells * num_dofs)
+        val_iterate = np.random.rand(intf.num_cells * num_dofs)
 
-        d[pp.STATE] = {mortar_var: val_state, pp.ITERATE: {mortar_var: val_iterate}}
-        state_map[e] = val_state
-        iterate_map[e] = val_iterate
+        data[pp.STATE] = {mortar_var: val_state, pp.ITERATE: {mortar_var: val_iterate}}
+        state_map[intf] = val_state
+        iterate_map[intf] = val_iterate
 
-    dof_manager = pp.DofManager(gb)
-    eq_manager = pp.ad.EquationManager(gb, dof_manager)
+    dof_manager = pp.DofManager(mdg)
+    eq_manager = pp.ad.EquationManager(mdg, dof_manager)
 
     # Manually assemble state and iterate
     true_state = np.zeros(dof_manager.num_dofs())
@@ -373,27 +377,27 @@ def test_ad_variable_wrappers():
             true_iterate[inds] = iterate_map[g]
             double_iterate[inds] = 2 * iterate_map[g]
 
-    grid_list = [
-        gb.grids_of_dimension(2)[0],
-        *gb.grids_of_dimension(1),
-        gb.grids_of_dimension(0)[0],
+    subdomains = [
+        mdg.subdomains(dim=2)[0],
+        *mdg.subdomains(dim=1),
+        mdg.subdomains(dim=0)[0],
     ]
 
     # Generate merged variables via the EquationManager.
-    var_ad = eq_manager.merge_variables([(g, var) for g in grid_list])
+    var_ad = eq_manager.merge_variables([(g, var) for g in subdomains])
 
     # Check equivalence between the two approaches to generation.
 
     # Check that the state is correctly evaluated.
     inds_var = np.hstack(
-        [dof_manager.grid_and_variable_to_dofs(g, var) for g in grid_list]
+        [dof_manager.grid_and_variable_to_dofs(g, var) for g in subdomains]
     )
     assert np.allclose(
         true_iterate[inds_var], var_ad.evaluate(dof_manager, true_iterate).val
     )
 
     # Check evaluation when no state is passed to the parser, and information must
-    # instead be glued together from the GridBucket
+    # instead be glued together from the MixedDimensionalGrid
     assert np.allclose(true_iterate[inds_var], var_ad.evaluate(dof_manager).val)
 
     # Evaluate the equation using the double iterate
@@ -416,7 +420,7 @@ def test_ad_variable_wrappers():
     ## Next, test edge variables. This should be much the same as the grid variables,
     # so the testing is less thorough.
     # Form an edge variable, evaluate this
-    edge_list = [e for e, _ in gb.edges()]
+    edge_list = [intf for intf in mdg.interfaces()]
     var_edge = eq_manager.merge_variables([(e, mortar_var) for e in edge_list])
 
     edge_inds = np.hstack(
@@ -427,7 +431,7 @@ def test_ad_variable_wrappers():
     )
 
     # Finally, test a single variable; everything should work then as well
-    g = gb.grids_of_dimension(2)[0]
+    g = mdg.subdomains(dim=2)[0]
     v1 = eq_manager.variable(g, var)
     v2 = eq_manager.variable(g, var2)
 
@@ -452,19 +456,19 @@ def test_variable_combinations(grids, variables):
     # Test combinations of variables, and merged variables, on different grids.
     # Main check is if Jacobian matrices are of the right size.
 
-    # Make GridBucket, populate with necessary information
-    gb = pp.GridBucket()
-    gb.add_nodes(grids)
-    for g, d in gb:
-        d[pp.STATE] = {}
-        d[pp.PRIMARY_VARIABLES] = {}
+    # Make MixedDimensionalGrid, populate with necessary information
+    mdg = pp.MixedDimensionalGrid()
+    mdg.add_subdomains(grids)
+    for sd, data in mdg.subdomains(return_data=True):
+        data[pp.STATE] = {}
+        data[pp.PRIMARY_VARIABLES] = {}
         for var in variables:
-            d[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
-            d[pp.STATE][var] = np.random.rand(g.num_cells)
+            data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
+            data[pp.STATE][var] = np.random.rand(sd.num_cells)
 
     # Ad boilerplate
-    dof_manager = pp.DofManager(gb)
-    eq_manager = pp.ad.EquationManager(gb, dof_manager)
+    dof_manager = pp.DofManager(mdg)
+    eq_manager = pp.ad.EquationManager(mdg, dof_manager)
 
     # Standard Ad variables
     ad_vars = [eq_manager.variable(g, var) for g in grids for var in variables]
@@ -475,13 +479,13 @@ def test_variable_combinations(grids, variables):
         merged_vars.append(eq_manager.merge_variables(gv))
 
     # First check of standard variables. If this fails, something is really wrong
-    for g in grids:
-        d = gb.node_props(g)
+    for sd in grids:
+        data = mdg.subdomain_data(sd)
         for var in ad_vars:
-            if g == var._g:
+            if sd == var._g:
                 expr = var.evaluate(dof_manager)
                 # Check that the size of the variable is correct
-                assert np.allclose(expr.val, d[pp.STATE][var._name])
+                assert np.allclose(expr.val, data[pp.STATE][var._name])
                 # Check that the Jacobian matrix has the right number of columns
                 assert expr.jac.shape[1] == dof_manager.num_dofs()
 
@@ -490,7 +494,7 @@ def test_variable_combinations(grids, variables):
         expr = var.evaluate(dof_manager)
         vals = []
         for sub_var in var.sub_vars:
-            vals.append(gb.node_props(sub_var._g, pp.STATE)[sub_var._name])
+            vals.append(mdg.subdomain_data(sub_var._g)[pp.STATE][sub_var._name])
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
         assert expr.jac.shape[1] == dof_manager.num_dofs()
@@ -498,7 +502,7 @@ def test_variable_combinations(grids, variables):
     # Finally, check that the size of the Jacobian matrix is correct when combining
     # variables (this will cover both variables and merged variable with the same name,
     # and with different name).
-    for g in grids:
+    for sd in grids:
         for var in ad_vars:
             nc = var.size()
             cols = np.arange(nc)
@@ -525,10 +529,10 @@ def test_ad_discretization_class():
     # Test of the mother class of all discretizations (pp.ad.Discretization)
 
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 2])
+    mdg = pp.meshing.cart_grid(fracs, [2, 2])
 
-    grid_list = [g for g, _ in gb]
-    sub_list = grid_list[:2]
+    subdomains = [g for g in mdg.subdomains()]
+    sub_list = subdomains[:2]
 
     # Make two Mock discretizaitons, with different keywords
     key = "foo"
@@ -540,32 +544,34 @@ def test_ad_discretization_class():
     # This is mimicks the old init of Discretization, before it was decided to
     # make that class semi-ABC. Still checks the wrap method
     discr_ad = pp.ad.Discretization()
-    discr_ad.grids = grid_list
+    discr_ad.subdomains = subdomains
     discr_ad._discretization = discr
-    pp.ad._ad_utils.wrap_discretization(discr_ad, discr, grid_list)
+    pp.ad._ad_utils.wrap_discretization(discr_ad, discr, subdomains)
     sub_discr_ad = pp.ad.Discretization()
-    sub_discr_ad.grids = sub_list
+    sub_discr_ad.subdomains = sub_list
     sub_discr_ad._discretization = sub_discr
     pp.ad._ad_utils.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
 
     # values
-    known_val = np.random.rand(len(grid_list))
+    known_val = np.random.rand(len(subdomains))
     known_sub_val = np.random.rand(len(sub_list))
 
     # Assign a value to the discretization matrix, with the right key
-    for vi, g in enumerate(grid_list):
-        d = gb.node_props(g)
-        d[pp.DISCRETIZATION_MATRICES] = {key: {"foobar": known_val[vi]}}
+    for vi, sd in enumerate(subdomains):
+        data = mdg.subdomain_data(sd)
+        data[pp.DISCRETIZATION_MATRICES] = {key: {"foobar": known_val[vi]}}
 
     # Same with submatrix
-    for vi, g in enumerate(sub_list):
-        d = gb.node_props(g)
-        d[pp.DISCRETIZATION_MATRICES].update({sub_key: {"foobar": known_sub_val[vi]}})
+    for vi, sd in enumerate(sub_list):
+        data = mdg.subdomain_data(sd)
+        data[pp.DISCRETIZATION_MATRICES].update(
+            {sub_key: {"foobar": known_sub_val[vi]}}
+        )
 
     # Compare values under parsing. Note we need to pick out the diagonal, due to the
     # way parsing make block matrices.
-    assert np.allclose(known_val, discr_ad.foobar.parse(gb).diagonal())
-    assert np.allclose(known_sub_val, sub_discr_ad.foobar.parse(gb).diagonal())
+    assert np.allclose(known_val, discr_ad.foobar.parse(mdg).diagonal())
+    assert np.allclose(known_sub_val, sub_discr_ad.foobar.parse(mdg).diagonal())
 
 
 ## Below are helpers for tests of the Ad wrappers.
@@ -585,8 +591,8 @@ def _compare_matrices(m1, m2):
     return True
 
 
-def _list_ind_of_grid(grid_list, g):
-    for i, gl in enumerate(grid_list):
+def _list_ind_of_grid(subdomains, g):
+    for i, gl in enumerate(subdomains):
         if g == gl:
             return i
 

@@ -1260,8 +1260,8 @@ class TestMpfaSimplexGrid(unittest.TestCase):
 
         mesh_size = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
         network = pp.FractureNetwork2d(domain=domain)
-        gb = network.mesh(mesh_size)
-        return gb.grids_of_dimension(2)[0]
+        mdg = network.mesh(mesh_size)
+        return mdg.subdomains(dim=2)[0]
 
     def test_linear_flow(self):
         g = self.grid()

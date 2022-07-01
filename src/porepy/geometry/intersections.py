@@ -169,7 +169,7 @@ def segments_3d(
     """
     Find intersection points (or segments) of two 3d lines.
 
-    Note that, oposed to other functions related to grid generation such as
+    Note that, opposed to other functions related to grid generation such as
     remove_edge_crossings, this function does not use the concept of
     snap_to_grid. This may cause problems at some point, although no issues
     have been discovered so far.
@@ -190,7 +190,7 @@ def segments_3d(
 
     """
 
-    # Short hand for component of start and end points, as well as vectors
+    # Shorthand for component of start and end points, as well as vectors
     # along lines.
     xs_1 = start_1[0]
     ys_1 = start_1[1]
@@ -239,7 +239,7 @@ def segments_3d(
             in_discr = np.array([1, 2])
             not_in_discr = 0
     else:
-        # We're going to have a zero discreminant anyhow, just pick some dimensions.
+        # We're going to have a zero discriminant anyhow, just pick some dimensions.
         in_discr = np.arange(2)
         not_in_discr = 2
 
@@ -294,7 +294,7 @@ def segments_3d(
         # For dimensions with an incline, the vector between segment start
         # points should be parallel to the segments.
         # Since the masks are equal, we can use any of them.
-        # For dimensions with no incline, the start cooordinates should be the same
+        # For dimensions with no incline, the start coordinates should be the same
         if not np.allclose(start_1[~mask_1], start_2[~mask_1], tol):
             return None
 
@@ -376,7 +376,7 @@ def polygons_3d(
            If segment or vertex, the index of the segment or vertex is returned.
         2) Whether a pair of intersection points lie on the same boundary segment of a
            polygon, that is, if the polygon has a T or L-type intersection with another
-           paolygon.
+           polygon.
 
     Assumptions:
         * All polygons are convex. Non-convex polygons will simply be treated
@@ -393,10 +393,10 @@ def polygons_3d(
 
     Parameters:
         polys (list of np.array): Each list item represents a polygon, specified
-            by its vertexses as a numpy array, of dimension 3 x num_pts. There
+            by its vertexes as a numpy array, of dimension 3 x num_pts. There
             should be at least three vertexes in the polygon.
         target_poly (int or np.array, optional): Index in poly of the polygons that
-            should be target for intersection findings. These will be compared with the
+            should be targeted for intersection findings. These will be compared with the
             whole set in poly. If not provided, all polygons are compared with
             each other.
         tol (double, optional): Geometric tolerance for the computations.
@@ -507,7 +507,7 @@ def polygons_3d(
 
     # Storage array for storing the index of the intersection points for each polygon
     isect_pt = np.empty(num_polys, dtype=object)
-    # Storage for whehter an intersection is on the boundary of a polygon
+    # Storage for whether an intersection is on the boundary of a polygon
     is_bound_isect = np.empty_like(isect_pt)
     # Storage for which segment or vertex of a polygon is intersected
     segment_vertex_intersection = np.empty_like(isect_pt)
@@ -533,7 +533,7 @@ def polygons_3d(
 
     # Pre-compute polygon normals to save computational time
     polygon_normals = [
-        pp.map_geometry.compute_normal(poly).reshape((-1, 1)) for poly in polys
+        pp.map_geometry.compute_normal(poly, tol=tol).reshape((-1, 1)) for poly in polys
     ]
 
     # Loop over all fracture pairs (taking more than one simultaneously if an index
@@ -619,11 +619,11 @@ def polygons_3d(
             # to two vertexes of the polygon
             isect_on_boundary_main = False
             isect_on_boundary_other = False
-            # We know that the polygons at least are very close to intersecting each
+            # We know that the polygons at least are very close to intersecting each-
             # others planes. There are four options, differing in whether the vertexes
             # are in the plane of the other polygon or not:
             #   1) The polygon has no vertex in the other plane. Intersection is found
-            #      by computing interseciton between polygon segments and the other
+            #      by computing intersection between polygon segments and the other
             #      plane.
             #   2) The polygon has one vertex in the other plane. This is one intersection
             #      point. The other one should be on a segment, that is, the polygon
@@ -636,10 +636,10 @@ def polygons_3d(
             #      implementation if this case is a bit rudimentary.
             #
             # NOTE: This part of the code only considers intersection between polygon
-            # and plane. The analysis if whether the interseciton points are within
+            # and plane. The analysis whether the intersection points are within
             # each polygon is done below.
             #
-            # We first compute the interseciton of the other polygon with the plane of
+            # We first compute the intersection of the other polygon with the plane of
             # the main one. The reverse operation is found below.
             if np.all(dot_prod_from_main != 0):
                 # In the case where one polygon does not have a vertex in the plane of
@@ -761,13 +761,13 @@ def polygons_3d(
 
                     # Uniquify the intersection points found on this segment of main.
                     # If more than one, the intersection is on the boundary of main.
-                    tmp_unique_isect, *rest = pp.utils.setmembership.unique_columns_tol(
+                    tmp_unique_isect, *rest = pp.utils.setmembership.uniquify_point_set(
                         tmp_isect, tol=tol
                     )
                     if tmp_unique_isect.shape[1] > 1:
                         isect_on_boundary_main = True
 
-                isect, *rest = pp.utils.setmembership.unique_columns_tol(isect, tol=tol)
+                isect, *rest = pp.utils.setmembership.uniquify_point_set(isect, tol=tol)
 
                 if isect.shape[1] == 0:
                     # The polygons share a plane, but no intersections
@@ -962,14 +962,14 @@ def polygons_3d(
                             isect = np.hstack((isect, loc_isect))
                             tmp_isect = np.hstack((tmp_isect, loc_isect))
 
-                    tmp_unique_isect, *rest = pp.utils.setmembership.unique_columns_tol(
+                    tmp_unique_isect, *rest = pp.utils.setmembership.uniquify_point_set(
                         tmp_isect, tol=tol
                     )
 
                     if tmp_unique_isect.shape[1] > 1:
                         isect_on_boundary_other = True
 
-                isect, *rest = pp.utils.setmembership.unique_columns_tol(isect, tol=tol)
+                isect, *rest = pp.utils.setmembership.uniquify_point_set(isect, tol=tol)
 
                 seg_vert_main_0 = (0, "not implemented for shared planes")
                 seg_vert_main_1 = (0, "not implemented for shared planes")
@@ -1131,7 +1131,7 @@ def polygons_3d(
                     if e_3 == 0:
                         # e_3 = main_0_other_0.dot(main_1_other_0) == 0
                         # We know all of e_i are parallel, thus orthogonality is not
-                        # an option. Thus at least of the components of e_3 is 0.
+                        # an option. Thus, at least of the components of e_3 is 0.
 
                         # main_0_other_0 is involved in e_1, check if this is zero
                         if mod_sign(np.abs(main_0_other_0).sum()) == 0:
@@ -1557,11 +1557,11 @@ def _point_in_or_on_polygon(p: np.ndarray, poly: np.ndarray, tol=1e-8):
 def triangulations(
     p_1: np.ndarray, p_2: np.ndarray, t_1: np.ndarray, t_2: np.ndarray
 ) -> List[Tuple[int, int, float]]:
-    """Compute intersection of two triangle tesselations of a surface.
+    """Compute intersection of two triangle tessellations of a surface.
 
     The function will identify partly overlapping triangles between t_1 and
     t_2, and compute their common area. If parts of domain 1 or 2 is covered by
-    one tessalation only, this will simply be ignored by the function.
+    one tessellation only, this will simply be ignored by the function.
 
     Implementation note: The function relies on the intersection algorithm in
     shapely.geometry.Polygon. It may be possible to extend the functionality
@@ -1569,20 +1569,20 @@ def triangulations(
     should not be too much of an effort.
 
     Parameters:
-        p_1 (np.array, 2 x n_p1): Points in first tessalation.
-        p_2 (np.array, 2 x n_p2): Points in second tessalation.
-        t_1 (np.array, 3 x n_tri_1): Triangles in first tessalation, referring
+        p_1 (np.array, 2 x n_p1): Points in first tessellation.
+        p_2 (np.array, 2 x n_p2): Points in second tessellation.
+        t_1 (np.array, 3 x n_tri_1): Triangles in first tessellation, referring
             to indices in p_1.
-        t_2 (np.array, 3 x n_tri_1): Triangles in second tessalation, referring
+        t_2 (np.array, 3 x n_tri_1): Triangles in second tessellation, referring
             to indices in p_2.
 
     Returns:
         list of tuples: Each representing an overlap. The tuple contains index
-            of the overlapping triangles in the first and second tessalation,
+            of the overlapping triangles in the first and second tessellation,
             and their common area.
 
     See also:
-        surface_tessalations()
+        surface_tessellations()
 
     """
     import shapely.geometry as shapely_geometry
@@ -1598,16 +1598,16 @@ def triangulations(
     t_1 = t_1.T
     t_2 = t_2.T
 
-    # Find x and y coordinates of the triangles of first tessalation
+    # Find x and y coordinates of the triangles of first tessellation
     x_1 = p_1[0, t_1]
     y_1 = p_1[1, t_1]
-    # Same with second tessalation
+    # Same with second tessellation
     x_2 = p_2[0, t_2]
     y_2 = p_2[1, t_2]
 
     intersections: List[Tuple[int, int, float]] = []
 
-    # Bounding box of each triangle for first and second tessalation
+    # Bounding box of each triangle for first and second tessellation
     min_x_1 = np.min(x_1, axis=1)
     max_x_1 = np.max(x_1, axis=1)
     min_y_1 = np.min(y_1, axis=1)
@@ -1618,7 +1618,7 @@ def triangulations(
     min_y_2 = np.min(y_2, axis=1)
     max_y_2 = np.max(y_2, axis=1)
 
-    # Represent the second tessalation using a Polygon from the shapely package
+    # Represent the second tessellation using a Polygon from the shapely package
     poly_2 = [
         shapely_geometry.Polygon(
             [(x_2[j, 0], y_2[j, 0]), (x_2[j, 1], y_2[j, 1]), (x_2[j, 2], y_2[j, 2])]
@@ -1626,14 +1626,14 @@ def triangulations(
         for j in range(n_2)
     ]
 
-    # Loop over all triangles in first tessalation, look for overlapping
-    # members in second tessalation
+    # Loop over all triangles in first tessellation, look for overlapping
+    # members in second tessellation
     for i in range(n_1):
         # Polygon representation of the first triangle.
         poly_1 = shapely_geometry.Polygon(
             [(x_1[i, 0], y_1[i, 0]), (x_1[i, 1], y_1[i, 1]), (x_1[i, 2], y_1[i, 2])]
         )
-        # Find triangles in the second tessalation that are outside the
+        # Find triangles in the second tessellation that are outside the
         # bounding box of this triangle.
         right = np.squeeze(np.where(min_x_2 > max_x_1[i]))
         left = np.squeeze(np.where(max_x_2 < min_x_1[i]))
@@ -1653,25 +1653,25 @@ def triangulations(
     return intersections
 
 
-def line_tesselation(
+def line_tessellation(
     p1: np.ndarray, p2: np.ndarray, l1: np.ndarray, l2: np.ndarray
 ) -> List[List]:
-    """Compute intersection of two line segment tessalations of a line.
+    """Compute intersection of two line segment tessellations of a line.
 
     The function will identify partly overlapping line segments between l1 and
     l2, and compute their common length.
 
     Parameters:
-        p1 (np.array, 3 x n_p1): Points in first tessalation.
-        p2 (np.array, 3 x n_p2): Points in second tessalation.
-        l1 (np.array, 2 x n_tri_1): Line segments in first tessalation, referring
+        p1 (np.array, 3 x n_p1): Points in first tessellation.
+        p2 (np.array, 3 x n_p2): Points in second tessellation.
+        l1 (np.array, 2 x n_tri_1): Line segments in first tessellation, referring
             to indices in p2.
-        l2 (np.array, 2 x n_tri_1): Line segments in second tessalation, referring
+        l2 (np.array, 2 x n_tri_1): Line segments in second tessellation, referring
             to indices in p2.
 
     Returns:
         list of tuples: Each representing an overlap. The tuple contains index
-            of the overlapping line segments in the first and second tessalation,
+            of the overlapping line segments in the first and second tessellation,
             and their common length.
 
     Raise:
@@ -1700,11 +1700,11 @@ def line_tesselation(
     return intersections
 
 
-def surface_tesselations(
+def surface_tessellations(
     poly_sets: List[List[np.ndarray]], return_simplexes: bool = False
 ) -> Tuple[List[np.ndarray], List[sps.csr_matrix]]:
-    """Intersect a set of surface tessalations to find a finer subdivision that does
-    not intersect with any of the input tessalations.
+    """Intersect a set of surface tessellations to find a finer subdivision that does
+    not intersect with any of the input tessellations.
 
     It is assumed that the polygon sets are 2d.
 
@@ -1842,7 +1842,7 @@ def surface_tesselations(
                     row_poly += [isect_counter]
                     isect_counter += 1
 
-        # Mapping from the previously conisdered polygon to the newly find dissection.
+        # Mapping from the previously considered polygon to the newly found dissection.
         # This will be applied to update all previous mappings.
         matrix = sps.coo_matrix(
             (np.ones(isect_counter, dtype=int), (row_poly, col_poly)),
@@ -1868,7 +1868,7 @@ def surface_tesselations(
                 shapely_geometry.Polygon([(px[i], py[i]) for i in range(px.size)])
             )
 
-    # Finally translate the intersected polygons back to a list of np.ndarrays
+    # Finally, translate the intersected polygons back to a list of np.ndarrays
     isect_polys: List[np.ndarray] = [
         np.vstack((px, py)) for px, py in zip(isect_x, isect_y)
     ]
@@ -1925,7 +1925,7 @@ def surface_tesselations(
 
                 if np.all(is_ccw) or np.all(np.logical_not(is_ccw)):
                     # This is a convex polygon. The triangulation can be formed by a
-                    # Delaunay tessalation of the polygon. In an attempt to improve the
+                    # Delaunay tessellation of the polygon. In an attempt to improve the
                     # quality of the simplexes, we add the center of the polygon
                     # (defined as the mean coordinate, should be fine since the polygon
                     # is convex) to the points to be triangulated. This may not be
@@ -2173,7 +2173,9 @@ def split_intersecting_segments_2d(
         # Remove duplicates in the point set.
         # NOTE: The tolerance used here is a bit sensitive, if set too loose, this
         # may merge non-intersecting fractures.
-        unique_all_pt, _, ib = pp.utils.setmembership.unique_columns_tol(all_pt, tol)
+
+        unique_all_pt, ia, ib = pp.utils.setmembership.uniquify_point_set(all_pt, tol)
+
         # Data structure for storing the split edges.
         new_edge = np.empty((e.shape[0], 0), dtype=int)
         argsort: np.ndarray = np.empty(0, dtype=int)
