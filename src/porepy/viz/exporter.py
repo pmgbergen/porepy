@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import sys
 from collections import namedtuple
-from typing import Any, Iterable, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
@@ -26,24 +26,24 @@ Field = namedtuple("Field", ["name", "values"])
 # for its storage, taking dimensions as inputs. Since 0d grids are
 # stored as 'None', allow for such values.
 Meshio_Geom = namedtuple("Meshio_Geom", ["pts", "connectivity", "cell_ids"])
-MD_Meshio_Geom = dict[int, Union[None, Meshio_Geom]]
+MD_Meshio_Geom = Dict[int, Union[None, Meshio_Geom]]
 
 # All allowed data structures to define data for exporting
 DataInput = Union[
     # Keys for states
     str,
     # Subdomain specific data types
-    tuple[list[pp.Grid], str],
-    tuple[pp.Grid, str, np.ndarray],
-    tuple[str, np.ndarray],
+    Tuple[List[pp.Grid], str],
+    Tuple[pp.Grid, str, np.ndarray],
+    Tuple[str, np.ndarray],
     # Interface specific data types
-    tuple[list[pp.MortarGrid], str],
-    tuple[pp.MortarGrid, str, np.ndarray],
+    Tuple[List[pp.MortarGrid], str],
+    Tuple[pp.MortarGrid, str, np.ndarray],
 ]
 
 # Data structure in which data is stored after preprocessing
-SubdomainData = dict[tuple[pp.Grid, str], np.ndarray]
-InterfaceData = dict[tuple[pp.MortarGrid, str], np.ndarray]
+SubdomainData = Dict[Tuple[pp.Grid, str], np.ndarray]
+InterfaceData = Dict[Tuple[pp.MortarGrid, str], np.ndarray]
 
 
 class Exporter:
