@@ -11,7 +11,7 @@ import porepy as pp
 
 
 def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, variables):
-    """ Permute the matrix and rhs from assembler order to a specified order.
+    """Permute the matrix and rhs from assembler order to a specified order.
 
     Args:
         A: global solution matrix as returned by Assembler.assemble_matrix_rhs.
@@ -47,14 +47,14 @@ def permute_matrix_vector(A, rhs, block_dof, full_dof, grids, variables):
     return sps.bmat(mat, format="csr"), np.concatenate(tuple(b))
 
 
-def setup_flow_assembler(gb, method, data_key=None, coupler=None):
-    """ Setup a standard assembler for the flow problem for a given grid bucket.
+def setup_flow_assembler(mdg, method, data_key=None, coupler=None):
+    """Setup a standard assembler for the flow problem for a given grid bucket.
 
     The assembler will be set up with primary variable name 'pressure' on the
     GridBucket nodes, and mortar_flux for the mortar variables.
 
     Parameters:
-        gb: GridBucket.
+        mdg: GridBucket.
         method (EllipticDiscretization).
         data_key (str, optional): Keyword used to identify data dictionary for
             node and edge discretization.
@@ -75,30 +75,30 @@ def setup_flow_assembler(gb, method, data_key=None, coupler=None):
     else:
         mixed_form = False
 
-    for g, d in gb:
+    for _, data in mdg.subdomains(return_data=True):
         if mixed_form:
-            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1, "faces": 1}}
+            data[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1, "faces": 1}}
         else:
-            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
-        d[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
-    for e, d in gb.edges():
-        g1, g2 = gb.nodes_of_edge(e)
-        d[pp.PRIMARY_VARIABLES] = {"mortar_flux": {"cells": 1}}
-        d[pp.COUPLING_DISCRETIZATION] = {
+            data[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
+        data[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
+    for intf, data in mdg.interfaces(return_data=True):
+        g2, g1 = mdg.interface_to_subdomain_pair(intf)
+        data[pp.PRIMARY_VARIABLES] = {"mortar_flux": {"cells": 1}}
+        data[pp.COUPLING_DISCRETIZATION] = {
             "lambda": {
                 g1: ("pressure", "diffusive"),
                 g2: ("pressure", "diffusive"),
-                e: ("mortar_flux", coupler),
+                intf: ("mortar_flux", coupler),
             }
         }
-        d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
+        data[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-    assembler = pp.Assembler(gb)
+    assembler = pp.Assembler(mdg)
     return assembler
 
 
-def solve_and_distribute_pressure(gb, assembler):
-    """ Given an assembler, assemble and solve the pressure equation, and distribute
+def solve_and_distribute_pressure(mdg, assembler):
+    """Given an assembler, assemble and solve the pressure equation, and distribute
     the result.
 
     Parameters:
@@ -112,7 +112,7 @@ def solve_and_distribute_pressure(gb, assembler):
 
 
 def compare_arrays(a, b, tol=1e-4, sort=True):
-    """ Compare two arrays and check that they are equal up to a column permutation.
+    """Compare two arrays and check that they are equal up to a column permutation.
 
     Typical usage is to compare coordinate arrays.
 
@@ -146,19 +146,23 @@ def compare_arrays(a, b, tol=1e-4, sort=True):
 
 
 def delete_file(file_name):
-    """ Delete a file if it exist. Cleanup after tests.
-    """
+    """Delete a file if it exist. Cleanup after tests."""
     if os.path.exists(file_name):
         os.remove(file_name)
 
+
 def compare_grids(g1, g2):
-    """ Compare two grids. They are considered equal if the topology and geometry is the
+    """Compare two grids. They are considered equal if the topology and geometry is the
     same.
     """
     if g1.dim != g2.dim:
         return False
 
-    if (g1.num_cells, g1.num_faces, g1.num_nodes) != (g2.num_cells, g2.num_faces, g2.num_nodes):
+    if (g1.num_cells, g1.num_faces, g1.num_nodes) != (
+        g2.num_cells,
+        g2.num_faces,
+        g2.num_nodes,
+    ):
         return False
 
     dfn = g1.face_nodes - g2.face_nodes
@@ -181,6 +185,7 @@ def compare_grids(g1, g2):
     # checked, thus the grids are identical.
     return True
 
+
 def compare_mortar_grids(mg1, mg2):
     if mg1.dim != mg2.dim:
         return False
@@ -197,10 +202,11 @@ def compare_mortar_grids(mg1, mg2):
 
     return True
 
+
 def compare_grid_buckets(gb1, gb2):
-    for dim in range(3):
-        grids_1 = gb1.grids_of_dimension(dim)
-        grids_2 = gb2.grids_of_dimension(dim)
+    for dim in range(4):
+        grids_1 = gb1.subdomains(dim=dim)
+        grids_2 = gb2.subdomains(dim=dim)
         # Two buckets are considered equal only if the grids are returned in the same
         # order. This may be overly restrictive, but it will have to do.
         if len(grids_1) != len(grids_2):

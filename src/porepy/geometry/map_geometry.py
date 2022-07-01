@@ -21,7 +21,7 @@ def force_point_collinearity(
 
     Parameter:
         pts: (3 x num_pts) the input points. The first point should be on one
-            extrema of the line.
+            extremum of the line.
 
     Return:
         pts: (3 x num_pts) the corrected points.
@@ -39,7 +39,7 @@ def force_point_collinearity(
 
 
 def map_grid(
-    g: pp.Grid, tol: float = 1e-5, R=None
+    sd: pp.Grid, tol: float = 1e-5, R=None
 ) -> Tuple[
     np.ndarray[Any, np.dtype[np.float64]],
     np.ndarray[Any, np.dtype[np.float64]],
@@ -53,7 +53,7 @@ def map_grid(
     passed nothing is applied. The return vectors have a reduced number of rows.
 
     Parameters:
-        g (grid): the grid.
+        sd (grid): the subdomain grid.
         tol (double, optional): Tolerance used to check that the grid is linear or planar.
             Defaults to 1e-5.
         R (np.array size 3x3, optional ): Rotation matrix. The first dim rows should map
@@ -69,12 +69,12 @@ def map_grid(
         nodes: (g.dim x g.num_nodes) the mapped nodes.
 
     """
-    cell_centers = g.cell_centers
-    face_normals = g.face_normals
-    face_centers = g.face_centers
-    nodes = g.nodes
+    cell_centers = sd.cell_centers
+    face_normals = sd.face_normals
+    face_centers = sd.face_centers
+    nodes = sd.nodes
 
-    if g.dim == 0 or g.dim == 3:
+    if sd.dim == 0 or sd.dim == 3:
         if R is None:
             R = np.eye(3)
 
@@ -89,17 +89,17 @@ def map_grid(
 
     else:  # g.dim == 1 or g.dim == 2:
         if R is None:
-            if g.dim == 2:
-                R = project_plane_matrix(g.nodes, tol=tol)
+            if sd.dim == 2:
+                R = project_plane_matrix(sd.nodes, tol=tol)
             else:
-                R = project_line_matrix(g.nodes, tol=tol)
+                R = project_line_matrix(sd.nodes)
 
         face_centers = np.dot(R, face_centers)
 
         check = np.sum(np.abs(face_centers.T - face_centers[:, 0]), axis=0)
         check /= np.sum(check)
         dim = np.logical_not(np.isclose(check, 0, atol=tol, rtol=0))
-        assert g.dim == np.sum(dim)
+        assert sd.dim == np.sum(dim)
         face_centers = face_centers[dim, :]
         cell_centers = np.dot(R, cell_centers)[dim, :]
         face_normals = np.dot(R, face_normals)[dim, :]
@@ -222,6 +222,8 @@ def project_plane_matrix(
             points. Default value 1e-5.
         reference: (optional, np.array, 3x1) reference vector to compute the angles.
             Default value [0, 0, 1].
+        check_planar:
+            Whether to check for planarity.
 
     Returns:
         np.ndarray, 3x3, projection matrix.
@@ -235,6 +237,7 @@ def project_plane_matrix(
     else:
         normal = np.asarray(normal)
         normal = normal.flatten() / np.linalg.norm(normal)
+    assert normal is not None
 
     if check_planar:
         assert pp.geometry_property_checks.points_are_planar(pts, normal, tol)
@@ -254,7 +257,6 @@ def project_plane_matrix(
 def project_line_matrix(
     pts: np.ndarray[Any, np.dtype[np.float64]],
     tangent: Optional[np.ndarray[Any, np.dtype[np.float64]]] = None,
-    tol: float = 1e-5,
     reference: Optional[np.ndarray[Any, np.dtype[np.float64]]] = None,
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Project the points on a line using local coordinates.
@@ -279,6 +281,9 @@ def project_line_matrix(
 
     if reference is None:
         reference = np.array([0.0, 0.0, 1.0])
+
+    # Appease mypy
+    assert type(tangent) == np.ndarray
 
     reference = np.asarray(reference, dtype=float)
     angle = np.arccos(np.dot(tangent, reference))
@@ -356,6 +361,7 @@ def normal_matrix(
         raise ValueError(
             "Need either points or normal vector to compute normal matrix."
         )
+    assert type(normal) == np.ndarray
 
     # Ravel normal vector for the calculation to work
     return np.tensordot(normal, normal.ravel(), axes=0)
@@ -496,7 +502,7 @@ def compute_tangent(
     # Set of possible tangent vector. We can pick any of these, as long as it
     # is nonzero
     tangent = pts - mean_pts
-    # Find the point that is furthest away from the mean point
+    # Find the point that is the furthest away from the mean point
     max_ind = np.argmax(np.sum(tangent**2, axis=0))
     tangent = tangent[:, max_ind]
     if check:

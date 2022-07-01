@@ -34,7 +34,7 @@ class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
     def rhs(self, x, y, z):
         return (
             8.0
-            * np.pi ** 2
+            * np.pi**2
             * np.sin(2.0 * np.pi * x)
             * np.sin(2.0 * np.pi * y)
             * self.permeability(x, y, z)
@@ -46,7 +46,7 @@ class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
         return np.sin(2.0 * np.pi * x) * np.sin(2.0 * np.pi * y)
 
     def permeability(self, x, y, z):
-        return 1.0 + 100.0 * x ** 2 + 100.0 * y ** 2
+        return 1.0 + 100.0 * x**2 + 100.0 * y**2
 
     def add_data(self, g):
         """
@@ -118,23 +118,23 @@ class TestMpfaConvergenceVaryingPerm(unittest.TestCase):
 class TestMpfaConvergenceVaryingPermSurface(unittest.TestCase):
     def rhs(self, x, y, z):
         return (
-            7.0 * z * (x ** 2 + y ** 2 + 1.0)
-            - y * (x ** 2 - 9.0 * z ** 2)
-            - 4.0 * x ** 2 * z
+            7.0 * z * (x**2 + y**2 + 1.0)
+            - y * (x**2 - 9.0 * z**2)
+            - 4.0 * x**2 * z
             - (
                 8 * np.sin(np.pi * y)
-                - 4.0 * np.pi ** 2 * y ** 2 * np.sin(np.pi * y)
+                - 4.0 * np.pi**2 * y**2 * np.sin(np.pi * y)
                 + 16.0 * np.pi * y * np.cos(np.pi * y)
             )
-            * (x ** 2 / 2.0 + y ** 2 / 2.0 + 1.0 / 2.0)
-            - 4.0 * y ** 2 * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
+            * (x**2 / 2.0 + y**2 / 2.0 + 1.0 / 2.0)
+            - 4.0 * y**2 * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
         )
 
     def solution(self, x, y, z):
-        return x ** 2 * z + 4.0 * y ** 2 * np.sin(np.pi * y) - 3.0 * z ** 3
+        return x**2 * z + 4.0 * y**2 * np.sin(np.pi * y) - 3.0 * z**3
 
     def permeability(self, x, y, z):
-        return 1.0 + x ** 2 + y ** 2
+        return 1.0 + x**2 + y**2
 
     def add_data(self, g):
         """
@@ -208,13 +208,13 @@ class TestMpfaConvergenceVaryingPermSurface(unittest.TestCase):
 
 class TestMpfaConvergenceVaryingPermSurface2(unittest.TestCase):
     def rhs(self, x, y, z):
-        return 8.0 * z * (125.0 * x ** 2 + 200.0 * y ** 2 + 425.0 * z ** 2 + 2.0)
+        return 8.0 * z * (125.0 * x**2 + 200.0 * y**2 + 425.0 * z**2 + 2.0)
 
     def solution(self, x, y, z):
-        return x ** 2 * z + 4.0 * y ** 2 * np.sin(np.pi * y) - 3.0 * z ** 3
+        return x**2 * z + 4.0 * y**2 * np.sin(np.pi * y) - 3.0 * z**3
 
     def permeability(self, x, y, z):
-        return 1.0 + 100.0 * (x ** 2 + y ** 2 + z ** 2)
+        return 1.0 + 100.0 * (x**2 + y**2 + z**2)
 
     def add_data(self, g):
         """
@@ -719,7 +719,7 @@ class CartGrid2D(MainTester):
         """
         x, y = sympy.symbols("x y")
         ux = sympy.sin(x) * sympy.cos(y)
-        uy = sympy.sin(x) * x ** 2
+        uy = sympy.sin(x) * x**2
         an_sol = _SolutionHomogeneousDomainElasticity(ux, uy, x, y)
 
         muc = np.ones(self.g_nolines.num_cells)
@@ -1439,7 +1439,7 @@ class TriangleGrid2D(MainTester):
         """
         x, y = sympy.symbols("x y")
         ux = sympy.sin(x) * sympy.cos(y)
-        uy = sympy.sin(x) * x ** 2
+        uy = sympy.sin(x) * x**2
         an_sol = _SolutionHomogeneousDomainElasticity(ux, uy, x, y)
 
         muc = np.ones(self.g_nolines.num_cells)

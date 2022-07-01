@@ -3,7 +3,7 @@ Methods for tag handling. The following primary applications are intended:
     --Grid tags, stored in the grids and data fields of the grid bucket.
     Geometry tags are stored in the grids, typical fields
     are cell, face or node tags, lists of length g.num_cell etc. Other
-    information is storad in the data fields. The entries
+    information is stored in the data fields. The entries
     of the lists should be boolean or integers. Examples:
         g.tags['fracture_faces'] = [0, 1, 1, 0, 1, 1]
         g.tags['fracture_face_ids'] = [0, 1, 2, 0, 1, 2]
@@ -27,7 +27,7 @@ def append_tags(tags, keys, appendices):
     Append tags of certain keys.
     tags:       dictionary with existing entries corresponding to
     keys:       list of keys
-    appendices: list of values to be appended, typicall numpy arrays
+    appendices: list of values to be appended, typically numpy arrays
     """
     for i, key in enumerate(keys):
         tags[key] = np.append(tags[key], appendices[i])
@@ -87,7 +87,7 @@ def extract(all_tags, indices, keys=None):
 
 def add_tags(parent, new_tags):
     """
-    Add new tags (as a premade dictionary) to the tags of the parent object
+    Add new tags (as a pre-made dictionary) to the tags of the parent object
     (usually a grid). Values corresponding to keys existing in both
     dictionaries (parent.tags and new_tags) will be decided by those in
     new_tags.
@@ -100,12 +100,12 @@ def add_tags(parent, new_tags):
 
 def add_node_tags_from_face_tags(gb, tag_base):
     """
-    Set domain boundary tags for all nodes at at least one domain boundary
+    Set domain boundary tags for all nodes at least one domain boundary
     face. The tag base should exist for all faces of all grids, and may e.g.
     be domain_boundary.
     """
-    for g, _ in gb:
-        nodes = g.face_nodes[:, g.tags[tag_base + "_faces"]].nonzero()[0]
-        t = np.zeros(g.num_nodes, dtype=bool)
+    for sd in gb.subdomains():
+        nodes = sd.face_nodes[:, sd.tags[tag_base + "_faces"]].nonzero()[0]
+        t = np.zeros(sd.num_nodes, dtype=bool)
         t[np.unique(nodes)] = True
-        g.tags[tag_base + "_nodes"] = t
+        sd.tags[tag_base + "_nodes"] = t

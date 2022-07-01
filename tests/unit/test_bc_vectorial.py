@@ -1,14 +1,12 @@
-import math
+"""
+Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs
+for handling boundary conditions expressed in a vectorial form
+"""
 import unittest
 
 import numpy as np
 
 import porepy as pp
-
-"""
-Checks the actions done in porepy.numerics.fv.mpsa.create_bound_rhs
-for handling boundary conditions expressed in a vectorial form
-"""
 
 
 class testBoundaryConditionsVectorial(unittest.TestCase):

@@ -1,7 +1,9 @@
 """
 Module for splitting a grid at the fractures.
 """
-from typing import List, Optional
+from __future__ import annotations
+
+from typing import Optional
 
 import networkx as nx
 import numpy as np
@@ -13,16 +15,20 @@ from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
 
 
-def split_fractures(bucket, **kwargs):
+def split_fractures(
+    mdg: pp.MixedDimensionalGrid,
+    sd_pairs: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
+    **kwargs,
+):
     """
-    Wrapper function to split all fractures. For each grid in the bucket,
+    Wrapper function to split all fractures. For each grid in the mdg,
     we locate the corresponding lower-dimensional grids. The faces and
     nodes corresponding to these grids are then split, creating internal
     boundaries.
 
     Parameters
     ----------
-    bucket    - A grid bucket
+    mdg    - A mixed-dimensional grid
     **kwargs:
         offset    - FLOAT, defaults to 0. Will perturb the nodes around the
                     faces that are split. NOTE: this is only for visualization.
@@ -30,7 +36,7 @@ def split_fractures(bucket, **kwargs):
 
     Returns
     -------
-    bucket    - A valid bucket where the faces are split at
+    mdg    - A valid mdg where the faces are split at
                 internal boundaries.
 
 
@@ -44,63 +50,76 @@ def split_fractures(bucket, **kwargs):
     >>> f_set = [f_1, f_2]
     >>> domain = {'xmin': -2, 'xmax': 2,
             'ymin': -2, 'ymax': 2, 'zmin': -2, 'zmax': 2}
-    >>> bucket = meshing.create_grid(f_set, domain)
-    >>> [g.compute_geometry() for g,_ in bucket]
+    >>> mdg = meshing.create_grid(f_set, domain)
+    >>> [g.compute_geometry() for g,_ in mdg]
     >>>
-    >>> split_grid.split_fractures(bucket, offset=0.1)
-    >>> export_vtk(bucket, "grid")
+    >>> split_grid.split_fractures(mdg, offset=0.1)
+    >>> export_vtk(mdg, "grid")
     """
 
     offset = kwargs.get("offset", 0)
 
-    # For each vertex in the bucket we find the corresponding lower-
+    # For each vertex in the mdg we find the corresponding lower-
     # dimensional grids.
-    for gh, _ in bucket:
+    for gh in mdg.subdomains():
         # add new field to grid
         gh.frac_pairs = np.zeros((2, 0), dtype=np.int32)
         if gh.dim < 1:
             # Nothing to do. We can not split 0D grids.
             continue
+
         # Find connected vertices and corresponding edges.
-        neigh = np.array(bucket.node_neighbors(gh))
+        low_dim_neigh = []
+
+        matrix_list = []
+
+        for pair, matrix in sd_pairs.items():
+            if gh in pair:
+                other = list(set(pair).difference({gh}))[0]
+                if other.dim >= gh.dim:
+                    continue
+
+                matrix_list.append(matrix)
+                low_dim_neigh.append(other)
+
+        # Make a set to uniquify the subdomains, subtract gh itself.
+
+        # neigh = np.array(mdg.neighboring_subdomains(gh))
 
         # Find the neighbours that are lower dimensional
-        is_low_dim_grid = np.where([w.dim < gh.dim for w in neigh])
-        edges = [(gh, w) for w in neigh[is_low_dim_grid]]
-        if len(edges) == 0:
+        if len(low_dim_neigh) == 0:
             # No lower dim grid. Nothing to do.
             continue
 
-        face_cells = [bucket.edge_props(e, "face_cells") for e in edges]
         # We split all the faces that are connected to a lower-dim grid.
         # The new faces will share the same nodes and properties (normals,
         # etc.)
-        face_cells = split_faces(gh, face_cells)
+        face_cells_modified = split_faces(gh, matrix_list)
 
-        for e, f in zip(edges, face_cells):
-            bucket.add_edge_props("face_cells", [e])
-            bucket.edge_props(e)["face_cells"] = f
+        for gl, matrix in zip(low_dim_neigh, face_cells_modified):
+            sd_pairs[(gh, gl)] = matrix
 
         # We now find which lower-dim nodes correspond to which higher-
         # dim nodes. We split these nodes according to the topology of
         # the connected higher-dim cells. At a X-intersection we split
         # the node into four, while at the fracture boundary it is not split.
 
-        gl = [e[1] for e in edges]
         gl_2_gh_nodes = []
-        for g in gl:
+        for g in low_dim_neigh:
             source = np.atleast_2d(g.global_point_ind).astype(np.int32)
             target = np.atleast_2d(gh.global_point_ind).astype(np.int32)
             _, mapping = setmembership.ismember_rows(source, target)
             gl_2_gh_nodes.append(mapping)
 
-        split_nodes(gh, gl, gl_2_gh_nodes, offset)
+        split_nodes(gh, low_dim_neigh, gl_2_gh_nodes, offset)
 
     # Remove zeros from cell_faces
 
-    [g.cell_faces.eliminate_zeros() for g, _ in bucket]
-    [g.update_boundary_node_tag() for g, _ in bucket]
-    return bucket
+    [g.cell_faces.eliminate_zeros() for g in mdg.subdomains()]
+    for g in mdg.subdomains():
+        g.update_boundary_node_tag()
+
+    return mdg, sd_pairs
 
 
 def split_faces(gh, face_cells):
@@ -147,7 +166,7 @@ def split_faces(gh, face_cells):
 
 def split_specific_faces(
     gh: pp.Grid,
-    face_cell_list: List[sps.spmatrix],
+    face_cell_list: list[sps.spmatrix],
     faces: np.ndarray,
     cells: np.ndarray,
     gl_ind: int,
@@ -181,7 +200,7 @@ def split_specific_faces(
         # fractures the cells lie.
         if non_planar:
             # In this case, a loop over the elements in face_id should do the job.
-            flag_array: List[int] = []
+            flag_array: list[int] = []
             for fi in face_id:
                 n = np.reshape(gh.face_normals[:, fi], (3, 1))
                 n = n / np.linalg.norm(n)
@@ -330,7 +349,7 @@ def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     gh.tags["fracture_faces"][frac_id] = True
     gh.tags["tip_faces"][frac_id] = False
     update_fields = gh.tags.keys()
-    update_values: List[List[np.ndarray]] = [[]] * len(update_fields)
+    update_values: list[list[np.ndarray]] = [[]] * len(update_fields)
     for i, key in enumerate(update_fields):
         # faces related tags are doubled and the value is inherit from the original
         if key.endswith("_faces"):
@@ -341,11 +360,11 @@ def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
 
 
 def _update_face_cells(
-    face_cells: List[sps.spmatrix],
+    face_cells: list[sps.spmatrix],
     face_id: np.ndarray,
     i: int,
     cell_id: Optional[np.ndarray] = None,
-) -> List[sps.spmatrix]:
+) -> list[sps.spmatrix]:
     """
     Add duplicate faces to connection map between lower-dim grids
     and higher dim grids. To be run after duplicate_faces.
@@ -394,7 +413,7 @@ def _update_face_cells(
             f_c._shape = (f_c._shape[0], f_c._shape[1] + face_id.size)
 
             # In cases where cells have been added to the lower-dimensional grid
-            # Note that this will not happen for construction of a GridBucket through
+            # Note that this will not happen for construction of a MixedDimensionalGrid through
             # the standard workflow of post-processing a gmsh grid.
             if cell_id is not None:
                 # New cells have been added to gl. We will create a local
