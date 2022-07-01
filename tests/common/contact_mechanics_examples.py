@@ -41,7 +41,7 @@ class ContactMechanicsExample(contact_mechanics_model.ContactMechanics):
 
         """
         x_endpoints = np.array([0.2, 0.8])
-        self.mdg, self.box = mdg, self.box = pp.grid_buckets_2d.single_horizontal(
+        self.mdg, self.box = mdg, self.box = pp.md_grids_2d.single_horizontal(
             self.mesh_args,
             x_endpoints,
         )
@@ -102,7 +102,7 @@ class ProblemDataTime:
         with_fracture = getattr(self, "with_fracture", True)
         simplex = getattr(self, "simplex", True)
         if with_fracture:
-            mdg, self.box = pp.grid_buckets_2d.single_horizontal(
+            mdg, self.box = pp.md_grids_2d.single_horizontal(
                 self.mesh_args, simplex=simplex
             )
             pp.contact_conditions.set_projections(mdg)

@@ -20,7 +20,7 @@ class TestDFN(unittest.TestCase):
         dfn_dim = 1
 
         # create the grid bucket
-        mdg, _ = pp.grid_buckets_2d.two_intersecting([2, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.two_intersecting([2, 2], simplex=False)
         create_dfn(mdg, dfn_dim)
 
         # setup data and assembler
@@ -199,7 +199,7 @@ class TestDFN(unittest.TestCase):
         We use the numerical scheme Tpfa.
         """
         dfn_dim = 1
-        mdg, _ = pp.grid_buckets_2d.two_intersecting([2, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.two_intersecting([2, 2], simplex=False)
         create_dfn(mdg, dfn_dim)
 
         # setup data and assembler

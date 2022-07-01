@@ -7,7 +7,7 @@ import porepy as pp
 
 
 def setup_cart_2d(nx):
-    mdg, _ = pp.grid_buckets_2d.two_intersecting(
+    mdg, _ = pp.md_grids_2d.two_intersecting(
         nx, [0.2, 0.8], [0.8, 0.2], simplex=False
     )
     kw = "flow"

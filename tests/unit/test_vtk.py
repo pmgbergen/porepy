@@ -130,7 +130,7 @@ class MeshioExporterTest(unittest.TestCase):
         self.assertTrue(content == self._single_subdomain_3d_polytop_grid_vtu())
 
     def test_mdg_1(self):
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([4, 4], simplex=False)
 
         for sd, sd_data in mdg.subdomains(return_data=True):
             pp.set_state(
@@ -157,7 +157,7 @@ class MeshioExporterTest(unittest.TestCase):
         self.assertTrue(content == self._mdg_1_mortar_grid_vtu())
 
     def test_mdg_2(self):
-        mdg, _ = pp.grid_buckets_2d.two_intersecting(
+        mdg, _ = pp.md_grids_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
 
