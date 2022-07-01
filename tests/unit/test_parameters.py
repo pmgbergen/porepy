@@ -148,7 +148,7 @@ class TestParameterDictionaries(unittest.TestCase):
     def test_default_flow_dictionary(self):
         """Test the default flow dictionary.
 
-        Check that the correct parameters are present, and sample some of the values
+        Check that the correct parameters are present, and sample some values
         and check that they are correct.
         """
         dictionary = dicts.flow_dictionary(self.g)
@@ -157,7 +157,7 @@ class TestParameterDictionaries(unittest.TestCase):
     def test_default_transport_dictionary(self):
         """Test the default transport dictionary.
 
-        Check that the correct parameters are present, and sample some of the values
+        Check that the correct parameters are present, and sample some values
         and check that they are correct.
         """
         # The default darcy_flux needs face normals:
@@ -174,7 +174,7 @@ class TestParameterDictionaries(unittest.TestCase):
             "mass_weight",
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
-        # Check some of the values:
+        # Check some values:
         unitary_parameters = ["mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:
@@ -185,7 +185,7 @@ class TestParameterDictionaries(unittest.TestCase):
     def test_default_mechanics_dictionary(self):
         """Test the default mechanics dictionary.
 
-        Check that the correct parameters are present, and sample some of the values
+        Check that the correct parameters are present, and sample some values
         and check that they are correct.
         """
         dictionary = dicts.mechanics_dictionary(self.g)
@@ -199,7 +199,7 @@ class TestParameterDictionaries(unittest.TestCase):
             "slip_distance",
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
-        # Check some of the values:
+        # Check some values:
         zeros = np.zeros(self.g.num_faces * self.g.dim)
         self.assertTrue(np.all(np.isclose(dictionary["slip_distance"], zeros)))
         self.assertEqual(dictionary["bc"].bc_type, "vectorial")
@@ -231,7 +231,6 @@ class TestParameterDictionaries(unittest.TestCase):
         data = pp.initialize_default_data(self.g, {}, "transport", specified_parameters)
         dictionary = data[pp.PARAMETERS]["transport"]
         self.assertEqual(dictionary["foo"], "bar")
-        zeros = np.zeros(self.g.num_cells)
         self.assertAlmostEqual(dictionary["bc"], 15)
 
     def test_initialize_default_data_other_keyword(self):
@@ -281,7 +280,7 @@ class TestParameterDictionaries(unittest.TestCase):
             "bc_values",
         ]
         [self.assertIn(parameter, dictionary) for parameter in p_list]
-        # Check some of the values:
+        # Check some values:
         unitary_parameters = ["mass_weight"]
         ones = np.ones(self.g.num_cells)
         for parameter in unitary_parameters:

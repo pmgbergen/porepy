@@ -6,16 +6,15 @@ Acknowledgements:
     (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
 
 """
+from __future__ import annotations
+
 from typing import Optional
 
 import numpy as np
 import scipy as sp
 import scipy.sparse as sps
 
-import porepy as pp
 from porepy.grids.grid import Grid
-
-module_sections = ["grids", "gridding"]
 
 
 class TensorGrid(Grid):
@@ -27,7 +26,6 @@ class TensorGrid(Grid):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
         x: np.ndarray,
@@ -35,19 +33,19 @@ class TensorGrid(Grid):
         z: Optional[np.ndarray] = None,
         name: Optional[str] = None,
     ) -> None:
-        """
-        Constructor for 1D or 2D or 3D tensor grid
+        """Constructor for 1D or 2D or 3D tensor grid.
 
-        The resulting grid is 1D or 2D or 3D, depending of the number of
-        coordinate lines are provided
+        The resulting grid is 1D or 2D or 3D, depending on the number of
+        coordinate lines are provided.
 
-        Parameters
-            x (np.ndarray): Node coordinates in x-direction
+        Args:
+            x (np.ndarray): Node coordinates in x-direction.
             y (np.ndarray): Node coordinates in y-direction. Defaults to
                 None, in which case the grid is 1D.
             z (np.ndarray): Node coordinates in z-direction. Defaults to
                 None, in which case the grid is 2D.
-            name (str): Name of grid, passed to super constructor
+            name (str): Name of grid.
+
         """
         if name is None:
             name = "TensorGrid"
@@ -65,13 +63,13 @@ class TensorGrid(Grid):
             self.cart_dims = np.array([x.size, y.size, z.size]) - 1
             super().__init__(3, nodes, face_nodes, cell_faces, name)
 
-    @pp.time_logger(sections=module_sections)
-    def _create_1d_grid(self, nodes_x):
-        """
-        Compute grid topology for 1D grids.
+    def _create_1d_grid(
+        self, nodes_x: np.ndarray
+    ) -> tuple[np.ndarray, sps.spmatrix, sps.spmatrix]:
+        """Compute grid topology for 1D grids.
 
-        This is really a part of the constructor, but put it here to improve
-        readability. Not sure if that is the right choice..
+        Args:
+            x (np.ndarray): Node coordinates in x-direction.
 
         """
 
@@ -109,16 +107,19 @@ class TensorGrid(Grid):
         )
         return nodes, face_nodes, cell_faces
 
-    @pp.time_logger(sections=module_sections)
-    def _create_2d_grid(self, nodes_x, nodes_y):
-        """
-        Compute grid topology for 2D grids.
+    def _create_2d_grid(
+        self, nodes_x: np.ndarray, nodes_y: np.ndarray
+    ) -> tuple[np.ndarray, sps.spmatrix, sps.spmatrix]:
+        """Compute grid topology for 2D grids.
 
         This is really a part of the constructor, but put it here to improve
-        readability. Not sure if that is the right choice..
+        readability. Not sure if that is the right choice.
+
+        Args:
+            x (np.ndarray): Node coordinates in x-direction.
+            y (np.ndarray): Node coordinates in y-direction.
 
         """
-
         num_x = nodes_x.size - 1
         num_y = nodes_y.size - 1
 
@@ -190,8 +191,24 @@ class TensorGrid(Grid):
         )
         return nodes, face_nodes, cell_faces
 
-    @pp.time_logger(sections=module_sections)
-    def _create_3d_grid(self, nodes_x, nodes_y, nodes_z):
+    def _create_3d_grid(
+        self, nodes_x: np.ndarray, nodes_y: np.ndarray, nodes_z: np.ndarray
+    ) -> tuple[np.ndarray, sps.spmatrix, sps.spmatrix]:
+        """Create topology for 3d tensor product grid.
+
+
+        Args:
+            x (np.ndarray): Node coordinates in x-direction.
+            y (np.ndarray): Node coordinates in y-direction. Defaults to
+                None, in which case the grid is 1D.
+            z (np.ndarray): Node coordinates in z-direction. Defaults to
+                None, in which case the grid is 2D.
+        Returns:
+            np.ndarray: Node coordinates.
+            sps.spmatrix: Mapping between nodes an faces in the grid.
+            sps.spmatrix: Mapping between faces an cells in the grid.
+
+        """
 
         num_x = nodes_x.size - 1
         num_y = nodes_y.size - 1
@@ -209,7 +226,7 @@ class TensorGrid(Grid):
         num_nodes = num_nodes
 
         x_coord, y_coord, z_coord = np.meshgrid(nodes_x, nodes_y, nodes_z)
-        # This rearangement turned out to work. Not the first thing I tried..
+        # This rearrangement turned out to work. Not the first thing I tried.
         x_coord = np.swapaxes(x_coord, 1, 0).ravel(order="F")
         y_coord = np.swapaxes(y_coord, 1, 0).ravel(order="F")
         z_coord = np.swapaxes(z_coord, 1, 0).ravel(order="F")
@@ -306,23 +323,18 @@ class CartGrid(TensorGrid):
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, nx: np.ndarray, physdims: Optional[np.ndarray] = None) -> None:
-        """
-        Constructor for Cartesian grid
+        """Constructor for Cartesian grid.
 
-        Parameters
-        ----------
-        nx (np.ndarray): Number of cells in each direction. Should be 1d, 2d or 3d.
-            1d grids can also be specified by a scalar.
-        physdims (np.ndarray): Physical dimensions in each direction.
-            If it is a dict considers the fields xmin, xmax, ymin, ymax, zmin, zmax
-            to define the grid.
-            Defaults to same as nx, that is, cells of unit size.
+        Args:
+            nx (np.ndarray): Number of cells in each direction. Should be 1d, 2d or 3d.
+                1d grids can also be specified by a scalar.
+            physdims (np.ndarray): Physical dimensions in each direction.
+                If it is a dict considers the fields xmin, xmax, ymin, ymax, zmin, zmax
+                to define the grid.
+                Defaults to same as nx, that is, cells of unit size.
 
         """
-
-        #        nx = nx.astype(int)
 
         dims = np.asarray(nx).shape
         xmin, ymin, zmin = 0.0, 0.0, 0.0

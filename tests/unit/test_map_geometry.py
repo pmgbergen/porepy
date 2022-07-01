@@ -37,9 +37,9 @@ class TestNormalVector(unittest.TestCase):
             or np.allclose(nx, -np.array([1, 0, 0]))
         )
 
-    def test_colinear_points(self):
+    def test_collinear_points(self):
         """
-        Test that giving colinear points throws an assertion
+        Test that giving collinear points throws an assertion
         """
         # pts in xy-plane
         pts = np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0]]).T

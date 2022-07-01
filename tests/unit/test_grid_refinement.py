@@ -134,154 +134,14 @@ class TestGridRefinement2dSimplex(unittest.TestCase):
         self.assertTrue(np.allclose(np.bincount(parent, h.cell_volumes), 0.5))
 
 
-""" EK: I can no longer recall the intention behind these tests - they seem to
-be related to an early implementation of mortar functionality. The tests are
-disabled for now, but should be brought back to life at some point.
-
-class TestRefinementGridBucket(unittest.TestCase):
-    def test_refinement_grid_1d_in_gb_uniform_ratio_2(self):
-        f1 = np.array([[0, 1], [.5, .5]])
-        ratio = 2
-
-        gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
-        gb.compute_geometry()
-        gb.assign_node_ordering()
-
-        gs_1d = np.array(gb.grids_of_dimension(1))
-        hs_1d = np.array([refinement.remesh_1d(g, ratio) for g in gs_1d])
-
-        gb.update_nodes(gs_1d, hs_1d)
-
-        known_face_cells = \
-                np.array([[ 0.  ,  0.,  0.,  0.  ,  0.  ,  0.,  0.,  0.,  0.  ,
-                            0.5,  0.,  0.,  0.  ,  0.5],
-                          [ 0.  ,  0.,  0.,  0.  ,  0.  ,  0.,  0.,  0.,  0.  ,
-                            0.5,  0.,  0.,  0.  ,  0.5],
-                          [ 0.  ,  0.,  0.,  0.  ,  0.  ,  0.,  0.,  0.,  0.5,
-                            0.  ,  0.,  0.,  0.5,  0.  ],
-                          [ 0.  ,  0.,  0.,  0.  ,  0.  ,  0.,  0.,  0.,  0.5,
-                            0.  ,  0.,  0.,  0.5,  0.  ]])
-
-        for _, d in gb.edges():
-            self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
-
-#------------------------------------------------------------------------------#
-
-    def test_refinement_grid_1d_in_gb_uniform_ratio_3(self):
-        f1 = np.array([[0, 1], [.5, .5]])
-        ratio = 3
-
-        gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
-        gb.compute_geometry()
-        gb.assign_node_ordering()
-
-        gs_1d = np.array(gb.grids_of_dimension(1))
-        hs_1d = np.array([refinement.remesh_1d(g, ratio) for g in gs_1d])
-
-        gb.update_nodes(gs_1d, hs_1d)
-
-        known_face_cells = \
-                    np.array([[ 0.,  0.,  0.        ,  0.        ,  0.        ,
-                                0.,  0.,  0.        ,  0.        ,  0.33333333,
-                                0.,  0.,  0.        ,  0.33333333],
-                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
-                                0.,  0.,  0.        ,  0.        ,  0.33333333,
-                                0.,  0.,  0.        ,  0.33333333],
-                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
-                                0.,  0.,  0.        ,  0.        ,  0.33333333,
-                                0.,  0.,  0.        ,  0.33333333],
-                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
-                                0.,  0.,  0.        ,  0.33333333,  0.        ,
-                                0.,  0.,  0.33333333,  0.        ],
-                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
-                                0.,  0.,  0.        ,  0.33333333,  0.        ,
-                                0.,  0.,  0.33333333,  0.        ],
-                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
-                                0.,  0.,  0.        ,  0.33333333,  0.        ,
-                                0.,  0.,  0.33333333,  0.        ]])
-
-        for _, d in gb.edges():
-            self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
-
-#------------------------------------------------------------------------------#
-
-    def test_refinement_grid_1d_in_gb(self):
-        f1 = np.array([[0, 1], [.5, .5]])
-        num_nodes = 4
-
-        gb = meshing.cart_grid([f1], [2, 2], **{'physdims': [1, 1]})
-        gb.compute_geometry()
-        gb.assign_node_ordering()
-
-        gs_1d = np.array(gb.grids_of_dimension(1))
-        hs_1d = np.array([refinement.remesh_1d(g, num_nodes) for g in gs_1d])
-
-        gb.update_nodes(gs_1d, hs_1d)
-
-        known_face_cells = \
-                    np.array([[ 0.,  0.,  0.        ,  0.        ,  0.        ,
-                                0.,  0.,  0.        ,  0.66666667,  0.        ,
-                                0.,  0.,  0.66666667,  0.        ],
-                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
-                                0.,  0.,  0.        ,  0.33333333,  0.33333333,
-                                0.,  0.,  0.33333333,  0.33333333],
-                              [ 0.,  0.,  0.        ,  0.        ,  0.        ,
-                                0.,  0.,  0.        ,  0.        ,  0.66666667,
-                                0.,  0.,  0.        ,  0.66666667]])
-
-        for _, d in gb.edges():
-            self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
-
-#------------------------------------------------------------------------------#
-
-    def test_coarse_grid_1d_in_gb(self):
-        f1 = np.array([[0, 1], [.5, .5]])
-        num_nodes = 4
-
-        gb = meshing.cart_grid([f1], [4, 2], **{'physdims': [1, 1]})
-        gb.compute_geometry()
-        gb.assign_node_ordering()
-
-        gs_1d = np.array(gb.grids_of_dimension(1))
-        hs_1d = np.array([refinement.remesh_1d(g, num_nodes) for g in gs_1d])
-
-        gb.update_nodes(gs_1d, hs_1d)
-
-        known_face_cells = np.array([\
-               [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
-                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
-                 0.        ,  0.        ,  0.        ,  0.        ,  1.        ,
-                 0.33333333,  0.        ,  0.        ,  0.        ,  0.        ,
-                 0.        ,  0.        ,  1.        ,  0.33333333,  0.        ,
-                 0.        ],
-               [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
-                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
-                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
-                 0.66666667,  0.66666667,  0.        ,  0.        ,  0.        ,
-                 0.        ,  0.        ,  0.        ,  0.66666667,  0.66666667,
-                 0.        ],
-               [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
-                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
-                 0.        ,  0.        ,  0.        ,  0.        ,  0.        ,
-                 0.        ,  0.33333333,  1.        ,  0.        ,  0.        ,
-                 0.        ,  0.        ,  0.        ,  0.        ,  0.33333333,
-                 1.        ]])
-
-        for _, d in gb.edges():
-            self.assertTrue(np.allclose(d["face_cells"].todense(), known_face_cells))
-"""
-
-
 class TestRefinementMortarGrid(unittest.TestCase):
     def test_mortar_grid_1d(self):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
-        gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
-        gb.compute_geometry()
-        gb.assign_node_ordering()
+        mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
 
-        for e, d in gb.edges():
+        for intf in mdg.interfaces():
 
             high_to_mortar_known = np.matrix(
                 [
@@ -355,31 +215,32 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 [[1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [0.0, 1.0]]
             )
 
-            mg = d["mortar_grid"]
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.primary_to_mortar_int().todense())
+                np.allclose(
+                    high_to_mortar_known, intf.primary_to_mortar_int().todense()
+                )
             )
             self.assertTrue(
-                np.allclose(low_to_mortar_known, mg.secondary_to_mortar_int().todense())
+                np.allclose(
+                    low_to_mortar_known, intf.secondary_to_mortar_int().todense()
+                )
             )
 
     def test_mortar_grid_1d_equally_refine_mortar_grids(self):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
-        gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
-        gb.compute_geometry()
-        gb.assign_node_ordering()
+        mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
+        mdg.compute_geometry()
 
-        for e, d in gb.edges():
+        for intf, data in mdg.interfaces(return_data=True):
 
-            mg = d["mortar_grid"]
             new_side_grids = {
                 s: refinement.remesh_1d(g, num_nodes=4)
-                for s, g in mg.side_grids.items()
+                for s, g in intf.side_grids.items()
             }
 
-            mg.update_mortar(new_side_grids, 1e-4)
+            intf.update_mortar(new_side_grids, 1e-4)
 
             high_to_mortar_known = (
                 1.0
@@ -502,10 +363,14 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.primary_to_mortar_int().todense())
+                np.allclose(
+                    high_to_mortar_known, intf.primary_to_mortar_int().todense()
+                )
             )
             self.assertTrue(
-                np.allclose(low_to_mortar_known, mg.secondary_to_mortar_int().todense())
+                np.allclose(
+                    low_to_mortar_known, intf.secondary_to_mortar_int().todense()
+                )
             )
 
     # ------------------------------------------------------------------------------#
@@ -514,19 +379,16 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
-        gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
-        gb.compute_geometry()
-        gb.assign_node_ordering()
+        mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
 
-        for e, d in gb.edges():
+        for intf, data in mdg.interfaces(return_data=True):
 
-            mg = d["mortar_grid"]
             new_side_grids = {
                 s: refinement.remesh_1d(g, num_nodes=s.value + 3)
-                for s, g in mg.side_grids.items()
+                for s, g in intf.side_grids.items()
             }
 
-            mg.update_mortar(new_side_grids, 1e-4)
+            intf.update_mortar(new_side_grids, 1e-4)
 
             high_to_mortar_known = np.matrix(
                 [
@@ -656,10 +518,14 @@ class TestRefinementMortarGrid(unittest.TestCase):
                 ]
             )
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.primary_to_mortar_int().todense())
+                np.allclose(
+                    high_to_mortar_known, intf.primary_to_mortar_int().todense()
+                )
             )
             self.assertTrue(
-                np.allclose(low_to_mortar_known, mg.secondary_to_mortar_int().todense())
+                np.allclose(
+                    low_to_mortar_known, intf.secondary_to_mortar_int().todense()
+                )
             )
 
     # ------------------------------------------------------------------------------#
@@ -671,21 +537,17 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
-        gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
-        gb.compute_geometry()
-        meshing.create_mortar_grids(gb)
-        gb.assign_node_ordering()
+        mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
 
-        for e, d in gb.edges():
+        for intf in mdg.interfaces():
 
             # refine the 1d-physical grid
-            old_g = gb.nodes_of_edge(e)[0]
+            old_g = mdg.interface_to_subdomain_pair(intf)[1]
             new_g = refinement.remesh_1d(old_g, num_nodes=5)
             new_g.compute_geometry()
 
-            gb.update_nodes({old_g: new_g})
-            mg = d["mortar_grid"]
-            mg.update_secondary(new_g, 1e-4)
+            mdg.replace_subdomains_and_interfaces(sd_map={old_g: new_g})
+            intf.update_secondary(new_g, 1e-4)
 
             high_to_mortar_known = np.matrix(
                 [
@@ -765,7 +627,9 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.primary_to_mortar_int().todense())
+                np.allclose(
+                    high_to_mortar_known, intf.primary_to_mortar_int().todense()
+                )
             )
 
             # The ordering of the cells in the new 1d grid may be flipped on
@@ -773,11 +637,11 @@ class TestRefinementMortarGrid(unittest.TestCase):
             self.assertTrue(
                 np.logical_or(
                     np.allclose(
-                        low_to_mortar_known_avg, mg.secondary_to_mortar_avg().A
+                        low_to_mortar_known_avg, intf.secondary_to_mortar_avg().A
                     ),
                     np.allclose(
                         low_to_mortar_known_avg,
-                        mg.secondary_to_mortar_avg().A[::-1],
+                        intf.secondary_to_mortar_avg().A[::-1],
                     ),
                 )
             )
@@ -789,21 +653,17 @@ class TestRefinementMortarGrid(unittest.TestCase):
 
         f1 = np.array([[0, 1], [0.5, 0.5]])
 
-        gb = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
-        gb.compute_geometry()
-        meshing.create_mortar_grids(gb)
-        gb.assign_node_ordering()
+        mdg = meshing.cart_grid([f1], [2, 2], **{"physdims": [1, 1]})
 
-        for e, d in gb.edges():
+        for intf in mdg.interfaces():
 
             # refine the 1d-physical grid
-            old_g = gb.nodes_of_edge(e)[0]
+            old_g = mdg.interface_to_subdomain_pair(intf)[1]
             new_g = refinement.remesh_1d(old_g, num_nodes=4)
             new_g.compute_geometry()
 
-            gb.update_nodes({old_g: new_g})
-            mg = d["mortar_grid"]
-            mg.update_secondary(new_g, 1e-4)
+            mdg.replace_subdomains_and_interfaces(sd_map={old_g: new_g})
+            intf.update_secondary(new_g, 1e-4)
 
             high_to_mortar_known = np.matrix(
                 [
@@ -885,29 +745,31 @@ class TestRefinementMortarGrid(unittest.TestCase):
             )
 
             self.assertTrue(
-                np.allclose(high_to_mortar_known, mg.primary_to_mortar_int().todense())
+                np.allclose(
+                    high_to_mortar_known, intf.primary_to_mortar_int().todense()
+                )
             )
             # The ordering of the cells in the new 1d grid may be flipped on
             # some systems; therefore allow two configurations
             self.assertTrue(
                 np.logical_or(
                     np.allclose(
-                        low_to_mortar_known_avg, mg.secondary_to_mortar_avg().A
+                        low_to_mortar_known_avg, intf.secondary_to_mortar_avg().A
                     ),
                     np.allclose(
                         low_to_mortar_known_avg,
-                        mg.secondary_to_mortar_avg().A[::-1],
+                        intf.secondary_to_mortar_avg().A[::-1],
                     ),
                 )
             )
             self.assertTrue(
                 np.logical_or(
                     np.allclose(
-                        low_to_mortar_known_int, mg.secondary_to_mortar_int().A
+                        low_to_mortar_known_int, intf.secondary_to_mortar_int().A
                     ),
                     np.allclose(
                         low_to_mortar_known_int,
-                        mg.secondary_to_mortar_int().A[::-1],
+                        intf.secondary_to_mortar_int().A[::-1],
                     ),
                 )
             )
@@ -917,41 +779,42 @@ class TestRefinementMortarGrid(unittest.TestCase):
     def test_mortar_grid_2d(self):
 
         f = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
-        gb = meshing.cart_grid([f], [2] * 3, **{"physdims": [1] * 3})
-        gb.compute_geometry()
-        meshing.create_mortar_grids(gb)
+        mdg = meshing.cart_grid([f], [2] * 3, **{"physdims": [1] * 3})
+        mdg.compute_geometry()
+        # meshing.create_mortar_grids(mdg)
 
-        gb.assign_node_ordering()
+        # mdg.assign_node_ordering()
 
-        for e, d in gb.edges():
+        for intf, data in mdg.interfaces(return_data=True):
 
-            mg = d["mortar_grid"]
             indices_known = np.array([28, 29, 30, 31, 36, 37, 38, 39])
             self.assertTrue(
-                np.array_equal(mg.primary_to_mortar_int().indices, indices_known)
+                np.array_equal(intf.primary_to_mortar_int().indices, indices_known)
             )
 
             indptr_known = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8])
             self.assertTrue(
-                np.array_equal(mg.primary_to_mortar_int().indptr, indptr_known)
+                np.array_equal(intf.primary_to_mortar_int().indptr, indptr_known)
             )
 
             data_known = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
-            self.assertTrue(np.array_equal(mg.primary_to_mortar_int().data, data_known))
+            self.assertTrue(
+                np.array_equal(intf.primary_to_mortar_int().data, data_known)
+            )
 
             indices_known = np.array([0, 4, 1, 5, 2, 6, 3, 7])
             self.assertTrue(
-                np.array_equal(mg.secondary_to_mortar_int().indices, indices_known)
+                np.array_equal(intf.secondary_to_mortar_int().indices, indices_known)
             )
 
             indptr_known = np.array([0, 2, 4, 6, 8])
             self.assertTrue(
-                np.array_equal(mg.secondary_to_mortar_int().indptr, indptr_known)
+                np.array_equal(intf.secondary_to_mortar_int().indptr, indptr_known)
             )
 
             data_known = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
             self.assertTrue(
-                np.array_equal(mg.secondary_to_mortar_int().data, data_known)
+                np.array_equal(intf.secondary_to_mortar_int().data, data_known)
             )
 
 

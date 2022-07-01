@@ -1,5 +1,5 @@
 """
-This file contains utility functions for setting up grid buckets for 3d networks.
+This file contains utility functions for setting up mixed-dimensional grids for 3d networks.
 The default is simplex grids, but Cartesian grids are also possible for the simplest
 geometries.
 The provided geometries are:
@@ -14,8 +14,7 @@ import porepy.grids.standard_grids.utils as utils
 
 
 def single_horizontal(mesh_args=None, x_coords=None, y_coords=None, simplex=True):
-    """
-    Create a grid bucket for a domain containing a horizontal rectangular fracture at z=0.5.
+    """Mixed-dimensional grid for a domain with a horizontal rectangular fracture at z=0.5.
 
     Args:
         mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If
@@ -29,7 +28,7 @@ def single_horizontal(mesh_args=None, x_coords=None, y_coords=None, simplex=True
             If not, the coordinates will be set to [0, 1].
 
     Returns:
-        Grid bucket for the domain.
+        Mixed-dimensional grid for the domain.
 
     """
     if x_coords is None:
@@ -45,8 +44,8 @@ def single_horizontal(mesh_args=None, x_coords=None, y_coords=None, simplex=True
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2, "mesh_size_min": 0.2}
         network = pp.FractureNetwork3d([pp.Fracture(fracture)], domain=domain)
-        gb = network.mesh(mesh_args)
+        mdg = network.mesh(mesh_args)
 
     else:
-        gb = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(3))
-    return gb, domain
+        mdg = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(3))
+    return mdg, domain

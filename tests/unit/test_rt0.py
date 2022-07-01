@@ -1178,7 +1178,7 @@ class BasicsTest(unittest.TestCase):
 
     def test_convergence_rt0_2d_iso_simplex(self):
 
-        a = 8 * np.pi ** 2
+        a = 8 * np.pi**2
         rhs_ex = lambda pt: np.multiply(
             np.sin(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
         )
@@ -1635,7 +1635,7 @@ class TestRT0Gravity(unittest.TestCase):
 
     def test_convergence_rt0_2d_iso_simplex(self):
 
-        a = 8 * np.pi ** 2
+        a = 8 * np.pi**2
         rhs_ex = lambda pt: np.multiply(
             np.sin(2 * np.pi * pt[0, :]), np.sin(2 * np.pi * pt[1, :])
         )

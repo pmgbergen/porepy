@@ -54,13 +54,13 @@ def lines_by_polygon(poly_pts, pts, edges):
             isinstance(int_lines, shapely_geometry.LineString)
             and len(int_lines.coords) > 0
         ):
-            # consider the case of single intersection by avoiding to consider
+            # consider the case of single intersection by avoiding considering
             # lines on the boundary of the polygon
             if not int_lines.touches(poly) and int_lines.length > 0:
                 int_pts = np.c_[int_pts, np.array(int_lines.xy)]
                 edges_kept.append(ei)
         elif type(int_lines) is shapely_geometry.MultiLineString:
-            # consider the case of multiple intersections by avoiding to consider
+            # consider the case of multiple intersections by avoiding considering
             # lines on the boundary of the polygon
             for int_line in int_lines:
                 if not int_line.touches(poly) and int_line.length > 0:
@@ -83,7 +83,7 @@ def lines_by_polygon(poly_pts, pts, edges):
 
 
 def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
-    """Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
+    """Constrain a sort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
 
     Polygons not inside the polyhedron will be removed from descriptions.
     For non-convex polyhedra, polygons can be split in several parts.
