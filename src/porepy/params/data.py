@@ -3,9 +3,9 @@
 At present, the Parameters class is a simple wrapper around a dictionary.
 
 The Parameters will be stored as a dictionary identified by pp.PARAMETERS in an
-"outer" dictionary (e.g. the data on the grid bucket nodes). In the Parameters object,
-there will be one dictionary containing parameters for each keyword. The keywords link
-parameters to discretization operators. For example, the operator
+"outer" dictionary (e.g. the data on the subdomains or interfaces). In the Parameters
+object, there will be one dictionary containing parameters for each keyword. The keywords
+link parameters to discretization operators. For example, the operator
 
 discr = pp.Tpfa(keyword="flow")
 
@@ -46,8 +46,8 @@ For most instances, a convenient way to set up the parameters is:
     data = pp.initialize_default_data(grid, {}, keyword, specified_parameters)
 
 This will assign val_i to the specified parameters pm_i and default parameters to other
-required parameters. If the data directory already exists as d (e.g. in the grid
-bucket), consider:
+required parameters. If the data directory already exists as d (e.g. in the mixed-dimensional
+grid), consider:
 
     pp.initialize_default_data(grid, d, keyword, specified_parameters)
 
@@ -62,19 +62,19 @@ whereas data such as BC values are stored similarly to in the Parameters class, 
 
 data[pp.STATE][keyword]["bc_values"].
 """
+from __future__ import annotations
+
 import numbers
 import warnings
-from typing import Dict, List, Optional
+from typing import Dict, Optional, Union
 
 import numpy as np
 
 import porepy as pp
 import porepy.params.parameter_dictionaries as dicts
 
-module_sections = ["parameters"]
 
-
-class Parameters(dict):
+class Parameters(Dict):
     """Class to store all physical parameters used by solvers.
 
     The intention is to provide a unified way of passing around parameters, and
@@ -88,28 +88,29 @@ class Parameters(dict):
     one sub-dictionary for each keyword.
     """
 
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, g=None, keywords=None, dictionaries=None):
+    def __init__(
+        self,
+        grid: Optional[Union[pp.Grid, pp.MortarGrid]] = None,
+        keywords: list[str] = None,
+        dictionaries: Optional[list[dict]] = None,
+    ):
         """Initialize Data object.
 
-        Parameters:
-
-        g - grid:
-            Grid where the data is valid. Currently, only number of cells and
-            faces are accessed.
-        keywords: List of keywords to set parameters for. If none is passed, a
-            parameter class without specified keywords is initialized.
-        dictionaries: List of dictionaries with specified parameters, one for each
-            keyword in keywords.
+        Args:
+            grid (pp.Grid or pp.MortarGrid, optional): Grid where the data is valid.
+                Currently, only number of cells and faces are accessed.
+            keywords: List of keywords to set parameters for. If none is passed, a
+                parameter class without specified keywords is initialized.
+            dictionaries (list of dictionaries, optional): List of dictionaries with
+                specified parameters, one for each keyword in keywords.
         """
         if not keywords:
             keywords = []
         if not dictionaries:
             dictionaries = []
         self.update_dictionaries(keywords, dictionaries)
-        self.grid = g
+        self.grid = grid
 
-    @pp.time_logger(sections=module_sections)
     def __repr__(self):
         s = "Data object for physical processes "
         s += ", ".join(str(k) for k in self.keys())
@@ -118,15 +119,18 @@ class Parameters(dict):
             s += ", ".join(str(p) for p in self[k].keys())
         return s
 
-    @pp.time_logger(sections=module_sections)
-    def update_dictionaries(self, keywords, dictionaries=None):
+    def update_dictionaries(
+        self, keywords: list[str], dictionaries: Optional[list[dict]] = None
+    ) -> None:
         """Update the dictionaries corresponding to some keywords.
 
         Use either the dictionaries OR the property_ids / values.
-        Properties:
-            keywords - list of n_phys different physical processes.
-            dictionaries - list of n_phys dictionaries with the properties to be
-                updated. If not provided, empty dictionaries are used for all keywords.
+
+        Args:
+            keywords (list): list of n_phys strings addressing different physical processes.
+            dictionaries (list of dictionaries, optional): list of n_phys dictionaries with
+                the properties to be updated. If not provided, empty dictionaries are used
+                for all keywords.
 
         Example:
             keywords = ['flow', 'heat']
@@ -148,8 +152,9 @@ class Parameters(dict):
             else:
                 self[key] = dictionaries[i]
 
-    @pp.time_logger(sections=module_sections)
-    def set_from_other(self, keyword_add, keyword_get, parameters):
+    def set_from_other(
+        self, keyword_add: str, keyword_get: str, parameters: list[str]
+    ) -> None:
         """Add parameters from existing values for a different keyword.
 
         Typical usage: Ensure parameters like aperture and porosity are consistent
@@ -157,62 +162,65 @@ class Parameters(dict):
         modify_parameters should update the parameters for both keywords. Note that this
         will not work for Numbers, which are immutable in Python.
 
-        Parameters:
-            keyword_add: The keyword to whose dictionary the parameters are to be
+        Args:
+            keyword_add (str): The keyword to whose dictionary the parameters are to be
                 added.
-            keyword_get: The keyword from whose dictionary the parameters are to be
+            keyword_get (str): The keyword from whose dictionary the parameters are to be
             obtained.
-            parameters: List of parameters to be set.
+            parameters (list): List of parameters (accessed via strings) to be set.
         """
         for p in parameters:
             self[keyword_add][p] = self[keyword_get][p]
 
-    @pp.time_logger(sections=module_sections)
-    def overwrite_shared_parameters(self, parameters, values):
+    def overwrite_shared_parameters(self, parameters: list[str], values: list) -> None:
         """Updates the given parameter for all keywords.
 
         Brute force method to ensure a parameter is updated/overwritten for all
         keywords where they are defined.
-        parameters: List of (existing) parameters to be overwritten.
-            values: List of new values.
+
+        Args:
+            parameters (list[str]): List of (existing) parameters to be overwritten.
+            values (list): List of new values (bool, scalars, arrays etc.).
         """
         for kw in self.keys():
             for (p, v) in zip(parameters, values):
                 if p in self[kw]:
                     self[kw][p] = v
 
-    @pp.time_logger(sections=module_sections)
-    def modify_parameters(self, keyword, parameters, values):
+    def modify_parameters(
+        self, keyword: str, parameters: list[str], values: list
+    ) -> None:
         """Modify the values of some parameters of a given keyword.
 
         Usage: Ensure consistent parameter updates, see set_from_other. Does not work
         on Numbers.
-        Parameters:
-            parameters: List of (existing) parameters to be updated.
-            values: List of new values. There are implicit assumptions on the values;
+
+        Args:
+            keyword (str): Keyword addressing the physical process.
+            parameters (list[str]): List of (existing) parameters to be updated.
+            values (list): List of new values. There are implicit assumptions on the values;
                 in particular that the type and length of the new and old values agree,
                 see modify_variable.
         """
         for (p, v) in zip(parameters, values):
             modify_variable(self[keyword][p], v)
 
-    @pp.time_logger(sections=module_sections)
     def expand_scalars(
         self,
         n_vals: int,
         keyword: str,
-        parameters: List[str],
-        defaults: Optional[List] = None,
-    ) -> List:
+        parameters: list[str],
+        defaults: Optional[list] = None,
+    ) -> list:
         """Expand parameters assigned as a single scalar to n_vals arrays.
         Used e.g. for parameters which may be heterogeneous in space (cellwise),
         but are often homogeneous and assigned as a scalar.
-        Parameters:
-            n_vals: Size of the expanded arrays. E.g. g.num_cells
-            keyword: The parameter keyword.
-            parameters: List of parameters.
-            @pp.time_logger(sections=module_sections)
-            defaults (optional): List of default values, one for each parameter.
+
+        Args:
+            n_vals (int): Size of the expanded arrays. E.g. g.num_cells
+            keyword (str): The parameter keyword.
+            parameters (list[str]): List of parameters.
+            defaults (list, optional): List of default values, one for each parameter.
                 If not set, no default values will be provided and an error
                 will ensue if one of the listed parameters is not present in
                 the dictionary. This avoids assigning None to unset mandatory
@@ -239,10 +247,13 @@ new Parameters class.
 """
 
 
-@pp.time_logger(sections=module_sections)
 def initialize_default_data(
-    g, data, parameter_type, specified_parameters=None, keyword=None
-):
+    grid: Union[pp.Grid, pp.MortarGrid],
+    data: dict,
+    parameter_type: str,
+    specified_parameters: Optional[dict] = None,
+    keyword: Optional[str] = None,
+) -> dict:
     """Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
@@ -250,18 +261,18 @@ def initialize_default_data(
     set of "basic" parameters, depending on the type chosen.
 
     Args:
-        g: Grid object with computed geometry.
-        data: Outer data dictionary, to which the parameters will be added.
-        parameter_type: Which type of parameters to use for the default assignment.
-            Must be one of the following:
-                "flow", "transport" and "mechanics".
-        specified_parameters: A dictionary with specified parameters, overriding the
-            @pp.time_logger(sections=module_sections)
-            default values. Defualts to an empty dictionary (only default values).
-        keyword: String to identify the parameters. Defaults to the parameter type.
+        grid (pp.Grid or pp.MortarGrid): Grid to which data should be attached.
+        data (dict): Outer data dictionary, to which the parameters will be added.
+        parameter_type (str): Which type of parameters to use for the default assignment.
+            Must be one of the following: "flow", "transport" and "mechanics".
+        specified_parameters (dict, optional): A dictionary with specified parameters,
+            overriding the default values. Defaults to an empty dictionary (only default
+            values).
+        keyword (str, optional):  String to identify the parameters. Defaults to the
+            parameter type.
 
      Returns:
-        data: The filled dictionary.
+        dict: The filled data dictionary.
 
     Raises:
         KeyError if an unknown parameter type is passed.
@@ -271,11 +282,11 @@ def initialize_default_data(
     if not keyword:
         keyword = parameter_type
     if parameter_type == "flow":
-        d = dicts.flow_dictionary(g, specified_parameters)
+        d = dicts.flow_dictionary(grid, specified_parameters)
     elif parameter_type == "transport":
-        d = dicts.transport_dictionary(g, specified_parameters)
+        d = dicts.transport_dictionary(grid, specified_parameters)
     elif parameter_type == "mechanics":
-        d = dicts.mechanics_dictionary(g, specified_parameters)
+        d = dicts.mechanics_dictionary(grid, specified_parameters)
     else:
         raise KeyError(
             'Default dictionaries only exist for the parameter types "flow", '
@@ -283,13 +294,15 @@ def initialize_default_data(
             + parameter_type
             + "."
         )
-    return initialize_data(g, data, keyword, d)
+    return initialize_data(grid, data, keyword, d)
 
 
-@pp.time_logger(sections=module_sections)
 def initialize_data(
-    g, data: Dict, keyword: str, specified_parameters: Optional[Dict] = None
-) -> Dict:
+    grid: Union[pp.Grid, pp.MortarGrid],
+    data: dict,
+    keyword: str,
+    specified_parameters: Optional[dict] = None,
+) -> dict:
     """Initialize a data dictionary for a single keyword.
 
     The initialization consists of adding a parameter dictionary and initializing a
@@ -297,14 +310,14 @@ def initialize_data(
     in data, the new keyword is added using the update_dictionaries method.
 
     Args:
-        g: The grid. Can be either standard grid, or mortar grid.
-        data: Outer data dictionary, to which the parameters will be added.
-        keyword: String identifying the parameters.
-        specified_parameters: A dictionary with specified parameters, defaults to empty
-            dictionary.
+        grid (pp.Grid or pp.MortarGrid): Grid to which data should be attached.
+        data (dict): Outer data dictionary, to which the parameters will be added.
+        keyword (str): String identifying the parameters.
+        specified_parameters (dict, optional): A dictionary with specified parameters, defaults
+            to empty dictionary.
 
     Returns:
-        data: The filled dictionary.
+        dict: The filled dictionary.
     """
     if not specified_parameters:
         specified_parameters = {}
@@ -312,12 +325,11 @@ def initialize_data(
     if pp.PARAMETERS in data:
         data[pp.PARAMETERS].update_dictionaries([keyword], [specified_parameters])
     else:
-        data[pp.PARAMETERS] = pp.Parameters(g, [keyword], [specified_parameters])
+        data[pp.PARAMETERS] = pp.Parameters(grid, [keyword], [specified_parameters])
     return data
 
 
-@pp.time_logger(sections=module_sections)
-def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
+def set_state(data: dict, state: Optional[dict] = None) -> dict:
     """Initialize or update a state dictionary.
 
     The initialization consists of adding a state dictionary in the proper field of the
@@ -325,11 +337,12 @@ def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
     using the update method of dictionaries.
 
     Args:
-        data: Outer data dictionary, to which the parameters will be added.
-        state: A dictionary with the state, set to an empty dictionary if not provided.
+        data (dict): Outer data dictionary, to which the parameters will be added.
+        state (dict, Optional): A dictionary with the state, set to an empty dictionary if
+            not provided.
 
     Returns:
-        data: The filled dictionary.
+        dict: The filled dictionary.
     """
     state = state or {}
     if pp.STATE in data:
@@ -339,12 +352,19 @@ def set_state(data: Dict, state: Optional[Dict] = None) -> Dict:
     return data
 
 
-@pp.time_logger(sections=module_sections)
-def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
+def set_iterate(data: dict, iterate: Optional[dict] = None) -> dict:
     """Initialize or update an iterate dictionary.
 
     Same as set_state for subfield pp.ITERATE
     Also checks whether pp.STATE field is set, and adds it if not, see set_state.
+
+    Args:
+        data (dict): Outer data dictionary, to which the parameters will be added.
+        iterate (dict, Optional): A dictionary with the state, set to an empty dictionary if
+            not provided.
+
+    Returns:
+        dict: The filled dictionary.
     """
     if pp.STATE not in data:
         set_state(data)
@@ -356,18 +376,17 @@ def set_iterate(data: Dict, iterate: Optional[Dict] = None) -> Dict:
     return data
 
 
-@pp.time_logger(sections=module_sections)
-def modify_variable(variable, new_value):
+def modify_variable(variable, new_value) -> None:
     """Changes the value (not id) of the stored parameter.
 
-    Mutes the value of a variable to new_value.
-    Note that this method cannot be extended to cover Numbers, as these are
-    immutable in Python.
+    Mutes the value of a variable to new_value. Note that this method cannot be
+    extended to cover Numbers, as these are immutable in Python.
     Note that there are implicit assumptions on the arguments, in particular that
     the new value is of the same type as the variable. Further, if variable is a
         list, the lists should have the same length
         np.ndarray, the arrays should have the same shape, and new_value must be
             convertible to variable.dtype
+
     Args:
         variable: The variable.
         new_value: The new value to be assigned to the variable.
@@ -392,17 +411,18 @@ def modify_variable(variable, new_value):
         )
 
 
-@pp.time_logger(sections=module_sections)
-def add_nonpresent_dictionary(dictionary, key):
-    """
-    Check if key is in the dictionary, if not add it with an empty dictionary.
+def add_nonpresent_dictionary(dictionary: dict, key: str) -> None:
+    """Check if key is in the dictionary, if not add it with an empty dictionary.
+
+    Args:
+        dictionary (dict): Dictionary to be updated.
+        key (str): Keyword to be added to the dictionary if missing.
     """
     if key not in dictionary:
         dictionary[key] = {}
 
 
-@pp.time_logger(sections=module_sections)
-def add_discretization_matrix_keyword(dictionary, keyword):
+def add_discretization_matrix_keyword(dictionary: dict, keyword: str) -> dict:
     """Ensure presence of sub-dictionaries.
 
     Specific method ensuring that there is a sub-dictionary for discretization matrices,
@@ -410,9 +430,12 @@ def add_discretization_matrix_keyword(dictionary, keyword):
     discretization matrix storage in discretization operators (e.g. the storage of
     "flux" by the Tpfa().discretize function).
 
-    Parameters:
-        dictionary: Main dictionary, typically stored on a grid bucket node.
-        keyword: The keyword used for linking parameters and discretization operators.
+    Args:
+        dictionary (dict): Main dictionary, typically stored on a subdomain.
+        keyword (str): The keyword used for linking parameters and discretization operators.
+
+    Returns:
+        dict: Matrix dictionary of discretization matrices.
     """
     add_nonpresent_dictionary(dictionary, pp.DISCRETIZATION_MATRICES)
     add_nonpresent_dictionary(dictionary[pp.DISCRETIZATION_MATRICES], keyword)

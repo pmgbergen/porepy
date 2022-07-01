@@ -606,7 +606,7 @@ class MpsaReconstructBoundaryDisplacement(unittest.TestCase):
         grad_cell = matrix_dictionary[discr.bound_displacment_cell_matrix_key]
         grad_bound = matrix_dictionary[discr.bound_displacment_face_matrix_key]
 
-        hf2f = pp.fvutils.map_hf_2_f(g=g)
+        hf2f = pp.fvutils.map_hf_2_f(sd=g)
         num_subfaces = hf2f.sum(axis=1).A.ravel()
         scaling = sps.dia_matrix(
             (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
@@ -1234,17 +1234,17 @@ class RobinBoundTest(unittest.TestCase):
         box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
         network = pp.FractureNetwork3d([], domain=box)
         mesh_args = {"mesh_size_frac": 3, "mesh_size_min": 3}
-        gb = network.mesh(mesh_args)
-        g = gb.grids_of_dimension(3)[0]
-        c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
+        mdg = network.mesh(mesh_args)
+        sd = mdg.subdomains(dim=3)[0]
+        c = pp.FourthOrderTensor(np.ones(sd.num_cells), np.ones(sd.num_cells))
         robin_weight = 1.0
 
-        bot = g.face_centers[2] < 1e-10
-        top = g.face_centers[2] > 1 - 1e-10
-        west = g.face_centers[0] < 1e-10
-        east = g.face_centers[0] > 1 - 1e-10
-        north = g.face_centers[1] > 1 - 1e-10
-        south = g.face_centers[1] < 1e-10
+        bot = sd.face_centers[2] < 1e-10
+        top = sd.face_centers[2] > 1 - 1e-10
+        west = sd.face_centers[0] < 1e-10
+        east = sd.face_centers[0] > 1 - 1e-10
+        north = sd.face_centers[1] > 1 - 1e-10
+        south = sd.face_centers[1] < 1e-10
 
         dir_ind = np.ravel(np.argwhere(west + top))
         neu_ind = np.ravel(np.argwhere(bot))
@@ -1252,7 +1252,7 @@ class RobinBoundTest(unittest.TestCase):
 
         names = ["dir"] * len(dir_ind) + ["rob"] * len(rob_ind)
         bnd_ind = np.hstack((dir_ind, rob_ind))
-        bnd = pp.BoundaryConditionVectorial(g, bnd_ind, names)
+        bnd = pp.BoundaryConditionVectorial(sd, bnd_ind, names)
 
         def u_ex(x):
             return np.vstack((x[1], x[0], 0 * x[2]))
@@ -1261,24 +1261,24 @@ class RobinBoundTest(unittest.TestCase):
             if np.size(faces) == 0:
                 return np.atleast_2d(np.array([]))
             sigma = np.array([[0, 2, 0], [2, 0, 0], [0, 0, 0]])
-            T_r = [np.dot(sigma, g.face_normals[:, f]) for f in faces]
+            T_r = [np.dot(sigma, sd.face_normals[:, f]) for f in faces]
             return np.vstack(T_r).T
 
-        u_bound = np.zeros((3, g.num_faces))
+        u_bound = np.zeros((3, sd.num_faces))
 
-        sgn_n, _ = g.signs_and_cells_of_boundary_faces(neu_ind)
-        sgn_r, _ = g.signs_and_cells_of_boundary_faces(rob_ind)
+        sgn_n, _ = sd.signs_and_cells_of_boundary_faces(neu_ind)
+        sgn_r, _ = sd.signs_and_cells_of_boundary_faces(rob_ind)
 
-        u_bound[:, dir_ind] = u_ex(g.face_centers[:, dir_ind])
+        u_bound[:, dir_ind] = u_ex(sd.face_centers[:, dir_ind])
         u_bound[:, neu_ind] = T_ex(neu_ind) * sgn_n
         u_bound[:, rob_ind] = (
             T_ex(rob_ind) * sgn_r
-            + robin_weight * u_ex(g.face_centers[:, rob_ind]) * g.face_areas[rob_ind]
+            + robin_weight * u_ex(sd.face_centers[:, rob_ind]) * sd.face_areas[rob_ind]
         )
-        u, T = self.solve_mpsa(g, c, robin_weight, bnd, u_bound)
+        u, T = self.solve_mpsa(sd, c, robin_weight, bnd, u_bound)
 
-        self.assertTrue(np.allclose(u, u_ex(g.cell_centers).ravel("F")))
-        self.assertTrue(np.allclose(T, T_ex(np.arange(g.num_faces)).ravel("F")))
+        self.assertTrue(np.allclose(u, u_ex(sd.cell_centers).ravel("F")))
+        self.assertTrue(np.allclose(T, T_ex(np.arange(sd.num_faces)).ravel("F")))
 
     def solve_mpsa(self, g, c, robin_weight, bnd, u_bound):
         bnd.robin_weight *= robin_weight

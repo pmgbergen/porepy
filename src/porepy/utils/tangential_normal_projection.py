@@ -24,7 +24,7 @@ class TangentialNormalProjection:
         projection (np.array, size dim x dim x num_vecs): Projection matrices onto the
             tangential and normal space. The first dim-1 rows represent projection to the
             tangential space, the final row is the normal component.
-        normal (np.array, size dim x num_vecs): Unit normal vectors.
+        normals (np.array, size dim x num_vecs): Unit normal vectors.
 
     """
 
@@ -190,9 +190,9 @@ class TangentialNormalProjection:
         return remove_tangential_components * full_projection
 
     def local_projection(self, ind=None):
-        """Get the local projection matrix (refe)
+        """Get the local projection matrix (reference)
 
-        Paremeters:
+        Parameters:
             ind (int, optional): Index (referring to the order of the normal vectors
                 provided to __init__) of the basis to return. Defaults to the first one.
 
@@ -223,7 +223,7 @@ class TangentialNormalProjection:
     def _gram_schmidt(self, u1, u2, u3=None):
         """
         Perform a Gram Schmidt procedure for the vectors u1, u2 and u3 to obtain a set of
-        orhtogonal vectors.
+        orthogonal vectors.
 
         Parameters:
             u1: ndArray
@@ -249,7 +249,7 @@ class TangentialNormalProjection:
 
     def _invert_3d_matrix(self, M):
         """
-        Find the inverse of the (m,m,k) 3D ndArray M. The inverse is intrepreted as the
+        Find the inverse of the (m,m,k) 3D ndArray M. The inverse is interpreted as the
         2d inverse of M[:, :, i] for i = 0...k
 
         Parameters:

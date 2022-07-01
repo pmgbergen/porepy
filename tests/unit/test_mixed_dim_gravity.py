@@ -3,12 +3,12 @@
 Much of the code is copied and slightly modified from unit/test_darcy_mortar.py
     
 Logic in all tests:
-    1) Set up a grid, with the methods set_grids and (submethod) simplex_gb
+    1) Set up a grid, with the methods set_grids and (submethod) simplex_mdg
     2) Set parameters.
     3) Run test cases.
     4) Check solution for pressure and mortar flux.
     
-Rudimentary testing in 3d. The tests are direct analogoues of the 2d ones.
+Rudimentary testing in 3d. The tests are direct analogues of the 2d ones.
 Could be expanded.
 """
 import unittest
@@ -54,76 +54,57 @@ class TestMixedDimGravity(unittest.TestCase):
             gravity_angle: Angle by which to rotate the applied vector source field.
         """
         # Set up flow field with uniform flow in y-direction
-        kw = "flow"
-        gb = self.gb
-        for g, d in gb:
-            a = np.power(aperture, gb.dim_max() - g.dim)
-            perm = pp.SecondOrderTensor(kxx=a * np.ones(g.num_cells))
-            gravity = np.zeros((gb.dim_max(), g.num_cells))
+        mdg = self.mdg
+        for sd, data in mdg.subdomains(return_data=True):
+            a = np.power(aperture, mdg.dim_max() - sd.dim)
+            perm = pp.SecondOrderTensor(kxx=a * np.ones(sd.num_cells))
+            gravity = np.zeros((mdg.dim_max(), sd.num_cells))
             # Angle of zero means force vector of [0, -1]
             gravity[1, :] = -np.cos(gravity_angle)
             gravity[0, :] = np.sin(gravity_angle)
 
-            b_val = np.zeros(g.num_faces)
-            if g.dim == self.gb.dim_max():
+            b_val = np.zeros(sd.num_faces)
+            if sd.dim == self.mdg.dim_max():
                 if neu_val_top is not None:
-                    dir_faces = np.atleast_1d(pp.face_on_side(g, ["ymin"])[0])
-                    neu_faces = np.atleast_1d(pp.face_on_side(g, ["ymax"])[0])
+                    dir_faces = np.atleast_1d(pp.face_on_side(sd, ["ymin"])[0])
+                    neu_faces = np.atleast_1d(pp.face_on_side(sd, ["ymax"])[0])
                     b_val[neu_faces] = neu_val_top
                 else:
-                    dir_faces = pp.face_on_side(g, ["ymin", "ymax"])
+                    dir_faces = pp.face_on_side(sd, ["ymin", "ymax"])
                     b_val[dir_faces[0]] = 0
                     if dir_val_top is not None:
                         b_val[dir_faces[1]] = dir_val_top
                     dir_faces = np.hstack((dir_faces[0], dir_faces[1]))
                 labels = np.array(["dir"] * dir_faces.size)
-                bc = pp.BoundaryCondition(g, dir_faces, labels)
+                bc = pp.BoundaryCondition(sd, dir_faces, labels)
 
             else:
-                bc = pp.BoundaryCondition(g)
+                bc = pp.BoundaryCondition(sd)
             parameter_dictionary = {
                 "bc_values": b_val,
                 "bc": bc,
-                "ambient_dimension": gb.dim_max(),
+                "ambient_dimension": mdg.dim_max(),
                 "mpfa_inverter": "python",
                 "second_order_tensor": perm,
                 "vector_source": gravity.ravel("F"),
             }
-            pp.initialize_data(g, d, "flow", parameter_dictionary)
+            pp.initialize_data(sd, data, "flow", parameter_dictionary)
 
-        for e, d in gb.edges():
-            g1, g2 = gb.nodes_of_edge(e)
-            mg = d["mortar_grid"]
-            a = aperture * np.ones(mg.num_cells)
-            gravity = np.zeros((gb.dim_max(), mg.num_cells))
+        for intf, data in mdg.interfaces(return_data=True):
+            a = aperture * np.ones(intf.num_cells)
+            gravity = np.zeros((mdg.dim_max(), intf.num_cells))
             # Angle of zero means force vector of [0, -1]
             gravity[1, :] = -np.cos(gravity_angle)
             gravity[0, :] = np.sin(gravity_angle)
             gravity *= a / 2
             parameter_dictionary = {
                 "normal_diffusivity": 2 / a * kn,
-                "ambient_dimension": gb.dim_max(),
+                "ambient_dimension": mdg.dim_max(),
                 "vector_source": gravity.ravel("F"),
             }
-            pp.initialize_data(mg, d, "flow", parameter_dictionary)
+            pp.initialize_data(intf, data, "flow", parameter_dictionary)
 
-        # discretization_key = kw + "_" + pp.DISCRETIZATION
-
-        for g, d in gb:
-            # Choose discretization and define the solver
-            if method == "mpfa":
-                discr = pp.Mpfa(kw)
-            elif method == "tpfa":
-                discr = pp.Tpfa(kw)
-            else:
-                raise ValueError("Unexpected discretization method ")
-
-        #   d[discretization_key] = discr
-
-        # for _, d in gb.edges():
-        #   d[discretization_key] = pp.RobinCoupling(kw, discr)
-
-    def grid_2d(self, pert_node: bool = False, flip_normal: bool = False) -> pp.Grid:
+    def grid_2d(self, pert_node: bool = False) -> pp.Grid:
         """
         Make a 2d unit square simplex grid with six cells:
         __________
@@ -137,8 +118,7 @@ class TestMixedDimGravity(unittest.TestCase):
         | /    \ |
         |/      \|
         ----------
-        pert_node pertubes one node in the grid. Leads to non-matching cells.
-        flip_normal flips one normal vector in 2d grid adjacent to the fracture.
+        pert_node perturbs one node in the grid. Leads to non-matching cells.
         Tests that there is no assumptions on direction of fluxes in the
         mortar coupling.
         """
@@ -192,20 +172,6 @@ class TestMixedDimGravity(unittest.TestCase):
         g.compute_geometry()
         g.tags["fracture_faces"][[2, 3, 7, 8]] = 1
 
-        if False:  # TODO: purge
-            di = 0.1
-            g.cell_centers[0, 0] = 0.25 - di
-            g.cell_centers[0, 2] = 0.75 + di
-            g.cell_centers[0, 3] = 0.25 - di
-            g.cell_centers[0, 5] = 0.75 + di
-            di = 0.021
-            g.cell_centers[1, 0] = 0.5 - di
-            g.cell_centers[1, 2] = 0.5 - di
-            g.cell_centers[1, 3] = 0.5 + di
-            g.cell_centers[1, 5] = 0.5 + di
-        if flip_normal:
-            g.face_normals[:, [UCC2]] *= -1
-            g.cell_faces[2, 2] *= -1
         g.global_point_ind = np.arange(nodes.shape[1])
 
         return g
@@ -219,15 +185,8 @@ class TestMixedDimGravity(unittest.TestCase):
         g.global_point_ind = np.arange(g.num_nodes)
         return g
 
-    def simplex_gb(
-        self,
-        remove_tags=False,
-        num_1d=3,
-        num_nodes_mortar=3,
-        pert_node=False,
-        flip_normal=False,
-    ) -> None:
-        """Compute a unit square gb with one throughgoing horizontal fracture and
+    def simplex_mdg(self, num_1d=3, num_nodes_mortar=3, pert_node=False) -> None:
+        """Compute a unit square mdg with one throughgoing horizontal fracture and
         a simplex grid consisting of six cells in 2d.
         __________
         |\      /|
@@ -244,35 +203,34 @@ class TestMixedDimGravity(unittest.TestCase):
         Options include modifying the number of 1d and mortar cells, perturbing nodes
         and flip face normals.
         """
-        g2 = self.grid_2d()
-        g1 = self.grid_1d()
+        sd_2d = self.grid_2d()
+        sd_1d = self.grid_1d()
 
-        gb = pp.meshing._assemble_in_bucket([[g2], [g1]])
+        mdg, _ = pp.meshing._assemble_mdg([[sd_2d], [sd_1d]])
 
-        gb.add_edge_props("face_cells")
-        for e, d in gb.edges():
-            a = np.zeros((g2.num_faces, g1.num_cells))
-            a[2, 1] = 1
-            a[3, 0] = 1
-            a[7, 0] = 1
-            a[8, 1] = 1
-            d["face_cells"] = sps.csc_matrix(a.T)
-        pp.meshing.create_mortar_grids(gb)
+        a = np.zeros((sd_2d.num_faces, sd_1d.num_cells))
+        a[2, 1] = 1
+        a[3, 0] = 1
+        a[7, 0] = 1
+        a[8, 1] = 1
+        face_cells = sps.csc_matrix(a.T)
+        pp.meshing.create_interfaces(mdg, {(sd_2d, sd_1d): face_cells})
 
-        g_new_2d = self.grid_2d(pert_node=pert_node, flip_normal=flip_normal)
-        g_new_1d = self.grid_1d(num_1d)
-        gb.replace_grids(g_map={g2: g_new_2d, g1: g_new_1d})
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
+        sd_2d_new = self.grid_2d(pert_node=pert_node)
+        sd_1d_new = self.grid_1d(num_1d)
+        mdg.replace_subdomains_and_interfaces(
+            sd_map={sd_2d: sd_2d_new, sd_1d: sd_1d_new}
+        )
+        intf = mdg.interfaces()[0]
 
         new_side_grids = {
             s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
-            for s, g in mg.side_grids.items()
+            for s, g in intf.side_grids.items()
         }
-        mg.update_mortar(new_side_grids, tol=1e-4)
+        intf.update_mortar(new_side_grids, tol=1e-4)
 
-        gb.assign_node_ordering()
-        self.gb = gb
+        mdg.assign_subdomain_ordering()
+        self.mdg = mdg
 
     def set_grids_2d(
         self,
@@ -283,46 +241,44 @@ class TestMixedDimGravity(unittest.TestCase):
         simplex=False,
     ):
         if simplex:
-            self.simplex_gb(num_1d=num_nodes_1d, num_nodes_mortar=num_nodes_mortar)
+            self.simplex_mdg(num_1d=num_nodes_1d, num_nodes_mortar=num_nodes_mortar)
             return
         f1 = np.array([[0, physdims[0]], [0.5, 0.5]])
 
-        gb = pp.meshing.cart_grid([f1], N, **{"physdims": physdims})
-        gb.compute_geometry()
-        gb.assign_node_ordering()
+        mdg = pp.meshing.cart_grid([f1], N, **{"physdims": physdims})
+        mdg.compute_geometry()
+        mdg.assign_subdomain_ordering()
         if num_nodes_mortar is None:
-            self.gb = gb
+            self.mdg = mdg
             return
 
-        for e, d in gb.edges():
+        for intf in mdg.interfaces():
 
-            mg = d["mortar_grid"]
             new_side_grids = {
                 s: pp.refinement.remesh_1d(g, num_nodes=num_nodes_mortar)
-                for s, g in mg.side_grids.items()
+                for s, g in intf.side_grids.items()
             }
 
-            mg.update_mortar(new_side_grids, tol=1e-4)
+            intf.update_mortar(new_side_grids, tol=1e-4)
             # refine the 1d-physical grid
-            old_g = gb.nodes_of_edge(e)[0]
+            _, old_g = mdg.interface_to_subdomain_pair(intf)
             new_g = pp.refinement.remesh_1d(old_g, num_nodes=num_nodes_1d)
             new_g.compute_geometry()
 
-            gb.update_nodes({old_g: new_g})
-            mg = d["mortar_grid"]
-            mg.update_secondary(new_g, tol=1e-4)
-        self.gb = gb
+            mdg.replace_subdomains_and_interfaces({old_g: new_g})
+            intf.update_secondary(new_g, tol=1e-4)
+        self.mdg = mdg
 
     def solve(self, method):
         key = "flow"
-        gb = self.gb
+        mdg = self.mdg
         if method == "tpfa":
             discretization = pp.Tpfa(key)
         elif method == "mpfa":
             discretization = pp.Mpfa(key)
         elif method == "mvem":
             discretization = pp.MVEM(key)
-        assembler = test_utils.setup_flow_assembler(gb, discretization, key)
+        assembler = test_utils.setup_flow_assembler(mdg, discretization, key)
         assembler.discretize()
         A_flow, b_flow = assembler.assemble_matrix_rhs()
         p = sps.linalg.spsolve(A_flow, b_flow)
@@ -331,14 +287,14 @@ class TestMixedDimGravity(unittest.TestCase):
 
     def verify_pressure(self, p_known: float = 0):
         """Verify that the pressure of all subdomains equals p_known."""
-        for g, d in self.gb.nodes():
-            p = d[pp.STATE]["pressure"]
+        for _, data in self.mdg.subdomains(return_data=True):
+            p = data[pp.STATE]["pressure"]
             self.assertTrue(np.allclose(p, p_known, rtol=1e-3, atol=1e-3))
 
     def verify_mortar_flux(self, u_known: float):
         """Verify that the mortar flux of all interfaces equals u_known."""
-        for e, d in self.gb.edges():
-            u = np.abs(d[pp.STATE]["mortar_flux"])
+        for _, data in self.mdg.interfaces(return_data=True):
+            u = np.abs(data[pp.STATE]["mortar_flux"])
             self.assertTrue(np.allclose(u, u_known, rtol=1e-3, atol=1e-3))
 
     def verify_hydrostatic(self, angle=0, a=1e-1):
@@ -349,27 +305,27 @@ class TestMixedDimGravity(unittest.TestCase):
         The full range is
         0 (bottom) to -1- aperture (top).
         """
-        gb = self.gb
-        g = gb.grids_of_dimension(gb.dim_max())[0]
-        p = gb.node_props(g)[pp.STATE]["pressure"]
+        mdg = self.mdg
+        sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
+        p_primary = mdg.subdomain_data(sd_primary)[pp.STATE]["pressure"]
         # The cells above the fracture
-        h = g.cell_centers[1]
+        h = sd_primary.cell_centers[1]
         ind = h > 0.5
         p_known = -(a * ind + h) * np.cos(angle)
-        self.assertTrue(np.allclose(p, p_known, rtol=1e-3, atol=1e-3))
-        gl = gb.grids_of_dimension(gb.dim_max() - 1)[0]
-        pl = gb.node_props(gl)[pp.STATE]["pressure"]
+        self.assertTrue(np.allclose(p_primary, p_known, rtol=1e-3, atol=1e-3))
+        sd_secondary = mdg.subdomains(dim=mdg.dim_max() - 1)[0]
+        p_secondary = mdg.subdomain_data(sd_secondary)[pp.STATE]["pressure"]
         # Half the additional jump is added to the fracture pressure
-        h = gl.cell_centers[1]
+        h = sd_secondary.cell_centers[1]
         p_known = -(a / 2 + h) * np.cos(angle)
 
-        self.assertTrue(np.allclose(pl, p_known, rtol=1e-3, atol=1e-3))
-        for e, d in gb.edges():
-            lmbda = d[pp.STATE]["mortar_flux"]
+        self.assertTrue(np.allclose(p_secondary, p_known, rtol=1e-3, atol=1e-3))
+        for _, data in self.mdg.interfaces(return_data=True):
+            lmbda = data[pp.STATE]["mortar_flux"]
             self.assertTrue(np.allclose(lmbda, 0, rtol=1e-3, atol=1e-3))
 
     def test_no_flow_neumann(self):
-        """Use homogeneoous Neumann boundary conditions on top Dirichlet
+        """Use homogeneous Neumann boundary conditions on top Dirichlet
         on bottom.
 
         The pressure distribution should be hydrostatic.
@@ -441,7 +397,7 @@ class TestMixedDimGravity(unittest.TestCase):
 
     def test_no_flow_dirichlet(self):
         """
-        Dirichlet boundary conditions, but set so that the the pressure is hydrostatic,
+        Dirichlet boundary conditions, but set so that the pressure is hydrostatic,
         and there is no flow.
 
         """
@@ -538,7 +494,7 @@ class TestMixedDimGravity(unittest.TestCase):
 
     # --3d section. See analogous methods/tests above for documentation --#
 
-    def set_grids_3d(self, num_fracs=1, remove_tags=False):
+    def set_grids_3d(self, num_fracs=1):
 
         domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
 
@@ -576,9 +532,9 @@ class TestMixedDimGravity(unittest.TestCase):
 
         network = pp.FractureNetwork3d(fl, domain)
         mesh_args = {"mesh_size_frac": 0.5, "mesh_size_min": 0.5}
-        gb = network.mesh(mesh_args)
+        mdg = network.mesh(mesh_args)
 
-        self.gb = gb
+        self.mdg = mdg
 
     def test_one_fracture_no_flow_neumann(self):
         for method in self.discretizations():
