@@ -366,7 +366,11 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
 
 
 def dfm_3d_from_fab(
-    file_name, tol=1e-4, domain=None, return_domain=False, **mesh_kwargs
+    file_name: str,
+    tol: float = 1e-4,
+    domain=None,
+    return_domain: bool = False,
+    **mesh_kwargs,
 ):
     """
     Create the grid bucket from a set of 3d fractures stored in a fab file and
@@ -376,10 +380,11 @@ def dfm_3d_from_fab(
         file_name: name of the file
         tol: (optional) tolerance for the methods
         domain: (optional) the domain, otherwise a bounding box is considered
+        return_domain: whether to return the domain.
         mesh_kwargs: kwargs for the gridding, see meshing.simplex_grid
 
     Return:
-        gb: the grid bucket
+        mdg: the mixed-dimensional grid
     """
 
     network = network_3d_from_fab(file_name, return_all=False, tol=tol)
@@ -388,8 +393,8 @@ def dfm_3d_from_fab(
     if domain is None:
         domain = network.bounding_box()
 
-    # TODO: No reference to simplex_grid in pp.fracs.meshing.py
-    mdg = pp.meshing.simplex_grid(domain=domain, network=network, **mesh_kwargs)
+    network.domain = domain
+    mdg = network.mesh(mesh_kwargs)
 
     if return_domain:
         return mdg, domain
@@ -397,7 +402,7 @@ def dfm_3d_from_fab(
         return mdg
 
 
-def network_3d_from_fab(f_name, return_all=False, tol=None):
+def network_3d_from_fab(f_name: str, return_all: bool = False, tol: float = None):
     """Read fractures from a .fab file, as specified by FracMan.
 
     The filter is based on the .fab-files available at the time of writing, and
@@ -405,6 +410,8 @@ def network_3d_from_fab(f_name, return_all=False, tol=None):
 
     Parameters:
         f_name (str): Path to .fab file.
+        return_all: Whether to return additional information (see Returns)
+        tol: Tolerance passed on instantiation of the returned FractureNetwork3d
 
     Returns:
         network: the network of fractures

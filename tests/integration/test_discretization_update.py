@@ -25,21 +25,21 @@ def _two_fractures_overlapping_regions():
     # In second step, the second fracture grows in both ends
 
     frac = [np.array([[1, 2], [1, 1]]), np.array([[2, 3], [2, 2]])]
-    gb = pp.meshing.cart_grid(frac, [6, 3])
+    mdg = pp.meshing.cart_grid(frac, [6, 3])
     split_scheme = [
         [np.array([29]), np.array([])],
         [np.array([30]), np.array([34, 36])],
     ]
-    return gb, split_scheme
+    return mdg, split_scheme
 
 
 def _two_fractures_non_overlapping_regions():
     # Two fractures far away from each other. The update stencils for fv methods will
     # be non-overlapping, meaning the method must deal with non-connected subgrids.
     frac = [np.array([[1, 1], [1, 2]]), np.array([[8, 8], [1, 2]])]
-    gb = pp.meshing.cart_grid(frac, [9, 3])
+    mdg = pp.meshing.cart_grid(frac, [9, 3])
     split_scheme = [[np.array([1]), np.array([8])]]
-    return gb, split_scheme
+    return mdg, split_scheme
 
 
 def _two_fractures_regions_become_overlapping():
@@ -47,9 +47,9 @@ def _two_fractures_regions_become_overlapping():
     # fv methods will be non-overlapping, meaning the method must deal with
     # non-connected subgrids. In the second step, the regions are overlapping.
     frac = [np.array([[1, 1], [1, 2]]), np.array([[8, 8], [1, 2]])]
-    gb = pp.meshing.cart_grid(frac, [9, 3])
+    mdg = pp.meshing.cart_grid(frac, [9, 3])
     split_scheme = [[np.array([1]), np.array([8])], [np.array([49]), np.array([55])]]
-    return gb, split_scheme
+    return mdg, split_scheme
 
 
 # The main test function
@@ -75,10 +75,10 @@ def test_propagation(geometry, method):
     # NOTE: Only the highest-dimensional grid in the MixedDimensionalGrid is used.
 
     # Get MixedDimensionalGrid and splitting schedule
-    gb, faces_to_split = geometry()
+    mdg, faces_to_split = geometry()
 
-    sd_top = gb.subdomains(dim=gb.dim_max())[0]
-    g_1, g_2 = gb.subdomains(dim=1)
+    sd_top = mdg.subdomains(dim=mdg.dim_max())[0]
+    g_1, g_2 = mdg.subdomains(dim=1)
 
     # Make the splitting schedule on the format expected by fracture propagation
     split_faces = []
@@ -108,7 +108,7 @@ def test_propagation(geometry, method):
         }
 
     # Populate parameters
-    data = gb.subdomain_data(sd_top)
+    data = mdg.subdomain_data(sd_top)
     data[pp.DISCRETIZATION_MATRICES] = {"flow": {}, "mechanics": {}}
     set_param(sd_top, data)
     # Discretize
@@ -117,10 +117,10 @@ def test_propagation(geometry, method):
     # Loop over propagation steps
     for split in split_faces:
         # Split the face
-        pp.propagate_fracture.propagate_fractures(gb, split)
+        pp.propagate_fracture.propagate_fractures(mdg, split)
 
         # Make parameters for the new grid
-        data = gb.subdomain_data(sd_top)
+        data = mdg.subdomain_data(sd_top)
         set_param(sd_top, data)
 
         # Transfer information on new faces and cells from the format used

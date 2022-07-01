@@ -1,7 +1,7 @@
 """
 Main module for grid generation in fractured domains in 2d and 3d.
 
-The module serves as the only neccessary entry point to create the grid. It
+The module serves as the only necessary entry point to create the grid. It
 will therefore wrap interface to different mesh generators, pass options to the
 generators etc.
 

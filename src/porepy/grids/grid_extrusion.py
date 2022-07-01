@@ -73,7 +73,7 @@ def extrude_grid_bucket(
 
         g_map[sd] = Mapping(g_new, cell_map, face_map)
 
-    # Loop over all edges in the old grid, create corresponding edges in the new gb.
+    # Loop over all interfaces in the old grid, create corresponding edges in the new mdg.
     # Also define mortar_grids
     for intf, intf_data in mdg.interfaces(return_data=True):
 
@@ -148,7 +148,7 @@ def extrude_grid_bucket(
             face_cells_new,
             face_duplicate_ind=face_on_other_side,
         )
-        # Add to new gb, together with the new face-cell map
+        # Add to new mdg, together with the new face-cell map
         subdomain_pair_new = (sd_primary_new, sd_secondary_new)
         mdg_new.add_interface(mg_new, subdomain_pair_new, face_cells_new)
 

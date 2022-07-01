@@ -221,7 +221,9 @@ def create_elliptic_fracture(
 
     # Rotate reference points so that the major axis has the right
     # orientation
-    major_axis_rot = pp.map_geometry.rotation_matrix(major_axis_angle, [0, 0, 1])
+    major_axis_rot = pp.map_geometry.rotation_matrix(
+        major_axis_angle, np.array([0, 0, 1])
+    )
     rot_ref_pts = major_axis_rot.dot(ref_pts)
 
     assert pp.geometry_property_checks.points_are_planar(rot_ref_pts)

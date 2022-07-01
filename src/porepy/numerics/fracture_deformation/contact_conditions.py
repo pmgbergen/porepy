@@ -596,7 +596,7 @@ class ColoumbContact(AbstractInterfaceLaw):
 
 
 def set_projections(
-    gb: pp.MixedDimensionalGrid, interfaces: Optional[list[pp.MortarGrid]] = None
+    mdg: pp.MixedDimensionalGrid, interfaces: Optional[list[pp.MortarGrid]] = None
 ) -> None:
     """Define a local coordinate system, and projection matrices, for all
     grids of co-dimension 1.
@@ -613,7 +613,7 @@ def set_projections(
 
     """
     if interfaces is None:
-        interfaces = [e for e in gb.interfaces()]
+        interfaces = mdg.interfaces()
 
     # Information on the vector normal to the surface is not available directly
     # from the surface grid (it could be constructed from the surface geometry,
@@ -622,11 +622,11 @@ def set_projections(
     # We therefore access the grids via the edges of the mixed-dimensional grid.
     for intf in interfaces:
         # Only consider edges where the lower-dimensional neighbor is of co-dimension 1
-        if not intf.dim == (gb.dim_max() - 1):
+        if not intf.dim == (mdg.dim_max() - 1):
             continue
 
-        # Neigboring grids
-        sd_primary, sd_secondary = gb.interface_to_subdomain_pair(intf)
+        # Neighboring grids
+        sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
 
         # Find faces of the higher dimensional grid that coincide with the mortar
         # grid. Go via the primary to mortar projection
@@ -667,7 +667,7 @@ def set_projections(
         # construction internally in TangentialNormalProjection.
         projection = pp.TangentialNormalProjection(normal_lower)
 
-        d_l = gb.subdomain_data(sd_secondary)
+        d_l = mdg.subdomain_data(sd_secondary)
         # Store the projection operator in the lower-dimensional data
         d_l["tangential_normal_projection"] = projection
 
