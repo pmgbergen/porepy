@@ -219,11 +219,11 @@ class SetupContactMechanics(
             rotate_fracture = getattr(self, "rotate_fracture", False)
             endpoints = getattr(self, "fracture_endpoints", np.array([0.3, 0.7]))
             if rotate_fracture:
-                self.mdg, self.box = pp.grid_buckets_2d.single_vertical(
+                self.mdg, self.box = pp.md_grids_2d.single_vertical(
                     self.mesh_args, endpoints
                 )
             else:
-                self.mdg, self.box = pp.grid_buckets_2d.single_horizontal(
+                self.mdg, self.box = pp.md_grids_2d.single_horizontal(
                     self.mesh_args, endpoints
                 )
 

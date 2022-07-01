@@ -137,7 +137,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # 1x2 grid.
         # Copy the higher dimensional grid and replace. The mapping should be
         # the same.
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
 
         intf_old = mdg.interfaces()[0]
 
@@ -159,7 +159,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
     def test_refine_high_dim(self):
         # Replace the 2d grid with a finer one
 
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
 
         intf_old = mdg.interfaces()[0]
 
@@ -169,7 +169,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
         mdg_new.compute_geometry()
 
         sd_new = mdg_new.subdomains(dim=2)[0]
@@ -200,7 +200,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
     def test_coarsen_high_dim(self):
         # Replace the 2d grid with a coarser one
 
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
 
         # Pick out mortar grid by a loop, there is only one edge in the bucket
         intf_old = mdg.interfaces()[0]
@@ -210,7 +210,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Create a new, coarser 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
+        mdg_new, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
 
         sd_new = mdg_new.subdomains(dim=2)[0]
 
@@ -253,7 +253,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Replace the 2d grid with a finer one, and move the nodes along the
         # interface so that areas along the interface are no longer equal.
 
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
 
         intf_old = mdg.interfaces()[0]
 
@@ -263,7 +263,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
 
         sd_new = mdg_new.subdomains(dim=2)[0]
 
@@ -315,7 +315,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Replace the 2d grid with a finer one, and move the nodes along the
         # interface so that areas along the interface are no longer equal.
 
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
 
         intf_old = mdg.interfaces()[0]
 
@@ -325,7 +325,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
 
         sd_new = mdg_new.subdomains(dim=2)[0]
 
@@ -383,7 +383,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Replace higher dimensional grid with an identical one, except the
         # node indices are perturbed. This will test sorting of nodes along
         # 1d lines
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
 
         intf_old = mdg.interfaces()[0]
 
@@ -393,7 +393,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
 
         sd_new = mdg_new.subdomains(dim=2)[0]
 
@@ -454,7 +454,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Replace higher dimensional grid with an identical one, except the
         # node indices are perturbed. This will test sorting of nodes along
         # 1d lines. Also perturb nodes along the segment.
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
 
         intf_old = mdg.interfaces()[0]
 
@@ -464,7 +464,7 @@ class TestReplaceHigherDimensionalGridInMixedDimensionalGrid(unittest.TestCase):
         # Create a new, finer 2d grid. This is the simplest
         # way to put the fracture in the right place is to create a new
         # bucket, and pick out the higher dimensional grid
-        mdg_new, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg_new, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
 
         sd_new = mdg_new.subdomains(dim=2)[0]
         # By construction of the split grid, we know that the nodes at
