@@ -251,7 +251,7 @@ class MeshioExporterTest(unittest.TestCase):
         self.assertTrue(content == self._mdg_2_mortar_grid_1_vtu())
 
     def test_mdg_3(self):
-        mdg, _ = pp.mdi_grids_2d.two_intersecting(
+        mdg, _ = pp.md_grids_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
 
