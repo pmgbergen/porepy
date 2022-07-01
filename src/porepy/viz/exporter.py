@@ -24,24 +24,17 @@ Field = namedtuple("Field", ["name", "values"])
 # for its storage, taking dimensions as inputs. Since 0d grids are
 # stored as 'None', allow for such values.
 Meshio_Geom = namedtuple("Meshio_Geom", ["pts", "connectivity", "cell_ids"])
-MD_Meshio_Geom = dict[int, Union[None, Meshio_Geom]]
 
 # All allowed data structures to define data for exporting
 DataInput = Union[
     # Keys for states
     str,
     # Subdomain specific data types
-    tuple[list[pp.Grid], str],
+    tuple[list, str],
     tuple[pp.Grid, str, np.ndarray],
-    tuple[str, np.ndarray],
-    # Interface specific data types
-    tuple[list[pp.MortarGrid], str],
     tuple[pp.MortarGrid, str, np.ndarray],
+    tuple[str, np.ndarray],
 ]
-
-# Data structure in which data is stored after preprocessing
-SubdomainData = dict[tuple[pp.Grid, str], np.ndarray]
-InterfaceData = dict[tuple[pp.MortarGrid, str], np.ndarray]
 
 
 class Exporter:
@@ -143,12 +136,12 @@ class Exporter:
         # Generate infrastructure for storing fixed-dimensional grids in
         # meshio format. Include all but the 0-d grids
         self._dims = np.unique([sd.dim for sd in self._mdg.subdomains() if sd.dim > 0])
-        self.meshio_geom: MD_Meshio_Geom = dict()
+        self.meshio_geom = dict()
 
         # Generate infrastructure for storing fixed-dimensional mortar grids
         # in meshio format.
         self._m_dims = np.unique([intf.dim for intf in self._mdg.interfaces()])
-        self.m_meshio_geom: MD_Meshio_Geom = dict()
+        self.m_meshio_geom = dict()
 
         # Generate geometrical information in meshio format
         self._update_meshio_geom()
@@ -465,7 +458,7 @@ class Exporter:
     def _sort_and_unify_data(
         self,
         data=None,  # ignore type which is essentially Union[DataInput, list[DataInput]]
-    ) -> tuple[SubdomainData, InterfaceData]:
+    ) -> tuple[dict, dict]:
         """
         Preprocess data.
 
@@ -480,8 +473,8 @@ class Exporter:
                 of subdomains/interfaces.
 
         Returns:
-            tuple[SubdomainData, InterfaceData]: Subdomain and interface data decomposed and
-                brought into unified format.
+            dict: Subdomain data in unified format.
+            dict: Interface data in unified format.
 
         Raises:
             ValueError if the data type provided is not supported
@@ -530,8 +523,6 @@ class Exporter:
 
             return value
 
-        # TODO rename pt to data_pt?
-        # TODO typing
         def add_data_from_str(
             data_pt, subdomain_data: dict, interface_data: dict
         ) -> tuple[dict, dict, bool]:
@@ -741,6 +732,42 @@ class Exporter:
             data_pt, subdomain_data: dict, interface_data: dict
         ) -> tuple[dict, dict, bool]:
             """
+            Check whether data is provided as tuple (intf, key, data),
+            where intf is a single interface, key is a string, and data is a user-defined
+            data array. This routine explicitly checks only for interface data.
+
+            Translation of add_data_from_tuple_subdomain_str_array to interfaces.
+            """
+
+            # Implementation of isinstance(t, tuple[pp.MortarGrid, str, np.ndarray]).
+            isinstance_tuple_interface_str_array = isinstance(
+                data_pt[0], pp.MortarGrid
+            ) and list(map(type, data_pt))[1:] == [
+                str,
+                np.ndarray,
+            ]
+
+            # Convert data to unique format and update the interface data dictionary.
+            if isinstance_tuple_interface_str_array:
+                # Interpret (intf, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
+                intf = data_pt[0]
+                key = data_pt[1]
+                value = _toVectorFormat(data_pt[2], intf)
+
+                # Add data point in correct format to collection
+                interface_data[(intf, key)] = value
+
+                # Return updated dictionaries and indicate succesful conversion.
+                return subdomain_data, interface_data, True
+
+            else:
+                # Return original data dictionaries and indicate no modification.
+                return subdomain_data, interface_data, False
+
+        def add_data_from_tuple_grid_str_array(
+            data_pt, subdomain_data: dict, interface_data: dict
+        ) -> tuple[dict, dict, bool]:
+            """
             Check whether data is provided as tuple (g, key, data),
             where e is a single interface, key is a string, and data is a user-defined
             data array. This routine explicitly checks only for interface data.
@@ -749,11 +776,12 @@ class Exporter:
             """
 
             # Implementation of isinstance(t, tuple[pp.MortarGrid, str, np.ndarray]).
-            isinstance_tuple_interface_str_array = list(map(type, data_pt)) == [
-                tuple,
+            isinstance_tuple_interface_str_array = isinstance(
+                data_pt[0], pp.MortarGrid
+            ) and list(map(type, data_pt))[1:] == [
                 str,
                 np.ndarray,
-            ] and isinstance(data_pt[0], pp.MortarGrid)
+            ]
 
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_interface_str_array:
@@ -829,8 +857,8 @@ class Exporter:
             data = [data]
 
         # Initialize container for data associated to subdomains and interfaces
-        subdomain_data: SubdomainData = dict()
-        interface_data: InterfaceData = dict()
+        subdomain_data = dict()
+        interface_data = dict()
 
         # Define methods to be used for checking the data type and performing
         # the conversion. This list implicitly also defines which input data is
@@ -975,7 +1003,7 @@ class Exporter:
 
     def _export_data_vtu(
         self,
-        data: Union[SubdomainData, InterfaceData],
+        data: dict,
         time_step: Optional[int],
         **kwargs,
     ) -> None:
@@ -988,7 +1016,7 @@ class Exporter:
         Analogously for interfaces.
 
         Args:
-            data (Union[SubdomainData, InterfaceData]): Subdomain or interface data.
+            data (dict): Subdomain or interface data.
             time_step (int): time_step to be used to append the file name
             kwargs: Optional keyword arguments:
                 'interface_data' (boolean) indicates whether data is associated to
@@ -1209,12 +1237,12 @@ class Exporter:
         cell_type = "line"
 
         # Dictionary storing cell->nodes connectivity information
-        cell_to_nodes: dict[str, np.ndarray] = {cell_type: np.empty((0, 2), dtype=int)}
+        cell_to_nodes: dict = {cell_type: np.empty((0, 2), dtype=int)}
 
         # Dictionary collecting all cell ids for each cell type.
         # Since each cell is a line, the list of cell ids is trivial
         total_num_cells = np.sum(np.array([grid.num_cells for grid in grids]))
-        cell_id: dict[str, list[int]] = {cell_type: [i for i in range(total_num_cells)]}
+        cell_id: dict = {cell_type: [i for i in range(total_num_cells)]}
 
         # Data structure for storing node coordinates of all 1d grids.
         num_pts = np.sum([grid.num_nodes for grid in grids]).astype(int)
@@ -1314,9 +1342,9 @@ class Exporter:
         # Dictionary storing cell->nodes connectivity information for all
         # cell types. For this, the nodes have to be sorted such that
         # they form a circular chain, describing the boundary of the cell.
-        cell_to_nodes: dict[str, np.ndarray] = {}
+        cell_to_nodes: dict = {}
         # Dictionary collecting all cell ids for each cell type.
-        cell_id: dict[str, list[int]] = {}
+        cell_id: dict = {}
 
         # Data structure for storing node coordinates of all 2d grids.
         num_pts = np.sum([grid.num_nodes for grid in grids])
@@ -1770,10 +1798,10 @@ class Exporter:
         # For the general geometric type "polyhedron", cell->faces->nodes will
         # be used to store connectivity information, which can become significantly
         # larger than cell->nodes information used for special type grids.
-        cell_to_faces: dict[str, list[list[int]]] = {}
+        cell_to_faces: dict = {}
 
         # Dictionary collecting all cell ids for each cell type.
-        cell_id: dict[str, list[int]] = {}
+        cell_id: dict = {}
 
         # Data structure for storing node coordinates of all 3d grids.
         num_pts = np.sum([grid.num_nodes for grid in grids])
@@ -1886,7 +1914,7 @@ class Exporter:
             ValueError if some data has wrong dimension
         """
         # Initialize empty cell data dictinary
-        cell_data: dict[str, list[np.ndarray]] = {}
+        cell_data: dict = {}
 
         # Split the data for each group of geometrically uniform cells
         # Utilize meshio_geom for this.
