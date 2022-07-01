@@ -16,7 +16,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_bottom_top(self):
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
 
         # define discretization
         key = "transport"
@@ -97,7 +97,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_left_right(self):
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([1, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([1, 2], simplex=False)
 
         tol = 1e-3
         # define discretization
@@ -179,7 +179,7 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_upwind_coupling_2d_1d_left_right_cross(self):
-        mdg, _ = pp.grid_buckets_2d.two_intersecting([2, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.two_intersecting([2, 2], simplex=False)
 
         # Enforce node ordering because of Python 3.5 and 2.7.
         # Don't do it in general.

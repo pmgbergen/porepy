@@ -6,6 +6,8 @@ Acknowledgements:
     (MRST) developed by SINTEF ICT, see www.sintef.no/projectweb/mrst/
 
 """
+from __future__ import annotations
+
 from typing import Optional
 
 import numpy as np

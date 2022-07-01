@@ -2,6 +2,8 @@
 more information.
 
 """
+from __future__ import annotations
+
 from typing import Any, Dict, Tuple, Union
 
 import numpy as np

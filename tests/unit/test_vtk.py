@@ -180,7 +180,7 @@ class MeshioExporterTest(unittest.TestCase):
 
     # NOTE: Suggest removing this test.
     def test_mdg_1(self):
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([4, 4], simplex=False)
 
         for sd, sd_data in mdg.subdomains(return_data=True):
             pp.set_state(
@@ -214,7 +214,7 @@ class MeshioExporterTest(unittest.TestCase):
 
     # TODO Do we need this test if we have the subsequent one?
     def test_mdg_2(self):
-        mdg, _ = pp.grid_buckets_2d.two_intersecting(
+        mdg, _ = pp.md_grids_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
 

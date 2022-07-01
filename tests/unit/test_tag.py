@@ -824,7 +824,7 @@ class BasicsTest(unittest.TestCase):
         self.assertTrue(np.array_equal(g.tags["domain_boundary_nodes"], known))
 
     def test_tag_2d_1d_cart(self):
-        mdg, _ = pp.grid_buckets_2d.single_horizontal([4, 4], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([4, 4], simplex=False)
 
         for sd in mdg.subdomains():
 
@@ -889,7 +889,7 @@ class BasicsTest(unittest.TestCase):
                 self.assertTrue(np.array_equal(computed, known))
 
     def test_tag_2d_1d_cart_complex(self):
-        mdg, _ = pp.grid_buckets_2d.two_intersecting(
+        mdg, _ = pp.md_grids_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
 
