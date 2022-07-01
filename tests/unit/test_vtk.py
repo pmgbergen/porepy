@@ -89,14 +89,6 @@ class MeshioExporterTest(unittest.TestCase):
         sd.compute_geometry()
         pp.coarsening.generate_coarse_grid(sd, [0, 1, 3, 3, 1, 1, 2, 2])
         sd.compute_geometry()
-# TODO try out both Structured TriangleGrid and CartGrid
-#=======
-#    def test_single_subdomain_2d_polytop_grid(self):
-#        sd = pp.CartGrid([3, 2], [1] * 2)
-#        sd.compute_geometry()
-#        pp.coarsening.generate_coarse_grid(sd, [0, 0, 1, 0, 1, 1])
-#        sd.compute_geometry()
-#>>>>>>> upstream/grid_tree
 
         dummy_scalar = np.ones(sd.num_cells) * sd.dim
         dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
@@ -258,7 +250,7 @@ class MeshioExporterTest(unittest.TestCase):
         self.assertTrue(content == self._mdg_2_mortar_grid_1_vtu())
 
     def test_mdg_3(self):
-        mdg, _ = pp.grid_buckets_2d.two_intersecting(
+        mdg, _ = pp.mdi_grids_2d.two_intersecting(
             [4, 4], y_endpoints=[0.25, 0.75], simplex=False
         )
 
