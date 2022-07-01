@@ -4,6 +4,8 @@ implicit Euler time-stepping. Flux terms are multiplied by time step and the mas
 has a rhs contribution from the previous time step.
 See the parent discretizations for further documentation.
 """
+from __future__ import annotations
+
 import numpy as np
 import scipy.sparse as sps
 

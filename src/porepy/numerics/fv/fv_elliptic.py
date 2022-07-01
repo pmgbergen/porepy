@@ -1,6 +1,8 @@
 """
 Module contains superclass for mpfa and tpfa.
 """
+from __future__ import annotations
+
 from warnings import warn
 
 import numpy as np
