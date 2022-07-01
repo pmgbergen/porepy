@@ -21,6 +21,8 @@ pp.BiotContactMechanicsModel (designed for fractures and contact mechanics, but 
 turn into a standard poro-elasticity equation for non-fractured domains).
 
 """
+from __future__ import annotations
+
 import logging
 from time import time
 from typing import Any, Optional

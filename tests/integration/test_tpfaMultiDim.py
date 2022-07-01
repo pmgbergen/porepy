@@ -15,7 +15,7 @@ def setup_2d_1d(nx, simplex_grid=False):
 
     end_x = [0.2, 0.8]
     end_y = [0.8, 0.2]
-    mdg, _ = pp.grid_buckets_2d.two_intersecting(mesh_args, end_x, end_y, simplex_grid)
+    mdg, _ = pp.md_grids_2d.two_intersecting(mesh_args, end_x, end_y, simplex_grid)
     aperture = 0.01 / np.max(nx)
     for sd, data in mdg.subdomains(return_data=True):
         a = np.power(aperture, mdg.dim_max() - sd.dim) * np.ones(sd.num_cells)

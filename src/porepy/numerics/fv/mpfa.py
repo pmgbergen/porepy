@@ -2,6 +2,8 @@
 Implementation of the multi-point flux approximation O-method.
 
 """
+from __future__ import annotations
+
 from typing import Optional
 
 import numpy as np

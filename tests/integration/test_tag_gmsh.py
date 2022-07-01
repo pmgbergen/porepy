@@ -278,7 +278,7 @@ class BasicsTest(unittest.TestCase):
         frac_start = np.array([[0.25], [0.5]])
         frac_end = np.array([[0.75], [0.5]])
 
-        gb, _ = pp.grid_buckets_2d.single_horizontal(
+        gb, _ = pp.md_grids_2d.single_horizontal(
             {"mesh_size_frac": 1}, x_endpoints=[0.25, 0.75]
         )
         g = gb.subdomains(dim=2)[0]
@@ -309,7 +309,7 @@ class BasicsTest(unittest.TestCase):
         frac_start = np.array([[0.25], [0.5]])
         frac_end = np.array([[0.75], [0.5]])
 
-        gb, _ = pp.grid_buckets_2d.single_horizontal(
+        gb, _ = pp.md_grids_2d.single_horizontal(
             {"mesh_size_frac": 0.125}, x_endpoints=[0.25, 0.75]
         )
 
@@ -343,7 +343,7 @@ class BasicsTest(unittest.TestCase):
         frac_start_1 = np.array([[0.5], [0.25]])
         frac_end_1 = np.array([[0.5], [0.75]])
 
-        gb, _ = pp.grid_buckets_2d.two_intersecting(
+        gb, _ = pp.md_grids_2d.two_intersecting(
             {"mesh_size_frac": 1}, x_endpoints=[0.0, 0.75], y_endpoints=[0.25, 0.75]
         )
         g = gb.subdomains(dim=2)[0]

@@ -1,6 +1,8 @@
 """
 module for operations on sparse matrices
 """
+from __future__ import annotations
+
 from typing import Optional, Union
 
 import numpy as np

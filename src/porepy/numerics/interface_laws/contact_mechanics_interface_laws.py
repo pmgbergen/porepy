@@ -6,6 +6,7 @@ tractions on the fractures. Also, in the case of coupled physics (Biot and the l
 classes handling the arising coupling terms are provided.
 """
 from __future__ import annotations
+
 import logging
 import time
 from warnings import warn

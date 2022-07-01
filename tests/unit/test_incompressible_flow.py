@@ -33,9 +33,9 @@ def compare_dicts(d1, d2):
 class FlowModel(pp.IncompressibleFlow):
     def create_grid(self):
         if self.params["n_fracs"] == 1:
-            self.mdg, self.box = pp.grid_buckets_2d.single_horizontal()
+            self.mdg, self.box = pp.md_grids_2d.single_horizontal()
         elif self.params["n_fracs"] == 2:
-            self.mdg, self.box = pp.grid_buckets_2d.two_intersecting()
+            self.mdg, self.box = pp.md_grids_2d.two_intersecting()
         pp.contact_conditions.set_projections(self.mdg)
 
 

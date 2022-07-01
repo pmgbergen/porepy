@@ -5,6 +5,8 @@ multipliers for the interface law. Use this module for the co-dimensional object
 In this way no equations are explicitly associated
 and some of the interface operators are provided.
 """
+from __future__ import annotations
+
 from typing import Optional
 from warnings import warn
 
