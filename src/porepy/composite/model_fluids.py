@@ -7,13 +7,13 @@ from typing import List
 
 from iapws import IAPWS95
 
-from ._composite_utils import IDEAL_GAS_CONSTANT
-from .substance import FluidSubstance
+from ._composite_utils import R_IDEAL
+from .component import FluidComponent
 
 __all__: List[str] = ["IdealFluid", "H2O"]
 
 
-class IdealFluid(FluidSubstance):
+class IdealFluid(FluidComponent):
     """
     Represents the academic example fluid with all properties constant and unitary.
 
@@ -29,39 +29,40 @@ class IdealFluid(FluidSubstance):
     def molar_mass() -> float:
         return 1.0
 
-    def molar_density(self, pressure: float, temperature: float) -> float:
-        return pressure / (IDEAL_GAS_CONSTANT * temperature)
+    def density(self, p: float, T: float) -> float:
+        return p / (R_IDEAL * T)
 
-    def Fick_diffusivity(self, *args, **kwargs) -> float:
+    def Fick_diffusivity(self, p: float, T: float) -> float:
         return 1.0
 
-    def thermal_conductivity(self, *args, **kwargs) -> float:
+    def thermal_conductivity(self, p: float, T: float) -> float:
         return 1.0
 
-    def dynamic_viscosity(self, *args, **kwargs) -> float:
+    def dynamic_viscosity(self, p: float, T: float) -> float:
         return 1.0
 
-    def molar_heat_capacity(self, pressure: float, temperature: float) -> float:
+    def molar_heat_capacity(self, p: float, T: float) -> float:
         return 1.0
 
 
-class H2O(FluidSubstance):
+class H2O(FluidComponent):
+    
     @staticmethod
     def molar_mass() -> float:
         """Taken from https://pubchem.ncbi.nlm.nih.gov/compound/water ."""
         return 0.01801528
 
-    def molar_density(self, pressure: float, temperature: float) -> float:
-        water = IAPWS95(P=pressure, T=temperature)
+    def density(self, p: float, T: float) -> float:
+        water = IAPWS95(P=p, T=T)
         return water.rho / self.molar_mass()
 
-    def Fick_diffusivity(self, pressure: float, temperature: float) -> float:
+    def Fick_diffusivity(self, p: float, T: float) -> float:
         return 0.42  # TODO fix this, this is random
 
-    def thermal_conductivity(self, pressure: float, temperature: float) -> float:
-        water = IAPWS95(P=pressure, T=temperature)
+    def thermal_conductivity(self, p: float, T: float) -> float:
+        water = IAPWS95(P=p, T=T)
         return water.k
 
-    def dynamic_viscosity(self, pressure: float, temperature: float) -> float:
-        water = IAPWS95(P=pressure, T=temperature)
+    def dynamic_viscosity(self, p: float, T: float) -> float:
+        water = IAPWS95(P=p, T=T)
         return water.mu
