@@ -10,7 +10,7 @@ files.
 import os
 import sys
 from collections import namedtuple
-from typing import Iterable, Optional, Union
+from typing import Any, Iterable, Optional, Union
 
 import meshio
 import numpy as np
@@ -533,7 +533,7 @@ class Exporter:
         # TODO rename pt to data_pt?
         # TODO typing
         def add_data_from_str(
-            pt, subdomain_data: dict, interface_data: dict
+            data_pt, subdomain_data: dict, interface_data: dict
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided by a key of a field - could be both subdomain
@@ -545,10 +545,10 @@ class Exporter:
             """
 
             # Only continue in case data is of type str
-            if isinstance(pt, str):
+            if isinstance(data_pt, str):
 
                 # Identify the key provided through the data.
-                key = pt
+                key = data_pt
 
                 # Initialize tag storing whether data corrspeonding to the key has been found.
                 has_key = False
@@ -597,7 +597,9 @@ class Exporter:
                 return subdomain_data, interface_data, False
 
         def add_data_from_tuple_subdomains_str(
-            pt: tuple[list[pp.Grid], str], subdomain_data: dict, interface_data: dict
+            data_pt: tuple[list[pp.Grid], str],
+            subdomain_data: dict,
+            interface_data: dict,
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (subdomains, key),
@@ -608,18 +610,18 @@ class Exporter:
                 ValueError if there exists no state in the subdomain data with given key
             """
 
-            # Implementation of isinstance(pt, tuple[list[pp.Grid], str]).
-            isinstance_tuple_subdomains_str = list(map(type, pt)) == [
+            # Implementation of isinstance(data_pt, tuple[list[pp.Grid], str]).
+            isinstance_tuple_subdomains_str = list(map(type, data_pt)) == [
                 list,
                 str,
-            ] and all([isinstance(sd, pp.Grid) for sd in pt[0]])
+            ] and all([isinstance(sd, pp.Grid) for sd in data_pt[0]])
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_subdomains_str:
 
                 # By construction, the 1. and 2. components are a list of grids and a key.
-                subdomains: list[pp.Grid] = pt[0]
-                key = pt[1]
+                subdomains: list[pp.Grid] = data_pt[0]
+                key = data_pt[1]
 
                 # Loop over grids and fetch the states corresponding to the key
                 for sd in subdomains:
@@ -649,7 +651,7 @@ class Exporter:
 
         # Aux. method: Detect and convert data of form ([interfaces], "key").
         def add_data_from_tuple_interfaces_str(
-            pt, subdomain_data, interface_data
+            data_pt, subdomain_data, interface_data
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (interfaces, key),
@@ -663,17 +665,17 @@ class Exporter:
             """
 
             # Implementation of isinstance(t, tuple[list[pp.MortarGrid], str]).
-            isinstance_tuple_interfaces_str = list(map(type, pt)) == [
+            isinstance_tuple_interfaces_str = list(map(type, data_pt)) == [
                 list,
                 str,
-            ] and all([isinstance(intf, pp.MortarGrid) for intf in pt[0]])
+            ] and all([isinstance(intf, pp.MortarGrid) for intf in data_pt[0]])
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_interfaces_str:
 
                 # By construction, the 1. and 2. components are a list of interfaces and a key.
-                interfaces: list[pp.MortarGrid] = pt[0]
-                key = pt[1]
+                interfaces: list[pp.MortarGrid] = data_pt[0]
+                key = data_pt[1]
 
                 # Loop over interfaces and fetch the states corresponding to the key
                 for intf in interfaces:
@@ -702,7 +704,7 @@ class Exporter:
                 return subdomain_data, interface_data, False
 
         def add_data_from_tuple_subdomain_str_array(
-            pt, subdomain_data, interface_data
+            data_pt, subdomain_data, interface_data
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (sd, key, data),
@@ -713,17 +715,17 @@ class Exporter:
             # Implementation of isinstance(t, tuple[pp.Grid, str, np.ndarray]).
             # NOTE: The type of a grid is identifying the specific grid type (simplicial
             # etc.) Thus, isinstance is used here to detect whether a grid is provided.
-            isinstance_tuple_subdomain_str_array = isinstance(pt[0], pp.Grid) and list(
-                map(type, pt)
-            )[1:] == [str, np.ndarray]
+            isinstance_tuple_subdomain_str_array = isinstance(
+                data_pt[0], pp.Grid
+            ) and list(map(type, data_pt))[1:] == [str, np.ndarray]
 
             # Convert data to unique format and update the subdomain data dictionary.
             if isinstance_tuple_subdomain_str_array:
 
-                # Interpret (sd, key, value) = (pt[0], pt[1], pt[2]);
-                sd = pt[0]
-                key = pt[1]
-                value = _toVectorFormat(pt[2], sd)
+                # Interpret (sd, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
+                sd = data_pt[0]
+                key = data_pt[1]
+                value = _toVectorFormat(data_pt[2], sd)
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
@@ -736,7 +738,7 @@ class Exporter:
                 return subdomain_data, interface_data, False
 
         def add_data_from_tuple_interface_str_array(
-            pt, subdomain_data: dict, interface_data: dict
+            data_pt, subdomain_data: dict, interface_data: dict
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (g, key, data),
@@ -747,18 +749,18 @@ class Exporter:
             """
 
             # Implementation of isinstance(t, tuple[pp.MortarGrid, str, np.ndarray]).
-            isinstance_tuple_interface_str_array = list(map(type, pt)) == [
+            isinstance_tuple_interface_str_array = list(map(type, data_pt)) == [
                 tuple,
                 str,
                 np.ndarray,
-            ] and isinstance(pt[0], pp.MortarGrid)
+            ] and isinstance(data_pt[0], pp.MortarGrid)
 
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_interface_str_array:
-                # Interpret (intf, key, value) = (pt[0], pt[1], pt[2]);
-                intf = pt[0]
-                key = pt[1]
-                value = _toVectorFormat(pt[2], intf)
+                # Interpret (intf, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
+                intf = data_pt[0]
+                key = data_pt[1]
+                value = _toVectorFormat(data_pt[2], intf)
 
                 # Add data point in correct format to collection
                 interface_data[(intf, key)] = value
@@ -773,7 +775,7 @@ class Exporter:
         # TODO can we unify to add_data_from_tuple_grid_str_array ?
 
         def add_data_from_tuple_str_array(
-            pt, subdomain_data, interface_data
+            data_pt, subdomain_data, interface_data
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided by a tuple (key, data),
@@ -784,8 +786,8 @@ class Exporter:
                 ValueError if the mixed-dimensional grid contains more than one subdomain
             """
 
-            # Implementation if isinstance(pt, tuple[str, np.ndarray].
-            isinstance_tuple_str_array = list(map(type, pt)) == [str, np.ndarray]
+            # Implementation if isinstance(data_pt, tuple[str, np.ndarray].
+            isinstance_tuple_str_array = list(map(type, data_pt)) == [str, np.ndarray]
 
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_str_array:
@@ -795,15 +797,15 @@ class Exporter:
                 subdomains = self._mdg.subdomains()
                 if not len(subdomains) == 1:
                     raise ValueError(
-                        f"""The data type used for {pt} is only
+                        f"""The data type used for {data_pt} is only
                         supported if the mixed-dimensional grid only contains a single
                         subdomain."""
                     )
 
                 # Fetch remaining ingredients required to define subdomain data element
                 sd = subdomains[0]
-                key = pt[0]
-                value = _toVectorFormat(pt[1], sd)
+                key = data_pt[0]
+                value = _toVectorFormat(data_pt[1], sd)
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
@@ -846,9 +848,9 @@ class Exporter:
         # For this, two separate dictionaries (for subdomain and interface data)
         # are used. The final format uses (subdomain/interface,key) as key of
         # the dictionaries, and the value is given by the corresponding data.
-        for pt in data:
+        for data_pt in data:
 
-            # Initialize tag storing whether the conversion process for pt is successful.
+            # Initialize tag storing whether the conversion process for data_pt is successful.
             success = False
 
             for method in methods:
@@ -856,7 +858,7 @@ class Exporter:
                 # Check whether data point of right type and convert to
                 # the unique data type.
                 subdomain_data, interface_data, success = method(
-                    pt, subdomain_data, interface_data
+                    data_pt, subdomain_data, interface_data
                 )
 
                 # Stop, once a supported data format has been detected.
@@ -866,7 +868,7 @@ class Exporter:
             # Check if provided data has non-supported data format.
             if not success:
                 raise ValueError(
-                    f"Input data {pt} has wrong format and cannot be exported."
+                    f"Input data {data_pt} has wrong format and cannot be exported."
                 )
 
         return subdomain_data, interface_data
@@ -1032,7 +1034,7 @@ class Exporter:
 
             # Get all geometrical entities of dimension dim:
             if is_subdomain_data:
-                entities = self._mdg.subdomains(dim=dim)
+                entities: list[Any] = self._mdg.subdomains(dim=dim)
             else:
                 entities = self._mdg.interfaces(dim=dim)
 
