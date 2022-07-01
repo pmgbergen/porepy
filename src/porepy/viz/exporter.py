@@ -114,7 +114,6 @@ class Exporter:
         Raises:
             TypeError if grid has other type than pp.Grid or pp.MixedDimensional grid
             TypeError if kwargs contains unexpected keyword arguments
-            NotImplementedError if numba is not installed
         """
         # Exporter is operating on mixed-dimensional grids. Convert to mixed-dimensional
         # grids if subdomain grid is provided.
@@ -172,12 +171,6 @@ class Exporter:
 
         # Parameter to be used in several occasions for adding time stamps.
         self._padding = 6
-
-        # Require numba
-        if "numba" not in sys.modules:
-            raise NotImplementedError(
-                "The sorting algorithm requires numba to be installed."
-            )
 
     def add_constant_data(
         self,
@@ -1671,11 +1664,22 @@ class Exporter:
     def _test_hex_meshio_format(
         self, nodes: np.ndarray, cn_indices: np.ndarray
     ) -> bool:
+        """Test whether the node numbering for each cell complies
+        with the hardcoded numbering used by meshio, cf. documentation
+        of meshio.
 
-        import numba
+        Raises:
+            ImportError if numba is not installed
+        """
 
-        @numba.jit(nopython=True)
-        def _function_to_compile(nodes: np.ndarray, cn_indices: np.ndarray) -> bool:
+        try:
+            import numba
+        except ImportError:
+            raise ImportError("Numba not available on the system")
+
+        # Just in time compilation
+        @numba.njit("b1(f8[:,:], i4[:,:])", cache=True)
+        def _function_to_compile(nodes, cn_indices):
             """
             Test whether the node numbering for each cell complies
             with the hardcoded numbering used by meshio, cf. documentation
