@@ -530,19 +530,6 @@ class Exporter:
 
             return value
 
-        # Aux. method: Check type for Interface
-        def isinstance_interface(intf: pp.MortarGrid) -> bool:
-            """
-            Implementation of isinstance(intf, pp.MortarGrid).
-            """
-            return isinstance(intf, pp.MortarGrid)
-            # return (
-            #    isinstance(e, tuple)
-            #    and len(e) == 2
-            #    and isinstance(e[0], pp.Grid)
-            #    and isinstance(e[1], pp.Grid)
-            # )
-
         # TODO rename pt to data_pt?
         # TODO typing
         def add_data_from_str(
@@ -574,7 +561,9 @@ class Exporter:
                 ) -> bool:
                     if pp.STATE in grid_data and key in grid_data[pp.STATE]:
                         # Fetch data and convert to vectorial format if suggested by the size
-                        value: np.ndarray = _toVectorFormat(grid_data[pp.STATE][key], grid)
+                        value: np.ndarray = _toVectorFormat(
+                            grid_data[pp.STATE][key], grid
+                        )
 
                         # Add data point in correct format to the collection
                         export_data[(grid, key)] = value
@@ -588,33 +577,11 @@ class Exporter:
                 for sd, sd_data in self._mdg.subdomains(return_data=True):
                     if _add_data(key, sd, sd_data, subdomain_data):
                         has_key = True
-                        # TODO rm
-                #                    if pp.STATE in sd_data and key in sd_data[pp.STATE]:
-                #                        # Mark the key as found
-                #                        has_key = True
-                #
-                #                        # Fetch data and convert to vectorial format if suggested by the size
-                #                        value: np.ndarray = _toVectorFormat(sd_data[pp.STATE][key], sd)
-                #
-                #                        # Add data point in correct format to the collection
-                #                        subdomain_data[(sd, key)] = value
-
-                # TODO can we unify? for grid, grid_data in self._mdf.subdomains_and_interfaces(return_data=True)
 
                 # Check data associated to interface field data
                 for intf, intf_data in self._mdg.interfaces(return_data=True):
                     if _add_data(key, intf, intf_data, interface_data):
                         has_key = True
-                    # TODO rm
-                #                    if pp.STATE in intf_data and key in intf_data[pp.STATE]:
-                #                        # Mark the key as found
-                #                        has_key = True
-                #
-                #                        # Fetch data and convert to vectorial format if suggested by the size
-                #                        value = _toVectorFormat(intf_data[pp.STATE][key], intf)
-                #
-                #                        # Add data point in correct format to the collection
-                #                        interface_data[(intf_data, key)] = value
 
                 # Make sure the key exists
                 if not has_key:
@@ -699,7 +666,7 @@ class Exporter:
             isinstance_tuple_interfaces_str = list(map(type, pt)) == [
                 list,
                 str,
-            ] and all([isinstance_interface(intf) for intf in pt[0]])
+            ] and all([isinstance(intf, pp.MortarGrid) for intf in pt[0]])
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_interfaces_str:
@@ -746,13 +713,9 @@ class Exporter:
             # Implementation of isinstance(t, tuple[pp.Grid, str, np.ndarray]).
             # NOTE: The type of a grid is identifying the specific grid type (simplicial
             # etc.) Thus, isinstance is used here to detect whether a grid is provided.
-            types = list(map(type, pt))
-            isinstance_tuple_subdomain_str_array = (
-                isinstance(pt[0], pp.Grid)
-                and types[1:] == [str, np.ndarray]
-                # TODO
-                # list(map(type, pt))[1:] == [str, np.ndarray]
-            )
+            isinstance_tuple_subdomain_str_array = isinstance(pt[0], pp.Grid) and list(
+                map(type, pt)
+            )[1:] == [str, np.ndarray]
 
             # Convert data to unique format and update the subdomain data dictionary.
             if isinstance_tuple_subdomain_str_array:
@@ -788,7 +751,7 @@ class Exporter:
                 tuple,
                 str,
                 np.ndarray,
-            ] and isinstance_interface(pt[0])
+            ] and isinstance(pt[0], pp.MortarGrid)
 
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_interface_str_array:
