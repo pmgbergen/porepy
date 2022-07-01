@@ -7,6 +7,8 @@ vtu file is printed for each grid. For transient simulations with multiple
 time steps, a single pvd file takes care of the ordering of all printed vtu
 files.
 """
+from __future__ import annotations
+
 import os
 import sys
 from collections import namedtuple
