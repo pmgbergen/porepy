@@ -1,5 +1,5 @@
 """
-Tests of mesh size determination for simplex grids.
+Tests of mesh size determination for 3d and 2d simplex grids.
 """
 import unittest
 
@@ -142,7 +142,7 @@ class TestMeshSize(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(mesh_size, mesh_size_known)))
 
 
-def make_bucket_2d():
+def make_mdg_2d():
     """
     Helper function to obtain known quantities and the inputs for
     determine_mesh_size in 2d.
@@ -154,15 +154,15 @@ def make_bucket_2d():
     mesh_size_frac = 1
     mesh_size_bound = 2
     domain = {"xmin": 0, "ymin": 0, "xmax": 5, "ymax": 5}
-    bucket = pp.meshing.simplex_grid(
+    mdg = pp.meshing.simplex_grid(
         f_set,
         domain=domain,
         mesh_size_frac=mesh_size_frac,
         mesh_size_min=mesh_size_min,
         mesh_size_bound=mesh_size_bound,
     )
-    bucket.compute_geometry()
-    return bucket
+    mdg.compute_geometry()
+    return mdg
 
 
 if __name__ == "__main__":

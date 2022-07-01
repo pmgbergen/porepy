@@ -16,13 +16,10 @@ from typing import Callable, List, Optional, Tuple, Union
 import porepy as pp
 from porepy import Grid
 
-module_sections = ["numerics", "assembly"]
-
 # Discretizations can be defined either on a subdomain, on an
-# edge (Tuple of two grids), or it is a coupling between
-# two subdomains and an interface
+# interface, or it is a coupling between two subdomains and an interface
 grid_like_type = Union[
-    Union[Grid, List[Grid]], Tuple[Grid, Grid], Tuple[Grid, Grid, Tuple[Grid, Grid]]
+    Union[Grid, List[Grid]], pp.MortarGrid, Tuple[Grid, Grid, pp.MortarGrid]
 ]
 
 
@@ -30,10 +27,9 @@ class AssemblerFilter(abc.ABC):
     """Abstract base class of filters for use with the Assembler."""
 
     @abc.abstractmethod
-    @pp.time_logger(sections=module_sections)
     def filter(
         self,
-        grids: Optional[List[grid_like_type]] = None,
+        grids: Optional[grid_like_type] = None,
         variables: Optional[List[str]] = None,
         terms: Optional[List[str]] = None,
     ) -> bool:
@@ -44,9 +40,10 @@ class AssemblerFilter(abc.ABC):
         assembler to implement partial discretization or assembly.
 
         Parameters:
-            grid: Grid-like quantity found in a pp.GridBucket.
-                Can be either a Grid (GridBucket node), an interface (a GridBucket
-                edge), or a combination of two neighboring grids and an interface.
+            grid: Grid-like quantity found in a pp.MixedDimensionalGrid.
+                Can be either a Grid (MixedDimensionalGrid subdomain), an interface
+                (a MixedDimensionalGrid interface), or a combination of two
+                neighboring grids and an interface.
             variables: List of variables.
             term: List of terms for discretization. See Assembler for further
                 explanation.
@@ -60,10 +57,9 @@ class AssemblerFilter(abc.ABC):
 class AllPassFilter(AssemblerFilter):
     """All pass filter. The filter method always return True."""
 
-    @pp.time_logger(sections=module_sections)
     def filter(
         self,
-        grids: Optional[List[grid_like_type]] = None,
+        grids: Optional[grid_like_type] = None,
         variables: Optional[List[str]] = None,
         terms: Optional[List[str]] = None,
     ) -> bool:
@@ -74,11 +70,12 @@ class AllPassFilter(AssemblerFilter):
         assembler to implement partial discretization or assembly.
 
         Parameters:
-            grid: Grid-like quantity found in a pp.GridBucket.
-                Can be either a Grid (GridBucket node), an interface (a GridBucket
-                edge), or a combination of two neighboring grids and an interface.
+            grids: Grid-like quantity found in a pp.MixedDimensionalGrid.
+                Can be either a Grid (MixedDimensionalGrid subdomain), an interface
+                (a MixedDimensionalGrid interface), or a combination of two
+                neighboring grids and an interface.
             variables: A variable, or a list of variables.
-            term: List of terms for discretizations. See Assembler for further
+            terms: List of terms for discretizations. See Assembler for further
                 explanation.
 
         Returns:
@@ -92,9 +89,9 @@ class ListFilter(AssemblerFilter):
     """Filter based on lists of (generalized) grids, variables and terms.
 
     The filter is initialized with lists of grids (specification below),
-    variabels and terms that should pass the filter. The filter function will pass a
+    variables and terms that should pass the filter. The filter function will pass a
     combination of a grid, a set of variables and a term if they are all found
-    in the lists of acceptables.
+    in the lists of acceptable combinations.
 
     If a list of grids, variables and/or  terms are not provided at the time of
     initialization, all objects of this the unspecified type will pass the filter.
@@ -102,9 +99,9 @@ class ListFilter(AssemblerFilter):
     becomes an AllPassFilter.
 
     NOTE: If a list (say of grids) is given as an empty list, the filter will become
-    no-pass fliterThis is to cover cases where dimension-filtering on grids in a GridBucket
-    returns a empty list, which should result in no-pass, not all-pass behavior.
-    The behavior for variable and term lists is similar.
+    no-pass filter. This is to cover cases where dimension-filtering on grids in a
+    MixedDimensionalGrid returns a empty list, which should result in no-pass,
+    not all-pass behavior. The behavior for variable and term lists is similar.
 
     Acceptable variables and terms can be specified as a negation with the
     syntax !variable_name. It is not possible to use both negated and standard
@@ -112,17 +109,16 @@ class ListFilter(AssemblerFilter):
     terms (or reverse) is permissible.
 
     The generalized grids should be one of
-        i) grids: nodes in the GridBucket
-        ii) interfaces: (Grid, Grid) tuples, edges in the GridBucket.
-        iii) couplings: (Grid, Grid, (Grid, Grid)) tuples, so an edge, together
+        i) grids: subdomains in the MixedDimensionalGrid
+        ii) interfaces: (Grid, Grid) tuples, interfaces in the MixedDimensionalGrid.
+        iii) couplings: (Grid, Grid, (Grid, Grid)) tuples, so an interface, together
             with its neighboring subdomains.
 
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(
         self,
-        grid_list: Optional[List[grid_like_type]] = None,
+        grid_list: Optional[grid_like_type] = None,
         variable_list: Optional[List[str]] = None,
         term_list: Optional[List[str]] = None,
     ) -> None:
@@ -135,11 +131,9 @@ class ListFilter(AssemblerFilter):
 
         """
         # Helper functions, needed for no-pass and all-pass behavior
-        @pp.time_logger(sections=module_sections)
         def return_false(s):
             return False
 
-        @pp.time_logger(sections=module_sections)
         def return_true(s):
             return True
 
@@ -149,9 +143,9 @@ class ListFilter(AssemblerFilter):
             self._grid_filter = return_true
 
         else:
-            if len(grid_list) == 0:
+            if isinstance(grid_list, list) and len(grid_list) == 0:
                 # This is considered a no-pass filter.
-                # This will for instance be the case if a GridBucket is filtered
+                # This will for instance be the case if a MixedDimensionalGrid is filtered
                 # on a dimension that is not present (will return an empty list)
 
                 self._grid_filter = return_false
@@ -178,10 +172,9 @@ class ListFilter(AssemblerFilter):
                 self._term_list: List[str] = term_list
                 self._term_filter = self._make_string_filter(self._term_list)
 
-    @pp.time_logger(sections=module_sections)
     def filter(
         self,
-        grids: Optional[List[grid_like_type]] = None,
+        grids: Optional[grid_like_type] = None,
         variables: Optional[List[str]] = None,
         terms: Optional[List[str]] = None,
     ):
@@ -190,13 +183,14 @@ class ListFilter(AssemblerFilter):
         See class documentation for how to use the filter.
 
         Parameters:
-            grid: Grid-like quantity found in a pp.GridBucket.
-                Can be either a Grid (GridBucket node), an interface (a GridBucket
-                edge), or a combination of two neighboring grids and an interface.
+            grids: Grid-like quantity found in a pp.MixedDimensionalGrid.
+                Can be either a Grid (MixedDimensionalGrid subdomain), an interface
+                (a MixedDimensionalGrid interface), or a combination of two
+                neighboring grids and an interface.
             variables: A variable, or a list of variables. A list will be passed
-                for off-diagonal terms (internal to nodes or edges), and for
+                for off-diagonal terms (internal to subdomains or interfaces), and for
                 coupling terms.
-            term: Term for a discretization. See Assembler for further explanation.
+            terms: Term for a discretization. See Assembler for further explanation.
 
         Returns:
             boolean: True if the grid-variable-term combination passes the filter.
@@ -208,48 +202,42 @@ class ListFilter(AssemblerFilter):
             and self._term_filter(terms)
         )
 
-    @pp.time_logger(sections=module_sections)
     def _parse_grid_list(
         self, grid_list: List[grid_like_type]
     ) -> Tuple[List, List, List]:
         assert grid_list is not None
 
-        nodes = []
-        edges = []
+        subdomains = []
+        interfaces = []
         couplings = []
         self._grid_list = grid_list
 
         for g in grid_list:
             if isinstance(g, Grid):
-                nodes.append(g)
-            elif isinstance(g, tuple) and len(g) == 2:
-                if not (isinstance(g[0], Grid) and isinstance(g[1], Grid)):
-                    raise ValueError(f"Invalid grid-like object for filtering {g}")
-                edges.append(g)
-                # Also append the reverse ordering of the grids.
-                edges.append((g[1], g[0]))
+                subdomains.append(g)
+            elif isinstance(g, pp.MortarGrid):
+                interfaces.append(g)
+
             else:
                 if not len(g) == 3:  # type: ignore
                     raise ValueError(f"Invalid grid-like object for filtering {g}")
                 couplings.append(g)
-        return nodes, edges, couplings
+        return subdomains, interfaces, couplings
 
-    @pp.time_logger(sections=module_sections)
     def _make_grid_filter(self, grid_list):
 
-        nodes, edges, couplings = self._parse_grid_list(grid_list)
-        self._nodes: List[Grid] = nodes
-        self._edges: List[Tuple[Grid, Grid]] = edges
+        subdomains, interfaces, couplings = self._parse_grid_list(grid_list)
+        self._subdomains: List[Grid] = subdomains
+        self._interfaces: List[Tuple[Grid, Grid]] = interfaces
         self._couplings: List[Tuple[Grid, Grid, Tuple[Grid, Grid]]] = couplings
 
-        @pp.time_logger(sections=module_sections)
         def _grid_filter(gl):
             if not isinstance(gl, list):
                 gl = [gl]
             for g in gl:
                 if (
-                    g not in self._nodes
-                    and g not in self._edges
+                    g not in self._subdomains
+                    and g not in self._interfaces
                     and g not in self._couplings
                 ):
                     return False
@@ -257,7 +245,6 @@ class ListFilter(AssemblerFilter):
 
         return _grid_filter
 
-    @pp.time_logger(sections=module_sections)
     def _make_string_filter(
         self, var_term_list: Optional[List[str]] = None
     ) -> Callable[[Optional[List[str]]], bool]:
@@ -268,7 +255,6 @@ class ListFilter(AssemblerFilter):
         filter is a list of strings.
         """
 
-        @pp.time_logger(sections=module_sections)
         def return_true(s):
             return True
 
@@ -277,7 +263,6 @@ class ListFilter(AssemblerFilter):
             # that always returns True.
             return return_true
 
-        @pp.time_logger(sections=module_sections)
         def _var_term_filter(x):
             if not x:
                 # Filtering of a None type is always positive
@@ -301,10 +286,9 @@ class ListFilter(AssemblerFilter):
 
         return _var_term_filter
 
-    @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
         s = "ListFilter based on"
-        if self._nodes or self._edges or self._couplings:
+        if self._subdomains or self._interfaces or self._couplings:
             s += " (generalized) grids,"
         if self._variable_list:
             s += " variables "
@@ -313,10 +297,10 @@ class ListFilter(AssemblerFilter):
 
         s += "\n"
         s += "Filter has:\n"
-        if self._nodes:
-            s += f"In total {len(self._nodes)} standard grids\n"
-        if self._edges:
-            s += f"In total {len(self._edges)} interfaces\n"
+        if self._subdomains:
+            s += f"In total {len(self._subdomains)} standard grids\n"
+        if self._interfaces:
+            s += f"In total {len(self._interfaces)} interfaces\n"
         if self._couplings:
             s += f"In total {len(self._couplings)} geometric couplings\n"
 

@@ -1,8 +1,9 @@
 """Module contains various functions to find overlaps between grid cells.
 
-The module is primarily intended used for replacing indivdiual grids in the GridBucket,
-which should be done via the GridBucket method replace_grids(). That is, the methods
-herein should as a rule not be invoked directly.
+The module is primarily intended used for replacing individual grids in the
+MixedDimensionalGrid, should be done via the MixedDimensionalGrid method
+replace_grids(). That is, the methods herein should as a rule not be
+invoked directly.
 """
 import logging
 from typing import Optional
@@ -29,10 +30,10 @@ def match_1d(
     The overlaps are identified as a sparse matrix which maps from cells in the old to
     the new grid.
 
-    It is asumed that the two grids are aligned, with common start and
+    It is assumed that the two grids are aligned, with common start and
     endpoints.
 
-    Parameters:
+    Args:
         new_g (pp.Grid). Target grid for the mapping. Should have dimension 1.
         old_g (pp.Grid). Original grid. Should have dimension 1.
         tol (float): Tolerance used to filter away false overlaps caused by
@@ -60,17 +61,17 @@ def match_1d(
         cell_nodes_old.indptr[0:-1], cell_nodes_old.indptr[1:]
     )
 
-    # Reshape so that the nodes of cells are stored columnwise
+    # Reshape so that the nodes of cells are stored column-wise
     lines_new = cell_nodes_new.indices[nodes_new].reshape((2, -1), order="F")
     lines_old = cell_nodes_old.indices[nodes_old].reshape((2, -1), order="F")
 
     p_new = new_g.nodes
     p_old = old_g.nodes
 
-    # Compute the intersection between the two tesselations.
+    # Compute the intersection between the two tessellations.
     # intersect is a list, every list member is a tuple with overlapping
     # cells in grid 1 and 2, and their common area.
-    intersect = pp.intersections.line_tesselation(p_new, p_old, lines_new, lines_old)
+    intersect = pp.intersections.line_tessellation(p_new, p_old, lines_new, lines_old)
 
     num = len(intersect)
     new_g_ind = np.zeros(num, dtype=int)
@@ -106,15 +107,15 @@ def match_2d(
     tol: float,
     scaling: Optional[Literal["averaged", "integrated"]] = None,
 ) -> sps.spmatrix:
-    """Match two simplex tessalations to identify overlapping cells.
+    """Match two simplex tesselations to identify overlapping cells.
 
     The overlaps are identified as a sparse matrix which maps from cells in the old to
     the new grid.
 
-    It is asumed that the two grids are aligned, with common start and
+    It is assumed that the two grids are aligned, with common start and
     endpoints.
 
-    Parameters:
+    Args:
         new_g (pp.Grid). Target grid for the mapping. Should have dimension 1.
         old_g (pp.Grid). Original grid. Should have dimension 1.
         tol (float): Tolerance used to filter away false overlaps caused by
@@ -133,16 +134,36 @@ def match_2d(
 
     """
 
-    def proj_pts(p, cc, normal):
-        """Project points to the 2d plane defined by normal and center them around cc"""
-        rot = pp.map_geometry.project_plane_matrix(p - cc, normal)
-        return rot.dot(p - cc)[:2]
+    def proj_pts(p, center, normal):
+        """Project points to the 2d plane defined by normal and center them around center"""
+        rot = pp.map_geometry.project_plane_matrix(p - center, normal)
+        return rot.dot(p - center)[:2]
 
-    shape = (new_g.dim + 1, new_g.num_cells)
-    cn_new_g = new_g.cell_nodes().indices.reshape(shape, order="F")
+    # Represent the cells in terms of their vertexes. This representation will be passed
+    # to the external library shapely, which has efficient methods for matching
+    # tessallations.
+    #
+    # IMPLEMENTATION NOTE: For now, the interface to shapely can only deal with
+    # simplex cells. This is not a limitation of shapely itself, which can handle
+    # general polygons. Thus the below restrictions (look for ValueError) can be relaxed
+    # by modifying the interface pp.intersections.triangulations.
+    cn_new = new_g.cell_nodes().tocsc()
+    if not np.all(np.diff(cn_new.indptr) == (new_g.dim + 1)):
+        # See above implementation note for how to relax this restriction.
+        raise ValueError(
+            "Matching of 2d grids has only been implemented for simplex grids."
+        )
 
-    shape = (old_g.dim + 1, old_g.num_cells)
-    cn_old_g = old_g.cell_nodes().indices.reshape(shape, order="F")
+    cn_new_array = cn_new.indices.reshape((new_g.dim + 1, new_g.num_cells), order="F")
+
+    cn_old = old_g.cell_nodes().tocsc()
+    if not np.all(np.diff(cn_old.indptr) == (new_g.dim + 1)):
+        # See above implementation note for how to relax this restriction.
+        raise ValueError(
+            "Matching of 2d grids has only been implemented for simplex grids."
+        )
+
+    cn_old_array = cn_old.indices.reshape((old_g.dim + 1, old_g.num_cells), order="F")
 
     # Center points around mean
     cc = np.mean(new_g.nodes, axis=1).reshape((3, 1))
@@ -154,7 +175,10 @@ def match_2d(
 
     # Calculate intersection
     isect = pp.intersections.triangulations(
-        proj_pts(new_g.nodes, cc, n), proj_pts(old_g.nodes, cc, n), cn_new_g, cn_old_g
+        proj_pts(new_g.nodes, cc, n),
+        proj_pts(old_g.nodes, cc, n),
+        cn_new_array,
+        cn_old_array,
     )
 
     num = len(isect)
@@ -231,7 +255,7 @@ def match_grids_along_1d_mortar(
     #      mapping between mortar grid and higher dimensional grid. Use this
     #      to define the geometry of the segment.
     #   2) Define positive and negative side of the segment, and split cells
-    #      and faces along the segement according to this criterion.
+    #      and faces along the segment according to this criterion.
     #   3) For all sides (pos, neg), pick out faces in the old and new grid,
     #      and match them up. Extend the mapping to go from all faces in the
     #      two grids.
@@ -458,26 +482,29 @@ def match_grids_along_1d_mortar(
     return matrix.tocsr()
 
 
-def gb_refinement(
-    gb: pp.GridBucket, gb_ref: pp.GridBucket, tol: float = 1e-8, mode: str = "nested"
+def mdg_refinement(
+    mdg: pp.MixedDimensionalGrid,
+    mdg_ref: pp.MixedDimensionalGrid,
+    tol: float = 1e-8,
+    mode: str = "nested",
 ):
     """Wrapper for coarse_fine_cell_mapping to construct mapping for grids in
-    GridBucket.
+    MixedDimensionalGrid.
 
-    Adds a node_prop to each grid in gb. The key is 'coarse_fine_cell_mapping',
+    Adds a node_prop to each grid in mdg. The key is 'coarse_fine_cell_mapping',
     and is the mapping generated by 'coarse_fine_cell_mapping(...)'.
 
     Currently, only nested refinement is supported; more general cases are also
     possible.
 
-    Note: No node prop is added to the reference grids in gb_ref.
+    Note: No node prop is added to the reference grids in mdg_ref.
 
     Parameters
     ----------
-    gb : pp.GridBucket
-        Coarse grid bucket
-    gb_ref : pp.GridBucket
-        Refined grid bucket
+    mdg : pp.MixedDimensionalGrid
+        Coarse mixed-dimensional grid
+    mdg_ref : pp.MixedDimensionalGrid
+        Refined mixed-dimensional grid
     tol : float, Optional
         Tolerance for point_in_poly* -methods
     mode : str, Optional
@@ -487,40 +514,34 @@ def gb_refinement(
 
     """
 
-    grids = gb.get_grids()
-    grids_ref = gb_ref.get_grids()
+    subdomains = mdg.subdomains()
+    subdomains_ref = mdg_ref.subdomains()
 
-    assert len(grids) == len(
-        grids_ref
-    ), "Weakly check that GridBuckets refer to same domains"
+    assert len(subdomains) == len(
+        subdomains_ref
+    ), "Weakly check that MixedDimensionalGrids refer to same domains"
     assert np.allclose(
-        np.append(*gb.bounding_box()), np.append(*gb_ref.bounding_box())
-    ), "Weakly check that GridBuckets refer to same domains"
+        np.append(*pp.bounding_box.from_md_grid(mdg)),
+        np.append(*pp.bounding_box.from_md_grid(mdg_ref)),
+    ), "Weakly check that MixedDimensionalGrids refer to same domains"
 
-    # This method assumes a consistent node ordering between grids. At least assign one.
-    gb.assign_node_ordering(overwrite_existing=False)
-    gb_ref.assign_node_ordering(overwrite_existing=False)
-
-    # Add node prop on the coarse grid to map from coarse to fine cells.
-    gb.add_node_props(keys="coarse_fine_cell_mapping")
-
-    for i in np.arange(len(grids)):
-        g, g_ref = grids[i], grids_ref[i]
+    for i in np.arange(len(subdomains)):
+        sd, sd_ref = subdomains[i], subdomains_ref[i]
 
         node_num, node_num_ref = (
-            gb._nodes[g]["node_number"],
-            gb_ref._nodes[g_ref]["node_number"],
+            mdg.node_number(sd),
+            mdg_ref.node_number(sd_ref),
         )
         assert node_num == node_num_ref, "Weakly check that grids refer to same domain."
 
-        # Compute the mapping for this grid-pair,
-        # and assign the result to the node of the coarse gb
+        # Compute the mapping for this subdomain-pair,
+        # and assign the result to the node of the coarse mdg
         if mode == "nested":
-            mapping = structured_refinement(g, g_ref, point_in_poly_tol=tol)
+            mapping = structured_refinement(sd, sd_ref, point_in_poly_tol=tol)
         else:
             raise NotImplementedError("Unknown refinement mode")
 
-        gb.set_node_prop(grid=g, key="coarse_fine_cell_mapping", val=mapping)
+        mdg.subdomain_data(sd)["coarse_fine_cell_mapping"] = mapping
 
 
 def structured_refinement(
@@ -608,7 +629,7 @@ def structured_refinement(
     if g.dim == 1:
         # Rotate coarse nodes and fine cell centers to align with the x-axis
         tangent = pp.map_geometry.compute_tangent(nodes)
-        reference = [1, 0, 0]
+        reference = np.array([1.0, 0.0, 0.0])
         R = pp.map_geometry.project_line_matrix(nodes, tangent, reference=reference)
         nodes = R.dot(nodes)[0, :]
         cells_ref = R.dot(cells_ref)[0, :]

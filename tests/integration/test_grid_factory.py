@@ -32,12 +32,12 @@ class TestSimpleMeshing(unittest.TestCase):
 
             num_cells_prev = 0
 
-            for counter, gb in enumerate(factory):
+            for counter, mdg in enumerate(factory):
                 assert counter < num_ref
-                dim = gb.dim_max()
+                dim = mdg.dim_max()
                 if counter > 0:
-                    assert gb.num_cells() == num_cells_prev * (2 ** dim)
-                num_cells_prev = gb.num_cells()
+                    assert mdg.num_subdomain_cells() == num_cells_prev * (2**dim)
+                num_cells_prev = mdg.num_subdomain_cells()
 
     def test_unstructured(self):
         # Use unstructured meshing, no relation between grids on different levels
@@ -62,9 +62,7 @@ class TestSimpleMeshing(unittest.TestCase):
 
         factory = pp.refinement.GridSequenceFactory(network, params)
 
-        for gb in factory:
-            # It is not really clear what we can test here.
-            pass
+        # It is not really clear what we can test here.
 
     def test_nested_pass_grid_args(self):
         # Check that grid arguments to the fracture network meshing ('grid_param' below)
@@ -89,12 +87,12 @@ class TestSimpleMeshing(unittest.TestCase):
 
         factory = pp.refinement.GridSequenceFactory(network, params)
 
-        for counter, gb in enumerate(factory):
-            dim = gb.dim_max()
+        for counter, mdg in enumerate(factory):
+            dim = mdg.dim_max()
             for dim in range(dim):
                 # Since there are no true fractures in the network (only constraints)
                 # there should be no lower-dimensional grids
-                assert len(gb.grids_of_dimension(dim)) == 0
+                assert len(mdg.subdomains(dim=dim)) == 0
 
 
 if __name__ == "__main__":

@@ -13,7 +13,6 @@ import numpy as np
 import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
-from porepy.utils.setmembership import unique_columns_tol
 
 from .gmsh_interface import GmshData2d, GmshWriter, Tags
 
@@ -194,7 +193,7 @@ class FractureNetwork2d(object):
         clear_gmsh: bool = False,
         **kwargs,
     ):
-        """Create GridBucket (mixed-dimensional grid) for this fracture network.
+        """Create MixedDimensionalGrid (mixed-dimensional grid) for this fracture network.
 
         Parameters:
             mesh_args: Arguments passed on to mesh size control
@@ -224,7 +223,7 @@ class FractureNetwork2d(object):
                 geometry before adding a new one. Defaults to False.
 
         Returns:
-            GridBucket: Mixed-dimensional mesh.
+            MixedDimensionalGrid: Mixed-dimensional mesh.
 
         """
         if file_name is None:
@@ -248,13 +247,13 @@ class FractureNetwork2d(object):
 
         if dfn:
             # Create list of grids
-            grid_list = porepy.fracs.simplex.line_grid_from_gmsh(
+            subdomains = porepy.fracs.simplex.line_grid_from_gmsh(
                 file_name, constraints=constraints
             )
 
         else:
             # Create list of grids
-            grid_list = porepy.fracs.simplex.triangle_grid_from_gmsh(
+            subdomains = porepy.fracs.simplex.triangle_grid_from_gmsh(
                 file_name, constraints=constraints
             )
 
@@ -265,13 +264,13 @@ class FractureNetwork2d(object):
             frac = np.setdiff1d(
                 np.arange(self.edges.shape[1]), constraints, assume_unique=True
             )
-            for idg, g in enumerate(grid_list[1 - int(dfn)]):
+            for idg, g in enumerate(subdomains[1 - int(dfn)]):
                 for key in np.atleast_1d(tags_to_transfer):
                     if key not in g.tags:
                         g.tags[key] = self.tags[key][frac][idg]
 
         # Assemble in grid bucket
-        return pp.meshing.grid_list_to_grid_bucket(grid_list, **kwargs)
+        return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
     def prepare_for_gmsh(
         self,
@@ -285,7 +284,7 @@ class FractureNetwork2d(object):
         """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
 
-        NOTE: Consider using the mesh() function instead to get a ready GridBucket.
+        NOTE: Consider using the mesh() function instead to get a ready MixedDimensionalGrid.
 
         Parameters:
             mesh_args: Arguments passed on to mesh size control
@@ -302,7 +301,7 @@ class FractureNetwork2d(object):
                 Whether to remove small fractures. FIXME: expand documentation.
 
         Returns:
-            GridBucket: Mixed-dimensional mesh.
+            MixedDimensionalGrid: Mixed-dimensional mesh.
 
         """
 
@@ -386,7 +385,9 @@ class FractureNetwork2d(object):
         ]
 
         # uniquify the points
-        self.pts, _, old_2_new = unique_columns_tol(self.pts, tol=self.tol)
+        self.pts, _, old_2_new = pp.utils.setmembership.uniquify_point_set(
+            self.pts, tol=self.tol
+        )
         self.edges = old_2_new[self.edges]
         self._decomposition["domain_boundary_points"] = old_2_new[
             self._decomposition["domain_boundary_points"]
@@ -485,7 +486,9 @@ class FractureNetwork2d(object):
         edges = np.vstack((edges, tags))
 
         # Ensure unique description of points
-        pts_all, _, old_2_new = unique_columns_tol(points, tol=self.tol)
+        pts_all, _, old_2_new = pp.utils.setmembership.uniquify_point_set(
+            points, tol=self.tol
+        )
         edges[:2] = old_2_new[edges[:2]]
         to_remove = np.where(edges[0, :] == edges[1, :])[0]
         lines = np.delete(edges, to_remove, axis=1)
@@ -499,7 +502,9 @@ class FractureNetwork2d(object):
         # This may disturb the line tags in lines[2], but we should not be
         # dependent on those.
         li = np.sort(lines[:2], axis=0)
-        _, new_2_old, old_2_new = unique_columns_tol(li, tol=self.tol)
+        _, new_2_old, old_2_new = pp.utils.setmembership.unique_columns_tol(
+            li, tol=self.tol
+        )
         lines = lines[:, new_2_old]
 
         if not np.all(np.diff(lines[:2], axis=0) != 0):
@@ -518,7 +523,9 @@ class FractureNetwork2d(object):
         logger.info("Done. Elapsed time " + str(time.time() - tm))
 
         # Ensure unique description of points
-        pts_split, _, old_2_new = unique_columns_tol(pts_split, tol=self.tol)
+        pts_split, _, old_2_new = pp.utils.setmembership.uniquify_point_set(
+            pts_split, tol=self.tol
+        )
         lines_split[:2] = old_2_new[lines_split[:2]]
         # FIXME: Should the following two code lines operate on "split_lines"?
         to_remove = np.where(lines[0, :] == lines[1, :])[0]
@@ -683,7 +690,7 @@ class FractureNetwork2d(object):
         # the other outside the domain. In this case the edge should be removed.
         # The edge will have been cut so that the endpoints coincide. Look for
         # such edges
-        _, _, n2o = pp.utils.setmembership.unique_columns_tol(p, self.tol)
+        _, _, n2o = pp.utils.setmembership.uniquify_point_set(p, self.tol)
         reduced_edges = n2o[e]
         not_point_edge = np.diff(reduced_edges, axis=0).ravel() != 0
 

@@ -224,7 +224,6 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.assertTrue(conv)
 
 
-
 class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_single_fracture(self):
         # Test of method FractureNetwork.bounding_box() to inquire about

@@ -21,29 +21,26 @@ class EquationManagerSetup:
     """
 
     def __init__(self):
-        g1 = pp.CartGrid([3, 1])
-        g2 = pp.CartGrid([4, 1])
+        sd_1 = pp.CartGrid([3, 1])
+        sd_2 = pp.CartGrid([4, 1])
 
-        gb = pp.GridBucket()
-        gb.add_nodes([g1, g2])
+        mdg = pp.MixedDimensionalGrid()
+        mdg.add_subdomains([sd_1, sd_2])
 
-        d1 = gb.node_props(g1)
-        d2 = gb.node_props(g2)
-
-        for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {
+        for sd, data in mdg.subdomains(return_data=True):
+            data[pp.PRIMARY_VARIABLES] = {
                 "x": {"cells": 1},
                 "y": {"cells": 1},
             }
-            if g == g2:
+            if sd == sd_2:
                 # Add a third variable on the second grid
-                d[pp.PRIMARY_VARIABLES].update({"z": {"cells": 1}})
+                data[pp.PRIMARY_VARIABLES].update({"z": {"cells": 1}})
 
-            x = 2 * np.ones(g.num_cells)
-            y = 3 * np.ones(g.num_cells)
-            z = 4 * np.ones(g.num_cells)
+            x = 2 * np.ones(sd.num_cells)
+            y = 3 * np.ones(sd.num_cells)
+            z = 4 * np.ones(sd.num_cells)
 
-            d[pp.STATE] = {
+            data[pp.STATE] = {
                 "x": x,
                 "y": y,
                 "z": z,
@@ -51,18 +48,18 @@ class EquationManagerSetup:
             }
 
         # Ad representation of variables
-        dof_manager = pp.DofManager(gb)
-        eq_manager = pp.ad.EquationManager(gb, dof_manager)
+        dof_manager = pp.DofManager(mdg)
+        eq_manager = pp.ad.EquationManager(mdg, dof_manager)
 
-        x_ad = eq_manager.variable(g2, "x")
-        y_ad = eq_manager.variable(g2, "y")
-        z_ad = eq_manager.variable(g2, "z")
+        x_ad = eq_manager.variable(sd_2, "x")
+        y_ad = eq_manager.variable(sd_2, "y")
+        z_ad = eq_manager.variable(sd_2, "z")
 
-        x_merged = eq_manager.merge_variables([(g1, "x"), (g2, "x")])
-        y_merged = eq_manager.merge_variables([(g1, "y"), (g2, "y")])
+        x_merged = eq_manager.merge_variables([(sd_1, "x"), (sd_2, "x")])
+        y_merged = eq_manager.merge_variables([(sd_1, "y"), (sd_2, "y")])
 
-        projections = pp.ad.SubdomainProjections(grids=[g1, g2])
-        proj = projections.cell_restriction(g2)
+        projections = pp.ad.SubdomainProjections(subdomains=[sd_1, sd_2])
+        proj = projections.cell_restriction(sd_2)
 
         # One equation with only simple variables (not merged)
         eq_simple = x_ad * y_ad + 2 * z_ad
@@ -81,14 +78,14 @@ class EquationManagerSetup:
         self.eq_manager = eq_manager
 
         self.x1 = x_ad
-        self.x2 = eq_manager.variable(g1, "x")
+        self.x2 = eq_manager.variable(sd_1, "x")
 
         self.z1 = z_ad
         self.x_merged = x_merged
         self.y_merged = y_merged
 
-        self.g1 = g1
-        self.g2 = g2
+        self.sd_1 = sd_1
+        self.sd_2 = sd_2
 
     ## Helper methods below.
 
@@ -96,13 +93,13 @@ class EquationManagerSetup:
         # For a given variable, get its size (number of dofs) based on what
         # we know about the variables specified in self.__init__
         if var == self.x1:
-            return self.g2.num_cells
+            return self.sd_2.num_cells
         elif var == self.x_merged:
-            return self.g1.num_cells + self.g2.num_cells
+            return self.sd_1.num_cells + self.sd_2.num_cells
         elif var == self.y_merged:
-            return self.g1.num_cells + self.g2.num_cells
+            return self.sd_1.num_cells + self.sd_2.num_cells
         elif var == self.z1:
-            return self.g2.num_cells
+            return self.sd_2.num_cells
         else:
             raise ValueError
 
@@ -124,8 +121,8 @@ class EquationManagerSetup:
         elif var == self.x_merged:
             dofs = np.hstack(
                 [
-                    inds(self.g1, self.x_merged._name),
-                    inds(self.g2, self.x_merged._name),
+                    inds(self.sd_1, self.x_merged._name),
+                    inds(self.sd_2, self.x_merged._name),
                 ]
             )
             return dofs
@@ -133,8 +130,8 @@ class EquationManagerSetup:
         elif var == self.y_merged:
             dofs = np.hstack(
                 [
-                    inds(self.g1, self.y_merged._name),
-                    inds(self.g2, self.y_merged._name),
+                    inds(self.sd_1, self.y_merged._name),
+                    inds(self.sd_2, self.y_merged._name),
                 ]
             )
             return dofs
@@ -398,15 +395,15 @@ def test_extract_subsystem(setup, eq_names, var_names):
             else:
                 # With the setup of the tests, this is acceptable only if the active
                 # variable is x1, and the secondary variable has name 'x', is active on
-                # grid g1.
+                # grid sd_1.
 
                 # Get the active variable
                 active_var = variables[vi]
-                assert active_var._g == setup.g2
+                assert active_var._g == setup.sd_2
                 assert active_var._name == "x"
 
                 # Check the secondary variable
-                assert sec_var._g == setup.g1
+                assert sec_var._g == setup.sd_1
                 assert sec_name == "x"
 
 

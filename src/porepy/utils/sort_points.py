@@ -1,6 +1,8 @@
 """ Functions to sort points and edges belonging to geometric objects.
 """
-from typing import Optional, Tuple, Union
+from __future__ import annotations
+
+from typing import Optional
 
 import numpy as np
 
@@ -9,9 +11,9 @@ import porepy as pp
 
 def sort_point_pairs(
     lines: np.ndarray,
-    check_circular: Optional[bool] = True,
+    check_circular: bool = True,
     is_circular: Optional[bool] = True,
-) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Sort pairs of numbers to form a chain.
 
     The target application is to sort lines, defined by their
@@ -20,19 +22,18 @@ def sort_point_pairs(
     The algorithm is brute-force, using a double for-loop. This can
     surely be improved.
 
-    Parameters:
-    lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume
-        that the points are stored in the first two rows.
-    check_circular: Verify that the sorted polyline form a circle.
-                    Defaults to true.
-    ordering: np.array, return in the original order if a line is flipped or not
-    is_circular: if the lines form a closed set. Default is True.
+    Args:
+        lines (np.ndarray, 2xn): the line pairs. If lines has more than 2 rows, we assume
+            that the points are stored in the first two rows.
+        check_circular (bool): Verify that the sorted polyline form a circle.
+        is_circular (bool): if the lines form a closed set. Default is True.
 
     Returns:
-    sorted_lines: np.ndarray, 2xn, sorted line pairs. If lines had more than 2 rows,
-        the extra are sorted accordingly.
-    sort_ind: np.ndarray, n: Sorted column indices, so that
-        sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual columns
+        np.ndarray, 2xn: sorted line pairs. If lines had more than 2 rows,
+            the extra are sorted accordingly.
+        np.ndarray, n: Sorted column indices, so that
+            sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual
+            columns
 
     """
 
@@ -48,13 +49,13 @@ def sort_point_pairs(
     # In the case of non-circular ordering ensure to start from the correct one
     if not is_circular:
         # The first segment must contain one of the endpoints, identified by a single
-        # occurence in line
+        # occurrence in line
         values = lines.ravel()
         count = np.bincount(values)
-        one_occurence = np.where(count == 1)[0]
+        one_occurrence = np.where(count == 1)[0]
         hit = np.where(
             np.logical_or(
-                np.isin(lines[0], one_occurence), np.isin(lines[1], one_occurence)
+                np.isin(lines[0], one_occurrence), np.isin(lines[1], one_occurrence)
             )
         )[0][0]
         sorted_lines[:, 0] = lines[:, hit]
@@ -112,14 +113,16 @@ def sort_point_plane(
     The algorithm assumes a star-shaped disposition of the points with respect
     the centre.
 
-    Parameters:
-    pts: np.ndarray, 3xn, the points.
-    centre: np.ndarray, 3x1, the face centre.
-    normal: (optional) the normal of the plane, otherwise three points are
-    required.
+    Args:
+        pts: np.ndarray, 3xn, the points.
+        centre: np.ndarray, 3x1, the face centre.
+        normal: (optional) the normal of the plane, otherwise three points are
+            required.
+        tol:
+            Absolute tolerance used to identify active (non-constant) dimensions.
 
     Returns:
-    map_pts: np.array, 1xn, sorted point ids.
+        map_pts: np.array, 1xn, sorted point ids.
 
     """
     centre = centre.reshape((-1, 1))
@@ -144,7 +147,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     a common plane, methods based on geometry are at best cumbersome. This
     approach should work also in those cases.
 
-    Parameters:
+    Args:
         t (np.ndarray, 3 x n_tri): Triangulation to have vertexes ordered.
 
     Returns:
@@ -192,7 +195,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
         # Pick an edge to be processed
         q = queue.pop(0)
 
-        # Find the other occurence of this edge
+        # Find the other occurrence of this edge
         hit_new = np.logical_and.reduce(
             (
                 np.logical_not(is_ordered),
@@ -206,7 +209,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
         ind_old = np.where(hit_old > 0)[0]
         ind_new = np.where(hit_new > 0)[0]
 
-        # Check if the edge occured at all among the non-processed triangles
+        # Check if the edge occurred at all among the non-processed triangles
         if ind_new.size == 0:
             continue
         # It should at most occur once among non-processed triangles
@@ -245,15 +248,15 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
         # The two pairs are formed by row hit_0 and hit_1, both combined with the
         # third element. First, the latter must be identified
         if hit_new_0 + hit_new_1 == 1:
-            # Existi_newng pair in rows 0 and 1
+            # Existing pair in rows 0 and 1
             pair_0 = (t[1, ti_new], t[2, ti_new])
             pair_1 = (t[2, ti_new], t[0, ti_new])
         elif hit_new_0 + hit_new_1 == 2:
-            # Existi_newng pair in rows 0 and 2
+            # Existing pair in rows 0 and 2
             pair_0 = (t[1, ti_new], t[2, ti_new])
             pair_1 = (t[0, ti_new], t[1, ti_new])
         else:  # sum is 3
-            # Existi_newng pair in rows 1 and 2
+            # Existing pair in rows 1 and 2
             pair_0 = (t[0, ti_new], t[1, ti_new])
             pair_1 = (t[2, ti_new], t[0, ti_new])
         # Update the queue, either remove the pairs or add them

@@ -25,7 +25,7 @@ IntersectionInfo3Frac = namedtuple(
 class TestDFMMeshGeneration(unittest.TestCase):
     def check_gb(
         self,
-        gb,
+        mdg,
         domain,
         fractures=None,
         isect_line=None,
@@ -47,18 +47,18 @@ class TestDFMMeshGeneration(unittest.TestCase):
                     return False
             return True
 
-        bb = pp.bounding_box.from_points(gb.grids_of_dimension(3)[0].nodes)
+        bb = pp.bounding_box.from_points(mdg.subdomains(dim=3)[0].nodes)
 
         self.assertTrue(compare_bounding_boxes(bb, domain))
 
-        self.assertTrue(len(fractures) == len(gb.grids_of_dimension(2)))
-        self.assertTrue(expected_num_1d_grids == len(gb.grids_of_dimension(1)))
-        self.assertTrue(expected_num_0d_grids == len(gb.grids_of_dimension(0)))
+        self.assertTrue(len(fractures) == len(mdg.subdomains(dim=2)))
+        self.assertTrue(expected_num_1d_grids == len(mdg.subdomains(dim=1)))
+        self.assertTrue(expected_num_0d_grids == len(mdg.subdomains(dim=0)))
 
         # Loop over all fractures, find the grid with the corresponding frac_num. Check
         # that their bounding boxes are the same.
         for fi, f in enumerate(fractures):
-            for g in gb.grids_of_dimension(2):
+            for g in mdg.subdomains(dim=2):
                 if g.frac_num == fi:
                     self.assertTrue(
                         compare_bounding_boxes(
@@ -104,15 +104,15 @@ class TestDFMMeshGeneration(unittest.TestCase):
             for k in ["xmax", "ymax", "zmax"]:
                 box["coord"][k] = max(box["coord"][k], update[k])
 
-        for g in gb.grids_of_dimension(1):
-            n = gb.node_neighbors(g, only_higher=True)
+        for g in mdg.subdomains(dim=1):
+            n = mdg.neighboring_subdomains(g, only_higher=True)
             box = pp.bounding_box.from_points(g.nodes)
 
-            if n.size == 2:
+            if len(n) == 2:
                 f_0, f_1 = sorted([n[0].frac_num, n[1].frac_num])
                 update_box(ii_computed_box[(f_0, f_1)], box)
 
-            elif n.size == 3:
+            elif len(n) == 3:
                 f_0, f_1, f_2 = sorted([n[0].frac_num, n[1].frac_num, n[2].frac_num])
                 update_box(ii_computed_box[(f_0, f_1, f_2)], box)
 
@@ -123,7 +123,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
                 compare_bounding_boxes(coord, pp.bounding_box.from_points(isect.coord))
             )
 
-        for g in gb.grids_of_dimension(0):
+        for g in mdg.subdomains(dim=0):
             found = False
             for p in isect_pt:
                 if test_utils.compare_arrays(p, g.cell_centers):
@@ -133,7 +133,7 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
         for p in isect_pt:
             found = False
-            for g in gb.grids_of_dimension(0):
+            for g in mdg.subdomains(dim=0):
                 if test_utils.compare_arrays(p, g.cell_centers):
                     found = True
                     break
@@ -1002,8 +1002,8 @@ class TestDFMNonConvexDomain(unittest.TestCase):
 
         network = pp.FractureNetwork3d([f_1], domain=self.non_convex_polyhedron)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
-        gb = network.mesh(mesh_args)
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 2)
+        mdg = network.mesh(mesh_args)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 2)
 
     def test_fracture_cut_not_split_by_domain(self):
         self.setUp()
@@ -1013,12 +1013,12 @@ class TestDFMNonConvexDomain(unittest.TestCase):
 
         network = pp.FractureNetwork3d([f_1], domain=self.non_convex_polyhedron)
         mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
-        gb = network.mesh(mesh_args)
+        mdg = network.mesh(mesh_args)
         # The fracture should be split into subfractures because of the non-convexity.
         # non-convexity.
         # The size of the domain here is set by how the fracture pieces are merged
         # into convex parts.
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 3)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 3)
 
 
 class Test2dDomain(unittest.TestCase):
@@ -1038,50 +1038,50 @@ class Test2dDomain(unittest.TestCase):
     def test_no_fractures(self):
         self.setUp()
         network = pp.FractureNetwork2d(domain=self.domain)
-        gb = network.mesh(self.mesh_args)
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
-        self.assertTrue(len(gb.grids_of_dimension(1)) == 0)
-        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+        mdg = network.mesh(self.mesh_args)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
     def test_one_fracture(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
-        gb = network.mesh(self.mesh_args)
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
-        self.assertTrue(len(gb.grids_of_dimension(1)) == 1)
-        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+        mdg = network.mesh(self.mesh_args)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
     def test_two_fractures(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
-        gb = network.mesh(self.mesh_args)
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
-        self.assertTrue(len(gb.grids_of_dimension(1)) == 2)
-        self.assertTrue(len(gb.grids_of_dimension(0)) == 1)
+        mdg = network.mesh(self.mesh_args)
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 2)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 1)
 
     def test_one_constraint(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p1, self.e1, domain=self.domain)
-        gb = network.mesh(self.mesh_args, constraints=np.array([0]))
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
-        self.assertTrue(len(gb.grids_of_dimension(1)) == 0)
-        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+        mdg = network.mesh(self.mesh_args, constraints=np.array([0]))
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
     def test_two_constraints(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
-        gb = network.mesh(self.mesh_args, constraints=np.arange(2))
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
-        self.assertTrue(len(gb.grids_of_dimension(1)) == 0)
-        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+        mdg = network.mesh(self.mesh_args, constraints=np.arange(2))
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 0)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
     def test_one_fracture_one_constraint(self):
         self.setUp()
         network = pp.FractureNetwork2d(self.p2, self.e2, domain=self.domain)
-        gb = network.mesh(self.mesh_args, constraints=np.array(1))
-        self.assertTrue(len(gb.grids_of_dimension(2)) == 1)
-        self.assertTrue(len(gb.grids_of_dimension(1)) == 1)
-        self.assertTrue(len(gb.grids_of_dimension(0)) == 0)
+        mdg = network.mesh(self.mesh_args, constraints=np.array(1))
+        self.assertTrue(len(mdg.subdomains(dim=2)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=1)) == 1)
+        self.assertTrue(len(mdg.subdomains(dim=0)) == 0)
 
 
 class TestStructuredGrids(unittest.TestCase):
@@ -1132,35 +1132,35 @@ class TestStructuredGrids(unittest.TestCase):
         f3 = np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
         f_set = [f1, f2, f3]
 
-        gbs = [pp.meshing.cart_grid(f_set, [2, 2, 2], physdims=[1, 1, 1])]
-        gbs.append(
+        mdgs = [pp.meshing.cart_grid(f_set, [2, 2, 2], physdims=[1, 1, 1])]
+        mdgs.append(
             pp.meshing.tensor_grid(
                 f_set, np.linspace(0, 1, 3), np.linspace(0, 1, 3), np.linspace(0, 1, 3)
             )
         )
-        for gb in gbs:
-            g_3 = gb.grids_of_dimension(3)
-            g_2 = gb.grids_of_dimension(2)
-            g_1 = gb.grids_of_dimension(1)
-            g_0 = gb.grids_of_dimension(0)
+        for mdg in mdgs:
+            list_sd_3 = mdg.subdomains(dim=3)
+            list_sd_2 = mdg.subdomains(dim=2)
+            list_sd_1 = mdg.subdomains(dim=1)
+            list_sd_0 = mdg.subdomains(dim=0)
 
-            self.assertTrue(len(g_3) == 1)
-            self.assertTrue(len(g_2) == 3)
-            self.assertTrue(len(g_1) == 6)
-            self.assertTrue(len(g_0) == 1)
+            self.assertTrue(len(list_sd_3) == 1)
+            self.assertTrue(len(list_sd_2) == 3)
+            self.assertTrue(len(list_sd_1) == 6)
+            self.assertTrue(len(list_sd_0) == 1)
 
-            self.assertTrue(np.all([g.num_cells == 4 for g in g_2]))
-            self.assertTrue(np.all([g.num_faces == 16 for g in g_2]))
-            self.assertTrue(np.all([g.num_cells == 1 for g in g_1]))
-            self.assertTrue(np.all([g.num_faces == 2 for g in g_1]))
+            self.assertTrue(np.all([g.num_cells == 4 for g in list_sd_2]))
+            self.assertTrue(np.all([g.num_faces == 16 for g in list_sd_2]))
+            self.assertTrue(np.all([g.num_cells == 1 for g in list_sd_1]))
+            self.assertTrue(np.all([g.num_faces == 2 for g in list_sd_1]))
 
-            g_321 = np.hstack([g_3, g_2, g_1])
+            g_321 = np.hstack([list_sd_3, list_sd_2, list_sd_1])
             for g in g_321:
                 d = np.all(
                     np.abs(g.nodes - np.array([[0.5], [0.5], [0.5]])) < 1e-6, axis=0
                 )
                 self.assertTrue(any(d))
-            for g in g_0:
+            for g in list_sd_0:
                 d = np.all(
                     np.abs(g.cell_centers - np.array([[0.5], [0.5], [0.5]])) < 1e-6,
                     axis=0,

@@ -5,7 +5,7 @@ including a time derivative of the pressure and constant compressibility.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import numpy as np
 
@@ -65,14 +65,13 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         """Set default (unitary/zero) parameters for the flow problem.
 
         The parameters fields of the data dictionaries are updated for all
-        subdomains and edges (of codimension 1).
+        subdomains and interfaces (of codimension 1).
         """
         super()._set_parameters()
 
-        for g, d in self.gb:
-
+        for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
-                g, d, self.parameter_key, {"mass_weight": self._compressibility(g)}
+                sd, data, self.parameter_key, {"mass_weight": self._compressibility(sd)}
             )
 
     def _compressibility(self, g: pp.Grid) -> np.ndarray:
@@ -91,11 +90,8 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         super()._assign_equations()
 
-        # Collection of subdomains
-        subdomains: List[pp.Grid] = [g for g, _ in self.gb]
-
         # AD representation of the mass operator
-        accumulation_term = pp.ad.MassMatrixAd(self.parameter_key, subdomains)
+        accumulation_term = pp.ad.MassMatrixAd(self.parameter_key, self._ad.subdomains)
 
         # Access to pressure ad variable
         p = self._ad.pressure

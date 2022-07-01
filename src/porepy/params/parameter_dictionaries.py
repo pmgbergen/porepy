@@ -3,15 +3,13 @@
 Here, we store various parameter dictionaries with "sensible" (typically unitary or
 zero) default values for the parameters required by the discretization objects.
 """
+from __future__ import annotations
 
 import numpy as np
 
 import porepy as pp
 
-module_sections = ["parameters"]
 
-
-@pp.time_logger(sections=module_sections)
 def flow_dictionary(g, in_data=None):
     """Dictionary with parameters for standard flow problems.
 
@@ -45,7 +43,6 @@ def flow_dictionary(g, in_data=None):
     return d
 
 
-@pp.time_logger(sections=module_sections)
 def transport_dictionary(g, in_data=None):
     """Dictionary with parameters for standard transport problems.
 
@@ -80,7 +77,6 @@ def transport_dictionary(g, in_data=None):
     return d
 
 
-@pp.time_logger(sections=module_sections)
 def mechanics_dictionary(g, in_data=None):
     """Dictionary with parameters for standard mechanics problems.
 
