@@ -10,12 +10,12 @@ import porepy as pp
 
 from .model_fluids import H2O
 from .model_solids import NaCl
-from .phase import PhaseField
+from .phase import Phase
 
 __all__: List[str] = ["SaltWater", "WaterVapor"]
 
 
-class SaltWater(PhaseField):
+class SaltWater(Phase):
 
     # https://en.wikipedia.org/wiki/Table_of_specific_heat_capacities
     molar_heat_capacity = 0.075327  # kJ / mol / K
@@ -52,7 +52,7 @@ class SaltWater(PhaseField):
         return pp.ad.Array(np.ones(self.gb.num_cells()))
 
 
-class WaterVapor(PhaseField):
+class WaterVapor(Phase):
     """Values found on Wikipedia..."""
 
     # https://en.wikipedia.org/wiki/Water_vapor see specific gas constant (mass)

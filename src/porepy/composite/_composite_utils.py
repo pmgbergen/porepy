@@ -42,30 +42,23 @@ if the modeler decides to call the substance class 'H20' and the phase 'vapor'
 Assumed, default SI units of the respective variables are found below in comments.
 """
 COMPUTATIONAL_VARIABLES: Dict[str, str] = {
-    "mortar_prefix": "mortar",  # SYMBOL prefix for variables which appear on mortar grids
+    "mortar": "mortar",  # prefix for symbols for variables which appear on mortar grids
     "pressure": "p",  # [Pa] = [N / m^2] = [ kg / m / s^2]
     "enthalpy": "h",  # (specific, molar) [J / mol] = [kg m^2 / s^2 / mol]
     "temperature": "T",  # [K]
     "displacement": "u",  # [m]
-    "component_overall_fraction": "zeta",  # (fractional, molar) [-]
-    "component_fraction_in_phase": "chi",  # (fractional, molar) [-]
-    "phase_molar_fraction": "xi",  # (fractional, molar) [-]
-    "saturation": "S",  # (fractional, volumetric) [-]
+    "component_fraction": "z",  # (fractional, molar) [-]
+    "component_fraction_in_phase": "x",  # (fractional, molar) [-]
+    "molar_phase_fraction": "xi",  # (fractional, molar) [-]
+    "saturation": "s",  # (fractional, volumetric) [-]
 }
 
-""" Currently supported states of matter.
-This influences the parameters for physical attributes, as well as the class
-:class:`~porepy.composite.phase.PhysicalState`.
-"""
-STATES_OF_MATTER: Tuple = ("solid", "liquid", "gas")
-
+R_IDEAL: float = 0.00831446261815324
 """
 Universal molar gas constant.
-        Math. Dimension:        scalar
-        Phys. Dimension:        [kg m^2 / s K mol]
+    Math. Dimension:        scalar
+    Phys. Dimension:        [kJ / K mol]
 """
-IDEAL_GAS_CONSTANT: float = 8.31446261815324
-
 
 def create_merged_variable(
     gb: "pp.GridBucket",
@@ -151,15 +144,6 @@ def create_merged_mortar_variable(
             )
 
     return pp.ad.MergedVariable(mortar_variables)
-
-
-def operator_sum(operators: List["pp.ad.Operator"]) -> "pp.ad.Operator":
-    """This function is just for surpassing Typing error when using built-in sum()."""
-    out = operators[0]
-    if len(operators) > 1:
-        for op in operators[1:]:
-            out += op
-    return out
 
 
 class ConvergenceError(Exception):
