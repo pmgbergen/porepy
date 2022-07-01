@@ -13,6 +13,7 @@ import numpy as np
 
 import porepy as pp
 
+
 class MeshioExporterTest(unittest.TestCase):
     def __init__(self, methodName="runTest"):
         unittest.TestCase.__init__(self, methodName)
@@ -36,7 +37,7 @@ class MeshioExporterTest(unittest.TestCase):
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
@@ -56,7 +57,7 @@ class MeshioExporterTest(unittest.TestCase):
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
@@ -76,7 +77,7 @@ class MeshioExporterTest(unittest.TestCase):
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
@@ -98,7 +99,7 @@ class MeshioExporterTest(unittest.TestCase):
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
@@ -118,7 +119,7 @@ class MeshioExporterTest(unittest.TestCase):
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
@@ -138,7 +139,7 @@ class MeshioExporterTest(unittest.TestCase):
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
@@ -162,7 +163,7 @@ class MeshioExporterTest(unittest.TestCase):
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
@@ -188,7 +189,7 @@ class MeshioExporterTest(unittest.TestCase):
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
         save.write_vtu(["dummy_scalar", "dummy_vector"])
 
@@ -233,7 +234,7 @@ class MeshioExporterTest(unittest.TestCase):
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
         save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"])
 
@@ -272,24 +273,26 @@ class MeshioExporterTest(unittest.TestCase):
                 },
             )
 
-        subdomains_1d = mdg.subdomains(dim=1) 
-        subdomains_2d = mdg.subdomains(dim=2) 
+        subdomains_1d = mdg.subdomains(dim=1)
+        subdomains_2d = mdg.subdomains(dim=2)
         sd_2d = subdomains_2d[0]
-        #interfaces_1d = mdg.interfaces(dim=1) # FIXME not used below
+        # interfaces_1d = mdg.interfaces(dim=1) # FIXME not used below
 
         save = pp.Exporter(
             mdg,
             self.file_name,
             self.folder,
             binary=False,
-            export_constants_separately = False
+            export_constants_separately=False,
         )
-        save.write_vtu([
-            (subdomains_1d, "dummy_scalar"),
-            "dummy_vector",
-            "unique_dummy_scalar",
-            (sd_2d, "cc", sd_2d.cell_centers)
-        ])
+        save.write_vtu(
+            [
+                (subdomains_1d, "dummy_scalar"),
+                "dummy_vector",
+                "unique_dummy_scalar",
+                (sd_2d, "cc", sd_2d.cell_centers),
+            ]
+        )
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
@@ -323,12 +326,12 @@ class MeshioExporterTest(unittest.TestCase):
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._nonconstant_data_grid_vtu())
 
-        with open(self.folder + self.file_name + "_constant_2.vtu", "r") as content_file:
+        with open(
+            self.folder + self.file_name + "_constant_2.vtu", "r"
+        ) as content_file:
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._constant_data_grid_vtu())
 
-    # NOTE: This test is not directly testing Exporter, but the capability to export networks.
-    # Is this a used capability? If not, suggest removing the test and the corresponding capability.
     def test_fractures_2d(self):
         p = np.array([[0, 2, 1, 2, 1], [0, 0, 0, 1, 2]])
         e = np.array([[0, 2, 3], [1, 3, 4]])
@@ -350,8 +353,6 @@ class MeshioExporterTest(unittest.TestCase):
             content = self.sliceout(content_file.read())
         self.assertTrue(content == self._test_fractures_2d_vtu())
 
-    # NOTE: This test is not directly testing Exporter, but the capability to export networks.
-    # Is this a used capability? If not, suggest removing the test and the corresponding capability.
     def test_fractures_3d(self):
         f_1 = pp.Fracture(np.array([[0, 1, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]))
         f_2 = pp.Fracture(
