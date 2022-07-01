@@ -1,7 +1,7 @@
 """
 Module for creating fractured cartesian grids in 2- and 3-dimensions.
 
-The functions in this module can be accesed through the meshing wrapper module.
+The functions in this module can be accessed through the meshing wrapper module.
 """
 from typing import List
 
@@ -73,7 +73,7 @@ def _tensor_grid_3d(
     Parameters
     ----------
     fracs (list of np.ndarray, each 3x4): Vertexes of the fractures for each
-        fracture. The fracture lines must align to the coordinat axis.
+        fracture. The fracture lines must align to the coordinate axis.
         The fractures will snap to the closest grid nodes.
     x (np.ndarray): Node coordinates in x-direction
     y (np.ndarray): Node coordinates in y-direction.
@@ -89,7 +89,7 @@ def _tensor_grid_3d(
     frac1 = np.array([[1, 4, 4, 1], [2, 2, 2, 2], [0, 0, 5, 5]])
     frac2 = np.array([[2, 2, 2, 2], [1, 4, 4, 1], [0, 0, 5, 5]])
     fracs = [frac1, frac2]
-    gb = _tensor_grid_3d(fracs, np.arange(5), np.arange(5), np.arange(5))
+    mdg = _tensor_grid_3d(fracs, np.arange(5), np.arange(5), np.arange(5))
     """
 
     nx = np.asarray((x.size - 1, y.size - 1, z.size - 1))
@@ -109,7 +109,7 @@ def _cart_grid_2d(fracs, nx, physdims=None):
     Parameters
     ----------
     fracs (list of np.ndarray, each 2x2): Vertexes of the line for each
-        fracture. The fracture lines must align to the coordinat axis.
+        fracture. The fracture lines must align to the coordinate axis.
         The fractures will snap to the closest grid nodes.
     nx (np.ndarray): Number of cells in each direction. Should be 2D.
     physdims (np.ndarray): Physical dimensions in each direction.
@@ -125,7 +125,7 @@ def _cart_grid_2d(fracs, nx, physdims=None):
     frac1 = np.array([[1, 4], [2, 2]])
     frac2 = np.array([[2, 2], [1, 4]])
     fracs = [frac1, frac2]
-    gb = cart_grid_2d(fracs, [5, 5])
+    mdg = cart_grid_2d(fracs, [5, 5])
     """
     nx = np.asarray(nx)
     if physdims is None:
@@ -152,7 +152,7 @@ def _tensor_grid_2d(
     Parameters
     ----------
     fracs (list of np.ndarray, each 2x2): Vertexes of the line for each
-        fracture. The fracture lines must align to the coordinat axis.
+        fracture. The fracture lines must align to the coordinate axis.
         The fractures will snap to the closest grid nodes.
     x (np.ndarray): Node coordinates in x-direction
     y (np.ndarray): Node coordinates in y-direction.
@@ -167,7 +167,7 @@ def _tensor_grid_2d(
     frac1 = np.array([[1, 4], [2, 2]])
     frac2 = np.array([[2, 2], [1, 4]])
     fracs = [frac1, frac2]
-    gb = _tensor_grid_2d(fracs, np.arange(5), np.arange(5))
+    mdg = _tensor_grid_2d(fracs, np.arange(5), np.arange(5))
     """
     nx = np.asarray((x.size - 1, y.size - 1))
     g_2d = pp.TensorGrid(x, y)
@@ -224,7 +224,7 @@ def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
             flat_dim = [0]
             active_dim = [1, 2]
         # construct normal vectors. If the rectangle is ordered
-        # clockwise we need to flip the normals so they point
+        # clockwise we need to flip the normals so that they point
         # outwards.
         sign = 2 * pp.geometry_property_checks.is_ccw_polygon(f_s[active_dim]) - 1
         tangent = f_s.take(np.arange(f_s.shape[1]) + 1, axis=1, mode="wrap") - f_s
@@ -314,9 +314,9 @@ def _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims=None):
 
     # Find all points on fracture intersection lines
     isect_p = edges[:, edge_tags == Tags.FRACTURE_INTERSECTION_LINE.value].ravel()
-    # Count the number of occurences
+    # Count the number of occurrences
     num_occ_pt = np.bincount(isect_p)
-    # Intersection poitns if
+    # Intersection points if
     intersection_points = np.where(num_occ_pt > 1)[0]
 
     edges = np.vstack((edges, edge_tags))

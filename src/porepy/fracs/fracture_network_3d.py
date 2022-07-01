@@ -16,10 +16,9 @@ import numpy as np
 from scipy.spatial import ConvexHull
 
 import porepy as pp
-from porepy.utils import setmembership, sort_points
-
 from porepy.fracs.fracture_3d import Fracture3d
 from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter, Tags
+from porepy.utils import setmembership, sort_points
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -272,8 +271,8 @@ class FractureNetwork3d(object):
                         g.tags[key] = self.tags[key][id_g]
 
         # Merge the grids into a mixed-dimensional MixedDimensionalGrid
-        gb = pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
-        return gb
+        mdg = pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
+        return mdg
 
     def prepare_for_gmsh(self, mesh_args, dfn=False, constraints=None) -> GmshData3d:
         """Process network intersections and write a gmsh .geo configuration file,
