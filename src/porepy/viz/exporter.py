@@ -74,7 +74,8 @@ class Exporter:
         save.write_vtu(["pressure"])
 
         # In a time loop, if you need to export states with keys "pressure" and
-        # "displacement" stored in a mixed-dimensional grid.
+        # "displacement" stored in a mixed-dimensional grid, do:
+
         save = Exporter(mdg, "solution", folder_name="results")
         while time:
             save.write_vtu(["pressure", "displacement"], time_step=i)
@@ -190,8 +191,8 @@ class Exporter:
         Args:
             data (Union[DataInput, list[DataInput]], optional): subdomain and
                 interface data, prescribed through strings, or tuples of
-                subdomains/interfaces, keys and values. If not provided only
-                geometical infos are exported.
+                subdomains/interfaces, keys and values. If not provided, only
+                geometrical information is exported.
 
                 NOTE: The user has to make sure that each unique key has
                 associated data values for all or no grids of each specific
@@ -338,14 +339,14 @@ class Exporter:
     ) -> None:
         """
         Interface function to export in PVD file the time loop information.
-        The user should open only this file in paraview.
+        The user should open only this file in ParaView.
 
         We assume that the VTU associated files have the same name, and that.
         the VTU associated files are in the working directory.
 
         Args:
             times (np.ndarray, optional): array of actual times to be exported. These will
-                be the times associated with indivdiual time steps in, say, Paraview.
+                be the times associated with individual time steps in, say, ParaView.
                 By default, the times will be associated with the order in which the time
                 steps were exported. This can be overridden by the file_extension argument.
                 If no times are provided, the exported time steps are used.
@@ -545,7 +546,7 @@ class Exporter:
                 # Identify the key provided through the data.
                 key = data_pt
 
-                # Initialize tag storing whether data corrspeonding to the key has been found.
+                # Initialize tag storing whether data corresponding to the key has been found.
                 has_key = False
 
                 def _add_data(
@@ -563,7 +564,7 @@ class Exporter:
                         # Add data point in correct format to the collection
                         export_data[(grid, key)] = value
 
-                        # Mark as succes
+                        # Mark as success
                         return True
                     else:
                         return False
@@ -584,7 +585,7 @@ class Exporter:
                         f"No data with provided key {key} present in the grid."
                     )
 
-                # Return updated dictionaries and indicate succesful conversion.
+                # Return updated dictionaries and indicate successful conversion.
                 return subdomain_data, interface_data, True
 
             else:
@@ -637,7 +638,7 @@ class Exporter:
                     # Add data point in correct format to collection
                     subdomain_data[(sd, key)] = value
 
-                # Return updated dictionaries and indicate succesful conversion.
+                # Return updated dictionaries and indicate successful conversion.
                 return subdomain_data, interface_data, True
 
             else:
@@ -691,7 +692,7 @@ class Exporter:
                     # Add data point in correct format to collection
                     interface_data[(intf, key)] = value
 
-                # Return updated dictionaries and indicate succesful conversion.
+                # Return updated dictionaries and indicate successful conversion.
                 return subdomain_data, interface_data, True
 
             else:
@@ -708,7 +709,7 @@ class Exporter:
             """
 
             # Implementation of isinstance(t, tuple[pp.Grid, str, np.ndarray]).
-            # NOTE: The type of a grid is identifying the specific grid type (simplicial
+            # NOTE: The type of a grid identifies the specific grid type (simplicial
             # etc.) Thus, isinstance is used here to detect whether a grid is provided.
             isinstance_tuple_subdomain_str_array = isinstance(
                 data_pt[0], pp.Grid
@@ -725,7 +726,7 @@ class Exporter:
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
 
-                # Return updated dictionaries and indicate succesful conversion.
+                # Return updated dictionaries and indicate successful conversion.
                 return subdomain_data, interface_data, True
 
             else:
@@ -745,10 +746,10 @@ class Exporter:
 
             # Implementation of isinstance(t, tuple[pp.MortarGrid, str, np.ndarray]).
             isinstance_tuple_interface_str_array = list(map(type, data_pt)) == [
-                tuple,
+                pp.MortarGrid,
                 str,
                 np.ndarray,
-            ] and isinstance(data_pt[0], pp.MortarGrid)
+            ]
 
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_interface_str_array:
@@ -760,7 +761,7 @@ class Exporter:
                 # Add data point in correct format to collection
                 interface_data[(intf, key)] = value
 
-                # Return updated dictionaries and indicate succesful conversion.
+                # Return updated dictionaries and indicate successful conversion.
                 return subdomain_data, interface_data, True
 
             else:
@@ -805,7 +806,7 @@ class Exporter:
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
 
-                # Return updated dictionaries and indicate succesful conversion.
+                # Return updated dictionaries and indicate successful conversion.
                 return subdomain_data, interface_data, True
 
             else:
@@ -1227,7 +1228,7 @@ class Exporter:
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T
 
-            # Lines are 1-simplices, and have a trivial connectvity.
+            # Lines are 1-simplices, and have a trivial connectivity.
             cn_indices = self._simplex_cell_to_nodes(1, grid)
 
             # Add to previous connectivity information
@@ -1388,7 +1389,7 @@ class Exporter:
                     # Strategy: Collect all cell nodes including their connectivity in a
                     # matrix of double num cell size. The goal will be to gather starting
                     # and end points for all faces of each cell, sort those faces, such that
-                    # they form a circlular graph, and then choose the resulting starting
+                    # they form a circular graph, and then choose the resulting starting
                     # points of all faces to define the connectivity.
 
                     # Fetch corresponding cells
@@ -1412,7 +1413,7 @@ class Exporter:
                         for i in range(2)
                     ]
                     # Group first and second nodes, with alternating order of rows.
-                    # By this, each cell is respresented by two rows. The first and second
+                    # By this, each cell is represented by two rows. The first and second
                     # rows contain first and second nodes of faces. And each column stands
                     # for one face.
                     cfn = np.ravel(cfn_indices, order="F").reshape(n, -1).T
@@ -1544,7 +1545,7 @@ class Exporter:
             cell_id += (cells + cell_offset).tolist()
 
             # Determine local connectivity for all cells. Simplices are invariant
-            # under permuatations. Thus, no specific ordering of nodes is required.
+            # under permutations. Thus, no specific ordering of nodes is required.
             # Tetrahedra are essentially 3-simplices.
             cn_indices = self._simplex_cell_to_nodes(3, grid, cells)
 
@@ -1609,11 +1610,11 @@ class Exporter:
             cell_id += (cells + cell_offset).tolist()
 
             # Determine local connectivity for all cells. Simplices are invariant
-            # under permuatations. Thus, no specific ordering of nodes is required.
+            # under permutations. Thus, no specific ordering of nodes is required.
 
             # After all, the procedure is fairly similar to the treatment of
             # tetra cells. Most of the following code is analogous to
-            # _simplex_cell_to_nodes(). However, for hexaedron cells the order
+            # _simplex_cell_to_nodes(). However, for hexahedron cells the order
             # of the nodes is important and has to be adjusted. Based on the
             # specific definition of TensorGrids however, the node numbering
             # can be hardcoded, which results in better performance compared
@@ -1801,7 +1802,7 @@ class Exporter:
             num_faces_per_cell = grid.cell_faces.getnnz(axis=0)
 
             # Categorize all polyhedron cells by their number of faces.
-            # Each category will be treated separatrely allowing for using
+            # Each category will be treated separately allowing for using
             # fitting datastructures.
             g_cell_map = dict()
             for n in np.unique(num_faces_per_cell):
@@ -1819,7 +1820,7 @@ class Exporter:
                 # Add offset taking into account previous grids
                 cell_id[cell_type] += (cells + cell_offset).tolist()
 
-            # Determine local connectivity for all cells. Due to differnt
+            # Determine local connectivity for all cells. Due to different
             # treatment of special and general cell types and to conform
             # with array sizes (for polyhedra), treat each cell type
             # separately.
@@ -1834,7 +1835,7 @@ class Exporter:
                 # Fetch cells with n faces
                 cells = g_cell_map[cell_type]
 
-                # Store short cuts to cell-face and face-node information
+                # Store shortcuts to cell-face and face-node information
                 cf_indptr = grid.cell_faces.indptr
                 cf_indices = grid.cell_faces.indices
                 fn_indptr = grid.face_nodes.indptr
@@ -1891,7 +1892,7 @@ class Exporter:
         Raises:
             ValueError if some data has wrong dimension
         """
-        # Initialize empty cell data dictinary
+        # Initialize empty cell data dictionary
         cell_data: dict[str, list[np.ndarray]] = {}
 
         # Split the data for each group of geometrically uniform cells
