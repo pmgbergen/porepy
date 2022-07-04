@@ -82,6 +82,7 @@ class Fracture(abc.ABC):
         """
 
         self.pts = np.asarray(points, dtype=np.float64)
+        self._check_pts()
 
         # Ensure the points are sorted
         if sort_points:
@@ -93,7 +94,6 @@ class Fracture(abc.ABC):
         self.index = index
 
         assert self.is_planar(), "Points define non-planar fracture"
-
         if check_convexity:
             assert self.is_convex(), "Points form non-convex polygon"
 
@@ -358,3 +358,13 @@ class Fracture(abc.ABC):
     def compute_normal(self) -> np.ndarray:
         """Abstract method for computing and returning the normal vector."""
         pass
+
+    @abc.abstractmethod
+    def _check_pts(self) -> None:
+        """Abstract method for checking consistency of self.pts.
+
+        Raises:
+            ValueError if self.pts violates some assumptions (e.g. shape).
+        """
+        pass
+

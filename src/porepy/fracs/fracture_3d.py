@@ -149,6 +149,17 @@ class Fracture3d(Fracture):
         sp = [Point(pts[:, i]) for i in range(pts.shape[1])]
         return Polygon(*sp)
 
+    def _check_pts(self):
+        """Method for checking shape of self.pts.
+
+        Raises:
+            ValueError if self.pts does not have the expected shape.
+        """
+        if self.pts.shape[0] != 3:
+            raise ValueError("First dimension of pts defining a Fracture3d should be 3.")
+        if self.pts.shape[1] < 3:
+            raise ValueError("At least 3 points are needed to define a Fracture3d.")
+
 
 def create_elliptic_fracture(
     center: np.ndarray,
