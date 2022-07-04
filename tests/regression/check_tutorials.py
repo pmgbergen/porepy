@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 import os, glob
 
 
@@ -68,5 +67,5 @@ def remove_plots(fn):
                 continue
             f.write(line)
 
-
-run_all()
+if __name__ == "__main__":
+    run_all()
