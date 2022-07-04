@@ -96,6 +96,7 @@ from porepy.utils import adtree
 
 # Fractures
 from porepy.fracs.fracture_3d import Fracture3d, create_elliptic_fracture
+from porepy.fracs.fracture_2d import Fracture2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 

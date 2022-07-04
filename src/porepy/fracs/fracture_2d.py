@@ -48,29 +48,44 @@ class Fracture2d(Fracture):
         """Method for affirming planar fracture. 1D fractures are made up by two
         points and are thus always planar.
 
-        Parameters
-        ----------
-            tol : float
+        Parameters:
+            tol:
                 Tolerance for non-planarity. Treated as an absolute quantity
                 (no scaling with fracture extent).
 
-        Returns
-        -------
-        bool
+        Returns:
             True
         """
         return True
 
     def compute_centroid(self) -> np.ndarray:
         """Method for computing and returning the centroid of the fracture."""
-        return np.array([sum(self.pts[i]) / 2 for i in range(len(self.pts))])
+        return np.mean(self.pts, axis=1)
 
     def compute_normal(self) -> np.ndarray:
         """Method computing normal vectors of the fracture
 
         Returns
         -------
-        numpy.ndarray(3 x 2)
-            Two normal vectors of the fracture.
+        numpy.ndarray(2 x 1)
+            Normal vector of the fracture.
         """
-        return pp.map_geometry.compute_normals_1d(self.pts)
+
+        diff = np.diff(self.pts, axis=1)
+        normal = np.array([diff[0], -diff[1]])
+        return normal / np.linalg.norm(normal)
+
+    def _check_pts(self):
+        """Consistency check for self.pts.
+
+        Defining a Fracture2d with more than two points is not supported, as this violates
+        assumptions underlying som class methods.
+
+        Raises:
+            ValueError if self.pts does not have the expected shape.
+            ValueError if the two self.pts are identical.
+        """
+        if self.pts.shape != (2, 2):
+            raise ValueError("pts defining a Fracture2d should have dimensions 2 x 2.")
+        if np.all(np.isclose(self.pts[:, 0], self.pts[:, 1])):
+            raise ValueError("Need two distinct pts to define a Fracture2d.")
