@@ -203,16 +203,16 @@ def compare_mortar_grids(mg1, mg2):
     return True
 
 
-def compare_grid_buckets(gb1, gb2):
+def compare_md_grids(mdg1, mdg2):
     for dim in range(4):
-        grids_1 = gb1.subdomains(dim=dim)
-        grids_2 = gb2.subdomains(dim=dim)
-        # Two buckets are considered equal only if the grids are returned in the same
+        subdomains_1 = mdg1.subdomains(dim=dim)
+        subdomains_2 = mdg2.subdomains(dim=dim)
+        # Two mdgs are considered equal only if the grids are returned in the same
         # order. This may be overly restrictive, but it will have to do.
-        if len(grids_1) != len(grids_2):
+        if len(subdomains_1) != len(subdomains_2):
             return False
-        for g1, g2 in zip(grids_1, grids_2):
-            if not compare_grids(g1, g2):
+        for sd1, sd2 in zip(subdomains_1, subdomains_2):
+            if not compare_grids(sd1, sd2):
                 return False
 
     # Not sure how to do testing on Mortar grids.
