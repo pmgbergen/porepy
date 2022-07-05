@@ -16,7 +16,7 @@ import numpy as np
 from scipy.spatial import ConvexHull
 
 import porepy as pp
-from porepy.fracs.fracture_3d import Fracture3d
+from porepy.fracs.plane_fracture import PlaneFracture
 from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter, Tags
 from porepy.utils import setmembership, sort_points
 
@@ -60,7 +60,7 @@ class FractureNetwork3d(object):
 
     def __init__(
         self,
-        fractures: Optional[List[Fracture3d]] = None,
+        fractures: Optional[List[PlaneFracture]] = None,
         domain: Optional[Union[Dict[str, float], List[np.ndarray]]] = None,
         tol: float = 1e-8,
         run_checks: bool = False,
@@ -570,7 +570,7 @@ class FractureNetwork3d(object):
         return self._fractures[position]
 
     def intersections_of_fracture(
-        self, frac: Union[int, Fracture3d]
+        self, frac: Union[int, PlaneFracture]
     ) -> Tuple[List[int], List[bool]]:
         """Get all known intersections for a fracture.
 
@@ -1409,7 +1409,7 @@ class FractureNetwork3d(object):
                 # the points should not be sorted.
                 # Splitting of non-convex fractures into convex subparts is
                 # handled below.
-                new_frac = Fracture3d(constrained_polys[sub_i], sort_points=False)
+                new_frac = PlaneFracture(constrained_polys[sub_i], sort_points=False)
                 self.add(new_frac)
                 ind_map = np.hstack((ind_map, fi))
 
@@ -1738,7 +1738,7 @@ class FractureNetwork3d(object):
                 # thus a linear ordering should be fine also for a subpolygon.
                 verts = np.unique(triangles[tris])
                 # To be sure, check the convexity of the polygon.
-                self.add(Fracture3d(f.pts[:, verts], check_convexity=False))
+                self.add(PlaneFracture(f.pts[:, verts], check_convexity=False))
                 ind_map = np.hstack((ind_map, fi))
 
             # Finally, increase pointer to ind_map array
@@ -1760,7 +1760,7 @@ class FractureNetwork3d(object):
         boundary_tags = self.tags.get("boundary", [False] * len(self._fractures))
         if keep_box:
             for pnt in polyhedron:
-                self.add(Fracture3d(pnt))
+                self.add(PlaneFracture(pnt))
                 boundary_tags.append(True)
         self.tags["boundary"] = boundary_tags
 
@@ -2353,8 +2353,8 @@ class FractureNetwork3d(object):
 
     def _add_intersection(
         self,
-        first: Union[Fracture3d, np.ndarray],
-        second: Union[Fracture3d, np.ndarray],
+        first: Union[PlaneFracture, np.ndarray],
+        second: Union[PlaneFracture, np.ndarray],
         start: np.ndarray,
         end: np.ndarray,
         bound_first: Union[bool, np.ndarray],
@@ -2479,7 +2479,7 @@ class FractureNetwork3d(object):
         The format is
         - if domain is given the first line describes the domain as a rectangle
           X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX
-        - the other lines descibe the N fractures as a list of points
+        - the other lines describe the N fractures as a list of points
           P0_X, P0_Y, P0_Z, ...,PN_X, PN_Y, PN_Z
 
         Parameters:

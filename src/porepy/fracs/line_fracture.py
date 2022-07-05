@@ -3,35 +3,34 @@
 
 import numpy as np
 
-import porepy as pp
-
 from .fracture import Fracture
 
 
-class Fracture2d(Fracture):
+class LineFracture(Fracture):
     """A class representing linear fracture in 2D."""
 
     def sort_points(self) -> np.ndarray:
-        """Abstract method to sort the vertices as needed for geometric algorithms.
+        """Sort the vertices.
 
+        For fractures defined by a two-vertex line segment, sorting is trivial.
         Returns
         -------
         numpy.ndarray(dtype=int)
             The indices corresponding to the sorting.
         """
-        pass
+        return np.arange(2)
 
     def local_coordinates(self) -> np.ndarray:
-        """Abstract method for computing the vertex coordinates in a local system and its
-        local dimension `d`.
-        For now, `d` is expected to be `nd` - 1, i.e. the fracture to be of co-dimension 1.
+        """Method for computing the 1d vertex coordinates in a local system.
+
+        The first coordinate is set at x=0, the second at x=self.length().
 
         Returns
         -------
-        numpy.ndarray((nd-1) x npt)
-            The coordinates of the vertices in local dimensions.
+        numpy.ndarray(1 x 2)
+            The coordinates of the two vertices in the single local dimension.
         """
-        pass
+        return np.reshape([0, self.length()], (1, 2))
 
     def is_convex(self) -> bool:
         """Method for affirming convexity. 1D fractures are made up by two points
@@ -51,7 +50,7 @@ class Fracture2d(Fracture):
         Parameters:
             tol:
                 Tolerance for non-planarity. Treated as an absolute quantity
-                (no scaling with fracture extent).
+                (no scaling with fracture extent). Unused for 1D fractures.
 
         Returns:
             True
@@ -59,7 +58,11 @@ class Fracture2d(Fracture):
         return True
 
     def compute_centroid(self) -> np.ndarray:
-        """Method for computing and returning the centroid of the fracture."""
+        """Method for computing the centroid of the fracture.
+
+        Returns:
+            Array containing the 2D coordinates of the centroid.
+        """
         return np.mean(self.pts, axis=1)
 
     def compute_normal(self) -> np.ndarray:
@@ -78,7 +81,7 @@ class Fracture2d(Fracture):
     def _check_pts(self):
         """Consistency check for self.pts.
 
-        Defining a Fracture2d with more than two points is not supported, as this violates
+        Defining a LineFracture with more than two points is not supported, as this violates
         assumptions underlying som class methods.
 
         Raises:
@@ -86,6 +89,18 @@ class Fracture2d(Fracture):
             ValueError if the two self.pts are identical.
         """
         if self.pts.shape != (2, 2):
-            raise ValueError("pts defining a Fracture2d should have dimensions 2 x 2.")
+            raise ValueError(
+                "pts defining a LineFracture should have dimensions 2 x 2."
+            )
         if np.all(np.isclose(self.pts[:, 0], self.pts[:, 1])):
-            raise ValueError("Need two distinct pts to define a Fracture2d.")
+            raise ValueError("Need two distinct pts to define a LineFracture.")
+
+    def length(self):
+        """Compute length of the fracture.
+
+        Returns:
+            Fracture length as a float.
+
+        """
+        diff = np.diff(self.pts, axis=1)
+        return np.linalg.norm(diff)

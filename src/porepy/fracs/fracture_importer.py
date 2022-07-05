@@ -75,7 +75,7 @@ def network_3d_from_csv(
             check_convexity = kwargs.get("check_convexity", True)
 
             frac_list.append(
-                pp.Fracture3d(
+                pp.PlaneFracture(
                     pts.reshape((3, -1), order="F"), check_convexity=check_convexity
                 )
             )
@@ -504,7 +504,7 @@ def network_3d_from_fab(f_name: str, return_all: bool = False, tol: float = None
                 # Check for keywords not yet implemented.
                 raise ValueError("Unknown section type " + line)
 
-    fractures = [pp.Fracture3d(f) for f in fracs]
+    fractures = [pp.PlaneFracture(f) for f in fracs]
     if tol is not None:
         network = pp.FractureNetwork3d(fractures, tol=tol)
     else:

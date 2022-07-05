@@ -299,7 +299,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
     """
 
     def setup(self):
-        self.f_1 = pp.Fracture3d(
+        self.f_1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]),
             check_convexity=False,
         )
@@ -374,7 +374,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
     def test_full_incline(self):
         self.setup()
         p = np.array([[-0.5, 0.5, 0.5, -0.5], [0.5, 0.5, 1.5, 1.5], [-0.5, -0.5, 1, 1]])
-        f = pp.Fracture3d(p, check_convexity=False)
+        f = pp.PlaneFracture(p, check_convexity=False)
         network = pp.FractureNetwork3d([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
