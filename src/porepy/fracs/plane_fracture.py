@@ -12,7 +12,7 @@ import porepy as pp
 from .fracture import Fracture
 
 
-class Fracture3d(Fracture):
+class PlaneFracture(Fracture):
     """A class representing planar fracture in 3D in form of a (bounded) plane.
 
     Non-convex fractures can be initialized, but geometry processing (computation
@@ -156,9 +156,11 @@ class Fracture3d(Fracture):
             ValueError if self.pts does not have the expected shape.
         """
         if self.pts.shape[0] != 3:
-            raise ValueError("First dimension of pts defining a Fracture3d should be 3.")
+            raise ValueError(
+                "First dimension of pts defining a PlaneFracture should be 3."
+            )
         if self.pts.shape[1] < 3:
-            raise ValueError("At least 3 points are needed to define a Fracture3d.")
+            raise ValueError("At least 3 points are needed to define a PlaneFracture.")
 
 
 def create_elliptic_fracture(
@@ -252,4 +254,4 @@ def create_elliptic_fracture(
 
     # Set the points, and store them in a backup.
     pts = center + dip_pts
-    return Fracture3d(pts, index, sort_points=False)
+    return PlaneFracture(pts, index, sort_points=False)

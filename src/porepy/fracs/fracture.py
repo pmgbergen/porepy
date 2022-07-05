@@ -367,4 +367,3 @@ class Fracture(abc.ABC):
             ValueError if self.pts violates some assumptions (e.g. shape).
         """
         pass
-

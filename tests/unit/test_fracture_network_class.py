@@ -228,7 +228,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_single_fracture(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
         # network extent
-        f1 = pp.Fracture3d(
+        f1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 
@@ -245,7 +245,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_sinle_fracture_aligned_with_axis(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
         # network extent
-        f1 = pp.Fracture3d(
+        f1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]), check_convexity=False
         )
 
@@ -262,11 +262,11 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_two_fractures(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
         # network extent
-        f1 = pp.Fracture3d(
+        f1 = pp.PlaneFracture(
             np.array([[0, 2, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 
-        f2 = pp.Fracture3d(
+        f2 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [-1, -1, 1, 1]]),
             check_convexity=False,
         )
@@ -284,7 +284,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_external_boundary_added(self):
         # Test of method FractureNetwork.bounding_box() when an external
         # boundary is added. Thus double as test of this adding.
-        f1 = pp.Fracture3d(
+        f1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 

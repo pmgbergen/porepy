@@ -503,29 +503,29 @@ class TestMixedDimGravity(unittest.TestCase):
 
         elif num_fracs == 1:
             fl = [
-                pp.Fracture3d(
+                pp.PlaneFracture(
                     np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
                 )
             ]
         elif num_fracs == 2:
             fl = [
-                pp.Fracture3d(
+                pp.PlaneFracture(
                     np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
                 ),
-                pp.Fracture3d(
+                pp.PlaneFracture(
                     np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
                 ),
             ]
 
         elif num_fracs == 3:
             fl = [
-                pp.Fracture3d(
+                pp.PlaneFracture(
                     np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
                 ),
-                pp.Fracture3d(
+                pp.PlaneFracture(
                     np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
                 ),
-                pp.Fracture3d(
+                pp.PlaneFracture(
                     np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
                 ),
             ]
