@@ -323,15 +323,15 @@ class TestMixedDimensionalGrid(unittest.TestCase):
     # ------------ Tests for removers
 
 
-def test_pickle_bucket():
+def test_pickle_md_grid():
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 2])
+    mdg = pp.meshing.cart_grid(fracs, [2, 2])
 
-    fn = "tmp.grid_bucket"
-    pickle.dump(gb, open(fn, "wb"))
-    gb_read = pickle.load(open(fn, "rb"))
+    fn = "tmp.md_grid"
+    pickle.dump(mdg, open(fn, "wb"))
+    mdg_read = pickle.load(open(fn, "rb"))
 
-    test_utils.compare_grid_buckets(gb, gb_read)
+    test_utils.compare_md_grids(mdg, mdg_read)
 
 
 if __name__ == "__main__":
