@@ -60,7 +60,7 @@ class Well:
         self.orig_pts = self.pts.copy()
         self.dim = 1
         # Set well index
-        self.set_index(index)
+        self.index = index
         # Initialize tag dictionary.
         if tags is None:
             self.tags = {}
