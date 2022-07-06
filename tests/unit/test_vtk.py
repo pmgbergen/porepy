@@ -7,6 +7,7 @@ PorePy, this does not necessarily mean that something is wrong.
 
 """
 import os
+import sys
 import unittest
 
 import numpy as np
@@ -43,7 +44,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_subdomain_1d_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._single_subdomain_1d_vtu()))
 
     def test_single_subdomain_2d_simplex_grid(self):
         sd = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
@@ -63,7 +64,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_subdomain_2d_simplex_grid_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._single_subdomain_2d_simplex_grid_vtu()))
 
     def test_single_subdomain_2d_cart_grid(self):
         sd = pp.CartGrid([4] * 2, [1] * 2)
@@ -83,7 +84,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_subdomain_2d_cart_grid_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._single_subdomain_2d_cart_grid_vtu()))
 
     def test_single_subdomain_2d_polytop(self):
         sd = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
@@ -105,7 +106,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_subdomain_2d_polytop_grid_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._single_subdomain_2d_polytop_grid_vtu()))
 
     def test_single_subdomain_3d_simplex_grid(self):
         sd = pp.StructuredTetrahedralGrid([3] * 3, [1] * 3)
@@ -125,7 +126,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_subdomain_3d_simplex_grid_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._single_subdomain_3d_simplex_grid_vtu()))
 
     def test_single_subdomain_3d_cart_grid(self):
         sd = pp.CartGrid([4] * 3, [1] * 3)
@@ -145,7 +146,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_subdomain_3d_cart_grid_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._single_subdomain_3d_cart_grid_vtu()))
 
     def test_single_subdomain_3d_polytop_grid(self):
         sd = pp.CartGrid([3, 2, 3], [1] * 3)
@@ -169,7 +170,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_3.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._single_subdomain_3d_polytop_grid_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._single_subdomain_3d_polytop_grid_vtu()))
 
     # NOTE: Suggest removing this test.
     def test_mdg_1(self):
@@ -195,15 +196,15 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._mdg_1_grid_1_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._mdg_1_grid_1_vtu()))
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._mdg_1_grid_2_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._mdg_1_grid_2_vtu()))
 
         with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._mdg_1_mortar_grid_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._mdg_1_mortar_grid_vtu()))
 
     # TODO Do we need this test if we have the subsequent one?
     def test_mdg_2(self):
@@ -240,15 +241,15 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._mdg_2_grid_1_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._mdg_2_grid_1_vtu()))
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._mdg_2_grid_2_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._mdg_2_grid_2_vtu()))
 
         with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._mdg_2_mortar_grid_1_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._mdg_2_mortar_grid_1_vtu()))
 
     def test_mdg_3(self):
         mdg, _ = pp.md_grids_2d.two_intersecting(
@@ -296,15 +297,15 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._mdg_3_grid_1_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._mdg_3_grid_1_vtu()))
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._mdg_3_grid_2_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._mdg_3_grid_2_vtu()))
 
         with open(self.folder + self.file_name + "_mortar_1.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._mdg_3_mortar_grid_1_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._mdg_3_mortar_grid_1_vtu()))
 
     def test_constant_data(self):
         g = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
@@ -324,13 +325,13 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + "_2.vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._nonconstant_data_grid_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._nonconstant_data_grid_vtu()))
 
         with open(
             self.folder + self.file_name + "_constant_2.vtu", "r"
         ) as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._constant_data_grid_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._constant_data_grid_vtu()))
 
     def test_fractures_2d(self):
         p = np.array([[0, 2, 1, 2, 1], [0, 0, 0, 1, 2]])
@@ -351,7 +352,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._test_fractures_2d_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._test_fractures_2d_vtu()))
 
     def test_fractures_3d(self):
         f_1 = pp.PlaneFracture(np.array([[0, 1, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]))
@@ -375,7 +376,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         with open(self.folder + self.file_name + ".vtu", "r") as content_file:
             content = self.sliceout(content_file.read())
-        self.assertTrue(content == self._test_fractures_3d_vtu())
+        self.assertTrue(content == self._cross_platform_integer_type(self._test_fractures_3d_vtu()))
 
     ## Below follows functions that return strings that reproduce the exact output of
     # the test functions at a time when the code was considered trustworthy.
@@ -9033,6 +9034,11 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
+    def _cross_platform_integer_type(self, txt: str):
+        if(sys.platform == "win32"):
+            return txt.replace("Int64", "Int32")
+        else:
+            return txt
 
 if __name__ == "__main__":
     unittest.main()
