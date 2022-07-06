@@ -1,7 +1,7 @@
 """ Test of interpolation functions
 """
-import pytest
 import numpy as np
+import pytest
 
 import porepy as pp
 

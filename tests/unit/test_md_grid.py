@@ -1,13 +1,14 @@
 """ Various tests of MixedDimensionalGrid functionality. Covers getters and setters, topological
 information on the bucket, and pickling and unpickling of buckets.
 """
-import unittest
 import pickle
+import unittest
 
 import numpy as np
-from tests import test_utils
-import porepy as pp
 import scipy.sparse as sps
+
+import porepy as pp
+from tests import test_utils
 
 
 class MockGrid(pp.CartGrid):

@@ -12,13 +12,13 @@ Rudimentary testing in 3d. The tests are direct analogues of the 2d ones.
 Could be expanded.
 """
 import unittest
-from tests import test_utils
 from typing import List
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from tests import test_utils
 
 
 class TestMixedDimGravity(unittest.TestCase):

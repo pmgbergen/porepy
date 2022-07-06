@@ -5,10 +5,10 @@
 """
 import pickle
 import unittest
-import pytest
-import scipy.sparse as sps
 
 import numpy as np
+import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import simplex, structured
