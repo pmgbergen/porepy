@@ -311,7 +311,7 @@ class Exporter:
                 self._exported_constant_data_up_to_date = True
 
             # Store the timestep referring to the origin of the constant data
-            if self._time_step_constant_data:
+            if hasattr(self, "_time_step_constant_data"):
                 self._exported_timesteps_constants.append(self._time_step_constant_data)
         else:
             # Append constant subdomain and interface data to the
