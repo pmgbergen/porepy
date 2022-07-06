@@ -172,10 +172,10 @@ class Exporter:
 
         # Flags tracking whether dynamic or constant, subdomain or interface data has
         # been assigned to the Exporter.
-        self._have_subdomain_data = False
-        self._have_interface_data = False
-        self._have_constant_subdomain_data = False
-        self._have_constant_interface_data = False
+        self._has_subdomain_data = False
+        self._has_interface_data = False
+        self._has_constant_subdomain_data = False
+        self._has_constant_interface_data = False
 
         # Parameter to be used in several occasions for adding time stamps.
         self._padding = 6
@@ -297,14 +297,14 @@ class Exporter:
             if not self._exported_constant_data_up_to_date:
                 # Export constant subdomain data to vtu
                 if self._constant_subdomain_data:
-                    self._have_constant_subdomain_data = True
+                    self._has_constant_subdomain_data = True
                     self._export_data_vtu(
                         self._constant_subdomain_data, time_step, constant_data=True
                     )
 
                 # Export constant interface data to vtu
                 if self._constant_interface_data:
-                    self._have_constant_interface_data = True
+                    self._has_constant_interface_data = True
                     self._export_data_vtu(
                         self._constant_interface_data,
                         time_step,
@@ -334,10 +334,10 @@ class Exporter:
 
         # Export subdomain and interface data to vtu format if existing
         if subdomain_data:
-            self._have_subdomain_data = True
+            self._has_subdomain_data = True
             self._export_data_vtu(subdomain_data, time_step)
         if interface_data:
-            self._have_interface_data = True
+            self._has_interface_data = True
             self._export_data_vtu(interface_data, time_step, interface_data=True)
 
         # Export mixed-dimensional grid to pvd format
@@ -419,14 +419,14 @@ class Exporter:
 
             # Subdomain data
             for dim in self._dims:
-                if self._have_subdomain_data and self.meshio_geom[dim] is not None:
+                if self._has_subdomain_data and self.meshio_geom[dim] is not None:
                     o_file.write(
                         fm % (time, self._make_file_name(self._file_name, fn, dim))
                     )
 
             # Interface data.
             for dim in self._m_dims:
-                if self._have_interface_data and self.m_meshio_geom[dim] is not None:
+                if self._has_interface_data and self.m_meshio_geom[dim] is not None:
                     o_file.write(
                         fm
                         % (
@@ -441,7 +441,7 @@ class Exporter:
                 # Constant subdomain data.
                 for dim in self._dims:
                     if (
-                        self._have_constant_subdomain_data
+                        self._has_constant_subdomain_data
                         and self.meshio_geom[dim] is not None
                     ):
                         o_file.write(
@@ -457,7 +457,7 @@ class Exporter:
                 # Constant interface data.
                 for dim in self._m_dims:
                     if (
-                        self._have_constant_interface_data
+                        self._has_constant_interface_data
                         and self.m_meshio_geom[dim] is not None
                     ):
                         o_file.write(
@@ -1109,12 +1109,12 @@ class Exporter:
 
         # Subdomain data.
         for dim in self._dims:
-            if self._have_subdomain_data and self.meshio_geom[dim] is not None:
+            if self._has_subdomain_data and self.meshio_geom[dim] is not None:
                 o_file.write(fm % self._make_file_name(self._file_name, time_step, dim))
 
         # Interface data.
         for dim in self._m_dims:
-            if sef._have_interface_data and self.m_meshio_geom[dim] is not None:
+            if self._has_interface_data and self.m_meshio_geom[dim] is not None:
                 o_file.write(
                     fm
                     % self._make_file_name(self._file_name + "_mortar", time_step, dim)
@@ -1128,7 +1128,7 @@ class Exporter:
             # Constant subdomain data.
             for dim in self._dims:
                 if (
-                    self._have_constant_subdomain_data
+                    self._has_constant_subdomain_data
                     and self.meshio_geom[dim] is not None
                 ):
                     o_file.write(
@@ -1143,7 +1143,7 @@ class Exporter:
             # Constant interface data.
             for dim in self._m_dims:
                 if (
-                    self._have_constant_interface_data
+                    self._has_constant_interface_data
                     and self.m_meshio_geom[dim] is not None
                 ):
                     o_file.write(
