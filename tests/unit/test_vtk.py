@@ -9096,7 +9096,12 @@ class MeshioExporterTest(unittest.TestCase):
 </VTKFile>
 """
 
-    def _cross_platform_integer_type(self, txt: str):
+    def _cross_platform_integer_type(self, txt: str) -> str:
+        """Ensures that the primitive integer type is cross-platform
+        Int types in NumPy are platform-dependent, see:
+        https://github.com/numpy/numpy/issues/9464
+        """
+        # Default integer type in windows is Int32
         if sys.platform == "win32":
             return txt.replace("Int64", "Int32")
         else:
