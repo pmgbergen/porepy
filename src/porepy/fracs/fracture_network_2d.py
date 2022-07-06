@@ -572,7 +572,7 @@ class FractureNetwork2d(object):
             aux_id = np.ravel(lines[:2, aux_id])
             _, aux_ia, aux_count = np.unique(aux_id, True, False, True)
 
-            # It can be probably be done more efficiently, but currently we rarely use the
+            # It can probably be done more efficiently, but currently we rarely use the
             # auxiliary points in 2d
             for a in aux_id[aux_ia[aux_count > 1]]:
                 # if a match is found decrease the frac_count only by one, this prevents
