@@ -87,11 +87,11 @@ class Exporter:
     """
 
     def __init__(
-        self,
-        grid: Union[pp.Grid, pp.MixedDimensionalGrid],
-        file_name: str,
-        folder_name: Optional[str] = None,
-        **kwargs,
+            self,
+            grid: Union[pp.Grid, pp.MixedDimensionalGrid],
+            file_name: str,
+            folder_name: Optional[str] = None,
+            **kwargs,
     ) -> None:
         """Initialization of Exporter.
 
@@ -181,8 +181,8 @@ class Exporter:
         self._padding = 6
 
     def add_constant_data(
-        self,
-        data: Optional[Union[DataInput, list[DataInput]]] = None,
+            self,
+            data: Optional[Union[DataInput, list[DataInput]]] = None,
     ) -> None:
         """
         Collect user-defined constant-in-time data, associated to grids,
@@ -223,11 +223,11 @@ class Exporter:
             self._constant_interface_data[key_i] = value.copy()
 
     def write_vtu(
-        self,
-        data: Optional[Union[DataInput, list[DataInput]]] = None,
-        time_dependent: bool = False,
-        time_step: Optional[int] = None,
-        grid: Optional[Union[pp.Grid, pp.MixedDimensionalGrid]] = None,
+            self,
+            data: Optional[Union[DataInput, list[DataInput]]] = None,
+            time_dependent: bool = False,
+            time_step: Optional[int] = None,
+            grid: Optional[Union[pp.Grid, pp.MixedDimensionalGrid]] = None,
     ) -> None:
         """
         Interface function to export the grid and additional data with meshio.
@@ -323,7 +323,8 @@ class Exporter:
 
             # Store the timestep referring to the origin of the constant data
             if hasattr(self, "_time_step_constant_data"):
-                self._exported_timesteps_constants.append(self._time_step_constant_data)
+                if self._time_step_constant_data is not None:
+                    self._exported_timesteps_constants.append(self._time_step_constant_data)
         else:
             # Append constant subdomain and interface data to the
             # standard containers for subdomain and interface data.
@@ -346,9 +347,9 @@ class Exporter:
         self._export_mdg_pvd(file_name, time_step)
 
     def write_pvd(
-        self,
-        times: Optional[np.ndarray] = None,
-        file_extension: Optional[Union[np.ndarray, list[int]]] = None,
+            self,
+            times: Optional[np.ndarray] = None,
+            file_extension: Optional[Union[np.ndarray, list[int]]] = None,
     ) -> None:
         """
         Interface function to export in PVD file the time loop information.
@@ -386,8 +387,8 @@ class Exporter:
         # file_extension is a subset of _exported_timesteps.
         # Only if constant data has been exported.
         include_constant_data = (
-            self._export_constants_separately
-            and len(self._exported_timesteps_constants) > 0
+                self._export_constants_separately
+                and len(self._exported_timesteps_constants) > 0
         )
         if include_constant_data:
             indices = [self._exported_timesteps.index(e) for e in file_extension]
@@ -404,10 +405,10 @@ class Exporter:
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
         header = (
-            '<?xml version="1.0"?>\n'
-            + '<VTKFile type="Collection" version="0.1" '
-            + 'byte_order="%s"%s>\n' % (b, c)
-            + "<Collection>\n"
+                '<?xml version="1.0"?>\n'
+                + '<VTKFile type="Collection" version="0.1" '
+                + 'byte_order="%s"%s>\n' % (b, c)
+                + "<Collection>\n"
         )
         o_file.write(header)
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
@@ -441,8 +442,8 @@ class Exporter:
                 # Constant subdomain data.
                 for dim in self._dims:
                     if (
-                        self._has_constant_subdomain_data
-                        and self.meshio_geom[dim] is not None
+                            self._has_constant_subdomain_data
+                            and self.meshio_geom[dim] is not None
                     ):
                         o_file.write(
                             fm
@@ -457,8 +458,8 @@ class Exporter:
                 # Constant interface data.
                 for dim in self._m_dims:
                     if (
-                        self._has_constant_interface_data
-                        and self.m_meshio_geom[dim] is not None
+                            self._has_constant_interface_data
+                            and self.m_meshio_geom[dim] is not None
                     ):
                         o_file.write(
                             fm
@@ -478,8 +479,9 @@ class Exporter:
     # Some auxiliary routines used in write_vtu()
 
     def _sort_and_unify_data(
-        self,
-        data=None,  # ignore type which is essentially Union[DataInput, list[DataInput]]
+            self,
+            data=None,
+            # ignore type which is essentially Union[DataInput, list[DataInput]]
     ) -> tuple[SubdomainData, InterfaceData]:
         """
         Preprocess data.
@@ -515,7 +517,7 @@ class Exporter:
 
         # Aux. method: Transform scalar- to vector-ranged values.
         def _toVectorFormat(
-            value: np.ndarray, grid: Union[pp.Grid, pp.MortarGrid]
+                value: np.ndarray, grid: Union[pp.Grid, pp.MortarGrid]
         ) -> np.ndarray:
             """
             Check whether the value array has the right dimension corresponding
@@ -539,7 +541,7 @@ class Exporter:
             # Convert to vectorial data if more data provided than grid cells available,
             # and the value array is not already in vectorial format
             if not value.size == grid.num_cells and not (
-                len(value.shape) > 1 and value.shape[1] == grid.num_cells
+                    len(value.shape) > 1 and value.shape[1] == grid.num_cells
             ):
                 value = np.reshape(value, (-1, grid.num_cells), "F")
 
@@ -548,7 +550,7 @@ class Exporter:
         # TODO rename pt to data_pt?
         # TODO typing
         def add_data_from_str(
-            data_pt, subdomain_data: dict, interface_data: dict
+                data_pt, subdomain_data: dict, interface_data: dict
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided by a key of a field - could be both subdomain
@@ -569,10 +571,10 @@ class Exporter:
                 has_key = False
 
                 def _add_data(
-                    key: str,
-                    grid: Union[pp.Grid, pp.MortarGrid],
-                    grid_data: dict,
-                    export_data: dict,
+                        key: str,
+                        grid: Union[pp.Grid, pp.MortarGrid],
+                        grid_data: dict,
+                        export_data: dict,
                 ) -> bool:
                     if pp.STATE in grid_data and key in grid_data[pp.STATE]:
                         # Fetch data and convert to vectorial format if suggested by the size
@@ -612,9 +614,9 @@ class Exporter:
                 return subdomain_data, interface_data, False
 
         def add_data_from_tuple_subdomains_str(
-            data_pt: tuple[list[pp.Grid], str],
-            subdomain_data: dict,
-            interface_data: dict,
+                data_pt: tuple[list[pp.Grid], str],
+                subdomain_data: dict,
+                interface_data: dict,
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (subdomains, key),
@@ -666,7 +668,7 @@ class Exporter:
 
         # Aux. method: Detect and convert data of form ([interfaces], "key").
         def add_data_from_tuple_interfaces_str(
-            data_pt, subdomain_data, interface_data
+                data_pt, subdomain_data, interface_data
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (interfaces, key),
@@ -719,7 +721,7 @@ class Exporter:
                 return subdomain_data, interface_data, False
 
         def add_data_from_tuple_subdomain_str_array(
-            data_pt, subdomain_data, interface_data
+                data_pt, subdomain_data, interface_data
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (sd, key, data),
@@ -753,7 +755,7 @@ class Exporter:
                 return subdomain_data, interface_data, False
 
         def add_data_from_tuple_interface_str_array(
-            data_pt, subdomain_data: dict, interface_data: dict
+                data_pt, subdomain_data: dict, interface_data: dict
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided as tuple (g, key, data),
@@ -790,7 +792,7 @@ class Exporter:
         # TODO can we unify to add_data_from_tuple_grid_str_array ?
 
         def add_data_from_tuple_str_array(
-            data_pt, subdomain_data, interface_data
+                data_pt, subdomain_data, interface_data
         ) -> tuple[dict, dict, bool]:
             """
             Check whether data is provided by a tuple (key, data),
@@ -917,11 +919,11 @@ class Exporter:
             self._constant_subdomain_data[(sd, "grid_dim")] = sd.dim * ones
             if "node_number" in sd_data:
                 self._constant_subdomain_data[(sd, "grid_node_number")] = (
-                    sd_data["node_number"] * ones
+                        sd_data["node_number"] * ones
                 )
             self._constant_subdomain_data[(sd, "is_mortar")] = 0 * ones
             self._constant_subdomain_data[(sd, "mortar_side")] = (
-                pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
+                    pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
             )
 
         # Define constant interface data related to the mesh
@@ -989,10 +991,10 @@ class Exporter:
                 side_grid_num_cells += grid.num_cells
 
     def _export_data_vtu(
-        self,
-        data: Union[SubdomainData, InterfaceData],
-        time_step: Optional[int],
-        **kwargs,
+            self,
+            data: Union[SubdomainData, InterfaceData],
+            time_step: Optional[int],
+            **kwargs,
     ) -> None:
         """
         Collect data associated to a single grid dimension
@@ -1099,10 +1101,10 @@ class Exporter:
         b = "LittleEndian" if sys.byteorder == "little" else "BigEndian"
         c = ' compressor="vtkZLibDataCompressor"'
         header = (
-            '<?xml version="1.0"?>\n'
-            + '<VTKFile type="Collection" version="0.1" '
-            + 'byte_order="%s"%s>\n' % (b, c)
-            + "<Collection>\n"
+                '<?xml version="1.0"?>\n'
+                + '<VTKFile type="Collection" version="0.1" '
+                + 'byte_order="%s"%s>\n' % (b, c)
+                + "<Collection>\n"
         )
         o_file.write(header)
         fm = '\t<DataSet group="" part="" file="%s"/>\n'
@@ -1128,8 +1130,8 @@ class Exporter:
             # Constant subdomain data.
             for dim in self._dims:
                 if (
-                    self._has_constant_subdomain_data
-                    and self.meshio_geom[dim] is not None
+                        self._has_constant_subdomain_data
+                        and self.meshio_geom[dim] is not None
                 ):
                     o_file.write(
                         fm
@@ -1143,8 +1145,8 @@ class Exporter:
             # Constant interface data.
             for dim in self._m_dims:
                 if (
-                    self._has_constant_interface_data
-                    and self.m_meshio_geom[dim] is not None
+                        self._has_constant_interface_data
+                        and self.m_meshio_geom[dim] is not None
                 ):
                     o_file.write(
                         fm
@@ -1185,7 +1187,7 @@ class Exporter:
             self.m_meshio_geom[dim] = self._export_grid(interface_side_grids, dim)
 
     def _export_grid(
-        self, grids: Iterable[pp.Grid], dim: int
+            self, grids: Iterable[pp.Grid], dim: int
     ) -> Union[None, Meshio_Geom]:
         """
         Wrapper function to export grids of dimension dim. Calls the
@@ -1248,7 +1250,6 @@ class Exporter:
 
         # Loop over all 1d grids
         for grid in grids:
-
             # Store node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T
@@ -1278,7 +1279,7 @@ class Exporter:
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _simplex_cell_to_nodes(
-        self, n: int, grid: pp.Grid, cells: Optional[np.ndarray] = None
+            self, n: int, grid: pp.Grid, cells: Optional[np.ndarray] = None
     ) -> np.ndarray:
         """
         Determine cell to node connectivity for a general n-simplex mesh.
@@ -1469,7 +1470,6 @@ class Exporter:
         # For each cell_type store the connectivity pattern cell_to_nodes for
         # the corresponding cells with ids from cell_id.
         for (cell_type, cell_block) in cell_to_nodes.items():
-
             # Meshio requires the keyword "polygon" for general polygons.
             # Thus, remove the number of nodes associated to polygons.
             cell_type_meshio_format = "polygon" if "polygon" in cell_type else cell_type
@@ -1558,7 +1558,6 @@ class Exporter:
 
         # Treat each 3d grid separately.
         for grid in grids:
-
             # Store node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T
@@ -1623,7 +1622,6 @@ class Exporter:
 
         # Treat each 3d grid separately.
         for grid in grids:
-
             # Store node coordinates
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T
@@ -1688,7 +1686,7 @@ class Exporter:
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _test_hex_meshio_format(
-        self, nodes: np.ndarray, cn_indices: np.ndarray
+            self, nodes: np.ndarray, cn_indices: np.ndarray
     ) -> bool:
         """Test whether the node numbering for each cell complies
         with the hardcoded numbering used by meshio, cf. documentation
@@ -1875,8 +1873,8 @@ class Exporter:
                     cell_to_faces[cell_type] = []
                 cell_to_faces[cell_type] += [
                     [
-                        fn_indices[fn_indptr[f] : fn_indptr[f + 1]]  # nodes
-                        for f in cf_indices[cf_indptr[c] : cf_indptr[c + 1]]  # faces
+                        fn_indices[fn_indptr[f]: fn_indptr[f + 1]]  # nodes
+                        for f in cf_indices[cf_indptr[c]: cf_indptr[c + 1]]  # faces
                     ]
                     for c in cells  # cells
                 ]
@@ -1899,10 +1897,10 @@ class Exporter:
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _write(
-        self,
-        fields: Iterable[Field],
-        file_name: str,
-        meshio_geom: Meshio_Geom,
+            self,
+            fields: Iterable[Field],
+            file_name: str,
+            meshio_geom: Meshio_Geom,
     ) -> None:
         """
         Interface to meshio for exporting cell data.
@@ -1948,7 +1946,7 @@ class Exporter:
         meshio.write(file_name, meshio_grid_to_export, binary=self._binary)
 
     def _append_folder_name(
-        self, folder_name: Optional[str] = None, name: str = ""
+            self, folder_name: Optional[str] = None, name: str = ""
     ) -> str:
         """
         Auxiliary method setting up potentially non-existent folder structure and
@@ -1975,11 +1973,11 @@ class Exporter:
         return os.path.join(folder_name, name)
 
     def _make_file_name(
-        self,
-        file_name: str,
-        time_step: Optional[int] = None,
-        dim: Optional[int] = None,
-        extension: str = ".vtu",
+            self,
+            file_name: str,
+            time_step: Optional[int] = None,
+            dim: Optional[int] = None,
+            extension: str = ".vtu",
     ) -> str:
         """
         Auxiliary method to setting up file name.
