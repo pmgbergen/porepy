@@ -3,6 +3,7 @@ information on the bucket, and pickling and unpickling of buckets.
 """
 import pickle
 import unittest
+import os
 
 import numpy as np
 import scipy.sparse as sps
@@ -333,6 +334,9 @@ def test_pickle_md_grid():
     mdg_read = pickle.load(open(fn, "rb"))
 
     test_utils.compare_md_grids(mdg, mdg_read)
+    
+    # Delete the temporary file
+    os.remove(fn)
 
 
 if __name__ == "__main__":
