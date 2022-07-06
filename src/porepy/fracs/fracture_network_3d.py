@@ -16,8 +16,8 @@ import numpy as np
 from scipy.spatial import ConvexHull
 
 import porepy as pp
-from porepy.fracs.plane_fracture import PlaneFracture
 from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter, Tags
+from porepy.fracs.plane_fracture import PlaneFracture
 from porepy.utils import setmembership, sort_points
 
 # Module-wide logger
