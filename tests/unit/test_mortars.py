@@ -19,14 +19,14 @@ The module contains the following groups of tests:
 
 """
 import pickle
-import pytest
 import unittest
 
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
-from tests import test_utils
 import porepy as pp
+from tests import test_utils
 
 
 class TestGridMappings1d(unittest.TestCase):

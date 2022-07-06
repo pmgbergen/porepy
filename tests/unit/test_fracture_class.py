@@ -64,6 +64,7 @@ class TestFractureGeometry(unittest.TestCase):
         self.assertTrue(np.allclose(c_known, f_1.center))
         self.assertTrue(np.allclose(np.cross(n_known, f_1.normal.T), 0))
 
+
 class TestFractureIndex(unittest.TestCase):
     """Test index attribute of Fracture.
 

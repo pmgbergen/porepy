@@ -29,7 +29,6 @@ breaks.
 
 """
 import unittest
-from tests.test_utils import permute_matrix_vector
 
 import numpy as np
 import scipy.sparse as sps
@@ -37,6 +36,7 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
 from porepy.numerics.mixed_dim.assembler_filters import ListFilter
+from tests.test_utils import permute_matrix_vector
 
 
 class TestAssembler(unittest.TestCase):

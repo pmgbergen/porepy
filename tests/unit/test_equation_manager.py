@@ -8,10 +8,11 @@ The tests focus on various assembly methods:
     * test_schur_complement: Assemble a subsystem, using a Schur complement reduction.
 
 """
-import pytest
 import numpy as np
-import porepy as pp
+import pytest
 import scipy.sparse as sps
+
+import porepy as pp
 
 
 class EquationManagerSetup:

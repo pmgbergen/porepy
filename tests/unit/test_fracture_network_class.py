@@ -5,11 +5,11 @@ Also test unitily function for generation of defalut domains.
 """
 
 import unittest
-from tests import test_utils
 
 import numpy as np
 
 import porepy as pp
+from tests import test_utils
 
 
 class TestFractureNetwork2d(unittest.TestCase):

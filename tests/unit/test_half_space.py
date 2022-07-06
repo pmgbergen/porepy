@@ -1,7 +1,7 @@
 """Tests of functions in pp.geometry.half_space.
 """
-import pytest
 import numpy as np
+import pytest
 
 from porepy.geometry import half_space
 from tests import test_utils

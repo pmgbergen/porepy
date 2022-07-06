@@ -6,7 +6,6 @@ Created on Sat Nov 11 17:25:01 2017
 from __future__ import division
 
 import unittest
-from tests import test_utils
 
 import numpy as np
 import scipy.sparse as sps
@@ -14,6 +13,7 @@ import scipy.sparse as sps
 from porepy.fracs import meshing
 from porepy.grids import refinement
 from porepy.grids.structured import TensorGrid
+from tests import test_utils
 
 
 class TestGridPerturbation(unittest.TestCase):
