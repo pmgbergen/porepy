@@ -645,7 +645,8 @@ def _intersection_segment_fracture(
         # internal). Point is not added, but tags are updated with the fracture
         # index.
         ind_loc = ind_point_at_node.nonzero()[0][0]  # type: ignore
-        tags[ind_loc] = np.append(tags[ind_loc], fracture.index)
+        if fracture.index is not None:
+            tags[ind_loc] = np.append(tags[ind_loc], fracture.index)
     else:
         # New (internal) point. Store point and tag
         segment_points = np.hstack((segment_points, isec_pt))
