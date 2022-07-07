@@ -6,6 +6,7 @@ import abc
 from typing import Generator, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 import porepy as pp
 from porepy.utils import setmembership
@@ -14,83 +15,76 @@ FractureType = TypeVar("FractureType", bound="Fracture")
 
 
 class Fracture(abc.ABC):
-    """Abstract Base class for representing a single fracture.
+    """Abstract base class for representing a single fracture.
 
-    This base class provides general functionalities independent of the dimension of
+    This base class provides general functionalities agnostic to the dimension of
     the fracture and the ambient dimension. It contains various utility methods,
     mainly intended for the use together with the FractureNetwork class.
 
     A fracture is defined by its `npt` vertices, stored in an `nd x npt` numpy-array,
-    where `nd` is the assumed ambient dimension.
-    The order/sorting of vertices has to be implemented explicitly.
+    where `nd` is the assumed ambient dimension. The order/sorting of vertices has to be
+    implemented explicitly.
 
-    Dimension-dependent routines are denoted by abstract methods.
+    Dimension-dependent routines are implemented as abstract methods.
 
     PorePy currently only supports planar and convex fractures fully.
     As a work-around, the fracture can be split into convex parts.
 
-    Attributes
-    ----------
-        pts : numpy.ndarray(nd x npt)
-            Fracture vertices. Will be stored in the implemented order
-        orig_pts : numpy.ndarray(nd x npt)
-            Original fracture vertices, kept in case the fracture geometry is modified
-            for some reason.
-        center : numpy.ndarray(nd x 1)
-            Fracture centroid.
-        normal : numpy.ndarray(ndx 1)
-            Normal vector
-        index : int
-            Index of fracture. Intended use in FractureNetwork.
-            Exact use is not clear (several fractures can be given same index), use with care.
+    Attributes:
+        points (ArrayLike, nd x npt): Fracture vertices, stored in the implemented order.
+        orig_pts (np.ndarray, nd x npt): Original fracture vertices, kept in case the fracture
+            geometry is modified.
+        center (np.ndarray, nd x 1): Fracture centroid.
+        normal (np.ndarray, nd x 1): Normal vector.
+        index (int): Index of fracture. Intended use in FractureNetwork. Exact use is not
+            clear (several fractures can be given same index), use it with care.
+
     """
 
     def __init__(
         self,
-        points: np.ndarray,
+        points: ArrayLike,
         index: Optional[int] = None,
         check_convexity: bool = False,
         sort_points: bool = True,
     ):
-        """The constructor sets the vertices of the fracture and computes the centroid and normals.
-         Optionally, checks for planarity and convexity are performed.
+        """Instatiation of the abstract fracture class.
 
-        Parameters
-        ----------
-            points : numpy.ndarray(nd x npt) , or similar
-                Vertices of new fracture. How many are necessary, depends on the dimension.
-            index  : int , optional
-                Index of fracture. Defaults to None.
-            check_convexity : bool , optional
-                Defaults to False.
-                If True, check if the given points are convex.
-                Can be skipped if it is known to be convex to save (substantial) time.
-            sort_points : bool , optional
-                Defaults to True.
-                If True, sorts the points according to the implemented order.
-                Convexity may play a role, thus if a fracture is known to be non-convex,
-                the parameter should be False.
+        The constructor sets the vertices of the fracture and computes the centroid and
+        normals. Optionally, checks for planarity and convexity are performed.
 
-        Raises
-        ------
-        AssertionError
-            Asserts the fracture is planar
-            (PorePy currently only fully supports planar fractures).
-        AssertionError
-            (Optionally) Asserts the fracture is convex
-            (PorePy currently only fully supports convex fractures).
+        Args:
+            points (ArrayLike, nd x npt): Vertices of new fracture. How many are necessary,
+                depends on the dimension. Note that `points` is an np.ndarray or any suitable
+                object that can be converted into an np.ndarray via np.asarray(`points`). See,
+                e.g.: https://numpy.org/devdocs/reference/typing.html#arraylike
+            index (int, optional): Index of fracture. Defaults to None.
+            check_convexity (bool, optional):  Defaults to False. If True, check if the
+                given points are convex. Can be skipped if it is known to be convex to save
+                (substantial) time.
+            sort_points (bool , optional): Defaults to True. If True, sorts the points
+                according to the implemented order. Convexity may play a role, thus if a
+                fracture is known to be non-convex, the parameter should be False.
+
+        Raises:
+            AssertionError: Asserts the fracture is planar (PorePy currently only fully
+                supports planar fractures).
+            AssertionError: (Optionally) Asserts the fracture is convex (PorePy currently
+                only fully supports convex fractures).
+
         """
-
-        self.pts = np.asarray(points, dtype=np.float64)
+        self.pts = np.asarray(
+            points, dtype=np.float64
+        )  # note that `points` will mutate
         self._check_pts()
 
-        # Ensure the points are sorted
+        # Ensure that the points are sorted
         if sort_points:
             self.sort_points()
 
         self.normal: np.ndarray = self.compute_normal()
         self.center: np.ndarray = self.compute_centroid()
-        self.orig_pts = self.pts.copy()
+        self.orig_pts: np.ndarray = self.pts.copy()
         self.index = index
 
         assert self.is_planar(), "Points define non-planar fracture"
@@ -103,7 +97,6 @@ class Fracture(abc.ABC):
 
     def __str__(self) -> str:
         """The str-representation displays the number of points, normal and centroid."""
-
         s = "Points: \n"
         s += str(self.pts) + "\n"
         s += "Center: \n" + str(self.center) + "\n"
@@ -113,51 +106,43 @@ class Fracture(abc.ABC):
     def __eq__(self, other) -> bool:
         """Equality is defined as two fractures having the same index.
 
-        Parameters
-        ----------
-            other
-                Fracture to be compared to self.
+        Args:
+            other: Fracture to be compared to self.
 
-        Notes
-        -----
+        Note:
             There are issues with this, behavior may change in the future.
+
         """
         return self.index == other.index
 
     def set_index(self, i: int):
         """Set index of this fracture.
 
-        TODO this is obsolete since the attribute `index` can be accessed directly
+        TODO: this is obsolete since the attribute `index` can be accessed directly
 
-        Parameters
-        ----------
-            i
-                Index.
+        Args:
+            i (int): Index.
+
         """
         self.index = i
 
     def points(self) -> Generator[np.ndarray, None, None]:
-        """
-        Generator over the vertices of the fracture.
+        """Generator over the vertices of the fracture.
 
-        Yields
-        ------
-        numpy.ndarray(nd x 1)
-            Fracture vertex
+        Yields:
+            (np.ndarray, nd x 1): Fracture vertex.
+
         """
         for i in range(self.pts.shape[1]):
             yield self.pts[:, i].reshape((-1, 1))
 
     def segments(self) -> Generator[np.ndarray, None, None]:
-        """
-        Generator over the segments according to the currently applied order.
+        """Generator over the segments according to the currently applied order.
 
-        Yields
-        ------
-        numpy.ndarray(nd x 2)
-            polygon segment
-        """
+        Yields:
+            (np.ndarray, nd x 2): Polygon segment.
 
+        """
         sz = self.pts.shape[1]
         for i in range(sz):
             yield self.pts[:, np.array([i, i + 1]) % sz]
@@ -165,20 +150,15 @@ class Fracture(abc.ABC):
     def is_vertex(self, p, tol: float = 1e-4) -> Tuple[bool, Union[int, None]]:
         """Check whether a given point is a vertex of the fracture.
 
-        Parameters
-        ----------
-            p : numpy.ndarray(nd x 1)
-                Point to check
-            tol : float
-                Defaults to 1e-4.
-                Tolerance of point accuracy.
+        Args:
+            p (np.ndarray, nd x 1):  Point to check.
+            tol (float): Tolerance of point accuracy. Defaults to 1e-4.
 
-        Returns
-        -------
-        Tuple[bool, idx]
-            The bool is True, if `p` is a vertex of this fracture, false otherwise.
-            If `p` is a vertex of this fracture, `idx` is an integer,
-            representing the of the identical vertex. Otherwise, `idx` is None.
+        Returns:
+            Tuple[bool, idx]: The bool is True, if `p` is a vertex of this fracture,
+                false otherwise. If `p` is a vertex of this fracture, `idx` is an integer,
+                representing the of the identical vertex. Otherwise, `idx` is None.
+
         """
         p = p.reshape((-1, 1))
         ap = np.hstack((p, self.pts))
@@ -206,28 +186,20 @@ class Fracture(abc.ABC):
         turned off to speed up simulations (the test uses sympy, which turns
         out to be slow in many cases).
 
-        Parameters
-        ----------
-        p : np.ndarray(nd x n)
-            Points to be added
-        check_convexity : bool , optional
-            Defaults to true.
-            Verify that the polygon is convex.
-        tol : float , optional
-            Defaults to 1e-4.
-            Tolerance used to check if the point already exists.
-        enforce_pt_tol : float , optional
-            Defaults to None.
-            If not None, enforces a maximal distance between points by removing points
-            failing that criterion.
+        Args:
+            p (np.ndarray, nd x n): Points to be added.
+            check_convexity (bool, optional): Verify that the polygon is convex.
+                Defaults to true.
+            tol (float , optional): Tolerance used to check if the point already exists.
+                Defaults to 1e-4.
+            enforce_pt_tol (float, optional): Defaults to None. If not None, enforces a
+                maximal distance between points by removing points failing that criterion.
 
-        Returns
-        -------
-        bool
-            True, if the resulting polygon is planar, False otherwise.
-            If the argument `check_convexity` is True, checks for planarity *AND* convexity
+        Returns:
+            bool : True, if the resulting polygon is planar, False otherwise. If the
+                argument `check_convexity` is True, checks for planarity *AND* convexity
+
         """
-
         to_enforce = np.hstack(
             (
                 np.zeros(self.pts.shape[1], dtype=bool),
@@ -254,21 +226,15 @@ class Fracture(abc.ABC):
         else:
             return self.is_planar()
 
-    def remove_points(
-        self, ind: Union[np.ndarray, List[int]], keep_orig: bool = False
-    ) -> None:
+    def remove_points(self, ind: Union[np.ndarray, List[int]], keep_orig: bool = False):
         """Remove points from the fracture definition.
 
-        Parameters
-        ----------
-            ind : numpy.ndarray , or similar
-                Indices of points to remove.
-            keep_orig : bool , optional
-                Defaults to False.
-                If True, keeps the original points in the attribute :attr:`~Fracture.orig_pts`.
+        Args:
+            ind (np.ndarray or list): Numpy array or list of indices of points to be removed.
+            keep_orig (bool, optional): Defaults to False. If True, keeps the original
+                points in the attribute :attr:`~Fracture.orig_pts`.
 
         """
-
         self.pts = np.delete(self.pts, ind, axis=1)
 
         if not keep_orig:
@@ -277,45 +243,42 @@ class Fracture(abc.ABC):
     def copy(self: FractureType) -> FractureType:
         """Return a copy of the fracture with the current vertices.
 
-        Notes
-        -----
-            The original points (as given when the fracture was initialized)
-            will *not* be preserved.
+        Note:
+            The original `points` (as given when the fracture was initialized) will NOT be
+            preserved.
 
-        Returns
-        -------
-            Fracture with the same points.
+        Returns:
+            FractureType: Fracture with the same points.
+
         """
         # deep copy points since mutable
         p = np.copy(self.pts)
         # TODO: Consider adding optional index parameter to this method.
         return type(self)(p, index=self.index)
 
-    ###########################################################################################
-    ### Dimension-dependent, abstract methods
-    ###########################################################################################
-
+    # Below are the dimension-dependent abstract methods
     @abc.abstractmethod
     def sort_points(self) -> np.ndarray:
         """Abstract method to sort the vertices as needed for geometric algorithms.
 
-        Returns
-        -------
-        numpy.ndarray(dtype=int)
-            The indices corresponding to the sorting.
+        Returns:
+            np.ndarray(dtype=int): Indices corresponding to the sorting.
+
         """
         pass
 
     @abc.abstractmethod
     def local_coordinates(self) -> np.ndarray:
-        """Abstract method for computing the vertex coordinates in a local system and its
+        """Abstract method for computing the local coordinates.
+
+        The compuation is performed on the vertex coordinates in a local system and its
         local dimension `d`.
+
         For now, `d` is expected to be `nd` - 1, i.e. the fracture to be of co-dimension 1.
 
-        Returns
-        -------
-        numpy.ndarray((nd-1) x npt)
-            The coordinates of the vertices in local dimensions.
+        Returns:
+            np.ndarray((nd - 1) x npt) : Coordinates of the vertices in local dimensions.
+
         """
         pass
 
@@ -323,10 +286,9 @@ class Fracture(abc.ABC):
     def is_convex(self) -> bool:
         """Abstract method for implementing a convexity check.
 
-        Returns
-        -------
-        bool
-            True if the fracture is convex, False otherwise.
+        Returns:
+            bool: True if the fracture is convex, False otherwise.
+
         """
         pass
 
@@ -334,23 +296,22 @@ class Fracture(abc.ABC):
     def is_planar(self, tol: float = 1e-4) -> bool:
         """Abstract method to check if the fracture is planar.
 
-        Parameters
-        ----------
-            tol : float
-                Tolerance for non-planarity. Treated as an absolute quantity
+        Args:
+            tol (float): Tolerance for non-planarity. Treated as an absolute quantity
                 (no scaling with fracture extent).
 
-        Returns
-        -------
-        bool
-            True if the fracture is planar, False otherwise.
+        Returns:
+            bool: True if the fracture is planar, False otherwise.
+
         """
         pass
 
     @abc.abstractmethod
     def compute_centroid(self) -> np.ndarray:
         """Abstract method for computing and returning the centroid of the fracture.
-        Convexity is assumed.
+
+        Note that Convexity is assumed.
+
         """
         pass
 
@@ -361,9 +322,10 @@ class Fracture(abc.ABC):
 
     @abc.abstractmethod
     def _check_pts(self) -> None:
-        """Abstract method for checking consistency of self.pts.
+        """Abstract method for checking consistency of `self.pts`.
 
         Raises:
             ValueError if self.pts violates some assumptions (e.g. shape).
+
         """
         pass
