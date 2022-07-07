@@ -109,6 +109,7 @@ def elliptic_network_3d_from_csv(file_name, has_domain=True, tol=1e-4, degrees=F
     tol
         Tolerance for geometry related methods (snapping etc.) of FractureNetwork3d.
         Defaults to 1e-4.
+    # TODO document argument
     degrees
 
     Returns
