@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import abc
-from typing import Generator, Optional, Tuple, TypeVar, Union
+from typing import Generator, Optional, Tuple, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
 
 from porepy.utils import setmembership
-
 
 
 class Fracture(abc.ABC):
@@ -166,7 +165,7 @@ class Fracture(abc.ABC):
             occurrences = np.where(ind == ind[0])[0]
             return True, (occurrences[1] - 1)
 
-    def copy(self) -> pp.Fracture:
+    def copy(self) -> Fracture:
         """Return a copy of the fracture with the current vertices.
 
         Note:
@@ -177,10 +176,7 @@ class Fracture(abc.ABC):
             FractureType: Fracture with the same points.
 
         """
-        # deep copy points since mutable
-        p = np.copy(self.pts)
-        # TODO: Consider adding optional index parameter to this method.
-        return type(self)(p, index=self.index)
+        return type(self)(self.pts.copy(), index=self.index)
 
     # Below are the dimension-dependent abstract methods
     @abc.abstractmethod

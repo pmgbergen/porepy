@@ -88,7 +88,7 @@ class FractureNetwork3d(object):
 
         if fractures is not None:
             for f in fractures:
-                self._fractures.append(f.copy())
+                self._fractures.append(f)
 
         for i, f in enumerate(self._fractures):
             f.set_index(i)
