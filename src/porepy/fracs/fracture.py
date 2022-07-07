@@ -10,7 +10,6 @@ from numpy.typing import ArrayLike
 
 from porepy.utils import setmembership
 
-FractureType = TypeVar("FractureType", bound="Fracture")
 
 
 class Fracture(abc.ABC):
