@@ -167,7 +167,7 @@ class Fracture(abc.ABC):
             occurrences = np.where(ind == ind[0])[0]
             return True, (occurrences[1] - 1)
 
-    def copy(self: FractureType) -> FractureType:
+    def copy(self) -> pp.Fracture:
         """Return a copy of the fracture with the current vertices.
 
         Note:
