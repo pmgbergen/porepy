@@ -226,5 +226,5 @@ def test_add_one_well_with_matrix() -> None:
             np.linalg.norm(known),
             np.linalg.norm(intf.mortar_to_primary_int().A.flatten()),
             rel_tol=1e-5,
-            abs_tol=1e-8,
+            atol=1e-8,
         )
