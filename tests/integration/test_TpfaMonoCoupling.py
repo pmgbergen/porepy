@@ -43,7 +43,9 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         data_key = "flow"
         tpfa = pp.Tpfa(data_key)
         coupler = pp.FluxPressureContinuity(data_key, tpfa)
-        assembler = test_utils.setup_flow_assembler(mdg, tpfa, data_key, coupler=coupler)
+        assembler = test_utils.setup_flow_assembler(
+            mdg, tpfa, data_key, coupler=coupler
+        )
         test_utils.solve_and_distribute_pressure(mdg, assembler)
 
         # test pressure

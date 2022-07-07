@@ -334,7 +334,7 @@ def test_pickle_md_grid():
     mdg_read = pickle.load(open(fn, "rb"))
 
     test_utils.compare_md_grids(mdg, mdg_read)
-    
+
     # Delete the temporary file
     os.remove(fn)
 

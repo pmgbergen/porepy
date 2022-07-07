@@ -67,5 +67,6 @@ def remove_plots(fn):
                 continue
             f.write(line)
 
+
 if __name__ == "__main__":
     run_all()
