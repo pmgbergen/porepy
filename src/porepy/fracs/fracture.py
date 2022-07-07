@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import abc
-from typing import Generator, List, Optional, Tuple, TypeVar, Union
+from typing import Generator, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
 
-import porepy as pp
 from porepy.utils import setmembership
 
 FractureType = TypeVar("FractureType", bound="Fracture")
@@ -136,7 +135,7 @@ class Fracture(abc.ABC):
         """Generator over the segments according to the currently applied order.
 
         Yields:
-            (np.ndarray, nd x 2): Polygon segment.
+            (np.ndarray, nd x 2): Fracture segment.
 
         """
         sz = self.pts.shape[1]
@@ -167,74 +166,6 @@ class Fracture(abc.ABC):
         else:
             occurrences = np.where(ind == ind[0])[0]
             return True, (occurrences[1] - 1)
-
-    def add_points(
-        self,
-        p: np.ndarray,
-        check_convexity: bool = True,
-        tol: float = 1e-4,
-        enforce_pt_tol: Optional[float] = None,
-    ) -> bool:
-        """Add points to the polygon with the implemented sorting enforced.
-
-        Always run a test to check that the points are still planar.
-        By default, a check of convexity is also performed, however, this can be
-        turned off to speed up simulations (the test uses sympy, which turns
-        out to be slow in many cases).
-
-        Args:
-            p (np.ndarray, nd x n): Points to be added.
-            check_convexity (bool, optional): Verify that the polygon is convex.
-                Defaults to true.
-            tol (float , optional): Tolerance used to check if the point already exists.
-                Defaults to 1e-4.
-            enforce_pt_tol (float, optional): Defaults to None. If not None, enforces a
-                maximal distance between points by removing points failing that criterion.
-
-        Returns:
-            bool : True, if the resulting polygon is planar, False otherwise. If the
-                argument `check_convexity` is True, checks for planarity *AND* convexity
-
-        """
-        to_enforce = np.hstack(
-            (
-                np.zeros(self.pts.shape[1], dtype=bool),
-                np.ones(p.shape[1], dtype=bool),
-            )
-        )
-        self.pts = np.hstack((self.pts, p))
-        self.pts, _, _ = setmembership.unique_columns_tol(self.pts, tol=tol)
-
-        # Sort points to counter-clockwise
-        mask = self.sort_points()
-
-        if enforce_pt_tol is not None:
-            to_enforce = np.where(to_enforce[mask])[0]
-            dist = pp.distances.pointset(self.pts)
-            dist /= np.amax(dist)
-            np.fill_diagonal(dist, np.inf)
-            mask = np.where(dist < enforce_pt_tol)[0]
-            mask = np.setdiff1d(mask, to_enforce, assume_unique=True)
-            self.remove_points(mask)
-
-        if check_convexity:
-            return self.is_convex() and self.is_planar(tol)
-        else:
-            return self.is_planar()
-
-    def remove_points(self, ind: Union[np.ndarray, List[int]], keep_orig: bool = False):
-        """Remove points from the fracture definition.
-
-        Args:
-            ind (np.ndarray or list): Numpy array or list of indices of points to be removed.
-            keep_orig (bool, optional): Defaults to False. If True, keeps the original
-                points in the attribute :attr:`~Fracture.orig_pts`.
-
-        """
-        self.pts = np.delete(self.pts, ind, axis=1)
-
-        if not keep_orig:
-            self.orig_pts = self.pts
 
     def copy(self: FractureType) -> FractureType:
         """Return a copy of the fracture with the current vertices.
