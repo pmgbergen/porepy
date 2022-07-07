@@ -87,10 +87,6 @@ class Fracture(abc.ABC):
         self.orig_pts: np.ndarray = self.pts.copy()
         self.index = index
 
-        assert self.is_planar(), "Points define non-planar fracture"
-        if check_convexity:
-            assert self.is_convex(), "Points form non-convex polygon"
-
     def __repr__(self) -> str:
         """Representation is same as str-representation."""
         return self.__str__()
@@ -278,30 +274,6 @@ class Fracture(abc.ABC):
 
         Returns:
             np.ndarray((nd - 1) x npt) : Coordinates of the vertices in local dimensions.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def is_convex(self) -> bool:
-        """Abstract method for implementing a convexity check.
-
-        Returns:
-            bool: True if the fracture is convex, False otherwise.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def is_planar(self, tol: float = 1e-4) -> bool:
-        """Abstract method to check if the fracture is planar.
-
-        Args:
-            tol (float): Tolerance for non-planarity. Treated as an absolute quantity
-                (no scaling with fracture extent).
-
-        Returns:
-            bool: True if the fracture is planar, False otherwise.
 
         """
         pass

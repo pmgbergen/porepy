@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy as np
+from numpy.typing import ArrayLike
 from sympy.geometry import Point, Polygon
 
 import porepy as pp
@@ -18,6 +19,19 @@ class PlaneFracture(Fracture):
     Non-convex fractures can be initialized, but geometry processing (computation
     of intersections etc.) is not supported for non-convex geometries.
     """
+
+    def __init__(
+        self,
+        points: ArrayLike,
+        index: Optional[int] = None,
+        check_convexity: bool = False,
+        sort_points: bool = True,
+    ):
+        super().__init__(points,index,check_convexity,sort_points)
+
+        assert self.is_planar(), "Points define non-planar fracture"
+        if check_convexity:
+            assert self.is_convex(), "Points form non-convex polygon"
 
     def sort_points(self) -> np.ndarray:
         """Ensure that the points are sorted in a counter-clockwise (CCW) order.

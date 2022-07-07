@@ -32,31 +32,6 @@ class LineFracture(Fracture):
         """
         return np.reshape([0, self.length()], (1, 2))
 
-    def is_convex(self) -> bool:
-        """Method for affirming convexity. 1D fractures are made up by two points
-        and are thus always convex.
-
-        Returns
-        -------
-        bool
-            True
-        """
-        return True
-
-    def is_planar(self, tol: float = 1e-4) -> bool:
-        """Method for affirming planar fracture. 1D fractures are made up by two
-        points and are thus always planar.
-
-        Parameters:
-            tol:
-                Tolerance for non-planarity. Treated as an absolute quantity
-                (no scaling with fracture extent). Unused for 1D fractures.
-
-        Returns:
-            True
-        """
-        return True
-
     def compute_centroid(self) -> np.ndarray:
         """Method for computing the centroid of the fracture.
 
