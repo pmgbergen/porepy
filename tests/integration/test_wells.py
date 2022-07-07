@@ -11,7 +11,6 @@ well implementation should also be revisited.
 """
 import numpy as np
 import pytest
-import math
 
 import porepy as pp
 
