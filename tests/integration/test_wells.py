@@ -225,6 +225,6 @@ def test_add_one_well_with_matrix() -> None:
         assert np.isclose(
             np.linalg.norm(known),
             np.linalg.norm(intf.mortar_to_primary_int().A.flatten()),
-            rel_tol=1e-5,
+            rtol=1e-5,
             atol=1e-8,
         )
