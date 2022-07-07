@@ -223,6 +223,9 @@ def test_add_one_well_with_matrix() -> None:
         )
 
         # Since the generation of .msh files is platform-dependent, only norm values are compared
-        assert math.isclose(np.linalg.norm(known),
-                     np.linalg.norm(intf.mortar_to_primary_int().A.flatten()),
-                     rel_tol=1e-5, abs_tol=1e-8)
+        assert math.isclose(
+            np.linalg.norm(known),
+            np.linalg.norm(intf.mortar_to_primary_int().A.flatten()),
+            rel_tol=1e-5,
+            abs_tol=1e-8,
+        )

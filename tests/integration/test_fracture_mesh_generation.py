@@ -297,7 +297,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
         as three intersection lines that coincide.
         """
         f_1 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        f_2 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
+        f_2 = pp.PlaneFracture(
+            np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]])
+        )
         f_3 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -392,7 +394,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
         for the other.
         """
         f_1 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
-        f_2 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [0.3, 0.7, 0.7, 0.3], [0, 0, 1, 1]]))
+        f_2 = pp.PlaneFracture(
+            np.array([[0, 0, 0, 0], [0.3, 0.7, 0.7, 0.3], [0, 0, 1, 1]])
+        )
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
@@ -416,7 +420,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
         Two fractures sharing what is a part of segments for both.
         """
         f_1 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
-        f_2 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [0.5, 1.5, 1.5, 0.5], [0, 0, 1, 1]]))
+        f_2 = pp.PlaneFracture(
+            np.array([[0, 0, 0, 0], [0.5, 1.5, 1.5, 0.5], [0, 0, 1, 1]])
+        )
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
 
@@ -437,7 +443,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
     def test_T_intersection_within_plane(self, **kwargs):
         f_1 = pp.PlaneFracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
-        f_2 = pp.PlaneFracture(np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 0.9, 0.0]]).T)
+        f_2 = pp.PlaneFracture(
+            np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 0.9, 0.0]]).T
+        )
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         # This test, when used with certain versions of gmsh (<2.15?) gives
@@ -463,7 +471,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
     def test_T_intersection_one_outside_plane(self, **kwargs):
         f_1 = pp.PlaneFracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
-        f_2 = pp.PlaneFracture(np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 1.9, 0.0]]).T)
+        f_2 = pp.PlaneFracture(
+            np.array([[0.5, 0.5, 1], [0.5, 0.5, 0], [0.5, 1.9, 0.0]]).T
+        )
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -485,7 +495,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
     def test_T_intersection_both_outside_plane(self, **kwargs):
         f_1 = pp.PlaneFracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
-        f_2 = pp.PlaneFracture(np.array([[0.5, 0.5, 1], [0.5, -0.5, 0], [0.5, 1.9, 0.0]]).T)
+        f_2 = pp.PlaneFracture(
+            np.array([[0.5, 0.5, 1], [0.5, -0.5, 0], [0.5, 1.9, 0.0]]).T
+        )
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -507,7 +519,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
     def test_T_intersection_both_on_boundary(self, **kwargs):
         f_1 = pp.PlaneFracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
-        f_2 = pp.PlaneFracture(np.array([[0.0, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T)
+        f_2 = pp.PlaneFracture(
+            np.array([[0.0, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T
+        )
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -529,7 +543,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
     def test_T_intersection_one_boundary_one_outside(self, **kwargs):
         f_1 = pp.PlaneFracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
-        f_2 = pp.PlaneFracture(np.array([[-0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T)
+        f_2 = pp.PlaneFracture(
+            np.array([[-0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T
+        )
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -551,7 +567,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
 
     def test_T_intersection_one_boundary_one_inside(self, **kwargs):
         f_1 = pp.PlaneFracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
-        f_2 = pp.PlaneFracture(np.array([[0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T)
+        f_2 = pp.PlaneFracture(
+            np.array([[0.2, 0.5, 0], [1, 0.5, 0], [0.5, 0.5, 1.0]]).T
+        )
 
         domain = {"xmin": -1, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -1, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -603,7 +621,9 @@ class TestDFMMeshGeneration(unittest.TestCase):
         }
 
         f_1 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
-        f_2 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0.3, 0.5, 0.5, 0.3], [0, 0, 1, 1]]))
+        f_2 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0.3, 0.5, 0.5, 0.3], [0, 0, 1, 1]])
+        )
 
         network = pp.FractureNetwork3d([f_1, f_2], domain=domain)
         network.mesh(mesh_args)
@@ -743,7 +763,9 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         as three intersection lines that coincide.
         """
         f_1 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        f_2 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
+        f_2 = pp.PlaneFracture(
+            np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]])
+        )
         f_3 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -769,7 +791,9 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         as three intersection lines that coincide.
         """
         f_1 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        f_2 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
+        f_2 = pp.PlaneFracture(
+            np.array([[-1, 1, 1, -1], [-1, 1, 1, -1], [-1, -1, 1, 1]])
+        )
         f_3 = pp.PlaneFracture(np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-1, -1, 1, 1]]))
         domain = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
@@ -803,7 +827,9 @@ class TestDFMMeshGenerationWithConstraints(TestDFMMeshGeneration):
         # a fracture
         f_1 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]))
         # a fracture that abuts the first fracture
-        f_2 = pp.PlaneFracture(np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]]))
+        f_2 = pp.PlaneFracture(
+            np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
+        )
         # a fracture, to be constraint, that intersects in the same line
         f_3 = pp.PlaneFracture(np.array([[0, 1, 1, 0], [0, 0, 1, 1], [-1, 1, 1, -1]]))
 
@@ -926,7 +952,9 @@ class TestMeshGenerationFractureHitsBoundary(unittest.TestCase):
         One fracture, intersected by two other (but no point intersections)
         """
 
-        f_1 = pp.PlaneFracture(np.array([[-2, 2, 2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]]))
+        f_1 = pp.PlaneFracture(
+            np.array([[-2, 2, 2, -2], [-2, 2, 2, -2], [-2, -2, 2, 2]])
+        )
 
         mesh_args, domain = self.kwarguments_and_domain()
         network = pp.FractureNetwork3d([f_1], domain)
@@ -940,7 +968,9 @@ class TestMeshGenerationFractureHitsBoundary(unittest.TestCase):
         network.mesh(mesh_args)
 
     def test_one_fracture_touches_boundary_and_corner(self):
-        f_1 = pp.PlaneFracture(np.array([[-2, 2, 2, -2], [-2, 1, 1, -2], [-2, -2, 2, 2]]))
+        f_1 = pp.PlaneFracture(
+            np.array([[-2, 2, 2, -2], [-2, 1, 1, -2], [-2, -2, 2, 2]])
+        )
         mesh_args, domain = self.kwarguments_and_domain()
         network = pp.FractureNetwork3d([f_1], domain)
         network.mesh(mesh_args)
@@ -948,16 +978,26 @@ class TestMeshGenerationFractureHitsBoundary(unittest.TestCase):
 
 class TestDFNMeshGeneration(unittest.TestCase):
     def test_conforming_two_fractures(self):
-        f_1 = pp.PlaneFracture(np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T)
-        f_2 = pp.PlaneFracture(np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]).T)
+        f_1 = pp.PlaneFracture(
+            np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T
+        )
+        f_2 = pp.PlaneFracture(
+            np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]).T
+        )
         network = pp.FractureNetwork3d([f_1, f_2])
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network.mesh(mesh_args, dfn=True)
 
     def test_conforming_three_fractures(self):
-        f_1 = pp.PlaneFracture(np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T)
-        f_2 = pp.PlaneFracture(np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]).T)
-        f_3 = pp.PlaneFracture(np.array([[0, -1, -1], [0, 1, -1], [0, 1, 1], [0, -1, 1]]).T)
+        f_1 = pp.PlaneFracture(
+            np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T
+        )
+        f_2 = pp.PlaneFracture(
+            np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]).T
+        )
+        f_3 = pp.PlaneFracture(
+            np.array([[0, -1, -1], [0, 1, -1], [0, 1, 1], [0, -1, 1]]).T
+        )
         network = pp.FractureNetwork3d([f_1, f_2, f_3])
         mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
         network.mesh(mesh_args, dfn=True)
