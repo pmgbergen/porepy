@@ -50,14 +50,16 @@ class Fracture(abc.ABC):
         normals. Optionally, checks for planarity and convexity are performed.
 
         Args:
-            points (ArrayLike, nd x npt): Vertices of new fracture. How many are necessary,
-                depends on the dimension. Note that `points` is an np.ndarray or any suitable
-                object that can be converted into an np.ndarray via np.asarray(`points`). See,
-                e.g.: https://numpy.org/devdocs/reference/typing.html#arraylike
-            index (int, optional): Index of fracture. Defaults to None.
-            sort_points (bool , optional): Defaults to True. If True, sorts the points
-                according to the implemented order. Convexity may play a role, thus if a
-                fracture is known to be non-convex, the parameter should be False.
+            points (ArrayLike): Vertices of new fracture.
+                Shape of array is (nd, npt).
+                How many vertices are necessary depends on the dimension. Note that `points`
+                can be an np.ndarray or any suitable object that can be converted into an
+                np.ndarray via np.asarray(`points`).
+            index (int, optional): Index of fracture. Default is None.
+            sort_points (bool , optional): If True, sorts the points according to the
+                implemented order. Defaults to True.
+                Convexity may play a role, thus if a fracture is known to be non-convex,
+                the parameter should be False.
 
         Raises:
             AssertionError: Asserts the fracture is planar (PorePy currently only fully
