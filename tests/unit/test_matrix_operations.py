@@ -3,10 +3,11 @@ Tests for matrix operations for zeroing rows/columns, efficient slicing, stackin
 merging and construction from arrays.
 """
 import unittest
-import pytest
 
 import numpy as np
+import pytest
 import scipy.sparse as sps
+
 import porepy as pp
 
 

@@ -1,13 +1,15 @@
 """ Various tests of MixedDimensionalGrid functionality. Covers getters and setters, topological
 information on the bucket, and pickling and unpickling of buckets.
 """
-import unittest
 import pickle
+import unittest
+import os
 
 import numpy as np
-from tests import test_utils
-import porepy as pp
 import scipy.sparse as sps
+
+import porepy as pp
+from tests import test_utils
 
 
 class MockGrid(pp.CartGrid):
@@ -323,15 +325,18 @@ class TestMixedDimensionalGrid(unittest.TestCase):
     # ------------ Tests for removers
 
 
-def test_pickle_bucket():
+def test_pickle_md_grid():
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    gb = pp.meshing.cart_grid(fracs, [2, 2])
+    mdg = pp.meshing.cart_grid(fracs, [2, 2])
 
-    fn = "tmp.grid_bucket"
-    pickle.dump(gb, open(fn, "wb"))
-    gb_read = pickle.load(open(fn, "rb"))
+    fn = "tmp.md_grid"
+    pickle.dump(mdg, open(fn, "wb"))
+    mdg_read = pickle.load(open(fn, "rb"))
 
-    test_utils.compare_grid_buckets(gb, gb_read)
+    test_utils.compare_md_grids(mdg, mdg_read)
+
+    # Delete the temporary file
+    os.remove(fn)
 
 
 if __name__ == "__main__":

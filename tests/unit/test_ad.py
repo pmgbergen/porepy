@@ -9,14 +9,13 @@ Tests for components of the Ad machinery. Specifically, the tests cover:
 """
 
 import unittest
-import pytest
 
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
-from porepy.numerics.ad.forward_mode import Ad_array
 import porepy as pp
-
+from porepy.numerics.ad.forward_mode import Ad_array
 
 ## Tests of the Ad grid operators.
 

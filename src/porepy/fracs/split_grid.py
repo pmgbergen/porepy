@@ -106,8 +106,9 @@ def split_fractures(
 
         gl_2_gh_nodes = []
         for g in low_dim_neigh:
-            source = np.atleast_2d(g.global_point_ind).astype(np.int32)
-            target = np.atleast_2d(gh.global_point_ind).astype(np.int32)
+            # Enforce 64 bit to comply with ismember_rows. Was np.int32
+            source = np.atleast_2d(g.global_point_ind).astype(np.int64)
+            target = np.atleast_2d(gh.global_point_ind).astype(np.int64)
             _, mapping = setmembership.ismember_rows(source, target)
             gl_2_gh_nodes.append(mapping)
 
@@ -128,7 +129,7 @@ def split_faces(gh, face_cells):
     add an extra face to each fracture face. Note that the original
     and new fracture face will share the same nodes. However, the
     cell_faces connectivity is updated such that the fractures are
-    be internal boundaries (cells on left side of fractures are not
+    internal boundaries (cells on left side of fractures are not
     connected to cells on right side of fracture and vise versa).
     The face_cells are updated such that the copy of a face also
     map to the same lower-dim cell.
@@ -154,9 +155,9 @@ def split_faces(gh, face_cells):
         flag = update_cell_connectivity(gh, face_id, n, x0)
 
         if flag == 0:
-            # if flag== 0 we added left and right faces (if it is -1 no faces
-            # was added and we don't have left and right face pairs.
-            # we now add the new faces to the frac_pair array.
+            # if flag== 0 we added left and right faces (if it is -1, no faces
+            # was added, so we don't have left and right face pairs).
+            # We now add the new faces to the frac_pair array.
             left = face_id
             right = np.arange(gh.num_faces - face_id.size, gh.num_faces)
             gh.frac_pairs = np.hstack((gh.frac_pairs, np.vstack((left, right))))
@@ -165,19 +166,20 @@ def split_faces(gh, face_cells):
 
 
 def split_specific_faces(
-    gh: pp.Grid,
+    sd_primary: pp.Grid,
     face_cell_list: list[sps.spmatrix],
     faces: np.ndarray,
     cells: np.ndarray,
-    gl_ind: int,
+    secondary_ind: int,
     non_planar: bool = False,
 ):
     """
-    For a given pair of gh and gl.
+    For a given pair of sd_primary and sd_secondary.
     Split only the faces specified by faces (higher-dimensional), corresponding
     to new cells (lower-dimensional). gl_ind identifies gl in
     face_cell_list, i.e.
-        face_cell_list[gl_ind] = gb.edge_props((gh, gl), 'face_cells')
+        intf = mdg.subdomain_pair_to_interface((gh, gl))
+        face_cell_list[gl_ind] = mdg.interface_data(intf, 'face_cells')
     """
     # Idea behind this loop is not clear. Likely change, in case we invoke this
     # function for several g_l is to send fc, not face_cell_list to update_face_cells.
@@ -188,11 +190,13 @@ def split_specific_faces(
         # faces will share the same nodes as the original faces,
         # however, the new faces are not yet added to the cell_faces map
         # (to save computation).
-        face_id = _duplicate_specific_faces(gh, faces)
+        face_id = _duplicate_specific_faces(sd_primary, faces)
 
         # Update the mapping between higher-dimensional faces and lower-dimensional
         # cells.
-        face_cell_list = _update_face_cells(face_cell_list, face_id, gl_ind, cells)
+        face_cell_list = _update_face_cells(
+            face_cell_list, face_id, secondary_ind, cells
+        )
         if face_id.size == 0:
             return face_cell_list
 
@@ -202,10 +206,12 @@ def split_specific_faces(
             # In this case, a loop over the elements in face_id should do the job.
             flag_array: list[int] = []
             for fi in face_id:
-                n = np.reshape(gh.face_normals[:, fi], (3, 1))
+                n = np.reshape(sd_primary.face_normals[:, fi], (3, 1))
                 n = n / np.linalg.norm(n)
-                x0 = np.reshape(gh.face_centers[:, fi], (3, 1))
-                this_flag: int = update_cell_connectivity(gh, np.array([fi]), n, x0)
+                x0 = np.reshape(sd_primary.face_centers[:, fi], (3, 1))
+                this_flag: int = update_cell_connectivity(
+                    sd_primary, np.array([fi]), n, x0
+                )
                 flag_array.append(this_flag)
 
             if np.allclose(np.asarray(flag_array), 0):
@@ -218,68 +224,78 @@ def split_specific_faces(
         else:
             # The fracture is considered flat, we can use the same normal vector
             # for all faces. This should make the computations faster
-            n = np.reshape(gh.face_normals[:, face_id[0]], (3, 1))
+            n = np.reshape(sd_primary.face_normals[:, face_id[0]], (3, 1))
             n = n / np.linalg.norm(n)
-            x0 = np.reshape(gh.face_centers[:, face_id[0]], (3, 1))
-            flag = update_cell_connectivity(gh, face_id, n, x0)
+            x0 = np.reshape(sd_primary.face_centers[:, face_id[0]], (3, 1))
+            flag = update_cell_connectivity(sd_primary, face_id, n, x0)
 
         if flag == 0:
             # if flag== 0 we added left and right faces (if it is -1 no faces
-            # was added and we don't have left and right face pairs).
+            # was added, so we don't have left and right face pairs).
             # we now add the new faces to the frac_pair array.
             left = face_id
-            right = np.arange(gh.num_faces - face_id.size, gh.num_faces)
-            gh.frac_pairs = np.hstack((gh.frac_pairs, np.vstack((left, right))))
+            right = np.arange(sd_primary.num_faces - face_id.size, sd_primary.num_faces)
+            sd_primary.frac_pairs = np.hstack(
+                (sd_primary.frac_pairs, np.vstack((left, right)))
+            )
         return face_cell_list
 
 
-def split_nodes(gh, gl, gh_2_gl_nodes, offset=0):
-    """
-    Splits the nodes of a grid given a set of lower-dimensional grids
-    and a connection mapping between them.
-    Parameters
+def split_nodes(
+    sd_primary: pp.Grid,
+    sd_secondary: list[pp.Grid],
+    primary_to_secondary_nodes: list[np.ndarray],
+    visualization_offset: float = 0.0,
+):
+    """Splits the nodes of a subdomain grid
+
+    Parameters:
     ----------
-    gh            - Higher-dimension grid.
-    gl            - A list of lower dimensional grids
-    gh_2_gl_nodes - A list of connection arrays. Each array in the
-                    list gives the mapping from the lower-dim nodes
-                    to the higher dim nodes. gh_2_gl_nodes[0][0] is
-                    the higher-dim index of the first node of the
-                    first lower-dim.
-    offset - float
+        sd_primary:
+            Higher-dimension grid.
+        sd_secondary:
+            A list of lower dimensional grids
+        gh_2_gl_node:
+            A list of connection arrays. Each array in the
+            list gives the mapping from the lower-dim nodes
+            to the higher dim nodes. gh_2_gl_nodes[0][0] is
+            the higher-dim index of the first node of the
+            first lower-dim.
+        offset:
              Optional, defaults to 0. This gives the offset from the
              fracture to the new nodes. Note that this is only for
              visualization, e.g., g.face_centers is not updated.
     """
     # We find the higher-dim node indices of all lower-dim nodes
     nodes = np.array([], dtype=int)
-    for i in range(len(gl)):
-        nodes = np.append(nodes, gh_2_gl_nodes[i])
+    for i in range(len(sd_secondary)):
+        nodes = np.append(nodes, primary_to_secondary_nodes[i])
     nodes = np.unique(nodes)
 
-    # Each of these nodes are duplicated dependig on the cell-
-    # topology of the higher-dim around each node. For a X-intersection
+    # Each of these nodes are duplicated depending on the cell-
+    # topology of the higher-dim around each node. For an X-intersection
     # we get four duplications, for a T-intersection we get three
-    # duplications, etc. Each of the duplicates are then attached
+    # duplications, etc. Each of the duplicates is then attached
     # to the cells on one side of the fractures.
-    node_count = duplicate_nodes(gh, nodes, offset)
+    node_count = duplicate_nodes(sd_primary, nodes, visualization_offset)
 
     # Update the number of nodes
-    gh.num_nodes = gh.num_nodes + node_count  # - nodes.size
+    sd_primary.num_nodes = sd_primary.num_nodes + node_count  # - nodes.size
 
     return True
 
 
-def duplicate_faces(gh, face_cells):
+def duplicate_faces(sd_primary: pp.Grid, face_cells: np.ndarray):
     """
     Duplicate all faces that are connected to a lower-dim cell
 
-    Parameters
+    Parameters:
     ----------
-    gh         - Higher-dim grid
-    face_cells - A list of connection matrices. Each matrix gives
-                 the mapping from the cells of a lower-dim grid
-                 to the faces of the higher diim grid.
+        sd_primary:
+            Higher-dim grid
+        face_cells:
+            Connection matrix mapping from the cells of a lower-dim
+            subdomain to the faces of the higher-dimensional subdomain.
     """
     # We find the indices of the higher-dim faces to be duplicated.
     # Each of these faces are duplicated, and the duplication is
@@ -288,25 +304,25 @@ def duplicate_faces(gh, face_cells):
     # anyway.
     frac_id = face_cells.nonzero()[1]
     frac_id = np.unique(frac_id)
-    return _duplicate_specific_faces(gh, frac_id)
+    return _duplicate_specific_faces(sd_primary, frac_id)
 
 
-def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
+def _duplicate_specific_faces(sd_primary: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     """
-    Duplicate faces of gh specified by frac_id.
+    Duplicate faces of sd_primary specified by frac_id.
     """
 
     # Find which of the faces to split are tagged with a standard face tag,
     # that is, as fracture, tip or domain_boundary
-    rem = tags.all_face_tags(gh.tags)[frac_id]
+    rem = tags.all_face_tags(sd_primary.tags)[frac_id]
 
     # Set the faces to be split to fracture faces
     # Q: Why only if the face already had a tag (e.g., why [rem])?
     # Possible answer: We wil not split them (see redefinition of frac_id below),
     # but want them to be tagged as fracture_faces
-    gh.tags["fracture_faces"][frac_id[rem]] = True
+    sd_primary.tags["fracture_faces"][frac_id[rem]] = True
     # Faces to be split should not be tip
-    gh.tags["tip_faces"][frac_id] = False
+    sd_primary.tags["tip_faces"][frac_id] = False
 
     # Only consider previously untagged faces for splitting
     frac_id = frac_id[~rem]
@@ -316,45 +332,56 @@ def _duplicate_specific_faces(gh: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     # Expand the face-node relation to include duplicated nodes
     # Do this by directly manipulating the CSC-format of the matrix
     # Nodes of the target faces
-    node_start = gh.face_nodes.indptr[frac_id]
-    node_end = gh.face_nodes.indptr[frac_id + 1]
-    nodes = gh.face_nodes.indices[mcolon(node_start, node_end)]
+    node_start = sd_primary.face_nodes.indptr[frac_id]
+    node_end = sd_primary.face_nodes.indptr[frac_id + 1]
+    nodes = sd_primary.face_nodes.indices[mcolon(node_start, node_end)]
 
     # Start point for the new columns. They will be appended to the matrix, thus
     # the offset of the previous size of gh.face_nodes
-    added_node_pos = np.cumsum(node_end - node_start) + gh.face_nodes.indptr[-1]
+    added_node_pos = np.cumsum(node_end - node_start) + sd_primary.face_nodes.indptr[-1]
     # Sanity checks
     assert added_node_pos.size == frac_id.size
-    assert added_node_pos[-1] - gh.face_nodes.indptr[-1] == nodes.size
+    assert added_node_pos[-1] - sd_primary.face_nodes.indptr[-1] == nodes.size
     # Expand row-data by adding node indices
-    gh.face_nodes.indices = np.hstack((gh.face_nodes.indices, nodes))
+    sd_primary.face_nodes.indices = np.hstack((sd_primary.face_nodes.indices, nodes))
     # Expand column pointers
-    gh.face_nodes.indptr = np.hstack((gh.face_nodes.indptr, added_node_pos))
+    sd_primary.face_nodes.indptr = np.hstack(
+        (sd_primary.face_nodes.indptr, added_node_pos)
+    )
     # Expand data array
-    gh.face_nodes.data = np.hstack(
-        (gh.face_nodes.data, np.ones(nodes.size, dtype=bool))
+    sd_primary.face_nodes.data = np.hstack(
+        (sd_primary.face_nodes.data, np.ones(nodes.size, dtype=bool))
     )
     # Update matrix shape
-    gh.face_nodes._shape = (gh.num_nodes, gh.face_nodes.shape[1] + frac_id.size)
-    assert gh.face_nodes.indices.size == gh.face_nodes.indptr[-1]
+    sd_primary.face_nodes._shape = (
+        sd_primary.num_nodes,
+        sd_primary.face_nodes.shape[1] + frac_id.size,
+    )
+    assert sd_primary.face_nodes.indices.size == sd_primary.face_nodes.indptr[-1]
 
     # We also copy the attributes of the original faces.
-    gh.num_faces += frac_id.size
-    gh.face_normals = np.hstack((gh.face_normals, gh.face_normals[:, frac_id]))
-    gh.face_areas = np.append(gh.face_areas, gh.face_areas[frac_id])
-    gh.face_centers = np.hstack((gh.face_centers, gh.face_centers[:, frac_id]))
+    sd_primary.num_faces += frac_id.size
+    sd_primary.face_normals = np.hstack(
+        (sd_primary.face_normals, sd_primary.face_normals[:, frac_id])
+    )
+    sd_primary.face_areas = np.append(
+        sd_primary.face_areas, sd_primary.face_areas[frac_id]
+    )
+    sd_primary.face_centers = np.hstack(
+        (sd_primary.face_centers, sd_primary.face_centers[:, frac_id])
+    )
 
     # Not sure if this still does the correct thing. Might have to
     # send in a logical array instead of frac_id.
-    gh.tags["fracture_faces"][frac_id] = True
-    gh.tags["tip_faces"][frac_id] = False
-    update_fields = gh.tags.keys()
+    sd_primary.tags["fracture_faces"][frac_id] = True
+    sd_primary.tags["tip_faces"][frac_id] = False
+    update_fields = sd_primary.tags.keys()
     update_values: list[list[np.ndarray]] = [[]] * len(update_fields)
     for i, key in enumerate(update_fields):
         # faces related tags are doubled and the value is inherit from the original
         if key.endswith("_faces"):
-            update_values[i] = gh.tags[key][frac_id]
-    tags.append_tags(gh.tags, update_fields, update_values)
+            update_values[i] = sd_primary.tags[key][frac_id]
+    tags.append_tags(sd_primary.tags, update_fields, update_values)
 
     return frac_id
 
@@ -458,7 +485,7 @@ def update_cell_connectivity(
 
     Parameters:
     ----------
-    g         - The grid for wich the cell_face mapping is uppdated
+    g         - The grid for which the cell_face mapping is updated
     frac_id   - Indices of the faces that have been duplicated
     normal    - Normal of faces that have been duplicated. Note that we assume
                 that all faces have the same normal
@@ -480,7 +507,7 @@ def update_cell_connectivity(
     cell_frac = g.cell_faces[face_id, :]
     cell_face_id = np.argwhere(cell_frac)
 
-    # We devide the cells into the cells on the right side of the fracture
+    # We divide the cells into the cells on the right side of the fracture
     # and cells on the left side of the fracture.
     left_cell = pp.half_space.point_inside_half_space_intersection(
         normal, x0, g.cell_centers[:, cell_face_id[:, 1]]
@@ -495,14 +522,14 @@ def update_cell_connectivity(
         return -1
 
     # Assume that fracture is either on boundary (above case) or completely
-    # innside domain. Check that each face added two cells:
+    # inside domain. Check that each face added two cells:
     if sum(left_cell) * 2 != left_cell.size:
         raise ValueError(
-            "Fractures must either be" "on boundary or completely innside domain"
+            "Fractures must either be" "on boundary or completely inside domain"
         )
 
     # We create a cell_faces mapping for the new faces. This will be added
-    # on the end of the excisting cell_faces mapping. We have here assumed
+    # on the end of the existing cell_faces mapping. We have here assumed
     # that we do not add any mapping during the duplication of faces.
     col = cell_face_id[left_cell, 1]
     row = cell_face_id[left_cell, 0]
@@ -775,12 +802,12 @@ def duplicate_nodes(g, nodes, offset):
         # Take note of this iteration
         node_occ[ni] += 1
 
-    # Count the number of repititions in the nodes: The unsplit nodes have 1, the split
+    # Count the number of repetitions in the nodes: The unsplit nodes have 1, the split
     # depends on the number of identified subclusters
-    repititions = np.ones(g.num_nodes, dtype=np.int32)
-    repititions[nodes] = np.bincount(node_of_component)
+    repetitions = np.ones(g.num_nodes, dtype=np.int32)
+    repetitions[nodes] = np.bincount(node_of_component)
     # The number of added nodes
-    added = repititions - 1
+    added = repetitions - 1
     num_added = added.sum()
 
     # Array of cumulative increments due to the splitting of nodes with lower index.
@@ -797,11 +824,11 @@ def duplicate_nodes(g, nodes, offset):
     # Adjust the shape of face-nodes to account for the added nodes
     face_node._shape = (g.num_nodes + num_added, g.num_faces)
 
-    # From the number of repititions of the node (1 for untouched nodes),
+    # From the number of repetitions of the node (1 for untouched nodes),
     # get mapping from new to old indices.
     # To see how this works, read the documentation of rldecode, including the examples.
     new_2_old_nodes = pp.matrix_operations.rldecode(
-        np.arange(repititions.size), repititions
+        np.arange(repetitions.size), repetitions
     )
     g.nodes = g.nodes[:, new_2_old_nodes]
     # The global point ind is shared by all split nodes
@@ -823,7 +850,7 @@ def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -
     is useful for visualization purposes.
 
     NOTE: This is a legacy implementation, which should not be invoked directly.
-    Instead use duplicate nodes (more efficient, but without the possibility to
+    Instead, use duplicate nodes (more efficient, but without the possibility to
     perturb nodes); that method will invoke the present if a perturbation is
     requested.
 
@@ -837,7 +864,7 @@ def _duplicate_nodes_with_offset(g: pp.Grid, nodes: np.ndarray, offset: float) -
     node_count = 0
 
     # We wish to convert the sparse csc matrix to a sparse
-    # csr matrix to easily add rows. However, the convertion sorts the
+    # csr matrix to easily add rows. However, the conversion sorts the
     # indices, which will change the node order when we convert back. We
     # therefore find the inverse sorting of the nodes of each face.
     # After we have performed the row operations we will map the nodes
@@ -961,7 +988,7 @@ def _find_cell_color(g, cells):
     Parameters:
     ----------
     g        - Grid for which the cells belong
-    cells    - indecies of cells (=np.array([1,2,3,4,5,7]) for case above)
+    cells    - indices of cells (=np.array([1,2,3,4,5,7]) for case above)
     """
     c = np.sort(cells)
     # Local cell-face and face-node maps.
@@ -972,7 +999,7 @@ def _find_cell_color(g, cells):
 
     # Create a copy of the cell-face relation, so that we can modify it at
     # will
-    # com Runar: I don't think this is neccessary as slice_mat creates a copy
+    # RB: I don't think this is necessary as slice_mat creates a copy
     #    cell_faces = cf_sub.copy()
 
     # Direction of normal vector does not matter here, only 0s and 1s
@@ -993,12 +1020,12 @@ def _avg_normal(g, faces):
     Calculates the average face normal of a set of faces. The average normal
     is only constructed from the boundary faces, that is, a face that belongs
     to exactly one cell. If a face is not a boundary face, it will be ignored.
-    The faces normals are fliped such that they point out of the cells.
+    The faces normals are flipped such that they point out of the cells.
 
     Parameters:
     ----------
     g         - Grid
-    faces     - Face indecies of face normals that should be averaged
+    faces     - Face indices of face normals that should be averaged
     """
     frac_face = np.ravel(np.sum(np.abs(g.cell_faces[faces, :]), axis=1) == 1)
     f, _, sign = sps.find(g.cell_faces[faces[frac_face], :])
@@ -1013,7 +1040,7 @@ def remove_nodes(g, rem):
     """
     Remove nodes from grid.
     g - a valid grid definition
-    rem - a ndarray of indecies of nodes to be removed
+    rem - a ndarray of indices of nodes to be removed
     """
     all_rows = np.arange(g.face_nodes.shape[0])
     rows_to_keep = np.where(np.logical_not(np.in1d(all_rows, rem)))[0]

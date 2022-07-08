@@ -572,11 +572,11 @@ class MixedDimensionalGrid:
             pp.MixedDimensionalGrid: Copy of this MixedDimensionalGrid.
 
         """
-        gb_copy: pp.MixedDimensionalGrid = MixedDimensionalGrid()
-        gb_copy._subdomain_data = self._subdomain_data.copy()
-        gb_copy._interface_data = self._interface_data.copy()
-        gb_copy._interface_to_subdomains = self._interface_to_subdomains.copy()
-        return gb_copy
+        mdg_copy: pp.MixedDimensionalGrid = MixedDimensionalGrid()
+        mdg_copy._subdomain_data = self._subdomain_data.copy()
+        mdg_copy._interface_data = self._interface_data.copy()
+        mdg_copy._interface_to_subdomains = self._interface_to_subdomains.copy()
+        return mdg_copy
 
     def replace_subdomains_and_interfaces(
         self,
