@@ -42,7 +42,6 @@ class Fracture(abc.ABC):
         self,
         points: ArrayLike,
         index: Optional[int] = None,
-        check_convexity: bool = False,
         sort_points: bool = True,
     ):
         """Instatiation of the abstract fracture class.
@@ -56,9 +55,6 @@ class Fracture(abc.ABC):
                 object that can be converted into an np.ndarray via np.asarray(`points`). See,
                 e.g.: https://numpy.org/devdocs/reference/typing.html#arraylike
             index (int, optional): Index of fracture. Defaults to None.
-            check_convexity (bool, optional):  Defaults to False. If True, check if the
-                given points are convex. Can be skipped if it is known to be convex to save
-                (substantial) time.
             sort_points (bool , optional): Defaults to True. If True, sorts the points
                 according to the implemented order. Convexity may play a role, thus if a
                 fracture is known to be non-convex, the parameter should be False.
