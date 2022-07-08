@@ -1,6 +1,6 @@
-import porepy as pp
 import pytest
 
+import porepy as pp
 from porepy.numerics.time_step_control import TimeSteppingControl as Ts
 
 

@@ -12,13 +12,13 @@ Rudimentary testing in 3d. The tests are direct analogues of the 2d ones.
 Could be expanded.
 """
 import unittest
-from tests import test_utils
 from typing import List
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from tests import test_utils
 
 
 class TestMixedDimGravity(unittest.TestCase):
@@ -503,29 +503,29 @@ class TestMixedDimGravity(unittest.TestCase):
 
         elif num_fracs == 1:
             fl = [
-                pp.Fracture(
+                pp.PlaneFracture(
                     np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
                 )
             ]
         elif num_fracs == 2:
             fl = [
-                pp.Fracture(
+                pp.PlaneFracture(
                     np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
                 ),
-                pp.Fracture(
+                pp.PlaneFracture(
                     np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
                 ),
             ]
 
         elif num_fracs == 3:
             fl = [
-                pp.Fracture(
+                pp.PlaneFracture(
                     np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
                 ),
-                pp.Fracture(
+                pp.PlaneFracture(
                     np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
                 ),
-                pp.Fracture(
+                pp.PlaneFracture(
                     np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
                 ),
             ]

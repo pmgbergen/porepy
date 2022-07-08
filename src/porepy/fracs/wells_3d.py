@@ -56,8 +56,8 @@ class Well:
                 intersects each of the points in points.
 
         """
-        self.p = np.asarray(points, dtype=float)
-        self.orig_p = self.p.copy()
+        self.pts = np.asarray(points, dtype=float)
+        self.orig_pts = self.pts.copy()
         self.dim = 1
         # Set well index
         self.index = index
@@ -82,25 +82,25 @@ class Well:
         """
         for i in range(self.num_segments()):
             segment_inds = [i, i + 1]
-            endpoints = self.p[:, segment_inds]
+            endpoints = self.pts[:, segment_inds]
             yield segment_inds, endpoints
 
     def num_points(self) -> int:
-        return self.p.shape[1]
+        return self.pts.shape[1]
 
     def num_segments(self) -> int:
         return self.num_points() - 1
 
     def add_point(self, point: np.ndarray, ind: int = None) -> None:
-        """Add new pts (3 x 1) to self.p.
+        """Add new pts (3 x 1) to self.pts.
         If ind is not specified, the point is appended at the end of
-        self.p. Otherwise, it is inserted between the old points number ind
+        self.pts. Otherwise, it is inserted between the old points number ind
         and ind + 1.
         """
         if ind is None:
-            self.p = np.hstack((self.p, point))
+            self.pts = np.hstack((self.pts, point))
         else:
-            self.p = np.hstack((self.p[:, :ind], point, self.p[:, ind:]))
+            self.pts = np.hstack((self.pts[:, :ind], point, self.pts[:, ind:]))
 
     def _mesh_size(self, segment_ind: Tuple[int] = None) -> Optional[float]:
         """Return the mesh size for a well or one of its segments.
@@ -124,7 +124,7 @@ class Well:
             Fracture with the same points.
 
         """
-        p = np.copy(self.p)
+        p = np.copy(self.pts)
         t = self.tags.copy()
         return Well(p, tags=t)
 
@@ -271,7 +271,9 @@ class WellNetwork3d:
         # Will be added as g.well_num for the well grids
         well_num = 0
         for w in self._wells:
-            tags_w = w.tags.get("intersecting_fractures", [np.empty(0)] * w.p.shape[1])
+            tags_w = w.tags.get(
+                "intersecting_fractures", [np.empty(0)] * w.pts.shape[1]
+            )
             for t in tags_w:
                 if t.size > 1:
                     raise NotImplementedError(
@@ -289,7 +291,7 @@ class WellNetwork3d:
             # edge between that grid and the fracture in question. Note that
             # the edge with the first well segment is added below.
             if tags_w[0].size > 0:
-                sd_isec = _intersection_subdomain(w.p[:, 0], mdg)
+                sd_isec = _intersection_subdomain(w.pts[:, 0], mdg)
                 _add_fracture_2_intersection_interface(sd_isec, tags_w[0], mdg)
                 endp_frac_tags[0] = True
 
@@ -391,7 +393,7 @@ def compute_well_fracture_intersections(
 
     Args:
         well_network containing the wells, which are assumed to have at least
-            two points each (in well.p). Intersection points and tags are added
+            two points each (in well.pts). Intersection points and tags are added
             and updated in-place.
         fracture_network containing the (3d) fractures.
 
@@ -436,7 +438,7 @@ def compute_well_fracture_intersections(
             for i in sort_inds[:stop_ind]:
                 well_tags.append(tags_seg[i])
         # Overwrite old points and tags for this well
-        well.p = well_pts
+        well.pts = well_pts
         well.tags["intersecting_fractures"] = well_tags
 
 
@@ -593,7 +595,7 @@ def _argsort_points_along_line_segment(
 
 def _intersection_segment_fracture(
     segment_points: np.ndarray,
-    fracture: pp.Fracture,
+    fracture: pp.PlaneFracture,
     tags: List[np.ndarray],
     ignore_endpoint_tag: bool,
     tol: float = 1e-8,
@@ -627,7 +629,7 @@ def _intersection_segment_fracture(
         tags (list of length npts): updated tags.
     """
     distance, isec_pt = pp.geometry.distances.segments_polygon(
-        segment_points[:, 0], segment_points[:, 1], fracture.p
+        segment_points[:, 0], segment_points[:, 1], fracture.pts
     )
     if distance > tol:
         # No intersection exists
@@ -643,7 +645,8 @@ def _intersection_segment_fracture(
         # internal). Point is not added, but tags are updated with the fracture
         # index.
         ind_loc = ind_point_at_node.nonzero()[0][0]  # type: ignore
-        tags[ind_loc] = np.append(tags[ind_loc], fracture.index)
+        if fracture.index is not None:
+            tags[ind_loc] = np.append(tags[ind_loc], fracture.index)
     else:
         # New (internal) point. Store point and tag
         segment_points = np.hstack((segment_points, isec_pt))

@@ -5,11 +5,11 @@ Also test unitily function for generation of defalut domains.
 """
 
 import unittest
-from tests import test_utils
 
 import numpy as np
 
 import porepy as pp
+from tests import test_utils
 
 
 class TestFractureNetwork2d(unittest.TestCase):
@@ -29,7 +29,7 @@ class TestFractureNetwork2d(unittest.TestCase):
         return True
 
     def setUp(self):
-        self.p = np.array([[0, 2, 1, 1], [0, 0, 0, 1]])
+        self.pts = np.array([[0, 2, 1, 1], [0, 0, 0, 1]])
         self.e = np.array([[0, 2], [1, 3]])
         self.domain = {"xmin": 0, "xmax": 5, "ymin": -1, "ymax": 5}
         self.small_domain = {"xmin": -1, "xmax": 1.5, "ymin": -1, "ymax": 5}
@@ -49,23 +49,23 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(p, snapped_2.pts))
 
     def test_split_intersections(self):
-        network = pp.FractureNetwork2d(self.p, self.e)
+        network = pp.FractureNetwork2d(self.pts, self.e)
 
         split_network = network.copy_with_split_intersections()
-        self.assertTrue(test_utils.compare_arrays(split_network.pts, self.p))
+        self.assertTrue(test_utils.compare_arrays(split_network.pts, self.pts))
         self.assertTrue(split_network.edges.shape[1] == 3)
 
     def test_constrain_to_domain(self):
-        network = pp.FractureNetwork2d(self.p, self.e, self.domain)
+        network = pp.FractureNetwork2d(self.pts, self.e, self.domain)
         new_network = network.constrain_to_domain()
-        self.assertTrue(test_utils.compare_arrays(self.p, new_network.pts))
+        self.assertTrue(test_utils.compare_arrays(self.pts, new_network.pts))
 
         small_network = network.constrain_to_domain(self.small_domain)
         known_points = np.array([[0, 1.5, 1, 1], [0, 0, 0, 1]])
         self.assertTrue(test_utils.compare_arrays(known_points, small_network.pts))
 
     def test_get_points(self):
-        p = self.p
+        p = self.pts
         e = self.e
 
         network = pp.FractureNetwork2d(p, e)
@@ -82,7 +82,7 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(end, p[:, 1].reshape((-1, 1))))
 
     def test_length(self):
-        network = pp.FractureNetwork2d(self.p, self.e)
+        network = pp.FractureNetwork2d(self.pts, self.e)
         length = network.length()
         known_length = np.array([2, 1])
         self.assertTrue(np.allclose(length, known_length))
@@ -101,7 +101,7 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.assertTrue(np.all(angle < np.pi))
 
     def test_angle(self):
-        network = pp.FractureNetwork2d(self.p, self.e)
+        network = pp.FractureNetwork2d(self.pts, self.e)
         angle = network.orientation()
         known_orientation = np.array([0, np.pi / 2])
         self.assertTrue(
@@ -111,14 +111,14 @@ class TestFractureNetwork2d(unittest.TestCase):
         )
 
     def test_add_networks_no_domain(self):
-        network_1 = pp.FractureNetwork2d(self.p, self.e)
+        network_1 = pp.FractureNetwork2d(self.pts, self.e)
         p2 = np.array([[0, 2, 1, 1], [0, 0, 0, 1]]) + 2
         e2 = np.array([[0, 2], [1, 3]])
         network_2 = pp.FractureNetwork2d(p2, e2)
 
         together = network_1.add_network(network_2)
 
-        p_known = np.hstack((self.p, p2))
+        p_known = np.hstack((self.pts, p2))
         self.assertTrue(test_utils.compare_arrays(p_known, together.pts))
         # The known edges has 2 rows, thus by testing for equality, we implicitly
         # verify there are no tags in the joint network
@@ -126,7 +126,7 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.assertTrue(test_utils.compare_arrays(together.edges, e_known))
 
     def test_add_networks_domains(self):
-        network_1 = pp.FractureNetwork2d(self.p, self.e, self.domain)
+        network_1 = pp.FractureNetwork2d(self.pts, self.e, self.domain)
         p2 = np.array([[0, 2, 1, 1], [0, 0, 0, 1]]) + 2
         e2 = np.array([[0, 2], [1, 3]])
         # A network with no domain
@@ -153,7 +153,7 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.assertTrue(self.compare_dictionaries(combined_domain, together.domain))
 
     def test_add_networks_preserve_tags(self):
-        network_1 = pp.FractureNetwork2d(self.p, self.e)
+        network_1 = pp.FractureNetwork2d(self.pts, self.e)
         p2 = np.array([[0, 2, 1, 1], [0, 0, 0, 1]]) + 2
         # Network 2 has tags
         tag2 = 1
@@ -176,13 +176,13 @@ class TestFractureNetwork2d(unittest.TestCase):
         self.assertTrue(np.all(together.edges[2] == known_tags))
 
     def test_copy(self):
-        network_1 = pp.FractureNetwork2d(self.p, self.e)
+        network_1 = pp.FractureNetwork2d(self.pts, self.e)
 
         copy = network_1.copy()
-        num_p = self.p.shape[1]
+        num_p = self.pts.shape[1]
 
         network_1.pts = np.random.rand(2, num_p)
-        self.assertTrue(np.allclose(copy.pts, self.p))
+        self.assertTrue(np.allclose(copy.pts, self.pts))
 
     def test_no_snapping(self):
         p = np.array([[0, 1, 0, 1], [0, 0, 1, 1]])
@@ -228,7 +228,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_single_fracture(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
         # network extent
-        f1 = pp.Fracture(
+        f1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 
@@ -245,7 +245,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_sinle_fracture_aligned_with_axis(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
         # network extent
-        f1 = pp.Fracture(
+        f1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]]), check_convexity=False
         )
 
@@ -262,11 +262,11 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_two_fractures(self):
         # Test of method FractureNetwork.bounding_box() to inquire about
         # network extent
-        f1 = pp.Fracture(
+        f1 = pp.PlaneFracture(
             np.array([[0, 2, 2, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 
-        f2 = pp.Fracture(
+        f2 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [-1, -1, 1, 1]]),
             check_convexity=False,
         )
@@ -284,7 +284,7 @@ class TestFractureNetwork3dBoundingBox(unittest.TestCase):
     def test_external_boundary_added(self):
         # Test of method FractureNetwork.bounding_box() when an external
         # boundary is added. Thus double as test of this adding.
-        f1 = pp.Fracture(
+        f1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 1, 1]]), check_convexity=False
         )
 

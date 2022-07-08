@@ -4,11 +4,11 @@ fractures and boundaries.
 """
 
 import unittest
-from tests import test_utils
 
 import numpy as np
 
 import porepy as pp
+from tests import test_utils
 
 
 class TestSweepAndPrune(unittest.TestCase):
@@ -299,7 +299,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
     """
 
     def setup(self):
-        self.f_1 = pp.Fracture(
+        self.f_1 = pp.PlaneFracture(
             np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]]),
             check_convexity=False,
         )
@@ -317,7 +317,7 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
     def test_completely_outside_lower(self):
         self.setup()
         f = self.f_1
-        f.p[0] -= 2
+        f.pts[0] -= 2
         network = pp.FractureNetwork3d([f])
         network.impose_external_boundary(self.domain)
         self.assertTrue(len(network._fractures) == (0 + 6))
@@ -325,8 +325,8 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
     def test_outside_west_bottom(self):
         self.setup()
         f = self.f_1
-        f.p[0] -= 0.5
-        f.p[2] -= 1.5
+        f.pts[0] -= 0.5
+        f.pts[2] -= 1.5
         network = pp.FractureNetwork3d([f])
         network.impose_external_boundary(self.domain)
         self.assertTrue(len(network._fractures) == (0 + 6))
@@ -334,54 +334,54 @@ class TestFractureBoundaryIntersection(unittest.TestCase):
     def test_intersect_one(self):
         self.setup()
         f = self.f_1
-        f.p[0] -= 0.5
-        f.p[2, :] = [0.2, 0.2, 0.8, 0.8]
+        f.pts[0] -= 0.5
+        f.pts[2, :] = [0.2, 0.2, 0.8, 0.8]
         network = pp.FractureNetwork3d([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
             [[0.0, 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
         self.assertTrue(len(network._fractures) == (1 + 6))
-        p_comp = network._fractures[0].p
+        p_comp = network._fractures[0].pts
         self.assertTrue(self._arrays_equal(p_known, p_comp))
 
     def test_intersect_two_same(self):
         self.setup()
         f = self.f_1
-        f.p[0, :] = [-0.5, 1.5, 1.5, -0.5]
-        f.p[2, :] = [0.2, 0.2, 0.8, 0.8]
+        f.pts[0, :] = [-0.5, 1.5, 1.5, -0.5]
+        f.pts[2, :] = [0.2, 0.2, 0.8, 0.8]
         network = pp.FractureNetwork3d([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array([[0.0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
         self.assertTrue(len(network._fractures) == (1 + 6))
-        p_comp = network._fractures[0].p
+        p_comp = network._fractures[0].pts
         self.assertTrue(self._arrays_equal(p_known, p_comp))
 
     def test_incline_in_plane(self):
         self.setup()
         f = self.f_1
-        f.p[0] -= 0.5
-        f.p[2, :] = [0, -0.5, 0.5, 1]
+        f.pts[0] -= 0.5
+        f.pts[2, :] = [0, -0.5, 0.5, 1]
         network = pp.FractureNetwork3d([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
             [[0.0, 0.5, 0.5, 0], [0.5, 0.5, 0.5, 0.5], [0.0, 0.0, 0.5, 0.75]]
         )
         self.assertTrue(len(network._fractures) == (1 + 6))
-        p_comp = network._fractures[0].p
+        p_comp = network._fractures[0].pts
         self.assertTrue(self._arrays_equal(p_known, p_comp))
 
     def test_full_incline(self):
         self.setup()
         p = np.array([[-0.5, 0.5, 0.5, -0.5], [0.5, 0.5, 1.5, 1.5], [-0.5, -0.5, 1, 1]])
-        f = pp.Fracture(p, check_convexity=False)
+        f = pp.PlaneFracture(p, check_convexity=False)
         network = pp.FractureNetwork3d([f])
         network.impose_external_boundary(self.domain)
         p_known = np.array(
             [[0.0, 0.5, 0.5, 0], [5.0 / 6, 5.0 / 6, 1, 1], [0.0, 0.0, 0.25, 0.25]]
         )
         self.assertTrue(len(network._fractures) == (1 + 6))
-        p_comp = network._fractures[0].p
+        p_comp = network._fractures[0].pts
         self.assertTrue(self._arrays_equal(p_known, p_comp))
 
 
