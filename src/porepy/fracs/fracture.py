@@ -24,17 +24,22 @@ class Fracture(abc.ABC):
 
     Dimension-dependent routines are implemented as abstract methods.
 
-    PorePy currently only supports planar and convex fractures fully.
-    As a work-around, the fracture can be split into convex parts.
+    PorePy currently only supports planar and convex fractures fully. As a work-around,
+    the fracture can be split into convex parts.
 
     Attributes:
-        points (ArrayLike, nd x npt): Fracture vertices, stored in the implemented order.
-        orig_pts (np.ndarray, nd x npt): Original fracture vertices, kept in case the fracture
-            geometry is modified.
-        center (np.ndarray, nd x 1): Fracture centroid.
-        normal (np.ndarray, nd x 1): Normal vector.
-        index (int): Index of fracture. Intended use in FractureNetwork. Exact use is not
-            clear (several fractures can be given same index), use it with care.
+        points (ArrayLike): Fracture vertices, stored in the implemented order.
+            Shape is (nd, npt).
+        orig_pts (np.ndarray): Original fracture vertices.
+            Shape is (nd, npt)
+            The original points are kept in case the fracture geometry is modified.
+        center (np.ndarray): Fracture centroid.
+            Shape is (nd, ).
+        normal (np.ndarray): Normal vector.
+            Shape is (nd, ).
+        index (int): Index of fracture.
+            Intended use in FractureNetwork. Exact use is not clear (several fractures can
+            be given same index), use it with care.
 
     """
 
@@ -51,7 +56,7 @@ class Fracture(abc.ABC):
 
         Args:
             points (ArrayLike): Vertices of new fracture.
-                Shape of array is (nd, npt).
+                Shape is (nd, npt).
                 How many vertices are necessary depends on the dimension. Note that `points`
                 can be an np.ndarray or any suitable object that can be converted into an
                 np.ndarray via np.asarray(`points`).
