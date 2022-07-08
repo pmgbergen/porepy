@@ -92,9 +92,9 @@ class TestFractureIndex(unittest.TestCase):
         self.assertTrue(f1 != f2)
 
     def test_2d(self):
-        f1 = pp.LineFracture(self.array()[:2, :2], index=1, check_convexity=False)
-        f2 = pp.LineFracture(self.array()[:2, :2], index=1, check_convexity=False)
-        f3 = pp.LineFracture(self.array()[:2, :2], index=4, check_convexity=False)
+        f1 = pp.LineFracture(self.array()[:2, :2], index=1)
+        f2 = pp.LineFracture(self.array()[:2, :2], index=1)
+        f3 = pp.LineFracture(self.array()[:2, :2], index=4)
         self.assertTrue(f1 == f2)
         self.assertTrue(f1 != f3)
 
