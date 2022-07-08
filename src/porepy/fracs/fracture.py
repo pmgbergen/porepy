@@ -62,7 +62,7 @@ class Fracture(abc.ABC):
                 np.ndarray via np.asarray(`points`).
             index (int, optional): Index of fracture. Default is None.
             sort_points (bool , optional): If True, sorts the points according to the
-                implemented order. Defaults to True.
+                implemented order. Default is True.
                 Convexity may play a role, thus if a fracture is known to be non-convex,
                 the parameter should be False.
 
@@ -126,7 +126,8 @@ class Fracture(abc.ABC):
         """Generator over the vertices of the fracture.
 
         Yields:
-            (np.ndarray, nd x 1): Fracture vertex.
+            np.ndarray: Fracture vertex.
+                Shape is (nd, ).
 
         """
         for i in range(self.pts.shape[1]):
@@ -136,7 +137,8 @@ class Fracture(abc.ABC):
         """Generator over the segments according to the currently applied order.
 
         Yields:
-            (np.ndarray, nd x 2): Fracture segment.
+            np.ndarray: Fracture segment.
+                Shape is (nd, 2).
 
         """
         sz = self.pts.shape[1]
@@ -147,13 +149,14 @@ class Fracture(abc.ABC):
         """Check whether a given point is a vertex of the fracture.
 
         Args:
-            p (np.ndarray, nd x 1):  Point to check.
-            tol (float): Tolerance of point accuracy. Defaults to 1e-4.
+            p (np.ndarray): Point to be checked.
+                Shape is (nd, ).
+            tol (float): Tolerance of point accuracy. Default is 1e-4.
 
         Returns:
-            Tuple[bool, idx]: The bool is True, if `p` is a vertex of this fracture,
-                false otherwise. If `p` is a vertex of this fracture, `idx` is an integer,
-                representing the of the identical vertex. Otherwise, `idx` is None.
+            Tuple[bool, Union[int, None]]: The bool is True, if `p` is a vertex of this
+                fracture, false otherwise. If `p` is a vertex of this fracture, `idx` is an
+                integer, representing the of the identical vertex. Otherwise, `idx` is None.
 
         """
         p = p.reshape((-1, 1))
@@ -176,7 +179,7 @@ class Fracture(abc.ABC):
             preserved.
 
         Returns:
-            FractureType: Fracture with the same points.
+            Fracture: Fracture with the same points.
 
         """
         return type(self)(self.pts.copy(), index=self.index)
@@ -187,7 +190,7 @@ class Fracture(abc.ABC):
         """Abstract method to sort the vertices as needed for geometric algorithms.
 
         Returns:
-            np.ndarray(dtype=int): Indices corresponding to the sorting.
+            np.ndarray: Array of integeres containing the indices corresponding to the sorting.
 
         """
         pass
@@ -202,7 +205,8 @@ class Fracture(abc.ABC):
         For now, `d` is expected to be `nd` - 1, i.e. the fracture to be of co-dimension 1.
 
         Returns:
-            np.ndarray((nd - 1) x npt) : Coordinates of the vertices in local dimensions.
+            np.ndarray: Coordinates of the vertices in local dimensions.
+                Shape is ((nd - 1), npt).
 
         """
         pass
@@ -211,7 +215,7 @@ class Fracture(abc.ABC):
     def compute_centroid(self) -> np.ndarray:
         """Abstract method for computing and returning the centroid of the fracture.
 
-        Note that Convexity is assumed.
+        Note that convexity is assumed.
 
         """
         pass
