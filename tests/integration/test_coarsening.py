@@ -132,15 +132,15 @@ class BasicsTest(unittest.TestCase):
         part = np.array([0, 0, 1, 1, 2, 0, 3, 1])
         f = np.array([[2, 2], [0, 2]])
 
-        gb = pp.meshing.cart_grid([f], [4, 2])
-        gb.compute_geometry()
-        co.generate_coarse_grid(gb, (None, part))
+        mdg = pp.meshing.cart_grid([f], [4, 2])
+        mdg.compute_geometry()
+        co.generate_coarse_grid(mdg, (None, part))
 
         # Test
         known = np.array([1, 5, 18, 19])
 
-        for _, d in gb.edges():
-            faces = sps.find(d["mortar_grid"].primary_to_mortar_int())[1]
+        for intf in mdg.interfaces():
+            faces = sps.find(intf.primary_to_mortar_int())[1]
             self.assertTrue(np.array_equal(faces, known))
 
     # ------------------------------------------------------------------------------#
@@ -163,8 +163,8 @@ class BasicsTest(unittest.TestCase):
             f1 = np.array([[3.0, 3.0], [1.0, 5.0]])
             f2 = np.array([[1.0, 5.0], [3.0, 3.0]])
 
-            gb = pp.meshing.cart_grid([f1, f2], [6, 6])
-            gb.compute_geometry()
+            mdg = pp.meshing.cart_grid([f1, f2], [6, 6])
+            mdg.compute_geometry()
 
             cell_centers_1 = np.array(
                 [
@@ -181,26 +181,22 @@ class BasicsTest(unittest.TestCase):
                 ]
             )
 
-            co.generate_coarse_grid(gb, (None, part))
+            co.generate_coarse_grid(mdg, (None, part))
 
             # Test
-            for e_d in gb.edges():
-                faces = sps.find(e_d[1]["mortar_grid"].primary_to_mortar_int())[1]
+            for intf in mdg.interfaces():
+                faces = sps.find(intf.primary_to_mortar_int())[1]
 
-                if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
-                    e_d[0][0].dim == 1 and e_d[0][1].dim == 0
-                ):
+                sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
+
+                if sd_secondary.dim == 0 and sd_primary.dim == 1:
                     known = [2, 5]
 
-                if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
-                    e_d[0][0].dim == 2 and e_d[0][1].dim == 1
-                ):
+                elif sd_secondary.dim == 1 and sd_primary.dim == 2:
 
-                    g = e_d[0][0] if e_d[0][0].dim == 1 else e_d[0][1]
-
-                    if np.allclose(g.cell_centers, cell_centers_1):
+                    if np.allclose(sd_secondary.cell_centers, cell_centers_1):
                         known = [5, 10, 14, 18, 52, 53, 54, 55]
-                    elif np.allclose(g.cell_centers, cell_centers_2):
+                    elif np.allclose(sd_secondary.cell_centers, cell_centers_2):
                         known = [37, 38, 39, 40, 56, 57, 58, 59]
                     else:
                         raise ValueError("Grid not found")
@@ -211,21 +207,21 @@ class BasicsTest(unittest.TestCase):
 
     def test_coarse_grid_3d_2d(self):
         f = np.array([[2.0, 2.0, 2.0, 2.0], [0.0, 2.0, 2.0, 0.0], [0.0, 0.0, 2.0, 2.0]])
-        gb = pp.meshing.cart_grid([f], [4, 2, 2])
-        gb.compute_geometry()
+        mdg = pp.meshing.cart_grid([f], [4, 2, 2])
+        mdg.compute_geometry()
 
-        g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+        g = mdg.subdomains(dim=mdg.dim_max())[0]
         part = np.zeros(g.num_cells)
         part[g.cell_centers[0, :] < 2.0] = 1
-        co.generate_coarse_grid(gb, (None, part))
+        co.generate_coarse_grid(mdg, (None, part))
         # Test
         # Be carefull! If the indexing of any grids (including mg) change the hard-coded
         # indexes may be wrong
         known_indices = np.array([1, 3, 0, 2, 5, 7, 4, 6])
         known = np.array([1, 4, 7, 10, 44, 45, 46, 47])
 
-        for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["mortar_grid"].primary_to_mortar_int())
+        for intf in mdg.interfaces():
+            indices, faces, _ = sps.find(intf.primary_to_mortar_int())
 
             self.assertTrue(np.array_equal(indices, known_indices))
             self.assertTrue(np.array_equal(faces, known))
@@ -242,10 +238,10 @@ class BasicsTest(unittest.TestCase):
             f2 = np.array(
                 [[1.0, 5.0, 5.0, 1.0], [1.0, 1.0, 5.0, 5.0], [3.0, 3.0, 3.0, 3.0]]
             )
-            gb = pp.meshing.cart_grid([f1, f2], [6, 6, 6])
-            gb.compute_geometry()
+            mdg = pp.meshing.cart_grid([f1, f2], [6, 6, 6])
+            mdg.compute_geometry()
 
-            g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+            g = mdg.subdomains(dim=mdg.dim_max())[0]
             part = np.zeros(g.num_cells)
             p1, p2 = g.cell_centers[0, :] < 3.0, g.cell_centers[2, :] < 3.0
             part[np.logical_and(p1, p2)] = 1
@@ -253,7 +249,7 @@ class BasicsTest(unittest.TestCase):
             part[np.logical_and(np.logical_not(p1), p2)] = 3
             part[np.logical_and(np.logical_not(p1), np.logical_not(p2))] = 4
 
-            co.generate_coarse_grid(gb, (None, part))
+            co.generate_coarse_grid(mdg, (None, part))
 
             cell_centers_1 = np.array(
                 [
@@ -431,24 +427,17 @@ class BasicsTest(unittest.TestCase):
             )
 
             # Test
-            for e_d in gb.edges():
-                indices, faces, _ = sps.find(
-                    e_d[1]["mortar_grid"].primary_to_mortar_int()
-                )
+            for intf in mdg.interfaces():
+                indices, faces, _ = sps.find(intf.primary_to_mortar_int())
+                sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
 
-                if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
-                    e_d[0][0].dim == 2 and e_d[0][1].dim == 1
-                ):
+                if sd_primary.dim == 2 and sd_secondary.dim == 1:
                     known_indices = [3, 2, 1, 0, 7, 6, 5, 4]
                     known = [2, 7, 12, 17, 40, 41, 42, 43]
 
-                if (e_d[0][0].dim == 2 and e_d[0][1].dim == 3) or (
-                    e_d[0][0].dim == 3 and e_d[0][1].dim == 2
-                ):
+                if sd_primary.dim == 3 and sd_secondary.dim == 2:
 
-                    g = e_d[0][0] if e_d[0][0].dim == 2 else e_d[0][1]
-
-                    if np.allclose(g.cell_centers, cell_centers_1):
+                    if np.allclose(sd_secondary.cell_centers, cell_centers_1):
                         known_indices = [
                             3,
                             7,
@@ -517,7 +506,7 @@ class BasicsTest(unittest.TestCase):
                             302,
                             303,
                         ]
-                    elif np.allclose(g.cell_centers, cell_centers_2):
+                    elif np.allclose(sd_secondary.cell_centers, cell_centers_2):
                         known_indices = [
                             0,
                             1,
@@ -586,7 +575,7 @@ class BasicsTest(unittest.TestCase):
                             318,
                             319,
                         ]
-                    elif np.allclose(g.cell_centers, cell_centers_3):
+                    elif np.allclose(sd_secondary.cell_centers, cell_centers_3):
                         known_indices = [
                             0,
                             4,
@@ -883,17 +872,17 @@ class BasicsTest(unittest.TestCase):
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test0(self):
-        gb, _ = pp.grid_buckets_2d.single_horizontal([2, 2], simplex=False)
+        mdg, _ = pp.md_grids_2d.single_horizontal([2, 2], simplex=False)
 
-        part = co.create_partition(co._tpfa_matrix(gb), gb)
-        co.generate_coarse_grid(gb, part)
+        part = co.create_partition(co._tpfa_matrix(mdg), mdg)
+        co.generate_coarse_grid(mdg, part)
 
         # Test
         known_indices = np.array([1, 0, 3, 2])
         known = np.array([6, 7, 10, 11])
 
-        for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["mortar_grid"].primary_to_mortar_int())
+        for intf in mdg.interfaces():
+            indices, faces, _ = sps.find(intf.primary_to_mortar_int())
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
@@ -901,83 +890,83 @@ class BasicsTest(unittest.TestCase):
 
     def test_create_partition_2d_1d_test1(self):
 
-        gb, _ = pp.grid_buckets_2d.single_horizontal(
+        mdg, _ = pp.md_grids_2d.single_horizontal(
             [2, 2], x_endpoints=[0.5, 0], simplex=False
         )
-        part = co.create_partition(co._tpfa_matrix(gb), gb)
-        co.generate_coarse_grid(gb, part)
+        part = co.create_partition(co._tpfa_matrix(mdg), mdg)
+        co.generate_coarse_grid(mdg, part)
 
         # Test
         known_indices = np.array([0, 1])
         known = np.array([6, 9])
 
-        for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["mortar_grid"].primary_to_mortar_int())
+        for intf in mdg.interfaces():
+            indices, faces, _ = sps.find(intf.primary_to_mortar_int())
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test2(self):
-        gb, _ = pp.grid_buckets_2d.single_horizontal(
+        mdg, _ = pp.md_grids_2d.single_horizontal(
             [2, 2], x_endpoints=[0, 0.5], simplex=False
         )
 
-        seeds = co.generate_seeds(gb)
+        seeds = co.generate_seeds(mdg)
         known_seeds = np.array([0, 2])
         self.assertTrue(np.array_equal(seeds, known_seeds))
 
-        part = co.create_partition(co._tpfa_matrix(gb), gb, seeds=seeds)
-        co.generate_coarse_grid(gb, part)
+        part = co.create_partition(co._tpfa_matrix(mdg), mdg, seeds=seeds)
+        co.generate_coarse_grid(mdg, part)
 
         # Test
         known_indices = np.array([0, 1])
         known = np.array([6, 10])
 
-        for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["mortar_grid"].primary_to_mortar_int())
+        for intf in mdg.interfaces():
+            indices, faces, _ = sps.find(intf.primary_to_mortar_int())
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test3(self):
-        gb, _ = pp.grid_buckets_2d.single_horizontal(
+        mdg, _ = pp.md_grids_2d.single_horizontal(
             [2, 2], x_endpoints=[0.5, 1], simplex=False
         )
 
-        part = co.create_partition(co._tpfa_matrix(gb), gb)
-        co.generate_coarse_grid(gb, part)
+        part = co.create_partition(co._tpfa_matrix(mdg), mdg)
+        co.generate_coarse_grid(mdg, part)
 
         # Test
         known_indices = np.array([0, 1])
         known = np.array([6, 9])
 
-        for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["mortar_grid"].primary_to_mortar_int())
+        for intf in mdg.interfaces():
+            indices, faces, _ = sps.find(intf.primary_to_mortar_int())
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
     # ------------------------------------------------------------------------------#
 
     def test_create_partition_2d_1d_test4(self):
-        gb, _ = pp.grid_buckets_2d.single_horizontal(
+        mdg, _ = pp.md_grids_2d.single_horizontal(
             [2, 2], x_endpoints=[0.5, 1], simplex=False
         )
 
-        seeds = co.generate_seeds(gb)
+        seeds = co.generate_seeds(mdg)
         known_seeds = np.array([1, 3])
         self.assertTrue(np.array_equal(seeds, known_seeds))
 
-        part = co.create_partition(co._tpfa_matrix(gb), gb, seeds=seeds)
-        co.generate_coarse_grid(gb, part)
+        part = co.create_partition(co._tpfa_matrix(mdg), mdg, seeds=seeds)
+        co.generate_coarse_grid(mdg, part)
 
         # Test
         known_indices = np.array([0, 1])
         known = np.array([7, 10])
 
-        for _, d in gb.edges():
-            indices, faces, _ = sps.find(d["mortar_grid"].primary_to_mortar_int())
+        for intf in mdg.interfaces():
+            indices, faces, _ = sps.find(intf.primary_to_mortar_int())
             self.assertTrue(np.array_equal(faces, known))
             self.assertTrue(np.array_equal(indices, known_indices))
 
@@ -989,11 +978,11 @@ class BasicsTest(unittest.TestCase):
         if sys.version_info >= (3, 6):
             f1 = np.array([[3.0, 3.0], [1.0, 5.0]])
             f2 = np.array([[1.0, 5.0], [3.0, 3.0]])
-            gb = pp.meshing.cart_grid([f1, f2], [6, 6])
-            gb.compute_geometry()
+            mdg = pp.meshing.cart_grid([f1, f2], [6, 6])
+            mdg.compute_geometry()
 
-            part = co.create_partition(co._tpfa_matrix(gb), gb, cdepth=3)
-            co.generate_coarse_grid(gb, part)
+            part = co.create_partition(co._tpfa_matrix(mdg), mdg, cdepth=3)
+            co.generate_coarse_grid(mdg, part)
 
             cell_centers_1 = np.array(
                 [
@@ -1011,22 +1000,17 @@ class BasicsTest(unittest.TestCase):
             )
 
             # Test
-            for e_d in gb.edges():
-                indices, faces, _ = sps.find(
-                    e_d[1]["mortar_grid"].primary_to_mortar_int()
-                )
+            for intf in mdg.interfaces():
+                indices, faces, _ = sps.find(intf.primary_to_mortar_int())
+                sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
 
-                if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
-                    e_d[0][0].dim == 1 and e_d[0][1].dim == 0
-                ):
+                if sd_primary.dim == 1 and sd_secondary.dim == 0:
                     known = [2, 5]
                     known_indices = [0, 1]
 
-                if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
-                    e_d[0][0].dim == 2 and e_d[0][1].dim == 1
-                ):
+                elif sd_primary.dim == 2 and sd_secondary.dim == 1:
 
-                    g = e_d[0][0] if e_d[0][0].dim == 1 else e_d[0][1]
+                    g = sd_secondary
 
                     if np.allclose(g.cell_centers, cell_centers_1):
                         known = [4, 9, 12, 16, 44, 45, 46, 47]
@@ -1048,15 +1032,15 @@ class BasicsTest(unittest.TestCase):
         if sys.version_info >= (3, 6):
             f1 = np.array([[3.0, 3.0], [1.0, 5.0]])
             f2 = np.array([[1.0, 5.0], [3.0, 3.0]])
-            gb = pp.meshing.cart_grid([f1, f2], [6, 6])
-            gb.compute_geometry()
+            mdg = pp.meshing.cart_grid([f1, f2], [6, 6])
+            mdg.compute_geometry()
 
-            seeds = co.generate_seeds(gb)
+            seeds = co.generate_seeds(mdg)
             known_seeds = np.array([8, 9, 26, 27, 13, 16, 19, 22])
             self.assertTrue(np.array_equal(np.sort(seeds), np.sort(known_seeds)))
 
-            part = co.create_partition(co._tpfa_matrix(gb), gb, cdepth=3, seeds=seeds)
-            co.generate_coarse_grid(gb, part)
+            part = co.create_partition(co._tpfa_matrix(mdg), mdg, cdepth=3, seeds=seeds)
+            co.generate_coarse_grid(mdg, part)
 
             cell_centers_1 = np.array(
                 [
@@ -1074,27 +1058,22 @@ class BasicsTest(unittest.TestCase):
             )
 
             # Test
-            for e_d in gb.edges():
-                indices, faces, _ = sps.find(
-                    e_d[1]["mortar_grid"].primary_to_mortar_int()
-                )
+            for intf in mdg.interfaces():
 
-                if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
-                    e_d[0][0].dim == 1 and e_d[0][1].dim == 0
-                ):
+                sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
+
+                indices, faces, _ = sps.find(intf.primary_to_mortar_int())
+
+                if sd_secondary.dim == 0 and sd_primary.dim == 1:
                     known = [2, 5]
                     known_indices = [0, 1]
 
-                if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
-                    e_d[0][0].dim == 2 and e_d[0][1].dim == 1
-                ):
+                if sd_secondary.dim == 1 and sd_primary.dim == 2:
 
-                    g = e_d[0][0] if e_d[0][0].dim == 1 else e_d[0][1]
-
-                    if np.allclose(g.cell_centers, cell_centers_1):
+                    if np.allclose(sd_secondary.cell_centers, cell_centers_1):
                         known = [5, 10, 14, 18, 52, 53, 54, 55]
                         known_indices = [3, 2, 1, 0, 7, 6, 5, 4]
-                    elif np.allclose(g.cell_centers, cell_centers_2):
+                    elif np.allclose(sd_secondary.cell_centers, cell_centers_2):
                         known = [37, 38, 39, 40, 56, 57, 58, 59]
                         known_indices = [3, 2, 1, 0, 7, 6, 5, 4]
                     else:
@@ -1112,15 +1091,15 @@ class BasicsTest(unittest.TestCase):
             N = 20
             f1 = np.array([[N / 2.0, N / 2.0], [1.0, N - 1.0]])
             f2 = np.array([[1.0, N - 1.0], [N / 2.0, N / 2.0]])
-            gb = pp.meshing.cart_grid([f1, f2], [N, N])
-            gb.compute_geometry()
+            mdg = pp.meshing.cart_grid([f1, f2], [N, N])
+            mdg.compute_geometry()
 
-            seeds = co.generate_seeds(gb)
+            seeds = co.generate_seeds(mdg)
             known_seeds = np.array([29, 30, 369, 370, 181, 198, 201, 218])
             self.assertTrue(np.array_equal(np.sort(seeds), np.sort(known_seeds)))
 
-            part = co.create_partition(co._tpfa_matrix(gb), gb, cdepth=3, seeds=seeds)
-            co.generate_coarse_grid(gb, part)
+            part = co.create_partition(co._tpfa_matrix(mdg), mdg, cdepth=3, seeds=seeds)
+            co.generate_coarse_grid(mdg, part)
 
             cell_centers_1 = np.array(
                 [
@@ -1252,22 +1231,18 @@ class BasicsTest(unittest.TestCase):
             )
 
             # Test
-            for e_d in gb.edges():
-                indices, faces, _ = sps.find(
-                    e_d[1]["mortar_grid"].primary_to_mortar_int()
-                )
+            for intf in mdg.interfaces():
+                indices, faces, _ = sps.find(intf.primary_to_mortar_int())
 
-                if (e_d[0][0].dim == 0 and e_d[0][1].dim == 1) or (
-                    e_d[0][0].dim == 1 and e_d[0][1].dim == 0
-                ):
+                sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
+
+                if sd_primary.dim == 1 and sd_secondary.dim == 0:
                     known = [9, 19]
                     known_indices = [0, 1]
 
-                if (e_d[0][0].dim == 1 and e_d[0][1].dim == 2) or (
-                    e_d[0][0].dim == 2 and e_d[0][1].dim == 1
-                ):
+                elif sd_primary.dim == 2 and sd_secondary.dim == 1:
 
-                    g = e_d[0][0] if e_d[0][0].dim == 1 else e_d[0][1]
+                    g = sd_secondary
 
                     if np.allclose(g.cell_centers, cell_centers_1):
                         known = [

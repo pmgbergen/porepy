@@ -6,7 +6,7 @@ Created on Thu Jan 25 11:04:14 2018
 @author: ivar
 Utility functions for propagation of fractures and comparison of the changed
 grids, discretizations, parameters and bcs.
-Note: Several of the funcitons assume single-fracture domain with two
+Note: Several of the functions assume single-fracture domain with two
 dimensions only.
 """
 
@@ -18,39 +18,39 @@ from porepy.utils import setmembership as sm
 from porepy.numerics.fv import fvutils
 
 
-def propagate_and_update(gb, faces, discr, update_bc, update_apertures):
+def propagate_and_update(mdg, faces, discr, update_bc, update_apertures):
     """
     Perform the grid update defined by splitting of faces in the highest
-    dimension. Then rediscretize locally and return the discretization
+    dimension. Then re-discretize locally and return the discretization
     matrices.
     Updates on BCs and apertures depend on the problem setup, and are kept
     out of the propagate_fracture module.
     """
     faces = np.array(faces)
     if faces.ndim < 2:
-        pp.propagate_fracture.propagate_fractures(gb, [faces])
+        pp.propagate_fracture.propagate_fractures(mdg, [faces])
     else:
-        pp.propagate_fracture.propagate_fractures(gb, faces)
-    pp.propagate_fracture.tag_affected_cells_and_faces(gb)
-    gl = gb.grids_of_dimension(gb.dim_min())[0]
-    update_apertures(gb, gl, faces)
-    update_bc(gb)
+        pp.propagate_fracture.propagate_fractures(mdg, faces)
+    pp.propagate_fracture.tag_affected_cells_and_faces(mdg)
+    gl = mdg.subdomains(dim=mdg.dim_min())[0]
+    update_apertures(mdg, gl, faces)
+    update_bc(mdg)
     if discr.physics == "flow":
-        lhs_out, rhs_out = discr.matrix_rhs(gb)
+        lhs_out, rhs_out = discr.matrix_rhs(mdg)
     if discr.physics == "mechanics":
-        g = gb.grids_of_dimension(gb.dim_max())[0]
-        d = gb.node_props(g)
+        g = mdg.subdomains(dim=mdg.dim_max())[0]
+        d = mdg.node_props(g)
         lhs_out, rhs_out = discr.matrix_rhs(g, d)
     return lhs_out, rhs_out
 
 
 def compare_updates(
-    buckets, lh, rh, phys="mechanics", parameters=None, fractured_mpsa=False
+    md_grids, lh, rh, phys="mechanics", parameters=None, fractured_mpsa=False
 ):
     """
     Assert equivalence the BCs, parameters and discretizations on different
-    buckets. All values are compared to those of the first bucket in buckets.
-    buckets     - list of grid buckets. The field names in parameters should
+    md_grids. All values are compared to those of the first md-grid in md-grids.
+    md-grids     - list of grid md-grids. The field names in parameters should
                 be present in the parameter objects stored in the data
                 dictionary on the gb nodes.
     lh          - list of corresponding lhs matrices
@@ -66,32 +66,32 @@ def compare_updates(
         elif phys == "flow":
             parameters = ["permeability", "aperture"]
 
-    cmh, cml, fmh, fml = check_equivalent_buckets(buckets)
-    gb_0 = buckets[0]
-    n = len(buckets)
-    dh = gb_0.dim_max()
-    dl = gb_0.dim_min()
+    cmh, cml, fmh, fml = check_equivalent_md_grids(md_grids)
+    mdg_0 = md_grids[0]
+    n = len(md_grids)
+    dh = mdg_0.dim_max()
+    dl = mdg_0.dim_min()
 
     for i in range(1, n):
-        gb_i = buckets[i]
-        for d in range(dl, dh + 1):
-            g_0 = gb_0.grids_of_dimension(d)[0]
-            g_i = gb_i.grids_of_dimension(d)[0]
-            data_0 = gb_0.node_props(g_0)
-            data_i = gb_i.node_props(g_i)
-            if d == dl:
+        mdg_i = md_grids[i]
+        for dim in range(dl, dh + 1):
+            sd_0 = mdg_0.subdomains(dim=dim)[0]
+            sd_i = mdg_i.subdomains(dim=dim)[0]
+            data_0 = mdg_0.node_props(sd_0)
+            data_i = mdg_i.node_props(sd_i)
+            if dim == dl:
                 face_map, cell_map = fml[i - 1], cml[i - 1]
-            if d == dh:
+            if dim == dh:
                 face_map, cell_map = fmh[i - 1], cmh[i - 1]
 
             compare_parameters(
                 data_0, data_i, face_map, cell_map, phys=phys, fields=parameters
             )
 
-            compare_bc(g_i, data_0, data_i, face_map, phys=phys)
+            compare_bc(sd_i, data_0, data_i, face_map, phys=phys)
 
         compare_discretizations(
-            g_i,
+            sd_i,
             lh[0],
             lh[i],
             rh[0],
@@ -131,7 +131,7 @@ def compare_parameters(
         assert np.all(np.isclose(p_0.get_aperture(), p_1.get_aperture()[cell_map]))
 
 
-def compare_bc(g_1, data_0, data_1, face_map, phys="flow"):
+def compare_bc(sd_1, data_0, data_1, face_map, phys="flow"):
     """
     Compare type and value of BCs.
     """
@@ -143,14 +143,14 @@ def compare_bc(g_1, data_0, data_1, face_map, phys="flow"):
     assert np.all(BC_0.is_dir == BC_1.is_dir[face_map])
     assert np.all(BC_0.is_neu == BC_1.is_neu[face_map])
     if phys == "mechanics":
-        boundary_face_map = fvutils.expand_indices_nd(face_map, g_1.dim)
+        boundary_face_map = fvutils.expand_indices_nd(face_map, sd_1.dim)
     else:
         boundary_face_map = face_map
     assert np.all(vals_0 == vals_1[boundary_face_map])
 
 
 def compare_discretizations(
-    g_1,
+    sd_1,
     lhs_0,
     lhs_1,
     rhs_0,
@@ -161,27 +161,27 @@ def compare_discretizations(
     fractured_mpsa=False,
 ):
     """
-    Assumes dofs sorted as cell_maps. Not neccessarily true for multiple
+    Assumes dofs sorted as cell_maps. Not necessarily true for multiple
     fractures.
     """
     if fractured_mpsa:
         # The dofs are at the cell centers
-        dof_map_cells = fvutils.expand_indices_nd(cell_maps[0], g_1.dim)
+        dof_map_cells = fvutils.expand_indices_nd(cell_maps[0], sd_1.dim)
 
         # and faces on either side of the fracture. Find the order of the g_1
         # frac faces among the g_0 frac faces.
         frac_faces_loc = sm.ismember_rows(
-            face_maps[0], g_1.frac_pairs.ravel("C"), sort=False
+            face_maps[0], sd_1.frac_pairs.ravel("C"), sort=False
         )[1]
         # And expand to the dofs, one for each dimension for each face. For two
         # faces f0 and f1 in 3d, the order is
         # u(f0). v(f0), w(f0), u(f1). v(f1), w(f1)
-        frac_indices = fvutils.expand_indices_nd(frac_faces_loc, g_1.dim)
+        frac_indices = fvutils.expand_indices_nd(frac_faces_loc, sd_1.dim)
         # Account for the cells
-        frac_indices += g_1.num_cells * g_1.dim
+        frac_indices += sd_1.num_cells * sd_1.dim
         global_dof_map = np.concatenate((dof_map_cells, frac_indices))
     elif phys == "mechanics":
-        global_dof_map = fvutils.expand_indices_nd(cell_maps[0], g_1.dim)
+        global_dof_map = fvutils.expand_indices_nd(cell_maps[0], sd_1.dim)
         global_dof_map = np.array(global_dof_map, dtype=int)
     else:
         global_dof_map = np.concatenate(
@@ -192,42 +192,42 @@ def compare_discretizations(
     assert np.all(np.isclose(rhs_0, rhs_1[global_dof_map]))
 
 
-def check_equivalent_buckets(buckets, decimals=12):
+def check_equivalent_md_grids(md_grids, decimals=12):
     """
     Checks agreement between number of cells, faces and nodes, their
     coordinates and the connectivity matrices cell_faces and face_nodes. Also
     checks the face tags.
 
     """
-    dim_h = buckets[0].dim_max()
+    dim_h = md_grids[0].dim_max()
     dim_l = dim_h - 1
-    num_buckets = len(buckets)
+    num_md_grids = len(md_grids)
     cell_maps_h, face_maps_h = [], []
-    cell_maps_l, face_maps_l = num_buckets * [{}], num_buckets * [{}]
+    cell_maps_l, face_maps_l = num_md_grids * [{}], num_md_grids * [{}]
 
-    # Check that all buckets have the same number of grids in the lower dimension
-    num_grids_l: int = len(buckets[0].grids_of_dimension(dim_h - 1))
-    for bucket in buckets:
-        assert len(bucket.grids_of_dimension(dim_h - 1)) == num_grids_l
+    # Check that all md-grids have the same number of grids in the lower dimension
+    num_grids_l: int = len(md_grids[0].subdomains(dim=dim_h - 1))
+    for mdg in md_grids:
+        assert len(mdg.subdomains(dim=dim_h - 1)) == num_grids_l
 
-    for d in range(dim_l, dim_h + 1):
-        for target_grid in range(len(buckets[0].grids_of_dimension(d))):
+    for dim in range(dim_l, dim_h + 1):
+        for target_grid in range(len(md_grids[0].subdomains(dim=dim))):
 
             n_cells, n_faces, n_nodes = np.empty(0), np.empty(0), np.empty(0)
             nodes, face_centers, cell_centers = [], [], []
             cell_faces, face_nodes = [], []
-            for bucket in buckets:
-                g = bucket.grids_of_dimension(d)[target_grid]
-                n_cells = np.append(n_cells, g.num_cells)
-                n_faces = np.append(n_faces, g.num_faces)
-                n_nodes = np.append(n_nodes, g.num_nodes)
-                cell_faces.append(g.cell_faces)
-                face_nodes.append(g.face_nodes)
-                cell_centers.append(g.cell_centers)
-                face_centers.append(g.face_centers)
-                nodes.append(g.nodes)
+            for mdg in md_grids:
+                sd = mdg.subdomains(dim=dim)[target_grid]
+                n_cells = np.append(n_cells, sd.num_cells)
+                n_faces = np.append(n_faces, sd.num_faces)
+                n_nodes = np.append(n_nodes, sd.num_nodes)
+                cell_faces.append(sd.cell_faces)
+                face_nodes.append(sd.face_nodes)
+                cell_centers.append(sd.cell_centers)
+                face_centers.append(sd.face_centers)
+                nodes.append(sd.nodes)
 
-            # Check that all buckets have the same number of cells, faces and nodes
+            # Check that all md-grids have the same number of cells, faces and nodes
             assert np.unique(n_cells).size == 1
             assert np.unique(n_faces).size == 1
             assert np.unique(n_nodes).size == 1
@@ -236,49 +236,50 @@ def check_equivalent_buckets(buckets, decimals=12):
             cell_centers = np.round(cell_centers, decimals)
             nodes = np.round(nodes, decimals)
             face_centers = np.round(face_centers, decimals)
-            for i in range(1, num_buckets):
+            for i in range(1, num_md_grids):
                 assert np.all(sm.ismember_rows(cell_centers[0], cell_centers[i])[0])
                 assert np.all(sm.ismember_rows(face_centers[0], face_centers[i])[0])
                 assert np.all(sm.ismember_rows(nodes[0], nodes[i])[0])
 
             # Now we know all nodes, faces and cells are in all grids, we map them
             # to prepare cell_faces and face_nodes comparison
-            g_0 = buckets[0].grids_of_dimension(d)[target_grid]
-            for i in range(1, num_buckets):
-                bucket = buckets[i]
-                g = bucket.grids_of_dimension(d)[target_grid]
-                cell_map, face_map, node_map = make_maps(g_0, g, bucket.dim_max())
-                mapped_cf = g.cell_faces[face_map][:, cell_map]
-                mapped_fn = g.face_nodes[node_map][:, face_map]
+            sd_0 = md_grids[0].subdomains(dim=dim)[target_grid]
+            for i in range(1, num_md_grids):
+                mdg = md_grids[i]
+                sd = mdg.subdomains(dim=dim)[target_grid]
+                cell_map, face_map, node_map = make_maps(sd_0, sd, mdg.dim_max())
+                mapped_cf = sd.cell_faces[face_map][:, cell_map]
+                mapped_fn = sd.face_nodes[node_map][:, face_map]
 
-                assert np.sum(np.abs(g_0.cell_faces) != np.abs(mapped_cf)) == 0
-                assert np.sum(np.abs(g_0.face_nodes) != np.abs(mapped_fn)) == 0
-                if g.dim == dim_h:
+                assert np.sum(np.abs(sd_0.cell_faces) != np.abs(mapped_cf)) == 0
+                assert np.sum(np.abs(sd_0.face_nodes) != np.abs(mapped_fn)) == 0
+                if sd.dim == dim_h:
                     face_maps_h.append(face_map)
                     cell_maps_h.append(cell_map)
                 else:
-                    cell_maps_l[i][g] = cell_map
-                    face_maps_l[i][g] = face_map
+                    cell_maps_l[i][sd] = cell_map
+                    face_maps_l[i][sd] = face_map
 
                 # Also loop on the standard face tags to check that they are
-                # identical between the buckets.
+                # identical between the md-grids.
                 tag_keys = tags.standard_face_tags()
                 for key in tag_keys:
-                    assert np.all(np.isclose(g_0.tags[key], g.tags[key][face_map]))
+                    assert np.all(np.isclose(sd_0.tags[key], sd.tags[key][face_map]))
 
     # Mortar grids
-    g_h_0 = buckets[0].grids_of_dimension(dim_h)[0]
-    for target_grid in range(len(buckets[0].grids_of_dimension(dim_l))):
-        g_l_0 = buckets[0].grids_of_dimension(dim_l)[target_grid]
-
-        mg_0 = buckets[0].edge_props((g_h_0, g_l_0), "mortar_grid")
-        proj_0 = mg_0.primary_to_mortar_int()
-        for i in range(1, num_buckets):
-            g_l_i = buckets[i].grids_of_dimension(dim_l)[target_grid]
-            g_h_i = buckets[i].grids_of_dimension(dim_h)[0]
-            mg_i = buckets[i].edge_props((g_h_i, g_l_i), "mortar_grid")
-            proj_i = mg_i.primary_to_mortar_int()
-            cm = cell_maps_l[i][g_l_i]
+    sd_primary_0 = md_grids[0].subdomains(dim=dim_h)[0]
+    for target_grid in range(len(md_grids[0].subdomains(dim=dim_l))):
+        sd_secondary_0 = md_grids[0].subdomains(dim=dim_l)[target_grid]
+        intf_0 = md_grids[0].subdomain_pair_to_interface((sd_primary_0, sd_secondary_0))
+        proj_0 = intf_0.primary_to_mortar_int()
+        for i in range(1, num_md_grids):
+            sd_secondary_i = md_grids[i].subdomains(dim=dim_l)[target_grid]
+            sd_primary_i = md_grids[i].subdomains(dim=dim_h)[0]
+            intf_i = md_grids[i].subdomain_pair_to_interface(
+                (sd_primary_i, sd_secondary_i)
+            )
+            proj_i = intf_i.primary_to_mortar_int()
+            cm = cell_maps_l[i][sd_secondary_i]
             cm_extended = np.append(cm, cm + cm.size)
             fm = face_maps_h[i - 1]
             mapped_fc = proj_i[cm_extended, :][:, fm]
@@ -289,7 +290,7 @@ def check_equivalent_buckets(buckets, decimals=12):
 def make_maps(g0, g1, n_digits=8, offset=0.11):
     """
     Given two grid with the same nodes, faces and cells, the mappings between
-    these entities are concstructed. Handles non-unique nodes and faces on next
+    these entities are constructed. Handles non-unique nodes and faces on next
     to fractures by exploiting neighbour information.
     Builds maps from g1 to g0, so g1.x[x_map]=g0.x, e.g.
     g1.tags[some_key][face_map] = g0.tags[some_key].

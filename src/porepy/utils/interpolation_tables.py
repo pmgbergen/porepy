@@ -1,5 +1,5 @@
 """ The module contains interpolation tables, intended for use in function
-evalutaions. Specifically, the motivation is to facilitate the parametrization
+evaluations. Specifically, the motivation is to facilitate the parametrization
 framework described in
 
     Operator-based linearization approach for modeling of multiphase
@@ -7,7 +7,7 @@ framework described in
 
 The module contains two classes:
 
-    InterpolationTable: Interpolation based on precomputation of function values.
+    InterpolationTable: Interpolation based on pre-computation of function values.
         Essentially this is a cumbersome implementation of scipy interpolation
         functionality, and the latter is likely to be preferred.
 
@@ -27,7 +27,7 @@ import numpy as np
 
 
 class InterpolationTable:
-    """Interpolation table based on precomputation of function values.
+    """Interpolation table based on pre-computation of function values.
 
     Function values are interpolated on a Cartesian mesh.
     The interpolation is done using piecewise linears (for function values) and
@@ -104,7 +104,7 @@ class InterpolationTable:
         self._values: np.ndarray = np.zeros((dim, sz))  # type: ignore
 
     def interpolate(self, x: np.ndarray) -> np.ndarray:
-        """Perform interpolation on a Cartesian grid by a piecwise linear
+        """Perform interpolation on a Cartesian grid by a piecewise linear
         approximation.
 
         Parameters:
@@ -147,7 +147,7 @@ class InterpolationTable:
         return values
 
     def diff(self, x: np.ndarray, axis: int) -> np.ndarray:
-        """Perform differentiation on a Cartesian grid by a piecwise constant
+        """Perform differentiation on a Cartesian grid by a piecewise constant
         approximation.
 
         Parameters:
@@ -167,7 +167,7 @@ class InterpolationTable:
         # (right) and base (left) coordinate.
         right_weight, left_weight = self._right_left_weights(x, base_ind)
 
-        # placeholder variable for the function evaulation
+        # placeholder variable for the function evaluation
         values = None
 
         # Loop over all vertexes in the hypercube. Evaluate the function in the
@@ -203,7 +203,7 @@ class InterpolationTable:
 
     def _find_base_vertex(self, coord: np.ndarray) -> np.ndarray:
         # Helper function to get the base (generalized lower-left) vertex of a
-        # hypecube.
+        # hypercube.
 
         ind = np.zeros(coord.shape, dtype=int)
 
@@ -312,7 +312,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         self._has_value: np.ndarray = np.zeros(num_pt, dtype=bool)  # type: ignore
 
     def interpolate(self, x):
-        """Perform interpolation on a Cartesian grid by a piecwise linear
+        """Perform interpolation on a Cartesian grid by a piecewise linear
         approximation. Compute and store the necessary function values.
 
         Parameters:
@@ -329,7 +329,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         return super().interpolate(x)
 
     def diff(self, x, axis):
-        """Perform differentiation on a Cartesian grid by a piecwise constant
+        """Perform differentiation on a Cartesian grid by a piecewise constant
         approximation.
 
         Parameters:
@@ -360,7 +360,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         # Uniquify indices to avoid computing values for the same vertex twice.
         unique_ind = np.unique(np.hstack(ind))
-        # Find which vertexes has not been used before.
+        # Find which vertexes have not been used before.
         values_needed = unique_ind[np.logical_not(self._has_value[unique_ind])]
 
         # Compute and store function values.
@@ -368,5 +368,5 @@ class AdaptiveInterpolationTable(InterpolationTable):
             coord = np.array([self._coord[d][ind] for d in range(x.shape[0])])
             self._values[:, ind] = self._function(*coord)
 
-        # Update list of funcions with known values.
+        # Update list of functions with known values.
         self._has_value[values_needed] = 1

@@ -4,10 +4,10 @@ and trial functions for mixed methods (e.g. RT0, MVEM).
 
 The discretization takes into account cell volumes and the mass_weight given in
 the parameters (the mass weight can again incorporate porosity, time step,
-apertures etc),  so that the mass matrix (shape (g.num_faces + g.num_cells)^2)
+apertures etc),  so that the mass matrix (shape (sd.num_faces + sd.num_cells)^2)
 has the following diagonal for the cell_dof:
 
-    g.cell_volumes * mass_weight
+    sd.cell_volumes * mass_weight
 
 The right hand side is null.
 There is also a class for the inverse of the mass matrix.
@@ -18,12 +18,12 @@ self._key() + "mixed_mass" or self._key() + "inv_mixed_mass".
 The corresponding (null) rhs vectors are stored as
 self._key() + "bound_mixed_mass" or self._key() + "bound_inv_mixed_mass", respectively.
 """
+from __future__ import annotations
+
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-
-module_sections = ["numerics", "discretization", "assembly"]
 
 
 class MixedMassMatrix:
@@ -31,10 +31,7 @@ class MixedMassMatrix:
     test and trial functions for mixed methods (e.g. RT0, MVEM).
     """
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, keyword="flow"):
+    def __init__(self, keyword: str = "flow") -> None:
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
@@ -44,10 +41,7 @@ class MixedMassMatrix:
         """
         self.keyword = keyword
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def _key(self):
+    def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
@@ -57,34 +51,30 @@ class MixedMassMatrix:
         """
         return self.keyword + "_"
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def ndof(self, g):
+    def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method.
         In this case number of faces plus number of cells.
 
         Parameter:
-            g: grid, or a subclass.
+            sd: grid, or a subclass.
 
         Returns:
             int: the number of degrees of freedom.
 
         """
-        return g.num_faces + g.num_cells
+        return sd.num_faces + sd.num_cells
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, sd: pp.Grid, data: dict
+    ) -> tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix and right-hand side (null) for a discretization of a
         L2-mass bilinear form with constant test and trial functions. Also
         discretize the necessary operators if the data dictionary does not contain
         a mass matrix.
 
-        Parameters:
-            g : grid, or a subclass, with geometry fields computed.
-            data: dictionary to store the data.
+        Args:
+            sd (pp.Grid) : grid, or a subclass, with geometry fields computed.
+            data (dict): dictionary to store the data.
 
         Returns:
             matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
@@ -94,55 +84,43 @@ class MixedMassMatrix:
         The names of data in the input dictionary (data) are given in the documentation of
         discretize, see there.
         """
-        return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
+        return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, sd: pp.Grid, data: dict) -> sps.spmatrix:
         """Return the matrix for a discretization of a L2-mass bilinear form with
-        constant test and trial functions. Also discretize the necessary operators
-        if the data dictionary does not contain a mass matrix.
+        constant test and trial functions.
 
-        Parameters:
-            g (Grid): Computational grid, with geometry fields computed.
+        Args:
+            sd (pp.Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
         Returns:
             scipy.sparse.csr_matrix (self.ndof x self.ndof): System matrix of this
                 discretization.
+
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         return matrix_dictionary["mixed_mass"]
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, sd: pp.Grid, data: dict) -> np.ndarray:
         """Return the (null) right-hand side for a discretization of a L2-mass bilinear
-        form with constant test and trial functions. Also discretize the necessary
-        operators if the data dictionary does not contain a discretization of the
-        boundary equation.
+        form with constant test and trial functions.
 
-        Parameters:
-            g (Grid): Computational grid, with geometry fields computed.
+        Args:
+            sd (pp.Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
         Returns:
             np.ndarray (self.ndof): zero right hand side vector with representation of
                 boundary conditions.
+
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        if "bound_mixed_mass" not in matrix_dictionary:
-            self.discretize(g, data)
 
         rhs = matrix_dictionary["bound_mixed_mass"]
         return rhs
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def discretize(self, g, data):
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
         """Discretize a L2-mass bilinear form with constant test and trial functions.
 
         We assume the following two sub-dictionaries to be present in the data
@@ -162,23 +140,20 @@ class MixedMassMatrix:
                 obtained from the discretization.
             bound_mass: all zero np.ndarray (self.ndof)
 
-        Parameters:
-            g : grid, or a subclass, with geometry fields computed.
-            data: dictionary to store the data.
+        Args:
+            sd (pp.Grid) : A grid with geometry fields computed.
+            data (dict): dictionary to store the data.
 
         """
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
-        ndof = self.ndof(g)
+        ndof = self.ndof(sd)
         w = parameter_dictionary["mass_weight"]
-        volumes = g.cell_volumes
-        coeff = np.hstack((np.zeros(g.num_faces), volumes * w))
+        volumes = sd.cell_volumes
+        coeff = np.hstack((np.zeros(sd.num_faces), volumes * w))
 
         matrix_dictionary["mixed_mass"] = sps.dia_matrix((coeff, 0), shape=(ndof, ndof))
         matrix_dictionary["bound_mixed_mass"] = np.zeros(ndof)
-
-
-##########################################################################
 
 
 class MixedInvMassMatrix:
@@ -186,8 +161,7 @@ class MixedInvMassMatrix:
     test and trial functions for mixed methods (e.g. RT0, MVEM).
     """
 
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, keyword="flow"):
+    def __init__(self, keyword: str = "flow") -> None:
         """
         Set the discretization, with the keyword used for storing various
         information associated with the discretization.
@@ -198,10 +172,7 @@ class MixedInvMassMatrix:
         """
         self.keyword = keyword
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def _key(self):
+    def _key(self) -> str:
         """Get the keyword of this object, on a format friendly to access relevant
         fields in the data dictionary
 
@@ -211,34 +182,26 @@ class MixedInvMassMatrix:
         """
         return self.keyword + "_"
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def ndof(self, g):
+    def ndof(self, sd: pp.Grid):
         """Return the number of degrees of freedom associated to the method.
-        In this case number of faces plus number of cells.
 
-        Parameter
-        ---------
-        g: grid, or a subclass.
+        Args:
+            sd (pp.Grid): A grid.
 
-        Return
-        ------
-        dof: the number of degrees of freedom.
+        Returns:
+            int: The number of degrees of freedom.
 
         """
-        return g.num_faces + g.num_cells
+        return sd.num_faces + sd.num_cells
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix_rhs(self, g, data):
+    def assemble_matrix_rhs(
+        self, sd: pp.Grid, data: dict
+    ) -> tuple[sps.spmatrix, np.ndarray]:
         """Return the inverse of the matrix and right-hand side (null) for a
         discretization of a L2-mass bilinear form with constant test and trial
-        functions. Also discretize the necessary operators if the data dictionary does
-        not contain a discrete inverse mass matrix.
+        functions.
 
-        Parameters:
+        Args:
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
 
@@ -248,21 +211,16 @@ class MixedInvMassMatrix:
             rhs (array, self.ndof):
                 zero right-hand side.
 
-        The names of data in the input dictionary (data) are given in the documentation of
-        discretize, see there.
         """
-        return self.assemble_matrix(g, data), self.assemble_rhs(g, data)
+        return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_matrix(self, g, data):
+    def assemble_matrix(self, sd: pp.Grid, data: dict) -> sps.spmatrix:
         """Return the inverse of the matrix for a discretization of a L2-mass bilinear
         form with constant test and trial functions. Also discretize the necessary
         operators if the data dictionary does not contain a discrete inverse mass
         matrix.
 
-        Parameters:
+        Args:
             g (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
@@ -274,16 +232,13 @@ class MixedInvMassMatrix:
 
         return matrix_dictionary["inv_mixed_mass"]
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def assemble_rhs(self, g, data):
+    def assemble_rhs(self, sd: pp.Grid, data: dict) -> np.ndarray:
         """Return the (null) right-hand side for a discretization of the inverse of a
         L2-mass bilinear form with constant test and trial functions. Also discretize
         the necessary operators if the data dictionary does not contain a discretization
         of the boundary term.
 
-        Parameters:
+        Args:
             g (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
@@ -295,10 +250,7 @@ class MixedInvMassMatrix:
 
         return matrix_dictionary["bound_inv_mixed_mass"]
 
-    # ------------------------------------------------------------------------------#
-
-    @pp.time_logger(sections=module_sections)
-    def discretize(self, g, data, faces=None):
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
         """Discretize the inverse of a L2-mass bilinear form with constant test and
         trial functions.
 
@@ -319,17 +271,17 @@ class MixedInvMassMatrix:
                 obtained from the discretization.
             bound_mass: all zero np.ndarray (self.ndof)
 
-        Parameters:
-            g : grid, or a subclass, with geometry fields computed.
-            data: dictionary to store the data.
+        Args:
+            sd (pp.Grid) : grid, or a subclass, with geometry fields computed.
+            data (dict): dictionary to store the data.
 
         """
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         mass = MixedMassMatrix(keyword=self.keyword)
-        mass.discretize(g, data)
-        M, rhs = mass.assemble_matrix_rhs(g, data)
+        mass.discretize(sd, data)
+        M, rhs = mass.assemble_matrix_rhs(sd, data)
         coeff = M.diagonal()
-        coeff[g.num_faces :] = 1.0 / coeff[g.num_faces :]
+        coeff[sd.num_faces :] = 1.0 / coeff[sd.num_faces :]
 
         matrix_dictionary["inv_mixed_mass"] = sps.dia_matrix((coeff, 0), shape=M.shape)
         matrix_dictionary["bound_inv_mixed_mass"] = rhs

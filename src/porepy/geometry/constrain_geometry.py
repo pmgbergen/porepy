@@ -54,13 +54,13 @@ def lines_by_polygon(poly_pts, pts, edges):
             isinstance(int_lines, shapely_geometry.LineString)
             and len(int_lines.coords) > 0
         ):
-            # consider the case of single intersection by avoiding to consider
+            # consider the case of single intersection by avoiding considering
             # lines on the boundary of the polygon
             if not int_lines.touches(poly) and int_lines.length > 0:
                 int_pts = np.c_[int_pts, np.array(int_lines.xy)]
                 edges_kept.append(ei)
         elif type(int_lines) is shapely_geometry.MultiLineString:
-            # consider the case of multiple intersections by avoiding to consider
+            # consider the case of multiple intersections by avoiding considering
             # lines on the boundary of the polygon
             for int_line in int_lines:
                 if not int_line.touches(poly) and int_line.length > 0:
@@ -83,7 +83,7 @@ def lines_by_polygon(poly_pts, pts, edges):
 
 
 def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
-    """Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
+    """Constrain a sort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
 
     Polygons not inside the polyhedron will be removed from descriptions.
     For non-convex polyhedra, polygons can be split in several parts.
@@ -230,7 +230,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         points_inside_polyhedron = pp.geometry_property_checks.point_in_polyhedron(
             polyhedron, poly
         )
-        # segment_inside[0] tells whehter the point[:, -1] - point[:, 0] is fully inside
+        # segment_inside[0] tells whether the point[:, -1] - point[:, 0] is fully inside
         # the remaining elements are point[:, 0] - point[:, 1] etc.
         segments_inside = np.logical_and(
             points_inside_polyhedron, points_inside_polyhedron[next_ind]
@@ -296,7 +296,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # Storage of identified segments in the constrained polygon
         segments_interior_boundary = []
 
-        # Check if individual vertexs are on the boundary
+        # Check if individual vertexes are on the boundary
         vertex_on_boundary = np.zeros(num_vert, bool)
         for isect in seg_vert:
             if len(isect) > 0 and not isect[1]:
@@ -522,7 +522,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                     decrease = 0
                     for edge_ind in np.sort(hang_ind):  # sort to be sure
                         ei = edge_ind - decrease  # effective index
-                        # Adjust the endpoint of the this edge
+                        # Adjust the endpoint of this edge
                         if ei < sorted_pairs.shape[1] - 1:
                             sorted_pairs[1, ei] = sorted_pairs[1, ei + 1]
                             sorted_pairs = np.delete(sorted_pairs, ei + 1, axis=1)
@@ -538,7 +538,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
             # And there we are
 
-            # In cases where polygons touches the polyhedron along an edge, there may
+            # In cases where polygons touch the polyhedron along an edge, there may
             # be two point indices only. Disregard these cases.
             # NOTE: It is not clear there are not additional cases (or bugs) that are
             # masked by this if.

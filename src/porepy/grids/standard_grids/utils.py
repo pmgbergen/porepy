@@ -1,11 +1,11 @@
+from typing import List
+
 import numpy as np
 
 import porepy as pp
 
-module_sections = ["grids", "gridding"]
 
-
-def unit_domain(dimension):
+def unit_domain(dimension: int):
     """Return a domain of unitary size extending from 0 to 1 in all dimensions.
 
     Parameters:
@@ -23,8 +23,7 @@ def unit_domain(dimension):
     return domain
 
 
-@pp.time_logger(sections=module_sections)
-def set_mesh_sizes(mesh_args):
+def set_mesh_sizes(mesh_args: dict):
     """
     Checks whether mesh_size_min and mesh_size_bound are present in the mesh_args dictionary.
     If not, they are set to 1/5 and 2 of the mesh_size_frac value, respectively.
@@ -37,42 +36,52 @@ def set_mesh_sizes(mesh_args):
         mesh_args["mesh_size_min"] = 1 / 5 * mesh_args["mesh_size_frac"]
 
 
-@pp.time_logger(sections=module_sections)
-def make_gb_2d_simplex(mesh_args, points, edges, domain):
+def make_mdg_2d_simplex(
+    mesh_args: dict, points: np.ndarray, fractures: np.ndarray, domain: dict
+):
     """
     Construct a grid bucket with triangle grid in the 2d domain.
 
     Args:
-        mesh_args (dict): Contains at least "mesh_size_frac". If the optional values of
+        mesh_args:
+            Contains at least "mesh_size_frac". If the optional values of
             "mesh_size_bound" and "mesh_size_min" are not provided, these are set by
             set_mesh_sizes.
-        points (): Fracture endpoints.
-        fractures (): Connectivity list of the fractures, pointing to the provided
+        points:
+            Fracture endpoints.
+        fractures:
+            Connectivity list of the fractures, pointing to the provided
             endpoint list.
-        domain (dict): Defines the size of the rectangular domain.
+        domain:
+            Defines the size of the rectangular domain.
 
     Returns: Grid bucket with geometry computation and node ordering performed.
     """
     set_mesh_sizes(mesh_args)
-    network = pp.FractureNetwork2d(points, edges, domain)
-    gb = network.mesh(mesh_args)
-    gb.compute_geometry()
-    return gb
+    network = pp.FractureNetwork2d(points, fractures, domain)
+    mdg = network.mesh(mesh_args)
+    mdg.compute_geometry()
+    return mdg
 
 
-@pp.time_logger(sections=module_sections)
-def make_gb_2d_cartesian(n_cells, fractures, domain):
+def make_mdg_2d_cartesian(
+    n_cells: np.ndarray, fractures: List[np.ndarray], domain: dict
+):
     """
     Construct a grid bucket with Cartesian grid in the 2d domain.
 
     Args:
-        n_cells list: Contains number of cells in x and y direction.
-        fractures (list): Each element is an np.array([[x0, x1],[y0,y1]])
-        domain (dict): Defines the size of the rectangular domain.
+        n_cells:
+            Contains number of cells in x and y direction.
+        fractures:
+            Each element is an np.array([[x0, x1],[y0,y1]])
+        domain:
+            Defines the size of the rectangular domain.
 
-    Returns: Grid bucket with geometry computation and node ordering performed.
+    Returns:
+        Grid bucket with geometry computation and node ordering performed.
     """
-    gb = pp.meshing.cart_grid(
+    mdg: pp.MixedDimensionalGrid = pp.meshing.cart_grid(
         fractures, n_cells, physdims=[domain["xmax"], domain["ymax"]]
     )
-    return gb
+    return mdg

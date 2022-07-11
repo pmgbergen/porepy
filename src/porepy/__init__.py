@@ -41,11 +41,9 @@ except:
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
 
-from porepy.utils.logging import *
-
 from porepy.utils.common_constants import *
 
-from porepy.utils import error
+
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 from porepy.utils import permutations
@@ -85,20 +83,22 @@ from porepy.params.fluid import Water, UnitFluid
 # Grids
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
-from porepy.grids.grid_bucket import GridBucket
+from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
 from porepy.grids.point_grid import PointGrid
 from porepy.grids import match_grids
-from porepy.grids.standard_grids import grid_buckets_2d, grid_buckets_3d
+from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 from porepy.grids import grid_extrusion
 from porepy.utils import grid_utils
 from porepy.utils import adtree
 
 # Fractures
-from porepy.fracs.fractures_3d import Fracture, EllipticFracture, FractureNetwork3d
-from porepy.fracs.fractures_2d import FractureNetwork2d
+from porepy.fracs.plane_fracture import PlaneFracture, create_elliptic_fracture
+from porepy.fracs.line_fracture import LineFracture
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
 
 # Wells
 from porepy.fracs.wells_3d import (
@@ -195,6 +195,8 @@ from porepy.numerics.time_step_control import TimeSteppingControl
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
+
+from porepy.utils import error
 
 # Modules
 from porepy.fracs import utils as frac_utils
