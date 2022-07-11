@@ -3,11 +3,12 @@
 The tests are based on equivalence between the equations defined by the AD framework
 and the classical way of defining equations.
 """
-import pytest
-import porepy as pp
-import numpy as np
-
 from typing import Union
+
+import numpy as np
+import pytest
+
+import porepy as pp
 
 
 def test_md_flow():
@@ -16,8 +17,8 @@ def test_md_flow():
     frac_2 = np.array([[3, 3, 3, 3], [2, 4, 4, 2], [0, 0, 6, 6]])
     frac_3 = np.array([[0, 6, 6, 0], [2, 2, 4, 4], [3, 3, 3, 3]])
 
-    gb = pp.meshing.cart_grid(fracs=[frac_1, frac_2, frac_3], nx=np.array([6, 6, 6]))
-    gb.compute_geometry()
+    mdg = pp.meshing.cart_grid(fracs=[frac_1, frac_2, frac_3], nx=np.array([6, 6, 6]))
+    mdg.compute_geometry()
 
     pressure_variable = "pressure"
     flux_variable = "mortar_flux"
@@ -27,79 +28,81 @@ def test_md_flow():
     source_discr = pp.ScalarSource(keyword)
     coupling_discr = pp.RobinCoupling(keyword, discr, discr)
 
-    for g, d in gb:
+    for sd, sd_data in mdg.subdomains(return_data=True):
 
         # Assign data
-        if g.dim == gb.dim_max():
-            upper_left_ind = np.argmax(np.linalg.norm(g.face_centers, axis=0))
-            bc = pp.BoundaryCondition(g, np.array([0, upper_left_ind]), ["dir", "dir"])
-            bc_values = np.zeros(g.num_faces)
+        if sd.dim == mdg.dim_max():
+            upper_left_ind = np.argmax(np.linalg.norm(sd.face_centers, axis=0))
+            bc = pp.BoundaryCondition(sd, np.array([0, upper_left_ind]), ["dir", "dir"])
+            bc_values = np.zeros(sd.num_faces)
             bc_values[0] = 1
-            sources = np.random.rand(g.num_cells) * g.cell_volumes
+            sources = np.random.rand(sd.num_cells) * sd.cell_volumes
             specified_parameters = {"bc": bc, "bc_values": bc_values, "source": sources}
         else:
-            sources = np.random.rand(g.num_cells) * g.cell_volumes
+            sources = np.random.rand(sd.num_cells) * sd.cell_volumes
             specified_parameters = {"source": sources}
 
         # Initialize data
-        pp.initialize_default_data(g, d, keyword, specified_parameters)
+        pp.initialize_default_data(sd, sd_data, keyword, specified_parameters)
 
         # Declare grid primary variable
-        d[pp.PRIMARY_VARIABLES] = {pressure_variable: {"cells": 1}}
+        sd_data[pp.PRIMARY_VARIABLES] = {pressure_variable: {"cells": 1}}
 
         # Assign discretization
-        d[pp.DISCRETIZATION] = {
+        sd_data[pp.DISCRETIZATION] = {
             pressure_variable: {"diff": discr, "source": source_discr}
         }
 
         # Initialize state
-        d[pp.STATE] = {
-            pressure_variable: np.zeros(g.num_cells),
-            pp.ITERATE: {pressure_variable: np.zeros(g.num_cells)},
+        sd_data[pp.STATE] = {
+            pressure_variable: np.zeros(sd.num_cells),
+            pp.ITERATE: {pressure_variable: np.zeros(sd.num_cells)},
         }
-    for e, d in gb.edges():
-        mg = d["mortar_grid"]
-        pp.initialize_data(mg, d, keyword, {"normal_diffusivity": 1})
+    for intf, intf_data in mdg.interfaces(return_data=True):
+        sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
+        pp.initialize_data(intf, intf_data, keyword, {"normal_diffusivity": 1})
 
-        d[pp.PRIMARY_VARIABLES] = {flux_variable: {"cells": 1}}
-        d[pp.COUPLING_DISCRETIZATION] = {}
-        d[pp.COUPLING_DISCRETIZATION]["coupling"] = {
-            e[0]: (pressure_variable, "diff"),
-            e[1]: (pressure_variable, "diff"),
-            e: (flux_variable, coupling_discr),
+        intf_data[pp.PRIMARY_VARIABLES] = {flux_variable: {"cells": 1}}
+        intf_data[pp.COUPLING_DISCRETIZATION] = {}
+        intf_data[pp.COUPLING_DISCRETIZATION]["coupling"] = {
+            sd_primary: (pressure_variable, "diff"),
+            sd_secondary: (pressure_variable, "diff"),
+            intf: (flux_variable, coupling_discr),
         }
-        d[pp.STATE] = {
-            flux_variable: np.zeros(mg.num_cells),
-            pp.ITERATE: {flux_variable: np.zeros(mg.num_cells)},
+        intf_data[pp.STATE] = {
+            flux_variable: np.zeros(intf.num_cells),
+            pp.ITERATE: {flux_variable: np.zeros(intf.num_cells)},
         }
 
-    dof_manager = pp.DofManager(gb)
-    assembler = pp.Assembler(gb, dof_manager)
+    dof_manager = pp.DofManager(mdg)
+    assembler = pp.Assembler(mdg, dof_manager)
     assembler.discretize()
 
     # Reference discretization
     A_ref, b_ref = assembler.assemble_matrix_rhs()
 
-    manager = pp.ad.EquationManager(gb, dof_manager)
+    manager = pp.ad.EquationManager(mdg, dof_manager)
 
-    grid_list = [g for g, _ in gb]
-    edge_list = [e for e, _ in gb.edges()]
+    subdomains = mdg.subdomains()
+    interfaces = mdg.interfaces()
 
-    node_discr = pp.ad.MpfaAd(keyword, grid_list)
+    node_discr = pp.ad.MpfaAd(keyword, subdomains)
 
-    edge_discr = pp.ad.RobinCouplingAd(keyword, edge_list)
+    edge_discr = pp.ad.RobinCouplingAd(keyword, interfaces)
 
-    bc_val = pp.ad.BoundaryCondition(keyword, grid_list)
+    bc_val = pp.ad.BoundaryCondition(keyword, subdomains)
 
     source = pp.ad.ParameterArray(
-        param_keyword=keyword, array_keyword="source", grids=grid_list
+        param_keyword=keyword, array_keyword="source", subdomains=subdomains
     )
 
-    projections = pp.ad.MortarProjections(gb=gb, grids=grid_list, edges=edge_list)
-    div = pp.ad.Divergence(grids=grid_list)
+    projections = pp.ad.MortarProjections(
+        mdg=mdg, subdomains=subdomains, interfaces=interfaces
+    )
+    div = pp.ad.Divergence(subdomains=subdomains)
 
-    p = manager.merge_variables([(g, pressure_variable) for g in grid_list])
-    lmbda = manager.merge_variables([(e, flux_variable) for e in edge_list])
+    p = manager.merge_variables([(sd, pressure_variable) for sd in subdomains])
+    lmbda = manager.merge_variables([(intf, flux_variable) for intf in interfaces])
 
     flux = (
         node_discr.flux * p
@@ -122,11 +125,11 @@ def test_md_flow():
         + lmbda
     )
 
-    flow_eq.discretize(gb)
+    flow_eq.discretize(mdg)
 
     manager.equations.update({"matrix_flow": flow_eq, "mortar_flow": interface_flux})
 
-    state = np.zeros(gb.num_cells() + gb.num_mortar_cells())
+    state = np.zeros(mdg.num_subdomain_cells() + mdg.num_interface_cells())
     A, b = manager.assemble(state=state)
     diff = A - A_ref
     if diff.data.size > 0:
@@ -137,50 +140,50 @@ def test_md_flow():
 # Below are grid bucket generators to be used for tests of contact-mechanics models
 
 
-def _single_fracture_2d():
+def _single_fracture_2d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[2, 3], [2, 2]])]
-    gb = pp.meshing.cart_grid(frac, [5, 4])
-    pp.contact_conditions.set_projections(gb)
-    return gb
+    mdg = pp.meshing.cart_grid(frac, [5, 4])
+    pp.contact_conditions.set_projections(mdg)
+    return mdg
 
 
-def _single_fracture_near_global_boundary_2d():
+def _single_fracture_near_global_boundary_2d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[1, 2], [1, 1]])]
-    gb = pp.meshing.cart_grid(frac, [3, 2])
-    pp.contact_conditions.set_projections(gb)
-    return gb
+    mdg = pp.meshing.cart_grid(frac, [3, 2])
+    pp.contact_conditions.set_projections(mdg)
+    return mdg
 
 
-def _two_fractures_2d():
+def _two_fractures_2d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[2, 3], [1, 1]]), np.array([[2, 3], [3, 3]])]
-    gb = pp.meshing.cart_grid(frac, [5, 4])
-    pp.contact_conditions.set_projections(gb)
-    return gb
+    mdg = pp.meshing.cart_grid(frac, [5, 4])
+    pp.contact_conditions.set_projections(mdg)
+    return mdg
 
 
-def _two_fractures_crossing_2d():
+def _two_fractures_crossing_2d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[1, 3], [2, 2]]), np.array([[2, 2], [1, 3]])]
-    gb = pp.meshing.cart_grid(frac, [4, 4])
-    pp.contact_conditions.set_projections(gb)
-    return gb
+    mdg = pp.meshing.cart_grid(frac, [4, 4])
+    pp.contact_conditions.set_projections(mdg)
+    return mdg
 
 
-def _single_fracture_3d():
+def _single_fracture_3d() -> pp.MixedDimensionalGrid:
     frac = [np.array([[2, 3, 3, 2], [2, 2, 3, 3], [2, 2, 2, 2]])]
-    gb = pp.meshing.cart_grid(frac, [5, 5, 4])
-    pp.contact_conditions.set_projections(gb)
-    return gb
+    mdg = pp.meshing.cart_grid(frac, [5, 5, 4])
+    pp.contact_conditions.set_projections(mdg)
+    return mdg
 
 
-def _three_fractures_crossing_3d():
+def _three_fractures_crossing_3d() -> pp.MixedDimensionalGrid:
     frac = [
         np.array([[1, 3, 3, 1], [1, 1, 3, 3], [2, 2, 2, 2]]),
         np.array([[1, 1, 3, 3], [2, 2, 2, 2], [1, 3, 3, 1]]),
         np.array([[2, 2, 2, 2], [1, 1, 3, 3], [1, 3, 3, 1]]),
     ]
-    gb = pp.meshing.cart_grid(frac, [4, 4, 4])
-    pp.contact_conditions.set_projections(gb)
-    return gb
+    mdg = pp.meshing.cart_grid(frac, [4, 4, 4])
+    pp.contact_conditions.set_projections(mdg)
+    return mdg
 
 
 class ContactModel(pp.ContactMechanics):
@@ -188,28 +191,28 @@ class ContactModel(pp.ContactMechanics):
         super().__init__(param)
         self._grid_meth = grid_meth
 
-    def _bc_values(self, g):
-        val = np.zeros((g.dim, g.num_faces))
-        tags = g.tags["domain_boundary_faces"]  # + g.tags["domain_boundary_faces"]
-        val[: g.dim, tags] = g.face_centers[: g.dim, tags]
+    def _bc_values(self, sd):
+        val = np.zeros((sd.dim, sd.num_faces))
+        tags = sd.tags["domain_boundary_faces"]  # + g.tags["domain_boundary_faces"]
+        val[: sd.dim, tags] = sd.face_centers[: sd.dim, tags]
         return val.ravel("f")
 
     def create_grid(self):
         np.random.seed(0)
-        self.gb = self._grid_meth()
+        self.mdg = self._grid_meth()
 
 
 def create_grid(model):
     np.random.seed(0)
-    model.gb = model._grid_meth()
-    xn = model.gb.grids_of_dimension(model.gb.dim_max())[0].nodes
+    model.mdg = model._grid_meth()
+    xn = model.mdg.subdomains(dim=model.mdg.dim_max())[0].nodes
     box = {
         "xmin": xn[0].min(),
         "xmax": xn[0].max(),
         "ymin": xn[1].min(),
         "ymax": xn[0].max(),
     }
-    if model.gb.dim_max() == 3:
+    if model.mdg.dim_max() == 3:
         box.update({"zmin": xn[2].min(), "zmax": xn[2].max()})
     model.box = box
 
@@ -223,28 +226,28 @@ class BiotContactModel(pp.ContactMechanicsBiot):
         super().__init__(param)
         self._grid_meth = grid_meth
 
-    def _bc_values_scalar(self, g):
+    def _bc_values_scalar(self, sd):
         # Set pressure values at the domain boundaries.
-        val = np.zeros(g.num_faces)
-        tags = g.tags["domain_boundary_faces"]
-        val[tags] = g.face_centers[: g.dim, tags].sum(axis=0)
+        val = np.zeros(sd.num_faces)
+        tags = sd.tags["domain_boundary_faces"]
+        val[tags] = sd.face_centers[: sd.dim, tags].sum(axis=0)
         return val
 
-    def _bc_values_mechanics(self, g):
+    def _bc_values_mechanics(self, sd):
         # Set displacement values at the domain boundaries.
         # NOTE TO SELF: In a previous version of this test, Dirichlet values were set
         # also on the internal boundary. This, combined with the scaling issue noted
         # below, was sufficient to give mismatch between the Ad and Assembler versions
         # of the code (on Linux, but not on Windows, for some reason). The gut feel is,
         # the scaling issue seem the more likely culprit.
-        val = np.zeros((g.dim, g.num_faces))
-        tags = g.tags["domain_boundary_faces"]
+        val = np.zeros((sd.dim, sd.num_faces))
+        tags = sd.tags["domain_boundary_faces"]
         # IMPLEMENTATION NOTE: If we do not divide by 10 here, a mismatch between the
         # Ad and Assembler code will result for some tests (on Linux, but not on Windows).
         # Dividing by 10 solves the issue. Most likely, but not confirmed, this is
         # caused by a tolerance in the two implementations of the contact mechanics
         # problem, that somehow make the two solutions diverge.
-        val[: g.dim, tags] = g.face_centers[: g.dim, tags] / 10
+        val[: sd.dim, tags] = sd.face_centers[: sd.dim, tags] / 10
 
         return val.ravel("f")
 
@@ -257,7 +260,7 @@ class THMModel(pp.THM):
         super().__init__(param)
         self._grid_meth = grid_meth
 
-    def _scalar_temperature_coupling_coefficient(self, g: pp.Grid) -> float:
+    def _scalar_temperature_coupling_coefficient(self, sd: pp.Grid) -> float:
         """
         TH coupling coefficient.
 
@@ -265,69 +268,61 @@ class THMModel(pp.THM):
         """
         return -1.0e-3
 
-    def _source_scalar(self, g):
-        if g.dim == self._Nd - 1:
+    def _source_scalar(self, sd):
+        if sd.dim == self.mdg.dim_max() - 1:
             val = 1.0
         else:
             val = 0.0
-        return val * g.cell_volumes
+        return val * sd.cell_volumes
 
-    def _source_temperature(self, g):
-        if g.dim == self._Nd - 1:
+    def _source_temperature(self, sd):
+        if sd.dim == self.mdg.dim_max() - 1:
             val = 1.0
         else:
             val = 0.0
-        return val * g.cell_volumes
+        return val * sd.cell_volumes
 
     def create_grid(self):
         create_grid(self)
 
-    def _biot_beta(self, g: pp.Grid) -> Union[float, np.ndarray]:
+    def _biot_beta(self, sd: pp.Grid) -> Union[float, np.ndarray]:
         """
         TM coupling coefficient
         """
-        if g.dim == self._Nd - 1:
-            val = 1
+        if sd.dim == self.mdg.dim_max() - 1:
+            val = 1.0
         else:
             val = 0.3
         if self._use_ad:
-            return val * np.ones(g.num_cells)
+            return val * np.ones(sd.num_cells)
         else:
             return val
 
-    def _biot_alpha(self, g: pp.Grid) -> Union[float, np.ndarray]:
+    def _biot_alpha(self, sd: pp.Grid) -> Union[float, np.ndarray]:
         """
         TM coupling coefficient
         """
-        if g.dim == self._Nd - 1:
-            val = 1
+        if sd.dim == self.mdg.dim_max() - 1:
+            val = 1.0
         else:
             val = 0.2
         if self._use_ad:
-            return val * np.ones(g.num_cells)
+            return val * np.ones(sd.num_cells)
         else:
             return val
 
 
-def _compare_solutions(m0, m1, tol=1e-7):
+def _compare_solutions(m0, m1, tol=1e-7) -> None:
     """Safe comparison of solutions without assumptions of identical dof ordering.
 
     We loop over block_dof keys, i.e. combinations of grid_like and variable names,
-    and identify the grid in m1.gb by cell center coordinates. We assume the grids
+    and identify the grid in m1.mdg by cell center coordinates. We assume the grids
     to be identical for each subdomain.
-    Parameters
-    ----------
-    m0 : Model
-        First model.
-    m1 : Model
-        Second model.
-    tol : float
-        Comparison tolerance.
 
-    Returns
-    -------
-    None.
-
+    Args:
+        m0 (Model): First model.
+        m1 (Model): Second model.
+        tol (float): Comparison tolerance.
     """
 
     def _same_grid(g0, g1):
@@ -339,30 +334,32 @@ def _compare_solutions(m0, m1, tol=1e-7):
     for grid_like, var in m0.dof_manager.block_dof.keys():
         # Identify grid in m1
         found = False
-        if isinstance(grid_like, tuple):
-            for e1, d1 in m1.gb.edges():
+        if isinstance(grid_like, pp.MortarGrid):
+            sd_primary0, sd_secondary0 = m0.mdg.interface_to_subdomain_pair(grid_like)
+            for intf, intf_data in m1.mdg.interfaces(return_data=True):
                 # Check for equality of both neighbour subdomains. MortarGrid
                 # coordinates are not unique for intersection interfaces.
-                found = _same_grid(grid_like[0], e1[0]) and _same_grid(
-                    grid_like[1], e1[1]
+                sd_primary1, sd_secondary1 = m1.mdg.interface_to_subdomain_pair(intf)
+                found = _same_grid(sd_primary0, sd_primary1) and _same_grid(
+                    sd_secondary0, sd_secondary1
                 )
                 if found:
-                    sol0 = m0.gb.edge_props(grid_like)[pp.STATE][var]
+                    sol0 = m0.mdg.interface_data(grid_like)[pp.STATE][var]
                     if var == getattr(
                         m0, "mortar_temperature_advection_variable", "foo"
                     ):
                         # Reformulation; the advective flux is time integrated in
                         # non-ad but not in ad.
-                        sol1 = d1[pp.STATE][var] * m1.time_step
+                        sol1 = intf_data[pp.STATE][var] * m1.time_step
                     else:
-                        sol1 = d1[pp.STATE][var]
+                        sol1 = intf_data[pp.STATE][var]
                     break
         else:
-            for g1, d1 in m1.gb:
-                found = _same_grid(grid_like, g1)
+            for sd, sd_data in m1.mdg.subdomains(return_data=True):
+                found = _same_grid(grid_like, sd)
                 if found:
-                    sol0 = m0.gb.node_props(grid_like)[pp.STATE][var]
-                    sol1 = d1[pp.STATE][var]
+                    sol0 = m0.mdg.subdomain_data(grid_like)[pp.STATE][var]
+                    sol1 = sd_data[pp.STATE][var]
                     break
         assert found
         diff = sol1 - sol0
@@ -370,23 +367,16 @@ def _compare_solutions(m0, m1, tol=1e-7):
         assert norm < tol
 
 
-def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True):
+def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True) -> None:
     """Run two model instances and compare solutions for each time step.
 
-
-    Parameters
-    ----------
-    model_as : AbstractModel
-        Model class not using ad.
-    model_ad : AbstractModel
-        Model class using ad.
-    prepare : bool, optional
-        Whether to run prepare_simulation method. The default is True.
-
-    Returns
-    -------
-    None.
-
+    Args:
+        model_as : AbstractModel
+            Model class not using ad.
+        model_ad : AbstractModel
+            Model class using ad.
+        prepare : bool, optional
+            Whether to run prepare_simulation method. The default is True.
     """
     if prepare:
         # Only do this for time-independent problems

@@ -15,25 +15,25 @@ from . import _ad_utils, operators
 
 __all__ = ["EquationManager"]
 
-GridLike = Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
+GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
 class EquationManager:
     """Representation of a set of equations specified on Ad form.
 
-    The equations are tied to a specific GridBucket, with variables fixed in a
+    The equations are tied to a specific MixedDimensionalGrid, with variables fixed in a
     corresponding DofManager.
 
     Attributes:
-        gb (pp.GridBucket): Mixed-dimensional grid on which this EquationManager
+        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid on which this EquationManager
             operates.
         dof_manager (pp.DofManager): Degree of freedom manager used for this
             EquationManager.
         equations (List of Ad Operators): Equations assigned to this EquationManager.
             can be expanded by direct addition to the list.
-        variables (Dict): Mapping from grids or grid tuples (interfaces) to Ad
-            variables. These are set at initialization from the GridBucket, and should
-            not be changed later.
+        variables (Dict): Mapping from subdomains or grid tuples (interfaces) to Ad
+            variables. These are set at initialization from the MixedDimensionalGrid, and
+            should not be changed later.
         secondary_variables (List of Ad Variables): List of variables that are secondary,
             that is, their derivatives will not be included in the Jacobian matrix.
             Variables will be represented on atomic form, that is, merged variables are
@@ -50,7 +50,7 @@ class EquationManager:
 
     def __init__(
         self,
-        gb: pp.GridBucket,
+        mdg: pp.MixedDimensionalGrid,
         dof_manager: pp.DofManager,
         equations: Optional[Dict[str, "pp.ad.Operator"]] = None,
         secondary_variables: Optional[Sequence["pp.ad.Variable"]] = None,
@@ -58,57 +58,17 @@ class EquationManager:
         """Initialize the EquationManager.
 
         Parameters:
-            gb (pp.GridBucket): Mixed-dimensional grid for this EquationManager.
+            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid for this EquationManager.
             dof_manager (pp.DofManager): Degree of freedom manager.
             equations (Dict, Optional): Dict of equations. Defaults to empty Dict.
             secondary_variables (List of Ad Variable or MergedVariable): Variables
                 to be considered secondary for this EquationManager.
         """
-
-        # public
-        self.gb = gb
-        self.dof_manager: pp.DofManager = dof_manager
+        self.mdg = mdg
 
         # Inform mypy about variables, and then set them by a dedicated method.
-        self.variables: Dict[GridLike, Dict[str, "pp.ad.Variable"]] = dict()
-
-        # declare public attributes to be set when updating equations
-        # Dict containging AD operators per given name
-        self.equations: Dict[str, pp.ad.Operator] = dict()
-        # List of secondary variables to be excluded from the global vector of unknowns
-        self.secondary_variables: List[pp.ad.Variable] = list()
-        # Start index for blocks corresponding to rows of the different equations.
-        self.row_block_indices_last_assembled: Optional[np.ndarray]
-        # Dict containing indices per equation name in the global vector of unknowns
-        self.dofs_per_equation_last_assembled: Optional[Dict[str, np.ndarray]]
-
-        self.update_equations(equations, secondary_variables)
-
-    def update_equations(
-        self,
-        equations: Optional[Dict[str, "pp.ad.Operator"]] = None,
-        secondary_variables: Optional[Sequence["pp.ad.Variable"]] = None,
-    ) -> None:
-        """
-        Update the equations and declaration of secondary variables.
-
-        NOTE VL: this code was originally in the constructor of the 'EquationManager'.
-        By putting it in a separate (public) method, this class becomes more flexible for a
-        kind-of dynamical approach to setting up models.
-        Backwards-compatibility is maintained by simply calling this method at the end
-        of the constructor.
-
-        :param equations: a dictionary with equation names (str) as keys and
-            :class:`~porepy.ad.operators.Operator` as values representing a root point equation
-        :type equations: dict
-
-        :param secondary_variables: list of :class:`~porepy.ad.operators.Variable` or
-            :class:`~porepy.ad.operators.MergedVariable` to be considered secondary
-            in the equations
-        :type secondary_variables: List
-        """
-
-        self._set_variables_from_gridbucket(self.gb)
+        self.variables: Dict[GridLike, Dict[str, "pp.ad.Variable"]]
+        self._set_variables(mdg)
 
         if equations is None:
             equations = dict()
@@ -125,10 +85,10 @@ class EquationManager:
         # okay for standard usage (although the user may abuse it, and suffer for doing so).
         # However, when the EquationManager is formed by extracting a subsystem,
         # the set of secondary variables are defined from the original EquationManager,
-        # and this can create all sort of problems. Therefore translate the secondary
+        # and this can create all sort of problems. Therefore, translate the secondary
         # variables into variables identified with this EquationManager.
         # IMPLEMENTATION NOTE: The code below has not been thoroughly tested on
-        # mixed-dimensional grids.
+        # mixed-dimensional subdomains.
 
         if secondary_variables is None:
             secondary_variables = []
@@ -156,27 +116,51 @@ class EquationManager:
         self.secondary_variables = sec_var
 
         # Defaults to None, will be overwritten by assembly methods.
-        self.row_block_indices_last_assembled = None
-        self.dofs_per_equation_last_assembled = None
+        self.row_block_indices_last_assembled: Optional[np.ndarray] = None
+
+    def _set_variables(self, mdg: pp.MixedDimensionalGrid):
+        # Define variables as specified in the MixedDimensionalGrid
+        variables: Dict[
+            Union[pp.Grid, pp.MortarGrid], dict[str, operators.Variable]
+        ] = dict()
+        for sd, sd_data in mdg.subdomains(return_data=True):
+            variables[sd] = {}
+            for var, info in sd_data[pp.PRIMARY_VARIABLES].items():
+                variables[sd][var] = operators.Variable(var, info, subdomains=[sd])
+
+        for intf, intf_data in mdg.interfaces(return_data=True):
+            variables[intf] = {}
+            num_cells = intf.num_cells
+            for var, info in intf_data[pp.PRIMARY_VARIABLES].items():
+                variables[intf][var] = operators.Variable(
+                    var, info, interfaces=[intf], num_cells=num_cells
+                )
+
+        self.variables = variables
 
     def merge_variables(
         self, grid_var: Sequence[Tuple[GridLike, str]]
     ) -> "pp.ad.MergedVariable":
-        """Concatenate a variable defined over several grids or interfaces between grids,
-        that is a mortar grid.
+        """Concatenate a variable defined over several subdomains or interfaces.
+
+
 
         The merged variable can be used to define mathematical operations on multiple
-        grids simultaneously (provided it is combined with other operators defined on
-        the same grids).
+        subdomains simultaneously (provided it is combined with other operators defined on
+        the same subdomains).
 
         NOTE: Merged variables are assigned unique ids (see documentation of
         Variable and MergedVariable), thus two MergedVariables will have different
-        ids even if they represent the same combination of grids and variables.
+        ids even if they represent the same combination of subdomains and variables.
         This does not impact the parsing of the variables into numerical values.
+
+        Args:
+            grid_var: Tuple containing first a (Mortar)grid representing the subdomain
+                or interface and second the name of the variable.
 
         Returns:
             pp.ad.MergedVariable: Joint representation of the variable on the specified
-                grids.
+                subdomains.
 
         """
         return pp.ad.MergedVariable([self.variables[g][v] for g, v in grid_var])
@@ -210,7 +194,7 @@ class EquationManager:
         state: Optional[np.ndarray] = None,
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector with respect to the current
-        state represented in self.gb.
+        state represented in self.mdg.
 
         Derivatives for secondary variables are not included in the Jacobian matrix.
 
@@ -220,11 +204,11 @@ class EquationManager:
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the current variable state,
-                as found in self.gb. The ordering of the equations is determined by
+                as found in self.mdg. The ordering of the equations is determined by
                 the ordering in self.equations (for rows) and self.dof_manager (for
                 columns).
             np.ndarray: Residual vector corresponding to the current variable state,
-                as found in self.gb. Scaled with -1 (moved to rhs).
+                as found in self.mdg. Scaled with -1 (moved to rhs).
 
         """
         # Data structures for building the Jacobian matrix and residual vector
@@ -300,9 +284,9 @@ class EquationManager:
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the current variable state,
-                as found in self.gb, for the specified equations and variables.
+                as found in self.mdg, for the specified equations and variables.
             np.ndarray: Residual vector corresponding to the current variable state,
-                as found in self.gb, for the specified equations and variables.
+                as found in self.mdg, for the specified equations and variables.
                 Scaled with -1 (moved to rhs).
 
             NOTE: The ordering of columns in the system are defined by the order of the
@@ -381,7 +365,7 @@ class EquationManager:
 
             (A_pp - A_ps * inv(A_ss) * A_sp) * x_p = b_p - A_ps * inv(A_pp) * b_s.
 
-        The Schur complement is well defined only if the inverse of A_ss exists,
+        The Schur complement is well-defined only if the inverse of A_ss exists,
         and the efficiency of the approach assumes that an efficient inverter for
         A_ss can be found. The user must ensure both requirements are fulfilled.
         The simplest option is a lambda function on the form:
@@ -404,9 +388,9 @@ class EquationManager:
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the current variable state,
-                as found in self.gb, for the specified equations and variables.
+                as found in self.mdg, for the specified equations and variables.
             np.ndarray: Residual vector corresponding to the current variable state,
-                as found in self.gb, for the specified equations and variables.
+                as found in self.mdg, for the specified equations and variables.
                 Scaled with -1 (moved to rhs).
 
         """
@@ -495,28 +479,28 @@ class EquationManager:
 
         sub_eqs = {name: self.equations[name] for name in eq_names}
         return EquationManager(
-            gb=self.gb,
+            mdg=self.mdg,
             equations=sub_eqs,
             dof_manager=self.dof_manager,
             secondary_variables=secondary_variables,
         )
 
-    def discretize(self, gb: pp.GridBucket) -> None:
+    def discretize(self, mdg: pp.MixedDimensionalGrid) -> None:
         """Loop over all discretizations in self.equations, find all unique discretizations
         and discretize.
 
-        This is more effecient than discretizing on the Operator level, since
+        This is more efficient than discretizing on the Operator level, since
         discretizations which occur more than once in a set of equations will be
         identified and only discretized once.
 
         Parameters:
-            gb (pp.GridBucket): Mixed-dimensional grid from which parameters etc. will
-                be taken and where discretization matrices will be stored.
+            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid from which parameters etc.
+                will be taken and where discretization matrices will be stored.
 
         """
         # Somehow loop over all equations, discretize identified objects
         # (but should also be able to do rediscretization based on
-        # dependency graph etc).
+        # dependency graph etc.).
 
         # List of discretizations, build up by iterations over all equations
         discr: List = []
@@ -527,7 +511,7 @@ class EquationManager:
 
         # Uniquify to save computational time, then discretize.
         unique_discr = _ad_utils.uniquify_discretization_list(discr)
-        _ad_utils.discretize_from_list(unique_discr, gb)
+        _ad_utils.discretize_from_list(unique_discr, mdg)
 
     def _column_projection(self, variables: Sequence[pp.ad.Variable]) -> sps.spmatrix:
         """Create a projection matrix from the full variable set to a subset.
@@ -674,16 +658,20 @@ class EquationManager:
     def __repr__(self) -> str:
         s = (
             "Equation manager for mixed-dimensional grid with "
-            f"{self.gb.num_graph_nodes()} grids and {self.gb.num_graph_edges()}"
+            f"{self.mdg.num_subdomains()} subdomains and {self.mdg.num_interfaces()}"
             " interfaces.\n"
         )
 
         var = []
-        for g, _ in self.gb:
-            for v in self.variables[g]:
+        for sd in self.mdg.subdomains():
+            for v in self.variables[sd]:
                 var.append(v)
 
-        # Sort variables alphabetically, not case sensitive
+        for intf in self.mdg.interfaces():
+            for v in self.variables[intf]:
+                var.append(v)
+
+        # Sort variables alphabetically, not case-sensitive
         unique_vars = sorted(list(set(var)), key=str.casefold)
         s += "Variables present on at least one grid or interface:\n\t"
         s += ", ".join(unique_vars) + "\n"
@@ -702,23 +690,29 @@ class EquationManager:
     def __str__(self) -> str:
         s = (
             "Equation manager for mixed-dimensional grid with "
-            f"{self.gb.num_graph_nodes()} subdomains and {self.gb.num_graph_edges()}"
+            f"{self.mdg.num_subdomains()} subdomains and {self.mdg.num_interfaces()}"
             " interfaces.\n\n"
         )
 
         var: Dict = {}
-        for g, _ in self.gb:
-            for v in self.variables[g]:
+        for sd in self.mdg.subdomains():
+            for v in self.variables[sd]:
                 if v not in var:
                     var[v] = []
-                var[v].append(g)
+                var[v].append(sd)
+
+        for intf in self.mdg.interfaces():
+            for v in self.variables[intf]:
+                if v not in var:
+                    var[v] = []
+                var[v].append(intf)
 
         s += (
             f"There are in total {len(var)} variables, distributed as follows "
             "(sorted alphabetically):\n"
         )
 
-        # Sort variables alphabetically, not case sensitive
+        # Sort variables alphabetically, not case-sensitive
         for v in sorted(var, key=str.casefold):
             grids = var[v]
             s += "\t" + f"{v} is present on {len(grids)}"

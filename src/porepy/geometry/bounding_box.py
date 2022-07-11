@@ -1,9 +1,14 @@
 """
 Compute bounding boxes of geometric objects.
 """
-from typing import Dict, List
+
+from __future__ import annotations
+
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
+
+import porepy as pp
 
 
 def from_points(pts, overlap=0):
@@ -35,6 +40,62 @@ def from_points(pts, overlap=0):
         domain["zmin"] = min_coord[2] - dx[2] * overlap
         domain["zmax"] = max_coord[2] + dx[2] * overlap
     return domain
+
+
+def from_grid(g: pp.Grid) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Return the bounding box of the grid.
+
+    Returns:
+        np.array (size 3): Minimum node coordinates in each direction.
+        np.array (size 3): Maximum node coordinates in each direction.
+
+    """
+    if g.dim == 0:
+        coords = g.cell_centers
+    else:
+        coords = g.nodes
+    return np.amin(coords, axis=1), np.amax(coords, axis=1)
+
+
+def from_md_grid(
+    mdg: pp.MixedDimensionalGrid, as_dict: bool = False
+) -> Union[Dict[str, float], Tuple[np.ndarray, np.ndarray]]:
+    """Return the bounding box of a mixed-dimensional grid.
+
+    Parameters:
+        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid
+        as_dict (bool): If True, the bounding box is returned as a dictionary, if False,
+            it is represented by arrays with max and min values. Defaults to False.
+            . Defaults to False.
+
+    Returns:
+        Dict *or* Tuple of np.ndarray: If as_dict is True, the bounding box is
+            represented as a dictionary with keys xmin, xmax, ymin, ymax, zmin, zmax.
+            Else, two np.ndarrays are returned, containing the min and max values of the
+            coordinates, respectively.
+
+    """
+    c_0s = np.empty((3, mdg.num_subdomains()))
+    c_1s = np.empty((3, mdg.num_subdomains()))
+
+    for i, grid in enumerate(mdg.subdomains()):
+        c_0s[:, i], c_1s[:, i] = from_grid(grid)
+
+    min_vals = np.amin(c_0s, axis=1)
+    max_vals = np.amax(c_1s, axis=1)
+
+    if as_dict:
+        return {
+            "xmin": min_vals[0],
+            "xmax": max_vals[0],
+            "ymin": min_vals[1],
+            "ymax": max_vals[1],
+            "zmin": min_vals[2],
+            "zmax": max_vals[2],
+        }
+    else:
+        return min_vals, max_vals
 
 
 def make_bounding_planes_from_box(box: Dict[str, float]) -> List[np.ndarray]:
