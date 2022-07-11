@@ -10,36 +10,36 @@ import porepy as pp
 
 class MassMatrixTest(unittest.TestCase):
     def test_mass_matrix(self):
-        g = pp.CartGrid([3, 3, 3])
-        g.compute_geometry()
-        phi = np.random.rand(g.num_cells)
+        sd = pp.CartGrid([3, 3, 3])
+        sd.compute_geometry()
+        phi = np.random.rand(sd.num_cells)
         dt = 0.2
         specified_parameters = {"time_step": dt, "mass_weight": phi}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
 
         time_discr = pp.MassMatrix()
-        time_discr.discretize(g, data)
-        lhs, rhs = time_discr.assemble_matrix_rhs(g, data)
+        time_discr.discretize(sd, data)
+        lhs, rhs = time_discr.assemble_matrix_rhs(sd, data)
 
         self.assertTrue(np.allclose(rhs, 0))
-        self.assertTrue(np.allclose(lhs.diagonal(), g.cell_volumes * phi))
+        self.assertTrue(np.allclose(lhs.diagonal(), sd.cell_volumes * phi))
         off_diag = np.where(~np.eye(lhs.shape[0], dtype=bool))
         self.assertTrue(np.allclose(lhs.A[off_diag], 0))
 
     def test_inv_mass_matrix(self):
-        g = pp.CartGrid([3, 3, 3])
-        g.compute_geometry()
-        phi = np.random.rand(g.num_cells)
+        sd = pp.CartGrid([3, 3, 3])
+        sd.compute_geometry()
+        phi = np.random.rand(sd.num_cells)
         dt = 0.2
         specified_parameters = {"time_step": dt, "mass_weight": phi}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
 
         time_discr = pp.InvMassMatrix()
-        time_discr.discretize(g, data)
-        lhs, rhs = time_discr.assemble_matrix_rhs(g, data)
+        time_discr.discretize(sd, data)
+        lhs, rhs = time_discr.assemble_matrix_rhs(sd, data)
 
         self.assertTrue(np.allclose(rhs, 0))
-        self.assertTrue(np.allclose(lhs.diagonal(), 1 / (g.cell_volumes * phi)))
+        self.assertTrue(np.allclose(lhs.diagonal(), 1 / (sd.cell_volumes * phi)))
         off_diag = np.where(~np.eye(lhs.shape[0], dtype=bool))
         self.assertTrue(np.allclose(lhs.A[off_diag], 0))
 
@@ -49,16 +49,16 @@ class MixedMassMatrixTest(unittest.TestCase):
         """
         Test mass matrix in 1d for a simple geometry
         """
-        g = pp.CartGrid(3, 1)
-        g.compute_geometry()
+        sd = pp.CartGrid(3, 1)
+        sd.compute_geometry()
 
         # Mass weight is scaled by aperture 0.01
         specified_parameters = {"mass_weight": 0.5 * 1e-2}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
 
         discr = pp.MixedMassMatrix()
-        discr.discretize(g, data)
-        lhs, rhs = discr.assemble_matrix_rhs(g, data)
+        discr.discretize(sd, data)
+        lhs, rhs = discr.assemble_matrix_rhs(sd, data)
 
         lhs_known = (
             1.0
@@ -82,16 +82,16 @@ class MixedMassMatrixTest(unittest.TestCase):
         """
         Test the inverse of mass matrix in 1d for a simple geometry
         """
-        g = pp.CartGrid(3, 1)
-        g.compute_geometry()
+        sd = pp.CartGrid(3, 1)
+        sd.compute_geometry()
 
         # Mass weight is scaled by aperture 0.01
         specified_parameters = {"mass_weight": 0.5 * 1e-2}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
 
         discr = pp.MixedInvMassMatrix()
-        discr.discretize(g, data)
-        lhs, rhs = discr.assemble_matrix_rhs(g, data)
+        discr.discretize(sd, data)
+        lhs, rhs = discr.assemble_matrix_rhs(sd, data)
 
         lhs_known = 600 * np.array(
             [
@@ -112,16 +112,16 @@ class MixedMassMatrixTest(unittest.TestCase):
         """
         Test mass matrix in 2d for a simple geometry
         """
-        g = pp.CartGrid([3, 2], [1, 1])
-        g.compute_geometry()
+        sd = pp.CartGrid([3, 2], [1, 1])
+        sd.compute_geometry()
 
         # Mass weight is scaled by aperture 0.01
         specified_parameters = {"mass_weight": 0.5 * 1e-2}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
 
         discr = pp.MixedMassMatrix()
-        discr.discretize(g, data)
-        lhs, rhs = discr.assemble_matrix_rhs(g, data)
+        discr.discretize(sd, data)
+        lhs, rhs = discr.assemble_matrix_rhs(sd, data)
 
         lhs_known = (
             1.0
@@ -714,16 +714,16 @@ class MixedMassMatrixTest(unittest.TestCase):
         """
         Test the inverse of mass matrix in 2d for a simple geometry
         """
-        g = pp.CartGrid([3, 2], [1, 1])
-        g.compute_geometry()
+        sd = pp.CartGrid([3, 2], [1, 1])
+        sd.compute_geometry()
 
         # Mass weight is scaled by aperture 1e-2
         specified_parameters = {"mass_weight": 0.5 * 1e-2}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
 
         discr = pp.MixedInvMassMatrix()
-        discr.discretize(g, data)
-        lhs, rhs = discr.assemble_matrix_rhs(g, data)
+        discr.discretize(sd, data)
+        lhs, rhs = discr.assemble_matrix_rhs(sd, data)
 
         lhs_known = 1200 * np.array(
             [

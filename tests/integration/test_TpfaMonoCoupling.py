@@ -22,49 +22,52 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         xmax = 3
         ymax = 1
         split = 2
-        gb = self.generate_grids(n, xmax, ymax, split)
+        mdg = self.generate_grids(n, xmax, ymax, split)
         tol = 1e-6
-        for g, d in gb:
-            left = g.face_centers[0] < tol
-            right = g.face_centers[0] > xmax - tol
+        for sd, data in mdg.subdomains(return_data=True):
+            left = sd.face_centers[0] < tol
+            right = sd.face_centers[0] > xmax - tol
             dir_bc = left + right
-            bound = pp.BoundaryCondition(g, dir_bc, "dir")
-            bc_val = np.zeros(g.num_faces)
+            bound = pp.BoundaryCondition(sd, dir_bc, "dir")
+            bc_val = np.zeros(sd.num_faces)
             bc_val[left] = xmax
             bc_val[right] = 0
             specified_parameters = {"bc": bound, "bc_values": bc_val}
-            pp.initialize_default_data(g, d, "flow", specified_parameters)
+            pp.initialize_default_data(sd, data, "flow", specified_parameters)
 
-        for e, d in gb.edges():
-            mg = d["mortar_grid"]
-            d[pp.PARAMETERS] = pp.Parameters(mg, ["flow"], [{}])
-            pp.params.data.add_discretization_matrix_keyword(d, "flow")
+        for intf, data in mdg.interfaces(return_data=True):
+            data[pp.PARAMETERS] = pp.Parameters(intf, ["flow"], [{}])
+            pp.params.data.add_discretization_matrix_keyword(data, "flow")
+
         # assign discretization
         data_key = "flow"
         tpfa = pp.Tpfa(data_key)
         coupler = pp.FluxPressureContinuity(data_key, tpfa)
-        assembler = test_utils.setup_flow_assembler(gb, tpfa, data_key, coupler=coupler)
-        test_utils.solve_and_distribute_pressure(gb, assembler)
+        assembler = test_utils.setup_flow_assembler(
+            mdg, tpfa, data_key, coupler=coupler
+        )
+        test_utils.solve_and_distribute_pressure(mdg, assembler)
 
         # test pressure
-        for g, d in gb:
+        for sd, data in mdg.subdomains(return_data=True):
             self.assertTrue(
-                np.allclose(d[pp.STATE]["pressure"], xmax - g.cell_centers[0])
+                np.allclose(data[pp.STATE]["pressure"], xmax - sd.cell_centers[0])
             )
 
         # test mortar solution
-        for e, d_e in gb.edges():
-            mg = d_e["mortar_grid"]
-            g2, g1 = gb.nodes_of_edge(e)
-            primary_to_m = mg.primary_to_mortar_avg()
-            secondary_to_m = mg.secondary_to_mortar_avg()
+        for intf, data in mdg.interfaces(return_data=True):
+            g_primary, g_secondary = mdg.interface_to_subdomain_pair(intf)
+            primary_to_m = intf.primary_to_mortar_avg()
+            secondary_to_m = intf.secondary_to_mortar_avg()
 
-            primary_area = primary_to_m * g1.face_areas
-            secondary_area = secondary_to_m * g2.face_areas
+            primary_area = primary_to_m * g_primary.face_areas
+            secondary_area = secondary_to_m * g_secondary.face_areas
 
-            self.assertTrue(np.allclose(d_e[pp.STATE]["mortar_flux"] / primary_area, 1))
             self.assertTrue(
-                np.allclose(d_e[pp.STATE]["mortar_flux"] / secondary_area, 1)
+                np.allclose(data[pp.STATE]["mortar_flux"] / primary_area, 1)
+            )
+            self.assertTrue(
+                np.allclose(data[pp.STATE]["mortar_flux"] / secondary_area, 1)
             )
 
     def generate_grids(self, n, xmax, ymax, split):
@@ -76,10 +79,10 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
         g2.compute_geometry()
         grids = [g2, g1]
 
-        gb = pp.GridBucket()
+        mdg = pp.MixedDimensionalGrid()
 
-        [gb.add_nodes(g) for g in grids]
-        [g2, g1] = gb.grids_of_dimension(2)
+        [mdg.add_subdomains(g) for g in grids]
+        [g2, g1] = mdg.subdomains(dim=2)
 
         tol = 1e-6
         if np.any(g2.cell_centers[0] > split):
@@ -89,8 +92,8 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
             right_grid = g1
             left_grid = g2
 
-        gb.set_node_prop(left_grid, "node_number", 1)
-        gb.set_node_prop(right_grid, "node_number", 0)
+        mdg.subdomain_data(left_grid)["node_number"] = 0
+        mdg.subdomain_data(right_grid)["node_number"] = 1
         left_faces = np.argwhere(left_grid.face_centers[0] > split - tol).ravel()
         right_faces = np.argwhere(right_grid.face_centers[0] < split + tol).ravel()
         val = np.ones(left_faces.size, dtype=np.bool)
@@ -98,16 +101,18 @@ class TestTpfaCouplingDiffGrids(unittest.TestCase):
 
         face_faces = sps.coo_matrix((val, (right_faces, left_faces)), shape=shape)
 
-        gb.add_edge((right_grid, left_grid), face_faces)
+        side_grid = pp.TensorGrid(np.array([split] * ((n + 1) * ymax)))
+        side_grid.nodes[1] = np.linspace(0, ymax, (n + 1) * ymax)
+        side_grid.compute_geometry()
 
-        mg = pp.TensorGrid(np.array([split] * ((n + 1) * ymax)))
-        mg.nodes[1] = np.linspace(0, ymax, (n + 1) * ymax)
-        mg.compute_geometry()
-        d_e = gb.edge_props((g1, g2))
-        d_e["mortar_grid"] = pp.MortarGrid(g1.dim - 1, {"0": mg}, face_faces)
-        d_e["edge_number"] = 0
+        intf = pp.MortarGrid(g1.dim - 1, {"0": side_grid}, face_faces)
 
-        return gb
+        mdg.add_interface(intf, (right_grid, left_grid), face_faces)
+
+        data = mdg.interface_data(intf)
+        data["edge_number"] = 0
+
+        return mdg
 
 
 class TestTpfaCouplingPeriodicBc(unittest.TestCase):
@@ -129,7 +134,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         n = 8
         xmax = 1
         ymax = 1
-        gb = self.generate_2d_grid(n, xmax, ymax)
+        mdg = self.generate_2d_grid(n, xmax, ymax)
         tol = 1e-6
 
         def analytic_p(x):
@@ -155,22 +160,22 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             pyy = -((2 * np.pi / ymax) ** 2) * p
             return p, np.vstack([px, py]), pxx + pyy
 
-        for g, d in gb:
-            left = g.face_centers[0] < tol
-            right = g.face_centers[0] > xmax - tol
+        for sd, data in mdg.subdomains(return_data=True):
+            left = sd.face_centers[0] < tol
+            right = sd.face_centers[0] > xmax - tol
             dir_bc = left + right
-            bound = pp.BoundaryCondition(g, dir_bc, "dir")
-            bc_val = np.zeros(g.num_faces)
-            bc_val[dir_bc], _, _ = analytic_p(g.face_centers[:, dir_bc])
+            bound = pp.BoundaryCondition(sd, dir_bc, "dir")
+            bc_val = np.zeros(sd.num_faces)
+            bc_val[dir_bc], _, _ = analytic_p(sd.face_centers[:, dir_bc])
 
-            pa, _, lpc = analytic_p(g.cell_centers)
-            src = -lpc * g.cell_volumes
+            pa, _, lpc = analytic_p(sd.cell_centers)
+            src = -lpc * sd.cell_volumes
             specified_parameters = {"bc": bound, "bc_values": bc_val, "source": src}
-            pp.initialize_default_data(g, d, "flow", specified_parameters)
+            pp.initialize_default_data(sd, data, "flow", specified_parameters)
 
-        for _, d in gb.edges():
-            pp.params.data.add_discretization_matrix_keyword(d, "flow")
-        self.solve(gb, analytic_p)
+        for _, data in mdg.interfaces(return_data=True):
+            pp.params.data.add_discretization_matrix_keyword(data, "flow")
+        self.solve(mdg, analytic_p)
 
     def test_periodic_bc_with_fractues(self):
         """
@@ -193,7 +198,7 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         n = 8
         xmax = 1
         ymax = 1
-        gb = self.generate_grid_with_fractures(n, xmax, ymax)
+        mdg = self.generate_grid_with_fractures(n, xmax, ymax)
         tol = 1e-6
 
         def analytic_p(x):
@@ -219,34 +224,34 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             pyy = -((2 * np.pi / ymax) ** 2) * p
             return p, np.vstack([px, py]), pxx + pyy
 
-        for g, d in gb:
-            right = g.face_centers[0] > xmax - tol
-            left = g.face_centers[0] < tol
+        for sd, data in mdg.subdomains(return_data=True):
+            right = sd.face_centers[0] > xmax - tol
+            left = sd.face_centers[0] < tol
             dir_bc = left + right
-            bound = pp.BoundaryCondition(g, dir_bc, "dir")
-            bc_val = np.zeros(g.num_faces)
-            bc_val[dir_bc], _, _ = analytic_p(g.face_centers[:, dir_bc])
+            bound = pp.BoundaryCondition(sd, dir_bc, "dir")
+            bc_val = np.zeros(sd.num_faces)
+            bc_val[dir_bc], _, _ = analytic_p(sd.face_centers[:, dir_bc])
 
-            aperture = 1e-6 ** (2 - g.dim) * np.ones(g.num_cells)
+            aperture = 1e-6 ** (2 - sd.dim) * np.ones(sd.num_cells)
 
-            pa, _, lpc = analytic_p(g.cell_centers)
-            src = -lpc * g.cell_volumes * aperture
+            pa, _, lpc = analytic_p(sd.cell_centers)
+            src = -lpc * sd.cell_volumes * aperture
             specified_parameters = {"bc": bound, "bc_values": bc_val, "source": src}
-            if g.dim == 1:
+            if sd.dim == 1:
                 specified_parameters["second_order_tensor"] = pp.SecondOrderTensor(
-                    1e-10 * np.ones(g.num_cells)
+                    1e-10 * np.ones(sd.num_cells)
                 )
-            pp.initialize_default_data(g, d, "flow", specified_parameters)
+            pp.initialize_default_data(sd, data, "flow", specified_parameters)
 
-        for _, d in gb.edges():
-            pp.params.data.add_discretization_matrix_keyword(d, "flow")
-            d[pp.PARAMETERS] = pp.Parameters(
+        for _, data in mdg.interfaces(return_data=True):
+            pp.params.data.add_discretization_matrix_keyword(data, "flow")
+            data[pp.PARAMETERS] = pp.Parameters(
                 keywords=["flow"], dictionaries={"normal_diffusivity": 1e10}
             )
 
-        self.solve(gb, analytic_p)
+        self.solve(mdg, analytic_p)
 
-    def solve(self, gb, analytic_p):
+    def solve(self, mdg, analytic_p):
 
         # Parameter-discretization keyword:
         kw = "flow"
@@ -259,26 +264,26 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
         tpfa = pp.Tpfa(kw)
         src = pp.ScalarSource(kw)
-        for g, d in gb:
-            d[pp.DISCRETIZATION] = {key_p: {key_src: src, key_flux: tpfa}}
-            d[pp.PRIMARY_VARIABLES] = {key_p: {"cells": 1}}
+        for _, data in mdg.subdomains(return_data=True):
+            data[pp.DISCRETIZATION] = {key_p: {key_src: src, key_flux: tpfa}}
+            data[pp.PRIMARY_VARIABLES] = {key_p: {"cells": 1}}
 
-        for e, d in gb.edges():
-            g1, g2 = gb.nodes_of_edge(e)
-            d[pp.PRIMARY_VARIABLES] = {key_m: {"cells": 1}}
+        for intf, data in mdg.interfaces(return_data=True):
+            g2, g1 = mdg.interface_to_subdomain_pair(intf)
+            data[pp.PRIMARY_VARIABLES] = {key_m: {"cells": 1}}
             if g1.dim == g2.dim:
                 mortar_disc = pp.FluxPressureContinuity(kw, tpfa)
             else:
                 mortar_disc = pp.RobinCoupling(kw, tpfa)
-            d[pp.COUPLING_DISCRETIZATION] = {
+            data[pp.COUPLING_DISCRETIZATION] = {
                 key_flux: {
                     g1: (key_p, key_flux),
                     g2: (key_p, key_flux),
-                    e: (key_m, mortar_disc),
+                    intf: (key_m, mortar_disc),
                 }
             }
 
-        assembler = pp.Assembler(gb)
+        assembler = pp.Assembler(mdg)
         assembler.discretize()
         A, b = assembler.assemble_matrix_rhs()
         x = sps.linalg.spsolve(A, b)
@@ -286,21 +291,20 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         assembler.distribute_variable(x)
 
         # test pressure
-        for g, d in gb:
-            ap, _, _ = analytic_p(g.cell_centers)
-            self.assertTrue(np.max(np.abs(d[pp.STATE][key_p] - ap)) < 5e-2)
+        for sd, data in mdg.subdomains(return_data=True):
+            ap, _, _ = analytic_p(sd.cell_centers)
+            self.assertTrue(np.max(np.abs(data[pp.STATE][key_p] - ap)) < 5e-2)
 
         # test mortar solution
-        for e, d_e in gb.edges():
-            mg = d_e["mortar_grid"]
-            g1, g2 = gb.nodes_of_edge(e)
+        for intf, data in mdg.interfaces(return_data=True):
+            g2, g1 = mdg.interface_to_subdomain_pair(intf)
             if g1 == g2:
-                left_to_m = mg.primary_to_mortar_avg()
-                right_to_m = mg.secondary_to_mortar_avg()
+                left_to_m = intf.primary_to_mortar_avg()
+                right_to_m = intf.secondary_to_mortar_avg()
             else:
                 continue
-            d1 = gb.node_props(g1)
-            d2 = gb.node_props(g2)
+            d1 = mdg.subdomain_data(g1)
+            d2 = mdg.subdomain_data(g2)
 
             _, analytic_flux, _ = analytic_p(g1.face_centers)
             # the aperture is assumed constant
@@ -313,15 +317,15 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
             right_flux = -right_to_m * (
                 d2[pp.DISCRETIZATION_MATRICES][kw]["bound_flux"] * right_flux
             )
-            self.assertTrue(np.max(np.abs(d_e[pp.STATE][key_m] - left_flux)) < 5e-2)
-            self.assertTrue(np.max(np.abs(d_e[pp.STATE][key_m] - right_flux)) < 5e-2)
+            self.assertTrue(np.max(np.abs(data[pp.STATE][key_m] - left_flux)) < 5e-2)
+            self.assertTrue(np.max(np.abs(data[pp.STATE][key_m] - right_flux)) < 5e-2)
 
     def generate_2d_grid(self, n, xmax, ymax):
         g1 = pp.CartGrid([xmax * n, ymax * n], physdims=[xmax, ymax])
         g1.compute_geometry()
-        gb = pp.GridBucket()
+        mdg = pp.MixedDimensionalGrid()
 
-        gb.add_nodes(g1)
+        mdg.add_subdomains(g1)
         tol = 1e-6
         left_faces = np.argwhere(g1.face_centers[1] > ymax - tol).ravel()
         right_faces = np.argwhere(g1.face_centers[1] < 0 + tol).ravel()
@@ -330,17 +334,17 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
         face_faces = sps.coo_matrix((val, (right_faces, left_faces)), shape=shape)
 
-        gb.add_edge((g1, g1), face_faces)
+        side_grid = pp.TensorGrid(np.linspace(0, xmax, n + 1))
+        side_grid.nodes[1] = ymax
+        side_grid.compute_geometry()
 
-        mg = pp.TensorGrid(np.linspace(0, xmax, n + 1))
-        mg.nodes[1] = ymax
+        intf = pp.MortarGrid(g1.dim - 1, {"0": side_grid}, face_faces)
+        intf.compute_geometry()
 
-        mg.compute_geometry()
+        mdg.add_interface(intf, (g1, g1), face_faces)
 
-        d_e = gb.edge_props((g1, g1))
-        d_e["mortar_grid"] = pp.MortarGrid(g1.dim - 1, {"0": mg}, face_faces)
-        gb.assign_node_ordering()
-        return gb
+        mdg.assign_subdomain_ordering()
+        return mdg
 
     def generate_grid_with_fractures(self, n, xmax, ymax):
         x = [xmax / 3] * 2
@@ -349,21 +353,21 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
         y = [ymax / 2, ymax]
         fracs.append(np.array([x, y]))
 
-        gb = pp.meshing.cart_grid(fracs, [xmax * n, ymax * n], physdims=[xmax, ymax])
+        mdg = pp.meshing.cart_grid(fracs, [xmax * n, ymax * n], physdims=[xmax, ymax])
 
         tol = 1e-6
-        for g, d in gb:
+        for sd, data in mdg.subdomains(return_data=True):
             # map right faces to left
-            left = np.argwhere(g.face_centers[1] < tol).ravel()
-            right = np.argwhere(g.face_centers[1] > ymax - tol).ravel()
-            g.face_centers[1, right] = 0
+            left = np.argwhere(sd.face_centers[1] < tol).ravel()
+            right = np.argwhere(sd.face_centers[1] > ymax - tol).ravel()
+            sd.face_centers[1, right] = 0
 
-            g.left = left
-            g.right = right
+            sd.left = left
+            sd.right = right
 
         # now create mappings between two grids of equal dimension
         for dim in [2, 1]:
-            grids = gb.grids_of_dimension(dim)
+            grids = mdg.subdomains(dim=dim)
             for i, gi in enumerate(grids):
                 if gi.left.size < 1:
                     continue
@@ -375,11 +379,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                     if np.sum(face_faces) == 0:
                         continue
 
-                    gb.add_edge((gi, gj), face_faces)
-                    d_e = gb.edge_props((gi, gj))
-
-                    di = gb.node_props(gi)
-                    dj = gb.node_props(gj)
+                    di = mdg.subdomain_data(gi)
+                    dj = mdg.subdomain_data(gj)
 
                     if di["node_number"] < dj["node_number"]:
                         # gj is left
@@ -393,14 +394,12 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                             gi, gi.left, faces=True
                         )
 
-                    d_e["mortar_grid"] = pp.MortarGrid(
-                        gi.dim - 1, {"0": g_m}, face_faces
-                    )
+                    intf = pp.MortarGrid(gi.dim - 1, {"0": g_m}, face_faces)
+                    mdg.add_interface(intf, (gi, gj), face_faces)
 
-        gb.compute_geometry()  # basically reset g.face_centers[,right]
-        gb.assign_node_ordering()
+        mdg.compute_geometry()  # basically reset sd.face_centers[,right]
 
-        return gb
+        return mdg
 
     def match_grids(self, gi, gj):
         tol = 1e-6
@@ -422,4 +421,5 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    TestTpfaCouplingPeriodicBc().test_periodic_bc_with_fractues()
     unittest.main()

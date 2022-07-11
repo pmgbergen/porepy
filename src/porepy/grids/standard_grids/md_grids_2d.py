@@ -11,6 +11,8 @@ The provided geometries are:
     benchmark_regular: Six fractures intersecting in 3 X and 6 Y intersections
 """
 
+from typing import Union
+
 import numpy as np
 
 import porepy as pp
@@ -31,7 +33,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
             provided, the endpoints will be set to [0, 1]
 
     Returns:
-        Grid bucket for the domain.
+        Mixed-dimensional grid for the domain.
 
     """
     if x_endpoints is None:
@@ -43,45 +45,56 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
             mesh_args = {"mesh_size_frac": 0.2}
         points = np.array([x_endpoints, [0.5, 0.5]])
         edges = np.array([[0], [1]])
-        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain)
+        mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
 
     else:
         fracture = np.array([x_endpoints, [0.5, 0.5]])
-        gb = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(2))
-    return gb, domain
+        mdg = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(2))
+    return mdg, domain
 
 
-def single_vertical(mesh_args=None, y_endpoints=None, simplex=True):
+def single_vertical(
+    mesh_args: Union[np.ndarray, dict] = None,
+    y_endpoints: np.ndarray = None,
+    simplex: bool = True,
+):
     """
     Create a grid bucket for a domain containing a single vertical fracture at x=0.5.
 
     Args:
-        mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If
-                        the optional values of "mesh_size_bound" and "mesh_size_min" are
-                        not provided, these are set by utils.set_mesh_sizes.
-                    For cartesian grids: List containing number of cells in x and y
-                        direction.
-        y_endpoints (list): Contains the y coordinates of the two endpoints. If not
+        mesh_args:
+            For triangular grids: Dictionary containing at least "mesh_size_frac". If
+                the optional values of "mesh_size_bound" and "mesh_size_min" are
+                not provided, these are set by utils.set_mesh_sizes.
+            For cartesian grids: Array containing number of cells in x and y
+                    direction.
+        y_endpoints:
+            Contains the y coordinates of the two endpoints. If not
             provided, the endpoints will be set to [0, 1]
+        simplex:
+            Grid type. If False, a Cartesian grid is returned.
+
 
     Returns:
-        Grid bucket for the domain.
+        Mixed-dimensional grid for the domain.
 
     """
     if y_endpoints is None:
-        y_endpoints = [0, 1]
+        y_endpoints = np.array([0, 1])
     domain = utils.unit_domain(2)
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
+        assert type(mesh_args) == dict
         points = np.array([[0.5, 0.5], y_endpoints])
         edges = np.array([[0], [1]])
-        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain)
+        mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
 
     else:
+        assert type(mesh_args) == np.ndarray
         fracture = np.array([[0.5, 0.5], y_endpoints])
-        gb = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(2))
-    return gb, domain
+        mdg = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(2))
+    return mdg, domain
 
 
 def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex=True):
@@ -102,7 +115,7 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
         simplex (bool): Whether to use triangular or Cartesian 2d grid.
 
     Returns:
-        Grid bucket for the domain.
+        Mixed-dimensional grid for the domain.
 
     """
 
@@ -121,18 +134,18 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
             ]
         )
         edges = np.array([[0, 2], [1, 3]])
-        gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain)
+        mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
 
     else:
         fracture0 = np.array([x_endpoints, [0.5, 0.5]])
         fracture1 = np.array([[0.5, 0.5], y_endpoints])
-        gb = pp.meshing.cart_grid(
+        mdg = pp.meshing.cart_grid(
             [fracture0, fracture1],
             mesh_args,
             physdims=[domain["xmax"], domain["ymax"]],
         )
-        gb.compute_geometry()
-    return gb, domain
+        mdg.compute_geometry()
+    return mdg, domain
 
 
 def seven_fractures_one_L_intersection(mesh_args=None):
@@ -147,7 +160,7 @@ def seven_fractures_one_L_intersection(mesh_args=None):
             set by utils.set_mesh_sizes.
 
     Returns:
-        Grid bucket for the domain.
+        Mixed-dimensional grid for the domain.
 
     """
     points = np.array(
@@ -169,8 +182,8 @@ def seven_fractures_one_L_intersection(mesh_args=None):
     ).T
     edges = np.array([[0, 1], [1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12]]).T
     domain = {"xmin": 0, "ymin": 0, "xmax": 2, "ymax": 1}
-    gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain)
-    return gb, domain
+    mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
+    return mdg, domain
 
 
 def benchmark_regular(mesh_args, is_coarse=False):
@@ -183,7 +196,7 @@ def benchmark_regular(mesh_args, is_coarse=False):
             values of "mesh_size_bound" and "mesh_size_min" are not provided, these are
             set by utils.set_mesh_sizes.
     Returns:
-        Grid bucket for the domain.
+        Mixed-dimensional grid for the domain.
     """
     points = np.array(
         [
@@ -203,7 +216,7 @@ def benchmark_regular(mesh_args, is_coarse=False):
     ).T
     domain = utils.unit_domain(2)
     edges = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11]]).T
-    gb = utils.make_gb_2d_simplex(mesh_args, points, edges, domain=domain)
+    mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain=domain)
     if is_coarse:
-        pp.coarsening.coarsen(gb, "by_volume")
-    return gb, domain
+        pp.coarsening.coarsen(mdg, "by_volume")
+    return mdg, domain

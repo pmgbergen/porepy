@@ -11,8 +11,8 @@ import warnings
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.ad.forward_mode import initAdArrays
 from porepy.numerics.ad import functions as af
+from porepy.numerics.ad.forward_mode import initAdArrays
 
 warnings.simplefilter("ignore", sps.SparseEfficiencyWarning)
 

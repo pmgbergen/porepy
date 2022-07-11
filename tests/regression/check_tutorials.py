@@ -1,12 +1,13 @@
-#! /usr/bin/env python
 import os, glob
 
 
-def run_all():
+def run_all(files: list[str] = None):
     os.chdir("../../tutorials")
     failed = False
     failed_files = []
-    for file in glob.glob("*.ipynb"):
+    if files is None:
+        files = glob.glob("*.ipynb")
+    for file in files:
         new_file = file[:-6] + ".py"
         cmd_convert = "jupyter nbconvert --to script " + file
         os.system(cmd_convert)
@@ -50,15 +51,22 @@ def remove_plots(fn):
                 continue
             if line.strip()[:11] == "get_ipython":
                 continue
+            if line.strip()[:15] == "network_2d.plot":
+                continue
+            if line.strip()[:6] == "print(":
+                continue
             if "vtk" in line:
                 continue
             if "Exporter" in line:
                 continue
             if "exporter" in line:
                 continue
+            if "write" in line:
+                continue
             if "import plot_grid" in line:
                 continue
             f.write(line)
 
 
-run_all()
+if __name__ == "__main__":
+    run_all()

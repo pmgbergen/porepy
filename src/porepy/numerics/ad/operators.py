@@ -4,7 +4,7 @@ import copy
 import numbers
 from enum import Enum
 from itertools import count
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -27,9 +27,7 @@ __all__ = [
     "Function",
 ]
 
-# Short hand for typing
-Edge = Tuple[pp.Grid, pp.Grid]
-GridLike = Union[pp.Grid, Edge]
+GridLike = Union[pp.Grid, pp.MortarGrid]
 
 # Abstract representations of mathematical operations supported by the Ad framework.
 Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate"])
@@ -51,26 +49,26 @@ class Operator:
     subclasses are combined by operations.
 
     Attributes:
-        grids: List of grids (subdomains) on which the operator is defined. Will be
-            empty for operators not associated with specific grids.
-        edges: List of edges (tuple of grids) in the mixed-dimensional grid on which
+        subdomains: List of subdomains (subdomains) on which the operator is defined. Will be
+            empty for operators not associated with specific subdomains.
+        interfaces: List of edges (tuple of subdomains) in the mixed-dimensional grid on which
             the operator is defined. Will be empty for operators not associated with
-            specific grids.
+            specific subdomains.
 
     """
 
     def __init__(
         self,
         name: Optional[str] = None,
-        grids: Optional[List[pp.Grid]] = None,
-        edges: Optional[List[Edge]] = None,
+        subdomains: Optional[List[pp.Grid]] = None,
+        interfaces: Optional[List[pp.MortarGrid]] = None,
         tree: Optional["Tree"] = None,
     ) -> None:
         if name is None:
             name = ""
         self._name = name
-        self.grids: List[pp.Grid] = [] if grids is None else grids
-        self.edges: List[Edge] = [] if edges is None else edges
+        self.subdomains: List[pp.Grid] = [] if subdomains is None else subdomains
+        self.interfaces: List[pp.MortarGrid] = [] if interfaces is None else interfaces
         self._set_tree(tree)
 
     def _set_tree(self, tree=None):
@@ -79,30 +77,34 @@ class Operator:
         else:
             self.tree = tree
 
-    def _set_grids_or_edges(
-        self, grids: Union[List[pp.Grid], None], edges: Union[List[Edge], None]
+    def _set_subdomains_or_interfaces(
+        self,
+        subdomains: Union[List[pp.Grid], None],
+        interfaces: Union[List[pp.MortarGrid], None],
     ) -> None:
-        """For operators which are defined for either grids or edges but not both.
+        """For operators which are defined for either subdomains or interfaces but not both.
 
-        Check that exactly one of grids and edges is given and assign to the operator.
-        The unspecified grid-like type will also be set as an attribute, i.e. either
-        op.grids or op.edges is an empty list, while the other is a list with len>0.
+        Check that exactly one of subdomains and interfaces is given and assign to the
+        operator. The unspecified grid-like type will also be set as an attribute, i.e.
+        either op.subdomains or op.interfaces is an empty list, while the other is a
+        list with len>0.
 
         Parameters:
-            op (operator): The operator to which grids OR edges will be set as attribute.
-            grids (optional list of grids): The grid list.
-            edges (optional list of tuples of grids): The edge list.
+            op (operator): The operator to which subdomains OR interfaces will be set as
+                an attribute.
+            subdomains (optional list of subdomains): The subdomain list.
+            interfaces (optional list of tuples of subdomains): The interface list.
 
         """
-        if grids is None:
-            assert isinstance(edges, list)
-            self.grids = []
-            self.edges = edges
+        if subdomains is None:
+            assert isinstance(interfaces, list)
+            self.subdomains = []
+            self.interfaces = interfaces
         else:
-            assert isinstance(grids, list)
-            assert edges is None
-            self.grids = grids
-            self.edges = []
+            assert isinstance(subdomains, list)
+            assert interfaces is None
+            self.subdomains = subdomains
+            self.interfaces = []
 
     def _find_subtree_variables(self) -> List["pp.ad.Variable"]:
         """Method to recursively look for Variables (or MergedVariables) in an
@@ -112,7 +114,7 @@ class Operator:
         # recursively, look for variables, and then gather the results.
 
         if isinstance(self, Variable) or isinstance(self, pp.ad.Variable):
-            # We are at the bottom of the a branch of the tree, return the operator
+            # We are at the bottom of a branch of the tree, return the operator
             return [self]
         else:
             # We need to look deeper in the tree.
@@ -210,7 +212,7 @@ class Operator:
                 discr += child._identify_subtree_discretizations([])
 
         if isinstance(self, _ad_utils.MergedOperator):
-            # We have reached the bottom; this is a disrcetization (example: mpfa.flux)
+            # We have reached the bottom; this is a discretization (example: mpfa.flux)
             discr.append(self)
 
         return discr
@@ -225,9 +227,9 @@ class Operator:
         all_discr = self._identify_subtree_discretizations([])
         return _ad_utils.uniquify_discretization_list(all_discr)
 
-    def discretize(self, gb: pp.GridBucket) -> None:
+    def discretize(self, mdg: pp.MixedDimensionalGrid) -> None:
         """Perform discretization operation on all discretizations identified in
-        the tree of this operator, using data from gb.
+        the tree of this operator, using data from mdg.
 
         IMPLEMENTATION NOTE: The discretizations was identified at initialization of
         Expression - it is now done here to accommodate updates (?) and
@@ -236,7 +238,7 @@ class Operator:
         unique_discretizations: Dict[
             _ad_utils.MergedOperator, GridLike
         ] = self._identify_discretizations()
-        _ad_utils.discretize_from_list(unique_discretizations, gb)
+        _ad_utils.discretize_from_list(unique_discretizations, mdg)
 
     def is_leaf(self) -> bool:
         """Check if this operator is a leaf in the tree-representation of an object.
@@ -250,17 +252,17 @@ class Operator:
     def set_name(self, name: str) -> None:
         self._name = name
 
-    def parse(self, gb: pp.GridBucket) -> Any:
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
         Subclasses that represent atomic operators (leaves in a tree-representation of
-        an operator) should override this method to retutrn e.g. a number, an array or a
+        an operator) should override this method to return e.g. a number, an array or a
         matrix.
         This method should not be called on operators that are formed as combinations
         of atomic operators; such operators should be evaluated by the method evaluate().
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
-    def _parse_operator(self, op: "Operator", gb: pp.GridBucket):
+    def _parse_operator(self, op: "Operator", mdg: pp.MixedDimensionalGrid):
         """TODO: Currently, there is no prioritization between the operations; for
         some reason, things just work. We may need to make an ordering in which the
         operations should be carried out. It seems that the strategy of putting on
@@ -281,10 +283,10 @@ class Operator:
         if isinstance(op, pp.ad.Variable) or isinstance(op, Variable):
             # Case 1: Variable
 
-            # How to access the array of (Ad representation of) states depends on wether
+            # How to access the array of (Ad representation of) states depends on weather
             # this is a single or combined variable; see self.__init__, definition of
             # self._variable_ids.
-            # TODO no differecen between merged or no merged variables!?
+            # TODO no different between merged or no merged variables!?
             if isinstance(op, pp.ad.MergedVariable) or isinstance(op, MergedVariable):
                 if op.prev_time:
                     return self._prev_vals[op.id]
@@ -310,11 +312,11 @@ class Operator:
         elif op.is_leaf():
             # Case 2
             # EK: Is this correct after moving from Expression?
-            return op.parse(gb)  # type:ignore
+            return op.parse(mdg)  # type:ignore
 
         # This is not an atomic operator. First parse its children, then combine them
         tree = op.tree
-        results = [self._parse_operator(child, gb) for child in tree.children]
+        results = [self._parse_operator(child, mdg) for child in tree.children]
 
         # Combine the results
         if tree.op == Operation.add:
@@ -624,8 +626,8 @@ class Operator:
                 matrix need not be invertible, or ever square; this depends on the operator.
 
         """
-        # Get the mixed-dimensional grids used for the dof-manager.
-        gb = dof_manager.gb
+        # Get the mixed-dimensional grid used for the dof-manager.
+        mdg = dof_manager.mdg
 
         # Identify all variables in the Operator tree. This will include real variables,
         # and representation of previous time steps and iterations.
@@ -683,27 +685,27 @@ class Operator:
         assert state is not None
         for (g, var) in dof_manager.block_dof:
             ind = dof_manager.grid_and_variable_to_dofs(g, var)
-            if isinstance(g, tuple):
-                prev_vals[ind] = gb.edge_props(g, pp.STATE)[var]
+            if isinstance(g, pp.MortarGrid):
+                prev_vals[ind] = mdg.interface_data(g)[pp.STATE][var]
             else:
-                prev_vals[ind] = gb.node_props(g, pp.STATE)[var]
+                prev_vals[ind] = mdg.subdomain_data(g)[pp.STATE][var]
 
             if populate_state:
-                if isinstance(g, tuple):
+                if isinstance(g, pp.MortarGrid):
                     try:
-                        state[ind] = gb.edge_props(g, pp.STATE)[pp.ITERATE][var]
+                        state[ind] = mdg.interface_data(g)[pp.STATE][pp.ITERATE][var]
                     except KeyError:
-                        prev_vals[ind] = gb.edge_props(g, pp.STATE)[var]
+                        prev_vals[ind] = mdg.interface_data(g)[pp.STATE][var]
                 else:
                     try:
-                        state[ind] = gb.node_props(g, pp.STATE)[pp.ITERATE][var]
+                        state[ind] = mdg.subdomain_data(g)[pp.STATE][pp.ITERATE][var]
                     except KeyError:
-                        state[ind] = gb.node_props(g, pp.STATE)[var]
+                        state[ind] = mdg.subdomain_data(g)[pp.STATE][var]
 
         # Initialize Ad variables with the current iterates
 
         # The size of the Jacobian matrix will always be set according to the
-        # variables found by the DofManager in the GridBucket.
+        # variables found by the DofManager in the MixedDimensionalGrid.
 
         # NOTE: This implies that to derive a subsystem from the Jacobian
         # matrix of this Expression will require restricting the columns of
@@ -750,7 +752,7 @@ class Operator:
 
         # Parse operators. This is left to a separate function to facilitate the
         # necessary recursion for complex operators.
-        eq = self._parse_operator(self, gb)
+        eq = self._parse_operator(self, mdg)
 
         return eq
 
@@ -804,12 +806,12 @@ class Matrix(Operator):
             s += self._name
         return s
 
-    def parse(self, gb) -> sps.spmatrix:
+    def parse(self, mdg) -> sps.spmatrix:
         """Convert the Ad matrix into an actual matrix.
 
-        Pameteres:
-            gb (pp.GridBucket): Mixed-dimensional grid. Not used, but it is needed as
-                input to be compatible with parse methods for other operators.
+        Parameters:
+            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
+                needed as input to be compatible with parse methods for other operators.
 
         Returns:
             sps.spmatrix: The wrapped matrix.
@@ -851,12 +853,12 @@ class Array(Operator):
             s += f"({self._name})"
         return s
 
-    def parse(self, gb: pp.GridBucket) -> np.ndarray:
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
         """Convert the Ad Array into an actual array.
 
-        Pameteres:
-            gb (pp.GridBucket): Mixed-dimensional grid. Not used, but it is needed as
-                input to be compatible with parse methods for other operators.
+        Parameters:
+            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
+                needed as input to be compatible with parse methods for other operators.
 
         Returns:
             np.ndarray: The wrapped array.
@@ -868,16 +870,16 @@ class Array(Operator):
 class Scalar(Operator):
     """Ad representation of a scalar.
 
-    This is a shallow wrapper around the real scalar; it may be useful to combine the
-    scalar with other types of Ad objects.
+    This is a shallow wrapper around the real scalar; it may be useful to combine
+    the scalar with other types of Ad objects.
 
     """
 
-    def __init__(self, value, name: Optional[str] = None) -> None:
-        """Construct an Ad representation of a numpy array.
+    def __init__(self, value: float, name: Optional[str] = None) -> None:
+        """Construct an Ad representation of a float.
 
         Parameters:
-            values (float): Number to be represented
+            value (float): Number to be represented
 
         """
         super().__init__(name=name)
@@ -893,12 +895,12 @@ class Scalar(Operator):
             s += f"({self._name})"
         return s
 
-    def parse(self, gb: pp.GridBucket) -> float:
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
         """Convert the Ad Scalar into an actual number.
 
-        Pameteres:
-            gb (pp.GridBucket): Mixed-dimensional grid. Not used, but it is needed as
-                input to be compatible with parse methods for other operators.
+        Parameters:
+            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
+                needed as input to be compatible with parse methods for other operators.
 
         Returns:
             float: The wrapped number.
@@ -910,7 +912,7 @@ class Scalar(Operator):
 class Variable(Operator):
     """Ad representation of a variable defined on a single Grid or MortarGrid.
 
-    For combinations of variables on different grids, see MergedVariable.
+    For combinations of variables on different subdomains, see MergedVariable.
 
     Conversion of the variable into numerical value should be done with respect to the
     state of an array; see the method evaluate(). Therefore, the variable does not
@@ -922,12 +924,12 @@ class Variable(Operator):
             previous iteration.
         prev_time (boolean): Whether the variable represents the state at the
             previous time step.
-        grids: List with one item, giving the single grid on which the operator is
+        subdomains: List with one item, giving the single grid on which the operator is
             defined.
-        edges: List with one item, giving the single edge (tuple of grids) on which the
-            operator is defined.
+        interfaces: List with one item, giving the single edge (tuple of subdomains) on
+            which the operator is defined.
 
-        It is assumed that exactly one of grids and edges is defined.
+        It is assumed that exactly one of subdomains and interfaces is defined.
 
     """
 
@@ -940,21 +942,21 @@ class Variable(Operator):
         self,
         name: str,
         ndof: Dict[str, int],
-        grids: Optional[List[pp.Grid]] = None,
-        edges: Optional[List[Edge]] = None,
+        subdomains: Optional[List[pp.Grid]] = None,
+        interfaces: Optional[List[pp.MortarGrid]] = None,
         num_cells: int = 0,
         previous_timestep: bool = False,
         previous_iteration: bool = False,
     ):
         """Initiate an Ad representation of a variable associated with a grid or edge.
 
-        It is assumed that exactly one of grids and edges is defined.
+        It is assumed that exactly one of subdomains and interfaces is defined.
         Parameters:
             name (str): Variable name.
             ndof (dict): Number of dofs per grid element.
-            grids (optional list of pp.Grid ): List with length one containing a grid.
-            edges (optional list of Tuple of pp.Grid): List with length one containing
-                an edge.
+            subdomains (optional list of pp.Grid ): List with length one containing a grid.
+            interfaces (optional list of pp.MortarGrid): List with length one containing
+                an interface.
             num_cells (int): Number of cells in the grid. Only sued if the variable
                 is on an interface.
 
@@ -964,20 +966,20 @@ class Variable(Operator):
         self._cells: int = ndof.get("cells", 0)
         self._faces: int = ndof.get("faces", 0)
         self._nodes: int = ndof.get("nodes", 0)
-        self._set_grids_or_edges(grids, edges)
+        self._set_subdomains_or_interfaces(subdomains, interfaces)
 
-        self._g: Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]
+        self._g: Union[pp.Grid, pp.MortarGrid]
 
         # Shorthand access to grid or edge:
-        if len(self.edges) == 0:
-            if len(self.grids) != 1:
+        if len(self.interfaces) == 0:
+            if len(self.subdomains) != 1:
                 raise ValueError("Variable must be associated with exactly one grid.")
-            self._g = self.grids[0]
+            self._g = self.subdomains[0]
             self._is_edge_var = False
         else:
-            if len(self.edges) != 1:
+            if len(self.interfaces) != 1:
                 raise ValueError("Variable must be associated with exactly one edge.")
-            self._g = self.edges[0]
+            self._g = self.interfaces[0]
             self._is_edge_var = True
 
         self.prev_time: bool = previous_timestep
@@ -1018,9 +1020,13 @@ class Variable(Operator):
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         if self._is_edge_var:
-            return Variable(self._name, ndof, edges=self.edges, previous_timestep=True)
+            return Variable(
+                self._name, ndof, interfaces=self.interfaces, previous_timestep=True
+            )
         else:
-            return Variable(self._name, ndof, grids=self.grids, previous_timestep=True)
+            return Variable(
+                self._name, ndof, subdomains=self.subdomains, previous_timestep=True
+            )
 
     def previous_iteration(self) -> "Variable":
         """Return a representation of this variable on the previous time iteration.
@@ -1031,9 +1037,13 @@ class Variable(Operator):
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         if self._is_edge_var:
-            return Variable(self._name, ndof, edges=self.edges, previous_iteration=True)
+            return Variable(
+                self._name, ndof, interfaces=self.interfaces, previous_iteration=True
+            )
         else:
-            return Variable(self._name, ndof, grids=self.grids, previous_iteration=True)
+            return Variable(
+                self._name, ndof, subdomains=self.subdomains, previous_iteration=True
+            )
 
     def __repr__(self) -> str:
         s = (
@@ -1046,26 +1056,24 @@ class Variable(Operator):
 
 class MergedVariable(Variable):
     """Ad representation of a collection of variables that individually live on separate
-    grids of interfaces, but which it is useful to treat jointly.
+    subdomains of interfaces, but which it is useful to treat jointly.
 
     Conversion of the variables into numerical value should be done with respect to the
     state of an array; see the method evaluate().  Therefore, the class does not implement
     a parse() method.
 
     Attributes:
-        sub_vars (List of Variable): List of variable on different grids or interfaces.
+        sub_vars (List of Variable): List of variable on different subdomains or interfaces.
         id (int): Counter of all variables. Used to identify variables. Usage of this
             term is not clear, it may change.
         prev_iter (boolean): Whether the variable represents the state at the
             previous iteration.
         prev_time (boolean): Whether the variable represents the state at the
             previous time step.
-        grids: List with one item, giving the single grid on which the operator is
-            defined.
-        edges: List with one item, giving the single edge (tuple of grids) on which the
-            operator is defined.
+        subdomains: List of subdomains on which the operator is defined.
+        interfaces: List of interfaces on which the operator is defined.
 
-        It is assumed that exactly one of grids and edges is defined.
+        It is assumed that exactly one of subdomains and interfaces is defined.
 
     """
 
@@ -1082,9 +1090,9 @@ class MergedVariable(Variable):
         # Use counter from superclass to ensure unique Variable ids
         self.id = next(Variable._ids)
 
-        # Flag to identify variables merged over no grids. This requires special treatment
+        # Flag to identify variables merged over no subdomains. This requires special treatment
         # in various parts of the code.
-        # A use case is variables that are only defined on grids of codimension >= 1
+        # A use case is variables that are only defined on subdomains of codimension >= 1
         # (e.g., contact traction variable), assigned to a problem where the grid happened
         # not to have any fractures.
         self._no_variables = len(variables) == 0
@@ -1149,7 +1157,9 @@ class MergedVariable(Variable):
         sz = np.sum([var.size() for var in self.sub_vars])
 
         if self._no_variables:
-            return "Merged variable defined on an empty list of grids or interfaces"
+            return (
+                "Merged variable defined on an empty list of subdomains or interfaces"
+            )
 
         if self.is_interface:
             s = "Merged interface"
@@ -1214,15 +1224,15 @@ class Function(Operator):
 
         return s
 
-    def parse(self, gb):
-        """Parsing to an numerical value.
+    def parse(self, mdg):
+        """Parsing to a numerical value.
 
         The real work will be done by combining the function with arguments, during
         parsing of an operator tree.
 
         Parameters:
-            gb (pp.GridBucket): Mixed-dimensional grid. Not used, but it is needed as
-                input to be compatible with parse methods for other operators.
+            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
+                needed as input to be compatible with parse methods for other operators.
 
         Returns:
             The object itself.
@@ -1241,7 +1251,7 @@ class SecondOrderTensorAd(SecondOrderTensor, Operator):
 
         return s
 
-    def parse(self, gb: pp.GridBucket) -> np.ndarray:
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
         return self.values
 
 

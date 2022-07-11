@@ -21,25 +21,25 @@ def _two_fractures_overlapping_regions():
     # Region with two fractures that are pretty close; the update stencil for fv methods
     # due to update of each over them will basically include the entire grid.
     # Two prolongation steps for the fracture.
-    # In the first step, one fracutre grows, one is stuck.
+    # In the first step, one fracture grows, one is stuck.
     # In second step, the second fracture grows in both ends
 
     frac = [np.array([[1, 2], [1, 1]]), np.array([[2, 3], [2, 2]])]
-    gb = pp.meshing.cart_grid(frac, [6, 3])
+    mdg = pp.meshing.cart_grid(frac, [6, 3])
     split_scheme = [
         [np.array([29]), np.array([])],
         [np.array([30]), np.array([34, 36])],
     ]
-    return gb, split_scheme
+    return mdg, split_scheme
 
 
 def _two_fractures_non_overlapping_regions():
     # Two fractures far away from each other. The update stencils for fv methods will
     # be non-overlapping, meaning the method must deal with non-connected subgrids.
     frac = [np.array([[1, 1], [1, 2]]), np.array([[8, 8], [1, 2]])]
-    gb = pp.meshing.cart_grid(frac, [9, 3])
+    mdg = pp.meshing.cart_grid(frac, [9, 3])
     split_scheme = [[np.array([1]), np.array([8])]]
-    return gb, split_scheme
+    return mdg, split_scheme
 
 
 def _two_fractures_regions_become_overlapping():
@@ -47,9 +47,9 @@ def _two_fractures_regions_become_overlapping():
     # fv methods will be non-overlapping, meaning the method must deal with
     # non-connected subgrids. In the second step, the regions are overlapping.
     frac = [np.array([[1, 1], [1, 2]]), np.array([[8, 8], [1, 2]])]
-    gb = pp.meshing.cart_grid(frac, [9, 3])
+    mdg = pp.meshing.cart_grid(frac, [9, 3])
     split_scheme = [[np.array([1]), np.array([8])], [np.array([49]), np.array([55])]]
-    return gb, split_scheme
+    return mdg, split_scheme
 
 
 # The main test function
@@ -72,56 +72,56 @@ def test_propagation(geometry, method):
     # the newly split grid. The test fails unless all discretization matrices generated
     # are identical.
     #
-    # NOTE: Only the highest-dimensional grid in the GridBucket is used.
+    # NOTE: Only the highest-dimensional grid in the MixedDimensionalGrid is used.
 
-    # Get GridBucket and splitting schedule
-    gb, faces_to_split = geometry()
+    # Get MixedDimensionalGrid and splitting schedule
+    mdg, faces_to_split = geometry()
 
-    g = gb.grids_of_dimension(gb.dim_max())[0]
-    g_1, g_2 = gb.grids_of_dimension(1)
+    sd_top = mdg.subdomains(dim=mdg.dim_max())[0]
+    g_1, g_2 = mdg.subdomains(dim=1)
 
     # Make the splitting schedule on the format expected by fracture propagation
     split_faces = []
     for face in faces_to_split:
         split_faces.append({g_1: face[0], g_2: face[1]})
 
-    def set_param(g, d):
+    def set_param(sd, data):
         # Helper method to set parameters.
         # For Mpfa and Mpsa, some of the data is redundant, but that should be fine;
         # it allows us to use a single parameter function
-        d[pp.PARAMETERS] = {}
-        d[pp.PARAMETERS]["flow"] = {
-            "bc": pp.BoundaryCondition(g),
-            "bc_values": np.zeros(g.num_faces),
-            "second_order_tensor": pp.SecondOrderTensor(np.ones(g.num_cells)),
+        data[pp.PARAMETERS] = {}
+        data[pp.PARAMETERS]["flow"] = {
+            "bc": pp.BoundaryCondition(sd),
+            "bc_values": np.zeros(sd.num_faces),
+            "second_order_tensor": pp.SecondOrderTensor(np.ones(sd.num_cells)),
             "biot_alpha": 1,
-            "mass_weight": np.ones(g.num_cells),
+            "mass_weight": np.ones(sd.num_cells),
         }
 
-        d[pp.PARAMETERS]["mechanics"] = {
-            "bc": pp.BoundaryConditionVectorial(g),
-            "bc_values": np.zeros(g.num_faces * g.dim),
+        data[pp.PARAMETERS]["mechanics"] = {
+            "bc": pp.BoundaryConditionVectorial(sd),
+            "bc_values": np.zeros(sd.num_faces * sd.dim),
             "fourth_order_tensor": pp.FourthOrderTensor(
-                np.ones(g.num_cells), np.ones(g.num_cells)
+                np.ones(sd.num_cells), np.ones(sd.num_cells)
             ),
             "biot_alpha": 1,
         }
 
     # Populate parameters
-    d = gb.node_props(g)
-    d[pp.DISCRETIZATION_MATRICES] = {"flow": {}, "mechanics": {}}
-    set_param(g, d)
+    data = mdg.subdomain_data(sd_top)
+    data[pp.DISCRETIZATION_MATRICES] = {"flow": {}, "mechanics": {}}
+    set_param(sd_top, data)
     # Discretize
-    method.discretize(g, d)
+    method.discretize(sd_top, data)
 
     # Loop over propagation steps
     for split in split_faces:
         # Split the face
-        pp.propagate_fracture.propagate_fractures(gb, split)
+        pp.propagate_fracture.propagate_fractures(mdg, split)
 
         # Make parameters for the new grid
-        data = gb.node_props(g)
-        set_param(g, data)
+        data = mdg.subdomain_data(sd_top)
+        set_param(sd_top, data)
 
         # Transfer information on new faces and cells from the format used
         # by self.evaluate_propagation to the format needed for update of
@@ -138,15 +138,15 @@ def test_propagation(geometry, method):
         data["update_discretization"] = update_info
 
         # Update the discretization
-        method.update_discretization(g, data)
+        method.update_discretization(sd_top, data)
 
         # Create a new data dictionary, populate
         new_d = {}
         new_d[pp.DISCRETIZATION_MATRICES] = {"flow": {}, "mechanics": {}}
-        set_param(g, new_d)
+        set_param(sd_top, new_d)
 
         # Full discretization
-        method.discretize(g, new_d)
+        method.discretize(sd_top, new_d)
 
         # Compare discretization matrices
         for eq_type in ["flow", "mechanics"]:  # We know which keywords were used
