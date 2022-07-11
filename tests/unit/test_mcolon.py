@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-Created on Thu Apr 14 13:51:05 2016
-
-@author: eke001
+Test the mcolon function
 """
 import unittest
 
@@ -31,7 +28,7 @@ class TestMColon(unittest.TestCase):
         self.assertTrue(np.all((c - np.array([1, 2])) == 0))
 
     def test_mcolon_middle_equal(self):
-        # Motivated by Github issue #11
+        # Motivated by GitHub issue #11
         indPtr = np.array([1, 5, 5, 6])
         select = np.array([0, 1, 2])
 
@@ -40,7 +37,7 @@ class TestMColon(unittest.TestCase):
         self.assertTrue(np.allclose(c, c_known))
 
     def test_mcolon_last_equal(self):
-        # Motivated by Github issue #11
+        # Motivated by GitHub issue #11
         indPtr = np.array([1, 5, 5, 6])
         select = np.array([0, 1])
 

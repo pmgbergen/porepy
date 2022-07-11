@@ -1,3 +1,8 @@
+"""Geometry and parameter setup.
+
+FIXME: Purge unused functions.
+"""
+
 import warnings
 import numpy as np
 import porepy as pp
@@ -14,8 +19,8 @@ def grid_2d_1d(nx=[2, 2], x_start=0, x_stop=1):
     assert x_start < 1 + eps and x_stop > -eps
 
     f = np.array([[x_start, x_stop], [0.5, 0.5]])
-    gb = pp.meshing.cart_grid([f], nx, **{"physdims": [1, 1]})
-    return gb
+    mdg = pp.meshing.cart_grid([f], nx, **{"physdims": [1, 1]})
+    return mdg
 
 
 def grid_3d_2d(nx=[2, 2, 2], x_start=0, x_stop=1):
@@ -31,8 +36,8 @@ def grid_3d_2d(nx=[2, 2, 2], x_start=0, x_stop=1):
     f = np.array(
         [[x_start, x_stop, x_stop, x_start], [0.0, 0.0, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]]
     )
-    gb = pp.meshing.cart_grid([f], nx, **{"physdims": [1, 1, 1]})
-    return gb
+    mdg = pp.meshing.cart_grid([f], nx, **{"physdims": [1, 1, 1]})
+    return mdg
 
 
 def setup_flow(nx=[2, 2], x_stop=1, x_start=0):
@@ -42,35 +47,34 @@ def setup_flow(nx=[2, 2], x_stop=1, x_start=0):
     """
     dim_max = len(nx)
     if dim_max == 2:
-        gb = grid_2d_1d(nx, x_start, x_stop)
+        mdg = grid_2d_1d(nx, x_start, x_stop)
     else:
-        gb = grid_3d_2d(nx, x_start, x_stop)
-    gb.add_node_props(["param"])
-    for g, d in gb:
+        mdg = grid_3d_2d(nx, x_start, x_stop)
+    for g, d in mdg:
         param = pp.Parameters(g)
         d["param"] = param
 
-    set_bc_flow(gb)
-    return gb
+    set_bc_flow(mdg)
+    return mdg
 
 
-def set_bc_flow(gb):
+def set_bc_flow(mdg):
     """
-    Set bc parameters in all node data dictionaries in the bucket for flow
+    Set bc parameters in all subdomain data dictionaries in the bucket for flow
     problem.
     """
     a = 1e-2
     kf = 1e-3
     physics = "flow"
     eps = 1e-1
-    for g, d in gb:
+    for g, d in mdg.subdomains(return_data=True):
         param = d["param"]
 
-        aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
+        aperture = np.ones(g.num_cells) * np.power(a, mdg.dim_max() - g.dim)
         param.set_aperture(aperture)
 
         perm = pp.SecondOrderTensor(
-            3, np.ones(g.num_cells) * np.power(kf, g.dim < gb.dim_max())
+            3, np.ones(g.num_cells) * np.power(kf, g.dim < mdg.dim_max())
         )
         param.set_tensor(physics, perm)
 
@@ -99,31 +103,29 @@ def setup_mech(nx=[2, 2], x_stop=1, x_start=0):
     """
     dim_max = len(nx)
     if dim_max == 2:
-        gb = grid_2d_1d(nx, x_start, x_stop)
+        mdg = grid_2d_1d(nx, x_start, x_stop)
     else:
-        gb = grid_3d_2d(nx, x_start, x_stop)
-    gb.add_node_props(["param"])
-    for g, d in gb:
+        mdg = grid_3d_2d(nx, x_start, x_stop)
+    for g, d in mdg.subdomains(return_data=True):
         param = pp.Parameters(g)
         d["param"] = param
 
-    set_bc_mech(gb)
-    return gb
+    set_bc_mech(mdg)
+    return mdg
 
 
 def setup_mech_tension(nx=[2, 2], x_stop=1, x_start=0):
     dim_max = len(nx)
     if dim_max == 2:
-        gb = grid_2d_1d(nx, x_start, x_stop)
+        mdg = grid_2d_1d(nx, x_start, x_stop)
     else:
-        gb = grid_3d_2d(nx, x_start, x_stop)
-    gb.add_node_props(["param"])
-    for g, d in gb:
+        mdg = grid_3d_2d(nx, x_start, x_stop)
+    for g, d in mdg.subdomains(return_data=True):
         param = pp.Parameters(g)
         d["param"] = param
 
-    set_bc_mech_tension(gb)
-    return gb
+    set_bc_mech_tension(mdg)
+    return mdg
 
 
 def tensor_plane_strain(c, E, nu):
@@ -187,16 +189,16 @@ def tensor_plane_stress(c, E, nu):
 
 
 def set_bc_mech_tension(
-    gb, top_tension=1, t=0.05, length=1, height=1, fix_faces=True, symmetry=False, E=1
+    mdg, top_tension=1, t=0.05, length=1, height=1, fix_faces=True, symmetry=False, E=1
 ):
     """
     Minimal bcs for mechanics.
     """
     physics = "mechanics"
     eps = 1e-10
-    last_ind = gb.dim_max() - 1
+    last_ind = mdg.dim_max() - 1
 
-    for g, d in gb:
+    for g, d in mdg.subdomains(return_data=True):
         param = d["param"]
         # Update fields s.a. param.nfaces.
         # TODO: Add update method
@@ -310,7 +312,7 @@ def set_bc_mech_tension(
 
 
 def set_bc_mech_tension_sneddon(
-    gb,
+    mdg,
     p0,
     height,
     length,
@@ -326,8 +328,8 @@ def set_bc_mech_tension_sneddon(
     """
     physics = "mechanics"
     eps = 1e-10
-    last_ind = gb.dim_max() - 1
-    for g, d in gb:
+    last_ind = mdg.dim_max() - 1
+    for g, d in mdg.subdomains(return_data=True):
         param = d["param"]
         # Update fields s.a. param.nfaces.
         # TODO: Add update method
@@ -404,6 +406,7 @@ def set_bc_mech_tension_sneddon(
 
                 if symmetry:
                     back = bound_face_centers[1, :] > 2 * t - eps
+                    front = bound_face_centers[1, :] < eps
                     back_ind = back.nonzero()[0]
                     left_ind = left.nonzero()[0]
                     front_ind = front.nonzero()[0]
@@ -510,7 +513,6 @@ def analytical_stresses_on_boundary(p0, fc, a, normal_ind, nu):
 def fix_sides(
     g, labels, bc_vals, left, right, top, bottom, bound_face_centers, t, bound_faces
 ):
-    le = left.nonzero()[0]
     if g.dim == 33:
         W = np.max(g.face_centers) / 2 - 0.1 * g.face_areas[0]
         last_ind = 1
@@ -595,16 +597,16 @@ def fix_sides(
         bc_vals[0, bound_faces[lock_index_b]] = 0
 
 
-def set_bc_mech(gb, top_displacement=0.01):
+def set_bc_mech(mdg, top_displacement=0.01):
     """
     Minimal bcs for mechanics.
     """
     a = 1e-2
     physics = "mechanics"
     eps = 1e-10
-    last_ind = gb.dim_max() - 1
+    last_ind = mdg.dim_max() - 1
 
-    for g, d in gb:
+    for g, d in mdg.subdomains(return_data=True):
         param = d["param"]
 
         E = 1
@@ -614,7 +616,7 @@ def set_bc_mech(gb, top_displacement=0.01):
         # Update fields s.a. param.nfaces.
         # TODO: Add update method
         param.__init__(g)
-        aperture = np.ones(g.num_cells) * np.power(a, gb.dim_max() - g.dim)
+        aperture = np.ones(g.num_cells) * np.power(a, mdg.dim_max() - g.dim)
         param.set_aperture(aperture)
         bound_faces = g.get_all_boundary_faces()
         if bound_faces.size > 0:
@@ -638,13 +640,13 @@ def set_bc_mech(gb, top_displacement=0.01):
             param.set_slip_distance(np.zeros(g.num_faces * g.dim))
 
 
-def update_apertures(gb, gl, faces_h):
+def update_apertures(mdg, sd_l, faces_h):
     """
     Assign apertures to new lower-dimensional cells.
     """
     apertures_l = 0.01 * np.ones(faces_h.size)
     try:
-        a = np.append(gb.node_props(gl, "param").get_aperture(), apertures_l)
-        gb.node_props(gl, "param").set_aperture(a)
+        a = np.append(mdg.subdomain_data(sd_l)["param"].get_aperture(), apertures_l)
+        mdg.subdomain_data(sd_l)["param"].set_aperture(a)
     except KeyError:
         warnings.warn("apertures not updated")

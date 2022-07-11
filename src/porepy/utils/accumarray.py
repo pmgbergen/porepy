@@ -40,7 +40,7 @@ def accum(accmap, a, func=None, size=None, fill_value=0, dtype=None):
     out : ndarray
         The accumulated results.
 
-        The shape of `out` is `size` if `size` is given.  Otherwise the
+        The shape of `out` is `size` if `size` is given.  Otherwise, the
         shape is determined by the (lexicographically) largest indices of
         the output found in `accmap`.
 

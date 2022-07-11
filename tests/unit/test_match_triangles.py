@@ -1,9 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Nov 27 13:01:04 2017
-
-@author: eke001
+"""Test triangulation matching in intersections module
 """
 import unittest
 

@@ -39,8 +39,8 @@ def unique_rows(
 
 
 def ismember_rows(
-    a: np.ndarray[Any, np.dtype[np.float64]],
-    b: np.ndarray[Any, np.dtype[np.float64]],
+    a: np.ndarray[Any, np.dtype[np.int64]],
+    b: np.ndarray[Any, np.dtype[np.int64]],
     sort: float = True,
 ) -> Tuple[np.ndarray[Any, np.dtype[np.bool_]], np.ndarray[Any, np.dtype[np.int64]]]:
     """
@@ -248,7 +248,7 @@ def uniquify_point_set(
     more experience is needed before doing so.
 
     Parameters:
-        mat (np.ndarray, nd x n_pts): Columns to be uniquified.
+        points (np.ndarray, nd x n_pts): Columns to be uniquified.
         tol (double, optional): Tolerance for when columns are considered equal.
             Should be seen in connection with distance between the points in
             the point set (due to rounding errors). Defaults to 1e-8.
@@ -270,10 +270,10 @@ def uniquify_point_set(
     pairs = tree.query_pairs(tol, output_type="ndarray")
 
     if pairs.size == 0:
-        # No points were find, we can return
+        # No points were found, we can return
         return points, np.arange(num_p), np.arange(num_p)
 
-    # Process information to arive at a unique point set. This is technical,
+    # Process information to arrive at a unique point set. This is technical,
     # since we need to deal with cases where more than two points coincide.
     # As an example: if the points p1, p2 and p3 coincide, they will be
     # identified either by the pairs {(i1, i2), (i1, i3)}, by
@@ -289,7 +289,7 @@ def uniquify_point_set(
     # Sort the pairs along axis=1. The lexsort will make the sorting first
     # according to pair_arr[:, 0] (the point with the lowest index in each
     # pair), and then according to the second index (pair_arr[:, 1]). The
-    # result will be a lexiograpically ordered array.
+    # result will be a lexicographically ordered array.
     # Also note the transport back to a 2 x num_pairs array.
     sorted_arr = pair_arr[np.lexsort((pair_arr[:, 1], pair_arr[:, 0]))].T
 

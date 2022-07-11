@@ -38,7 +38,7 @@ def setup_random_pressure_field(g):
 
 class TestMpfa(unittest.TestCase):
     def test_laplacian_stencil_cart_2d(self):
-        """ Apply MPFA on Cartesian grid, should obtain Laplacian stencil. """
+        """Apply MPFA on Cartesian grid, should obtain Laplacian stencil."""
 
         # Set up 3 X 3 Cartesian grid
         g, perm = setup_cart_2d(np.array([3, 3]))

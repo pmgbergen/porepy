@@ -2,18 +2,20 @@
 more information.
 
 """
+from __future__ import annotations
+
 from typing import Any, Dict, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.grids import grid, grid_bucket
+from porepy.grids import grid
 from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
 
 
 def coarsen(
-    g: Union[pp.Grid, pp.GridBucket], method: str, **method_kwargs
+    g: Union[pp.Grid, pp.MixedDimensionalGrid], method: str, **method_kwargs
 ) -> Union[None, sps.spmatrix]:
     """Create a coarse grid from a given grid. If a grid bucket is passed the
     procedure is applied to the higher in dimension.
@@ -71,7 +73,7 @@ def generate_coarse_grid(g, subdiv):
 
     or with a grid bucket:
     subdiv = np.array([0,0,1,1,1,1,3,4,6,4,6,4])
-    generate_coarse_grid(gb, subdiv)
+    generate_coarse_grid(mdg, subdiv)
 
     """
     if isinstance(g, grid.Grid):
@@ -81,8 +83,8 @@ def generate_coarse_grid(g, subdiv):
             subdiv = subdiv[g][1]
         _generate_coarse_grid_single(g, subdiv, False)
 
-    if isinstance(g, grid_bucket.GridBucket):
-        _generate_coarse_grid_gb(g, subdiv)
+    if isinstance(g, pp.MixedDimensionalGrid):
+        _generate_coarse_grid_mdg(g, subdiv)
 
 
 # ------------------------------------------------------------------------------#
@@ -229,13 +231,13 @@ def _generate_coarse_grid_single(g, subdiv, face_map):
         return np.array([cell_faces_unique, cell_faces_id])
 
 
-def _generate_coarse_grid_gb(gb, subdiv):
+def _generate_coarse_grid_mdg(mdg, subdiv):
     """
     Specific function for a grid bucket. Use the common interface instead.
     """
 
     if not isinstance(subdiv, dict):
-        g = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+        g = mdg.subdomains(dim=mdg.dim_max())[0]
         subdiv = {g: subdiv}
 
     for g, (_, partition) in subdiv.items():
@@ -245,12 +247,14 @@ def _generate_coarse_grid_gb(gb, subdiv):
 
         # Update all the primary_to_mortar_int for all the 'edges' connected to the grid
         # We update also all the face_cells
-        for e, d in gb.edges_of_node(g):
+        for intf in mdg.subdomain_to_interfaces(g):
             # The indices that need to be mapped to the new grid
 
+            data = mdg.interface_data(intf)
+
             projections = [
-                d["mortar_grid"].primary_to_mortar_int().tocsr(),
-                d["mortar_grid"].primary_to_mortar_avg().tocsr(),
+                intf.primary_to_mortar_int().tocsr(),
+                intf.primary_to_mortar_avg().tocsr(),
             ]
 
             for ind, mat in enumerate(projections):
@@ -269,14 +273,14 @@ def _generate_coarse_grid_gb(gb, subdiv):
                 )
 
             # Update mortar projection
-            d["mortar_grid"]._primary_to_mortar_int = projections[0].tocsc()
-            d["mortar_grid"]._primary_to_mortar_avg = projections[1].tocsc()
+            intf._primary_to_mortar_int = projections[0].tocsc()
+            intf._primary_to_mortar_avg = projections[1].tocsc()
 
             # Also update all other projections to primary
-            d["mortar_grid"]._set_projections(secondary=False)
+            intf._set_projections(secondary=False)
 
             # update also the face_cells map
-            face_cells = d["face_cells"].tocsr()
+            face_cells = data["face_cells"].tocsr()
             indices = face_cells.indices
 
             # map indices
@@ -285,7 +289,7 @@ def _generate_coarse_grid_gb(gb, subdiv):
             face_cells.indices = indices[np.argsort(mask)]
 
             # update the map
-            d["face_cells"] = face_cells.tocsc()
+            data["face_cells"] = face_cells.tocsc()
 
 
 def _tpfa_matrix(g, perm=None):
@@ -304,8 +308,8 @@ def _tpfa_matrix(g, perm=None):
         Two-point flux approximation matrix
 
     """
-    if isinstance(g, grid_bucket.GridBucket):
-        g = g.get_grids(lambda g_: g_.dim == g.dim_max())[0]
+    if isinstance(g, pp.MixedDimensionalGrid):
+        g = g.subdomains(dim=g.dim_max())[0]
 
     if perm is None:
         perm = pp.SecondOrderTensor(np.ones(g.num_cells))
@@ -320,22 +324,22 @@ def _tpfa_matrix(g, perm=None):
     return solver.assemble_matrix(g, data)
 
 
-def generate_seeds(gb):
+def generate_seeds(mdg):
     """
     Giving the higher dimensional grid in a grid bucket, generate the seed for
     the tip of lower
     """
     seeds = np.empty(0, dtype=int)
 
-    if isinstance(gb, grid.Grid):
+    if isinstance(mdg, grid.Grid):
         return seeds
 
     # Extract the higher dimensional grid
-    g_h = gb.get_grids(lambda g: g.dim == gb.dim_max())[0]
+    g_h = mdg.subdomains(dim=mdg.dim_max())[0]
     g_h_faces, g_h_cells, _ = sps.find(g_h.cell_faces)
 
     # Extract the 1-codimensional grids
-    gs = gb.get_grids(lambda g: g.dim == gb.dim_max() - 1)
+    gs = mdg.subdomains(dim=mdg.dim_max() - 1)
 
     for g in gs:
         tips = np.where(g.tags["tip_faces"])[0]
@@ -344,7 +348,7 @@ def generate_seeds(gb):
         cells = np.unique(cells[index])
 
         # recover the mapping between the secondary and the primary grid
-        mg = gb._edges[(g_h, g)]["mortar_grid"]
+        mg = mdg.subdomain_pair_to_interface((g_h, g))
         primary_to_mortar = mg.primary_to_mortar_int()
         secondary_to_mortar = mg.secondary_to_mortar_int()
         # this is the old face_cells mapping
@@ -358,25 +362,27 @@ def generate_seeds(gb):
     return seeds
 
 
-def create_aggregations(g, **kwargs):
+def create_aggregations(grid: Union[pp.Grid, pp.MixedDimensionalGrid], **kwargs):
     """Create a cell partition based on their volumes.
 
     Parameter:
-        g: grid or grid bucket
+        grid (pp.Grid, or pp.MixedDimensionalGrid): subdomain or mixed-dimensional grid
 
     Return:
         partition: partition of the cells for the coarsening algorithm
 
     """
+    # Extract the higher dimensional grids and store in a list
+    if isinstance(grid, pp.MixedDimensionalGrid):
+        grid_list: list[pp.Grid] = grid.subdomains(dim=grid.dim_max())
+    elif isinstance(grid, pp.Grid):
+        grid_list = [grid]
+    else:
+        raise ValueError("Only subdomains and mixed-dimensional grids supported.")
 
-    # Extract the higher dimensional grids
-    if isinstance(g, grid_bucket.GridBucket):
-        g = g.get_grids(lambda g_: g_.dim == g.dim_max())
-
-    g_list = np.atleast_1d(g)
     partition = dict()
 
-    for g in g_list:
+    for g in grid_list:
         partition_local = -np.ones(g.num_cells, dtype=int)
 
         volumes = g.cell_volumes.copy()
@@ -439,7 +445,7 @@ def create_aggregations(g, **kwargs):
             part_neighbors = partition_local[neighbors]
             neighbors = neighbors[part_neighbors != part_cell]
             if neighbors.size == 0:
-                volumes_checked = np.inf
+                volumes_checked[:] = np.inf
                 which_cell = volumes_checked < mean
                 continue
             smallest = np.argmin(volumes[neighbors])
@@ -511,8 +517,8 @@ def create_partition(A, g, seeds=None, **kwargs):
     epsilon = kwargs.get("epsilon", 0.25)
 
     # NOTE: Extract the higher dimensional grids, we suppose it is unique
-    if isinstance(g, pp.GridBucket):
-        g_high = g.grids_of_dimension(g.dim_max())[0]
+    if isinstance(g, pp.MixedDimensionalGrid):
+        g_high = g.subdomains(dim=g.dim_max())[0]
     else:
         g_high = g
 
