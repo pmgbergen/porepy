@@ -119,16 +119,16 @@ class AbstractFunction(Operator):
     def __truediv__(self, other):
         raise RuntimeError("ad.Operator functions should only be called, not divided.")
 
-    def parse(self, gb: pp.GridBucket):
+    def parse(self, md: pp.MixedDimensionalGrid):
         """Parsing to a numerical value.
 
         The real work will be done by combining the function with arguments, during
         parsing of an operator tree.
 
         Parameters:
-        :param gb: Mixed-dimensional grid. Not used, but it is needed as input to be
+        :param md: Mixed-dimensional grid. Not used, but it is needed as input to be
             compatible with parse methods for other operators.
-        :type gb: :class:`~porepy.GridBucket`
+        :type md: :class:`~porepy.MixedDimensionalGrid`
 
         :return: the instance itself
         """
