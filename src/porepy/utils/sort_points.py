@@ -1,6 +1,8 @@
 """ Functions to sort points and edges belonging to geometric objects.
 """
-from typing import Optional, Tuple, Union
+from __future__ import annotations
+
+from typing import Optional
 
 import numpy as np
 
@@ -9,9 +11,9 @@ import porepy as pp
 
 def sort_point_pairs(
     lines: np.ndarray,
-    check_circular: Optional[bool] = True,
+    check_circular: bool = True,
     is_circular: Optional[bool] = True,
-) -> Union[Tuple[np.ndarray, np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Sort pairs of numbers to form a chain.
 
     The target application is to sort lines, defined by their
@@ -20,19 +22,18 @@ def sort_point_pairs(
     The algorithm is brute-force, using a double for-loop. This can
     surely be improved.
 
-    Parameters:
-    lines: np.ndarray, 2xn, the line pairs. If lines has more than 2 rows, we assume
-        that the points are stored in the first two rows.
-    check_circular: Verify that the sorted polyline form a circle.
-                    Defaults to true.
-    ordering: np.array, return in the original order if a line is flipped or not
-    is_circular: if the lines form a closed set. Default is True.
+    Args:
+        lines (np.ndarray, 2xn): the line pairs. If lines has more than 2 rows, we assume
+            that the points are stored in the first two rows.
+        check_circular (bool): Verify that the sorted polyline form a circle.
+        is_circular (bool): if the lines form a closed set. Default is True.
 
     Returns:
-    sorted_lines: np.ndarray, 2xn, sorted line pairs. If lines had more than 2 rows,
-        the extra are sorted accordingly.
-    sort_ind: np.ndarray, n: Sorted column indices, so that
-        sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual columns
+        np.ndarray, 2xn: sorted line pairs. If lines had more than 2 rows,
+            the extra are sorted accordingly.
+        np.ndarray, n: Sorted column indices, so that
+            sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual
+            columns
 
     """
 
@@ -48,13 +49,13 @@ def sort_point_pairs(
     # In the case of non-circular ordering ensure to start from the correct one
     if not is_circular:
         # The first segment must contain one of the endpoints, identified by a single
-        # occurence in line
+        # occurrence in line
         values = lines.ravel()
         count = np.bincount(values)
-        one_occurence = np.where(count == 1)[0]
+        one_occurrence = np.where(count == 1)[0]
         hit = np.where(
             np.logical_or(
-                np.isin(lines[0], one_occurence), np.isin(lines[1], one_occurence)
+                np.isin(lines[0], one_occurrence), np.isin(lines[1], one_occurrence)
             )
         )[0][0]
         sorted_lines[:, 0] = lines[:, hit]
@@ -101,6 +102,104 @@ def sort_point_pairs(
     return sorted_lines, sort_ind
 
 
+def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
+    """Function to sort multiple pairs of points to form circular chains.
+
+    The routine contains essentially the same functionality as sort_point_pairs,
+    but stripped down to the special case of circular chains. Differently to
+    sort_point_pairs, this variant sorts an arbitrary amount of independent
+    point pairs. The chains are restricted by the assumption that each contains
+    equally many line segments. Finally, this routine uses numba.
+
+    Parameters:
+        lines (np.ndarray): Array of size 2 * num_chains x num_lines_per_chain,
+            containing node indices. For each pair of two rows, each column
+            represents a line segment connectng the two nodes in the two entries
+            of this column.
+
+    Returns:
+        np.ndarray: Sorted version of lines, where for each chain, the collection
+            of l
+
+    Raises:
+        ImportError ifine segments has been potentially flipped and sorted.
+    """
+
+    try:
+        import numba
+    except ImportError:
+        raise ImportError("Numba not available on the system")
+
+    @numba.njit("f8[:,:](i4[:,:])", cache=True)
+    def _function_to_compile(lines):
+        """
+        Copy of pp.utils.sort_points.sort_point_pairs. This version is extended
+        to multiple chains. Each chain is implicitly assumed to be circular.
+        """
+
+        # Retrieve number of chains and lines per chain from the shape.
+        # Implicitly expect that all chains have the same length
+        num_chains, chain_length = lines.shape
+        # Since for each chain lines includes two rows, divide by two
+        num_chains = int(num_chains / 2)
+
+        # Initialize array of sorted lines to be the final output
+        sorted_lines = np.zeros((2 * num_chains, chain_length))
+        # Fix the first line segment for each chain and identify
+        # it as in place regarding the sorting.
+        sorted_lines[:, 0] = lines[:, 0]
+        # Keep track of which lines have been fixed and which are still candidates
+        found = np.zeros(chain_length)
+        found[0] = 1
+
+        # Loop over chains and consider each chain separately.
+        for c in range(num_chains):
+            # Initialize found making any line segment aside of the first a candidate
+            found[1:] = 0
+
+            # Define the end point of the previous and starting point for the next
+            # line segment
+            prev = sorted_lines[2 * c + 1, 0]
+
+            # The sorting algorithm: Loop over all positions in the chain to be set next.
+            # Find the right candidate to be moved to this position and possibly flipped
+            # if needed. A candidate is identified as fitting if it contains one point
+            # equal to the current starting point. This algorithm uses a double loop,
+            # which is the most naive approach. However, assume chain_length is in
+            # general small.
+            for i in range(1, chain_length):  # The first line has already been found
+                for j in range(
+                    1, chain_length
+                ):  # The first line has already been found
+                    # A candidate line segment with matching start and end point
+                    # in the first component of the point pair.
+                    if np.abs(found[j]) < 1e-6 and lines[2 * c, j] == prev:
+                        # Copy the segment to the right place
+                        sorted_lines[2 * c : 2 * c + 2, i] = lines[2 * c : 2 * c + 2, j]
+                        # Mark as used
+                        found[j] = 1
+                        # Define the starting point for the next line segment
+                        prev = lines[2 * c + 1, j]
+                        break
+                    # A candidate line segment with matching start and end point
+                    # in the second component of the point pair.
+                    elif np.abs(found[j]) < 1e-6 and lines[2 * c + 1, j] == prev:
+                        # Flip and copy the segment to the right place
+                        sorted_lines[2 * c, i] = lines[2 * c + 1, j]
+                        sorted_lines[2 * c + 1, i] = lines[2 * c, j]
+                        # Mark as used
+                        found[j] = 1
+                        # Define the starting point for the next line segment
+                        prev = lines[2 * c, j]
+                        break
+
+        # Return the sorted lines defining chains.
+        return sorted_lines
+
+    # Run numba compiled function
+    return _function_to_compile(lines)
+
+
 def sort_point_plane(
     pts: np.ndarray,
     centre: np.ndarray,
@@ -112,14 +211,16 @@ def sort_point_plane(
     The algorithm assumes a star-shaped disposition of the points with respect
     the centre.
 
-    Parameters:
-    pts: np.ndarray, 3xn, the points.
-    centre: np.ndarray, 3x1, the face centre.
-    normal: (optional) the normal of the plane, otherwise three points are
-    required.
+    Args:
+        pts: np.ndarray, 3xn, the points.
+        centre: np.ndarray, 3x1, the face centre.
+        normal: (optional) the normal of the plane, otherwise three points are
+            required.
+        tol:
+            Absolute tolerance used to identify active (non-constant) dimensions.
 
     Returns:
-    map_pts: np.array, 1xn, sorted point ids.
+        map_pts: np.array, 1xn, sorted point ids.
 
     """
     centre = centre.reshape((-1, 1))
@@ -144,7 +245,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     a common plane, methods based on geometry are at best cumbersome. This
     approach should work also in those cases.
 
-    Parameters:
+    Args:
         t (np.ndarray, 3 x n_tri): Triangulation to have vertexes ordered.
 
     Returns:
@@ -192,7 +293,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
         # Pick an edge to be processed
         q = queue.pop(0)
 
-        # Find the other occurence of this edge
+        # Find the other occurrence of this edge
         hit_new = np.logical_and.reduce(
             (
                 np.logical_not(is_ordered),
@@ -206,7 +307,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
         ind_old = np.where(hit_old > 0)[0]
         ind_new = np.where(hit_new > 0)[0]
 
-        # Check if the edge occured at all among the non-processed triangles
+        # Check if the edge occurred at all among the non-processed triangles
         if ind_new.size == 0:
             continue
         # It should at most occur once among non-processed triangles
@@ -245,15 +346,15 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
         # The two pairs are formed by row hit_0 and hit_1, both combined with the
         # third element. First, the latter must be identified
         if hit_new_0 + hit_new_1 == 1:
-            # Existi_newng pair in rows 0 and 1
+            # Existing pair in rows 0 and 1
             pair_0 = (t[1, ti_new], t[2, ti_new])
             pair_1 = (t[2, ti_new], t[0, ti_new])
         elif hit_new_0 + hit_new_1 == 2:
-            # Existi_newng pair in rows 0 and 2
+            # Existing pair in rows 0 and 2
             pair_0 = (t[1, ti_new], t[2, ti_new])
             pair_1 = (t[0, ti_new], t[1, ti_new])
         else:  # sum is 3
-            # Existi_newng pair in rows 1 and 2
+            # Existing pair in rows 1 and 2
             pair_0 = (t[0, ti_new], t[1, ti_new])
             pair_1 = (t[2, ti_new], t[0, ti_new])
         # Update the queue, either remove the pairs or add them

@@ -123,7 +123,7 @@ class Ad_array:
                     self.val ** other.val.astype(float) * np.log(self.val)
                 )
             else:
-                # Other.val is presumably an float or an int, but who knows what else
+                # Other.val is presumably a float or an int, but who knows what else
                 # numpy can throw at us. Make an assertion to make the code safe.
                 assert isinstance(other.val, (float, int))
                 val = self.val ** float(other.val)
@@ -137,7 +137,9 @@ class Ad_array:
 
     def __rpow__(self, other):
         if isinstance(other, Ad_array):
-            raise ValueError("Somthing went horrible wrong, should have called __pow__")
+            raise ValueError(
+                "Something went horrible wrong, should have called __pow__"
+            )
 
         # Convert self.val to float to avoid errors if self.val contains negative integers
         if isinstance(self.val, np.ndarray):

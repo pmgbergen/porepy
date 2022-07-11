@@ -11,7 +11,7 @@ import porepy as pp
 
 
 class SimplexGrid2dDomainOneImmersedFracture:
-    """ Grid of 18 cells, that contains a single fully immersed fracture,
+    """Grid of 18 cells, that contains a single fully immersed fracture,
         initially aligned with the y-axis.
 
     By tuning parameters, the fracture can be rotated, nodes in the 2d grids
@@ -20,15 +20,15 @@ class SimplexGrid2dDomainOneImmersedFracture:
     """
 
     def grid_2d(self, flip_normals=False, pert_node=False, rotate_fracture=False):
-        """ flip_normals: Some, but not all, faces in 2d grid on fracture
-                surface are rotated. Divergence operator is modified accordingly.
-                The solution should be invariant under this change.
-            perturb_node: One node in 2d grid on the fracture surface is shifted.
-                This breaks symmetry of the grid across the fracture.
-                Should not be combined with rotate_fracture.
-            rotate_fracture: Fracture is rotated from aligned with the y-axis
-                to a slightly tilted position. Should not be combined with
-                perturb_node
+        """flip_normals: Some, but not all, faces in 2d grid on fracture
+            surface are rotated. Divergence operator is modified accordingly.
+            The solution should be invariant under this change.
+        perturb_node: One node in 2d grid on the fracture surface is shifted.
+            This breaks symmetry of the grid across the fracture.
+            Should not be combined with rotate_fracture.
+        rotate_fracture: Fracture is rotated from aligned with the y-axis
+            to a slightly tilted position. Should not be combined with
+            perturb_node
         """
 
         nodes = np.array(
@@ -183,23 +183,22 @@ class SimplexGrid2dDomainOneImmersedFracture:
     def generate_grid(
         self, num_1d=3, pert_node=False, flip_normals=False, rotate_fracture=False
     ):
-        g2 = self.grid_2d(
+        sd_2 = self.grid_2d(
             flip_normals=flip_normals,
             pert_node=pert_node,
             rotate_fracture=rotate_fracture,
         )
-        g1 = self.grid_1d(num_pts=num_1d, rotate_fracture=rotate_fracture)
-        gb = pp.meshing._assemble_in_bucket([[g2], [g1]])
+        sd_1 = self.grid_1d(num_pts=num_1d, rotate_fracture=rotate_fracture)
+        mdg, _ = pp.meshing._assemble_mdg([[sd_2], [sd_1]])
 
-        gb.add_edge_props("face_cells")
-        for _, d in gb.edges():
-            a = np.zeros((g2.num_faces, g1.num_cells))
-            a[28, 0] = 1
-            a[29, 1] = 1
-            a[30, 0] = 1
-            a[31, 1] = 1
-            d["face_cells"] = sps.csc_matrix(a.T)
-        pp.meshing.create_mortar_grids(gb)
+        a = np.zeros((sd_2.num_faces, sd_1.num_cells))
+        a[28, 0] = 1
+        a[29, 1] = 1
+        a[30, 0] = 1
+        a[31, 1] = 1
+        face_cells = sps.csc_matrix(a.T)
+
+        pp.meshing.create_interfaces(mdg, {(sd_2, sd_1): face_cells})
 
         g_new_2d = self.grid_2d(
             flip_normals=flip_normals,
@@ -208,8 +207,8 @@ class SimplexGrid2dDomainOneImmersedFracture:
         )
         g_new_1d = self.grid_1d(num_pts=num_1d, rotate_fracture=rotate_fracture)
 
-        gb.replace_grids(g_map={g2: g_new_2d, g1: g_new_1d})
+        mdg.replace_subdomains_and_interfaces(sd_map={sd_2: g_new_2d, sd_1: g_new_1d})
 
-        gb.assign_node_ordering()
+        mdg.assign_subdomain_ordering()
 
-        return gb
+        return mdg

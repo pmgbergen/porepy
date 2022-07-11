@@ -148,7 +148,7 @@ class MpfaReconstructPressure(unittest.TestCase):
 
         div = pp.fvutils.scalar_divergence(g)
 
-        hf2f = pp.fvutils.map_hf_2_f(nd=1, g=g)
+        hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=g)
         P = sps.linalg.spsolve(div * hf2f * flux, -div * hf2f * bound_flux * p_b)
 
         P_hf = p_t_cell * P + p_t_bound * p_b

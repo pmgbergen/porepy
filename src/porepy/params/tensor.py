@@ -1,17 +1,12 @@
-# -*- coding: utf-8 -*-
 """
-Created on Sat Feb 27 20:22:25 2016
-
-@author: keile
-
 The tensor module contains classes for second and fourth order tensors,
 intended e.g. for representation of permeability and stiffness, respectively.
 """
+from __future__ import annotations
+
+from typing import Optional
+
 import numpy as np
-
-import porepy as pp
-
-module_sections = ["parameters"]
 
 
 class SecondOrderTensor(object):
@@ -19,23 +14,30 @@ class SecondOrderTensor(object):
     denotes the number of cells, i.e. the tensor values are stored discretely.
 
     The permeability is always 3-dimensional (since the geometry is always 3D),
-    however, 1D and 2D problems are accomodated by assigning unit values to kzz
+    however, 1D and 2D problems are accommodated by assigning unit values to kzz
     and kyy, and no cross terms.
     """
 
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
+    def __init__(
+        self,
+        kxx: np.ndarray,
+        kyy: Optional[np.ndarray] = None,
+        kzz: Optional[np.ndarray] = None,
+        kxy: Optional[np.ndarray] = None,
+        kxz: Optional[np.ndarray] = None,
+        kyz: Optional[np.ndarray] = None,
+    ):
         """Initialize permeability
 
-        Parameters:
-            kxx (double): Nc array, with cell-wise values of kxx permeability.
-            kyy (optional, double): Nc array of kyy. Default equal to kxx.
-            kzz (optional, double): Nc array of kzz. Default equal to kxx.
+        Args:
+            kxx (np.ndarray): Nc array, with cell-wise values of kxx permeability.
+            kyy (optional, np.ndarray): Nc array of kyy. Default equal to kxx.
+            kzz (optional, np.ndarray): Nc array of kzz. Default equal to kxx.
                 Not used if dim < 3.
-            kxy (optional, double): Nc array of kxy. Defaults to zero.
-            kxz (optional, double): Nc array of kxz. Defaults to zero.
+            kxy (optional, np.ndarray): Nc array of kxy. Defaults to zero.
+            kxz (optional, np.ndarray): Nc array of kxz. Defaults to zero.
                 Not used if dim < 3.
-            kyz (optional, double): Nc array of kyz. Defaults to zero.
+            kyz (optional, np.ndarray): Nc array of kyz. Defaults to zero.
                 Not used if dim < 3.
 
         Raises:
@@ -104,9 +106,8 @@ class SecondOrderTensor(object):
 
         self.values = perm
 
-    @pp.time_logger(sections=module_sections)
-    def copy(self):
-        """
+    def copy(self) -> "SecondOrderTensor":
+        """`
         Define a deep copy of the tensor.
 
         Returns:
@@ -124,8 +125,7 @@ class SecondOrderTensor(object):
 
         return SecondOrderTensor(kxx, kxy=kxy, kxz=kxz, kyy=kyy, kyz=kyz, kzz=kzz)
 
-    @pp.time_logger(sections=module_sections)
-    def rotate(self, R):
+    def rotate(self, R: np.ndarray) -> None:
         """
         Rotate the permeability given a rotation matrix.
 
@@ -139,14 +139,15 @@ class SecondOrderTensor(object):
 
 
 class FourthOrderTensor(object):
-    """Cell-wise representation of fourth order tensor.
+    """Cell-wise representation of fourth order tensor, represented by (3^2, 3^2 ,Nc)-array,
+    where Nc denotes the number of cells, i.e. the tensor values are stored discretely.
 
     For each cell, there are dim^4 degrees of freedom, stored in a
     3^2 * 3^2 matrix (exactly how to convert between 2D and 4D matrix
-    is not clear to me a the moment, but in pratcise there is sufficient
+    is not clear to me a the moment, but in practise there is sufficient
     symmetry in the tensors for the question to be irrelevant).
 
-    The only constructor available for the moment is based on the lame parameters,
+    The only constructor available for the moment is based on the Lame parameters,
     e.g. using two degrees of freedom. A third parameter phi is also present,
     but this has never been used.
 
@@ -154,23 +155,26 @@ class FourthOrderTensor(object):
     have not been tested.
 
     Attributes:
-        values - numpy.ndarray, dimensions (3^2, 3^2, nc), cell-wise
+        values (numpy.ndarray): dimensions (3^2, 3^2, nc), cell-wise
             representation of the stiffness matrix.
-        lmbda (np.ndarray, size: num_cells): First Lame parameter
-        mu (np.ndarray, size: num_cells): Second Lame parameter
+        lmbda (np.ndarray): Nc array of first Lame parameter
+        mu (np.ndarray): Nc array of second Lame parameter
 
     """
 
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, mu, lmbda, phi=None):
+    def __init__(
+        self, mu: np.ndarray, lmbda: np.ndarray, phi: Optional[np.ndarray] = None
+    ):
         """Constructor for fourth order tensor on Lame-parameter form
 
-        Parameters
-        ----------
-        mu (numpy.ndarray), First lame parameter, 1-D, one value per cell
-        lmbda (numpy.ndarray), Second lame parameter, 1-D, one value per cell
-        phi (Optional numpy.ndarray), 1-D one value per cell, never been used.
+        Args:
+            mu (numpy.ndarray): Nc array of shear modulus (second lame parameter).
+            lmbda (numpy.ndarray): Nc array of first lame parameter.
+            phi (Optional numpy.ndarray): Nc array (not used)
 
+        Raises:
+            ValueError if mu, lmbda, or phi (if not None) are no 1d arrays
+            ValueError if the lengths of mu, lmbda, and phi (if not None) are not matching
         """
 
         if not isinstance(mu, np.ndarray):
@@ -246,8 +250,14 @@ class FourthOrderTensor(object):
         c = mu_mat * mu + lmbda_mat * lmbda + phi_mat * phi
         self.values = c
 
-    @pp.time_logger(sections=module_sections)
-    def copy(self):
+    def copy(self) -> "FourthOrderTensor":
+        """`
+        Define a deep copy of the tensor.
+
+        Returns:
+            FourthOrderTensor: New tensor with identical fields, but separate
+                arrays (in the memory sense).
+        """
         C = FourthOrderTensor(mu=self.mu, lmbda=self.lmbda)
         C.values = self.values.copy()
         return C

@@ -59,7 +59,7 @@ def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
         the grid
     as_nan: bool, optional
         Decide whether to return nan as the new center for cells which are not
-         star-shaped. Otherwise an exception is raised (default behaviour).
+         star-shaped. Otherwise, an exception is raised (default behaviour).
 
     Returns
     -------
@@ -107,7 +107,7 @@ def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
                 cell_centers[:, c] = np.array([np.nan, np.nan, np.nan])
             else:
                 raise ValueError(
-                    "Cell not star-shaped impossible to compute the centre"
+                    "Cell not star-shaped impossible to compute the center."
                 )
 
     # shift back the computed cell centers and return them
