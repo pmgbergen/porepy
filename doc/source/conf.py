@@ -4,7 +4,7 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Path setup --------------------------------------------------------------
+# -- Path setup -------------------------------------------------------------------------------
 
 import os
 import sys
@@ -13,10 +13,11 @@ sys.path.insert(0, os.path.abspath("../src"))
 # rel path to example documentation
 sys.path.append(os.path.abspath("."))
 
-# -- Project information -----------------------------------------------------
+# -- Project information ----------------------------------------------------------------------
 
 project = "PorePy"
 release = "1.5"
+version = "docs/alpha"
 
 author = ("Eirik Keilegavlen, "
           + "Ivar Stefansson, "
@@ -25,14 +26,17 @@ author = ("Eirik Keilegavlen, "
           + "Omar Duran, "
           + "Veljko Lipovac")
 
-copyright = "2022, " + author
+copyright = "2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007"
 
 
-# -- General configuration ---------------------------------------------------
+# -- General configuration --------------------------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
+
+root_doc = "home"
+
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
@@ -48,19 +52,33 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-# -- Options for HTML output -------------------------------------------------
+# -- Options for HTML output ------------------------------------------------------------------
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
-html_theme = "alabaster"
+# The theme to use for HTML and HTML Help pages. Currently set to theme of Python 2 docs
+html_theme = "classic"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-# -- Napoleon Settings -------------------------------------------------------
+# Customize the html theme here. Supported  customization depends on the chosen HTML theme,
+# but unknown entries will cause no error when compiling.
+html_theme_options = {
+    "rightsidebar": "false",
+    "relbarbgcolor": "black",
+    "externalrefs": "true",
+    "bodyfont": "Arial",
+    "headfont": "Arial",
+}
+
+html_short_title = "PorePy"
+html_split_index = True
+html_copy_source = False
+html_show_sourcelink = False
+html_show_sphinx = False
+
+# -- Napoleon Settings ------------------------------------------------------------------------
 
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
@@ -77,13 +95,13 @@ napoleon_preprocess_types = False
 napoleon_type_aliases = None
 napoleon_attr_annotations = True
 
-# -- Intersphinx Settings --------------------------------------------------
+# -- Intersphinx Settings ---------------------------------------------------------------------
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None)
 }
 
-# -- Todo Settings ---------------------------------------------------------
+# -- Todo Settings ----------------------------------------------------------------------------
 
 todo_include_todos = True
 todo_emit_warnings = False

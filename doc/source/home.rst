@@ -13,10 +13,22 @@ in mixed-dimensional domains.
 | Best regards/ WIP,
 | Code monkey V.L.
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Contents:
+The PorePy package
+==================
 
+In the following, a documentation of PorePy's functionality is given module-wise.
+
+.. toctree::
+   :caption: Modules
+
+   src/package/numerics
+
+For developers
+==============
+
+.. toctree::
+   :numbered:
+   
    src/howto/howto-docstring
 
 Indices and tables
