@@ -1,4 +1,4 @@
-"""Containts the abstract base class for all components (species/ pure substances)
+"""Contains the abstract base class for all components (species/ pure substances)
 used in this framework.
 """
 
