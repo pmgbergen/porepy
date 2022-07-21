@@ -230,7 +230,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
     def _assign_variables(self) -> None:
         """
-        Assign primary variables to the subdomains and interfaces of the mixed-dimensional grid.
+        Assign primary variables to subdomains and interfaces of the mixed-dimensional grid.
         """
         for _, data in self.mdg.subdomains(return_data=True):
             data[pp.PRIMARY_VARIABLES] = {
