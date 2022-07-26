@@ -272,8 +272,8 @@ def point_in_polyhedron(
         try:
             # Winding number (wn) is a real number. Its absolute value is:
             # wn = 0 for points outside
-            # wn = 1 for points inside simply connected polyhedron
-            # wn > 1 for points inside self-intersected polyhedron
+            # wn = 1 for points inside non-convex polyhedron
+            # wn > 1 for points inside overlapping polyhedron
             is_inside[pi] = np.abs(test_object.winding_number(test_points[:, pi])) > tol
 
             # If the given point is on the triangulated surface it is considered outside.
