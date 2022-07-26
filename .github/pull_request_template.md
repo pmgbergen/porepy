@@ -11,12 +11,12 @@ _Put an `x` in the boxes that apply_
 - [ ] New feature (non-breaking change which adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Testing (contribution related mainly to testing of existing functionality)
-- [ ] Documentation Update (if none of the other choices apply)
+- [ ] Documentation update (if none of the other choices apply)
 
 ## Checklist
 
 _Put an `x` in the boxes that apply. You can also fill these out after creating the PR._
-- [ ] I have added tests that prove my fix is effective or that my feature works
+- [ ] There are (new and/or old) tests that prove my fix is effective or that my feature works
 - [ ] I have added necessary documentation 
 - [ ] I have checked that I have not duplicated existing functionality
 
