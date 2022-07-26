@@ -28,7 +28,7 @@ class PointInPolyhedronTest(object):
         tol: float = 1e-10,
     ):
         self.vertices: np.ndarray[Any, np.dtype[np.float64]] = vertices
-        self.connectivity: np.ndarray[Any, np.dtype[np.float64]] = connectivity
+        self.connectivity: np.ndarray[Any, np.dtype[np.int64]] = connectivity
         self.tol: float = tol
 
     def solid_angle(self, R: np.ndarray[Any, np.dtype[np.float64]]) -> float:
