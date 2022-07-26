@@ -105,13 +105,12 @@ class PointInPolyhedronTest(object):
         Returns:
             wn (float): The winding number generalized to R^3. Its absolute value |wn| is
                 0 for points outside the polyhedron
-                1 for points inside simply connected polyhedron
-                |wn| > 1 for points inside self-intersected polyhedron
+                1 for points inside non-convex polyhedron
+                |wn| > 1 for points inside overlapping polyhedron
 
         """
         R = self.vertices - point
-        angles = np.array(
-            [self.solid_angle(R[indexes]) for indexes in self.connectivity]
-        )
+        R_triangles = [R[indexes] for indexes in self.connectivity]
+        angles = np.array(list(map(self.solid_angle, R_triangles)))
         wn = np.sum(angles) / (4.0 * np.pi)
         return wn
