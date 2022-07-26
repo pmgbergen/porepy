@@ -258,28 +258,31 @@ def point_in_polyhedron(
     sorted_t = pp.utils.sort_points.sort_triangle_edges(ut.T).T
 
     # Generate tester for points
-    test_object = pp.point_in_polyhedron_test.PointInPolyhedronTest(upoints.T,sorted_t,tol)
+    test_object = pp.point_in_polyhedron_test.PointInPolyhedronTest(
+        upoints.T, sorted_t, tol
+    )
 
     if test_points.size < 4:
         test_points = test_points.reshape((-1, 1))
 
     is_inside = np.zeros(test_points.shape[1], dtype=bool)
 
-    # Loop over all points, check if they are inside.
+    # Loop over all points being tested, check if they are inside.
     for pi in range(test_points.shape[1]):
-        # NOTE: The documentation of the test is a bit unclear, but it seems
-        # a winding number of 0 means outside, non-zero is inside
         try:
-            # Winding number is a real number. It is zero when the point is outside
+            # Winding number (wn) is a real number. It's absolute value is zero for:
+            # Points inside simply connected polyhedron wn = 1
+            # Points inside self-intersected polyhedron wn > 1
             is_inside[pi] = np.abs(test_object.winding_number(test_points[:, pi])) > tol
 
-            # If the given point is on the boundary is considered outside.
-            # For the point being tested Coniciding vertex, collinearity and coplanarity are check
+            # If the given point is on the triangulated surface it is considered outside.
+            # To achieve robustness, checks on the given point are performed for
+            # overlapping vertex, collinearity, and coplanarity.
         except ValueError as err:
             if str(err) in [
-                "Test point coincides with a vertex",
-                "Test point is collinear with the vertices",
-                "Test point is coplanar with the vertices",
+                "Origin point coincides with a vertex",
+                "Origin point is collinear with the vertices",
+                "Origin point is coplanar with the vertices",
             ]:
                 is_inside[pi] = False
             else:
