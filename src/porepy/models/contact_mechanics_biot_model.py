@@ -755,7 +755,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         #   normal_vector * I p
         # where I is the identity matrix.
 
-        g_primary = matrix_subdomains[0]
+        sd_primary = matrix_subdomains[0]
         mat = []
 
         # Build up matrices containing the n-dot-I products for each interface.
@@ -765,14 +765,14 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
             assert isinstance(intf, pp.MortarGrid)  # Appease mypy
 
-            # Find the normal vectors of faces in g_primary on the boundary of this
+            # Find the normal vectors of faces in sd_primary on the boundary of this
             # interface.
             faces_on_fracture_boundary = intf.primary_to_mortar_int().tocsr().indices
-            internal_boundary_normals = g_primary.face_normals[
+            internal_boundary_normals = sd_primary.face_normals[
                 : self.nd, faces_on_fracture_boundary
             ]
             # Also get sign of the faces.
-            sgn, _ = g_primary.signs_and_cells_of_boundary_faces(
+            sgn, _ = sd_primary.signs_and_cells_of_boundary_faces(
                 faces_on_fracture_boundary
             )
             # Normal vector. Scale with sgn so that the normals point out of all cells
@@ -821,7 +821,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
 
         ad = self._ad
-        g_frac: List[pp.Grid] = self.mdg.subdomains(dim=self.nd - 1)
+        sd_frac: List[pp.Grid] = self.mdg.subdomains(dim=self.nd - 1)
         mass_discr = pp.ad.MassMatrixAd(self.scalar_parameter_key, subdomains)
 
         # Flow parameters
@@ -836,7 +836,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         biot_accumulation_primary = self._biot_terms_flow([self._nd_subdomain()])
 
         # Accumulation term specific to the fractures due to fracture volume changes.
-        accumulation_fracs = self._volume_change(g_frac)
+        accumulation_fracs = self._volume_change(sd_frac)
 
         # Accumulation due to compressibility. Applies to all subdomains
         accumulation_all = mass_discr.mass * (
@@ -855,7 +855,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             + accumulation_all
             + ad.subdomain_projections_scalar.cell_prolongation([self._nd_subdomain()])
             * biot_accumulation_primary
-            - ad.subdomain_projections_scalar.cell_prolongation(g_frac)
+            + ad.subdomain_projections_scalar.cell_prolongation(sd_frac)
             * accumulation_fracs
             - flow_source
         )
@@ -1055,12 +1055,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         interface_displacement = ad.interface_displacement
 
         # Change (in time) of the interface jump
-        rotated_jumps: pp.ad.Operator = (
-            ad.subdomain_projections_vector.cell_restriction(subdomains)
-            * ad.mortar_projections_vector.mortar_to_secondary_avg
-            * ad.mortar_projections_vector.sign_of_mortar_sides
-            * (interface_displacement - interface_displacement_prev)
-        )
+        rotated_jumps: pp.ad.Operator = self._displacement_jump(subdomains) - self._displacement_jump(subdomains, previous_timestep=True)
 
         discr = pp.ad.MassMatrixAd(self.mechanics_parameter_key, subdomains)
         # Neglects intersections
@@ -1144,7 +1139,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             discr.grad_p
             * self._ad.subdomain_projections_scalar.cell_restriction(matrix_subdomains)
             * self._ad.pressure
-            # The reference pressure is only defined on g_primary, thus there is no need
+            # The reference pressure is only defined on sd_primary, thus there is no need
             # for a subdomain projection.
             - discr.grad_p * p_reference
         )
@@ -1358,25 +1353,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
-    def _initialize_linear_solver(self) -> None:
-
-        solver = self.params.get("linear_solver", "direct")
-
-        if solver == "direct":
-            """In theory, it should be possible to instruct SuperLU to reuse the
-            symbolic factorization from one iteration to the next. However, it seems
-            the scipy wrapper around SuperLU has not implemented the necessary
-            functionality, as discussed in
-
-                https://github.com/scipy/scipy/issues/8227
-
-            We will therefore pass here, and pay the price of long computation times.
-            """
-            self.linear_solver = "direct"
-        elif solver == "pypardiso":
-            self.linear_solver = "pypardiso"
-        else:
-            raise ValueError("unknown linear solver " + solver)
 
     def _discretize_biot(self, update_after_geometry_change: bool = False) -> None:
         """
