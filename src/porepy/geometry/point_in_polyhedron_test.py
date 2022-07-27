@@ -43,8 +43,8 @@ class PointInPolyhedronTest(object):
             (https://doi.org/10.1145/2461912.2461916)
 
         Args:
-            R (np.ndarray, num_pt x 3): Translated triangle's points at origin (0,0,0). 
-            The original triangle's points need to be translated by subtracting the 
+            R (np.ndarray, num_pt x 3): Translated triangle's points at origin (0,0,0).
+            The original triangle's points need to be translated by subtracting the
             arbitrary point P
 
         Raises:
