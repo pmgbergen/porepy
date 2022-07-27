@@ -212,8 +212,9 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     def _set_scalar_parameters(self) -> None:
         tensor_scale = self.scalar_scale / self.length_scale**2
         for sd, data in self.mdg.subdomains(return_data=True):
-            mass_weight = self._compressibility(sd) * self.scalar_scale
+            storativity = self._storativity(sd)
             specific_volume = self._specific_volume(sd)
+            mass_weight = storativity * specific_volume * self.scalar_scale
             kappa = self._permeability(sd) / self._viscosity(sd) * tensor_scale
             diffusivity = pp.SecondOrderTensor(
                 kappa * specific_volume * np.ones(sd.num_cells)
@@ -227,7 +228,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 {
                     "bc": self._bc_type_scalar(sd),
                     "bc_values": self._bc_values_scalar(sd),
-                    "mass_weight": mass_weight * specific_volume,
+                    "mass_weight": mass_weight,
                     "biot_alpha": alpha,
                     "source": self._source_scalar(sd),
                     "second_order_tensor": diffusivity,
@@ -412,8 +413,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
         return np.zeros(sd.num_cells)
 
-    def _compressibility(self, sd: pp.Grid) -> np.ndarray:
-        """Set unitary compressibility (also called storativity or storage coefficient).
+    def _storativity(self, sd: pp.Grid) -> np.ndarray:
+        """Set unitary storativity (also called Biot modulus or storage coefficient).
 
         Args:
             sd: Subdomain grid.
