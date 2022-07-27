@@ -1050,12 +1050,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         TODO: Extend to intersections
         """
-        ad = self._ad
-        interface_displacement_prev = ad.interface_displacement.previous_timestep()
-        interface_displacement = ad.interface_displacement
-
         # Change (in time) of the interface jump
-        rotated_jumps: pp.ad.Operator = self._displacement_jump(subdomains) - self._displacement_jump(subdomains, previous_timestep=True)
+        rotated_jumps: pp.ad.Operator = self._displacement_jump(
+            subdomains
+        ) - self._displacement_jump(subdomains, previous_timestep=True)
 
         discr = pp.ad.MassMatrixAd(self.mechanics_parameter_key, subdomains)
         # Neglects intersections
@@ -1352,7 +1350,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     self.assembler.discretize(filt=filt)
 
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
-
 
     def _discretize_biot(self, update_after_geometry_change: bool = False) -> None:
         """
