@@ -21,6 +21,7 @@ import scipy.sparse.linalg as spla
 
 import porepy as pp
 from porepy.models.abstract_model import AbstractModel
+
 try:
     import pypardiso
 except ImportError:
@@ -1346,7 +1347,7 @@ class ContactMechanics(AbstractModel):
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def _initialize_linear_solver(self) -> None:
-        solver: str = self.linear_solver
+        solver = self.linear_solver
 
         if solver == "direct":
             """In theory, it should be possible to instruct SuperLU to reuse the
