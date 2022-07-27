@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -21,12 +22,6 @@ import scipy.sparse.linalg as spla
 
 import porepy as pp
 from porepy.models.abstract_model import AbstractModel
-
-try:
-    import pypardiso
-except ImportError:
-    pass
-
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -296,7 +291,15 @@ class ContactMechanics(AbstractModel):
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
         elif self.linear_solver == "pypardiso":
-            return pypardiso.spsolve(A, b)
+            try:
+                import pypardiso  # type: ignore
+
+                return pypardiso.spsolve(A, b)
+            except ImportError:
+                warnings.warn(
+                    "Could not import pypardiso, defaulting to scipy.linalg.spsolve"
+                )
+                return spla.spsolve(A, b)
         else:
             raise NotImplementedError("Not that far yet")
 
