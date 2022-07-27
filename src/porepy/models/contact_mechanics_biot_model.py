@@ -211,8 +211,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
     def _set_scalar_parameters(self) -> None:
         tensor_scale = self.scalar_scale / self.length_scale**2
-        mass_weight = 1 * self.scalar_scale
         for sd, data in self.mdg.subdomains(return_data=True):
+            mass_weight = self._compressibility(sd) * self.scalar_scale
             specific_volume = self._specific_volume(sd)
             kappa = self._permeability(sd) / self._viscosity(sd) * tensor_scale
             diffusivity = pp.SecondOrderTensor(
@@ -412,7 +412,35 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
         return np.zeros(sd.num_cells)
 
+    def _compressibility(self, sd: pp.Grid) -> Union[float, np.ndarray]:
+        """Set unitary compressibility (also called storativity or storage coefficient).
+
+        Args:
+            sd: Subdomain grid.
+
+        Returns:
+            Unitary compressibility. If AD is used, an np.ndarray of ones of shape
+                (sd.num_cells, ) is returned. Otherwise, 1.0 is returned.
+
+        """
+
+        if self._use_ad:
+            return 1.0 * np.ones(sd.num_cells)
+        else:
+            return 1.0
+
     def _biot_alpha(self, sd: pp.Grid) -> Union[float, np.ndarray]:
+        """Set unitary Biot-Willis coefficient.
+
+        Args:
+            sd: Subdomain grid.
+
+        Returns:
+            Unitary Biot-Wiliis coefficient. If AD is used, an np.ndarray of ones of shape
+                (sd.num_cells, ) is returned. Otherwise, 1.0 is returned.
+
+        """
+
         if self._use_ad:
             return 1.0 * np.ones(sd.num_cells)
         else:
