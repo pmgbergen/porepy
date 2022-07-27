@@ -63,7 +63,7 @@ class PointInPolyhedronTest(object):
         if check_overlapping_vertices:
             raise ValueError("Origin point coincides with a vertex")
 
-        # Check collinearity by computing areas formed by pair of points in R and
+        # Check collinearity by computing areas formed by pairs of points in R and
         # the origin [0,0,0]. Example: half norm of np.cross(R[0]-[0,0,0], R[1]-[0,0,0])
         # represents the area associated with R[0], R[1], and [0,0,0], if [0,0,0] is
         # collinear with R[0] and R[1] the formed area is zero.
