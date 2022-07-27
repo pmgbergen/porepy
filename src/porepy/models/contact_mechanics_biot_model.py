@@ -412,22 +412,18 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """
         return np.zeros(sd.num_cells)
 
-    def _compressibility(self, sd: pp.Grid) -> Union[float, np.ndarray]:
+    def _compressibility(self, sd: pp.Grid) -> np.ndarray:
         """Set unitary compressibility (also called storativity or storage coefficient).
 
         Args:
             sd: Subdomain grid.
 
         Returns:
-            Unitary compressibility. If AD is used, an np.ndarray of ones of shape
-                (sd.num_cells, ) is returned. Otherwise, 1.0 is returned.
+            np.ndarray of ones with shape (sd.num_cells, ).
 
         """
 
-        if self._use_ad:
-            return 1.0 * np.ones(sd.num_cells)
-        else:
-            return 1.0
+        return 1.0 * np.ones(sd.num_cells)
 
     def _biot_alpha(self, sd: pp.Grid) -> Union[float, np.ndarray]:
         """Set unitary Biot-Willis coefficient.
