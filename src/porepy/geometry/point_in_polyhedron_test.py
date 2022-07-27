@@ -36,16 +36,16 @@ class PointInPolyhedronTest(object):
 
         The solid angle is described by a plane triangle surface S at some arbitrary
         point P. It is the measure of the intersection of the three-dimensional unit
-        sphere and the conic hull defined by the vectors in R.
+        sphere centered at P and the conic hull defined by the vectors in R.
 
         The implementation is based on equation (6) in reference: Robust inside-outside
             segmentation using generalized winding numbers
             (https://doi.org/10.1145/2461912.2461916)
 
         Args:
-            R (np.ndarray, num_pt x 3): Triangle points relocated to the origin point
-                [0,0,0]. Since the unit sphere is centered at P, we translated the
-                original triangle's points by substracting the point being tested
+            R (np.ndarray, num_pt x 3): Translated triangle's points at origin (0,0,0). 
+            The original triangle's points need to be translated by subtracting the 
+            arbitrary point P
 
         Raises:
             ValueError: If the origin [0,0,0] point:
