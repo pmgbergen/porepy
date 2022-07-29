@@ -4,8 +4,9 @@ Module for partitioning of grids based on various methods.
 Intended support is by Cartesian indexing, and METIS-based.
 
 """
+from __future__ import annotations
+
 import warnings
-from typing import List, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -25,9 +26,9 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
     are other python bindings for metis as well, but pymetis has behaved well
     so far.
 
-    Parameters:
-        g: core.grids.grid: To be partitioned. Only the cell_face attribute is
-            used
+    Args:
+        g (pp.Grid): To be partitioned. Only the cell_face attribute is
+            used.
         num_part (int): Number of partitions.
 
     Returns:
@@ -43,9 +44,14 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
 
     # Connection map between cells
     c2c = g.cell_connection_map()
+    # Enforce csr. This should be the case anyhow, but better safe than sorry.
+    c2c = c2c.tocsr()
 
     # Convert the cells into the format required by pymetis
-    adjacency_list = [list(c2c.getrow(i).indices) for i in range(c2c.shape[0])]
+    indptr = c2c.indptr
+    adjacency_list = [
+        c2c.indices[indptr[i] : indptr[i + 1]].tolist() for i in range(c2c.shape[0])
+    ]
     # Call pymetis
     # It seems it is important that num_part is an int, not an int.
     part = pymetis.part_graph(int(num_part), adjacency=adjacency_list)
@@ -58,8 +64,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
 def partition_structured(
     g: pp.TensorGrid, num_part: int = 1, coarse_dims: np.ndarray = None
 ) -> np.ndarray:
-    """
-    Define a partitioning of a grid based on logical Cartesian indexing.
+    """Define a partitioning of a grid based on logical Cartesian indexing.
 
     The grid should have a field cart_dims, describing the Cartesian dimensions
     of the grid.
@@ -70,9 +75,9 @@ def partition_structured(
     Cartesian dimensions, in a way that gives roughly the same number of cells
     in each direction.
 
-    Parameters:
-        g: core.grids.grid: To be partitioned. Only the cell_face attribute is
-            used
+    Args:
+        g (pp.Grid): To be partitioned. Only the cell_face attribute is
+            used.
         num_part (int): Number of partitions.
         coarse_dims (np.array): Cartesian dimensions of the coarse grids.
 
@@ -130,7 +135,7 @@ def partition_structured(
         xi, yi, zi = np.meshgrid(ind[0], ind[1], ind[2])
         # Combine indices, with appropriate jumps in y and z counting
         glob_dims = xi + yi * coarse_dims[0] + zi * np.prod(coarse_dims[:2])
-        # This just happened to work, may be logical, but the documentanion of
+        # This just happened to work, may be logical, but the documentation of
         # np.meshgrid was hard to comprehend.
         glob_dims = np.swapaxes(np.swapaxes(glob_dims, 1, 2), 0, 1).ravel("C")
 
@@ -141,12 +146,11 @@ def partition_structured(
 def partition_coordinates(
     g: pp.Grid, num_coarse: int, check_connectivity: bool = True
 ) -> np.ndarray:
-    """ "
-    Brute force partitioning of a grid based on cell center coordinates.
+    """Brute force partitioning of a grid based on cell center coordinates.
 
     The intention at the time of implementation is to provide a partitioning
     for general grids that does not rely on METIS being available. However, if
-    METIS is available, partition_metis should be prefered.
+    METIS is available, partition_metis should be preferred.
 
     The idea is to divide the domain into a coarse Cartesian grid, and then
     assign a coarse partitioning based on the cell center coordinates.
@@ -160,8 +164,8 @@ def partition_coordinates(
     g.compute_geometry() has been called. If g does not have a field
     cell_centers, compute_geometry() will be called.
 
-    Parameters:
-        g (core.grids.grid): Grid to be partitioned.
+    Args:
+        g (pp.Grid): Grid to be partitioned.
         num_coarse (int): Target number of coarse cells. The real number of
             coarse cells will be close, but not necessarily equal.
         check_connectivity (boolean, optional): Check if the partitioning form
@@ -256,8 +260,7 @@ def partition_coordinates(
 
 
 def partition(g: pp.Grid, num_coarse: int) -> np.ndarray:
-    """
-    Wrapper for partition methods, tries to apply best possible algorithm.
+    """Wrapper for partition methods, tries to apply best possible algorithm.
 
     The method will first try to use METIS; if this is not available (or fails
     otherwise), the partition_structured will be applied if the grid is
@@ -266,8 +269,8 @@ def partition(g: pp.Grid, num_coarse: int) -> np.ndarray:
     See the methods partition_metis(), partition_structured() and
     partition_coordinates() for further details.
 
-    Parameters:
-        g (core.grids.grid): Grid to be partitioned.
+    Args:
+        g (pp.Grid): Grid to be partitioned.
         num_coarse (int): Target number of coarse cells.
 
     Returns:
@@ -284,19 +287,18 @@ def partition(g: pp.Grid, num_coarse: int) -> np.ndarray:
 
 
 def determine_coarse_dimensions(target: int, fine_size: np.ndarray) -> np.ndarray:
-    """
-    For a logically Cartesian grid determine a coarse partitioning based on a
+    """For a logically Cartesian grid determine a coarse partitioning based on a
     target number of coarse cells.
 
     The target size in general will not be a product of the possible grid
     dimensions (it may be a prime, or it may be outside the bounds [1,
     fine_size]. For concreteness, we seek to have roughly the same number of
-    cells in each directions (given by the Nd-root of the target). If this
+    cells in each direction (given by the Nd-root of the target). If this
     requires more coarse cells in a dimension than there are fine cells there,
     the coarse size is set equal to the fine, and the remaining cells are
     distributed to the other dimensions.
 
-    Parameters:
+    Args:
         target (int): Target number of coarse cells.
         fine_size (np.ndarray): Number of fine-scale cell in each dimension
 
@@ -392,9 +394,8 @@ def extract_subgrid(
     sort: bool = True,
     faces: bool = False,
     is_planar: bool = True,
-) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
-    """
-    Extract a subgrid based on cell/face indices.
+) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
+    """Extract a subgrid based on cell/face indices.
 
     For simplicity the cell/face indices will be sorted before the subgrid is
     extracted.
@@ -407,22 +408,20 @@ def extract_subgrid(
     have to decide what to do with the resulting grid. This option has however
     not been tested.
 
-    Parameters:
-        g (core.grids.Grid): Grid object, parent
-        c (np.array, dtype=int): Indices of cells to be extracted
-        sort=True (bool): If true c is sorted
-        faces=False (bool): If true c are intrepetred as faces, and the
-                            exptracted grid will be a lower dimensional grid
-                            @pp.time_logger(sections=module_sections)
-                            defined by the these faces
+    Args:
+        g (pp.Grid): Grid object, parent.
+        c (np.array, dtype=int): Indices of cells to be extracted.
+        sort (bool): If true (default), c is sorted.
+        faces (bool): If true, c are interpreted as faces, and the extracted grid will
+            be a lower dimensional grid defined by the these faces.
         is_planar: (optional) defaults to True. Only used when extracting faces from a
            3d grid. If True the faces f must be planar. Set to False to use this
            function for extracting a non-planar 2D grid, but use at own risk.
 
     Returns:
-        Grid: Extracted subgrid. Will share (note, *not* copy)
+        pp.Grid: Extracted subgrid. Will share (note, *not* copy)
             geometric fields with the parent grid. Also has an additional
-            field parent_cell_ind giving correspondance between parent and
+            field parent_cell_ind giving correspondence between parent and
             child cells.
         np.ndarray, dtype=int: Index of the extracted faces, ordered so that
             element i is the global index of face i in the subgrid.
@@ -446,10 +445,10 @@ def extract_subgrid(
         c = np.sort(np.atleast_1d(c))
 
     if faces:
-        return __extract_cells_from_faces(g, c, is_planar)
+        return _extract_cells_from_faces(g, c, is_planar)
     # Local cell-face and face-node maps.
-    cf_sub, unique_faces = __extract_submatrix(g.cell_faces.tocsc(), c)
-    fn_sub, unique_nodes = __extract_submatrix(g.face_nodes.tocsc(), unique_faces)
+    cf_sub, unique_faces = _extract_submatrix(g.cell_faces.tocsc(), c)
+    fn_sub, unique_nodes = _extract_submatrix(g.face_nodes.tocsc(), unique_faces)
 
     # Append information on subgrid extraction to the new grid's history
     history = list(g.name)
@@ -481,13 +480,13 @@ def extract_subgrid(
     return h, unique_faces, unique_nodes
 
 
-def __extract_submatrix(mat, ind):
+def _extract_submatrix(mat, ind):
     """From a matrix, extract the column specified by ind. All zero columns
     are stripped from the sub-matrix. Mappings from global to local row numbers
     are also returned.
     """
     if mat.getformat() != "csc":
-        raise ValueError("To coulums from a matrix it must be csc")
+        raise ValueError("To extract columns from a matrix, it must be csc")
     sub_mat = pp.matrix_operations.slice_mat(mat, ind)
     cols = sub_mat.indptr
     data = sub_mat.data
@@ -496,22 +495,21 @@ def __extract_submatrix(mat, ind):
     return sps.csc_matrix((data, rows_sub, cols), shape), unique_rows
 
 
-def __extract_cells_from_faces(g, f, is_planar):
-    """
-    Extracting a lower-dimensional grid from the fraces of the higher
+def _extract_cells_from_faces(g, f, is_planar):
+    """Extract a lower-dimensional grid from the fraces of the higher
     dimensional grid g. See extract_subgrid.
     """
     if g.dim == 3:
-        return __extract_cells_from_faces_3d(g, f, is_planar)
+        return _extract_cells_from_faces_3d(g, f, is_planar)
     elif g.dim == 2:
-        return __extract_cells_from_faces_2d(g, f)
+        return _extract_cells_from_faces_2d(g, f)
     elif g.dim == 1:
-        return __extract_cells_from_faces_1d(g, f)
+        return _extract_cells_from_faces_1d(g, f)
     else:
         raise NotImplementedError("can only create a subgrid for dimension 1, 2 and 3")
 
 
-def __extract_cells_from_faces_1d(g, f):
+def _extract_cells_from_faces_1d(g, f):
     assert np.size(f) == 1
     node = np.argwhere(g.face_nodes[:, f])[:, 0]
     h = pp.PointGrid(g.nodes[:, node])
@@ -519,9 +517,9 @@ def __extract_cells_from_faces_1d(g, f):
     return h, f, node
 
 
-def __extract_cells_from_faces_2d(g, f):
+def _extract_cells_from_faces_2d(g, f):
     # Local cell-face and face-node maps.
-    cell_nodes, unique_nodes = __extract_submatrix(g.face_nodes, f)
+    cell_nodes, unique_nodes = _extract_submatrix(g.face_nodes, f)
 
     cell_faces_indices = cell_nodes.indices
     data = -1 * cell_nodes.data
@@ -559,17 +557,17 @@ def __extract_cells_from_faces_2d(g, f):
     return h, f, unique_nodes
 
 
-def __extract_cells_from_faces_3d(g, f, is_planar=True):
+def _extract_cells_from_faces_3d(g, f, is_planar=True):
     """
     Extract a 2D grid from the faces of a 3D grid. One of the uses of this function
     is to obtain a 2D MortarGrid from the boundary of a 3D grid. The faces f
     is by default assumed to be planar, however, this is mainly because compute_geometry
     does not handle non-planar grids. compute_geometry is used to do a sanity check
     of the extracted grid. if is_planar is set to False, this function should handle
-    non-planar grids, however, this has not been tested thouroghly, and it does not
-    performe the geometric sanity checks.
+    non-planar grids, however, this has not been tested thoroughly, and it does not
+    perform the geometric sanity checks.
 
-    Parameters:
+    Args:
     ----------
     g: (Grid) A 3d grid
     f: (ndarray) faces of the 3d grid to by used as cells in the 2d grid
@@ -585,7 +583,7 @@ def __extract_cells_from_faces_3d(g, f, is_planar=True):
     ValueError: If the given faces is not planar and is_planar==True
     """
     # Local cell-face and face-node maps.
-    cell_nodes, unique_nodes = __extract_submatrix(g.face_nodes, f)
+    cell_nodes, unique_nodes = _extract_submatrix(g.face_nodes, f)
     if is_planar and not pp.geometry_property_checks.points_are_planar(
         g.nodes[:, unique_nodes]
     ):
@@ -634,12 +632,12 @@ def __extract_cells_from_faces_3d(g, f, is_planar=True):
         h.compute_geometry()
         if not np.all(np.isclose(g.face_areas[f], h.cell_volumes)):
             raise AssertionError(
-                """Somethign went wrong in extracting subgrid. Face area of
+                """Something went wrong in extracting subgrid. Face area of
             higher dim is not equal face centers of lower dim grid"""
             )
         if not np.all(np.isclose(g.face_centers[:, f], h.cell_centers)):
             raise AssertionError(
-                """Somethign went wrong in extracting subgrid. Face centers
+                """Something went wrong in extracting subgrid. Face centers
             of higher dim is not equal cell centers of lower dim grid"""
             )
     h.cell_volumes = g.face_areas[f]
@@ -651,19 +649,13 @@ def __extract_cells_from_faces_3d(g, f, is_planar=True):
 
 def partition_grid(
     g: pp.Grid, ind: np.ndarray
-) -> Tuple[List[pp.Grid], List[np.ndarray], List[np.ndarray]]:
-    """
-    Partition a grid into multiple subgrids based on an index set.
+) -> tuple[list[pp.Grid], list[np.ndarray], list[np.ndarray]]:
+    """Partition a grid into multiple subgrids based on an index set.
 
     No tests are made on whether the resulting grids are connected.
 
-    Example:
-        >>> g = pp.CartGrid(np.array([10, 10]))
-        >>> p = partition_structured(g, num_part=4)
-        >>> subg, face_map, node_map = partition_grid(g, p)
-
-    Parameters:
-        g (core.grids.grid): Global grid to be partitioned
+    Args:
+        g (pp.Grid): Global grid to be partitioned.
         ind (np.array): Partition vector, one per cell. Should be 0-offset.
 
     Returns:
@@ -673,11 +665,16 @@ def partition_grid(
         list of np.arrays: Each element contains the global indices of the
             local nodes.
 
+    Example:
+        >>> g = pp.CartGrid(np.array([10, 10]))
+        >>> p = partition_structured(g, num_part=4)
+        >>> subg, face_map, node_map = partition_grid(g, p)
+
     """
 
-    sub_grid: List[pp.Grid] = []
-    face_map_list: List[np.ndarray] = []
-    node_map_list: List[np.ndarray] = []
+    sub_grid: list[pp.Grid] = []
+    face_map_list: list[np.ndarray] = []
+    node_map_list: list[np.ndarray] = []
     for i in np.unique(ind):
         ci = np.squeeze(np.argwhere(ind == i))
         sg, fm, nm = extract_subgrid(g, ci)
@@ -704,8 +701,8 @@ def overlap(
     face set), or 'node' (each layer will add cells sharing a vertex with the
     active set).
 
-    Parameters:
-        g (core.grids.grid): The grid; the cell-node relation will be used to
+    Args:
+        g (pp.Grid): The grid; the cell-node relation will be used to
             extend the cell set.
         cell_ind (np.array): Cell indices, the initial cell set.
         num_layers (int): Number of overlap layers.
@@ -771,7 +768,7 @@ def overlap(
 
 def grid_is_connected(
     g: pp.Grid, cell_ind: np.ndarray = None
-) -> Tuple[bool, List[np.ndarray]]:
+) -> tuple[bool, list[np.ndarray]]:
     """
     Check if a grid is fully connected, as defined by its cell_connection_map().
 
@@ -781,7 +778,7 @@ def grid_is_connected(
         2) To check if an existing grid is composed of a single component. In
         this case, all cells are should be included in the analyzis.
 
-    Parameters:
+    Args:
         g (core.grids.grid): Grid to be tested. Only its cell_faces map is
             used.
         cell_ind (np.array): Index of cells to be included when looking for
@@ -825,7 +822,7 @@ def grid_is_connected(
     is_connected = networkx.is_connected(graph)
 
     # Get the connected components of the network.
-    # networkx gives an generator that produce sets of node indices. Use this
+    # networkx gives a generator that produce sets of node indices. Use this
     # to define a list of numpy arrays.
     component_generator = networkx.connected_components(graph)
     components = [np.array(list(i)) for i in component_generator]

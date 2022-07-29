@@ -61,20 +61,20 @@ class ContactMechanics(AbstractModel):
     Attributes:
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
-            including in Paraview export.
+            including in ParaView export.
         mortar_displacement_variable (str): Name assigned to the displacement variable
             on the fracture walls. Will be used throughout the simulations, including in
-            Paraview export.
+            ParaView export.
         contact_traction_variable (str): Name assigned to the variable for contact
             forces in the fracture. Will be used throughout the simulations, including
-            in Paraview export.
+            in ParaView export.
         mechanics_parameter_key (str): Keyword used to define parameters and
             discretizations for the mechanics problem.
-        friction_coupling_term (str): Keyword used to define paramaters and
+        friction_coupling_term (str): Keyword used to define parameters and
             discretizations for the friction problem.
         params (dict): Dictionary of parameters used to control the solution procedure.
             Default parameters are set in AbstractModel
-        gb (pp.GridBucket): Mixed-dimensional grid. Should be set by a method
+        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Should be set by a method
             create_grid which should be provided by the user.
         convergence_status (bool): Whether the non-linear iterations has converged.
         linear_solver (str): Specification of linear solver. Only known permissible
@@ -170,7 +170,7 @@ class ContactMechanics(AbstractModel):
             )
 
         # The default convergence check cannot be applied. Do a manual check instead.
-        g_max = self._nd_grid()
+        g_max = self._nd_subdomain()
         mech_dof = self.dof_manager.grid_and_variable_to_dofs(
             g_max, self.displacement_variable
         )
@@ -179,24 +179,25 @@ class ContactMechanics(AbstractModel):
         contact_dof = np.array([], dtype=int)
         u_j_dof = np.array([], dtype=int)
 
-        for e, _ in self.gb.edges():
-            if e[0].dim == self._Nd:
-                contact_dof = np.hstack(
-                    (
-                        contact_dof,
-                        self.dof_manager.grid_and_variable_to_dofs(
-                            e[1], self.contact_traction_variable
-                        ),
-                    )
+        for intf in self.mdg.interfaces(dim=self.nd - 1):
+            _, sd_secondary = self.mdg.interface_to_subdomain_pair(intf)
+
+            contact_dof = np.hstack(
+                (
+                    contact_dof,
+                    self.dof_manager.grid_and_variable_to_dofs(
+                        sd_secondary, self.contact_traction_variable
+                    ),
                 )
-                u_j_dof = np.hstack(
-                    (
-                        u_j_dof,
-                        self.dof_manager.grid_and_variable_to_dofs(
-                            e, self.mortar_displacement_variable
-                        ),
-                    )
+            )
+            u_j_dof = np.hstack(
+                (
+                    u_j_dof,
+                    self.dof_manager.grid_and_variable_to_dofs(
+                        intf, self.mortar_displacement_variable
+                    ),
                 )
+            )
 
         # Pick out the solution from current, previous iterates, as well as the
         # initial guess.
@@ -293,7 +294,7 @@ class ContactMechanics(AbstractModel):
 
     def reconstruct_local_displacement_jump(
         self,
-        data_edge: Dict,
+        intf: pp.MortarGrid,
         projection: pp.TangentialNormalProjection,
         from_iterate: bool = True,
     ) -> np.ndarray:
@@ -301,30 +302,28 @@ class ContactMechanics(AbstractModel):
         Reconstruct the displacement jump in local coordinates.
 
         Args:
-            data_edge (dictionary): The dictionary on the gb edge. Should contain
-                - a mortar grid
-                - a projection, obtained by calling
-                pp.contact_conditions.set_projections(self.gb)
+            intf represented by a mortar grid, expected to have the projection
+            obtained by calling pp.contact_conditions.set_projections(self.mdg)
         Returns:
             (np.array): ambient_dim x g_l.num_cells. First 1-2 dimensions are in the
             tangential direction of the fracture, last dimension is normal.
         """
-        mg = data_edge["mortar_grid"]
+        interface_data = self.mdg.interface_data(intf)
         if from_iterate:
-            mortar_u = data_edge[pp.STATE][pp.ITERATE][
+            mortar_u = interface_data[pp.STATE][pp.ITERATE][
                 self.mortar_displacement_variable
             ]
         else:
-            mortar_u = data_edge[pp.STATE][self.mortar_displacement_variable]
+            mortar_u = interface_data[pp.STATE][self.mortar_displacement_variable]
         displacement_jump_global_coord = (
-            mg.mortar_to_secondary_avg(nd=self._Nd)
-            * mg.sign_of_mortar_sides(nd=self._Nd)
+            intf.mortar_to_secondary_avg(nd=self.nd)
+            * intf.sign_of_mortar_sides(nd=self.nd)
             * mortar_u
         )
         # Rotated displacement jumps. these are in the local coordinates, on
-        project_to_local = projection.project_tangential_normal(int(mg.num_cells / 2))
+        project_to_local = projection.project_tangential_normal(int(intf.num_cells / 2))
         u_mortar_local = project_to_local * displacement_jump_global_coord
-        return u_mortar_local.reshape((self._Nd, -1), order="F")
+        return u_mortar_local.reshape((self.nd, -1), order="F")
 
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
@@ -340,16 +339,16 @@ class ContactMechanics(AbstractModel):
 
         """
         # Highest-dimensional grid and its data
-        g = self._nd_grid()
-        d = self.gb.node_props(g)
+        sd = self._nd_subdomain()
+        data = self.mdg.subdomain_data(sd)
 
-        # Pick the relevant displacemnet field
+        # Pick the relevant displacement field
         if previous_iterate:
-            u = d[pp.STATE][pp.ITERATE][self.displacement_variable]
+            u = data[pp.STATE][pp.ITERATE][self.displacement_variable]
         else:
-            u = d[pp.STATE][self.displacement_variable]
+            u = data[pp.STATE][self.displacement_variable]
 
-        matrix_dictionary: Dict[str, sps.spmatrix] = d[pp.DISCRETIZATION_MATRICES][
+        matrix_dictionary: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
             self.mechanics_parameter_key
         ]
 
@@ -363,28 +362,27 @@ class ContactMechanics(AbstractModel):
         bound_stress_discr: sps.spmatrix = matrix_dictionary[
             mpsa.bound_stress_matrix_key
         ]
-        global_bc_val: np.ndarray = d[pp.PARAMETERS][self.mechanics_parameter_key][
+        global_bc_val: np.ndarray = data[pp.PARAMETERS][self.mechanics_parameter_key][
             "bc_values"
         ]
         stress += bound_stress_discr * global_bc_val
 
         # Contributions from the mortar displacement variables
-        for e, d_e in self.gb.edges():
+        for intf, intf_data in self.mdg.interfaces(return_data=True):
             # Only contributions from interfaces to the highest dimensional grid
-            mg: pp.MortarGrid = d_e["mortar_grid"]
-            if mg.dim == self._Nd - 1:
+            if intf.dim == self.nd - 1:
                 if previous_iterate:
-                    u_e: np.ndarray = d_e[pp.STATE][pp.ITERATE][
+                    u_intf: np.ndarray = intf_data[pp.STATE][pp.ITERATE][
                         self.mortar_displacement_variable
                     ]
                 else:
-                    u_e = d_e[pp.STATE][self.mortar_displacement_variable]
+                    u_intf = intf_data[pp.STATE][self.mortar_displacement_variable]
 
                 stress += (
-                    bound_stress_discr * mg.mortar_to_primary_avg(nd=self._Nd) * u_e
+                    bound_stress_discr * intf.mortar_to_primary_avg(nd=self.nd) * u_intf
                 )
 
-        d[pp.STATE]["stress"] = stress
+        data[pp.STATE]["stress"] = stress
 
     def prepare_simulation(self) -> None:
         """Is run prior to a time-stepping scheme. Use this to initialize
@@ -392,23 +390,25 @@ class ContactMechanics(AbstractModel):
 
         """
         self.create_grid()
-        self._Nd = self.gb.dim_max()
-        self._set_parameters()
+        self.nd = self.mdg.dim_max()
         self._assign_variables()
         if self._use_ad:
             self._assign_ad_variables()
+        if not hasattr(self, "dof_manager"):
+            self.dof_manager = pp.DofManager(self.mdg)
+        self._initial_condition()
+        self._set_parameters()
         self._assign_discretizations()
         # Once we have defined all discretizations, it's time to instantiate an
         # equation manager (needs to know which terms it should treat)
         if not self._use_ad:
-            self.assembler: pp.Assembler = pp.Assembler(self.gb, self.dof_manager)
+            self.assembler: pp.Assembler = pp.Assembler(self.mdg, self.dof_manager)
 
-        self._initial_condition()
         self._discretize()
         self._initialize_linear_solver()
 
         self.exporter = pp.Exporter(
-            self.gb,
+            self.mdg,
             file_name=self.params["file_name"],
             folder_name=self.params["folder_name"],
         )
@@ -426,17 +426,17 @@ class ContactMechanics(AbstractModel):
         # Zero for displacement and initial bc values for Biot
         super()._initial_condition()
 
-        for g, d in self.gb:
-            if g.dim == self._Nd - 1:
+        for sd, data in self.mdg.subdomains(return_data=True):
+            if sd.dim == self.nd - 1:
                 # Contact as initial guess. Ensure traction is consistent with
                 # zero jump, which follows from the default zeros set for all
                 # variables, specifically interface displacement, by super method.
-                vals = np.zeros((self._Nd, g.num_cells))
+                vals = np.zeros((self.nd, sd.num_cells))
                 vals[-1] = -1
                 vals = vals.ravel("F")
-                d[pp.STATE].update({self.contact_traction_variable: vals})
+                data[pp.STATE].update({self.contact_traction_variable: vals})
 
-                d[pp.STATE][pp.ITERATE].update(
+                data[pp.STATE][pp.ITERATE].update(
                     {self.contact_traction_variable: vals.copy()}
                 )
 
@@ -450,109 +450,103 @@ class ContactMechanics(AbstractModel):
         """
         Set the parameters for the simulation.
         """
-        gb = self.gb
 
-        for g, d in gb:
-            if g.dim == self._Nd:
+        for sd, data in self.mdg.subdomains(return_data=True):
+            if sd.dim == self.nd:
                 pp.initialize_data(
-                    g,
-                    d,
+                    sd,
+                    data,
                     self.mechanics_parameter_key,
                     {
-                        "bc": self._bc_type(g),
-                        "bc_values": self._bc_values(g),
-                        "source": self._body_force(g),
-                        "fourth_order_tensor": self._stiffness_tensor(g),
+                        "bc": self._bc_type(sd),
+                        "bc_values": self._bc_values(sd),
+                        "source": self._body_force(sd),
+                        "fourth_order_tensor": self._stiffness_tensor(sd),
                     },
                 )
 
-            elif g.dim == self._Nd - 1:
-                c_num_n, c_num_t = self._numerical_constants(g)
+            elif sd.dim == self.nd - 1:
+                c_num_n, c_num_t = self._numerical_constants(sd)
                 pp.initialize_data(
-                    g,
-                    d,
+                    sd,
+                    data,
                     self.mechanics_parameter_key,
                     {
-                        "friction_coefficient": self._friction_coefficient(g),
-                        "initial_gap": self._initial_gap(g),
-                        "dilation_angle": self._dilation_angle(g),
+                        "friction_coefficient": self._friction_coefficient(sd),
+                        "initial_gap": self._initial_gap(sd),
+                        "dilation_angle": self._dilation_angle(sd),
                         "c_num": c_num_n,  # Non-ad uses single constant
                         "c_num_normal": c_num_n,  # Ad allows for two
                         "c_num_tangential": c_num_t,
                     },
                 )
-        for _, d in gb.edges():
-            mg = d["mortar_grid"]
-            pp.initialize_data(mg, d, self.mechanics_parameter_key)
+        for intf, data in self.mdg.interfaces(return_data=True):
+            pp.initialize_data(intf, data, self.mechanics_parameter_key)
 
-    def _nd_grid(self) -> pp.Grid:
-        """Get the grid of the highest dimension. Assumes self.gb is set."""
-        return self.gb.grids_of_dimension(self._Nd)[0]
+    def _nd_subdomain(self) -> pp.Grid:
+        """Get the grid of the highest dimension. Assumes self.mdg is set."""
+        return self.mdg.subdomains(dim=self.nd)[0]
 
-    def _bc_type(self, g: pp.Grid) -> pp.BoundaryConditionVectorial:
+    def _bc_type(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions: Dirichlet on all global boundaries,
         Dirichlet also on fracture faces.
 
 
-        Parameters
-        ----------
-        g : pp.Grid
-            DESCRIPTION.
+        Args:
+            sd: Subdomain grid.
 
-        Returns
-        -------
-        bc : pp.BoundaryConditionVectorial()
-            Boundary condition representation.
+        Returns:
+            bc: Boundary condition representation.
 
         """
-        all_bf = g.get_boundary_faces()
-        bc = pp.BoundaryConditionVectorial(g, all_bf, "dir")
+        all_bf = sd.get_boundary_faces()
+        bc = pp.BoundaryConditionVectorial(sd, all_bf, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the
         # fracture faces.
-        frac_face = g.tags["fracture_faces"]
+        frac_face = sd.tags["fracture_faces"]
         bc.is_neu[:, frac_face] = False
         bc.is_dir[:, frac_face] = True
         return bc
 
-    def _bc_values(self, g: pp.Grid) -> np.ndarray:
+    def _bc_values(self, sd: pp.Grid) -> np.ndarray:
         """Set homogeneous conditions on all boundary faces."""
-        # Values for all Nd components, facewise
-        values = np.zeros((self._Nd, g.num_faces))
+        # Values for all Nd components, face-wise
+        values = np.zeros((self.nd, sd.num_faces))
         # Reshape according to PorePy convention
         values = values.ravel("F")
         return values
 
-    def _body_force(self, g: pp.Grid) -> np.ndarray:
+    def _body_force(self, sd: pp.Grid) -> np.ndarray:
         """Body force parameter.
 
         If the source term represents gravity in the y (2d) or z (3d) direction,
         use:
-            vals = np.zeros((self,_Nd, g.num_cells))
-            vals[-1] = density * pp.GRAVITY_ACCELERATION * g.cell_volumes
+            vals = np.zeros((self,nd, sd.num_cells))
+            vals[-1] = density * pp.GRAVITY_ACCELERATION * sd.cell_volumes
             return vals.ravel("F")
 
         Parameters
         ----------
-        g : pp.Grid
+        sd : pp.Grid
             Subdomain, usually the matrix.
 
         Returns
         -------
         np.ndarray
-            Integrated source values, shape self._Nd * g.num_cells.
+            Integrated source values, shape self.nd * g.num_cells.
 
         """
-        vals = np.zeros(self._Nd * g.num_cells)
+        vals = np.zeros(self.nd * sd.num_cells)
         return vals
 
-    def _dilation_angle(self, g: pp.Grid) -> np.ndarray:
+    def _dilation_angle(self, sd: pp.Grid) -> np.ndarray:
         """Dilation angle parameter.
 
 
         Parameters
         ----------
-        g : pp.Grid
+        sd : pp.Grid
             Fracture subdomain grid.
 
         Returns
@@ -561,17 +555,17 @@ class ContactMechanics(AbstractModel):
             Cell-wise dilation angle.
 
         """
-        vals: np.ndarray = np.zeros(g.num_cells)
+        vals: np.ndarray = np.zeros(sd.num_cells)
         return vals
 
-    def _initial_gap(self, g: pp.Grid) -> np.ndarray:
+    def _initial_gap(self, sd: pp.Grid) -> np.ndarray:
         """Initial gap value.
 
         Distance between the surfaces of a fracture when in mechanical contact in
         the unperturbed state.
         Parameters
         ----------
-        g : pp.Grid
+        sd : pp.Grid
             Fracture subdomain grid.
 
         Returns
@@ -580,16 +574,16 @@ class ContactMechanics(AbstractModel):
             Cell-wise gap value.
 
         """
-        vals: np.ndarray = np.zeros(g.num_cells)
+        vals: np.ndarray = np.zeros(sd.num_cells)
         return vals
 
-    def _friction_coefficient(self, g: pp.Grid) -> np.ndarray:
+    def _friction_coefficient(self, sd: pp.Grid) -> np.ndarray:
         """Friction coefficient parameter.
 
         The friction coefficient is uniform and equal to 1.
         Parameters
         ----------
-        g : pp.Grid
+        sd : pp.Grid
             Fracture subdomain grid.
 
         Returns
@@ -598,9 +592,9 @@ class ContactMechanics(AbstractModel):
             Cell-wise friction coefficient.
 
         """
-        return np.ones(g.num_cells)
+        return np.ones(sd.num_cells)
 
-    def _numerical_constants(self, g: pp.Grid) -> Tuple[np.ndarray, np.ndarray]:
+    def _numerical_constants(self, sd: pp.Grid) -> Tuple[np.ndarray, np.ndarray]:
         """Numerical constants for contact mechanics.
 
         Unitary and homogeneous default values.
@@ -610,30 +604,30 @@ class ContactMechanics(AbstractModel):
 
         Parameters
         ----------
-        g : pp.Grid
-            Grid for which the constants are returned.
+        sd : pp.Grid
+            Subdomain grid for which the constants are returned.
 
         Returns
         -------
-        c_num_n : np.ndarray (g.num_cells)
+        c_num_n : np.ndarray (sd.num_cells)
             Numerical constant for normal complimentary function.
-        c_num_t: np.ndarray (g.num_cells * g.dim)
+        c_num_t: np.ndarray (sd.num_cells * sd.dim)
             Numerical constant for tangential complimentary function.
 
         """
-        c_num_n = np.ones(g.num_cells)
+        c_num_n = np.ones(sd.num_cells)
         # Expand to tangential Nd-1 vector
-        tangential_vals = np.ones(g.num_cells)
-        c_num_t = np.kron(tangential_vals, np.ones(g.dim))
+        tangential_vals = np.ones(sd.num_cells)
+        c_num_t = np.kron(tangential_vals, np.ones(sd.dim))
         return c_num_n, c_num_t
 
-    def _stiffness_tensor(self, g: pp.Grid) -> pp.FourthOrderTensor:
+    def _stiffness_tensor(self, sd: pp.Grid) -> pp.FourthOrderTensor:
         """Fourth order stress tensor.
 
 
         Parameters
         ----------
-        g : pp.Grid
+        sd : pp.Grid
             Matrix grid.
 
         Returns
@@ -643,36 +637,34 @@ class ContactMechanics(AbstractModel):
 
         """
         # Rock parameters
-        lam = np.ones(g.num_cells)
-        mu = np.ones(g.num_cells)
+        lam = np.ones(sd.num_cells)
+        mu = np.ones(sd.num_cells)
         return pp.FourthOrderTensor(mu, lam)
 
     def _assign_variables(self) -> None:
         """
-        Assign variables to the nodes and edges of the grid bucket.
+        Assign variables to the subdomains and interfaces of the mixed-dimensional grid.
         """
-        gb = self.gb
-        for g, d in gb:
-            if g.dim == self._Nd:
-                d[pp.PRIMARY_VARIABLES] = {
-                    self.displacement_variable: {"cells": self._Nd}
+        for sd, data in self.mdg.subdomains(return_data=True):
+            if sd.dim == self.nd:
+                data[pp.PRIMARY_VARIABLES] = {
+                    self.displacement_variable: {"cells": self.nd}
                 }
-            elif g.dim == self._Nd - 1:
-                d[pp.PRIMARY_VARIABLES] = {
-                    self.contact_traction_variable: {"cells": self._Nd}
+            elif sd.dim == self.nd - 1:
+                data[pp.PRIMARY_VARIABLES] = {
+                    self.contact_traction_variable: {"cells": self.nd}
                 }
             else:
-                d[pp.PRIMARY_VARIABLES] = {}
+                data[pp.PRIMARY_VARIABLES] = {}
 
-        for e, d in gb.edges():
-
-            if e[0].dim == self._Nd:
-                d[pp.PRIMARY_VARIABLES] = {
-                    self.mortar_displacement_variable: {"cells": self._Nd}
+        for intf, data in self.mdg.interfaces(return_data=True):
+            if intf.dim == self.nd - 1:
+                data[pp.PRIMARY_VARIABLES] = {
+                    self.mortar_displacement_variable: {"cells": self.nd}
                 }
 
             else:
-                d[pp.PRIMARY_VARIABLES] = {}
+                data[pp.PRIMARY_VARIABLES] = {}
 
     def _assign_ad_variables(self) -> None:
         """Assign variables to self._ad
@@ -680,7 +672,7 @@ class ContactMechanics(AbstractModel):
         Raises
         ------
         NotImplementedError
-            If the md_grid contains multiple nd grids.
+            If the md_grid contains multiple nd subdomains.
 
         Assigns the following attributes to self._ad:
             displacement: Primary variable in the nd subdomain.
@@ -699,36 +691,44 @@ class ContactMechanics(AbstractModel):
         """
 
         # Ad variables
-        gb, Nd = self.gb, self._Nd
+        mdg, nd = self.mdg, self.nd
         if not hasattr(self, "dof_manager"):
-            self.dof_manager = pp.DofManager(gb)
-        self._eq_manager = pp.ad.EquationManager(gb, self.dof_manager)
-        g_primary: pp.Grid = gb.grids_of_dimension(Nd)[0]
-        fracture_subdomains: List[pp.Grid] = gb.grids_of_dimension(Nd - 1).tolist()
-        self._num_frac_cells = np.sum([g.num_cells for g in fracture_subdomains])
+            self.dof_manager = pp.DofManager(mdg)
+        self._eq_manager = pp.ad.EquationManager(mdg, self.dof_manager)
+        sd_primary: pp.Grid = self._nd_subdomain()
+        fracture_subdomains: List[pp.Grid] = mdg.subdomains(dim=nd - 1)
+        self._num_frac_cells = np.sum([sd.num_cells for sd in fracture_subdomains])
 
-        if len(gb.grids_of_dimension(Nd)) != 1:
+        if len(mdg.subdomains(dim=nd)) != 1:
             # Some parts of the code have been partially prepared for
             # this case, other parts require adjustment.
             raise NotImplementedError("This will require further work")
 
-        matrix_fracture_interfaces = [(g_primary, g) for g in fracture_subdomains]
+        matrix_fracture_interfaces = [
+            mdg.subdomain_pair_to_interface((sd_primary, sd))
+            for sd in fracture_subdomains
+        ]
 
         self._set_ad_objects()
         self._set_ad_projections()
 
         # Primary variables on Ad form
         self._ad.displacement = self._eq_manager.variable(
-            g_primary, self.displacement_variable
+            sd_primary, self.displacement_variable
         )
         self._ad.interface_displacement = self._eq_manager.merge_variables(
-            [(e, self.mortar_displacement_variable) for e in matrix_fracture_interfaces]
+            [
+                (intf, self.mortar_displacement_variable)
+                for intf in matrix_fracture_interfaces
+            ]
         )
         self._ad.contact_force = self._eq_manager.merge_variables(
-            [(g, self.contact_traction_variable) for g in fracture_subdomains]
+            [(sd, self.contact_traction_variable) for sd in fracture_subdomains]
         )
         discr = pp.ad.ContactTractionAd(
-            self.mechanics_parameter_key, matrix_fracture_interfaces
+            self.mechanics_parameter_key,
+            matrix_fracture_interfaces,
+            fracture_subdomains,
         )
         self._ad.contact_traction = discr.traction_scaling * self._ad.contact_force
 
@@ -744,46 +744,45 @@ class ContactMechanics(AbstractModel):
         self._ad = ContactMechanicsAdObjects()
 
     def _assign_discretizations(self) -> None:
-        """
-        Assign discretizations to the nodes and edges of the grid bucket.
-
-        """
+        """Assign discretizations to subdomains and interfaces."""
 
         # For the Nd domain we solve linear elasticity with mpsa.
-        Nd = self._Nd
-        gb = self.gb
+        nd = self.nd
+        mdg = self.mdg
         if not hasattr(self, "dof_manager"):
-            self.dof_manager = pp.DofManager(gb)
+            self.dof_manager = pp.DofManager(mdg)
         if not self._use_ad:
             mpsa = pp.Mpsa(self.mechanics_parameter_key)
             # We need a void discretization for the contact traction variable defined on
             # the fractures.
             empty_discr = pp.VoidDiscretization(
-                self.mechanics_parameter_key, ndof_cell=Nd
+                self.mechanics_parameter_key, ndof_cell=nd
             )
 
-            for g, d in gb:
-                if g.dim == Nd:
-                    d[pp.DISCRETIZATION] = {self.displacement_variable: {"mpsa": mpsa}}
-                elif g.dim == Nd - 1:
-                    d[pp.DISCRETIZATION] = {
+            for sd, data in mdg.subdomains(return_data=True):
+                if sd.dim == nd:
+                    data[pp.DISCRETIZATION] = {
+                        self.displacement_variable: {"mpsa": mpsa}
+                    }
+                elif sd.dim == nd - 1:
+                    data[pp.DISCRETIZATION] = {
                         self.contact_traction_variable: {"empty": empty_discr}
                     }
 
             # Define the contact condition on the mortar grid
-            coloumb = pp.ColoumbContact(self.mechanics_parameter_key, Nd, mpsa)
+            coloumb = pp.ColoumbContact(self.mechanics_parameter_key, nd, mpsa)
             contact = pp.PrimalContactCoupling(
                 self.mechanics_parameter_key, mpsa, coloumb
             )
 
-            for e, d in gb.edges():
-                g_l, g_h = gb.nodes_of_edge(e)
-                if g_h.dim == Nd:
-                    d[pp.COUPLING_DISCRETIZATION] = {
+            for intf, intf_data in mdg.interfaces(return_data=True):
+                sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
+                if sd_primary.dim == nd:
+                    intf_data[pp.COUPLING_DISCRETIZATION] = {
                         self.friction_coupling_term: {
-                            g_h: (self.displacement_variable, "mpsa"),
-                            g_l: (self.contact_traction_variable, "empty"),
-                            (g_h, g_l): (self.mortar_displacement_variable, contact),
+                            sd_primary: (self.displacement_variable, "mpsa"),
+                            sd_secondary: (self.contact_traction_variable, "empty"),
+                            intf: (self.mortar_displacement_variable, contact),
                         }
                     }
 
@@ -807,20 +806,23 @@ class ContactMechanics(AbstractModel):
         None.
 
         """
-        gb, Nd = self.gb, self._Nd
+        mdg, nd = self.mdg, self.nd
 
-        g_primary: pp.Grid = gb.grids_of_dimension(Nd)[0]
-        fracture_subdomains: List[pp.Grid] = gb.grids_of_dimension(Nd - 1).tolist()
+        sd_nd: pp.Grid = self._nd_subdomain()
+
+        fracture_subdomains: List[pp.Grid] = mdg.subdomains(dim=nd - 1)
         self._num_frac_cells = np.sum([g.num_cells for g in fracture_subdomains])
 
-        matrix_fracture_interfaces = [(g_primary, g) for g in fracture_subdomains]
+        matrix_fracture_interfaces = [
+            intf for intf in mdg.subdomain_to_interfaces(sd_nd) if intf.codim == 1
+        ]
 
         # Projections between subdomains, rotations etc. must be wrapped into
         # ad objects
         self._set_ad_projections()
 
         # Construct equations
-        momentum_eq: pp.ad.Operator = self._momentum_balance_equation([g_primary])
+        momentum_eq: pp.ad.Operator = self._momentum_balance_equation([sd_nd])
         contact_n: pp.ad.Operator = self._contact_mechanics_normal_equation(
             fracture_subdomains
         )
@@ -828,7 +830,7 @@ class ContactMechanics(AbstractModel):
             fracture_subdomains
         )
         force_balance_eq: pp.ad.Operator = self._force_balance_equation(
-            [g_primary],
+            [sd_nd],
             fracture_subdomains,
             matrix_fracture_interfaces,
         )
@@ -864,7 +866,7 @@ class ContactMechanics(AbstractModel):
             internal_boundary_vector_to_outwards: Switch sign/direction of a nd
                 vector at internal boundary faces of the matrix grid, i.e. corresponding
                 to all matrix-fracture interfaces. Entries are 1 and -1, size is
-                (ndgrid.num_faces * self._Nd) ** 2
+                (ndgrid.num_faces * self.nd) ** 2
 
         Returns
         -------
@@ -873,16 +875,15 @@ class ContactMechanics(AbstractModel):
         """
         ad = self._ad
 
-        grid_list: List[pp.Grid] = [g for g, _ in self.gb]
-        fracture_subdomains: List[pp.Grid] = self.gb.grids_of_dimension(
-            self._Nd - 1
-        ).tolist()
-        fracture_matrix_interfaces: List[Tuple[pp.Grid, pp.Grid]] = [
-            (self._nd_grid(), g) for g in fracture_subdomains
+        subdomains: List[pp.Grid] = [sd for sd in self.mdg.subdomains()]
+        fracture_subdomains: List[pp.Grid] = self.mdg.subdomains(dim=self.nd - 1)
+        fracture_matrix_interfaces: List[pp.MortarGrid] = [
+            self.mdg.subdomain_pair_to_interface((self._nd_subdomain(), sd))
+            for sd in fracture_subdomains
         ]
 
         # Store number of fracture cells
-        self._num_frac_cells = int(np.sum([g.num_cells for g in fracture_subdomains]))
+        self._num_frac_cells = int(np.sum([sd.num_cells for sd in fracture_subdomains]))
 
         # Special treatment in case no fractures are present
         if len(fracture_subdomains) == 0:
@@ -900,27 +901,27 @@ class ContactMechanics(AbstractModel):
                 "internal_boundary_vector_to_outwards",
                 sps.csr_matrix(
                     (
-                        self._nd_grid().num_faces * self._Nd,
-                        self._nd_grid().num_faces * self._Nd,
+                        self._nd_subdomain().num_faces * self.nd,
+                        self._nd_subdomain().num_faces * self.nd,
                     )
                 ),
             )
         else:
             # Global to local coordinate transformation
             local_coord_proj_list = [
-                self.gb.node_props(
-                    gf, "tangential_normal_projection"
-                ).project_tangential_normal(gf.num_cells)
-                for gf in fracture_subdomains
+                self.mdg.subdomain_data(sd)[
+                    "tangential_normal_projection"
+                ].project_tangential_normal(sd.num_cells)
+                for sd in fracture_subdomains
             ]
             ad.local_fracture_coord_transformation = pp.ad.Matrix(
                 sps.block_diag(local_coord_proj_list)
             )
             # Matrices for extracting normal and tangential components on the fractures
-            n_frac_c_dim: int = int(self._num_frac_cells * self._Nd)
-            n_frac_c_t: int = int(self._num_frac_cells * (self._Nd - 1))
+            n_frac_c_dim: int = int(self._num_frac_cells * self.nd)
+            n_frac_c_t: int = int(self._num_frac_cells * (self.nd - 1))
             normal_rows: np.ndarray = np.arange(self._num_frac_cells)
-            normal_cols: np.ndarray = np.arange(self._Nd - 1, n_frac_c_dim, self._Nd)
+            normal_cols: np.ndarray = np.arange(self.nd - 1, n_frac_c_dim, self.nd)
             normal_data: np.ndarray = np.ones(self._num_frac_cells)
 
             tangential_cols: np.ndarray = np.setdiff1d(
@@ -949,7 +950,7 @@ class ContactMechanics(AbstractModel):
             # prolonged quantity normal_to_tangential * V_n
             local_inds_t: np.ndarray = np.arange(n_frac_c_t)
             local_inds_n: np.ndarray = np.kron(
-                np.arange(self._num_frac_cells), np.ones(self._Nd - 1)
+                np.arange(self._num_frac_cells), np.ones(self.nd - 1)
             )
 
             n2t_matrix = sps.csr_matrix(
@@ -961,12 +962,10 @@ class ContactMechanics(AbstractModel):
             # Sign switcher accounting for normal direction of faces on internal boundaries of
             # matrix grid (corresponding to matrix-fracture interfaces).
             outwards_mat = None
-            for interface in fracture_matrix_interfaces:
-                mg: pp.MortarGrid = self.gb.edge_props(interface)["mortar_grid"]
-
-                faces_on_fracture_surface = mg.primary_to_mortar_int().tocsr().indices
+            for intf in fracture_matrix_interfaces:
+                faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
                 switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
-                    self._nd_grid(), self._Nd, faces_on_fracture_surface
+                    self._nd_subdomain(), self.nd, faces_on_fracture_surface
                 )
                 if outwards_mat is None:
                     outwards_mat = switcher_int
@@ -977,12 +976,15 @@ class ContactMechanics(AbstractModel):
 
         # Projections between interfaces and subdomains
         ad.mortar_projections_vector = pp.ad.MortarProjections(
-            grids=grid_list, edges=fracture_matrix_interfaces, gb=self.gb, nd=self._Nd
+            subdomains=subdomains,
+            interfaces=fracture_matrix_interfaces,
+            mdg=self.mdg,
+            nd=self.nd,
         )
 
         # Prolongation and restriction between subdomain subsets and full subdomain list
         ad.subdomain_projections_vector = pp.ad.SubdomainProjections(
-            grids=grid_list, nd=self._Nd
+            subdomains=subdomains, nd=self.nd
         )
 
     def _displacement_jump(
@@ -990,15 +992,13 @@ class ContactMechanics(AbstractModel):
     ) -> pp.ad.Operator:
         """Construct AD Operator representing jump of interface displacement.
 
-        Parameters
-        ----------
-        fracture_subdomains : List[pp.Grid]
-            List of fracture grids.
+        Args:
+            fracture_subdomains
+                List of fracture subdomains.
 
-        Returns
-        -------
-        rotated_jumps : pp.ad.Operator
-            Operator representing jump across all fractures.
+        Returns:
+            rotated_jumps
+                Operator representing jump across all fractures.
 
         """
         ad = self._ad
@@ -1013,6 +1013,7 @@ class ContactMechanics(AbstractModel):
             * ad.mortar_projections_vector.sign_of_mortar_sides
             * interface_displacement
         )
+        rotated_jumps.set_name("Rotated displacement jump")
         return rotated_jumps
 
     def _contact_mechanics_normal_equation(
@@ -1025,7 +1026,7 @@ class ContactMechanics(AbstractModel):
         Parameters
         ----------
         fracture_subdomains : List[pp.Grid]
-            List of fracture grids.
+            List of fracture subdomains.
 
         Returns
         -------
@@ -1036,7 +1037,7 @@ class ContactMechanics(AbstractModel):
         numerical_c_n = pp.ad.ParameterMatrix(
             self.mechanics_parameter_key,
             array_keyword="c_num_normal",
-            grids=fracture_subdomains,
+            subdomains=fracture_subdomains,
         )
 
         T_n: pp.ad.Operator = self._ad.normal_component_frac * self._ad.contact_traction
@@ -1062,7 +1063,7 @@ class ContactMechanics(AbstractModel):
         Parameters
         ----------
         fracture_subdomains : List[pp.Grid]
-            List of fracture grids.
+            List of fracture subdomains.
 
         Returns
         -------
@@ -1071,17 +1072,17 @@ class ContactMechanics(AbstractModel):
 
         Note:
             Hueeber and Berge use
-            (-1) * friction_coefficient * (T_n + discr.normal * (u_n - gap))
+            (-1) * friction_coefficient * (T_n + c_n * (u_n - gap))
             The argument is that with this choice, "the Newton-type iteration
             automatically takes the form of an active set method" (Hueber's
             thesis p. 104). Since we abandon the sets in the ad-based
              implementation, the simpler form more closely related to the
-             Coloumb friction law is prefered.
+             Coulomb friction law is preferred.
         """
         friction_coefficient = pp.ad.ParameterMatrix(
             self.mechanics_parameter_key,
             array_keyword="friction_coefficient",
-            grids=fracture_subdomains,
+            subdomains=fracture_subdomains,
         )
         ad = self._ad
         T_n: pp.ad.Operator = ad.normal_component_frac * ad.contact_traction
@@ -1102,7 +1103,7 @@ class ContactMechanics(AbstractModel):
         Parameters
         ----------
         fracture_subdomains : List[pp.Grid]
-            List of fracture grids.
+            List of fracture subdomains.
 
         Returns
         -------
@@ -1114,15 +1115,15 @@ class ContactMechanics(AbstractModel):
         initial_gap: pp.ad.Operator = pp.ad.ParameterArray(
             self.mechanics_parameter_key,
             array_keyword="initial_gap",
-            grids=fracture_subdomains,
+            subdomains=fracture_subdomains,
         )
         angle: pp.ad.Operator = pp.ad.ParameterArray(
             self.mechanics_parameter_key,
             array_keyword="dilation_angle",
-            grids=fracture_subdomains,
+            subdomains=fracture_subdomains,
         )
         Norm = pp.ad.Function(
-            partial(pp.ad.functions.l2_norm, self._Nd - 1), "norm_function"
+            partial(pp.ad.functions.l2_norm, self.nd - 1), "norm_function"
         )
         Tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
         shear_dilation: pp.ad.Operator = Tan(angle) * Norm(
@@ -1143,8 +1144,9 @@ class ContactMechanics(AbstractModel):
 
         The function reads
             C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
-        with u being displacement jump increments, t denoting tangtial
+        with u being displacement jump increments, t denoting tangential
         component and b_p the friction bound.
+
         For b_p = 0, the equation C_t = 0 does not in itself imply T_t = 0,
         which is what the contact conditions require. The case is handled
         through the use of a characteristic function.
@@ -1152,7 +1154,7 @@ class ContactMechanics(AbstractModel):
         Parameters
         ----------
         fracture_subdomains : List[pp.Grid]
-            List of fracture grids.
+            List of fracture subdomains.
 
         Returns
         -------
@@ -1166,14 +1168,14 @@ class ContactMechanics(AbstractModel):
         numerical_c_t = pp.ad.ParameterMatrix(
             self.mechanics_parameter_key,
             array_keyword="c_num_tangential",
-            grids=fracture_subdomains,
+            subdomains=fracture_subdomains,
         )
-        ones_frac = pp.ad.Array(np.ones(self._num_frac_cells * (self._Nd - 1)))
+        ones_frac = pp.ad.Array(np.ones(self._num_frac_cells * (self.nd - 1)))
         zeros_frac = pp.ad.Array(np.zeros(self._num_frac_cells))
 
         # Functions
         MaxAd = pp.ad.Function(pp.ad.maximum, "max_function")
-        NormAd = pp.ad.Function(partial(pp.ad.l2_norm, self._Nd - 1), "norm_function")
+        NormAd = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
         tol = 1e-5
         Characteristic = pp.ad.Function(
             partial(pp.ad.functions.characteristic_function, tol),
@@ -1224,7 +1226,7 @@ class ContactMechanics(AbstractModel):
         Parameters
         ----------
         matrix_subdomains : List[pp.Grid]
-            List of N-dimensional grids, usually with a single entry.
+            List of N-dimensional subdomains, usually with a single entry.
 
         Returns
         -------
@@ -1233,7 +1235,7 @@ class ContactMechanics(AbstractModel):
 
         """
 
-        div = pp.ad.Divergence(grids=matrix_subdomains, dim=self._Nd)
+        div = pp.ad.Divergence(subdomains=matrix_subdomains, dim=self.nd)
 
         stress = self._stress(matrix_subdomains)
         # Source term typically represents gravity
@@ -1254,7 +1256,7 @@ class ContactMechanics(AbstractModel):
         Parameters
         ----------
         matrix_subdomains : List[pp.Grid]
-            List of N-dimensional grids, usually with a single entry.
+            List of N-dimensional subdomains, usually with a single entry.
 
         Returns
         -------
@@ -1265,7 +1267,7 @@ class ContactMechanics(AbstractModel):
         ad = self._ad
         discr = pp.ad.MpsaAd(self.mechanics_parameter_key, matrix_subdomains)
         bc = pp.ad.BoundaryCondition(
-            self.mechanics_parameter_key, grids=matrix_subdomains
+            self.mechanics_parameter_key, subdomains=matrix_subdomains
         )
         stress = (
             discr.stress * ad.displacement
@@ -1285,23 +1287,19 @@ class ContactMechanics(AbstractModel):
         self,
         matrix_subdomains: List[pp.Grid],
         fracture_subdomains: List[pp.Grid],
-        interfaces: List[Tuple[pp.Grid, pp.Grid]],
+        interfaces: List[pp.MortarGrid],
     ) -> pp.ad.Operator:
-        """Force balance equation at matrix-fracture interfaces
+        """Force balance equation at matrix-fracture interfaces.
 
+        Args:
+            matrix_subdomains : List[pp.Grid]
+                Matrix subdomains, expected to be of length 1.
+            fracture_subdomains: List[pp.Grid].
+                Fracture subdomains.
+            interfaces: List[pp.MortarGrid]
 
-        Parameters
-        ----------
-        matrix_subdomains : List[pp.Grid]
-            Matrix subdomains, expected to be of length 1.
-        fracture_subdomains: List[pp.Grid].
-            Fracture subdomains.
-        interfaces: List[Tuple[pp.Grid, pp.Grid]]
-
-        Returns
-        -------
-        force_balance_eq : pp.ad.Operator
-            DESCRIPTION.
+        Returns:
+            Operator representing the force balance equation.
 
         """
         ad = self._ad
@@ -1315,6 +1313,7 @@ class ContactMechanics(AbstractModel):
             * ad.internal_boundary_vector_to_outwards
             * self._stress(matrix_subdomains)
         )
+        # Traction from the actual contact force.
         contact_from_secondary = (
             ad.mortar_projections_vector.sign_of_mortar_sides
             * ad.mortar_projections_vector.secondary_to_mortar_int
@@ -1334,7 +1333,7 @@ class ContactMechanics(AbstractModel):
         tic = time.time()
         logger.info("Discretize")
         if self._use_ad:
-            self._eq_manager.discretize(self.gb)
+            self._eq_manager.discretize(self.mdg)
         else:
             self.assembler.discretize()
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
@@ -1362,4 +1361,4 @@ class ContactMechanics(AbstractModel):
         If there is no fracture, the problem is usually linear.
         Overwrite this function if e.g. parameter nonlinearities are included.
         """
-        return self.gb.dim_min() < self._Nd
+        return self.mdg.dim_min() < self.nd

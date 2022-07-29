@@ -54,13 +54,13 @@ def lines_by_polygon(poly_pts, pts, edges):
             isinstance(int_lines, shapely_geometry.LineString)
             and len(int_lines.coords) > 0
         ):
-            # consider the case of single intersection by avoiding to consider
+            # consider the case of single intersection by avoiding considering
             # lines on the boundary of the polygon
             if not int_lines.touches(poly) and int_lines.length > 0:
                 int_pts = np.c_[int_pts, np.array(int_lines.xy)]
                 edges_kept.append(ei)
         elif type(int_lines) is shapely_geometry.MultiLineString:
-            # consider the case of multiple intersections by avoiding to consider
+            # consider the case of multiple intersections by avoiding considering
             # lines on the boundary of the polygon
             for int_line in int_lines:
                 if not int_line.touches(poly) and int_line.length > 0:
@@ -83,7 +83,7 @@ def lines_by_polygon(poly_pts, pts, edges):
 
 
 def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
-    """Constrain a seort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
+    """Constrain a sort of polygons in 3d to lie inside a, generally non-convex, polyhedron.
 
     Polygons not inside the polyhedron will be removed from descriptions.
     For non-convex polyhedra, polygons can be split in several parts.
@@ -110,9 +110,23 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
     constrained_polygons = []
     orig_poly_ind = []
 
+    # Construct bounding box for polyhedron
+    bounding_box = pp.bounding_box.from_points(np.hstack([p for p in polyhedron]))
+
     # Loop over the polygons. For each, find the intersections with all
     # polygons on the side of the polyhedra.
     for pi, poly in enumerate(polygons):
+        # First check if polyhedron is outside the bounding box - if so, we can move on.
+        if (
+            np.max(poly[0]) < bounding_box["xmin"]
+            or np.min(poly[0]) > bounding_box["xmax"]
+            or np.max(poly[1]) < bounding_box["ymin"]
+            or np.min(poly[1]) > bounding_box["ymax"]
+            or np.max(poly[2]) < bounding_box["zmin"]
+            or np.min(poly[2]) > bounding_box["zmax"]
+        ):
+            continue
+
         # Add this polygon to the list of constraining polygons. Put this first
         all_poly = [poly] + polyhedron
 
@@ -135,7 +149,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         seg_vert = seg_vert_all[0]
 
         # Find number of unique intersection points.
-        _, mapping, _ = pp.utils.setmembership.unique_columns_tol(coord, tol)
+        _, mapping, _ = pp.utils.setmembership.uniquify_point_set(coord, tol)
         # If there are no, or a single intersection point, we just need to test if the
         # entire polygon is inside the polyhedral.
         # A single intersection point can only be combined with a polygon fully inside
@@ -216,7 +230,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         points_inside_polyhedron = pp.geometry_property_checks.point_in_polyhedron(
             polyhedron, poly
         )
-        # segment_inside[0] tells whehter the point[:, -1] - point[:, 0] is fully inside
+        # segment_inside[0] tells whether the point[:, -1] - point[:, 0] is fully inside
         # the remaining elements are point[:, 0] - point[:, 1] etc.
         segments_inside = np.logical_and(
             points_inside_polyhedron, points_inside_polyhedron[next_ind]
@@ -282,7 +296,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
         # Storage of identified segments in the constrained polygon
         segments_interior_boundary = []
 
-        # Check if individual vertexs are on the boundary
+        # Check if individual vertexes are on the boundary
         vertex_on_boundary = np.zeros(num_vert, bool)
         for isect in seg_vert:
             if len(isect) > 0 and not isect[1]:
@@ -343,7 +357,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
             # Consider unique intersection points; there may be repititions in cases
             # where the polyhedron has multiple parallel sides.
-            isect_coord, _, _ = pp.utils.setmembership.unique_columns_tol(
+            isect_coord, _, _ = pp.utils.setmembership.uniquify_point_set(
                 coord[:, loc_isect_ind], tol
             )
 
@@ -425,12 +439,12 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
             axis=0,
         )
         # Uniquify intersection coordinates, and update the segments
-        unique_coords, _, ib = pp.utils.setmembership.unique_columns_tol(
+        unique_coords, _, ib = pp.utils.setmembership.uniquify_point_set(
             coord_extended, tol=tol
         )
         unique_segments = ib[segments]
         # Then uniquify the segments, in terms of the unique coordinates
-        unique_segments, *rest = pp.utils.setmembership.unique_columns_tol(
+        unique_segments, *rest = pp.utils.setmembership.uniquify_point_set(
             unique_segments
         )
         # Remove point segments.
@@ -508,7 +522,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
                     decrease = 0
                     for edge_ind in np.sort(hang_ind):  # sort to be sure
                         ei = edge_ind - decrease  # effective index
-                        # Adjust the endpoint of the this edge
+                        # Adjust the endpoint of this edge
                         if ei < sorted_pairs.shape[1] - 1:
                             sorted_pairs[1, ei] = sorted_pairs[1, ei + 1]
                             sorted_pairs = np.delete(sorted_pairs, ei + 1, axis=1)
@@ -524,7 +538,7 @@ def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
 
             # And there we are
 
-            # In cases where polygons touches the polyhedron along an edge, there may
+            # In cases where polygons touch the polyhedron along an edge, there may
             # be two point indices only. Disregard these cases.
             # NOTE: It is not clear there are not additional cases (or bugs) that are
             # masked by this if.

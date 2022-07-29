@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Functions for (boolean) inquires about geometric objects, and relations between
 objects.
@@ -14,7 +12,7 @@ import porepy as pp
 
 def is_ccw_polygon(poly: np.ndarray) -> bool:
     """
-    Determine if the vertices of a polygon are sorted counter clockwise.
+    Determine if the vertices of a polygon are sorted counterclockwise.
 
     The method computes the winding number of the polygon, see
         http://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order
@@ -63,10 +61,10 @@ def is_ccw_polygon(poly: np.ndarray) -> bool:
 def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
     """
     Check if the line segments formed by three points is part of a
-    conuter-clockwise circle. The function can also test several points vs a
-    singel segment.
+    conuterclockwise circle. The function can also test several points vs a
+    single segment.
 
-    The test is positiv if p3 lies to left of the line running through p1 and
+    The test is positive if p3 lies to left of the line running through p1 and
     p2.
 
     The function is intended for 2D points; higher-dimensional coordinates will
@@ -99,7 +97,7 @@ def is_ccw_polyline(p1, p2, p3, tol=0, default=False):
     else:
         num_points = 1
 
-    # Compute cross product between p1-p2 and p1-p3. Right hand rule gives that
+    # Compute cross product between p1-p2 and p1-p3. Right-hand rule gives that
     # p3 is to the left if the cross product is positive.
     cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (
         p3[0] - p1[0]
@@ -131,7 +129,7 @@ def point_in_polygon(poly, p, default=False):
 
         https://github.com/mdickinson/polyhedron/blob/master/polygon.py
 
-    Paremeters:
+    Parameters:
         poly (np.ndarray, 2 x n): vertexes of polygon. The segments are formed by
             connecting subsequent columns of poly
         p (np.ndarray, 2 x n2): Points to be tested.
@@ -216,7 +214,7 @@ def point_in_polyhedron(
         https://github.com/mdickinson/polyhedron/blob/master/polyhedron.py
 
     By Mark Dickinson. From what we know, the implementation is only available
-    on github (no pypi or similar), and we are also not aware of other
+    on GitHub (no pypi or similar), and we are also not aware of other
     implementations of algorithms for point-in-polyhedron problems that allows
     for non-convex polyhedra. Moreover, the file above has an unclear licence.
     Therefore, to use the present function, download the above file and put it
@@ -276,7 +274,7 @@ def point_in_polyhedron(
         num_points += simplices.max() + 1
 
     # Uniquify points, and update triangulation
-    upoints, _, ib = pp.utils.setmembership.unique_columns_tol(points, tol=tol)
+    upoints, ia, ib = pp.utils.setmembership.uniquify_point_set(points, tol)
     ut = ib[tri.astype(int)]
 
     # The in-polyhedra algorithm requires a very particular ordering of the vertexes
@@ -333,14 +331,15 @@ def points_are_planar(pts, normal=None, tol=1e-5):
     else:
         normal = normal.flatten() / np.linalg.norm(normal)
 
-    check_all = np.zeros(pts.shape[1] - 1, dtype=bool)
-
-    for idx, p in enumerate(pts[:, 1:].T):
-        den = np.linalg.norm(pts[:, 0] - p)
-        dotprod = np.dot(normal, (pts[:, 0] - p) / (den if den else 1))
-        check_all[idx] = np.isclose(dotprod, 0, atol=tol, rtol=0)
-
-    return np.all(check_all)
+    # Force normal vector to be a column vector
+    normal = normal.reshape((-1, 1))
+    # Mean point in the point cloud
+    cp = np.mean(pts, axis=1).reshape((-1, 1))
+    # Dot product between the normal vector and the vector from the center point to the
+    # individual points
+    dot_prod = np.linalg.norm(np.sum(normal * (pts - cp), axis=0))
+    # The points are planar if all the dot products are essentially zero.
+    return np.all(np.isclose(dot_prod, 0, atol=tol, rtol=0))
 
 
 def point_in_cell(poly, p, if_make_planar=True):
@@ -348,14 +347,14 @@ def point_in_cell(poly, p, if_make_planar=True):
     Check whatever a point is inside a cell. Note a similar behaviour could be
     reached using the function is_inside_polygon, however the current
     implementation deals with concave cells as well. Not sure which is the best,
-    in term of performances, for convex cells.
+    in terms of performance, for convex cells.
 
     Parameters:
         poly (np.ndarray, 3xn): vertexes of polygon. The segments are formed by
             connecting subsequent columns of poly.
         p (np.array, 3x1): Point to be tested.
-    if_make_planar (optional, default True): The cell needs to lie on (s, t)
-        plane. If not already done, this flag need to be used.
+        if_make_planar (optional, default True): The cell needs to lie on (s, t)
+            plane. If not already done, this flag need to be used.
 
     Return:
         boolean, if the point is inside the cell. If a point is on the boundary

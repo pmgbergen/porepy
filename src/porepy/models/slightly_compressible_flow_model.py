@@ -5,7 +5,7 @@ including a time derivative of the pressure and constant compressibility.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import numpy as np
 
@@ -20,8 +20,8 @@ class _AdVariables(pp.models.incompressible_flow_model._AdVariables):
 
 class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.IncompressibleFlow):
     """This class extends the Incompressible flow model by including a
-    cummulative term expressed through pressure and a constant compressibility
-    coefficient. For a full documenation refer to the parent class.
+    cumulative term expressed through pressure and a constant compressibility
+    coefficient. For a full documentation refer to the parent class.
 
     The simulation starts at time t=0.
 
@@ -65,14 +65,13 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         """Set default (unitary/zero) parameters for the flow problem.
 
         The parameters fields of the data dictionaries are updated for all
-        subdomains and edges (of codimension 1).
+        subdomains and interfaces (of codimension 1).
         """
         super()._set_parameters()
 
-        for g, d in self.gb:
-
+        for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
-                g, d, self.parameter_key, {"mass_weight": self._compressibility(g)}
+                sd, data, self.parameter_key, {"mass_weight": self._compressibility(sd)}
             )
 
     def _compressibility(self, g: pp.Grid) -> np.ndarray:
@@ -82,20 +81,17 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         """
         return np.ones(g.num_cells)
 
-    def _assign_discretizations(self) -> None:
+    def _assign_equations(self) -> None:
         """Upgrade incompressible flow equations to slightly compressible
             by adding the accumulation term.
 
         Time derivative is approximated with Implicit Euler time stepping.
         """
 
-        super()._assign_discretizations()
-
-        # Collection of subdomains
-        subdomains: List[pp.Grid] = [g for g, _ in self.gb]
+        super()._assign_equations()
 
         # AD representation of the mass operator
-        accumulation_term = pp.ad.MassMatrixAd(self.parameter_key, subdomains)
+        accumulation_term = pp.ad.MassMatrixAd(self.parameter_key, self._ad.subdomains)
 
         # Access to pressure ad variable
         p = self._ad.pressure

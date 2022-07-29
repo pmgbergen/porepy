@@ -1,16 +1,17 @@
-# -*- coding: utf-8 -*-
 """
-Created on Mon Feb 29 14:30:22 2016
+Classes representing of boundary conditions.
 
-@author: eke001
+The classes identify faces of a grid which have Dirichlet, Neumann and Robin type
+boundary conditions. There is one class for scalar problems and one for nd-vectors.
 """
+from __future__ import annotations
+
 import warnings
+from typing import List, Optional, Union
 
 import numpy as np
 
 import porepy as pp
-
-module_sections = ["parameters"]
 
 
 class AbstractBoundaryCondition(object):
@@ -19,13 +20,12 @@ class AbstractBoundaryCondition(object):
     boundary conditions
     """
 
-    @pp.time_logger(sections=module_sections)
     def copy(self):
         """
         Create a deep copy of the boundary condition.
 
         Returns:
-            bc: A deep copy of self. All attributes will also be copied.
+            AbstractBoundaryCondition: A deep copy of self. All attributes will also be copied.
 
         """
         # We don't call the init since we don't have access to the grid.
@@ -45,7 +45,6 @@ class AbstractBoundaryCondition(object):
 
 
 class BoundaryCondition(AbstractBoundaryCondition):
-
     """Class to store information on boundary conditions for problems of a single
     variable.
 
@@ -53,67 +52,76 @@ class BoundaryCondition(AbstractBoundaryCondition):
     or Robin. For details on default values etc. see constructor.
 
     Attributes:
-        num_faces (int): Number of faces in the grid
+        num_faces (int): Number of faces in the grid of the subdomain
         dim (int): Dimension of the boundary. One less than the dimension of
-            the grid.
-        is_neu (np.ndarray boolean, size g.num_faces): Element i is true if
+            the subdomain.
+        is_neu (np.ndarray boolean, size sd.num_faces): Element i is true if
             face i has been assigned a Neumann condition. Tacitly assumes that
             the face is on the boundary. Should be false for internal faces, as
             well as Dirichlet faces.
-        is_dir (np.ndarary, boolean, size g.num_faces): Element i is true if
-            face i has been assigned a Neumann condition.
-        is_rob (np.ndarray, boolean, size g.num_faces): Element i is true if
+        is_dir (np.ndarray, boolean, size sd.num_faces): Element i is true if
+            face i has been assigned a Dirichlet condition.
+        is_rob (np.ndarray, boolean, size sd.num_faces): Element i is true if
             face i has been assigned a Robin condition.
     """
 
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, g, faces=None, cond=None):
+    def __init__(
+        self,
+        sd: pp.Grid,
+        faces: Optional[np.ndarray] = None,
+        cond: Optional[Union[list[str], str]] = None,
+    ):
         """Constructor for BoundaryCondition.
 
         The conditions are specified by face numbers. Faces that do not get an
         explicit condition will have Neumann conditions assigned.
 
-        Parameters:
-            g (grid): For which boundary conditions are set.
+        Args:
+            sd (pp.Grid): Subdomain for which boundary conditions are set.
             faces (np.ndarray): Faces for which conditions are assigned.
-            cond (list of str): Conditions on the faces, in the same order as
+            cond (list of str or str): Conditions on the faces, in the same order as
                 used in faces. Should be as long as faces. The list elements
                 should be one of "dir", "neu", "rob".
 
-        Example:
-            # Assign Dirichlet condititons on the left side of a grid; implicit
-            # Neumann conditions on the rest
-            g = CartGrid([2, 2])
-            west_face = bc.face_on_side(g, 'west')
-            bound_cond = BoundaryCondition(g, faces=west_face, cond=['dir',
-                                                                     'dir'])
+        Raises:
+            ValueError if faces are a boolean array with size not matching the number of faces.
+            ValueError if internal faces are marked
+            ValueError if the numbers of boundary condition types and faces are not matching
+            ValueError if another keyword is used as for the boundary condition type than
+                "dir", "neu" or "rob"
 
+        Example:
+            # Assign Dirichlet conditions on the left side of a subdomain; implicit
+            # Neumann conditions on the rest
+            sd = CartGrid([2, 2])
+            west_face = bc.face_on_side(sd, 'west')
+            bound_cond = BoundaryCondition(sd, faces=west_face, cond=['dir', 'dir'])
         """
 
-        self.num_faces = g.num_faces
-        self.dim = g.dim - 1
+        self.num_faces: int = sd.num_faces
+        self.dim: int = sd.dim - 1
 
-        self.bc_type = "scalar"
+        self.bc_type: str = "scalar"
 
         # Find boundary faces
-        self.bf = g.get_all_boundary_faces()
+        self.bf: np.ndarray = sd.get_all_boundary_faces()
 
         # Keep track of internal boundaries
-        self.is_internal = g.tags["fracture_faces"]
+        self.is_internal: np.ndarray = sd.tags["fracture_faces"]
 
-        self.is_neu = np.zeros(self.num_faces, dtype=bool)
-        self.is_dir = np.zeros(self.num_faces, dtype=bool)
-        self.is_rob = np.zeros(self.num_faces, dtype=bool)
+        self.is_neu: np.ndarray = np.zeros(self.num_faces, dtype=bool)
+        self.is_dir: np.ndarray = np.zeros(self.num_faces, dtype=bool)
+        self.is_rob: np.ndarray = np.zeros(self.num_faces, dtype=bool)
 
         # By default, all faces are Neumann.
         self.is_neu[self.bf] = True
 
         # Set robin weight
-        self.robin_weight = np.ones(g.num_faces)
+        self.robin_weight: np.ndarray = np.ones(sd.num_faces)
         # Basis is mostly here to be consistent with vectorial. If changing the
-        # basis to -1 it should be possible to define innflow as positive, but this
+        # basis to -1 it should be possible to define inflow as positive, but this
         # has not been tested
-        self.basis = np.ones(g.num_faces)
+        self.basis: np.ndarray = np.ones(sd.num_faces)
 
         if faces is not None:
             # Validate arguments
@@ -131,7 +139,7 @@ class BoundaryCondition(AbstractBoundaryCondition):
                                  boundary"
                 )
             domain_boundary_and_tips = np.argwhere(
-                np.logical_or(g.tags["domain_boundary_faces"], g.tags["tip_faces"])
+                np.logical_or(sd.tags["domain_boundary_faces"], sd.tags["tip_faces"])
             )
             if not np.all(np.in1d(faces, domain_boundary_and_tips)):
                 warnings.warn(
@@ -158,7 +166,6 @@ class BoundaryCondition(AbstractBoundaryCondition):
                 else:
                     raise ValueError("Boundary should be Dirichlet, Neumann or Robin")
 
-    @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
         num_cond = self.is_neu.sum() + self.is_dir.sum() + self.is_rob.sum()
         s = (
@@ -192,11 +199,10 @@ class BoundaryCondition(AbstractBoundaryCondition):
 class BoundaryConditionVectorial(AbstractBoundaryCondition):
     """
     Class to store information on boundary conditions for problems with vector variables
-    (e.g. momentuum conservation).
+    (e.g. momentum conservation).
 
     The BCs are specified by face number and assigned to the single
-    component, and can have type Dirichlet,
-    Neumann or Robin.
+    component, and can have type Dirichlet, Neumann or Robin.
 
     The Robin condition is defined by
         sigma*n + alpha * u = G
@@ -204,59 +210,63 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
     The boundary conditions are applied in the basis given by the attribute
     self.basis (defaults to the coordinate system). The basis is defined face-wise,
-    and the boundary condition should be given in the coordinates of these basis.
+    and the boundary condition should be given in the coordinates of these bases.
 
     For description of attributes, parameters and constructors,
     refer to the above class BoundaryCondition.
 
-    NOTE: g.dim > 1 for the procedure to make sense
+    NOTE: sd.dim > 1 for the procedure to make sense
 
     Attributes:
-        num_faces (int): Number of faces in the grid
+        num_faces (int): Number of faces in the grid of the subdomain.
         dim (int): Dimension of the boundary. One less than the dimension of
-            the grid.
-        is_neu (np.ndarray boolean, size g.dim x g.num_faces): Element i is true if
+            the subdomain.
+        is_neu (np.ndarray boolean, size sd.dim x sd.num_faces): Element i is true if
             face i has been assigned a Neumann condition. Tacitly assumes that
             the face is on the boundary. Should be false for internal faces, as
             well as Dirichlet faces.
-        is_dir (np.ndarary, boolean, size g.dim x g.num_faces): Element i is true if
-            face i has been assigned a Neumann condition.
-        is_rob (np.ndarray, boolean, size g.dim x g.num_faces): Element i is true if
+        is_dir (np.ndarray, boolean, size sd.dim x sd.num_faces): Element i is true if
+            face i has been assigned a Dirichlet condition.
+        is_rob (np.ndarray, boolean, size sd.dim x sd.num_faces): Element i is true if
             face i has been assigned a Robin condition.
 
     """
 
-    @pp.time_logger(sections=module_sections)
-    def __init__(self, g, faces=None, cond=None):
+    def __init__(
+        self,
+        sd: pp.Grid,
+        faces: Optional[np.ndarray] = None,
+        cond: Optional[Union[List[str], str]] = None,
+    ):
         """Constructor for BoundaryConditionVectorial.
 
         The conditions are specified by face numbers. Faces that do not get an
         explicit condition will have Neumann conditions assigned.
 
-        Parameters:
-            g (grid): For which boundary conditions are set.
-            faces (np.ndarray): Faces for which conditions are assigned.
-            cond (list of str): Conditions on the faces, in the same order as
-                used in faces. Should be as long as faces. To set uniform condition
-                in all spatial directions for a face, use 'dir', 'neu', or 'rob'.
+        Args:
+            sd (pp.Grid): For which boundary conditions are set.
+            faces (np.ndarray, optional): Faces for which conditions are assigned.
+            cond (list of str or str, optional): Conditions on the faces, in the same order
+                as used in faces. Should be as long as faces. To set uniform condition
+                in all spatial directions for a face, use 'dir', 'neu', or 'rob'
 
-            NOTE: For more general combinations of boundary conditions, it is
-            recommended to first construct a BoundaryConditionVectorial object,
-            and then access the attributes is_dir, is_neu, is_rob to set the
-            conditions.
+                NOTE: For more general combinations of boundary conditions, it is
+                recommended to first construct a BoundaryConditionVectorial object,
+                and then access the attributes is_dir, is_neu, is_rob to set the
+                conditions.
 
         Example:
-            # Assign Dirichlet condititons on the left side of a grid; implicit
+            # Assign Dirichlet conditions on the left side of a grid; implicit
             # Neumann conditions on the rest
-            g = pp.CartGrid([2, 2])
-            west_face = pp.bc.face_on_side(g, 'west')
-            bound_cond = pp.BoundaryConditionVectorial(g, faces=west_face, cond=['dir',
+            sd = pp.CartGrid([2, 2])
+            west_face = pp.bc.face_on_side(sd, 'west')
+            bound_cond = pp.BoundaryConditionVectorial(sd, faces=west_face, cond=['dir',
                                                                                  'dir'])
 
         Example:
             Assign Dirichlet condition in the x-direction, Robin in the z-direction.
-            g = pp.CartGrid([2, 2, 2])
-            bc = pp.BoundaryConditionVectorial(g)
+            sd = pp.CartGrid([2, 2, 2])
+            bc = pp.BoundaryConditionVectorial(sd)
             target_face = 0
             bc.is_neu[[0, 2], target_face] = False
             bc.is_dir[0, target_face] = True
@@ -264,30 +274,29 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
         """
 
-        self.num_faces = g.num_faces
-        self.dim = g.dim
+        self.num_faces = sd.num_faces
+        self.dim = sd.dim
 
         self.bc_type = "vectorial"
 
         # Keep track of internal boundaries
-        self.is_internal = g.tags["fracture_faces"]
+        self.is_internal = sd.tags["fracture_faces"]
         # Find boundary faces
-        self.bf = g.get_all_boundary_faces()
+        self.bf = sd.get_all_boundary_faces()
 
-        self.is_neu = np.zeros((g.dim, self.num_faces), dtype=bool)
-        self.is_dir = np.zeros((g.dim, self.num_faces), dtype=bool)
-        self.is_rob = np.zeros((g.dim, self.num_faces), dtype=bool)
+        self.is_neu = np.zeros((sd.dim, self.num_faces), dtype=bool)
+        self.is_dir = np.zeros((sd.dim, self.num_faces), dtype=bool)
+        self.is_rob = np.zeros((sd.dim, self.num_faces), dtype=bool)
 
         self.is_neu[:, self.bf] = True
         self.set_bc(faces, cond)
 
         #  Default robin weights
-        r_w = np.tile(np.eye(g.dim), (1, g.num_faces))
-        self.robin_weight = np.reshape(r_w, (g.dim, g.dim, g.num_faces), "F")
-        basis = np.tile(np.eye(g.dim), (1, g.num_faces))
-        self.basis = np.reshape(basis, (g.dim, g.dim, g.num_faces), "F")
+        r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
+        self.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F")
+        basis = np.tile(np.eye(sd.dim), (1, sd.num_faces))
+        self.basis = np.reshape(basis, (sd.dim, sd.dim, sd.num_faces), "F")
 
-    @pp.time_logger(sections=module_sections)
     def __repr__(self) -> str:
         s = (
             f"Boundary condition for vectorial problem in {self.dim} dimensions\n"
@@ -335,9 +344,23 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
         return s
 
-    @pp.time_logger(sections=module_sections)
-    def set_bc(self, faces, cond):
+    def set_bc(
+        self, faces: Optional[np.ndarray], cond: Optional[Union[str, list[str]]]
+    ) -> None:
+        """Define a single boundary condition.
 
+        Args:
+            faces (np.ndarray, optional): Boolean array determining which face is
+                considered.
+            cond (str or list of str, optional): Boundary condition type
+
+        Raises:
+            ValueError if faces are a boolean array with size not matching the number of faces.
+            ValueError if internal faces are marked
+            ValueError if the numbers of boundary condition types and faces are not matching
+            ValueError if another keyword is used as for the boundary condition type than
+                "dir", "neu" or "rob"
+        """
         if faces is not None:
             # Validate arguments
             assert cond is not None
@@ -371,9 +394,10 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                     raise ValueError(f"Unknown boundary condition {s}")
 
 
-@pp.time_logger(sections=module_sections)
-def face_on_side(g, side, tol=1e-8):
-    """Find faces on specified sides of a grid.
+def face_on_side(
+    sd: pp.Grid, side: Union[list[str], str], tol: float = 1e-8
+) -> list[np.ndarray]:
+    """Find faces on specified sides of a subdomain.
 
     It is assumed that the grid forms a box in 2d or 3d.
 
@@ -381,18 +405,20 @@ def face_on_side(g, side, tol=1e-8):
     (xmax / east), (ymin / south), (ymax / north), (zmin, bottom),
     (zmax / top).
 
-    Parameters:
-        g (grid): For which we want to find faces.
+    Args:
+        sd (pp.Grid): Subdomain for which we want to find faces.
         side (str, or list of str): Sides for which we want to find the
             boundary faces.
-        tol (double, optional): Geometric tolerance for deciding whether a face
+        tol (float): Geometric tolerance for deciding whether a face
             lays on the boundary. Defaults to 1e-8.
 
     Returns:
-        list of lists: Outer list has one element per element in side (same
-            ordering). Inner list contains global indices of faces laying on
+        list of arrays: Outer list has one element per element in side (same
+            ordering). Arrays contain global indices of faces laying on
             that side.
 
+    Raises:
+        ValueError if not supported keyword is used to identify a boundary part
     """
     if isinstance(side, str):
         side = [side]
@@ -401,23 +427,23 @@ def face_on_side(g, side, tol=1e-8):
     for s in side:
         s = s.lower().strip()
         if s == "west" or s == "xmin":
-            xm = g.nodes[0].min()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) < tol)))
+            xm = sd.nodes[0].min()
+            faces.append(np.squeeze(np.where(np.abs(sd.face_centers[0] - xm) < tol)))
         elif s == "east" or s == "xmax":
-            xm = g.nodes[0].max()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[0] - xm) < tol)))
+            xm = sd.nodes[0].max()
+            faces.append(np.squeeze(np.where(np.abs(sd.face_centers[0] - xm) < tol)))
         elif s == "south" or s == "ymin":
-            xm = g.nodes[1].min()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) < tol)))
+            xm = sd.nodes[1].min()
+            faces.append(np.squeeze(np.where(np.abs(sd.face_centers[1] - xm) < tol)))
         elif s == "north" or s == "ymax":
-            xm = g.nodes[1].max()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[1] - xm) < tol)))
+            xm = sd.nodes[1].max()
+            faces.append(np.squeeze(np.where(np.abs(sd.face_centers[1] - xm) < tol)))
         elif s == "bottom" or s == "bot" or s == "zmin":
-            xm = g.nodes[2].min()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) < tol)))
+            xm = sd.nodes[2].min()
+            faces.append(np.squeeze(np.where(np.abs(sd.face_centers[2] - xm) < tol)))
         elif s == "top" or s == "zmax":
-            xm = g.nodes[2].max()
-            faces.append(np.squeeze(np.where(np.abs(g.face_centers[2] - xm) < tol)))
+            xm = sd.nodes[2].max()
+            faces.append(np.squeeze(np.where(np.abs(sd.face_centers[2] - xm) < tol)))
         else:
-            raise ValueError("Unknow face side")
+            raise ValueError("Unknown face side")
     return faces

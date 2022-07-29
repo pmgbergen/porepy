@@ -7,11 +7,11 @@ Created on Wed Dec 12 09:05:31 2018
 """
 
 import unittest
-from tests import test_utils
 
 import numpy as np
 
 import porepy as pp
+from tests import test_utils
 
 
 class TestImport2dCsv(unittest.TestCase):
@@ -199,7 +199,7 @@ class TestImport3dCsv(unittest.TestCase):
         network = pp.fracture_importer.network_3d_from_csv(file_name, has_domain=False)
         known_p = np.array([[0, 1, 1], [0, 1, 0], [0, 1, 1]])
         self.assertTrue(len(network._fractures) == 1)
-        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[0].p))
+        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[0].pts))
 
     def test_two_fractures(self):
         # Two fractures, identical coordinates - this will not matter
@@ -212,8 +212,8 @@ class TestImport3dCsv(unittest.TestCase):
         network = pp.fracture_importer.network_3d_from_csv(file_name, has_domain=False)
         known_p = np.array([[0, 1, 1], [0, 1, 0], [0, 1, 1]])
         self.assertTrue(len(network._fractures) == 2)
-        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[0].p))
-        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[1].p))
+        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[0].pts))
+        self.assertTrue(test_utils.compare_arrays(known_p, network._fractures[1].pts))
 
 
 class TestImport3dElliptic(unittest.TestCase):
@@ -243,13 +243,13 @@ class TestImport3dElliptic(unittest.TestCase):
         self.assertTrue(len(network._fractures) == 1)
         f = network._fractures[0]
         self.assertTrue(test_utils.compare_arrays(f.center, np.zeros((3, 1))))
-        self.assertTrue(f.p.shape[1] == 16)
-        self.assertTrue(f.p[0].max() == 2)
-        self.assertTrue(f.p[1].max() == 1)
-        self.assertTrue(f.p[2].max() == 0)
-        self.assertTrue(f.p[0].min() == -2)
-        self.assertTrue(f.p[1].min() == -1)
-        self.assertTrue(f.p[2].min() == 0)
+        self.assertTrue(f.pts.shape[1] == 16)
+        self.assertTrue(f.pts[0].max() == 2)
+        self.assertTrue(f.pts[1].max() == 1)
+        self.assertTrue(f.pts[2].max() == 0)
+        self.assertTrue(f.pts[0].min() == -2)
+        self.assertTrue(f.pts[1].min() == -1)
+        self.assertTrue(f.pts[2].min() == 0)
 
 
 class TestImportDFN1d(unittest.TestCase):
@@ -262,16 +262,16 @@ class TestImportDFN1d(unittest.TestCase):
         network = pp.fracture_importer.network_2d_from_csv(file_name, skip_header=0)
 
         mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
-        gb = network.mesh(mesh_args, dfn=True)
+        mdg = network.mesh(mesh_args, dfn=True)
 
-        bmin, bmax = gb.bounding_box()
+        bmin, bmax = pp.bounding_box.from_md_grid(mdg)
         self.assertTrue(np.allclose(bmin, [0, 0, 0]))
         self.assertTrue(np.allclose(bmax, [1, 1, 0]))
 
-        self.assertTrue(gb.dim_max() == 1)
-        self.assertTrue(gb.dim_min() == 1)
-        self.assertTrue(gb.num_graph_nodes() == 1)
-        self.assertTrue(gb.num_graph_edges() == 0)
+        self.assertTrue(mdg.dim_max() == 1)
+        self.assertTrue(mdg.dim_min() == 1)
+        self.assertTrue(mdg.num_subdomains() == 1)
+        self.assertTrue(mdg.num_interfaces() == 0)
 
     def test_two_fractures(self):
         p = np.array([[0, 0, 1, 0.45], [0, 1, 1, 1]])
@@ -284,19 +284,19 @@ class TestImportDFN1d(unittest.TestCase):
             file_name, domain=domain, skip_header=0
         )
         mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
-        gb = network.mesh(mesh_args, dfn=True)
+        mdg = network.mesh(mesh_args, dfn=True)
 
-        bmin, bmax = gb.bounding_box()
+        bmin, bmax = pp.bounding_box.from_md_grid(mdg)
         self.assertTrue(np.allclose(bmin, [0, 0, 0]))
         self.assertTrue(np.allclose(bmax, [1, 1, 0]))
 
-        self.assertTrue(gb.dim_max() == 1)
-        self.assertTrue(gb.dim_min() == 1)
-        self.assertTrue(gb.num_graph_nodes() == 2)
-        self.assertTrue(gb.num_graph_edges() == 0)
+        self.assertTrue(mdg.dim_max() == 1)
+        self.assertTrue(mdg.dim_min() == 1)
+        self.assertTrue(mdg.num_subdomains() == 2)
+        self.assertTrue(mdg.num_interfaces() == 0)
 
-        for g, _ in gb:
-            _, bmax = g.bounding_box()
+        for sd in mdg.subdomains():
+            _, bmax = pp.bounding_box.from_grid(sd)
             self.assertTrue(
                 np.allclose(bmax, [1, 0.45, 0]) ^ np.allclose(bmax, [1, 1, 0])
             )
@@ -309,20 +309,20 @@ class TestImportDFN1d(unittest.TestCase):
 
         network = pp.fracture_importer.network_2d_from_csv(file_name, skip_header=0)
         mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
-        gb = network.mesh(mesh_args, dfn=True)
+        mdg = network.mesh(mesh_args, dfn=True)
 
-        self.assertTrue(gb.dim_max() == 1)
-        self.assertTrue(gb.dim_min() == 0)
-        self.assertTrue(gb.num_graph_nodes() == 3)
-        self.assertTrue(gb.num_graph_edges() == 2)
+        self.assertTrue(mdg.dim_max() == 1)
+        self.assertTrue(mdg.dim_min() == 0)
+        self.assertTrue(mdg.num_subdomains() == 3)
+        self.assertTrue(mdg.num_interfaces() == 2)
 
-        for g, _ in gb:
-            _, bmax = g.bounding_box()
-            if g.dim == 1:
+        for sd in mdg.subdomains():
+            _, bmax = pp.bounding_box.from_grid(sd)
+            if sd.dim == 1:
                 self.assertTrue(
                     np.allclose(bmax, [1, 0.5, 0]) ^ np.allclose(bmax, [1, 1, 0])
                 )
-            elif g.dim == 0:
+            elif sd.dim == 0:
                 self.assertTrue(np.allclose(bmax, [0.66666667, 0.33333333, 0]))
             else:
                 self.assertTrue(False)

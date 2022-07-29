@@ -2,7 +2,7 @@
 Coupling conditions between subdomains for elliptic equations.
 
 Current content:
-    Robin-type couplings, as decsribed by Martin et al 2005.
+    Robin-type couplings, as described by Martin et al. 2005.
     Full continuity conditions between subdomains
 
 """
@@ -13,13 +13,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 import porepy.numerics.interface_laws.abstract_interface_law
+from porepy.numerics.interface_laws.abstract_interface_law import AbstractInterfaceLaw
 
-module_sections = ["numerics"]
 
-
-class RobinCoupling(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class RobinCoupling(AbstractInterfaceLaw):
     """A condition with resistance to flow between subdomains. Implementation
     of the model studied (though not originally proposed) by Martin et
     al 2005. The equation reads
@@ -78,50 +75,61 @@ class RobinCoupling(
         # This interface law will have direct interface coupling to represent
         # the influence of the flux boundary condition of the secondary
         # interface on the pressure trace on the first interface.
-        self.edge_coupling_via_high_dim = True
+        self.intf_coupling_via_high_dim = True
         # No coupling via lower-dimensional interfaces.
-        self.edge_coupling_via_low_dim = False
+        self.intf_coupling_via_low_dim = False
 
         # Keys used to identify the discretization matrices of this discretization
         self.mortar_discr_matrix_key = "robin_mortar_discr"
         self.mortar_vector_source_matrix_key = "robin_vector_source_discr"
 
-    def ndof(self, mg: pp.MortarGrid):
-        return mg.num_cells
+    def ndof(self, intf: pp.MortarGrid):
+        return intf.num_cells
 
     def discretize(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
     ):
         """Discretize the interface law and store the discretization in the
         edge data.
 
-        Parameters:
-            g_h: Grid of the primary domanin.
-            g_l: Grid of the secondary domain.
-            data_h: Data dictionary for the primary domain.
-            data_l: Data dictionary for the secondary domain.
-            data_edge: Data dictionary for the edge between the domains.
+        Args:
+            sd_primary: Grid of the primary domanin.
+            sd_secondary: Grid of the secondary domain.
+            intf (pp.MortarGrid): Mortar grid on the interface between the subdomains.
+            sd_data_primary: Data dictionary for the primary domain.
+            sd_data_secondary: Data dictionary for the secondary domain.
+            intf_data: Data dictionary for the edge between the domains.
 
         """
-        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_edge[
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = intf_data[
             pp.DISCRETIZATION_MATRICES
         ][self.keyword]
-        parameter_dictionary_edge: Dict = data_edge[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_edge: Dict = intf_data[pp.PARAMETERS][self.keyword]
 
-        parameter_dictionary_h: Dict = data_h[pp.PARAMETERS][self._primary_keyword]
+        parameter_dictionary_h: Dict = intf_data[pp.PARAMETERS][self._primary_keyword]
         # Mortar data structure.
-        mg: pp.MortarGrid = data_edge["mortar_grid"]
+        #mg: pp.MortarGrid = data_edge["mortar_grid"]
         
         # Number of components
-        num_comp = data_edge[pp.PARAMETERS][self.keyword].get("num_components", 1)
+        num_comp = intf_data[pp.PARAMETERS][self.keyword].get("num_components", 1)
         eye_comp = sps.eye(num_comp)
         
+        parameter_dictionary_h: Dict = sd_data_primary[pp.PARAMETERS][
+            self._primary_keyword
+        ]
+
         kn: Union[np.ndarray, float] = parameter_dictionary_edge["normal_diffusivity"]
         # If normal diffusivity is given as a constant, parse to np.array
         if not isinstance(kn, np.ndarray):
-            kn *= np.ones(mg.num_cells)
+            kn *= np.ones(intf.num_cells)
 
-        val: np.ndarray = mg.cell_volumes * kn
+        val: np.ndarray = intf.cell_volumes * kn
         matrix_dictionary_edge[self.mortar_discr_matrix_key] = -sps.kron(
             sps.diags(val), eye_comp
             )
@@ -140,16 +148,16 @@ class RobinCoupling(
         # assembly, a zero vector soucre of a size that fits with the discretization is
         # created). If a vector_source is specified, but the ambient dimension is not,
         # a dimension mismatch will result unless the ambient dimension implied by
-        # the size of the vector source matches g_h.dim. This is okay for domains with
+        # the size of the vector source matches sd_primary.dim. This is okay for domains with
         # no subdomains with co-dimension more than 1, but will fail for fracture
         # intersections. The default value is thus the least bad option in this case.
         vector_source_dim: int = parameter_dictionary_h.get(
-            "ambient_dimension", g_h.dim
+            "ambient_dimension", sd_primary.dim
         )
-        # The ambient dimension cannot be less than the dimension of g_h.
+        # The ambient dimension cannot be less than the dimension of sd_primary.
         # If this is broken, we risk ending up with zero normal vectors below, so it is
         # better to break this off now
-        if vector_source_dim < g_h.dim:
+        if vector_source_dim < sd_primary.dim:
             raise ValueError(
                 "Ambient dimension cannot be lower than the grid dimension"
             )
@@ -157,17 +165,17 @@ class RobinCoupling(
         # Construct the dot product between normals on fracture faces and the identity
         # matrix.
 
-        # Find the mortar normal vectors by projection of the normal vectors in g_h
-        normals_h = g_h.face_normals.copy()
+        # Find the mortar normal vectors by projection of the normal vectors in sd_primary
+        normals_h = sd_primary.face_normals.copy()
 
         # projection matrix
-        proj = mg.primary_to_mortar_avg()
+        proj = intf.primary_to_mortar_avg()
 
-        # Ensure that the normal vectors point out of g_h
+        # Ensure that the normal vectors point out of sd_primary
         # Indices of faces neighboring this mortar grid
         _, fi_h, _ = sps.find(proj)
         # Switch direction of vectors if relevant
-        sgn, _ = g_h.signs_and_cells_of_boundary_faces(fi_h)
+        sgn, _ = sd_primary.signs_and_cells_of_boundary_faces(fi_h)
         normals_h[:, fi_h] *= sgn
 
         # Project the normal vectors, we need to do some transposes to get this right
@@ -178,13 +186,13 @@ class RobinCoupling(
         outwards_unit_mortar_normals = normals_mortar / nrm
 
         # We know that the ambient dimension for the vector source must be at least as
-        # high as g_h, thus taking the first vector_source_dim components of the normal
+        # high as sd_primary, thus taking the first vector_source_dim components of the normal
         # vector should be fine.
         vals = outwards_unit_mortar_normals[:vector_source_dim].ravel("F")
 
         # The values in vals are sorted by the mortar cell index ordering (proj is a
         # csr matrix).
-        ci_mortar = np.arange(mg.num_cells, dtype=int)
+        ci_mortar = np.arange(intf.num_cells, dtype=int)
 
         # The mortar cell indices are expanded to account for the vector source
         # having multiple dimensions
@@ -202,17 +210,24 @@ class RobinCoupling(
             )
 
     def assemble_matrix(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+        self,
+        sd_primary,
+        sd_secondary,
+        intf,
+        sd_data_primary,
+        sd_data_secondary,
+        intf_data,
+        matrix,
     ):
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains. Assemble only matrix, not rhs terms.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains.
                 If gravity is taken into consideration, the parameter sub-
                 dictionary should contain something like a/2 * g, where
                 g is the ambient_dimension x n_mortar_cells gravity vector
@@ -228,27 +243,35 @@ class RobinCoupling(
         """
 
         return self._assemble(
-            g_primary,
-            g_secondary,
-            data_primary,
-            data_secondary,
-            data_edge,
+            sd_primary,
+            sd_secondary,
+            intf,
+            sd_data_primary,
+            sd_data_secondary,
+            intf_data,
             matrix,
             assemble_rhs=False,
         )
 
     def assemble_rhs(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+        self,
+        sd_primary,
+        sd_secondary,
+        intf,
+        sd_data_primary,
+        sd_data_secondary,
+        intf_data,
+        matrix,
     ):
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains. Assemble only rhs terms, not the discretization.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains.
                 If gravity is taken into consideration, the parameter sub-
                 dictionary should contain something like a/2 * g, where
                 g is the ambient_dimension x n_mortar_cells gravity vector
@@ -262,34 +285,34 @@ class RobinCoupling(
 
         """
         return self._assemble(
-            g_primary,
-            g_secondary,
-            data_primary,
-            data_secondary,
-            data_edge,
+            sd_primary,
+            sd_secondary,
+            sd_data_primary,
+            sd_data_secondary,
+            intf_data,
             matrix,
             assemble_matrix=False,
         )
 
-    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_edge: Dict,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        sd_data_primary: dict,
+        sd_data_secondary: dict,
+        intf_data: dict,
         matrix: sps.spmatrix,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains.
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains.
                 If gravity is taken into consideration, the parameter sub-
                 dictionary should contain something like a/2 * g, where
                 g is the ambient_dimension x n_mortar_cells gravity vector
@@ -307,45 +330,50 @@ class RobinCoupling(
         description above).
         """
         return self._assemble(
-            g_primary,
-            g_secondary,
-            data_primary,
-            data_secondary,
-            data_edge,
+            sd_primary,
+            sd_secondary,
+            intf,
+            sd_data_primary,
+            sd_data_secondary,
+            intf_data,
             matrix,
         )
 
     def _assemble(
         self,
-        g_primary,
-        g_secondary,
-        data_primary,
-        data_secondary,
-        data_edge,
-        matrix,
-        assemble_matrix=True,
-        assemble_rhs=True,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        sd_data_primary: dict,
+        sd_data_secondary: dict,
+        intf_data: dict,
+        matrix: sps.spmatrix,
+        assemble_matrix: bool = True,
+        assemble_rhs: bool = True,
     ):
         """Actual implementation of assembly. May skip matrix and rhs if specified."""
 
-        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_edge[
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = intf_data[
             pp.DISCRETIZATION_MATRICES
         ][self.keyword]
         diffusivity_discr = matrix_dictionary_edge[self.mortar_discr_matrix_key]
-        parameter_dictionary_edge = data_edge[pp.PARAMETERS][self.keyword]
-        mg = data_edge["mortar_grid"]
+        parameter_dictionary_edge = intf_data[pp.PARAMETERS][self.keyword]
 
         primary_ind = 0
         secondary_ind = 1
 
+        # Appease mypy
+        assert self.discr_primary is not None
+        assert self.discr_secondary is not None
+
         if assemble_rhs and not assemble_matrix:
             # We need not make the cc matrix to assemble local matrix contributions
             rhs = self._define_local_block_matrix(
-                g_primary,
-                g_secondary,
+                sd_primary,
+                sd_secondary,
+                intf,
                 self.discr_primary,
                 self.discr_secondary,
-                mg,
                 matrix,
                 create_matrix=False,
             )
@@ -353,13 +381,14 @@ class RobinCoupling(
             cc = None
         else:
             cc, rhs = self._define_local_block_matrix(
-                g_primary,
-                g_secondary,
+                sd_primary,
+                sd_secondary,
+                intf,
                 self.discr_primary,
                 self.discr_secondary,
-                mg,
                 matrix,
             )
+        assert isinstance(rhs, np.ndarray)
 
         # The convention, for now, is to put the higher dimensional information
         # in the first column and row in matrix, lower-dimensional in the second
@@ -368,26 +397,55 @@ class RobinCoupling(
         # Assembly of contribution from boundary pressure must be called even if only
         # matrix or rhs must be assembled.
         self.discr_primary.assemble_int_bound_pressure_trace(
-            g_primary,
-            data_primary,
-            data_edge,
-            cc,
-            matrix,
-            rhs,
-            primary_ind,
-            assemble_matrix=assemble_matrix,
-            assemble_rhs=assemble_rhs,
+            sd_primary, sd_data_primary, intf, intf_data, cc, matrix, rhs, primary_ind
         )
         if assemble_matrix:
+            # Appease mypy
+            assert cc is not None
+
             # Calls only for matrix assembly
             self.discr_primary.assemble_int_bound_flux(
-                g_primary, data_primary, data_edge, cc, matrix, rhs, primary_ind
+                sd_primary,
+                sd_data_primary,
+                intf,
+                intf_data,
+                cc,
+                matrix,
+                rhs,
+                primary_ind,
             )
             self.discr_secondary.assemble_int_bound_pressure_cell(
-                g_secondary, data_secondary, data_edge, cc, matrix, rhs, secondary_ind
+                sd_secondary,
+                sd_data_secondary,
+                intf,
+                intf_data,
+                cc,
+                matrix,
+                rhs,
+                secondary_ind,
             )
             self.discr_secondary.assemble_int_bound_source(
-                g_secondary, data_secondary, data_edge, cc, matrix, rhs, secondary_ind
+                sd_secondary,
+                sd_data_secondary,
+                intf,
+                intf_data,
+                cc,
+                matrix,
+                rhs,
+                secondary_ind,
+            )
+
+            for block in range(3):
+                # Scale the pressure contributions in the mortar equation by
+                # normal diffusivity.
+                cc[2, block] = diffusivity_discr * cc[2, block]
+            # Add mortar flux to the interface equation
+            cc[2, 2] += sps.diags(np.ones(intf.num_cells))
+
+            matrix += cc
+
+            self.discr_primary.enforce_neumann_int_bound(
+                sd_primary, intf, intf_data, matrix, primary_ind
             )
 
         if assemble_rhs:
@@ -416,20 +474,6 @@ class RobinCoupling(
 
             rhs[2] = diffusivity_discr * rhs[2]
 
-        if assemble_matrix:
-            for block in range(3):
-                # Scale the pressure contributions in the mortar equation by
-                # normal diffusivity.
-                cc[2, block] = diffusivity_discr * cc[2, block]
-            # Add mortar flux to the interface equation
-            cc[2, 2] += sps.diags(np.ones(data_edge["mortar_grid"].num_cells))
-
-            matrix += cc
-
-            self.discr_primary.enforce_neumann_int_bound(
-                g_primary, data_edge, matrix, primary_ind
-            )
-
         if not assemble_matrix:
             return rhs
         elif not assemble_rhs:
@@ -437,29 +481,30 @@ class RobinCoupling(
         else:
             return matrix, rhs
 
-    @pp.time_logger(sections=module_sections)
-    def assemble_edge_coupling_via_high_dim(
+    def assemble_intf_coupling_via_high_dim(
         self,
-        g: pp.Grid,
-        data_grid: Dict,
-        edge_primary: Tuple[pp.Grid, pp.Grid],
-        data_primary_edge: Dict,
-        edge_secondary: Tuple[pp.Grid, pp.Grid],
-        data_secondary_edge: Dict,
+        sd: pp.Grid,
+        sd_data: dict,
+        intf_primary: pp.MortarGrid,
+        sd_pair_primary: Tuple[pp.Grid, pp.Grid],
+        intf_data_primary: dict,
+        intf_secondary: pp.MortarGrid,
+        sd_pair_secondary: Tuple[pp.Grid, pp.Grid],
+        intf_data_secondary: dict,
         matrix,
-        assemble_matrix=True,
-        assemble_rhs=True,
+        assemble_matrix: bool = True,
+        assemble_rhs: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Represent the impact on a primary interface of the mortar (thus boundary)
         flux on a secondary interface.
 
         Parameters:
-            g (pp.Grid): Grid of the higher dimensional neighbor to the main interface.
-            data_grid (dict): Data dictionary of the intermediate grid.
-            edge_primary (tuple of grids): The grids of the primary edge
-            data_edge_primary (dict): Data dictionary of the primary interface.
-            edge_secondary (tuple of grids): The grids of the secondary edge.
-            data_edge_secondary (dict): Data dictionary of the secondary interface.
+            sd (pp.Grid): Grid of the higher dimensional neighbor to the main interface.
+            sd_data (dict): Data dictionary of the intermediate grid.
+            intf_primary (tuple of grids): The grids of the primary edge
+            intf_data_primary (dict): Data dictionary of the primary interface.
+            intf_secondary (tuple of grids): The grids of the secondary edge.
+            intf_data_secondary (dict): Data dictionary of the secondary interface.
             matrix: original discretization.
 
         Returns:
@@ -471,48 +516,48 @@ class RobinCoupling(
                 secondary and mortar variable, respectively.
 
         """
-        mg_primary: pp.MortarGrid = data_primary_edge["mortar_grid"]
-        mg_secondary: pp.MortarGrid = data_secondary_edge["mortar_grid"]
-
         assert self.discr_primary is not None and self.discr_secondary is not None
 
         if assemble_matrix:
-            cc, rhs = self._define_local_block_matrix_edge_coupling(
-                g, self.discr_primary, mg_primary, mg_secondary, matrix
+            cc, rhs = self._define_local_block_matrix_intf_coupling(
+                sd, self.discr_primary, intf_primary, intf_secondary, matrix
             )
         else:
-            rhs = self._define_local_block_matrix_edge_coupling(
-                g,
+            rhs = self._define_local_block_matrix_intf_coupling(
+                sd,
                 self.discr_primary,
-                mg_primary,
-                mg_secondary,
+                intf_primary,
+                intf_secondary,
                 matrix,
                 create_matrix=False,
             )
 
-        matrix_dictionary_edge = data_primary_edge[pp.DISCRETIZATION_MATRICES][
+        matrix_dictionary_edge = intf_data_primary[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
 
         if assemble_matrix:
             # Normally, the projections will be pressure from the primary (high-dim node)
             # to the primary mortar, and flux from secondary mortar to primary
-            proj_pressure = mg_primary.primary_to_mortar_avg()
-            proj_flux = mg_secondary.mortar_to_primary_int()
+            proj_pressure = intf_primary.primary_to_mortar_avg()
+            proj_flux = intf_secondary.mortar_to_primary_int()
 
             # If the primary and / or secondary mortar is a boundary mortar grid, things
             # become more complex. This probably assumes that a FluxPressureContinuity
             # discretization is applied on the relevant mortar grid.
-            if edge_primary[0].dim == edge_primary[1].dim and edge_primary[0] == g:
-                proj_pressure = mg_primary.secondary_to_mortar_avg()
             if (
-                edge_secondary[0].dim == edge_secondary[1].dim
-                and edge_secondary[0] == g
+                sd_pair_primary[0].dim == sd_pair_primary[1].dim
+                and sd_pair_primary[0] == sd
             ):
-                proj_flux = mg_secondary.mortar_to_secondary_int()
+                proj_pressure = intf_primary.secondary_to_mortar_avg()
+            if (
+                sd_pair_secondary[0].dim == sd_pair_secondary[1].dim
+                and sd_pair_secondary[0] == sd
+            ):
+                proj_flux = intf_secondary.mortar_to_secondary_int()
             # Assemble contribution between higher dimensions.
             self.discr_primary.assemble_int_bound_pressure_trace_between_interfaces(
-                g, data_grid, proj_pressure, proj_flux, cc, matrix, rhs
+                sd, sd_data, proj_pressure, proj_flux, cc, matrix, rhs
             )
             # Scale the equations (this will modify from K^-1 to K scaling if relevant)
 
@@ -569,44 +614,50 @@ class FluxPressureContinuity(RobinCoupling):
         # This interface law will have direct interface coupling to represent
         # the influence of the flux boundary condition of the secondary
         # interface on the pressure trace on the first interface.
-        self.edge_coupling_via_high_dim = False
+        self.intf_coupling_via_high_dim = False
         # No coupling via lower-dimensional interfaces.
-        self.edge_coupling_via_low_dim = False
+        self.intf_coupling_via_low_dim = False
 
     def discretize(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
     ) -> None:
         """Nothing really to do here
 
         Parameters:
-            g_h: Grid of the primary domanin.
-            g_l: Grid of the secondary domain.
-            data_h: Data dictionary for the primary domain.
-            data_l: Data dictionary for the secondary domain.
-            data_edge: Data dictionary for the edge between the domains.
+            sd_primary: Grid of the primary domanin.
+            sd_secondary: Grid of the secondary domain.
+            sd_data_primary: Data dictionary for the primary domain.
+            sd_data_secondary: Data dictionary for the secondary domain.
+            intf_data: Data dictionary for the edge between the domains.
 
         """
         pass
 
-    @pp.time_logger(sections=module_sections)
     def assemble_rhs(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_edge: Dict,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
         matrix: np.ndarray,
     ) -> np.ndarray:
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         """
@@ -619,17 +670,17 @@ class FluxPressureContinuity(RobinCoupling):
         secondary_ind = 1
 
         # Generate matrix for the coupling.
-        mg: pp.MortarGrid = data_edge["mortar_grid"]
-
         rhs_primary = self._define_local_block_matrix(
-            g_primary,
-            g_secondary,
+            sd_primary,
+            sd_secondary,
+            intf,
             self.discr_primary,
             self.discr_secondary,
-            mg,
             matrix,
             create_matrix=False,
         )
+        assert isinstance(rhs_primary, np.ndarray) and rhs_primary.size == 3
+
         # so just reconstruct everything.
         rhs_secondary = np.empty(3, dtype=object)
         rhs_secondary[primary_ind] = np.zeros_like(rhs_primary[primary_ind])
@@ -641,7 +692,7 @@ class FluxPressureContinuity(RobinCoupling):
         # the secondary information because of duplicate indices (primary and secondary
         # is the same). We therefore write the both primary and secondary info to the
         # secondary index.
-        if g_primary == g_secondary:
+        if sd_primary == sd_secondary:
             primary_ind = 1
         else:
             primary_ind = 0
@@ -652,14 +703,21 @@ class FluxPressureContinuity(RobinCoupling):
         # dimension also the secondary side.
         cc_primary = None
         self.discr_primary.assemble_int_bound_pressure_trace_rhs(
-            g_primary, data_primary, data_edge, cc_primary, rhs_primary, primary_ind
+            sd_primary,
+            sd_data_primary,
+            intf,
+            intf_data,
+            cc_primary,
+            rhs_primary,
+            primary_ind,
         )
-        if g_primary.dim == g_secondary.dim:
+        if sd_primary.dim == sd_secondary.dim:
             cc_secondary = None
             self.discr_secondary.assemble_int_bound_pressure_trace_rhs(
-                g_secondary,
-                data_secondary,
-                data_edge,
+                sd_secondary,
+                sd_data_secondary,
+                intf,
+                intf_data,
                 cc_secondary,
                 rhs_secondary,
                 secondary_ind,
@@ -673,45 +731,58 @@ class FluxPressureContinuity(RobinCoupling):
         return rhs
 
     def assemble_matrix(
-        self, g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+        self,
+        sd_primary,
+        sd_secondary,
+        intf,
+        sd_data_primary,
+        sd_data_secondary,
+        intf_data,
+        matrix,
     ):
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
             matrix_secondary: original discretization for the secondary subdomain
 
         """
         A, _ = self.assemble_matrix_rhs(
-            g_primary, g_secondary, data_primary, data_secondary, data_edge, matrix
+            sd_primary,
+            sd_secondary,
+            intf,
+            sd_data_primary,
+            sd_data_secondary,
+            intf_data,
+            matrix,
         )
         return A
 
-    @pp.time_logger(sections=module_sections)
     def assemble_matrix_rhs(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_edge: Dict,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
         matrix: np.ndarray,
     ):
         """Assemble the dicretization of the interface law, and its impact on
         the neighboring domains.
 
         Parameters:
-            g_primary: Grid on one neighboring subdomain.
-            g_secondary: Grid on the other neighboring subdomain.
-            data_primary: Data dictionary for the primary suddomain
-            data_secondary: Data dictionary for the secondary subdomain.
-            data_edge: Data dictionary for the edge between the subdomains
+            sd_primary: Grid on one neighboring subdomain.
+            sd_secondary: Grid on the other neighboring subdomain.
+            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_secondary: Data dictionary for the secondary subdomain.
+            intf_data: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
 
         """
@@ -719,9 +790,13 @@ class FluxPressureContinuity(RobinCoupling):
         secondary_ind = 1
 
         # Generate matrix for the coupling.
-        mg = data_edge["mortar_grid"]
         cc_primary, rhs_primary = self._define_local_block_matrix(
-            g_primary, g_secondary, self.discr_primary, self.discr_secondary, mg, matrix
+            sd_primary,
+            sd_secondary,
+            intf,
+            self.discr_primary,
+            self.discr_secondary,
+            matrix,
         )
 
         cc_secondary = cc_primary.copy()
@@ -741,37 +816,40 @@ class FluxPressureContinuity(RobinCoupling):
         # the secondary information because of duplicate indices (primary and secondary
         # is the same). We therefore write the both primary and secondary info to the
         # secondary index.
-        if g_primary == g_secondary:
+        if sd_primary == sd_secondary:
             primary_ind = 1
         else:
             primary_ind = 0
 
         self.discr_primary.assemble_int_bound_pressure_trace(
-            g_primary,
-            data_primary,
-            data_edge,
+            sd_primary,
+            sd_data_primary,
+            intf,
+            intf_data,
             cc_primary,
             matrix,
             rhs_primary,
             primary_ind,
         )
         self.discr_primary.assemble_int_bound_flux(
-            g_primary,
-            data_primary,
-            data_edge,
+            sd_primary,
+            sd_data_primary,
+            intf,
+            intf_data,
             cc_primary,
             matrix,
             rhs_primary,
             primary_ind,
         )
 
-        if g_primary.dim == g_secondary.dim:
+        if sd_primary.dim == sd_secondary.dim:
             # Consider this terms only if the grids are of the same dimension, by
             # imposing the same condition with a different sign, due to the normal
             self.discr_secondary.assemble_int_bound_pressure_trace(
-                g_secondary,
-                data_secondary,
-                data_edge,
+                sd_secondary,
+                sd_data_secondary,
+                intf,
+                intf_data,
                 cc_secondary,
                 matrix,
                 rhs_secondary,
@@ -780,9 +858,10 @@ class FluxPressureContinuity(RobinCoupling):
             )
 
             self.discr_secondary.assemble_int_bound_flux(
-                g_secondary,
-                data_secondary,
-                data_edge,
+                sd_secondary,
+                sd_data_secondary,
+                intf,
+                intf_data,
                 cc_secondary,
                 matrix,
                 rhs_secondary,
@@ -803,9 +882,10 @@ class FluxPressureContinuity(RobinCoupling):
             # imposing pressure trace continuity and conservation of the normal flux
             # through the lower dimensional object.
             self.discr_secondary.assemble_int_bound_pressure_cell(
-                g_secondary,
-                data_secondary,
-                data_edge,
+                sd_secondary,
+                sd_data_secondary,
+                intf,
+                intf_data,
                 cc_secondary,
                 matrix,
                 rhs_secondary,
@@ -813,9 +893,10 @@ class FluxPressureContinuity(RobinCoupling):
             )
 
             self.discr_secondary.assemble_int_bound_source(
-                g_secondary,
-                data_secondary,
-                data_edge,
+                sd_secondary,
+                sd_data_secondary,
+                intf,
+                intf_data,
                 cc_secondary,
                 matrix,
                 rhs_secondary,
@@ -830,7 +911,7 @@ class FluxPressureContinuity(RobinCoupling):
 
         # Computational savings: Only add non-zero components.
         # Exception: The case with equal dimension of the two neighboring grids.
-        if g_primary.dim == g_secondary.dim:
+        if sd_primary.dim == sd_secondary.dim:
             matrix += cc_primary + cc_secondary
         else:
             matrix[0, 2] += cc_primary[0, 2]
@@ -841,13 +922,13 @@ class FluxPressureContinuity(RobinCoupling):
         rhs = rhs_primary + rhs_secondary
 
         self.discr_primary.enforce_neumann_int_bound(
-            g_primary, data_edge, matrix, primary_ind
+            sd_primary, intf, intf_data, matrix, primary_ind
         )
 
         # Consider this terms only if the grids are of the same dimension
-        if g_primary.dim == g_secondary.dim:
+        if sd_primary.dim == sd_secondary.dim:
             self.discr_secondary.enforce_neumann_int_bound(
-                g_secondary, data_edge, matrix, secondary_ind
+                sd_secondary, intf, intf_data, matrix, secondary_ind
             )
 
         return matrix, rhs
@@ -856,9 +937,7 @@ class FluxPressureContinuity(RobinCoupling):
         return f"Interface coupling with full pressure flux continuity. Keyword {self.keyword}"
 
 
-class WellCoupling(
-    porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw
-):
+class WellCoupling(AbstractInterfaceLaw):
     """Simple version of the classical Peaceman model relating well and fracture
     pressure.
 
@@ -910,48 +989,55 @@ class WellCoupling(
         self.well_discr_matrix_key: str = "well_mortar_discr"
         self.well_vector_source_matrix_key: str = "well_vector_source_discr"
 
-    def ndof(self, mg: pp.MortarGrid) -> int:
-        return mg.num_cells
+    def ndof(self, intf: pp.MortarGrid) -> int:
+        return intf.num_cells
 
     def discretize(
-        self, g_h: pp.Grid, g_l: pp.Grid, data_h: Dict, data_l: Dict, data_edge: Dict
+        self,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
     ) -> None:
         """Discretize the Peaceman interface law and store the discretization in the
         edge data.
 
         Parameters:
-            g_h: Grid of the primary domanin.
-            g_l: Grid of the secondary domain.
-            data_h: Data dictionary for the primary domain.
-            data_l: Data dictionary for the secondary domain.
-            data_edge: Data dictionary for the edge between the domains.
+            sd_primary: Grid of the primary domanin.
+            sd_secondary: Grid of the secondary domain.
+            sd_data_primary: Data dictionary for the primary domain.
+            sd_data_secondary: Data dictionary for the secondary domain.
+            intf_data: Data dictionary for the edge between the domains.
 
         Implementational note: The computation of equivalent radius is highly simplified
         and ignores discretization and anisotropy effects. For more advanced alternatives,
         see the MRST book, https://www.cambridge.org/core/books/an-introduction-to-
         reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
         """
-        matrix_dictionary_edge: Dict[str, sps.spmatrix] = data_edge[
+        matrix_dictionary_edge: Dict[str, sps.spmatrix] = intf_data[
             pp.DISCRETIZATION_MATRICES
         ][self.keyword]
-        parameter_dictionary_edge: Dict = data_edge[pp.PARAMETERS][self.keyword]
+        parameter_dictionary_edge: Dict = intf_data[pp.PARAMETERS][self.keyword]
 
-        parameter_dictionary_h: Dict = data_h[pp.PARAMETERS][self._primary_keyword]
-        parameter_dictionary_l: Dict = data_l[pp.PARAMETERS][self.keyword]
-        # Mortar data structure.
-        mg: pp.MortarGrid = data_edge["mortar_grid"]
+        parameter_dictionary_h: Dict = sd_data_primary[pp.PARAMETERS][
+            self._primary_keyword
+        ]
+        parameter_dictionary_l: Dict = sd_data_secondary[pp.PARAMETERS][self.keyword]
+
         # projection matrix
-        proj_h = mg.primary_to_mortar_avg()
-        proj_l = mg.secondary_to_mortar_avg()
+        proj_h = intf.primary_to_mortar_avg()
+        proj_l = intf.secondary_to_mortar_avg()
 
         r_w = parameter_dictionary_l["well_radius"]
         skin_factor = parameter_dictionary_edge["skin_factor"]
         # Compute equivalent radius for Peaceman well model (see above note)
-        r_e = 0.2 * np.power(g_h.cell_volumes, 1 / g_h.dim)
+        r_e = 0.2 * np.power(sd_primary.cell_volumes, 1 / sd_primary.dim)
         # Compute effective permeability
         k: pp.SecondOrderTensor = parameter_dictionary_h["second_order_tensor"]
-        if g_h.dim == 2:
-            R = pp.map_geometry.project_plane_matrix(g_h.nodes)
+        if sd_primary.dim == 2:
+            R = pp.map_geometry.project_plane_matrix(sd_primary.nodes)
             k = k.copy()
             k.values = np.tensordot(R.T, np.tensordot(R, k.values, (1, 0)), (0, 1))
             k.values = np.delete(k.values, (2), axis=0)
@@ -961,7 +1047,7 @@ class WellCoupling(
         ke = np.sqrt(kx * ky)
 
         # Kh is ke * specific volume, but this is already captured by k
-        Kh = proj_h * ke * mg.cell_volumes
+        Kh = proj_h * ke * intf.cell_volumes
         WI = sps.diags(
             2 * np.pi * Kh / (np.log(proj_h * r_e / r_w) + skin_factor), format="csr"
         )
@@ -981,16 +1067,16 @@ class WellCoupling(
         # assembly, a zero vector soucre of a size that fits with the discretization is
         # created). If a vector_source is specified, but the ambient dimension is not,
         # a dimension mismatch will result unless the ambient dimension implied by
-        # the size of the vector source matches g_h.dim. This is okay for domains with
+        # the size of the vector source matches sd_primary.dim. This is okay for domains with
         # no subdomains with co-dimension more than 1, but will fail for fracture
         # intersections. The default value is thus the least bad option in this case.
         vector_source_dim: int = parameter_dictionary_h.get(
-            "ambient_dimension", g_h.dim
+            "ambient_dimension", sd_primary.dim
         )
-        # The ambient dimension cannot be less than the dimension of g_h.
+        # The ambient dimension cannot be less than the dimension of sd_primary.
         # If this is broken, we risk ending up with zero normal vectors below, so it is
         # better to break this off now
-        if vector_source_dim < g_h.dim:
+        if vector_source_dim < sd_primary.dim:
             raise ValueError(
                 "Ambient dimension cannot be lower than the grid dimension"
             )
@@ -999,12 +1085,14 @@ class WellCoupling(
         # cell centers and the identity matrix.
 
         # Project the vectors, we need to do some transposes to get this right.
-        # Note that in the codim 2 case, proj_h maps from g_h cells, not faces.
-        vectors_mortar = (proj_h * g_h.cell_centers.T - proj_l * g_l.cell_centers.T).T
+        # Note that in the codim 2 case, proj_h maps from sd_primary cells, not faces.
+        vectors_mortar = (
+            proj_h * sd_primary.cell_centers.T - proj_l * sd_secondary.cell_centers.T
+        ).T
 
         # The values in vals are sorted by the mortar cell index ordering (proj is a
         # csr matrix).
-        ci_mortar = np.arange(mg.num_cells, dtype=int)
+        ci_mortar = np.arange(intf.num_cells, dtype=int)
 
         # The mortar cell indices are expanded to account for the vector source
         # having multiple dimensions
@@ -1021,13 +1109,14 @@ class WellCoupling(
 
     def assemble_matrix_rhs(
         self,
-        g_primary: pp.Grid,
-        g_secondary: pp.Grid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_edge: Dict,
+        sd_primary: pp.Grid,
+        sd_secondary: pp.Grid,
+        intf: pp.MortarGrid,
+        sd_data_primary: Dict,
+        sd_data_secondary: Dict,
+        intf_data: Dict,
         matrix: sps.spmatrix,
-    ):
+    ) -> Tuple[np.ndarray, np.ndarray]:
         pass
 
     def __repr__(self) -> str:

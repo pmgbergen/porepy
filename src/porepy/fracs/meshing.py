@@ -1,14 +1,16 @@
 """
 Main module for grid generation in fractured domains in 2d and 3d.
 
-The module serves as the only neccessary entry point to create the grid. It
+The module serves as the only necessary entry point to create the grid. It
 will therefore wrap interface to different mesh generators, pass options to the
 generators etc.
 
 """
+
+from __future__ import annotations
+
 import logging
 import time
-from typing import List
 
 import numpy as np
 import scipy.sparse as sps
@@ -16,7 +18,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
-from porepy.grids.grid_bucket import GridBucket
+from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
@@ -24,100 +26,113 @@ logger = logging.getLogger(__name__)
 mortar_sides = mortar_grid.MortarSides
 
 
-def grid_list_to_grid_bucket(
-    grids: List[List[pp.Grid]], time_tot: float = None, **kwargs
-) -> pp.GridBucket:
-    """Convert a list of grids to a full GridBucket.
+def subdomains_to_mdg(
+    subdomains: list[list[pp.Grid]],
+    time_tot: float = None,
+    **kwargs,
+) -> pp.MixedDimensionalGrid:
+    """Convert a list of grids to a full MixedDimensionalGrid.
 
     The list can come from several mesh constructors, both simplex and
     structured approaches uses this in 2D and 3D.
 
     The function can not be used on an arbitrary set of grids; they should
     contain information to glue grids together. This will be included for grids
-    created by the standard mixed-dimensional grid constructors. In other
-    words: Do *not* use this function directly unless you know what you are
-    doing.
+    created by the standard mixed-dimensional grid constructors. Essentially,
+    do not directly use this function unless you are knowledgeable about how it
+    works.
 
-    Parameters:
-        grids (list of lists of grids): Grids to enter into the bucket.
+    Args:
+        subdomains: Subdomains to enter into the Mixed-dimensional grid.
             Sorted per dimension.
-        time_tot (double, optional): Start time for full mesh construction.
-            Used for logging. Defaults to None, in which case no information
-            on total time consumption is logged.
+        time_tot (optional): Start time for full mesh construction. Used for
+            logging. Defaults to None, in which case no information on total
+            time consumption is logged.
         **kwargs: Passed on to subfunctions.
 
     Returns:
-        GridBucket: Final mixed-dimensional grid.
+        MixedDimensionalGrid: Final mixed-dimensional grid.
 
     """
+
     # Tag tip faces
     check_highest_dim = kwargs.get("check_highest_dim", False)
-    _tag_faces(grids, check_highest_dim)
-    logger.info("Assemble in bucket")
-    tm_bucket = time.time()
-    gb = _assemble_in_bucket(grids)
-    logger.info("Done. Elapsed time " + str(time.time() - tm_bucket))
+    _tag_faces(subdomains, check_highest_dim)
+    logger.info("Assemble mdg")
+    tm_mdg = time.time()
+
+    # Assemble the list of subdomain grids into a mixed-dimensional grid.
+    # This will also identify pairs of neighboring grids (one dimension apart).
+    mdg, sd_pair_to_face_cell_map = _assemble_mdg(subdomains)
+    logger.info("Done. Elapsed time " + str(time.time() - tm_mdg))
 
     logger.info("Compute geometry")
     tm_geom = time.time()
-    gb.compute_geometry()
-    # Split the grids.
+    mdg.compute_geometry()
+
     logger.info("Done. Elapsed time " + str(time.time() - tm_geom))
     logger.info("Split fractures")
     tm_split = time.time()
-    split_grid.split_fractures(gb, **kwargs)
+
+    # Split faces and nodes in the grids of various dimensions
+    mdg, node_pairs = split_grid.split_fractures(
+        mdg, sd_pair_to_face_cell_map, **kwargs
+    )
     logger.info("Done. Elapsed time " + str(time.time() - tm_split))
 
-    create_mortar_grids(gb, **kwargs)
+    # Now that neighboring subdomains are identified, faces and nodes are split, we
+    # are ready to create mortar grids on the interface between subdomains. These
+    # will be added to the mixed-dimensional grid.
+    create_interfaces(mdg, node_pairs)
 
-    gb.assign_node_ordering()
+    mdg.assign_subdomain_ordering()
 
     if time_tot is not None:
         logger.info(
             "Mesh construction completed. Total time " + str(time.time() - time_tot)
         )
 
-    return gb
+    return mdg
 
 
-def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucket:
+def cart_grid(
+    fracs: list[np.ndarray], nx: np.ndarray, **kwargs
+) -> pp.MixedDimensionalGrid:
     """
-    Creates a cartesian fractured GridBucket in 2- or 3-dimensions.
+    Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
 
-    Parameters
-    ----------
-    fracs (list of np.ndarray): One list item for each fracture. Each item
-        consist of a (nd x npt) array describing fracture vertices, where npt is 2
-        for 2d domains, 4 for 3d domains. The fractures has to be rectangles(3D) or
-        straight lines(2D) that alignes with the axis. The fractures may be intersecting.
-        The fractures will snap to closest grid faces.
-    nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
+    Args:
+        fracs: One list item for each fracture. Each item consist of a
+            (nd x npt) array describing fracture vertices, where npt is 2 for
+            2d domains, 4 for 3d domains. The fractures have to be
+            rectangles(3D) or straight lines(2D) that align with the axis.
+            The fractures may be intersecting.The fractures will snap to the
+            closest grid faces.
+        nx (np.ndarray): Number of cells in each direction. Should be 2D or 3D
     **kwargs:
         physdims (np.ndarray): Physical dimensions in each direction.
             Defaults to same as nx, that is, cells of unit size.
-        May also contain fracture tags, options for gridding, etc.
+            May also contain fracture tags, options for gridding, etc.
 
     Returns:
-    -------
-    GridBucket: A complete bucket where all fractures are represented as
-        lower dim grids. The higher dim fracture faces are split in two,
-        and on the edges of the GridBucket graph the mapping from lower dim
-        cells to higher dim faces are stored as 'face_cells'. Each face is
-        given boolean tags depending on the type:
-           domain_boundary_faces: All faces that lie on the domain boundary
-               (i.e. should be given a boundary condition).
-           fracture_faces: All faces that are split (i.e. has a connection to a
-               lower dim grid).
-           tip_faces: A boundary face that is not on the domain boundary, nor
-               coupled to a lower domentional domain.
-        The union of the above three is the tag boundary_faces.
+        MixedDimensionalGrid: A complete mixed-dimensional grid where all
+        fractures are represented as lower dim grids. The higher dim fracture
+        faces are split in two, and on the edges of the MixedDimensionalGrid
+        graph the mapping from lower dim cells to higher dim faces are stored
+        as 'face_cells'. Each face is given boolean tags depending on the type:
+        domain_boundary_faces: All faces that lie on the domain boundary
+        (i.e. should be given a boundary condition).fracture_faces: All faces
+        that are split (i.e. has a connection to a lower dim grid). tip_faces:
+        A boundary face that is not on the domain boundary, nor coupled to a
+        lower dimensional domain. The union of the above three is the tag
+        boundary_faces.
 
-    Examples
-    --------
-    frac1 = np.array([[1, 4], [2, 2]])
-    frac2 = np.array([[2, 2], [1, 4]])
-    fracs = [frac1, frac2]
-    gb = cart_grid(fracs, [5, 5])
+    Examples:
+
+        >>> frac1 = np.array([[1, 4], [2, 2]])
+        >>> frac2 = np.array([[2, 2], [1, 4]])
+        >>> fracs = [frac1, frac2]
+        >>> mdg = cart_grid(fracs, [5, 5])
 
     """
     ndim = np.asarray(nx).size
@@ -130,23 +145,22 @@ def cart_grid(fracs: List[np.ndarray], nx: np.ndarray, **kwargs) -> pp.GridBucke
 
     # Call relevant method, depending on grid dimensions
     if ndim == 2:
-        grids = structured._cart_grid_2d(fracs, nx, physdims=physdims)
+        subdomains = structured._cart_grid_2d(fracs, nx, physdims=physdims)
     elif ndim == 3:
-        grids = structured._cart_grid_3d(fracs, nx, physdims=physdims)
+        subdomains = structured._cart_grid_3d(fracs, nx, physdims=physdims)
     else:
         raise ValueError("Only support for 2 and 3 dimensions")
 
-    return grid_list_to_grid_bucket(grids, **kwargs)
+    return subdomains_to_mdg(subdomains, **kwargs)
 
 
 def tensor_grid(
-    fracs: List[np.ndarray], x: np.ndarray, y=None, z=None, **kwargs
-) -> pp.GridBucket:
+    fracs: list[np.ndarray], x: np.ndarray, y=None, z=None, **kwargs
+) -> pp.MixedDimensionalGrid:
     """
-    Creates a cartesian fractured GridBucket in 2- or 3-dimensions.
+    Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.
 
-    Parameters
-    ----------
+    Args:
     fracs (list of np.ndarray): One list item for each fracture. Each item
         consist of a (nd x npt) array describing fracture vertices, where npt is 2
         for 2d domains, 4 for 3d domains. The fractures has to be rectangles(3D) or
@@ -158,10 +172,9 @@ def tensor_grid(
     **kwargs: May contain fracture tags, options for gridding, etc.
 
     Returns:
-    -------
-    GridBucket: A complete bucket where all fractures are represented as
+    MixedDimensionalGrid: A complete bucket where all fractures are represented as
         lower dim grids. The higher dim fracture faces are split in two,
-        and on the edges of the GridBucket graph the mapping from lower dim
+        and on the edges of the MixedDimensionalGrid graph the mapping from lower dim
         cells to higher dim faces are stored as 'face_cells'. Each face is
         given boolean tags depending on the type:
            domain_boundary_faces: All faces that lie on the domain boundary
@@ -173,22 +186,21 @@ def tensor_grid(
         The union of the above three is the tag boundary_faces.
 
     Examples
-    --------
-    frac1 = np.array([[1, 4], [2, 2]])
-    frac2 = np.array([[2, 2], [1, 4]])
-    fracs = [frac1, frac2]
-    gb = cart_grid(fracs, [5, 5])
+        >>> frac1 = np.array([[1, 4], [2, 2]])
+        >>> frac2 = np.array([[2, 2], [1, 4]])
+        >>> fracs = [frac1, frac2]
+        >>> mdg = cart_grid(fracs, [5, 5])
 
     """
     # Call relevant method, depending on grid dimensions
     if y is None:
         raise NotImplementedError("fractured tensor grids not implemented in 1D")
     elif z is None:
-        grids = structured._tensor_grid_2d(fracs, x, y)
+        subdomains = structured._tensor_grid_2d(fracs, x, y)
     else:
-        grids = structured._tensor_grid_3d(fracs, x, y, z)
+        subdomains = structured._tensor_grid_3d(fracs, x, y, z)
 
-    return grid_list_to_grid_bucket(grids, **kwargs)
+    return subdomains_to_mdg(subdomains, **kwargs)
 
 
 def _tag_faces(grids, check_highest_dim=True):
@@ -221,7 +233,14 @@ def _tag_faces(grids, check_highest_dim=True):
         domain_boundary_tags = np.zeros(g_h.num_faces, dtype=bool)
         domain_boundary_tags[bnd_faces] = True
         g_h.tags["domain_boundary_faces"] = domain_boundary_tags
-        bnd_nodes, _, _ = sps.find(g_h.face_nodes[:, bnd_faces])
+
+        # Pick out the face-node relation for the highest dimensional grid, restricted
+        # to the faces on the domain boundary. This will be of use for identifying
+        # tip faces for 2d grids below.
+        fn_h = g_h.face_nodes[:, bnd_faces].tocsr()
+
+        # Nodes on the boundary
+        bnd_nodes, _, _ = sps.find(fn_h)
 
         # Boundary nodes of g_h in terms of global indices
         bnd_nodes_glb = g_h.global_point_ind[np.unique(bnd_nodes)]
@@ -241,11 +260,6 @@ def _tag_faces(grids, check_highest_dim=True):
         global_node_as_fracture_tip = np.array([], dtype=int)
         # Also count the number of occurences of nodes on fractures
         num_occ_nodes = np.array([], dtype=int)
-
-        # Pick out the face-node relation for the highest dimensional grid, restricted
-        # to the faces on the domain boundary. This will be of use for identifying
-        # tip faces for 2d grids below.
-        fn_h = g_h.face_nodes[:, bnd_faces].tocsr()
 
         for g_dim in grids[1:-1]:
             for g in g_dim:
@@ -365,32 +379,43 @@ def _nodes_per_face(g):
     return n_per_face
 
 
-def _assemble_in_bucket(grids, **kwargs):
+def _assemble_mdg(
+    subdomains, **kwargs
+) -> tuple[pp.MixedDimensionalGrid, dict[tuple[pp.Grid, pp.Grid], sps.spmatrix]]:
     """
-    Create a GridBucket from a list of grids.
-    Parameters
-    ----------
-    grids: A list of lists of grids. Each element in the list is a list
-        of all grids of a the same dimension. It is assumed that the
-        grids are sorted from high dimensional grids to low dimensional grids.
-        All grids must also have the mapping g.global_point_ind which maps
-        the local nodes of the grid to the nodes of the highest dimensional
-        grid.
+    Create a MixedDimensionalGrid from a list of grids.
 
-    Returns
-    -------
-    GridBucket: A GridBucket class where the mapping face_cells are given to
-        each edge. face_cells maps from lower-dim cells to higher-dim faces.
+    Args:
+        subdomains: A list of lists of grids. Each element in the list is a
+            list of all grids of a the same dimension. It is assumed that the
+            grids are sorted from high dimensional grids to low dimensional
+            grids. All grids must also have the mapping g.global_point_ind
+            which maps the local nodes of the grid to the nodes of the highest
+            dimensional grid.
+
+    Returns:
+        MixedDimensionalGrid:
+            A MixedDimensionalGrid class where the mapping face_cells are given
+            to each edge. face_cells maps from lower-dim cells to higher-dim
+            faces.
+        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a
+            face-cell map. The first item represents two neighboring
+            subdomains. The second item is a mapping between faces in the high
+            dimension subdomain and cells in the low dimension subdomain.
+
     """
 
-    # Create bucket
-    bucket = GridBucket()
-    [bucket.add_nodes(g_d) for g_d in grids]
+    # Create a mixed-dimensional grid
+    mdg = MixedDimensionalGrid()
+    for sd_d in subdomains:
+        mdg.add_subdomains(sd_d)
+
+    sd_pair_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix] = {}
 
     # We now find the face_cell mapings.
-    for dim in range(len(grids) - 1):
+    for dim in range(len(subdomains) - 1):
         # If there are no grids of dimension one less, continue.
-        if len(grids[dim + 1]) == 0:
+        if len(subdomains[dim + 1]) == 0:
             continue
 
         # Loop over all grids of the higher dimension, look for lower-dimensional
@@ -398,19 +423,19 @@ def _assemble_in_bucket(grids, **kwargs):
         # the faces of the higher-dimensional grid. If this face-cell intersection
         # is non-empty, there is a coupling will be made between the higher and
         # lower-dimensional grid, and the face-to-cell relation will be saved.
-        for hg in grids[dim]:
+        for hsd in subdomains[dim]:
 
             # We have to specify the number of nodes per face to generate a
             # matrix of the nodes of each face.
-            n_per_face = _nodes_per_face(hg)
+            n_per_face = _nodes_per_face(hsd)
 
             # Get the face-node relation for the higher-dimensional grid,
             # stored with one column per face
-            fn_loc = hg.face_nodes.indices.reshape(
-                (n_per_face, hg.num_faces), order="F"
+            fn_loc = hsd.face_nodes.indices.reshape(
+                (n_per_face, hsd.num_faces), order="F"
             )
             # Convert to global numbering
-            fn = hg.global_point_ind[fn_loc]
+            fn = hsd.global_point_ind[fn_loc]
             fn = np.sort(fn, axis=0)
 
             # Get a cell-node relation for the lower-dimensional grids.
@@ -423,14 +448,14 @@ def _assemble_in_bucket(grids, **kwargs):
 
             # The treatmnet of the lower-dimensional grids is a bit special
             # for point grids (else below)
-            if hg.dim > 1:
+            if hsd.dim > 1:
                 # Data structure for cell-nodes
                 cn = []
                 # Number of cells per grid. Will be used to define offsets
                 # for cell-node relations for each grid, hence initialize with
                 # zero.
                 num_cn = [0]
-                for lg in grids[dim + 1]:
+                for lg in subdomains[dim + 1]:
                     # Local cell-node relation
                     cn_loc = lg.cell_nodes().indices.reshape(
                         (n_per_face, lg.num_cells), order="F"
@@ -445,7 +470,10 @@ def _assemble_in_bucket(grids, **kwargs):
                 # 0d grid is much easier, although getting hold of the single
                 # point index is a bit technical
                 cn_all = np.array(
-                    [np.atleast_1d(lg.global_point_ind)[0] for lg in grids[dim + 1]]
+                    [
+                        np.atleast_1d(lg.global_point_ind)[0]
+                        for lg in subdomains[dim + 1]
+                    ]
                 )
                 cell_node_offsets = np.arange(cn_all.size + 1)
                 # Ensure that face-node relation is 1d in this case
@@ -459,7 +487,7 @@ def _assemble_in_bucket(grids, **kwargs):
             # Now, for each lower-dimensional grid, either all of none of the cells
             # have been identified as faces in the higher-dimensional grid.
             # (If hg is the highest dimension, there should be a match for all grids
-            # in lg, however, if hg is itself a fracture, lg is an intersection which
+            # in lsd, however, if hsd is itself a fracture, lsd is an intersection which
             # need not involve hg).
 
             # Special treatment if not all cells were found: cell_2_face then only
@@ -470,13 +498,13 @@ def _assemble_in_bucket(grids, **kwargs):
                 # If something goes wrong here, we will likely get an index of -1
                 # when initializing the sparse matrix below - that should be a
                 # clear indicator.
-                tmp = -np.ones(is_mem.size, dtype=np.int)
+                tmp = -np.ones(is_mem.size, dtype=int)
                 tmp[is_mem] = cell_2_face
                 cell_2_face = tmp
 
             # Loop over all lower-dimensional grids; find the cells that had matching
             # faces in hg (should be either none or all the cells).
-            for counter, lg in enumerate(grids[dim + 1]):
+            for counter, lsd in enumerate(subdomains[dim + 1]):
                 # Indices of this grid in is_mem and cell_2_face (thanks to the above
                 # expansion, involving tmp)
                 ind = slice(cell_node_offsets[counter], cell_node_offsets[counter + 1])
@@ -493,39 +521,59 @@ def _assemble_in_bucket(grids, **kwargs):
                         np.ones(loc_mem.size, dtype=bool),
                         (np.arange(loc_mem.size), cell_2_face[ind]),
                     ),
-                    shape=(lg.num_cells, hg.num_faces),
+                    shape=(lsd.num_cells, hsd.num_faces),
                 )
-                # Define the new edge.
-                bucket.add_edge([hg, lg], face_cell_map)
+                # Add the pairing of subdomains and the cell-face map to the list
+                sd_pair_to_face_cell_map[(hsd, lsd)] = face_cell_map
 
-    return bucket
+    return mdg, sd_pair_to_face_cell_map
 
 
-def create_mortar_grids(gb, ensure_matching_face_cell=True, **kwargs):
+def create_interfaces(
+    mdg: pp.MixedDimensionalGrid,
+    sd_pair_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix],
+):
 
-    gb.add_edge_props("mortar_grid")
-    # loop on all the nodes and create the mortar grids
-    for e, d in gb.edges():
-        lg = gb.nodes_of_edge(e)[0]
-        # d['face_cells'].indices gives mappings into the lower dimensional
+    """
+    Create interfaces for a given MixedDimensionalGrid.
+
+    Args:
+        mdg: The mixed-dimensional grid where the interfaces are built.
+        sd_pair_to_face_cell_map: A dictionary of subdomains mapped to a
+            face-cell map. The first item represents two neighboring
+            subdomains. The second item is a mapping between faces in the high
+            dimension subdomain and cells in the low dimension subdomain.
+
+    """
+
+    # loop on all the subdomain pairs and create the mortar grids
+    for sd_pair, face_cells in sd_pair_to_face_cell_map.items():
+
+        hsd, lsd = sd_pair
+
+        # face_cells.indices gives mappings into the lower dimensional
         # cells. Count the number of occurences for each cell.
-        num_sides = np.bincount(d["face_cells"].indices)
-        # Each cell should be found either twice (think a regular fracture
-        # that splits a higher dimensional mesh), or once (the lower end of
-        # a T-intersection, or both ends of an L-intersection).
-        if ensure_matching_face_cell:
-            assert np.all(num_sides == 1) or np.all(num_sides == 2)
-        else:
-            assert np.max(num_sides) < 3
+        num_sides = np.bincount(face_cells.indices)
+
+        if np.max(num_sides) > 2:
+            # Each cell should be found either twice (think a regular fracture
+            # that splits a higher dimensional mesh), or once (the lower end of
+            # a T-intersection, or both ends of an L-intersection).
+            raise ValueError(
+                """Found low-dimensional cell which corresponds to
+                             too many high-dimensional faces."""
+            )
 
         # If all cells are found twice, create two mortar grids
         if np.all(num_sides > 1):
             # we are in a two sides situation
             side_g = {
-                mortar_sides.LEFT_SIDE: lg.copy(),
-                mortar_sides.RIGHT_SIDE: lg.copy(),
+                mortar_sides.LEFT_SIDE: lsd.copy(),
+                mortar_sides.RIGHT_SIDE: lsd.copy(),
             }
         else:
             # the tag name is just a place-holder we assume left side
-            side_g = {mortar_sides.LEFT_SIDE: lg.copy()}
-        d["mortar_grid"] = mortar_grid.MortarGrid(lg.dim, side_g, d["face_cells"])
+            side_g = {mortar_sides.LEFT_SIDE: lsd.copy()}
+        mg = mortar_grid.MortarGrid(lsd.dim, side_g, face_cells)
+
+        mdg.add_interface(mg, sd_pair, face_cells)

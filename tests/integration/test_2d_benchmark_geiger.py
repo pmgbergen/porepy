@@ -1,40 +1,40 @@
-import tests.common.flow_benchmark_2d_geiger_setup as setup
 import unittest
 
 import scipy.sparse as sps
 
 import porepy as pp
+import tests.common.flow_benchmark_2d_geiger_setup as setup
 
 
 class TestVEMOnBenchmark(unittest.TestCase):
     def solve(self, kf, description, is_coarse=False):
-        gb, domain = pp.grid_buckets_2d.benchmark_regular(
+        mdg, domain = pp.md_grids_2d.benchmark_regular(
             {"mesh_size_frac": 0.045}, is_coarse
         )
         # Assign parameters
-        setup.add_data(gb, domain, kf)
+        setup.add_data(mdg, domain, kf)
         key = "flow"
 
         method = pp.MVEM(key)
 
         coupler = pp.RobinCoupling(key, method)
 
-        for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1, "faces": 1}}
-            d[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
-        for e, d in gb.edges():
-            g1, g2 = gb.nodes_of_edge(e)
-            d[pp.PRIMARY_VARIABLES] = {"mortar_solution": {"cells": 1}}
-            d[pp.COUPLING_DISCRETIZATION] = {
+        for sd, sd_data in mdg.subdomains(return_data=True):
+            sd_data[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1, "faces": 1}}
+            sd_data[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
+        for intf, intf_data in mdg.interfaces(return_data=True):
+            sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
+            intf_data[pp.PRIMARY_VARIABLES] = {"mortar_solution": {"cells": 1}}
+            intf_data[pp.COUPLING_DISCRETIZATION] = {
                 "lambda": {
-                    g1: ("pressure", "diffusive"),
-                    g2: ("pressure", "diffusive"),
-                    e: ("mortar_solution", coupler),
+                    sd_primary: ("pressure", "diffusive"),
+                    sd_secondary: ("pressure", "diffusive"),
+                    intf: ("mortar_solution", coupler),
                 }
             }
-            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
+            intf_data[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-        assembler = pp.Assembler(gb)
+        assembler = pp.Assembler(mdg)
 
         # Discretize
         assembler.discretize()
@@ -43,9 +43,13 @@ class TestVEMOnBenchmark(unittest.TestCase):
 
         assembler.distribute_variable(p)
 
-        for g, d in gb:
-            d[pp.STATE]["darcy_flux"] = d[pp.STATE]["pressure"][: g.num_faces]
-            d[pp.STATE]["pressure"] = d[pp.STATE]["pressure"][g.num_faces :]
+        for sd, sd_data in mdg.subdomains(return_data=True):
+            sd_data[pp.STATE]["darcy_flux"] = sd_data[pp.STATE]["pressure"][
+                : sd.num_faces
+            ]
+            sd_data[pp.STATE]["pressure"] = sd_data[pp.STATE]["pressure"][
+                sd.num_faces :
+            ]
 
     def test_vem_blocking(self):
         kf = 1e-4
@@ -66,9 +70,9 @@ class TestVEMOnBenchmark(unittest.TestCase):
 
 class TestFVOnBenchmark(unittest.TestCase):
     def solve(self, kf, description, multi_point):
-        gb, domain = pp.grid_buckets_2d.benchmark_regular({"mesh_size_frac": 0.045})
+        mdg, domain = pp.md_grids_2d.benchmark_regular({"mesh_size_frac": 0.045})
         # Assign parameters
-        setup.add_data(gb, domain, kf)
+        setup.add_data(mdg, domain, kf)
 
         key = "flow"
         if multi_point:
@@ -78,22 +82,22 @@ class TestFVOnBenchmark(unittest.TestCase):
 
         coupler = pp.RobinCoupling(key, method)
 
-        for g, d in gb:
-            d[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
-            d[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
-        for e, d in gb.edges():
-            g1, g2 = gb.nodes_of_edge(e)
-            d[pp.PRIMARY_VARIABLES] = {"mortar_solution": {"cells": 1}}
-            d[pp.COUPLING_DISCRETIZATION] = {
+        for sd, sd_data in mdg.subdomains(return_data=True):
+            sd_data[pp.PRIMARY_VARIABLES] = {"pressure": {"cells": 1}}
+            sd_data[pp.DISCRETIZATION] = {"pressure": {"diffusive": method}}
+        for intf, intf_data in mdg.interfaces(return_data=True):
+            sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
+            intf_data[pp.PRIMARY_VARIABLES] = {"mortar_solution": {"cells": 1}}
+            intf_data[pp.COUPLING_DISCRETIZATION] = {
                 "lambda": {
-                    g1: ("pressure", "diffusive"),
-                    g2: ("pressure", "diffusive"),
-                    e: ("mortar_solution", coupler),
+                    sd_primary: ("pressure", "diffusive"),
+                    sd_secondary: ("pressure", "diffusive"),
+                    intf: ("mortar_solution", coupler),
                 }
             }
-            d[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
+            intf_data[pp.DISCRETIZATION_MATRICES] = {"flow": {}}
 
-        assembler = pp.Assembler(gb)
+        assembler = pp.Assembler(mdg)
 
         # Discretize
         assembler.discretize()

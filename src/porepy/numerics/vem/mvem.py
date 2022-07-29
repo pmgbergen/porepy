@@ -4,30 +4,24 @@ Module with implementation of the mixed virtual element method.
 The main class is MVEM.
 
 """
-import logging
-from typing import Dict, Tuple
+from __future__ import annotations
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-
-# Module-wide logger
-logger = logging.getLogger(__name__)
-module_sections = ["numerics", "discretization", "assembly"]
+from porepy.numerics.vem.dual_elliptic import DualElliptic
 
 
-class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
+class MVEM(DualElliptic):
     """Implementation of the lowest order mixed virtual element method for scalar
     elliptic equations.
     """
 
-    @pp.time_logger(sections=module_sections)
     def __init__(self, keyword: str) -> None:
         super().__init__(keyword, "MVEM")
 
-    @pp.time_logger(sections=module_sections)
-    def discretize(self, g: pp.Grid, data: Dict) -> None:
+    def discretize(self, sd: pp.Grid, data: dict) -> None:
         """Discretize a second order elliptic equation using a dual virtual element
         method.
 
@@ -46,14 +40,15 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
                 aperture scalings etc.
 
         matrix_dictionary will be updated with the following entries:
-            mass: sps.csc_matrix (g.num_faces, g.num_faces) The mass matrix.
-            div: sps.csc_matrix (g.num_cells, g.num_faces) The divergence matrix.
+            mass: sps.csc_matrix (sd.num_faces, sd.num_faces) The mass matrix.
+            div: sps.csc_matrix (sd.num_cells, sd.num_faces) The divergence matrix.
 
         Optional parameter:
         --------------------
         is_tangential: Whether the lower-dimensional permeability tensor has been
             rotated to the fracture plane. Defaults to False. Stored in the data
             dictionary.
+
         """
         # Allow short variable names in backend function
         # pylint: disable=invalid-name
@@ -61,23 +56,23 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # Get dictionary for discretization matrix storage
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES][self.keyword]
         # If a 0-d grid is given then we return an identity matrix
-        if g.dim == 0:
-            mass = sps.dia_matrix(([1], 0), (g.num_faces, g.num_faces))
+        if sd.dim == 0:
+            mass = sps.dia_matrix(([1], 0), (sd.num_faces, sd.num_faces))
             matrix_dictionary[self.mass_matrix_key] = mass
             matrix_dictionary[self.div_matrix_key] = sps.csr_matrix(
-                (g.num_faces, g.num_cells)
+                (sd.num_faces, sd.num_cells)
             )
-            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, g.num_cells))
+            matrix_dictionary[self.vector_proj_key] = sps.csr_matrix((3, sd.num_cells))
             return
 
         # Get dictionary for parameter storage
         parameter_dictionary = data[pp.PARAMETERS][self.keyword]
         # Retrieve the permeability
-        k = parameter_dictionary["second_order_tensor"]
+        k: pp.SecondOrderTensor = parameter_dictionary["second_order_tensor"]
         # Identity tensor for vector source computation
-        identity = pp.SecondOrderTensor(kxx=np.ones(g.num_cells))
+        identity = pp.SecondOrderTensor(kxx=np.ones(sd.num_cells))
 
-        faces, cells, sign = sps.find(g.cell_faces)
+        faces, cells, sign = sps.find(sd.cell_faces)
         index = np.argsort(cells)
         faces, sign = faces[index], sign[index]
 
@@ -85,12 +80,12 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # surface coordinates in 1d and 2d)
         deviation_from_plane_tol = data.get("deviation_from_plane_tol", 1e-5)
         c_centers, f_normals, f_centers, R, dim, _ = pp.map_geometry.map_grid(
-            g, deviation_from_plane_tol
+            sd, deviation_from_plane_tol
         )
 
         if not data.get("is_tangential", False):
             # Rotate the permeability tensor and delete last dimension
-            if g.dim < 3:
+            if sd.dim < 3:
                 k = k.copy()
                 k.rotate(R)
                 remove_dim = np.where(np.logical_not(dim))[0]
@@ -100,20 +95,20 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         # In the virtual cell approach the cell diameters should involve the
         # apertures, however to keep consistency with the hybrid-dimensional
         # approach and with the related hypotheses we avoid.
-        diams = g.cell_diameters()
+        diams = sd.cell_diameters()
         # Weight for the stabilization term
-        weight = np.power(diams, 2 - g.dim)
+        weight = np.power(diams, 2 - sd.dim)
 
         # Allocate the data to store matrix entries, that's the most efficient
         # way to create a sparse matrix.
-        size_A = np.sum(np.square(g.cell_faces.indptr[1:] - g.cell_faces.indptr[:-1]))
+        size_A = np.sum(np.square(sd.cell_faces.indptr[1:] - sd.cell_faces.indptr[:-1]))
         rows_A = np.empty(size_A, dtype=int)
         cols_A = np.empty(size_A, dtype=int)
         data_A = np.empty(size_A)
         idx_A = 0
 
         # Allocate the data to store matrix P entries
-        size_P = 3 * np.sum(g.cell_faces.indptr[1:] - g.cell_faces.indptr[:-1])
+        size_P = 3 * np.sum(sd.cell_faces.indptr[1:] - sd.cell_faces.indptr[:-1])
         rows_P = np.empty(size_P, dtype=int)
         cols_P = np.empty(size_P, dtype=int)
         data_P = np.empty(size_P)
@@ -121,24 +116,24 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         idx_row_P = 0
 
         # define the function to compute the inverse of the permeability matrix
-        if g.dim == 1:
+        if sd.dim == 1:
             inv_matrix = self._inv_matrix_1d
-        elif g.dim == 2:
+        elif sd.dim == 2:
             inv_matrix = self._inv_matrix_2d
-        elif g.dim == 3:
+        elif sd.dim == 3:
             inv_matrix = self._inv_matrix_3d
 
-        for c in np.arange(g.num_cells):
+        for c in np.arange(sd.num_cells):
             # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+            loc = slice(sd.cell_faces.indptr[c], sd.cell_faces.indptr[c + 1])
             faces_loc = faces[loc]
 
             # Compute the H_div-mass local matrix
             A = self.massHdiv(
-                k.values[0 : g.dim, 0 : g.dim, c],
-                inv_matrix(k.values[0 : g.dim, 0 : g.dim, c]),
+                k.values[0 : sd.dim, 0 : sd.dim, c],
+                inv_matrix(k.values[0 : sd.dim, 0 : sd.dim, c]),
                 c_centers[:, c],
-                g.cell_volumes[c],
+                sd.cell_volumes[c],
                 f_centers[:, faces_loc],
                 f_normals[:, faces_loc],
                 sign[loc],
@@ -149,10 +144,10 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
             # Compute the flux reconstruction matrix
             P = np.zeros((3, faces_loc.size))
             P[dim, :] = self.massHdiv(
-                identity.values[0 : g.dim, 0 : g.dim, c],
-                identity.values[0 : g.dim, 0 : g.dim, c],
+                identity.values[0 : sd.dim, 0 : sd.dim, c],
+                identity.values[0 : sd.dim, 0 : sd.dim, c],
                 c_centers[:, c],
-                g.cell_volumes[c],
+                sd.cell_volumes[c],
                 f_centers[:, faces_loc],
                 f_normals[:, faces_loc],
                 sign[loc],
@@ -178,7 +173,7 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
 
         # Construct the global matrices
         mass = sps.coo_matrix((data_A, (rows_A, cols_A)))
-        div = -g.cell_faces.T
+        div = -sd.cell_faces.T
         proj = sps.coo_matrix((data_P, (rows_P, cols_P)))
 
         matrix_dictionary[self.mass_matrix_key] = mass
@@ -186,7 +181,6 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         matrix_dictionary[self.vector_proj_key] = proj
 
     @staticmethod
-    @pp.time_logger(sections=module_sections)
     def massHdiv(
         K: np.ndarray,
         inv_K: np.ndarray,
@@ -197,20 +191,20 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         sign: np.ndarray,
         diam: float,
         weight: float = 0.0,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Compute the local mass Hdiv matrix using the mixed vem approach.
 
         Parameters
         ----------
-        K : ndarray (g.dim, g.dim)
+        K : ndarray (sd.dim, sd.dim)
             Permeability of the cell.
-        c_center : array (g.dim)
+        c_center : array (sd.dim)
             Cell center.
         c_volume : scalar
             Cell volume.
-        f_centers : ndarray (g.dim, num_faces_of_cell)
+        f_centers : ndarray (sd.dim, num_faces_of_cell)
             Center of the cell faces.
-        normals : ndarray (g.dim, num_faces_of_cell)
+        normals : ndarray (sd.dim, num_faces_of_cell)
             Normal of the cell faces weighted by the face areas.
         sign : array (num_faces_of_cell)
             +1 or -1 if the normal is inward or outward to the cell.
@@ -257,23 +251,22 @@ class MVEM(pp.numerics.vem.dual_elliptic.DualElliptic):
         return A, Pi_s
 
     @staticmethod
-    @pp.time_logger(sections=module_sections)
-    def check_conservation(g, u):
+    def check_conservation(sd: pp.Grid, u: np.ndarray) -> np.ndarray:
         """
         Return the local conservation of mass in the cells.
         Parameters
         ----------
-        g: grid, or a subclass.
-        u : array (g.num_faces) velocity at each face.
+        sd: grid, or a subclass.
+        u : array (sd.num_faces) velocity at each face.
         """
-        faces, cells, sign = sps.find(g.cell_faces)
+        faces, cells, sign = sps.find(sd.cell_faces)
         index = np.argsort(cells)
         faces, sign = faces[index], sign[index]
 
-        conservation = np.empty(g.num_cells)
-        for c in np.arange(g.num_cells):
+        conservation = np.empty(sd.num_cells)
+        for c in np.arange(sd.num_cells):
             # For the current cell retrieve its faces
-            loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
+            loc = slice(sd.cell_faces.indptr[c], sd.cell_faces.indptr[c + 1])
             conservation[c] = np.sum(u[faces[loc]] * sign[loc])
 
         return conservation
