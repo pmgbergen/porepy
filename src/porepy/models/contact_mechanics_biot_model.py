@@ -267,7 +267,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                 self.scalar_parameter_key,
                 {
                     "normal_diffusivity": normal_diffusivity,
-                    "vector_source": np.zeros(intf.num_cells * self.nd),
+                    "vector_source": self._vector_source(intf),
                     "ambient_dimension": self.nd,
                 },
             )
