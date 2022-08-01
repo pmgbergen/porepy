@@ -5,7 +5,7 @@ import copy
 import numbers
 from enum import Enum
 from itertools import count
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
