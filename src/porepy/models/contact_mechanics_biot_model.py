@@ -414,7 +414,9 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         return np.zeros(sd.num_cells)
 
     def _storativity(self, sd: pp.Grid) -> np.ndarray:
-        """Set unitary storativity (also called Biot modulus or storage coefficient).
+        """Set unitary storativity.
+        
+         The storativity is also called Biot modulus or storage coefficient.
 
         Args:
             sd: Subdomain grid.
