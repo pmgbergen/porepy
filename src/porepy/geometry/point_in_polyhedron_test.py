@@ -45,7 +45,7 @@ class PointInPolyhedronTest(object):
         Args:
             R (np.ndarray, num_pt x 3): Translated triangle's points at origin (0,0,0).
             The original triangle's points need to be translated by subtracting the
-            arbitrary point P
+            arbitrary point P.
 
         Raises:
             ValueError: If the origin [0,0,0] point:
