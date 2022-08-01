@@ -15,6 +15,7 @@ However, the following may serve as a general suggestion:
 5. [incompressible_flow_model](incompressible_flow_model.ipynb) describes how to use a model class `Incompressible Flow`. The tutorial exposes several extensions and how to solve a mixed-dimensional problem with a few lines of code.
 
 More specific tutorials are also available:
+
 6. [flux_discretizations](./flow_discretizations.ipynb) shows different discretization methods available for diffusive fluxes, which are used for Darcy's law for fluid fluxes in a mass balance equation. 
 7. [stress_discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of 6. arising in the stress-strain relationship of Hooke's law.
 8. [contact_mechanics_with_AD](./contact_mechanics_with_AD.ipynb) delves deeper into the model classes and their use of the ad framework.
