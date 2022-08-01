@@ -15,7 +15,7 @@ All other functions are helpers.
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import numpy as np
 import scipy.sparse as sps
@@ -26,30 +26,32 @@ from porepy.grids import mortar_grid
 
 def extrude_grid_bucket(
     mdg: pp.MixedDimensionalGrid, z: np.ndarray
-) -> Tuple[pp.MixedDimensionalGrid, Dict]:
-    """Extrude a MixedDimensionalGrid by extending all fixed-dimensional grids in the z-direction.
+) -> tuple[pp.MixedDimensionalGrid, dict]:
+    """Extrude a MixedDimensionalGrid by extending all fixed-dimensional grids in the
+    z-direction.
 
     In practice, the original grid bucket will be 2d, and the result is 3d.
 
-    The returned MixedDimensionalGrid is fully functional, including mortar grids on the mdg
-    edges. The data dictionaries on nodes and edges are mainly empty. Data can be transferred
-    from the original MixedDimensionalGrid via the returned map between old and new grids.
+    The returned MixedDimensionalGrid is fully functional, including mortar grids on the
+    mdg edges. The data dictionaries on subdomains and interfaces are mainly empty. Data
+    can be transferred from the original MixedDimensionalGrid via the returned map
+    between old and new grids.
 
-    Parameters:
-        mdg
-            Mixed-dimensional grid to be extruded. Should be 2d.
-        z
-            z-coordinates of the nodes in the extruded grid. Should be
+    Args:
+        mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid to be extruded. Should be
+            2d.
+        z (np.ndarray): z-coordinates of the nodes in the extruded grid. Should be
             either non-negative or non-positive, and be sorted in increasing or
             decreasing order, respectively.
 
     Returns:
-        mdg_new (pp.MixedDimensionalGrid): Mixed-dimensional grid, 3d. The data dictionaries on
-            nodes and edges are mostly empty.
-        dict: Mapping from individual grids in the old bucket to the corresponding
-            extruded grids in the new one. The dictionary values are a namedtuple with
-            elements grid (new grid), cell_map and face_map, where the two latter
-            describe mapping between the new and old grid, see extrude_grid for details.
+        mdg_new (pp.MixedDimensionalGrid): Mixed-dimensional grid, 3d. The data
+            dictionaries on subdomains and interfaces are mostly empty.
+        dict: Mapping from individual grids in the old mixed-dimensional grid to the
+            corresponding extruded grids in the new one. The dictionary values are a
+            namedtuple with elements grid (new grid), cell_map and face_map, where the
+            two latter describe mapping between the new and old grid, see extrude_grid
+            for details.
 
     """
 
@@ -62,7 +64,7 @@ def extrude_grid_bucket(
     # Container for grid information
     Mapping = namedtuple("Mapping", ["grid", "cell_map", "face_map"])
 
-    # Loop over all grids in the old bucket, extrude the grid, save mapping information
+    # Loop over all grids in the old md-grid, extrude the grid, save mapping information
     for sd in mdg.subdomains():
         g_new, cell_map, face_map = extrude_grid(sd, z)
 
@@ -155,7 +157,7 @@ def extrude_grid_bucket(
     return mdg_new, g_map
 
 
-def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
+def extrude_grid(g: pp.Grid, z: np.ndarray) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Increase the dimension of a given grid by 1, by extruding the grid in the
     z-direction.
 
@@ -164,7 +166,7 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.nda
 
     Both the original and the new grid will have their geometry computed.
 
-    Parameters:
+    Args:
         g (pp.Grid): Original grid to be extruded. Should have dimension 0, 1 or 2.
         z (np.ndarray): z-coordinates of the nodes in the extruded grid. Should be
             either non-negative or non-positive, and be sorted in increasing or
@@ -198,7 +200,7 @@ def extrude_grid(g: pp.Grid, z: np.ndarray) -> Tuple[pp.Grid, np.ndarray, np.nda
 
 def _extrude_2d(
     g: pp.Grid, z: np.ndarray[Any, np.dtype[np.float64]]
-) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
+) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Extrude a 2d grid into 3d by prismatic extension.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -531,7 +533,7 @@ def _extrude_2d(
 
 def _extrude_1d(
     g: pp.TensorGrid, z: np.ndarray
-) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
+) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Extrude a 1d grid into 2d by prismatic extension in the z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -646,7 +648,7 @@ def _extrude_1d(
 
 def _extrude_0d(
     g: pp.PointGrid, z: np.ndarray
-) -> Tuple[pp.Grid, np.ndarray, np.ndarray]:
+) -> tuple[pp.Grid, np.ndarray, np.ndarray]:
     """Extrude a 0d grid into 1d by prismatic extension in the z-direction.
 
     The original grid is assumed to be in the xy-plane, that is, any existing non-zero
@@ -698,7 +700,7 @@ def _extrude_0d(
     return g_new, cell_map, face_map
 
 
-def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
+def _define_tags(g: pp.Grid, num_cell_layers: int) -> dict[str, np.ndarray]:
     """Define all standard tags (face and nodes) for the extruded grids
 
     The extrusion functions do not explicitly account for split nodes and faces due to
@@ -714,7 +716,7 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
         num_cell_layers (int): Number of cell extrusion layers.
 
     Returns:
-        Dict: The standard tags (see pp.utils.tags) for faces and nodes for the
+        dict: The standard tags (see pp.utils.tags) for faces and nodes for the
             extruded grid.
 
     """
@@ -788,7 +790,7 @@ def _define_tags(g: pp.Grid, num_cell_layers: int) -> Dict[str, np.ndarray]:
 
 def _create_mappings(
     g: pp.Grid, g_new: pp.Grid, num_cell_layers: int
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     cell_map = np.empty(g.num_cells, dtype=object)
     for c in range(g.num_cells):
         cell_map[c] = np.arange(c, g_new.num_cells, g.num_cells)
