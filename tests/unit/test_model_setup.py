@@ -1,3 +1,23 @@
+"""
+This file contains tests that were constructed to check the correct assingment of parameters
+in standard models in PorePy.
+
+For each model, two main methods are constructed: one that checks default parameters and
+another that checks non-default parameters. For the latter, three different sets of
+non-default parameters for a mixed-dimensional Cartesian grid containing a single vertical
+fracture have been written.
+
+Moreover, for each model, the parameters are checked at two stages, namely before running
+the model and after running the model.
+
+Note that only parameters belonging to the specific class are tested. This means that
+inhereted parameters are not tested as this would be too cumbersome (and redundant).
+However, this naturally requires writing tests for all present models.ß
+
+Todo:
+    Create tests for the rest of the models.
+"""
+
 import porepy as pp
 import pytest
 import numpy as np
@@ -6,7 +26,7 @@ from typing import Union
 
 
 class TestContactMechanicsBiot:
-    """The following tests check the correct setup of the ContactMechanicsBiot model."""
+    """The following tests check the correct setup of the ContactMechanicsBiot classß."""
 
     # ----------> Setting up parameters corresponding to the test of default parameters
     model_params = []
@@ -138,7 +158,7 @@ class TestContactMechanicsBiot:
     bf_flow_prim_0[south_bf] = "dir"
     bf_flow_prim_0[north_bf] = "dir"
 
-    # Case 1: All Neumann, except east and west which are Dirichelet
+    # Case 1: All Neumann, except east and west which are Dirichlet
     bf_flow_prim_1 = np.array(all_bf.size * ["neu"])
     bf_flow_prim_1[east_bf] = "dir"
     bf_flow_prim_1[west_bf] = "dir"
@@ -274,6 +294,76 @@ class TestContactMechanicsBiot:
         vector_source_interface_2,
     ]
 
+    # -----> Mechanics bc type
+    bc_init_prim = ["neu"] * sd_prim.num_faces
+    bc_type_prim = np.array([bc_init_prim, bc_init_prim])
+
+    # Case 0: All Neumann, except east, west, and north which are Dirichlet
+    bc_type_prim_0 = bc_type_prim.copy()
+    bc_type_prim_0[:, east] = "dir"
+    bc_type_prim_0[:, west] = "dir"
+    bc_type_prim_0[:, north] = "dir"
+
+    # Case 1: All Neumann, except east and west, and south which are Dirichlet
+    bc_type_prim_1 = bc_type_prim.copy()
+    bc_type_prim_1[:, east] = "dir"
+    bc_type_prim_1[:, west] = "dir"
+    bc_type_prim_1[:, south] = "dir"
+
+    # Case 2: All Neumann, except east and west which are rollers, and south and north
+    # Dirichlet
+    bc_type_prim_2 = bc_type_prim.copy()
+    bc_type_prim_2[0, east] = "dir"
+    bc_type_prim_2[0, west] = "dir"
+    bc_type_prim_2[:, north] = "dir"
+    bc_type_prim_2[:, south] = "dir"
+
+    bc_mech_type_primary = [bc_type_prim_0, bc_type_prim_1, bc_type_prim_2]
+
+    # -----> Mechanics bc values
+    ones = np.ones(sd_prim.num_faces)
+
+    # Case 0
+    bc_val_prim_0 = np.array([0 * ones, 0 * ones])
+    bc_val_prim_0[0, east] = 0.01
+    bc_val_prim_0[1, east] = 0
+    bc_val_prim_0[0, west] = -0.01
+    bc_val_prim_0[1, west] = 0
+    bc_val_prim_0[0, south] = 0
+    bc_val_prim_0[1, south] = 0
+    bc_val_prim_0[0, north] = 0
+    bc_val_prim_0[1, north] = 0.01
+    bc_val_prim_0 = np.ravel(bc_val_prim_0, "F")
+
+    # Case 1
+    bc_val_prim_1 = np.array([0 * ones, 0 * ones])
+    bc_val_prim_1[0, east] = -0.01
+    bc_val_prim_1[1, east] = 0
+    bc_val_prim_1[0, west] = 0.01
+    bc_val_prim_1[1, west] = 0
+    bc_val_prim_1[0, south] = 0
+    bc_val_prim_1[1, south] = -0.01
+    bc_val_prim_1[0, north] = 0
+    bc_val_prim_1[1, north] = 0
+    bc_val_prim_1 = np.ravel(bc_val_prim_1, "F")
+
+    # Case 2
+    bc_val_prim_2 = np.array([0 * ones, 0 * ones])
+    bc_val_prim_2[0, east] = 0.01
+    bc_val_prim_2[1, east] = 0
+    bc_val_prim_2[0, west] = -0.01
+    bc_val_prim_2[1, west] = 0
+    bc_val_prim_2[0, south] = 0
+    bc_val_prim_2[1, south] = 0.1
+    bc_val_prim_2[0, north] = 0
+    bc_val_prim_2[1, north] = -0.1
+    bc_val_prim_2 = np.ravel(bc_val_prim_2, "F")
+
+    bc_mech_values_primary = [bc_val_prim_0, bc_val_prim_1, bc_val_prim_2]
+
+    # -----> Reference scalar
+    reference_scalar = [np.ones(2), 2.0 * np.ones(2), 100.0 * np.ones(2)]
+
     # -----> Populating list of model parameters
     model_params = []
     before_runs = [True, False]
@@ -306,6 +396,9 @@ class TestContactMechanicsBiot:
                 "vector_source_primary": vector_source_primary[case],
                 "vector_source_secondary": vector_source_secondary[case],
                 "vector_source_interface": vector_source_interface[case],
+                "reference_scalar": reference_scalar[case],
+                "bc_mech_type_primary": bc_mech_type_primary[case],
+                "bc_mech_values_primary": bc_mech_values_primary[case],
             }
             model_params.append(model_param)
 
@@ -398,6 +491,34 @@ class TestContactMechanicsBiot:
                 else:
                     return self.params["vector_source_interface"]
 
+            def _reference_scalar(self, sd: pp.Grid) -> np.ndarray:
+                """Modify default reference scalar"""
+                super()._reference_scalar(sd)
+                if sd.dim == 2:
+                    return self.params["reference_scalar"]
+
+            def _bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+                """Modifiy default boundary condition types for the mechanics subproblem."""
+                super()._bc_type_mechanics(sd)
+                data = self.mdg.subdomain_data(sd)
+                bc = data[pp.PARAMETERS][self.mechanics_parameter_key]["bc"]
+
+                if sd.dim == 2:
+                    is_dir = self.params["bc_mech_type_primary"] == "dir"
+                    is_neu = self.params["bc_mech_type_primary"] == "neu"
+                    is_rob = self.params["bc_mech_type_primary"] == "rob"
+                    bc.is_dir = is_dir
+                    bc.is_neu = is_neu
+                    bc.is_rob = is_rob
+
+                return bc
+
+            def _bc_values_mechanics(self, sd: pp.Grid) -> np.ndarray:
+                """Modify default boundary condition values for the mechanics subproblem"""
+                super()._bc_values_mechanics(sd)
+                if sd.dim == 2:
+                    return self.params["bc_mech_values_primary"]
+
         model = NonDefaultContactMechanicsBiot(model_params)
         if model.params["before_run"]:
             model.prepare_simulation()
@@ -439,7 +560,7 @@ class TestContactMechanicsBiot:
         else:
             raise NotImplementedError("Test case not implemented")
 
-        # ----------> Check parameters for the scalar subproble
+        # ----------> Check parameters for the scalar subproblem
 
         # -----> Time step
         if model.params["case"] == 0:
@@ -570,7 +691,7 @@ class TestContactMechanicsBiot:
             np.testing.assert_equal(biot_alpha_flow_prim, np.array([0.0001, 0.0001]))
             np.testing.assert_equal(biot_alpha_flow_sec, np.array([0.006]))
         else:
-            raise NotImplementedError("Test case non-compatible")
+            raise NotImplementedError("Test case not implemented.")
 
         # -----> Scalar source
         source_prim_known = data_prim[pp.PARAMETERS][flow_kw]["source"]
@@ -667,3 +788,131 @@ class TestContactMechanicsBiot:
             np.testing.assert_equal(normal_diffu, val)
         else:
             raise NotImplementedError("Test case not implemented")
+
+        # ----------> Check parameters for the mechanics subproblem
+
+        # -----> Boundary condition type
+        bc_mech_prim = data_prim[pp.PARAMETERS][model.mechanics_parameter_key]["bc"]
+
+        if model.params["case"] == 0:  # east: dir, west: dir, north: dir, south: neu
+            assert np.all(bc_mech_prim.is_dir[:, east])
+            assert not np.all(bc_mech_prim.is_neu[:, east])
+            assert not np.all(bc_mech_prim.is_rob[:, east])
+            assert np.all(bc_mech_prim.is_dir[:, west])
+            assert not np.all(bc_mech_prim.is_neu[:, west])
+            assert not np.all(bc_mech_prim.is_rob[:, west])
+            assert not np.all(bc_mech_prim.is_dir[:, south])
+            assert np.all(bc_mech_prim.is_neu[:, south])
+            assert not np.all(bc_mech_prim.is_rob[:, south])
+            assert np.all(bc_mech_prim.is_dir[:, north])
+            assert not np.all(bc_mech_prim.is_neu[:, north])
+            assert not np.all(bc_mech_prim.is_rob[:, north])
+        elif model.params["case"] == 1:  # east: dir, west: dir, north: neu, south: dir
+            assert np.all(bc_mech_prim.is_dir[:, east])
+            assert not np.all(bc_mech_prim.is_neu[:, east])
+            assert not np.all(bc_mech_prim.is_rob[:, east])
+            assert np.all(bc_mech_prim.is_dir[:, west])
+            assert not np.all(bc_mech_prim.is_neu[:, west])
+            assert not np.all(bc_mech_prim.is_rob[:, west])
+            assert np.all(bc_mech_prim.is_dir[:, south])
+            assert not np.all(bc_mech_prim.is_neu[:, south])
+            assert not np.all(bc_mech_prim.is_rob[:, south])
+            assert not np.all(bc_mech_prim.is_dir[:, north])
+            assert np.all(bc_mech_prim.is_neu[:, north])
+            assert not np.all(bc_mech_prim.is_rob[:, north])
+        elif (
+            model.params["case"] == 2
+        ):  # east: roller, west: roller, north: dir, south: dir
+            assert np.all(bc_mech_prim.is_dir[0, east])
+            assert not np.all(bc_mech_prim.is_dir[1, east])
+            assert not np.all(bc_mech_prim.is_neu[0, east])
+            assert np.all(bc_mech_prim.is_neu[1, east])
+            assert not np.all(bc_mech_prim.is_rob[:, east])
+            assert np.all(bc_mech_prim.is_dir[0, west])
+            assert not np.all(bc_mech_prim.is_dir[1, west])
+            assert not np.all(bc_mech_prim.is_neu[0, west])
+            assert np.all(bc_mech_prim.is_neu[1, west])
+            assert not np.all(bc_mech_prim.is_rob[:, west])
+            assert np.all(bc_mech_prim.is_dir[:, south])
+            assert not np.all(bc_mech_prim.is_neu[:, south])
+            assert not np.all(bc_mech_prim.is_rob[:, south])
+            assert np.all(bc_mech_prim.is_dir[:, north])
+            assert not np.all(bc_mech_prim.is_neu[:, north])
+            assert not np.all(bc_mech_prim.is_rob[:, north])
+        else:
+            raise NotImplementedError("Test case not implemented.")
+
+        # -----> Boundary condition values
+        bc_mech_vals = data_prim[pp.PARAMETERS][model.mechanics_parameter_key][
+            "bc_values"
+        ]
+        bc_mech_vals_x = bc_mech_vals[::2]
+        bc_mech_vals_y = bc_mech_vals[1::2]
+        if model.params["case"] == 0:
+            np.testing.assert_equal(bc_mech_vals_x[east], 0.01)
+            np.testing.assert_equal(bc_mech_vals_y[east], 0)
+            np.testing.assert_equal(bc_mech_vals_x[west], -0.01)
+            np.testing.assert_equal(bc_mech_vals_y[west], 0)
+            np.testing.assert_equal(bc_mech_vals_x[south], 0)
+            np.testing.assert_equal(bc_mech_vals_y[south], 0)
+            np.testing.assert_equal(bc_mech_vals_x[north], 0)
+            np.testing.assert_equal(bc_mech_vals_y[north], 0.01)
+        elif model.params["case"] == 1:
+            np.testing.assert_equal(bc_mech_vals_x[east], -0.01)
+            np.testing.assert_equal(bc_mech_vals_y[east], 0)
+            np.testing.assert_equal(bc_mech_vals_x[west], 0.01)
+            np.testing.assert_equal(bc_mech_vals_y[west], 0)
+            np.testing.assert_equal(bc_mech_vals_x[south], 0)
+            np.testing.assert_equal(bc_mech_vals_y[south], -0.01)
+            np.testing.assert_equal(bc_mech_vals_x[north], 0)
+            np.testing.assert_equal(bc_mech_vals_y[north], 0)
+        elif model.params["case"] == 2:
+            np.testing.assert_equal(bc_mech_vals_x[east], 0.01)
+            np.testing.assert_equal(bc_mech_vals_y[east], 0)
+            np.testing.assert_equal(bc_mech_vals_x[west], -0.01)
+            np.testing.assert_equal(bc_mech_vals_y[west], 0)
+            np.testing.assert_equal(bc_mech_vals_x[south], 0)
+            np.testing.assert_equal(bc_mech_vals_y[south], 0.1)
+            np.testing.assert_equal(bc_mech_vals_x[north], 0)
+            np.testing.assert_equal(bc_mech_vals_y[north], -0.1)
+        else:
+            raise NotImplementedError("Test case not implemented.")
+
+        # -----> Time step
+        if model.params["case"] == 0:
+            assert data_prim[pp.PARAMETERS][mech_kw]["time_step"] == 2.0
+            assert data_sec[pp.PARAMETERS][mech_kw]["time_step"] == 2.0
+        elif model.params["case"] == 1:
+            assert data_prim[pp.PARAMETERS][mech_kw]["time_step"] == 5.0
+            assert data_sec[pp.PARAMETERS][mech_kw]["time_step"] == 5.0
+        elif model.params["case"] == 2:
+            assert data_prim[pp.PARAMETERS][mech_kw]["time_step"] == 100.0
+            assert data_sec[pp.PARAMETERS][mech_kw]["time_step"] == 100.0
+        else:
+            raise NotImplementedError("Test case not implemented.")
+
+        # -----> Biot-alpha
+        biot_alpha_mech_prim = data_prim[pp.PARAMETERS][mech_kw]["biot_alpha"]
+        if model.params["case"] == 0:
+            np.testing.assert_equal(biot_alpha_mech_prim, np.array([0.9, 0.9]))
+        elif model.params["case"] == 1:
+            np.testing.assert_equal(biot_alpha_mech_prim, np.array([0.5, 0.5]))
+        elif model.params["case"] == 2:
+            np.testing.assert_equal(biot_alpha_mech_prim, np.array([0.0001, 0.0001]))
+        else:
+            raise NotImplementedError("Test case not implemented.")
+
+        # -----> Reference scalar
+        reference_scalar = data_prim[pp.PARAMETERS][mech_kw]["p_reference"]
+        if model.params["case"] == 0:
+            np.testing.assert_equal(reference_scalar, 1.0 * np.ones(2))
+        elif model.params["case"] == 1:
+            np.testing.assert_equal(reference_scalar, 2.0 * np.ones(2))
+        elif model.params["case"] == 2:
+            np.testing.assert_equal(reference_scalar, 100.0 * np.ones(2))
+        else:
+            raise NotImplementedError("Test case not implemented.")
+
+        # -----> Mass weight
+        mass_weight_sec = data_sec[pp.PARAMETERS][mech_kw]["mass_weight"]
+        np.testing.assert_equal(mass_weight_sec, np.array([1.0]))
