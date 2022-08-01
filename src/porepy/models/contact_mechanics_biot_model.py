@@ -210,7 +210,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             pp.initialize_data(intf, data, self.mechanics_parameter_key)
 
     def _set_scalar_parameters(self) -> None:
-        tensor_scale = self.scalar_scale / self.length_scale ** 2
+        tensor_scale = self.scalar_scale / self.length_scale**2
         for sd, data in self.mdg.subdomains(return_data=True):
             storativity = self._storativity(sd)
             specific_volume = self._specific_volume(sd)
