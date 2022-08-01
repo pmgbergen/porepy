@@ -328,7 +328,7 @@ class InterpolatedFunction(AbstractFunction):
         max_val: np.ndarray,
         npt: np.ndarray,
         order: int = 1,
-        preval: bool = True,
+        preval: bool = False,
         is_array_func: bool = False,
     ):
         """
@@ -341,8 +341,9 @@ class InterpolatedFunction(AbstractFunction):
             max_val: upper bound for the domain
             npt: number of interpolation points per dimension of the domain
             order: Order of interpolation. Supports currently only linear order.
-            preval (optional): If True, pre-evaluates the values and derivatives and stores
-                them. Influences the runtime.
+            preval (default=False): If True, pre-evaluates the values of the function at the points
+                of interpolation and stores them. If False, evaluates them if necessary.
+                Influences the runtime.
         """
         super().__init__(func, name, is_array_func)
 
