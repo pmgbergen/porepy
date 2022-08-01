@@ -22,6 +22,7 @@ from .operators import Operation, Operator, Tree
 __all__ = [
     "Function",
     "DiagonalJacobianFunction",
+    "InterpolatedFunction",
     "ADmethod",
 ]
 
@@ -262,9 +263,9 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
 
     def __init__(
         self,
-        multipliers: Union[List[float], float],
         func: Callable,
         name: str,
+        multipliers: Union[List[float], float],
         is_vector_func: bool = False,
     ):
         """Constructor.
@@ -309,6 +310,83 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
 
         return jac
 
+
+class InterpolatedFunction(AbstractFunction):
+    """Represents the passed function as an interpolation of chosen order on a rectangular,
+    uniform grid.
+    
+    The image of the function is expected to be of dimension 1, while the domain can be
+    multidimensional.
+    
+    """
+
+    def __init__(
+        self,
+        func: Callable,
+        name: str,
+        min_val: np.ndarray,
+        max_val: np.ndarray,
+        npt: np.ndarray,
+        order: int = 1,
+        preval: bool = True,
+        is_array_func: bool = False,
+    ):
+        """
+        All vector-valued ndarray arguments are assumed to be column vectors.
+        Each row-entry represents value for a parameter of the passed ``func`` in
+        respective order.
+
+        Args:
+            min_val: lower bounds for the domain of ``func``.
+            max_val: upper bound for the domain
+            npt: number of interpolation points per dimension of the domain
+            order: Order of interpolation. Supports currently only linear order.
+            preval (optional): If True, pre-evaluates the values and derivatives and stores
+                them. Influences the runtime.
+        """
+        super().__init__(func, name, is_array_func)
+
+        ### PUBLIC
+        self.order: int = order
+
+        ### PRIVATE
+        self._prevaluated: bool = preval
+        self._table: pp.InterpolationTable
+
+        if self.order == 1:
+            if self._prevaluated:
+                self._table = pp.InterpolationTable(min_val, max_val, npt, func)
+            else:
+                self._table = pp.AdaptiveInterpolationTable(min_val, max_val, npt, func)
+        else:
+            raise NotImplementedError("Interpolation of order %i not implemented."
+                & (self.order)
+            )
+
+    def get_values(self, *args: Ad_array) -> np.ndarray:
+        # stacking argument values vertically for interpolation
+        X = np.vstack([x.val for x in args])
+        return self._table.interpolate(X)
+    
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+
+        # get points at which to evaluate the differentiation
+        X = np.vstack([x.val for x in args])
+        # allocate zero matrix for Jacobian with correct dimensions
+        dX = 0. * args[0].jac
+
+        for axis, arg in enumerate(args):
+            # get derivative with respect to each variable
+            dx = self._table.diff(X, axis)[0]
+            # The trivial Jacobian of one argument gives us the right position for the
+            # entries as ones
+            partial_jac = arg.jac
+            # replace the ones with actual values
+            partial_jac[partial_jac != 0] = dx
+
+            dX += partial_jac
+
+        return sps.csr_matrix(dX)
 
 ### FUNCTION DECORATOR ------------------------------------------------------------------------
 
