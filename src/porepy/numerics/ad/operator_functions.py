@@ -314,10 +314,10 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
 class InterpolatedFunction(AbstractFunction):
     """Represents the passed function as an interpolation of chosen order on a rectangular,
     uniform grid.
-    
+
     The image of the function is expected to be of dimension 1, while the domain can be
     multidimensional.
-    
+
     """
 
     def __init__(
@@ -341,8 +341,9 @@ class InterpolatedFunction(AbstractFunction):
             max_val: upper bound for the domain
             npt: number of interpolation points per dimension of the domain
             order: Order of interpolation. Supports currently only linear order.
-            preval (default=False): If True, pre-evaluates the values of the function at the points
-                of interpolation and stores them. If False, evaluates them if necessary.
+            preval (default=False): If True, pre-evaluates the values of the function at
+                the points of interpolation and stores them.
+                If False, evaluates them if necessary.
                 Influences the runtime.
         """
         super().__init__(func, name, is_array_func)
@@ -360,21 +361,21 @@ class InterpolatedFunction(AbstractFunction):
             else:
                 self._table = pp.AdaptiveInterpolationTable(min_val, max_val, npt, func)
         else:
-            raise NotImplementedError("Interpolation of order %i not implemented."
-                & (self.order)
+            raise NotImplementedError(
+                f"Interpolation of order {self.order} not implemented."
             )
 
     def get_values(self, *args: Ad_array) -> np.ndarray:
         # stacking argument values vertically for interpolation
         X = np.vstack([x.val for x in args])
         return self._table.interpolate(X)
-    
+
     def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
 
         # get points at which to evaluate the differentiation
         X = np.vstack([x.val for x in args])
         # allocate zero matrix for Jacobian with correct dimensions
-        dX = 0. * args[0].jac
+        dX = 0.0 * args[0].jac
 
         for axis, arg in enumerate(args):
             # get derivative with respect to each variable
@@ -388,6 +389,7 @@ class InterpolatedFunction(AbstractFunction):
             dX += partial_jac
 
         return sps.csr_matrix(dX)
+
 
 ### FUNCTION DECORATOR ------------------------------------------------------------------------
 
