@@ -11,8 +11,8 @@ Moreover, for each model, the parameters are checked at two stages, namely befor
 the model and after running the model.
 
 Note that only parameters belonging to the specific class are tested. This means that
-inhereted parameters are not tested as this would be too cumbersome (and redundant).
-However, this naturally requires writing tests for all present models.ß
+inherited parameters are not tested as this would be too cumbersome (and redundant).
+However, this naturally requires writing tests for all present models.
 
 Todo:
     Create tests for the rest of the models.
@@ -26,7 +26,7 @@ from typing import Union
 
 
 class TestContactMechanicsBiot:
-    """The following tests check the correct setup of the ContactMechanicsBiot classß."""
+    """The following tests check the correct setup of the ContactMechanicsBiot class."""
 
     # ----------> Setting up parameters corresponding to the test of default parameters
     model_params = []
@@ -135,7 +135,7 @@ class TestContactMechanicsBiot:
     sd_sec = mdg.subdomains(dim=1)[0]
     data_sec = mdg.subdomain_data(sd_sec)
     intf = mdg.interfaces(dim=1)[0]
-    data_inf = mdg.interface_data(intf)
+    data_intf = mdg.interface_data(intf)
 
     # -----> Time parameters
     time_steps = [2.0, 5.0, 100.0]
@@ -321,41 +321,27 @@ class TestContactMechanicsBiot:
     bc_mech_type_primary = [bc_type_prim_0, bc_type_prim_1, bc_type_prim_2]
 
     # -----> Mechanics bc values
-    ones = np.ones(sd_prim.num_faces)
+    zeros = np.zeros(sd_prim.num_faces)
 
     # Case 0
-    bc_val_prim_0 = np.array([0 * ones, 0 * ones])
+    bc_val_prim_0 = np.array([zeros, zeros])
     bc_val_prim_0[0, east] = 0.01
-    bc_val_prim_0[1, east] = 0
     bc_val_prim_0[0, west] = -0.01
-    bc_val_prim_0[1, west] = 0
-    bc_val_prim_0[0, south] = 0
-    bc_val_prim_0[1, south] = 0
-    bc_val_prim_0[0, north] = 0
     bc_val_prim_0[1, north] = 0.01
     bc_val_prim_0 = np.ravel(bc_val_prim_0, "F")
 
     # Case 1
-    bc_val_prim_1 = np.array([0 * ones, 0 * ones])
+    bc_val_prim_1 = np.array([zeros, zeros])
     bc_val_prim_1[0, east] = -0.01
-    bc_val_prim_1[1, east] = 0
     bc_val_prim_1[0, west] = 0.01
-    bc_val_prim_1[1, west] = 0
-    bc_val_prim_1[0, south] = 0
     bc_val_prim_1[1, south] = -0.01
-    bc_val_prim_1[0, north] = 0
-    bc_val_prim_1[1, north] = 0
     bc_val_prim_1 = np.ravel(bc_val_prim_1, "F")
 
     # Case 2
-    bc_val_prim_2 = np.array([0 * ones, 0 * ones])
+    bc_val_prim_2 = np.array([zeros, zeros])
     bc_val_prim_2[0, east] = 0.01
-    bc_val_prim_2[1, east] = 0
     bc_val_prim_2[0, west] = -0.01
-    bc_val_prim_2[1, west] = 0
-    bc_val_prim_2[0, south] = 0
     bc_val_prim_2[1, south] = 0.1
-    bc_val_prim_2[0, north] = 0
     bc_val_prim_2[1, north] = -0.1
     bc_val_prim_2 = np.ravel(bc_val_prim_2, "F")
 
