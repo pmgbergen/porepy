@@ -12,13 +12,17 @@ _Put an `x` in the boxes that apply_
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Testing (contribution related mainly to testing of existing functionality)
 - [ ] Documentation update (if none of the other choices apply)
+- [ ] Other: 
 
 ## Checklist
 
-_Put an `x` in the boxes that apply. You can also fill these out after creating the PR._
-- [ ] There are (new and/or old) tests that prove my fix is effective or that my feature works
-- [ ] I have added necessary documentation 
-- [ ] I have checked that I have not duplicated existing functionality
+_Enter one &check; (`&check;`) in each row. The table can be updated after creating the PR._
+
+||Yes|No|NA|
+|---|---|---|---|
+|The update is covered by the  test suite |_|_|_|
+|The documentation is up-to-date |_|_|_|
+|I have not duplicated existing functionality |_|_|_|
 
 ## Further comments
 
