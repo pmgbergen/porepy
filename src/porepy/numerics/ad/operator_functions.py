@@ -22,6 +22,7 @@ from .operators import Operation, Operator, Tree
 __all__ = [
     "Function",
     "DiagonalJacobianFunction",
+    "InterpolatedFunction",
     "ADmethod",
 ]
 
@@ -119,16 +120,16 @@ class AbstractFunction(Operator):
     def __truediv__(self, other):
         raise RuntimeError("ad.Operator functions should only be called, not divided.")
 
-    def parse(self, gb: pp.GridBucket):
+    def parse(self, md: pp.MixedDimensionalGrid):
         """Parsing to a numerical value.
 
         The real work will be done by combining the function with arguments, during
         parsing of an operator tree.
 
         Parameters:
-        :param gb: Mixed-dimensional grid. Not used, but it is needed as input to be
+        :param md: Mixed-dimensional grid. Not used, but it is needed as input to be
             compatible with parse methods for other operators.
-        :type gb: :class:`~porepy.GridBucket`
+        :type md: :class:`~porepy.MixedDimensionalGrid`
 
         :return: the instance itself
         """
@@ -227,6 +228,33 @@ class Function(AbstractFunction):
         return result.jac
 
 
+class ConstantFunction(AbstractFunction):
+    """ "Function representing constant, scalar values with no dependencies,
+    i.e. zero Jacobian.
+    """
+
+    def __init__(self, values: np.ndarray, name: str):
+        # dummy function, takes whatever and returns only the pre-set values
+        def func(*args):
+            return values
+
+        super().__init__(func, name)
+        # TODO check if distinguishing between global scalar, cell-wise scalar,
+        # vector per cell and 2nd-order-tensor per cell is necessary
+        self._values = values
+
+    def get_values(self, *args: Ad_array) -> np.ndarray:
+        """Returns the values passed at instantiation."""
+        return self._values
+
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+        """Returns the trivial derivative of a constant."""
+        # NOTE it's not a sparse matrix as imposed by the parent method signature,
+        # but the multiplication with a zero always works with any numeric format in
+        # numpy, scipy
+        return 0.0
+
+
 class DiagonalJacobianFunction(AbstractJacobianFunction):
     """
     Approximates the Jacobian of the function using the a diagonal matrix and a scalar
@@ -235,9 +263,9 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
 
     def __init__(
         self,
-        multipliers: Union[List[float], float],
         func: Callable,
         name: str,
+        multipliers: Union[List[float], float],
         is_vector_func: bool = False,
     ):
         """Constructor.
@@ -281,6 +309,86 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
             jac = 0.0
 
         return jac
+
+
+class InterpolatedFunction(AbstractFunction):
+    """Represents the passed function as an interpolation of chosen order on a rectangular,
+    uniform grid.
+
+    The image of the function is expected to be of dimension 1, while the domain can be
+    multidimensional.
+
+    """
+
+    def __init__(
+        self,
+        func: Callable,
+        name: str,
+        min_val: np.ndarray,
+        max_val: np.ndarray,
+        npt: np.ndarray,
+        order: int = 1,
+        preval: bool = False,
+        is_array_func: bool = False,
+    ):
+        """
+        All vector-valued ndarray arguments are assumed to be column vectors.
+        Each row-entry represents value for a parameter of the passed ``func`` in
+        respective order.
+
+        Args:
+            min_val: lower bounds for the domain of ``func``.
+            max_val: upper bound for the domain
+            npt: number of interpolation points per dimension of the domain
+            order: Order of interpolation. Supports currently only linear order.
+            preval (default=False): If True, pre-evaluates the values of the function at
+                the points of interpolation and stores them.
+                If False, evaluates them if necessary.
+                Influences the runtime.
+        """
+        super().__init__(func, name, is_array_func)
+
+        ### PUBLIC
+        self.order: int = order
+
+        ### PRIVATE
+        self._prevaluated: bool = preval
+        self._table: pp.InterpolationTable
+
+        if self.order == 1:
+            if self._prevaluated:
+                self._table = pp.InterpolationTable(min_val, max_val, npt, func)
+            else:
+                self._table = pp.AdaptiveInterpolationTable(min_val, max_val, npt, func)
+        else:
+            raise NotImplementedError(
+                f"Interpolation of order {self.order} not implemented."
+            )
+
+    def get_values(self, *args: Ad_array) -> np.ndarray:
+        # stacking argument values vertically for interpolation
+        X = np.vstack([x.val for x in args])
+        return self._table.interpolate(X)
+
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+
+        # get points at which to evaluate the differentiation
+        X = np.vstack([x.val for x in args])
+        # allocate zero matrix for Jacobian with correct dimensions
+        dX = 0.0 * args[0].jac
+
+        for axis, arg in enumerate(args):
+            # get derivative with respect to each variable
+            dx = self._table.diff(X, axis)[0]
+            # The trivial Jacobian of one argument gives us the right position for the
+            # entries as ones
+            partial_jac = arg.jac
+            # replace the ones with actual values
+            partial_jac[partial_jac != 0] = dx
+
+            dX += partial_jac
+
+        return sps.csr_matrix(dX)
 
 
 ### FUNCTION DECORATOR ------------------------------------------------------------------------
@@ -351,7 +459,7 @@ class ADmethod:
         # keyword arguments for call to constructor of operator type
         self._op_kwargs = operator_kwargs
 
-    def __call__(self, *args, **kwargs) -> Union["ADmethod", "pp.ad.Operator"]:
+    def __call__(self, *args, **kwargs) -> Union[ADmethod, pp.ad.Operator]:
         """
         Wrapper factory.
         The decorated object is wrapped and/or evaluated here.
@@ -401,35 +509,6 @@ class ADmethod:
 
         return wrapped_function
 
-    def ad_wrapper(self, *args, **kwargs):
-        """
-        Actual wrapper function.
-        Constructs the necessary AD-Operator class and performs the evaluation.
-        """
-        # extra safety measure to ensure a a bound call is done to the right, binding instance.
-        # We pass only the binding instance referenced in the descriptor protocol.
-        if self._bound_to is None:
-            operator_func = self._func
-        else:
-            # partial evaluation of a bound function,
-            # since the AD operator has no reference to binding instance
-            operator_func = partial(self._func, self._bound_to)
-
-        # Resulting AD operator has a special name to mark its origin
-        if "name" not in self._op_kwargs.keys():
-            name = "ADmethod-"
-            name += (
-                str(self._ad_func_type.__qualname__)
-                + "-decorating-"
-                + str(self._func.__qualname__)
-            )
-            self._op_kwargs.update({"name": name})
-
-        # calling the operator
-        wrapping_operator = self._ad_func_type(func=operator_func, **self._op_kwargs)
-
-        return wrapping_operator(*args, **kwargs)
-
     def __get__(self, binding_instance: object, binding_type: type):
         """
         Descriptor protocol.
@@ -458,3 +537,32 @@ class ADmethod:
         # a partial call to the decorator is returned, not the decorator itself.
         # This will trigger the function evaluation.
         return partial(self.__call__, binding_instance)
+
+    def ad_wrapper(self, *args, **kwargs):
+        """
+        Actual wrapper function.
+        Constructs the necessary AD-Operator class and performs the evaluation.
+        """
+        # extra safety measure to ensure a a bound call is done to the right, binding instance.
+        # We pass only the binding instance referenced in the descriptor protocol.
+        if self._bound_to is None:
+            operator_func = self._func
+        else:
+            # partial evaluation of a bound function,
+            # since the AD operator has no reference to binding instance
+            operator_func = partial(self._func, self._bound_to)
+
+        # Resulting AD operator has a special name to mark its origin
+        if "name" not in self._op_kwargs.keys():
+            name = "ADmethod-"
+            name += (
+                str(self._ad_func_type.__qualname__)
+                + "-decorating-"
+                + str(self._func.__qualname__)
+            )
+            self._op_kwargs.update({"name": name})
+
+        # calling the operator
+        wrapping_operator = self._ad_func_type(func=operator_func, **self._op_kwargs)
+
+        return wrapping_operator(*args, **kwargs)
