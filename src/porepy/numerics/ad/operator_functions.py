@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import abc
 from functools import partial
-from types import FunctionType
-from typing import Callable, List, Optional, Type, Union
+from typing import Callable, List, Type, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -429,9 +428,9 @@ class ADmethod:
 
     def __init__(
         self,
-        func: FunctionType = None,
+        func: Callable = None,
         ad_function_type: Type["AbstractFunction"] = Function,
-        operator_kwargs: Optional[dict] = {},
+        operator_kwargs: dict = {},
     ) -> None:
         """
         Decorator class constructor.
@@ -522,7 +521,7 @@ class ADmethod:
         instance, this getter is called and returns a partially evaluated call to this
         instance instead.
         By calling this instance this way, we can save a reference to the `self`
-        argument of the decorated class method and pass is as an argument to the
+        argument of the decorated class method and pass it as an argument to the
         decorated method.
 
         The reason why this is necessary is due to the fact, that class methods
@@ -547,6 +546,9 @@ class ADmethod:
         Actual wrapper function.
         Constructs the necessary AD-Operator class and performs the evaluation.
         """
+        # Make sure proper assignment of callable was made
+        assert self._func is not None
+
         # extra safety measure to ensure a bound call is done to the right binding instance.
         # We pass only the binding instance referenced in the descriptor protocol.
         if self._bound_to is None:
