@@ -11,8 +11,8 @@ However, the following may serve as a general suggestion:
 1. [introduction](./introduction.ipynb) describes the overarching conceptual framework and its high-level implementation and lists some problems which may be solved using PorePy.
 2. [grid_structure](./grid_structure.ipynb) describes the structure of individual grids. It demonstrates construction of different types of grids. It also dives into the data structure, and shows how to access and manipulate grid quantities.
 3. [meshing_of_fractures](./meshing_of_fractures.ipynb) describes the construction of mixed-dimensional grids representing a fracture network and the surrounding porous medium.
-4. [algorithmic_differentiation](./algorithmic_differentiation.ipynb) provides an introduction to algorithmic differentiation (AD) and how to solve a generic equation using the AD framework. The tutorial includes setup of parameters and discretizations.
-5. [incompressible_flow_model](incompressible_flow_model.ipynb) describes how to use a model class `Incompressible Flow`. The tutorial exposes several extensions and how to solve a mixed-dimensional problem with a few lines of code.
+4. [automatic_differentiation](./automatic_differentiation.ipynb) provides an introduction to automatic differentiation (AD) and how to solve a generic equation using the AD framework. The tutorial includes setup of parameters and discretizations.
+5. [incompressible_flow_model](./incompressible_flow_model.ipynb) describes how to use a model class `Incompressible Flow`. The tutorial exposes several extensions and how to solve a mixed-dimensional problem with a few lines of code.
 
 More specific tutorials are also available:
 
