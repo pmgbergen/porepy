@@ -373,21 +373,22 @@ class InterpolatedFunction(AbstractFunction):
 
         # get points at which to evaluate the differentiation
         X = np.vstack([x.val for x in args])
-        # allocate zero matrix for Jacobian with correct dimensions
+        # allocate zero matrix for Jacobian with correct dimensions and in CSR format
         dX = 0.0 * args[0].jac
 
         for axis, arg in enumerate(args):
-            # get derivative with respect to each variable
-            dx = self._table.diff(X, axis)[0]
-            # The trivial Jacobian of one argument gives us the right position for the
+            # The trivial Jacobian of one argument gives us the correct position for the
             # entries as ones
             partial_jac = arg.jac
             # replace the ones with actual values
-            partial_jac[partial_jac != 0] = dx
+            # Since csr, we can simply replace the data array with the values of the derivative
+            partial_jac.data = self._table.diff(X, axis)[0]
+            # partial_jac[partial_jac != 0] = self._table.diff(X, axis)[0]
 
+            # add blocks to complete Jacobian
             dX += partial_jac
 
-        return sps.csr_matrix(dX)
+        return dX
 
 
 ### FUNCTION DECORATOR ------------------------------------------------------------------------
