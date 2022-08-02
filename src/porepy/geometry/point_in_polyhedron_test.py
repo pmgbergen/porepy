@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 
 
-class PointInPolyhedronTest(object):
+class PointInPolyhedronTest:
     """This class implements a robust point in polyhedron test supporting non-convex
         polyhedra.
 
@@ -19,6 +19,7 @@ class PointInPolyhedronTest(object):
         connectivity (np.ndarray num_triangles x 3): Triangulation connectivity map.
         tol (float, optional): Geometric tolerance, used in comparison of
             points, areas and volumes. Defaults to 1e-10.
+
     """
 
     def __init__(
@@ -52,6 +53,7 @@ class PointInPolyhedronTest(object):
                 coincides with a vertex
                 is collinear with the vertices
                 is coplanar with the vertices
+
         Returns:
             angle (float): The solid angle measured in [Steradians]
 
