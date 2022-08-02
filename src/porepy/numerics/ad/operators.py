@@ -2,6 +2,7 @@
 """
 
 import copy
+import numbers
 from enum import Enum
 from itertools import count
 from typing import Any, Dict, List, Optional, Union
@@ -399,11 +400,11 @@ class Operator:
                 # If the first item is an Ad array, the implementation of the forward
                 # mode should take care of everything.
                 return results[0] / results[1]
-            elif isinstance(results[0], np.ndarray):
-                # The first array is a numpy array, and numpy's implementation of
-                # division will be invoked.
-                if isinstance(results[1], np.ndarray):
-                    # Both items are numpy arrays, everything is fine.
+            elif isinstance(results[0], (np.ndarray, sps.spmatrix)):
+                # if the first array is a numpy array or sparse matrix,
+                # then numpy's implementation of division will be invoked.
+                if isinstance(results[1], (np.ndarray, numbers.Real)):
+                    # Both items are numpy arrays or scalars, everything is fine.
                     return results[0] / results[1]
                 elif isinstance(results[1], pp.ad.Ad_array):
                     # Numpy cannot deal with division with an Ad_array. Instead multiply
@@ -413,8 +414,20 @@ class Operator:
                     # numpy functions in this way is not clear to EK.
                     return (results[0] * results[1] ** -1)[0]
                 else:
-                    # Not sure what this will cover, but results[1] being a float etc.
-                    # could end up here (and is easily covered).
+                    # Not sure what this will cover. We have to wait for it to happen.
+                    raise NotImplementedError(
+                        "Encountered a case not covered when dividing Ad objects"
+                    )
+            elif isinstance(results[0], numbers.Real):
+                # if the dividend is a number, the divisor has to be an Ad_array,
+                # otherwise the overloaded division wouldn't have been invoked
+                # We use the same strategy as in above case where the divisor is an Ad_array
+                if isinstance(results[1], pp.ad.Ad_array):
+                    # See remarks by EK in case ndarray / Ad_array
+                    return (results[0] * results[1] ** -1)[0]
+                else:
+                    # In case above argument, that the divisor can only be an Ad_array,
+                    # is wrong
                     raise NotImplementedError(
                         "Encountered a case not covered when dividing Ad objects"
                     )
@@ -595,7 +608,11 @@ class Operator:
         return self.__add__(other)
 
     def __rsub__(self, other):
-        return self.__sub__(other)
+        # consider the expression a-b. right-subtraction means self == b
+        children = self._parse_other(other)
+        # we need to change the order here since a-b != b-a
+        children = [children[1], children[0]]
+        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
 
     def evaluate(
         self,
