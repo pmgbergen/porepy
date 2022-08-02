@@ -358,9 +358,6 @@ def test_1d_ambient_dim_3(method):
     g_x = np.zeros(g.num_cells * ambient_dim)
     g_x[::ambient_dim] = -1 * grav_strength  # /2 * dx
     p_x = np.linalg.pinv(A.toarray()).dot(rhs * g_x)
-    print(dx)
-    print(vector_source_discr.toarray())
-    print(flux.toarray())
 
     # The solution should decrease with increasing x coordinate, with magnitude
     # controlled by grid size and source stregth
