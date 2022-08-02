@@ -416,7 +416,7 @@ class ContactMechanics(AbstractModel):
             self.assembler: pp.Assembler = pp.Assembler(self.mdg, self.dof_manager)
 
         self._discretize()
-        self._initialize_linear_solver()  # TODO: Purge method from standard models?
+        self._initialize_linear_solver()
 
         self.exporter = pp.Exporter(
             self.mdg,
