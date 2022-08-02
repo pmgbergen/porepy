@@ -59,6 +59,7 @@ from porepy.geometry import (
     constrain_geometry,
     map_geometry,
     geometry_property_checks,
+    point_in_polyhedron_test,
     bounding_box,
     half_space,
 )
