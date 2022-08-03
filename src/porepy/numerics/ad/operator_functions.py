@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import abc
 from functools import partial
-from types import FunctionType
-from typing import Callable, List, Optional, Type, Union
+from typing import Callable, List, Type, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -374,21 +373,22 @@ class InterpolatedFunction(AbstractFunction):
 
         # get points at which to evaluate the differentiation
         X = np.vstack([x.val for x in args])
-        # allocate zero matrix for Jacobian with correct dimensions
+        # allocate zero matrix for Jacobian with correct dimensions and in CSR format
         dX = 0.0 * args[0].jac
 
         for axis, arg in enumerate(args):
-            # get derivative with respect to each variable
-            dx = self._table.diff(X, axis)[0]
-            # The trivial Jacobian of one argument gives us the right position for the
+            # The trivial Jacobian of one argument gives us the correct position for the
             # entries as ones
             partial_jac = arg.jac
             # replace the ones with actual values
-            partial_jac[partial_jac != 0] = dx
+            # Since csr, we can simply replace the data array with the values of the derivative
+            partial_jac.data = self._table.diff(X, axis)[0]
+            # partial_jac[partial_jac != 0] = self._table.diff(X, axis)[0]
 
+            # add blocks to complete Jacobian
             dX += partial_jac
 
-        return sps.csr_matrix(dX)
+        return dX
 
 
 ### FUNCTION DECORATOR ------------------------------------------------------------------------
@@ -411,7 +411,8 @@ class ADmethod:
         # decorating class methods
         class IdealGas:
 
-            @ADmethod(ad_operator=pp.ad.LJacFunction, operators_args={"L"=[1,1]})
+            @ADmethod(ad_operator=pp.ad.DiagonalJacobianFunction,
+                      operators_args={"multipliers"=[1,1]})
             def density(self, p: float, T: float) -> float:
                 return p/T
 
@@ -428,9 +429,9 @@ class ADmethod:
 
     def __init__(
         self,
-        func: FunctionType = None,
+        func: Callable = None,
         ad_function_type: Type["AbstractFunction"] = Function,
-        operator_kwargs: Optional[dict] = {},
+        operator_kwargs: dict = {},
     ) -> None:
         """
         Decorator class constructor.
@@ -467,16 +468,17 @@ class ADmethod:
         Dependent on whether the decorated function is a method belonging to a class,
         or an unbound function, the wrapper will have a different signature.
 
-        If bound to a class instance, the wrapper will include a partial function, where the
-        instance of the class was already passed beforehand.
+        If bound to a class instance, the wrapper will include a partial function, where
+        the instance of the class was already passed beforehand.
+
         """
-        # if decorated without explicit init,
-        # the function is passed during a call to the decorator as first argument
+        # If decorated without explicit init, the function is passed during a call to
+        # the decorator as first argument.
         if self._func is None:
             self._func = args[0]
 
-        # if an explicit init was made,
-        # mimic a non-explicit init to get an object with descriptor protocol
+        # If an explicit init was made, mimic a non-explicit init to get an object with
+        # the descriptor protocol.
         if self._explicit_init:
             # TODO VL: check if the ADmethod instance whose __call__ is executed right now
             # gets properly de-referenced and deleted, or if it remains hidden in the memory
@@ -486,8 +488,8 @@ class ADmethod:
                 operator_kwargs=self._op_kwargs,
             )
 
-        # without an explicit init, the first decorator itself replaces the decorated function
-        # This results in a call to ADmethod.__call__ instead of
+        # Without an explicit init, the first decorator itself replaces the decorated
+        # function. This results in a call to ADmethod.__call__ instead of
         # a call to the decorated function
 
         # when calling the decorator, distinguish between bound method call
@@ -509,41 +511,46 @@ class ADmethod:
 
         return wrapped_function
 
-    def __get__(self, binding_instance: object, binding_type: type):
+    def __get__(self, binding_instance: object, binding_type: type) -> Callable:
         """
         Descriptor protocol.
 
-        If this ADmethod decorates a class method (and effectively replaces it), it will bound
-        to the class instance, similar to bound methods
+        If this ADmethod decorates a class method (and effectively replaces it), it will
+        be bound to the class instance, similar to bound methods.
 
-        Every time this instance is syntactically accessed as an attribute of the
-        class instance, this getter is called and returns a partially evaluated call
-        to this instance instead.
-        By calling this instance this way, we can save a reference to the `self` argument of
-        the decorated class method and pass is as an argument to the decorated method.
+        Every time this instance is syntactically accessed as an attribute of the class
+        instance, this getter is called and returns a partially evaluated call to this
+        instance instead.
+        By calling this instance this way, we can save a reference to the `self`
+        argument of the decorated class method and pass it as an argument to the
+        decorated method.
 
-        The reason why this is necessary is due to the fact, that  class methods
+        The reason why this is necessary is due to the fact, that class methods
         are always passed in unbound form to the decorator when the code is
         evaluated
-        (i.e. they don't have a reference to the `self` argument, contrary to bound methods)
+        (i.e. they don't have a reference to the `self` argument, contrary to bound
+         methods)
 
         :param binding_instance: instance for binding this object's call to it.
         :type binding_instance: Any
         :param binding_type: type variable of the binding instance
         :type binding_type: type
         """
-        # safe a reference to the binding instance
+        # Save a reference to the binding instance
         self._bound_to = binding_instance
-        # a partial call to the decorator is returned, not the decorator itself.
+        # A partial call to the decorator is returned, not the decorator itself.
         # This will trigger the function evaluation.
         return partial(self.__call__, binding_instance)
 
-    def ad_wrapper(self, *args, **kwargs):
+    def ad_wrapper(self, *args, **kwargs) -> AbstractFunction:
         """
         Actual wrapper function.
         Constructs the necessary AD-Operator class and performs the evaluation.
         """
-        # extra safety measure to ensure a a bound call is done to the right, binding instance.
+        # Make sure proper assignment of callable was made
+        assert self._func is not None
+
+        # extra safety measure to ensure a bound call is done to the right binding instance.
         # We pass only the binding instance referenced in the descriptor protocol.
         if self._bound_to is None:
             operator_func = self._func
