@@ -1208,7 +1208,7 @@ class Tree:
     def __init__(
         self,
         operation: Operation,
-        children: Optional[List[Union[Operator, Ad_array]]] = None
+        children: Optional[List[Union[Operator, Ad_array]]] = None,
     ):
 
         self.op = operation
