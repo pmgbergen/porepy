@@ -25,23 +25,20 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
       - name: Build and push base
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: ./
           file: ./dockerfiles/base/Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/porepy/base:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/porepy:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/porepy:buildcache,mode=max
 
       - name: Build and push dev
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           context: ./
           file: ./dockerfiles/dev/Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/porepy/dev:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/porepy:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/porepy:buildcache,mode=max
+
