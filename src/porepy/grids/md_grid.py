@@ -867,10 +867,15 @@ class MixedDimensionalGrid:
         s += f"Total number of interfaces: {self.num_subdomains()}\n"
         for dim in range(self.dim_max(), self.dim_min(), -1):
             num_e = 0
-            for _ in self.interfaces(dim=dim):
+            nc = 0
+            for mg in self.interfaces(dim=dim - 1):
                 num_e += 1
+                nc += mg.num_cells
 
-            s += f"{num_e} interfaces between grids of dimension {dim} and {dim-1}\n"
+            s += (
+                f"{num_e} interfaces between grids of dimension {dim} and {dim-1} with"
+                f" in total {nc} cells\n"
+            )
         return s
 
     def __repr__(self) -> str:
@@ -893,7 +898,7 @@ class MixedDimensionalGrid:
             for dim in range(self.dim_max(), self.dim_min(), -1):
                 num_intf = 0
                 num_intf_cells = 0
-                for intf in self.interfaces(dim=dim):
+                for intf in self.interfaces(dim=dim - 1):
                     num_intf += 1
                     num_intf_cells += intf.num_cells
 
