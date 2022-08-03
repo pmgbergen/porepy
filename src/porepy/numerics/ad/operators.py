@@ -1213,11 +1213,11 @@ class Tree:
 
         self.op = operation
 
-        self.children: List[Operator] = []
+        self.children: List[Union[Operator, Ad_array]] = []
         if children is not None:
             for child in children:
                 self.add_child(child)
 
-    def add_child(self, node: Operator) -> None:
+    def add_child(self, node: Union[Operator, Ad_array]) -> None:
         #        assert isinstance(node, (Operator, "pp.ad.Operator"))
         self.children.append(node)
