@@ -59,31 +59,19 @@ WORKDIR ${POREPY_SRC}/dockerfiles
 
 ### Set up the conda environment
 
-# Copy the file environment.yml from host into the container if it exists.
-# Copying the dockerfile is necessary to avoid errors environment.yml
-# does not exist, and the * and / in hte below expression are also necessary.
-# Source: https://redgreenrepeat.com/2018/04/13/how-to-conditionally-copy-file-in-dockerfile/
+# First, install pyyaml. This we do with pip since installing with
+# conda at this stage gave strange error messages (installation will only
+# have effect in the conda base environment).
+RUN pip install pyyaml
 
-# First make sure there is a file environment (if this is empty, the below
-# parsing will assign sensible values)
-RUN touch ${TMP_DIR}/environment.yml
-
-# Then copy the environment file from the host if it exists
-COPY environment.yml* ${TMP_DIR}/
-
-# Copy the parse_environment file from the PorePy directory to /tmp
-RUN cp ${POREPY_SRC}/dockerfiles/parse_environment.py ${TMP_DIR}
+RUN cp environment.yml ${TMP_DIR}
+#RUN python ${POREPY_SRC}/dockerfiles/parse_environment.py .
 WORKDIR ${TMP_DIR}
 
 # Modify the environment file to:
 #  1) Ensure that the environment name is pp_env; if not, below commands
 #     are invalid.
 #  2) Set a version of Python, if not specified.
-
-# First, install pyyaml. This we do with pip since installing with
-# conda at this stage gave strange error messages (installation will only
-# have effect in the conda base environment).
-RUN pip install pyyaml
 
 # Prepare Conda to work with bash
 RUN conda init bash
