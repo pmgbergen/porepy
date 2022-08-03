@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 import configparser
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 
 # Try to read the config file from the directory where python process was launched
@@ -59,6 +59,7 @@ from porepy.geometry import (
     constrain_geometry,
     map_geometry,
     geometry_property_checks,
+    point_in_polyhedron_test,
     bounding_box,
     half_space,
 )

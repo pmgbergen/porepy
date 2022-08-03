@@ -38,8 +38,5 @@ If the apt install doesn't work, try the followig:
 - Install pymetis via `pip install pymetis`
 
 
-## Point-in-polyhedron test
-Some functionality depends on a point-in-polyhedron test. The PorePy function that provides this is located in pp.geometry.geometry_property_checks.point_in_polyhedron(). The only robust test, with reasonable installation, we are aware of is available [here](https://github.com/mdickinson/polyhedron/blob/master/polyhedron.py). Unfortunately, the file is not available through pip or conda. Instead, run `python fetch_content.py` for downloading and placing the file (polyhedron.py) in python's site-packages directory with name 'robust_point_in_polyhedron.py'. The PorePy function point_in_polyhedron() then acts as a wrapper around this external package, which provides a `Polyhedron` class.
-
 ## Paraview
 The bulk of the visualization in 3D relies on the visualization toolkit [(VTK)](https://github.com/Kitware/VTK) and a visualization client, which [Paraview](https://www.paraview.org/) is likely the most widely used.
