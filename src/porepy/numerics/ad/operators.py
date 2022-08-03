@@ -298,7 +298,7 @@ class Operator:
                 else:
                     return self._ad[op.id]
         elif isinstance(op, pp.ad.Ad_array):
-            # When using nested pp.ad.Function, op can be an already evaluated term.
+            # When using nested operator functions, op can be an already evaluated term.
             # Just return it.
             return op
 
@@ -444,7 +444,7 @@ class Operator:
             func_op = results[0]
 
             # if the callable can be fed with Ad_arrays, do it
-            if func_op.is_adarray_func:
+            if func_op.ad_compatible:
                 return func_op.func(*results[1:])
             else:
                 # This should be a Function with approximated Jacobian and value.
@@ -1205,15 +1205,19 @@ class Tree:
     """
 
     # https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
-    def __init__(self, operation: Operation, children: Optional[List[Operator]] = None):
+    def __init__(
+        self,
+        operation: Operation,
+        children: Optional[List[Union[Operator, Ad_array]]] = None,
+    ):
 
         self.op = operation
 
-        self.children: List[Operator] = []
+        self.children: List[Union[Operator, Ad_array]] = []
         if children is not None:
             for child in children:
                 self.add_child(child)
 
-    def add_child(self, node: Operator) -> None:
+    def add_child(self, node: Union[Operator, Ad_array]) -> None:
         #        assert isinstance(node, (Operator, "pp.ad.Operator"))
         self.children.append(node)
