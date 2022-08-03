@@ -31,7 +31,7 @@ jobs:
           file: ./dockerfiles/base/Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/porepy/base:latest
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/base:latest
 
       - name: Build and push dev
         uses: docker/build-push-action@v3
@@ -40,5 +40,5 @@ jobs:
           file: ./dockerfiles/dev/Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/porepy/dev:latest
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dev:latest
 
