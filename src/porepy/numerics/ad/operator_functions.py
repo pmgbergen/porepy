@@ -89,7 +89,7 @@ class AbstractFunction(Operator):
         self._operation: Operation = Operation.evaluate
         self._set_tree()
 
-    def __call__(self, *args: pp.ad.Operator):
+    def __call__(self, *args: Union[pp.ad.Operator, Ad_array]):
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
         Args:
