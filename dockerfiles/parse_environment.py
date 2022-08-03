@@ -1,4 +1,6 @@
-"""This script is used to modify a Conda environment.yml file
+"""THIS SCRIPT IS CURRENTLY NOT IN USE, BUT IS KEPT FOR LEGACY REASONS
+
+This script is used to modify a Conda environment.yml file
 so that it is compatible with installing the environment inside the
 Docker container with a PorePy installation.
 
