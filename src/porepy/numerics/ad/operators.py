@@ -444,7 +444,7 @@ class Operator:
             func_op = results[0]
 
             # if the callable can be fed with Ad_arrays, do it
-            if func_op.is_adarray_func:
+            if func_op.ad_compatible:
                 return func_op.func(*results[1:])
             else:
                 # This should be a Function with approximated Jacobian and value.
