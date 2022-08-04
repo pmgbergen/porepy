@@ -36,6 +36,9 @@ class InterpolationTable:
     The implementation may not be efficient, consider using functions from
     scipy.interpolate instead.
 
+    IMPLEMENTATION NOTE: Currently only scalar functions are supported,
+        i.e. dim(image(func)) = 1
+
     """
 
     def __init__(
@@ -56,8 +59,7 @@ class InterpolationTable:
             function (Callable): Function to represent in the table. Should be
                 vectorized (if necessary with a for-loop wrapper) so that multiple
                 coordinates can be evaluated at the same time.
-            dim (int, default=1): Dimension of the range of the function. Values above one
-                have not been much tested, use with care.
+            dim (int, default=1): Dimension of the range of the function.
 
         """
 
@@ -119,6 +121,15 @@ class InterpolationTable:
 
         """
 
+        # allocate value array
+        values: np.ndarray
+        if len(x.shape) > 1:
+            values = np.zeros((self.dim, x.shape[1]))
+        else:
+            # in case a single point in the function domain was passed as a row vector
+            x = x.reshape((-1, 1))
+            values = np.zeros((self.dim, 1))
+
         # Get indices of the base vertexes of the hypercubes where the function
         # is to be evaluated. The base vertex is in the (generalized) lower-left
         # corner of the cube.
@@ -139,13 +150,8 @@ class InterpolationTable:
                 right_weight * incr + left_weight * (1 - incr), axis=0
             )  # Not sure about self.dim > 1.
 
-            # Add this part of the function evaluation and store it
-            new_val = weight * self._values[:, eval_ind]
-            if i == 0:
-                # create array if this is the first iteration.
-                values: np.ndarray = new_val
-            else:
-                values += new_val
+            # Add this part of the function evaluation
+            values += weight * self._values[:, eval_ind]
 
         return values
 
@@ -162,6 +168,17 @@ class InterpolationTable:
             np.ndarray: Function values.
 
         """
+
+        # Allocate value array.
+        # This is consistent with the derivative w.r.t. to only one axis,
+        values: np.ndarray
+        if len(x.shape) > 1:
+            values = np.zeros((self.dim, x.shape[1]))
+        else:
+            # in case a single point in the function domain was passed as a row vector
+            x = x.reshape((-1, 1))
+            values = np.zeros((self.dim, 1))
+
         # Get indices of the base vertexes of the hypercubes where the function
         # is to be evaluated. The base vertex is in the (generalized) lower-left
         # corner of the cube.
@@ -169,9 +186,6 @@ class InterpolationTable:
         # Get weights in each dimension for the interpolation between the higher
         # (right) and base (left) coordinate.
         right_weight, left_weight = self._right_left_weights(x, base_ind)
-
-        # placeholder variable for the function evaluation
-        values = None
 
         # Loop over all vertexes in the hypercube. Evaluate the function in the
         # vertex with the relevant weight, and use a first order difference
@@ -191,17 +205,13 @@ class InterpolationTable:
             weight = np.prod(weight_ind, axis=0)
 
             # Add contribution from this vertex
-            new_val = weight * self._values[:, eval_ind]
-            if values is None:
-                values = new_val
-            else:
-                values += new_val
+            values += weight * self._values[:, eval_ind]
 
         # Denominator in the finite difference approximation.
         denominator = (
             self._pt[axis][base_ind[axis] + 1] - self._pt[axis][base_ind[axis]]
         )
-        #        breakpoint()
+
         return values / denominator
 
     def _find_base_vertex(self, coord: np.ndarray) -> np.ndarray:
