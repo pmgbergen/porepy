@@ -48,7 +48,7 @@ class InterpolationTable:
     ) -> None:
         """Constructor for the interpolation Table.
 
-        Parameters:
+        Args:
             low (np.ndarray): Minimum values of the domain boundary per dimension.
             high (np.ndarray): Maximum values of the domain boundary per dimension.
             npt (np.ndarray): Number of interpolation points (including endpoints
@@ -56,7 +56,7 @@ class InterpolationTable:
             function (Callable): Function to represent in the table. Should be
                 vectorized (if necessary with a for-loop wrapper) so that multiple
                 coordinates can be evaluated at the same time.
-            dim (int): Dimension of the range of the function. Values above one
+            dim (int, default=1): Dimension of the range of the function. Values above one
                 have not been much tested, use with care.
 
         """
@@ -86,6 +86,9 @@ class InterpolationTable:
             np.linspace(low[i], high[i], npt[i]) for i in range(self._param_dim)
         ]
 
+        # define the mesh size along each axis
+        self._h = (high - low) / (npt - 1)
+
         # Create interpolation grid.
         # The indexing, together with the Fortran-style raveling is necessary
         # to get a reasonable ordering of the expanded coefficients.
@@ -107,7 +110,7 @@ class InterpolationTable:
         """Perform interpolation on a Cartesian grid by a piecewise linear
         approximation.
 
-        Parameters:
+        Args:
             x (np.ndarray): Points to evaluate the function. Size dimension of
                 parameter space times number of points.
 
@@ -150,7 +153,7 @@ class InterpolationTable:
         """Perform differentiation on a Cartesian grid by a piecewise constant
         approximation.
 
-        Parameters:
+        Args:
             x (np.ndarray): Points to evaluate the function. Size dimension of
                 parameter space times number of points.
             axis (int): Axis to differentiate along.
@@ -202,28 +205,23 @@ class InterpolationTable:
         return values / denominator
 
     def _find_base_vertex(self, coord: np.ndarray) -> np.ndarray:
-        # Helper function to get the base (generalized lower-left) vertex of a
-        # hypercube.
+        """Helper function to get the base (generalized lower-left) vertex of a
+        hypercube.
 
-        ind = np.zeros(coord.shape, dtype=int)
+        """
 
-        # For each dimension, find the first index where coordinate in the
-        # interpolation grid is higher than that of the point to be evaluated.
-        # https://stackoverflow.com/questions/16243955/numpy-first-occurrence-of-value-greater-than-existing-value
-        for i in range(ind.shape[1]):
-            ind[:, i] = [np.argmax(pt > c) for (c, pt) in zip(coord[:, i], self._pt)]
+        ind = list()
+        # performing cartesian search per axis of the interpolation grid
+        for x_i, h_i, low_i, high_i in zip(coord, self._h, self._low, self._high):
+            # checking if any point is out of bound
+            if np.any(x_i < low_i) or np.any(high_i < x_i):
+                raise ValueError(
+                    f"Point(s) outside coordinate range [{self._low}, {self._high}]"
+                )
+            # cartesian search for uniform grid, floor division by mesh size
+            ind.append(((x_i - low_i) // h_i).astype(int))
 
-        # Adjust to get the last interpolation point with a lower coordinate
-        ind -= 1
-        # If a point is outside the interpolation grid, the argmax will return 0
-        # (either because the point is to the left, or it is to the right, which case
-        # the entire array to argmax is zero, thus the first value is 0)
-        if np.any(ind < 0):
-            raise ValueError(
-                f"Point outside coordinate range [{self._low}, {self._high}]"
-            )
-
-        return ind
+        return np.array(ind)
 
     def _generate_indices(
         self, base_ind: np.ndarray
@@ -246,10 +244,6 @@ class InterpolationTable:
     ) -> Tuple[np.ndarray, np.ndarray]:
         # For each dimension, find the interpolation weights to the right
         # and left sides
-
-        # Find corners of interpolation hypercube
-        base_ind = self._find_base_vertex(x)
-
         right_weight = np.array(
             [
                 (x[i] - self._pt[i][base_ind[i]])
