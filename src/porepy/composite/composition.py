@@ -93,6 +93,10 @@ class Composition:
         - Equilibrium calculations can be done cell-wise.
           I.e. the computations can be done smarter or parallelized. This is not yet exploited.
         - number of cells is assumed to be fixed and computed only once at instantiation.
+        - Currently the first phase added will be used as the reference phase, keep this in 
+          mind when assembling the composition. It might have numeric implications
+        - Currently the last component added will be eliminated by unitarity. Keep also this in
+          mind, for the same reason.
 
     """
 
@@ -453,7 +457,7 @@ class Composition:
         """
 
         # obtain values by forward evaluation
-        h = self._specific_enthalpy_equation()
+        h = self.specific_enthalpy_equation()
         h = h.evaluate(self.dof_manager).val
         # insert values in global dof vector
         X = np.zeros(self.dof_manager.num_dofs())
@@ -465,6 +469,27 @@ class Composition:
         )
         if copy_to_state:
             self.dof_manager.distribute_variable(X, variables=[self._h_var])
+
+    # -----------------------------------------------------------------------------------------
+    ### Model equations
+    # -----------------------------------------------------------------------------------------
+
+    def specific_enthalpy_equation(self) -> Union[pp.ad.Operator, Literal[0]]:
+        """Returns an operator representing the specific molar enthalpy of the composition,
+        based on it's definition:
+
+        h = sum_phases phase.fraction * phase.specific_enthalpy(p,T)
+
+        This is for a simple, p-T-based evaluation. Can be used for an initial guess or the
+        final computation after the p-T-flash.
+
+        """
+
+        equ = list()
+        for phase in self.phases:
+            equ.append(phase.fraction * phase.specific_enthalpy(self._p, self._T))
+
+        return sum(equ)
 
     # -----------------------------------------------------------------------------------------
     ### other private methods
@@ -688,20 +713,3 @@ class Composition:
         self.dof_manager.distribute_variable(X, variables=var_names, to_iterate=True)
         if copy_to_state:
             self.dof_manager.distribute_variable(X, variables=var_names)
-
-    def _specific_enthalpy_equation(self) -> Union[pp.ad.Operator, Literal[0]]:
-        """Returns an operator representing the specific molar enthalpy of the composition,
-        based on it's definition:
-
-        h = sum_phases phase.fraction * phase.specific_enthalpy(p,T)
-
-        This is for a simple, p-T-based evaluation. Can be used for an initial guess or the
-        final computation after the p-T-flash.
-
-        """
-
-        equ = list()
-        for phase in self.phases:
-            equ.append(phase.fraction * phase.specific_enthalpy(self._p, self._T))
-
-        return sum(equ)
