@@ -221,7 +221,7 @@ class InterpolationTable:
         """
 
         ind = list()
-        # performing cartesian search per axis of the interpolation grid
+        # performing Cartesian search per axis of the interpolation grid.
         for x_i, h_i, low_i, high_i in zip(coord, self._h, self._low, self._high):
             # checking if any point is out of bound
             if np.any(x_i < low_i) or np.any(high_i < x_i):
