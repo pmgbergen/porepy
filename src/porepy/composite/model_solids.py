@@ -21,7 +21,7 @@ class UnitSolid(SolidComponent):
 
     def density(self, p: float, T: float) -> float:
         return 1.0
-    
+
     def Fick_diffusivity(self, p: float, T: float) -> float:
         return 1.0
 

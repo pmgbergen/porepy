@@ -33,7 +33,7 @@ class SaltWater(Phase):
         self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
         density = 998.21 / H2O.molar_mass()
-        return pp.ad.Array(density * np.ones(self.gb.num_cells()))
+        return pp.ad.Array(density * np.ones(self.md.num_cells()))
 
     def specific_molar_enthalpy(
         self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
@@ -46,10 +46,10 @@ class SaltWater(Phase):
     def dynamic_viscosity(
         self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        return pp.ad.Array(np.ones(self.gb.num_cells()))  # 0.001
+        return pp.ad.Array(np.ones(self.md.num_cells()))  # 0.001
 
     def thermal_conductivity(self, pressure: float, temperature: float) -> float:
-        return pp.ad.Array(np.ones(self.gb.num_cells()))
+        return pp.ad.Array(np.ones(self.md.num_cells()))
 
 
 class WaterVapor(Phase):
@@ -83,9 +83,9 @@ class WaterVapor(Phase):
     def dynamic_viscosity(
         self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        return pp.ad.Array(np.ones(self.gb.num_cells()))  # 0.0003
+        return pp.ad.Array(np.ones(self.md.num_cells()))  # 0.0003
 
     def thermal_conductivity(
         self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        return pp.ad.Array(np.ones(self.gb.num_cells()))  # 0.05
+        return pp.ad.Array(np.ones(self.md.num_cells()))  # 0.05

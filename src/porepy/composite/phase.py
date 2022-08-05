@@ -2,10 +2,7 @@
 from __future__ import annotations
 
 import abc
-import warnings
 from typing import Dict, Generator, List, Union
-
-import numpy as np
 
 import porepy as pp
 
@@ -25,35 +22,42 @@ class Phase(abc.ABC):
     If the same name is instantiated twice on the same grid bucket,
     the previous instance is returned.
 
+    Phases have abstract physical properties, dependent on thermodynamic state and the
+    composition. The composition variables (molar fractions of present components)
+    can be accessed by internal reference.
+
     Attributes:
         gb (:class:`~porepy.GridBucket`): domain of computation.
             A phase has values in each cell.
         name (str): name and unique identifier of the phase
         saturation (:class:`porepy.ad.MergedVariable`): saturation of this phase.
         saturation_var (str): name of the saturation variable.
-            Currently a combination of the general symbol and the name
+            Currently a combination of the general symbol and the name.
+        fraction (:class:`porepy.ad.MergedVariable`): molar fraction of this phase.
+        fraction_var (str): name of the molar fraction variable.
+            Currently a combination of the general symbol and the name.
     """
 
     """ For a grid bucket (keys), contains a list of present phases (values). """
-    __gb_singletons: Dict[pp.GridBucket, Dict[str, Phase]] = dict()
+    __md_singletons: Dict[pp.MixedDimensionalGrid, Dict[str, Phase]] = dict()
     __singleton_accessed: bool = False
 
-    def __new__(cls, gb: pp.GridBucket, name: str) -> Phase:
+    def __new__(cls, md: pp.MixedDimensionalGrid, name: str) -> Phase:
         """Assures the class is a name-gb-based Singleton."""
-        if gb in Phase.__gb_singletons.keys():
-            if name in Phase.__gb_singletons[gb].keys():
+        if md in Phase.__md_singletons.keys():
+            if name in Phase.__md_singletons[md].keys():
                 # flag that the singleton has been accessed and return it.
                 Phase.__singleton_accessed = True
-                return Phase.__gb_singletons[gb][name]
+                return Phase.__md_singletons[md][name]
         else:
-            Phase.__gb_singletons.update({gb: dict()})
-        
+            Phase.__md_singletons.update({md: dict()})
+
         # create a new instance and store it
         new_instance = super().__new__(cls)
-        Phase.__gb_singletons[gb].update({name: new_instance})
+        Phase.__md_singletons[md].update({name: new_instance})
         return new_instance
 
-    def __init__(self, gb: pp.GridBucket, name: str) -> None:
+    def __init__(self, md: pp.MixedDimensionalGrid, name: str) -> None:
         """Initiated phase-related AD variables.
 
         If the same combination of ``name`` and ``GridBucket`` was already used once,
@@ -73,7 +77,7 @@ class Phase(abc.ABC):
         super().__init__()
 
         # public attributes
-        self.gb: pp.GridBucket = gb
+        self.md: pp.MixedDimensionalGrid = md
 
         # private attributes
         self._s: pp.ad.MergedVariable
@@ -81,10 +85,10 @@ class Phase(abc.ABC):
         self._name = str(name)
         self._present_components: List[pp.composite.Component] = list()
         # Instantiate saturation variable
-        self._s = create_merged_variable(gb, {"cells": 1}, self.saturation_var)
+        self._s = create_merged_variable(md, {"cells": 1}, self.saturation_var)
         # Instantiate phase molar fraction variable
         self._molar_fraction = create_merged_variable(
-            self.gb, {"cells": 1}, self.molar_fraction_var
+            self.md, {"cells": 1}, self.fraction_var
         )
 
     def __iter__(self) -> Generator[pp.composite.Component, None, None]:
@@ -133,8 +137,9 @@ class Phase(abc.ABC):
         as key for data in grid dictionaries.
 
         Returns:
-            str: name of the saturation variable. 
+            str: name of the saturation variable.
                 Currently a combination of the general symbol and the phase name.
+
         """
         return COMPUTATIONAL_VARIABLES["saturation"] + "_" + self.name
 
@@ -158,7 +163,7 @@ class Phase(abc.ABC):
         as key for data in grid dictionaries.
 
         Returns:
-            str: name of the molar fraction variable variable. 
+            str: name of the molar fraction variable variable.
                 Currently a combination of the general symbol and the phase name.
         """
         return COMPUTATIONAL_VARIABLES["molar_phase_fraction"] + "_" + self.name
@@ -180,7 +185,7 @@ class Phase(abc.ABC):
         present_components = [ps.name for ps in self._present_components]
 
         for comp in component:
-            #TODO check if this can be omitted with a set
+            # TODO check if this can be omitted with a set
             # (if Python compares Component instances correctly)
             # skip already present components:
             if comp.name in present_components:
@@ -192,7 +197,7 @@ class Phase(abc.ABC):
         self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
         """
-        Uses the  molar mass values in combination with the molar masses and fractions 
+        Uses the  molar mass values in combination with the molar masses and fractions
         of components in this phase, to compute the mass density of the phase.
 
         Math. Dimension:        scalar
@@ -216,7 +221,7 @@ class Phase(abc.ABC):
             weight += component.molar_mass() * component.fraction_in_phase(self.name)
 
         # Multiply the mass weight with the molar density and return the operator
-        return weight * self.molar_density(p, T)
+        return weight * self.density(p, T)
 
     # ------------------------------------------------------------------------------
     ### Abstract, phase-related physical properties
@@ -226,10 +231,7 @@ class Phase(abc.ABC):
     def density(
         self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        """Abstract physical property, dependent on thermodynamic state and the composition.
-        The composition variables (molar fractions of present substances) can be accessed
-        by internal reference.
-
+        """
         Math. Dimension:        scalar
         Phys. Dimension:        [mol / REV]
 
@@ -246,10 +248,7 @@ class Phase(abc.ABC):
     def specific_enthalpy(
         self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        """Abstract physical quantity, dependent on thermodynamic state and the composition.
-        The composition variables (molar fractions of present components) can be accessed
-        by internal reference.
-
+        """
         Math. Dimension:        scalar
         Phys.Dimension:         [kJ / mol / K]
 
@@ -266,10 +265,7 @@ class Phase(abc.ABC):
     def dynamic_viscosity(
         self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        """Abstract physical property, dependent on thermodynamic state and the composition.
-        The composition variables (molar fractions of present substances) can be accessed
-        by internal reference.
-
+        """
         Math. Dimension:        scalar
         Phys. Dimension:        [mol / m / s]
 
@@ -284,12 +280,9 @@ class Phase(abc.ABC):
 
     @abc.abstractmethod
     def thermal_conductivity(
-        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        """Abstract physical property, dependent on thermodynamic state and composition.
-        The composition variables (molar fractions of present substances) can be accessed
-        by internal reference.
-
+        """
         Math. Dimension:    2nd-order tensor
         Phys. Dimension:    [W / m / K]
 

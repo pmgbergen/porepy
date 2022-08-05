@@ -5,13 +5,13 @@ used in this framework.
 from __future__ import annotations
 
 import abc
-from typing import Dict, List
+from typing import Dict
 
 import porepy as pp
 
 from ._composite_utils import COMPUTATIONAL_VARIABLES, create_merged_variable
 
-__all__ = ["Component", "FluidSubstance", "SolidSubstance"]
+__all__ = ["Component", "FluidComponent", "SolidComponent"]
 
 
 class Component(abc.ABC):
@@ -33,40 +33,44 @@ class Component(abc.ABC):
         fraction (:class:`porepy.ad.MergedVariable`): feed fraction of this component per cell
         fraction_var (str): name of the saturation variable.
             Currently a combination of the general symbol and the name.
+
     """
 
     # contains per GB the singleton, using the class name as a unique identifier
-    __gb_singletons: Dict[pp.GridBucket, Dict[str, Component]] = dict()
+    __md_singletons: Dict[pp.MixedDimensionalGrid, Dict[str, Component]] = dict()
     # flag if a singleton has recently been accessed, to skip re-instantiation
     __singleton_accessed: bool = False
 
-    def __new__(cls, gb: pp.GridBucket) -> Component:
-        """
-        Declarator assures the substance name is unique for a given computational domain.
+    def __new__(cls, md: pp.MixedDimensionalGrid) -> Component:
+        """Declarator assures the substance name is unique for a given computational domain.
         Ambiguities must be avoided due to the central storage of the AD variables and usage
         of the name as a key.
+
         """
+
         name = str(cls.__name__)
-        if gb in Component.__gb_singletons.keys():
-            if name in Component.__gb_singletons[gb].keys():
+        if md in Component.__md_singletons.keys():
+            if name in Component.__md_singletons[md].keys():
                 # flag that the singleton has been accessed and return it.
                 Component.__singleton_accessed = True
-                return Component.__gb_singletons[gb][name]
+                return Component.__md_singletons[md][name]
         else:
-            Component.__gb_singletons.update({gb: dict()})
+            Component.__md_singletons.update({md: dict()})
 
         # create a new instance and store it
         new_instance = super().__new__(cls)
-        Component.__gb_singletons[gb].update({name: new_instance})
+        Component.__md_singletons[md].update({name: new_instance})
         return new_instance
 
-    def __init__(self, gb: pp.GridBucket) -> None:
+    def __init__(self, md: pp.MixedDimensionalGrid) -> None:
         """Initiates component-related AD-variables.
 
         Args:
             gb (:class:`~porepy.GridBucket`): computational domain.
                 Component-related quantities will be assumed to be present in each cell.
+
         """
+
         # skipping re-instantiation if class if __new__ returned the previous reference
         if Component.__singleton_accessed:
             Component.__singleton_accessed = False
@@ -75,14 +79,14 @@ class Component(abc.ABC):
         super().__init__()
 
         ## PUBLIC
-        self.gb: pp.GridBucket = gb
+        self.md: pp.MixedDimensionalGrid = md
 
         # private attributes
         self._feed_fraction: pp.ad.MergedVariable
         self._fractions_in_phases: Dict[str, pp.ad.MergedVariable]
 
         # creating the overall molar fraction variable
-        self._omf = create_merged_variable(gb, {"cells": 1}, self.overall_fraction_var)
+        self._omf = create_merged_variable(md, {"cells": 1}, self.fraction_var)
         # for a phase name (key),
         # provide the MergedVariable for the molar fraction in that phase (value)
         self._mfip: Dict[str, pp.ad.MergedVariable] = dict()
@@ -92,6 +96,7 @@ class Component(abc.ABC):
         """
         Returns:
             str: name of the class, used as a unique identifier.
+
         """
         return str(self.__class__.__name__)
 
@@ -101,6 +106,7 @@ class Component(abc.ABC):
         Returns:
             str: name of the feed fraction variable, given by the general symbol and the
                 component class name.
+
         """
         return COMPUTATIONAL_VARIABLES["component_fraction"] + "_" + self.name
 
@@ -111,9 +117,10 @@ class Component(abc.ABC):
         Phys. Dimension:        [-] fractional
 
         Returns:
-            :class:`~porepy.ad.MergedVariable`: feed fraction, a primary variable on the 
+            :class:`~porepy.ad.MergedVariable`: feed fraction, a primary variable on the
                 whole domain. Says how much of the present mass per cell belongs to this
                 component.
+
         """
         return self._feed_fraction
 
@@ -124,9 +131,11 @@ class Component(abc.ABC):
                 component is present.
 
         Returns:
-            str: name of the respective variable, consisting of the general symbol, the 
+            str: name of the respective variable, consisting of the general symbol, the
                 component name and the phase name
+
         """
+
         return (
             COMPUTATIONAL_VARIABLES["component_fraction_in_phase"]
             + "_"
@@ -145,10 +154,12 @@ class Component(abc.ABC):
                 component is present.
 
         Returns:
-            :class:`~porepy.ad.MergedVariable`: fraction in phase, a secondary variable on the 
+            :class:`~porepy.ad.MergedVariable`: fraction in phase, a secondary variable on the
                 whole domain. Says how much of the mass in given phase per cell belongs to this
                 component.
+
         """
+
         phase_name = str(phase_name)
         # if MergedVariable for this phase already exists, return it
         if phase_name in self._mfip.keys():
@@ -156,7 +167,7 @@ class Component(abc.ABC):
         # else create new one
         else:
             mfip = create_merged_variable(
-                self.gb, {"cells": 1}, self.fraction_in_phase_var(phase_name)
+                self.md, {"cells": 1}, self.fraction_in_phase_var(phase_name)
             )
             self._mfip.update({phase_name: mfip})
             return mfip
@@ -171,16 +182,17 @@ class Component(abc.ABC):
         Args:
             p (float): pressure
             T (float): temperature
-        
+
         Returns:
             float: mass density
+
         """
-        return self.molar_mass() * self.molar_density(p, T)
+        return self.molar_mass() * self.density(p, T)
 
     # -----------------------------------------------------------------------------------------
     ### ABSTRACT PHYSICAL PROPERTIES
     # -----------------------------------------------------------------------------------------
-    
+
     @staticmethod
     @abc.abstractmethod
     def molar_mass() -> float:
@@ -191,6 +203,7 @@ class Component(abc.ABC):
 
         Returns:
             float: molar mass
+
         """
         pass
 
@@ -198,12 +211,13 @@ class Component(abc.ABC):
     @abc.abstractmethod
     def critical_pressure() -> float:
         """This is a constant value, hence to be a static function.
-        
+
         Math. Dimension:        scalar
         Phys. Dimension:        [kPa]
-        
+
         Returns:
             float: critical pressure for this component (critical point in p-T diagram)
+
         """
         pass
 
@@ -211,12 +225,13 @@ class Component(abc.ABC):
     @abc.abstractmethod
     def critical_temperature() -> float:
         """This is a constant value, hence to be a static function.
-        
+
         Math. Dimension:        scalar
         Phys. Dimension:        [K]
-        
+
         Returns:
             float: critical temperature for this component (critical point in p-T diagram)
+
         """
         pass
 
@@ -224,13 +239,14 @@ class Component(abc.ABC):
     @abc.abstractmethod
     def triple_point_pressure() -> float:
         """This is a constant value, hence to be a static function.
-        
+
         Math. Dimension:        scalar
         Phys. Dimension:        [kPa]
-        
+
         Returns:
             float: triple point pressure for this component
                 (intersection of vapor and melting curve in p-T diagram)
+
         """
         pass
 
@@ -238,13 +254,14 @@ class Component(abc.ABC):
     @abc.abstractmethod
     def triple_point_temperature() -> float:
         """This is a constant value, hence to be a static function.
-        
+
         Math. Dimension:        scalar
         Phys. Dimension:        [K]
-        
+
         Returns:
             float: triple point temperature for this component
                 (intersection of vapor and melting curve in p-T diagram)
+
         """
         pass
 
@@ -261,15 +278,16 @@ class Component(abc.ABC):
         Args:
             p (float): pressure
             T (float): temperature
-        
+
         Returns:
             float: molar density
+
         """
         pass
 
     @abc.abstractmethod
     def Fick_diffusivity(self, p: float, T: float) -> float:
-        """ TODO: This can also be a tensor
+        """TODO: This can also be a tensor
 
         Math. Dimension:        scalar
         Phys. Dimension:        m^2 / s
@@ -277,9 +295,10 @@ class Component(abc.ABC):
         Args:
             p (float): pressure
             T (float): temperature
-        
+
         Returns:
             float: Fick diffusivity coefficient
+
         """
         pass
 
@@ -293,9 +312,10 @@ class Component(abc.ABC):
         Args:
             p (float): pressure
             T (float): temperature
-        
+
         Returns:
             float: thermal conductivity for Fourier's law
+
         """
         pass
 
@@ -312,31 +332,13 @@ class FluidComponent(Component):
         Math. Dimension:        scalar
         Phys. Dimension:        [Pa s] = [kg / m / s]
 
-        
         Args:
             p (float): pressure
             T (float): temperature
-        
+
         Returns:
             float: dynamic viscosity
-        """
-        pass
 
-    @abc.abstractmethod
-    def vapor_pressure(self, T: float) -> float:
-        """The pressure curve in the p-T diagram which forms the border between
-        vapor and liquid state, going from triple point to critical point
-        Use them as 
-        
-        Math. Dimension:        scalar
-        Phys. Dimension:        [kPa]
-
-        
-        Args:
-            T (float): temperature
-        
-        Returns:
-            float: vapor pressure for given temperature
         """
         pass
 
@@ -355,8 +357,9 @@ class SolidComponent(Component):
         Math. Dimension:        scalar
         Phys. Dimension:        [-] fractional
 
-        :return: base porosity of the material
-        :rtype: float
+        Returns:
+            float base porosity of the material
+
         """
         pass
 
@@ -369,7 +372,8 @@ class SolidComponent(Component):
         Math. Dimension:        scalar
         Phys. Dimension:        [m^2] ( [Darcy] not official SI unit)
 
-        :return: base permeability of the material
-        :rtype: float
+        Returns:
+            float: base permeability of the material
+
         """
         pass

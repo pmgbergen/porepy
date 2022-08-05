@@ -9,7 +9,7 @@ Functions:
 """
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict
 
 import numpy as np
 
@@ -59,6 +59,7 @@ Universal molar gas constant.
     Math. Dimension:        scalar
     Phys. Dimension:        [kJ / K mol]
 """
+
 
 def create_merged_variable(
     gb: "pp.GridBucket",

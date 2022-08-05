@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import numbers
-from typing import Any, Dict, Generator, List, Literal, Optional, Set, Tuple, Union
+from typing import Any, Dict, Generator, List, Literal, Optional, Set, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
-from ._composite_utils import COMPUTATIONAL_VARIABLES, create_merged_variable
-from .phase import Phase
+from ._composite_utils import COMPUTATIONAL_VARIABLES
 
 __all__ = ["Composition"]
 
@@ -20,27 +19,28 @@ class Composition:
     """Representation of a composition of multiple components (chemical substances).
     Performs thermodynamically consistent phase stability and equilibrium calculations.
 
-    The composition is 'dynamic'. Meaning attributes like present phases depend on the last 
+    The composition is 'dynamic'. Meaning attributes like present phases depend on the last
     flash calculation, which was performed.
-    The only quasi-static quantities are the primaries listed below.
-    They can be updated on a :class:`porepy.GridBucket` by external models e.g., flow.
+    They can be updated on a porepy.MixedDimensionalGrid by external models e.g., flow.
     Whether specific enthalpy or temperature is temporarily a primary, depends on the chosen
-    flash procedure.        
-    
+    flash procedure.
+
     The primary variables are
         - pressure,
         - specific enthalpy of the mixture (depending on the flash procedure),
         - temperature of the mixture (depending on the flash procedure),
         - feed fractions per component.
+    Primary Variables are assumed to be given. The equilibrium is performed for fixed p-T or
+    fixed p-h, and additionally a fixed feed composition.
 
-    Secondary variables are fractions, i.e. 
+    Secondary variables are fractions, i.e.
         - molar phase fractions
         - volumetric phase fractions (saturations)
         - molar component fractions in a phase
-    
+
     While the molar fractions are the actual unknowns in the flash procedure, the saturation
-    values are computed once the equilibrium converges using a relation between molar and 
-    volumetric fractions for phases
+    values are computed once the equilibrium converges using a relation between molar and
+    volumetric fractions for phases.
 
     References to the secondary variables are stored in respective classes representing
     components and phases.
@@ -48,15 +48,16 @@ class Composition:
     All variables are stored as :class:`~porepy.ad.MergedVariable` and the whole concept is
     based on the AD framework provided by PorePy.
 
-    The isenthalpic flash and isothermal flash procedure are implemented, mostly based on the 
-    work of Michelsen in the 80s.
+    The isenthalpic flash and isothermal flash procedure are implemented.
+    The persistent variable approach is utilized based on the work of [1,2], and the references
+    therein.
 
     Attributes:
         gb (:class:`~porepy.GridBucket`): domain of computation.
             A composition is defined locally in each cell.
         dof_manager (:class:`porepy.DofManager`): Degree of Freedom manager for the composition
             Use this instance when imbedding the equilibrium calculations in another model.
-        eq_manager (:class:`porepy.ad.EquationManager`): Contains the flash equations in form 
+        eq_manager (:class:`porepy.ad.EquationManager`): Contains the flash equations in form
             of AD operators. Use this instance when imbedding the equilibrium calculations
             in another model.
         pressure (:class:`~porepy.ad.MergedVariable`): the mixture pressure at equilibrium
@@ -72,24 +73,41 @@ class Composition:
             present phases. This order is also used internally for e.g., global DOFs.
             *Use this generator to iterate over phases outside of this class*.
             *Use this generator to for ordering passed initial values*.
-        components (Generator[:class:`~porepy.composite.Component`]): Analogous to the generator
-            for phases. Only the components are static and the order corresponds to the order
+        components (Generator[:class:`~porepy.composite.Component`]): Analogous to the
+            generator for phases.
+            Only the components are static and the order corresponds to the order
             in which the components where added prior to initialization.
         flash_tolerance (float): convergence criterion for the flash algorithm
         max_iter_flash (int): maximal number of iterations tolerated for the flash algorithm
+
+    References:
+        [1] Lauser, A. et. al.:
+            A new approach for phase transitions in miscible multi-phase flow in porous media
+            DOI: 10.1016/j.advwatres.2011.04.021
+        [2] Ben Gharbia, I. et. al.:
+            An analysis of the unified formulation for the equilibrium problem of
+            compositional multiphase mixture
+            DOI: 10.1051/m2an/2021075
+
+    IMPLEMENTATION NOTE:
+        - Equilibrium calculations can be done cell-wise.
+          I.e. the computations can be done smarter or parallelized. This is not yet exploited.
+        - number of cells is assumed to be fixed and computed only once at instantiation.
+
     """
 
-    def __init__(self, gb: pp.GridBucket) -> None:
+    def __init__(self, md: pp.MixedDimensionalGrid) -> None:
         """
         Args:
             gb (:class:`~porepy.GridBucket`): A grid bucket representing the geometric domain.
                 Equilibrium calculations are performed locally, i.e. per cell.
+
         """
         # public attributes
-        self.gb: pp.GridBucket = gb
-        self.dof_manager: pp.DofManager = pp.DofManager(gb)
+        self.md: pp.MixedDimensionalGrid = md
+        self.dof_manager: pp.DofManager = pp.DofManager(md)
         self.eq_manager: pp.ad.EquationManager = pp.ad.EquationManager(
-            gb, self.dof_manager
+            md, self.dof_manager
         )
         # contains chronologically information about past flash procedures
         self.flash_history: List[Dict[str, Any]] = list()
@@ -109,17 +127,20 @@ class Composition:
 
         # composition
         self._components: Set[pp.composite.Component] = set()
-        self._present_phases: List[pp.composite.Phase] = list()
+        self._phases: List[pp.composite.Phase] = list()
 
         # other
         # maximal number of flash history entries (FiFo)
         self._max_history: int = 100
         # this is set true once a proper feed composition was set
         self._feed_composition_set: bool = False
+        # Number of cells. The equilibrium is computed cell-wise.
+        self._nc = self.md.num_subdomain_cells()
 
     def __str__(self) -> str:
         """Returns string representation of the composition,
-        with information about present componentss.
+        with information about present components.
+
         """
         out = "Composition with %s components:" % (str(self.num_components))
         for name in [component.name for component in self.components]:
@@ -131,6 +152,7 @@ class Composition:
         """
         Returns:
             int: number of components in the composition
+
         """
         return len(self._components)
 
@@ -139,15 +161,16 @@ class Composition:
         """
         Returns:
             int: number of currently present phases
+
         """
-        return len(self._present_phases)
+        return len(self._phases)
 
     @property
     def components(self) -> Generator[pp.composite.Component, None, None]:
         """
         Returns:
-            Generator:
-                Returns an iterable object over all components in the composition.
+            Generator: Returns an iterable object over all components in the composition.
+
         """
         for C in self._components:
             yield C
@@ -156,10 +179,10 @@ class Composition:
     def phases(self) -> Generator[pp.composite.Phase, None, None]:
         """
         Returns:
-            Generator:
-                Returns an iterable object over all phase resulting from the last flash.
+            Generator: Returns an iterable object over all anticipated phases.
+
         """
-        for P in self._present_phases:
+        for P in self._phases:
             yield P
 
     @property
@@ -173,6 +196,7 @@ class Composition:
             :class:`~porepy.ad.MergedVariable`:
                 the primary variable pressure on the whole domain,
                 assumed to represent values at equilibrium.
+
         """
         return self._p
 
@@ -187,6 +211,7 @@ class Composition:
             :class:`~porepy.ad.MergedVariable`:
                 the primary variable specific molar enthalpy on the whole domain,
                 assumed to represent values at equilibrium.
+
         """
         return self._h
 
@@ -201,6 +226,7 @@ class Composition:
             :class:`~porepy.ad.MergedVariable`:
                 the primary variable temperature on the whole domain,
                 assumed to represent values at equilibrium.
+
         """
         return self._T
 
@@ -218,6 +244,7 @@ class Composition:
                 given by the saturation-weighted sum of all phase densities.
                 The phase densities are computed using the current temperature and pressure
                 values.
+
         """
         # creating a list of saturation-weighted phase densities
         # If the value from the previous time step (STATE) is requested,
@@ -229,12 +256,12 @@ class Composition:
                     self.pressure.previous_timestep(),
                     self.temperature.previous_timestep(),
                 )
-                for phase in self._present_phases
+                for phase in self._phases
             ]
         else:
             rho = [
                 phase.saturation * phase.density(self.pressure, self.temperature)
-                for phase in self._present_phases
+                for phase in self._phases
             ]
         # summing the elements of the list results in the mixture density
         return sum(rho)
@@ -242,18 +269,20 @@ class Composition:
     def add_component(
         self, component: Union[List[pp.composite.Component], pp.composite.Component]
     ) -> None:
-        """Adds components to the composition. This is done before the
+        """Adds components to the composition. Adding or removing components invalidates the
+        last, computed equilibrium.
 
         Args:
             component (:class:`porepy.composite.Component`): a component,
                 or list of components, which are modelled in this mixture.
+
         """
         if isinstance(component, pp.composite.Component):
             component = [component]
-        
+
         for comp in component:
             self._components.add(comp)
-        
+
         self._feed_composition_set = False
 
     def set_feed_composition(self, feed: List[Union[numbers.Real, np.ndarray]]) -> None:
@@ -273,27 +302,25 @@ class Composition:
                 If the feed fractions do not sum up to 1 on each cell.
             ValueError:
                 If a feed in form of an array has not enough values (number of cells)
+
         """
 
         if len(feed) != self.num_components:
             raise ValueError(
-                "Dimensions mismatch: %d fraction given, but %d components present"
-                %(len(feed), self.num_components)
+                f"{len(feed)} fraction given, but {self.num_components} components present."
             )
-        
-        nc = self.gb.num_cells()
-        fraction_sum = np.zeros(nc)
+
+        fraction_sum = np.zeros(self._nc)
         X = np.zeros(self.dof_manager.num_dofs())
         var_names = list()
 
         for fraction, component in zip(feed, self.components):
             if isinstance(fraction, numbers.Real):
-                fraction = fraction * np.ones(nc)
+                fraction = fraction * np.ones(self._nc)
             else:
-                if len(fraction) != nc:
+                if len(fraction) != self._nc:
                     raise ValueError(
-                        "Dimensions mismatch: Array-like feed has %d entries, require %d."
-                        % (len(fraction), nc)
+                        f"Array-like feed has {len(fraction)} entries, require {self._nc}."
                     )
             fraction_sum += fraction
 
@@ -301,52 +328,50 @@ class Composition:
             X[dof] = fraction
             var_names.append(component.fraction_var)
 
-        if not np.allclose(fraction_sum, 1.):
+        if not np.allclose(fraction_sum, 1.0):
             raise ValueError("Sum of feed fraction does not fulfill unity.")
-        
+
         self.dof_manager.distribute_variable(X, variables=var_names, to_iterate=True)
         self.dof_manager.distribute_variable(X, variables=var_names)
         self._feed_composition_set = True
-    
+
     def set_state(
         self,
         p: Union[numbers.Real, np.ndarray],
         T: Union[numbers.Real, np.ndarray],
-        do_flash: bool = False
+        do_flash: bool = False,
     ) -> bool:
         """Sets the thermodynamic state of the composition in terms of pressure and temperature
         at equilibrium.
-        
+
         Args:
             p (ArrayLike, number): Pressure
             T (ArrayLike, number): Temperature
-            do_flash (bool): flag for performing the isothermal flash. 
-                Assumes the feed composition is already set
+            do_flash (bool): flag for performing the isothermal flash.
+                Checks whether the feed composition is been set prior to that.
                 (see :meth:`Composition.set_feed_composition`).
-            
+
         Returns:
             bool: False, if the isothermal flash did not converge, True otherwise.
+
         """
 
-        nc = self.gb.num_cells()
         var_names = [self._p_var, self._T_var]
         X = np.zeros(self.dof_manager.num_dofs())
 
         if isinstance(p, numbers.Real):
-            p = p * np.ones(nc)
+            p = p * np.ones(self._nc)
         if isinstance(T, numbers.Real):
-            T = T * np.ones(nc)
-        
-        if len(p) != nc:
+            T = T * np.ones(self._nc)
+
+        if len(p) != self._nc:
             raise ValueError(
-                        "Dimensions mismatch: Array-like 'p' has %d entries, require %d."
-                        % (len(p), nc)
-                    )
-        if len(T) != nc:
+                f"Array-like 'p' has {len(p)} entries, require {self._nc}."
+            )
+        if len(T) != self._nc:
             raise ValueError(
-                        "Dimensions mismatch: Array-like 'T' has %d entries, require %d."
-                        % (len(T), nc)
-                    )
+                f"Array-like 'T' has {len(T)} entries, require {self._nc}."
+            )
 
         dof = self.dof_manager.dof_var([self._p_var])
         X[dof] = p
@@ -363,9 +388,9 @@ class Composition:
     def print_last_flash(self) -> None:
         """Prints the result of the last flash calculation."""
         entry = self.flash_history[-1]
-        msg = "\nProcedure: %s\n" % (str(entry["flash"])) 
-        msg+= "SUCCESS: %s\n" % (str(entry["success"]))
-        msg+= "Method: %s\n" % (str(entry["method"]))
+        msg = "\nProcedure: %s\n" % (str(entry["flash"]))
+        msg += "SUCCESS: %s\n" % (str(entry["success"]))
+        msg += "Method: %s\n" % (str(entry["method"]))
         msg += "Remarks: %s" % (str(entry["other"]))
 
     # -----------------------------------------------------------------------------------------
@@ -376,41 +401,24 @@ class Composition:
         """Isothermal flash procedure to determine the composition based on given
         temperature of the mixture, pressure and feed fraction per component.
 
-        Performs a stability test using the Tangent-Plane Criterion (Gibbs energy minimization)
-        to determine the number of phases
-
         Args:
             copy_to_state (bool): Copies the values to the STATE of the AD variables,
                 additionally to ITERATE.
+
         """
 
-        x_phase_zones = self._pT_stability()
         pass
 
-    def isenthalpic_flash(self, method: str, copy_to_state: bool = True) -> bool:
+    def isenthalpic_flash(self, copy_to_state: bool = True) -> bool:
         """Isenthalpic flash procedure to determine the composition based on given
-        specific enthalpy of the mixture, pressure and feed fractions per component
-
-        Performs a phase stability analysis as a first step to determine the number of phases.
+        specific enthalpy of the mixture, pressure and feed fractions per component.
 
         Args:
-            method ({'max_entropy', 'nested_pT'}): the method for the isenthalpic flash
-                ``'max_entropy'`` - performs a flash based on the maximization of the entropy
-                (EXPERIMENTAL)
-                ``'nested_pT'`` - performs a nested p-T flash with an outer loop updating the
-                temperature values. Based on work done by Michelsen.
             copy_to_state (bool): Copies the values to the STATE of the AD variable,
                 additionally to ITERATE.
+
         """
-        if method == "max_entropy":
-            pass
-        elif method == "nested_pT":
-            pass
-        else:
-            raise ValueError(
-                "Unknown 'method' argument '%s'.\nUse 'max_entropy' or 'nested_pT'"
-                %(str(method))
-            )
+        pass
 
     def evaluate_saturations(self, copy_to_state: bool = True) -> None:
         """Assuming molar phase fractions, pressure and temperature are given (and correct),
@@ -420,32 +428,43 @@ class Composition:
 
         Notes:
             It is enough to call this method once after the (any) flash procedure converged.
-        
+
         Args:
             copy_to_state (bool): Copies the values to the STATE of the AD variable,
                 additionally to ITERATE.
+
         """
-        if len(self._present_phases) == 1:
+        if len(self._phases) == 1:
             self._single_phase_saturation_evaluation(copy_to_state)
-        if len(self._present_phases) == 2:
+        if len(self._phases) == 2:
             self._2phase_saturation_evaluation(copy_to_state)
-        elif len(self._present_phases) >= 3:
+        elif len(self._phases) >= 3:
             self._multi_phase_saturation_evaluation(copy_to_state)
 
-    def _pT_stability(self) -> List[Tuple[int, np.ndarray]]:
-        """Performs a stability test based on [0].
+    def evaluate_specific_enthalpy(self, copy_to_state: bool = True) -> None:
+        """Based on current pressure, temperature and phase fractions, evaluates the
+        specific molar enthalpy. Use with care, if the equilibrium problem is coupled with
+        e.g., the flow.
 
-        Returns:
-            list: a list of tuples, where in each tuple 
-                - the first entry is another tuple, containing Phase instances
-                - the second entry is a boolean array, representing the cells where these
-                phases appear, of global size (see :meth:`porepy.GridBucket.num_cells`)
-        
-        References:
-            ..[0] Michelsen: The isothermal flash problem. Part I: Stability, 
-                DOI: 10.1016/0378-3812(82)85001-2
+        Args:
+            copy_to_state (bool): Copies the values to the STATE of the AD variable,
+                additionally to ITERATE.
+
         """
-        pass
+
+        # obtain values by forward evaluation
+        h = self._specific_enthalpy_equation()
+        h = h.evaluate(self.dof_manager).val
+        # insert values in global dof vector
+        X = np.zeros(self.dof_manager.num_dofs())
+        dof = self.dof_manager.dof_var([self._h_var])
+        X[dof] = h
+
+        self.dof_manager.distribute_variable(
+            X, variables=[self._h_var], to_iterate=True
+        )
+        if copy_to_state:
+            self.dof_manager.distribute_variable(X, variables=[self._h_var])
 
     # -----------------------------------------------------------------------------------------
     ### other private methods
@@ -462,6 +481,7 @@ class Composition:
         **kwargs,
     ) -> None:
         """Makes an entry in the flash history"""
+
         self.flash_history.append(
             {
                 "flash": flash,
@@ -478,20 +498,18 @@ class Composition:
 
     def _single_phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
         """If only one phase is present, we assume it occupies the whole pore space."""
-        
-        phase = self._present_phases[0]
+
+        phase = self._phases[0]
         X = np.zeros(self.dof_manager.num_dofs())
         # saturation is 1
         dof = self.dof_manager.dof_var([phase.saturation_var])
-        X[dof] = 1.
+        X[dof] = 1.0
 
         self.dof_manager.distribute_variable(
             X, variables=[phase.saturation_var], to_iterate=True
         )
         if copy_to_state:
-            self.dof_manager.distribute_variable(
-                X, variables=[phase.saturation_var]
-            )
+            self.dof_manager.distribute_variable(X, variables=[phase.saturation_var])
 
     def _2phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
         """Calculates the saturation value assuming phase molar fractions are given.
@@ -501,22 +519,18 @@ class Composition:
             s_i = 1 / (1 + xi_j / (1 - x_j) * rho_i / rho_j) , i != j
         """
         # get reference to phases
-        phase1 = self._present_phases[0]
-        phase2 = self._present_phases[1]
+        phase1 = self._phases[0]
+        phase2 = self._phases[1]
 
         # get phase molar fraction values
-        xi1 = phase1.molar_fraction.evaluate(self.dof_manager).val
-        xi2 = phase2.molar_fraction.evaluate(self.dof_manager).val
+        xi1 = phase1.fraction.evaluate(self.dof_manager).val
+        xi2 = phase2.fraction.evaluate(self.dof_manager).val
 
         # get density values for given pressure and enthalpy
-        rho1 = phase1.density(self._p, self._T).evaluate(
-            self.dof_manager
-        )
+        rho1 = phase1.density(self._p, self._T).evaluate(self.dof_manager)
         if isinstance(rho1, pp.ad.Ad_array):
             rho1 = rho1.val
-        rho2 = phase2.density(self._p, self._T).evaluate(
-            self.dof_manager
-        )
+        rho2 = phase2.density(self._p, self._T).evaluate(self.dof_manager)
         if isinstance(rho2, pp.ad.Ad_array):
             rho2 = rho2.val
 
@@ -575,24 +589,21 @@ class Composition:
             1 = sum_{j != i} (1 + rho_j / rho_i * xi_i / (1 - xi_i)) s_j
         """
         # get phases, phase molar fractions (xi) and densities (rho)
-        phases = [phase for phase in self._present_phases]
-        xi = [phase.molar_fraction.evaluate(self.dof_manager).val for phase in phases]
+        phases = [phase for phase in self._phases]
+        xi = [phase.fraction.evaluate(self.dof_manager).val for phase in phases]
         rho = list()
         for phase in phases:
-            rho_p = phase.density(self._p, self._T).evaluate(
-                self.dof_manager
-            )
+            rho_p = phase.density(self._p, self._T).evaluate(self.dof_manager)
             if isinstance(rho_p, pp.ad.Ad_array):
                 rho_p = rho_p.val
             rho.append(rho_p)
 
         mat_per_eq = list()
-        num_cells = self.gb.num_cells()
 
         # list of indicators per phase, where the phase is fully saturated
         saturated = list()
         # where one phase is saturated, the other vanish
-        vanished = [np.zeros(num_cells, dtype=bool) for _ in phases]
+        vanished = [np.zeros(self._nc, dtype=bool) for _ in phases]
 
         for i in range(self.num_phases):
             # get the DOFS where one phase is fully saturated
@@ -626,7 +637,7 @@ class Composition:
                 # diagonal values are zero
                 # This matrix is just a placeholder
                 if i == j:
-                    mats.append(sps.diags([np.zeros(num_cells)]))
+                    mats.append(sps.diags([np.zeros(self._nc)]))
                 # diagonals of blocks which are not on the main diagonal, are non-zero
                 else:
                     denominator = 1 - xi[i]
@@ -655,7 +666,7 @@ class Composition:
         projection = projection[multiphase]
 
         # get sliced system
-        rhs = projection * np.ones(num_cells * self.num_phases)
+        rhs = projection * np.ones(self._nc * self.num_phases)
         mat = projection * mat * projection.T
 
         s = sps.linalg.spsolve(mat.tocsr(), rhs)
@@ -671,7 +682,7 @@ class Composition:
         var_names = list()
         for i, phase in enumerate(phases):
             dof = self.dof_manager.dof_var([phase.saturation_var])
-            X[dof] = saturations[i * num_cells : (i + 1) * num_cells]
+            X[dof] = saturations[i * self._nc : (i + 1) * self._nc]
             var_names.append(phase.saturation_var)
 
         self.dof_manager.distribute_variable(X, variables=var_names, to_iterate=True)
@@ -682,15 +693,15 @@ class Composition:
         """Returns an operator representing the specific molar enthalpy of the composition,
         based on it's definition:
 
-        h = sum_phases phase_fraction * phase_specEnthalpy
+        h = sum_phases phase.fraction * phase.specific_enthalpy(p,T)
 
         This is for a simple, p-T-based evaluation. Can be used for an initial guess or the
-        final computation after the p-T-flash
+        final computation after the p-T-flash.
+
         """
+
         equ = list()
         for phase in self.phases:
-            equ.append(
-                phase.fraction * phase.specific_enthalpy(self._p, self._T)
-            )
+            equ.append(phase.fraction * phase.specific_enthalpy(self._p, self._T))
 
         return sum(equ)
