@@ -1,10 +1,11 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
+
 import copy
 import numbers
 from enum import Enum
 from itertools import count
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -15,17 +16,9 @@ import porepy as pp
 from porepy.params.tensor import SecondOrderTensor
 
 from . import _ad_utils
-from .forward_mode import initAdArrays
+from .forward_mode import Ad_array, initAdArrays
 
-__all__ = [
-    "Operator",
-    "Matrix",
-    "Array",
-    "Scalar",
-    "Variable",
-    "MergedVariable",
-    "Function",
-]
+__all__ = ["Operator", "Matrix", "Array", "Scalar", "Variable", "MergedVariable"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
 
@@ -305,7 +298,7 @@ class Operator:
                 else:
                     return self._ad[op.id]
         elif isinstance(op, pp.ad.Ad_array):
-            # When using nested pp.ad.Function, op can be an already evaluated term.
+            # When using nested operator functions, op can be an already evaluated term.
             # Just return it.
             return op
 
@@ -448,7 +441,22 @@ class Operator:
         elif tree.op == Operation.evaluate:
             # This is a function, which should have at least one argument
             assert len(results) > 1
-            return results[0].func(*results[1:])
+            func_op = results[0]
+
+            # if the callable can be fed with Ad_arrays, do it
+            if func_op.ad_compatible:
+                return func_op.func(*results[1:])
+            else:
+                # This should be a Function with approximated Jacobian and value.
+                try:
+                    val = func_op.get_values(*results[1:])
+                    jac = func_op.get_jacobian(*results[1:])
+                except Exception as exc:
+                    # TODO specify what can go wrong here (Exception type)
+                    msg = "Ad parsing: Error evaluating operator function:\n"
+                    msg += func_op._parse_readable()
+                    raise ValueError(msg) from exc
+                return Ad_array(val, jac)
 
         else:
             raise ValueError("Should not happen")
@@ -1177,70 +1185,6 @@ class MergedVariable(Variable):
         return s
 
 
-class Function(Operator):
-    """Ad representation of a function.
-
-    The intended use is as a wrapper for operations on pp.ad.Ad_array objects,
-    in forms which are not directly or easily expressed by the rest of the Ad
-    framework.
-
-    """
-
-    def __init__(self, func: Callable, name: str):
-        """Initialize a function.
-
-        Parameters:
-            func (Callable): Function which maps one or several Ad arrays to an
-                Ad array.
-            name (str): Name of the function.
-
-        """
-        self.func = func
-        self._name = name
-        self._operation = Operation.evaluate
-        self._set_tree()
-
-    def __mul__(self, other):
-        raise RuntimeError("Functions should only be evaluated")
-
-    def __add__(self, other):
-        raise RuntimeError("Functions should only be evaluated")
-
-    def __sub__(self, other):
-        raise RuntimeError("Functions should only be evaluated")
-
-    def __call__(self, *args):
-        """
-        Call to operator object with 'args' as children.
-
-        The children are passed as arguments to the callable passed at instantiation.
-        """
-        children = [self, *args]
-        op = Operator(tree=Tree(self._operation, children=children))
-        return op
-
-    def __repr__(self) -> str:
-        s = f"AD function with name {self._name}"
-
-        return s
-
-    def parse(self, mdg):
-        """Parsing to a numerical value.
-
-        The real work will be done by combining the function with arguments, during
-        parsing of an operator tree.
-
-        Parameters:
-            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
-                needed as input to be compatible with parse methods for other operators.
-
-        Returns:
-            The object itself.
-
-        """
-        return self
-
-
 class SecondOrderTensorAd(SecondOrderTensor, Operator):
     def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
         super().__init__(kxx, kyy, kzz, kxy, kxz, kyz)
@@ -1261,15 +1205,19 @@ class Tree:
     """
 
     # https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
-    def __init__(self, operation: Operation, children: Optional[List[Operator]] = None):
+    def __init__(
+        self,
+        operation: Operation,
+        children: Optional[List[Union[Operator, Ad_array]]] = None,
+    ):
 
         self.op = operation
 
-        self.children: List[Operator] = []
+        self.children: List[Union[Operator, Ad_array]] = []
         if children is not None:
             for child in children:
                 self.add_child(child)
 
-    def add_child(self, node: Operator) -> None:
+    def add_child(self, node: Union[Operator, Ad_array]) -> None:
         #        assert isinstance(node, (Operator, "pp.ad.Operator"))
         self.children.append(node)

@@ -14,6 +14,7 @@ from . import (
     forward_mode,
     functions,
     grid_operators,
+    operator_functions,
     operators,
 )
 from .discretizations import *
@@ -21,9 +22,11 @@ from .equation_manager import *
 from .forward_mode import *
 from .functions import *
 from .grid_operators import *
+from .operator_functions import *
 from .operators import *
 
 __all__.extend(operators.__all__)
+__all__.extend(operator_functions.__all__)
 __all__.extend(discretizations.__all__)
 __all__.extend(functions.__all__)
 __all__.extend(forward_mode.__all__)
