@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import time
+import warnings
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -170,9 +171,9 @@ class ContactMechanics(AbstractModel):
             )
 
         # The default convergence check cannot be applied. Do a manual check instead.
-        g_max = self._nd_subdomain()
+        sd_max = self._nd_subdomain()
         mech_dof = self.dof_manager.grid_and_variable_to_dofs(
-            g_max, self.displacement_variable
+            sd_max, self.displacement_variable
         )
 
         # Also find indices for the contact variables
@@ -289,6 +290,16 @@ class ContactMechanics(AbstractModel):
         )
         if self.linear_solver == "direct":
             return spla.spsolve(A, b)
+        elif self.linear_solver == "pypardiso":
+            try:
+                import pypardiso  # type: ignore
+
+                return pypardiso.spsolve(A, b)
+            except ImportError:
+                warnings.warn(
+                    "Could not import pypardiso, defaulting to scipy.linalg.spsolve"
+                )
+                return spla.spsolve(A, b)
         else:
             raise NotImplementedError("Not that far yet")
 
@@ -305,7 +316,7 @@ class ContactMechanics(AbstractModel):
             intf represented by a mortar grid, expected to have the projection
             obtained by calling pp.contact_conditions.set_projections(self.mdg)
         Returns:
-            (np.array): ambient_dim x g_l.num_cells. First 1-2 dimensions are in the
+            (np.array): ambient_dim x sd_l.num_cells. First 1-2 dimensions are in the
             tangential direction of the fracture, last dimension is normal.
         """
         interface_data = self.mdg.interface_data(intf)
@@ -1339,7 +1350,8 @@ class ContactMechanics(AbstractModel):
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def _initialize_linear_solver(self) -> None:
-        solver: str = self.params.get("linear_solver", "direct")
+        solver = self.linear_solver
+
         if solver == "direct":
             """In theory, it should be possible to instruct SuperLU to reuse the
             symbolic factorization from one iteration to the next. However, it seems
@@ -1349,10 +1361,10 @@ class ContactMechanics(AbstractModel):
                 https://github.com/scipy/scipy/issues/8227
 
             We will therefore pass here, and pay the price of long computation times.
-
             """
             self.linear_solver = "direct"
-
+        elif solver == "pypardiso":
+            self.linear_solver = "pypardiso"
         else:
             raise ValueError(f"Unknown linear solver {solver}")
 

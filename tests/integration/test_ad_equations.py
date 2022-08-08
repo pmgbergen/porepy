@@ -169,8 +169,8 @@ def _two_fractures_crossing_2d() -> pp.MixedDimensionalGrid:
 
 
 def _single_fracture_3d() -> pp.MixedDimensionalGrid:
-    frac = [np.array([[2, 3, 3, 2], [2, 2, 3, 3], [2, 2, 2, 2]])]
-    mdg = pp.meshing.cart_grid(frac, [5, 5, 4])
+    frac = [np.array([[1, 2, 2, 1], [1, 1, 2, 2], [1, 1, 1, 1]])]
+    mdg = pp.meshing.cart_grid(frac, [3, 3, 2])
     pp.contact_conditions.set_projections(mdg)
     return mdg
 
@@ -193,7 +193,7 @@ class ContactModel(pp.ContactMechanics):
 
     def _bc_values(self, sd):
         val = np.zeros((sd.dim, sd.num_faces))
-        tags = sd.tags["domain_boundary_faces"]  # + g.tags["domain_boundary_faces"]
+        tags = sd.tags["domain_boundary_faces"]
         val[: sd.dim, tags] = sd.face_centers[: sd.dim, tags]
         return val.ravel("f")
 
@@ -394,7 +394,7 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True) -> None:
     prev_sol_ad = model_ad.dof_manager.assemble_variable(from_iterate=False)
     init_sol_ad = prev_sol_ad.copy()
 
-    tol = 1e-15
+    tol = 1e-12
 
     iteration_counter = 0
 
@@ -422,7 +422,6 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True) -> None:
             model_as.after_newton_convergence(sol_as, [], iteration_counter)
             model_ad.after_newton_convergence(sol_ad, [], iteration_counter)
     # Check that both models have converged, just to be on the safe side
-    assert iteration_counter < 15
     assert is_converged_as and is_converged_ad
     # Solutions should be identical.
     _compare_solutions(model_as, model_ad)
