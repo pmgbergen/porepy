@@ -204,24 +204,9 @@ def point_in_polygon(poly, p, default=False):
 def point_in_polyhedron(
     polyhedron: Union[np.ndarray, List[np.ndarray]],
     test_points: np.ndarray,
-    tol: float = 1e-8,
+    tol: float = 1e-10,
 ) -> np.ndarray:
     """Test whether a set of point is inside a polyhedron.
-
-    The actual algorithm and implementation used for the test can be found
-    at
-
-        https://github.com/mdickinson/polyhedron/blob/master/polyhedron.py
-
-    By Mark Dickinson. From what we know, the implementation is only available
-    on GitHub (no pypi or similar), and we are also not aware of other
-    implementations of algorithms for point-in-polyhedron problems that allows
-    for non-convex polyhedra. Moreover, the file above has an unclear licence.
-    Therefore, to use the present function, download the above file and put it
-    in the PYTHONPATH with the name 'robust_point_in_polyhedron.py'
-    (polyhedron.py seemed too general a name for this).
-
-    Suggestions for better solutions to this are most welcome.
 
     Parameters:
         polyhedron (nested np.ndarray): Each outer element represents a side
@@ -235,17 +220,6 @@ def point_in_polyhedron(
             inside the polygon.
 
     """
-    # If you get an error message here, read documentation of the method.
-    try:
-        import robust_point_in_polyhedron
-    except ImportError:
-        raise ImportError(
-            """Cannot import robust_points_inside_polyhedron.
-                          Read documentation of
-                          pp.geometry.geometry_property_checks.point_in_polyhedron for
-                          install instructions.
-                          """
-        )
 
     # The actual test requires that the polyhedra surface is described by
     # a triangulation. To that end, loop over all polygons and compute
@@ -284,26 +258,32 @@ def point_in_polyhedron(
     sorted_t = pp.utils.sort_points.sort_triangle_edges(ut.T).T
 
     # Generate tester for points
-    test_object = robust_point_in_polyhedron.Polyhedron(sorted_t, upoints.T)
+    test_object = pp.point_in_polyhedron_test.PointInPolyhedronTest(
+        upoints.T, sorted_t, tol
+    )
 
     if test_points.size < 4:
         test_points = test_points.reshape((-1, 1))
 
     is_inside = np.zeros(test_points.shape[1], dtype=bool)
 
-    # Loop over all points, check if they are inside.
+    # Loop over all points being tested, check if they are inside.
     for pi in range(test_points.shape[1]):
-        # NOTE: The documentation of the test is a bit unclear, but it seems
-        # a winding number of 0 means outside, non-zero is inside
         try:
-            is_inside[pi] = np.abs(test_object.winding_number(test_points[:, pi])) > 0
-            # If the given point is on the boundary, this will produce an error informing
-            # about coplanar or collinear points. Interpret this as a False (not inside)
+            # Winding number (wn) is a real number. Its absolute value is:
+            # wn = 0 for points outside
+            # wn = 1 for points inside non-convex polyhedron
+            # wn > 1 for points inside overlapping polyhedron
+            is_inside[pi] = np.abs(test_object.winding_number(test_points[:, pi])) > tol
+
+            # If the given point is on the triangulated surface it is considered outside.
+            # To achieve robustness, checks on the given point are performed for
+            # overlapping vertex, collinearity, and coplanarity.
         except ValueError as err:
             if str(err) in [
-                "vertices coplanar with origin",
-                "vertices collinear with origin",
-                "vertex coincides with origin",
+                "Origin point coincides with a vertex",
+                "Origin point is collinear with the vertices",
+                "Origin point is coplanar with the vertices",
             ]:
                 is_inside[pi] = False
             else:

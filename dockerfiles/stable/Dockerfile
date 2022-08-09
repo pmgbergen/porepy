@@ -1,13 +1,13 @@
-# Docker image to install the development version of PorePy (e.g.,
-# the latest push to the branch develop).
+# Docker image to install the stable version of PorePy (e.g.,
+# the latest push to the branch main).
 #
 # To access the docker image:
 #
-#    docker pull porepy/dev:latest
+#    docker pull porepy/stable:latest
 #
 # To run (sharing the current directory with the container):
 #
-#    docker run -ti -v $(pwd):/home/porepy/shared porepy/dev:latest
+#    docker run -ti -v $(pwd):/home/porepy/shared porepy/stable:latest
 #
 # To save a modified container, from host:
 #
@@ -15,7 +15,6 @@
 #    docker run -ti TAG_FOR_NEW_IMAGE  # will contain modifications.
 #
 # For more information, see the docker documentation.
-# Docker image to install the development version of PorePy.
 
 # Use the base PorePy image; most of the heavy lifting is done from there.
 FROM porepy/base
@@ -23,21 +22,16 @@ FROM porepy/base
 ## Download PorePy from github
 # Make sure we are in the home directory
 WORKDIR ${POREPY_HOME}
-USER porepy
 # Clone from Github
 RUN git clone https://github.com/pmgbergen/porepy.git ${POREPY_SRC}
 
-
 # Enter source directory
 WORKDIR ${POREPY_SRC}
-# Make sure we're on the develop branch
-RUN git checkout develop
+# Make sure we're on the main branch
+RUN git checkout main
 
 # Do the install
-RUN pip install -e .
-
-# Run a conda list, it is always good to know whas been installed
-RUN conda list
+RUN pip install --user -e .
 
 # Add PorePy home to the pythonpath. This may or may not be necessary.
 ENV PYTHONPATH $POREPY_HOME:$PYTHONPATH
@@ -50,6 +44,3 @@ WORKDIR ${POREPY_SRC}/tests
 RUN pytest
 WORKDIR ${POREPY_HOME}
 
-# Apparently, the phusion/baseimage needs to end with root as user, or else
-# something goes wrong with trying to log into the container. So it goes.
-USER root
