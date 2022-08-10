@@ -221,8 +221,8 @@ class AbstractModel:
         Raises:
             ValueError if the chosen solver is not among the three currently
             supported, see assemble_and_solve_linear_system.
-            
-            To use a custom solver in a model, override this method (and 
+
+            To use a custom solver in a model, override this method (and
             assemble_and_solve_linear_system).
 
         """
@@ -236,7 +236,7 @@ class AbstractModel:
         """Assemble the linearized system, solve and return the new solution vector.
 
         The linear system is defined by the current state of the model.
-        
+
         The linear solver is set according to the parameter 'linear_solver' set under
         initialization of this model.
 
