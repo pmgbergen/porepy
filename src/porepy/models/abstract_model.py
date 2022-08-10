@@ -255,18 +255,18 @@ class AbstractModel:
         t_1 = time.time()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
-            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min"
-            + f" {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
+            f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
+            {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
         )
 
         solver = self.params["linear_solver"]
         if solver == "pypardiso":
             try:
-                from pypardiso import spsolve as sparse_solver
+                from pypardiso import spsolve as sparse_solver  # type: ignore
             except ImportError:
                 sparse_solver = sps.linalg.spsolve
                 warnings.warn(
-                    """Pypardiso could not be imported, 
+                    """PyPardiso could not be imported, 
                     falling back on scipy.sparse.linalg.spsolve"""
                 )
             x = sparse_solver(A, b)
