@@ -50,6 +50,9 @@ class AbstractModel:
             "folder_name": "visualization",
             "file_name": "data",
             "use_ad": False,
+            # Set the default linear solver to Pardiso; this can be overriden by
+            # user choices. If Pardiso is not available, backup solvers will automatically be
+            # invoked.
             "linear_solver": "pypardiso",
         }
 
@@ -218,15 +221,10 @@ class AbstractModel:
         Raises:
             ValueError if the chosen solver is not among the three currently
             supported, see assemble_and_solve_linear_system.
+            
+            To use a custom solver in a model, override this method (and 
+            assemble_and_solve_linear_system).
 
-        In theory, it should be possible to instruct SuperLU to reuse the
-        symbolic factorization from one iteration to the next. However, it seems
-        the scipy wrapper around SuperLU has not implemented the necessary
-        functionality, as discussed in
-
-            https://github.com/scipy/scipy/issues/8227
-
-        We will therefore pass here, and pay the price of long computation times.
         """
         solver = self.params["linear_solver"]
         self.linear_solver = solver
@@ -238,6 +236,9 @@ class AbstractModel:
         """Assemble the linearized system, solve and return the new solution vector.
 
         The linear system is defined by the current state of the model.
+        
+        The linear solver is set according to the parameter 'linear_solver' set under
+        initialization of this model.
 
         Parameters:
             tol (double): Target tolerance for the linear solver. May be used for
@@ -261,9 +262,12 @@ class AbstractModel:
 
         solver = self.params["linear_solver"]
         if solver == "pypardiso":
+            # This is the default option which is invoked unless explicitly overriden by the
+            # user. We need to check if the pypardiso package is available.
             try:
                 from pypardiso import spsolve as sparse_solver  # type: ignore
             except ImportError:
+                # Fall back on the standard scipy sparse solver.
                 sparse_solver = sps.linalg.spsolve
                 warnings.warn(
                     """PyPardiso could not be imported,
