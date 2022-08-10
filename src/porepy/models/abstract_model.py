@@ -266,7 +266,7 @@ class AbstractModel:
             except ImportError:
                 sparse_solver = sps.linalg.spsolve
                 warnings.warn(
-                    """PyPardiso could not be imported, 
+                    """PyPardiso could not be imported,
                     falling back on scipy.sparse.linalg.spsolve"""
                 )
             x = sparse_solver(A, b)
