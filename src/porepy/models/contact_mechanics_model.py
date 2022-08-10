@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple
 
