@@ -10,7 +10,11 @@ import os
 import sys
 import unittest
 
+import meshio
 import numpy as np
+
+# NOTE: non-standard library; would introduce new dependency
+from deepdiff import DeepDiff
 
 import porepy as pp
 
@@ -26,6 +30,22 @@ class MeshioExporterTest(unittest.TestCase):
         second = data.find("-->")
         return data[:first] + data[second:]
 
+    def compare_vtu_files(self, test_file: str, reference_file: str):
+
+        # Use meshio to read to presumably same format
+        test_data = meshio.read(test_file)
+        reference_data = meshio.read(reference_file)
+
+        # Compare the relevant data stored in the meshio meshes; the same if the diff is empty
+        diff = DeepDiff(
+            test_data.__dict__,
+            reference_data.__dict__,
+            significant_digits=8,
+            number_format_notation="f",
+            ignore_numeric_type_changes=True,
+        )
+        return diff == {}
+
     def test_single_subdomain_1d(self):
         sd = pp.CartGrid(3, 1)
         sd.compute_geometry()
@@ -37,17 +57,16 @@ class MeshioExporterTest(unittest.TestCase):
             sd,
             self.file_name,
             self.folder,
-            binary=False,
             export_constants_separately=False,
         )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
-        with open(self.folder + self.file_name + "_1.vtu", "r") as content_file:
-            content = self.sliceout(content_file.read())
-        self.assertTrue(
-            content
-            == self._cross_platform_integer_type(self._single_subdomain_1d_vtu())
+        # Compare exported filed with corresponding reference file
+        comparison = self.compare_vtu_files(
+            f"{self.folder}/{self.file_name}_1.vtu",
+            "test_vtk_reference/single_subdomain_1d.vtu",
         )
+        self.assertTrue(comparison)
 
     def test_single_subdomain_2d_simplex_grid(self):
         sd = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
@@ -442,101 +461,6 @@ class MeshioExporterTest(unittest.TestCase):
 
     ## Below follows functions that return strings that reproduce the exact output of
     # the test functions at a time when the code was considered trustworthy.
-
-    def _single_subdomain_1d_vtu(self):
-        return """<?xml version="1.0"?>
-<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by -->
-<UnstructuredGrid>
-<Piece NumberOfPoints="4" NumberOfCells="3">
-<Points>
-<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-3.33333333333e-01
-0.00000000000e+00
-0.00000000000e+00
-6.66666666667e-01
-0.00000000000e+00
-0.00000000000e+00
-1.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-
-</DataArray>
-</Points>
-<Cells>
-<DataArray type="Int64" Name="connectivity" format="ascii">
-0
-1
-1
-2
-2
-3
-
-</DataArray>
-<DataArray type="Int64" Name="offsets" format="ascii">
-2
-4
-6
-
-</DataArray>
-<DataArray type="Int64" Name="types" format="ascii">
-3
-3
-3
-
-</DataArray>
-</Cells>
-<CellData>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
-2
-
-</DataArray>
-<DataArray type="Float64" Name="dummy_scalar" format="ascii">
-1.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-
-</DataArray>
-<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii">
-1.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-1.00000000000e+00
-
-</DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-1
-1
-1
-
-</DataArray>
-<DataArray type="Int64" Name="is_mortar" format="ascii">
-0
-0
-0
-
-</DataArray>
-<DataArray type="Int64" Name="mortar_side" format="ascii">
-0
-0
-0
-
-</DataArray>
-</CellData>
-</Piece>
-</UnstructuredGrid>
-</VTKFile>
-"""
 
     def _single_subdomain_2d_simplex_grid_vtu(self):
         return """<?xml version="1.0"?>
