@@ -6,6 +6,7 @@ filter, or in the vtk python bindings has changed. If the change is external to
 PorePy, this does not necessarily mean that something is wrong.
 
 """
+import shutil
 import os
 import sys
 import unittest
@@ -21,8 +22,15 @@ class MeshioExporterTest(unittest.TestCase):
     def __init__(self, methodName="runTest"):
         unittest.TestCase.__init__(self, methodName)
         self.folder = "./test_vtk/"
-        self.folder_reference = os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"
+        self.folder_reference = (
+            os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"
+        )
         self.file_name = "grid"
+
+    def tearDown(self):
+        shutil.rmtree(
+            os.getcwd() + "/" + os.path.basename(os.path.normpath(self.folder))
+        )
 
     def compare_vtu_files(self, test_file: str, reference_file: str) -> bool:
         """Determine whether two vtu files, accessed by their paths, are identical.
@@ -404,7 +412,6 @@ class MeshioExporterTest(unittest.TestCase):
             f"{self.folder_reference}/fractures_3d.vtu",
         )
         self.assertTrue(same_vtu_files)
-
 
 if __name__ == "__main__":
     unittest.main()
