@@ -20,3 +20,4 @@ isort
 typing_extensions
 requests
 future
+deepdiff
