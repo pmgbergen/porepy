@@ -21,6 +21,7 @@ class MeshioExporterTest(unittest.TestCase):
     def __init__(self, methodName="runTest"):
         unittest.TestCase.__init__(self, methodName)
         self.folder = "./test_vtk/"
+        self.folder_reference = os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"
         self.file_name = "grid"
 
     def compare_vtu_files(self, test_file: str, reference_file: str) -> bool:
@@ -66,7 +67,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         same_vtu_files: bool = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}_1.vtu",
-            "test_vtk_reference/single_subdomain_1d.vtu",
+            f"{self.folder_reference}/single_subdomain_1d.vtu",
         )
         self.assertTrue(same_vtu_files)
 
@@ -87,7 +88,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         same_vtu_files: bool = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}_2.vtu",
-            "test_vtk_reference/single_subdomain_2d_simplex_grid.vtu",
+            f"{self.folder_reference}/single_subdomain_2d_simplex_grid.vtu",
         )
         self.assertTrue(same_vtu_files)
 
@@ -108,7 +109,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         same_vtu_files: bool = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}_2.vtu",
-            "test_vtk_reference/single_subdomain_2d_cart_grid.vtu",
+            f"{self.folder_reference}/single_subdomain_2d_cart_grid.vtu",
         )
         self.assertTrue(same_vtu_files)
 
@@ -131,7 +132,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         same_vtu_files: bool = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}_2.vtu",
-            "test_vtk_reference/single_subdomain_2d_polytop_grid.vtu",
+            f"{self.folder_reference}/single_subdomain_2d_polytop_grid.vtu",
         )
         self.assertTrue(same_vtu_files)
 
@@ -152,7 +153,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         same_vtu_files: bool = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}_3.vtu",
-            "test_vtk_reference/single_subdomain_3d_simplex_grid.vtu",
+            f"{self.folder_reference}/single_subdomain_3d_simplex_grid.vtu",
         )
         self.assertTrue(same_vtu_files)
 
@@ -173,7 +174,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         same_vtu_files: bool = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}_3.vtu",
-            "test_vtk_reference/single_subdomain_3d_cart_grid.vtu",
+            f"{self.folder_reference}/single_subdomain_3d_cart_grid.vtu",
         )
         self.assertTrue(same_vtu_files)
 
@@ -198,7 +199,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         same_vtu_files: bool = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}_3.vtu",
-            "test_vtk_reference/single_subdomain_3d_polytop_grid.vtu",
+            f"{self.folder_reference}/single_subdomain_3d_polytop_grid.vtu",
         )
         self.assertTrue(same_vtu_files)
 
@@ -228,7 +229,7 @@ class MeshioExporterTest(unittest.TestCase):
             same_vtu_files.append(
                 self.compare_vtu_files(
                     f"{self.folder}/{self.file_name}_{appendix}.vtu",
-                    f"test_vtk_reference/mdg_1_grid_{appendix}.vtu",
+                    f"{self.folder_reference}/mdg_1_grid_{appendix}.vtu",
                 )
             )
         self.assertTrue(all(same_vtu_files))
@@ -270,7 +271,7 @@ class MeshioExporterTest(unittest.TestCase):
             same_vtu_files.append(
                 self.compare_vtu_files(
                     f"{self.folder}/{self.file_name}_{appendix}.vtu",
-                    f"test_vtk_reference/mdg_2_grid_{appendix}.vtu",
+                    f"{self.folder_reference}/mdg_2_grid_{appendix}.vtu",
                 )
             )
         self.assertTrue(all(same_vtu_files))
@@ -323,7 +324,7 @@ class MeshioExporterTest(unittest.TestCase):
             same_vtu_files.append(
                 self.compare_vtu_files(
                     f"{self.folder}/{self.file_name}_{appendix}.vtu",
-                    f"test_vtk_reference/mdg_3_grid_{appendix}.vtu",
+                    f"{self.folder_reference}/mdg_3_grid_{appendix}.vtu",
                 )
             )
         self.assertTrue(all(same_vtu_files))
@@ -348,7 +349,7 @@ class MeshioExporterTest(unittest.TestCase):
             same_vtu_files.append(
                 self.compare_vtu_files(
                     f"{self.folder}/{self.file_name}_{appendix}.vtu",
-                    f"test_vtk_reference/constant_data_test_grid_{appendix}.vtu",
+                    f"{self.folder_reference}/constant_data_test_grid_{appendix}.vtu",
                 )
             )
         self.assertTrue(all(same_vtu_files))
@@ -370,7 +371,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         same_vtu_files: bool = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}.vtu",
-            "test_vtk_reference/fractures_2d.vtu",
+            f"{self.folder_reference}/fractures_2d.vtu",
         )
         self.assertTrue(same_vtu_files)
 
@@ -394,7 +395,7 @@ class MeshioExporterTest(unittest.TestCase):
 
         same_vtu_files: bool = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}.vtu",
-            "test_vtk_reference/fractures_3d.vtu",
+            f"{self.folder_reference}/fractures_3d.vtu",
         )
         self.assertTrue(same_vtu_files)
 
