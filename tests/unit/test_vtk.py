@@ -28,6 +28,7 @@ class MeshioExporterTest(unittest.TestCase):
         self.file_name = "grid"
 
     def tearDown(self):
+        """Remove test_vtk from current working directory after each unittest."""
         shutil.rmtree(
             os.getcwd() + "/" + os.path.basename(os.path.normpath(self.folder))
         )
@@ -412,6 +413,7 @@ class MeshioExporterTest(unittest.TestCase):
             f"{self.folder_reference}/fractures_3d.vtu",
         )
         self.assertTrue(same_vtu_files)
+
 
 if __name__ == "__main__":
     unittest.main()
