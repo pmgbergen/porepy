@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
+<!--This file was created by -->
+<UnstructuredGrid>
+<Piece NumberOfPoints="5" NumberOfCells="4">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
+1.00000000000e+00
+5.00000000000e-01
+-5.55111512313e-17
+7.50000000000e-01
+5.00000000000e-01
+-2.77555756156e-17
+5.00000000000e-01
+5.00000000000e-01
+0.00000000000e+00
+2.50000000000e-01
+5.00000000000e-01
+2.77555756156e-17
+0.00000000000e+00
+5.00000000000e-01
+5.55111512313e-17
+
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+1
+2
+2
+3
+3
+4
+
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
+8
+
+</DataArray>
+<DataArray type="Int64" Name="types" format="ascii">
+3
+3
+3
+3
+
+</DataArray>
+</Cells>
+<CellData>
+<DataArray type="Int64" Name="cell_id" format="ascii">
+0
+1
+2
+3
+
+</DataArray>
+<DataArray type="Float64" Name="dummy_scalar" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+
+</DataArray>
+<DataArray type="Int64" Name="grid_dim" format="ascii">
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="grid_node_number" format="ascii">
+1
+1
+1
+1
+
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="ascii">
+0
+0
+0
+0
+
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="ascii">
+0
+0
+0
+0
+
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>

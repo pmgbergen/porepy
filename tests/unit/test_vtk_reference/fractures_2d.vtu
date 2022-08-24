@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
+<!--This file was created by -->
+<UnstructuredGrid>
+<Piece NumberOfPoints="5" NumberOfCells="3">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
+0.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+2.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+1.00000000000e+00
+0.00000000000e+00
+0.00000000000e+00
+2.00000000000e+00
+1.00000000000e+00
+0.00000000000e+00
+1.00000000000e+00
+2.00000000000e+00
+0.00000000000e+00
+
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="ascii">
+0
+1
+2
+3
+3
+4
+
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="ascii">
+2
+4
+6
+
+</DataArray>
+<DataArray type="Int64" Name="types" format="ascii">
+3
+3
+3
+
+</DataArray>
+</Cells>
+<CellData>
+<DataArray type="Int64" Name="fracture_number" format="ascii">
+1
+2
+3
+
+</DataArray>
+<DataArray type="Float64" Name="dummy_scalar" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="ascii">
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+1.00000000000e+00
+
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>
