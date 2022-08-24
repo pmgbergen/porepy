@@ -1,222 +1,42 @@
 <?xml version="1.0"?>
-<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">
-<!--This file was created by -->
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+<!--This file was created by meshio v5.3.4-->
 <UnstructuredGrid>
 <Piece NumberOfPoints="20" NumberOfCells="12">
 <Points>
-<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
-1.00000000000e+00
-5.00000000000e-01
--5.55111512313e-17
-7.50000000000e-01
-5.00000000000e-01
--2.77555756156e-17
-5.00000000000e-01
-5.00000000000e-01
-0.00000000000e+00
-5.00000000000e-01
-5.00000000000e-01
-0.00000000000e+00
-2.50000000000e-01
-5.00000000000e-01
-2.77555756156e-17
-0.00000000000e+00
-5.00000000000e-01
-5.55111512313e-17
-1.00000000000e+00
-5.00000000000e-01
--5.55111512313e-17
-7.50000000000e-01
-5.00000000000e-01
--2.77555756156e-17
-5.00000000000e-01
-5.00000000000e-01
-0.00000000000e+00
-5.00000000000e-01
-5.00000000000e-01
-0.00000000000e+00
-2.50000000000e-01
-5.00000000000e-01
-2.77555756156e-17
-0.00000000000e+00
-5.00000000000e-01
-5.55111512313e-17
-5.00000000000e-01
-7.50000000000e-01
--2.77555756156e-17
-5.00000000000e-01
-5.00000000000e-01
-0.00000000000e+00
-5.00000000000e-01
-5.00000000000e-01
-0.00000000000e+00
-5.00000000000e-01
-2.50000000000e-01
-2.77555756156e-17
-5.00000000000e-01
-7.50000000000e-01
--2.77555756156e-17
-5.00000000000e-01
-5.00000000000e-01
-0.00000000000e+00
-5.00000000000e-01
-5.00000000000e-01
-0.00000000000e+00
-5.00000000000e-01
-2.50000000000e-01
-2.77555756156e-17
-
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="binary">
+AQAAAACAAADgAQAAPQAAAA==eJxjYACBD/ZgiuEBlJ6wB0K/QBNv2IPKh9EwgEv8Aro5Ntj1TYCKDzb3wPgvKLQXxr+AZi/tzAcANYY2qw==
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int64" Name="connectivity" format="ascii">
-0
-1
-1
-2
-3
-4
-4
-5
-6
-7
-7
-8
-9
-10
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-
+<DataArray type="Int64" Name="connectivity" format="binary">
+AQAAAACAAADAAAAAMgAAAA==eJxdxacBACAQADF67+y/K4JTHxOlPi02bNmJPQeO4sSZi7hy486DJy/efPjyAzZgANU=
 </DataArray>
-<DataArray type="Int64" Name="offsets" format="ascii">
-2
-4
-6
-8
-10
-12
-14
-16
-18
-20
-22
-24
-
+<DataArray type="Int64" Name="offsets" format="binary">
+AQAAAACAAABgAAAAKAAAAA==eJxjYoAAFijNBqU5oDQXlOaB0nxQWgBKC0FpESgtBqUloDQAFyAAnQ==
 </DataArray>
-<DataArray type="Int64" Name="types" format="ascii">
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-3
-
+<DataArray type="Int64" Name="types" format="binary">
+AQAAAACAAABgAAAADgAAAA==eJxjZoAAZhrRAAewACU=
 </DataArray>
 </Cells>
 <CellData>
-<DataArray type="Int64" Name="cell_id" format="ascii">
-0
-1
-2
-3
-4
-5
-6
-7
-0
-1
-2
-3
-
+<DataArray type="Int64" Name="cell_id" format="binary">
+AQAAAACAAABgAAAAIQAAAA==eJxjYIAARijNBKWZoTQLlGaF0mxQmp0BFeDSDwAG0AAj
 </DataArray>
-<DataArray type="Int64" Name="grid_dim" format="ascii">
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-
+<DataArray type="Int64" Name="grid_dim" format="binary">
+AQAAAACAAABgAAAADgAAAA==eJxjZIAARhrRAALQAA0=
 </DataArray>
-<DataArray type="Int64" Name="grid_edge_number" format="ascii">
-0
-0
-0
-0
-0
-0
-0
-0
-1
-1
-1
-1
-
+<DataArray type="Int64" Name="grid_edge_number" format="binary">
+AQAAAACAAABgAAAADgAAAA==eJxjYKAMMBKgAQCwAAU=
 </DataArray>
-<DataArray type="Int64" Name="is_mortar" format="ascii">
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-1
-
+<DataArray type="Int64" Name="is_mortar" format="binary">
+AQAAAACAAABgAAAADgAAAA==eJxjZIAARhrRAALQAA0=
 </DataArray>
-<DataArray type="Int64" Name="mortar_side" format="ascii">
-1
-1
-1
-1
-2
-2
-2
-2
-1
-1
-2
-2
-
+<DataArray type="Int64" Name="mortar_side" format="binary">
+AQAAAACAAABgAAAAEwAAAA==eJxjZIAARhw0EwGakHoAA7gAEw==
 </DataArray>
-<DataArray type="Float64" Name="unique_dummy_scalar" format="ascii">
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-0.00000000000e+00
-
+<DataArray type="Float64" Name="unique_dummy_scalar" format="binary">
+AQAAAACAAABgAAAADAAAAA==eJxjYKAtAAAAYAAB
 </DataArray>
 </CellData>
 </Piece>
