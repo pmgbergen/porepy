@@ -23,12 +23,6 @@ class MeshioExporterTest(unittest.TestCase):
         self.folder = "./test_vtk/"
         self.file_name = "grid"
 
-    # TODO rm.
-    def sliceout(self, data):
-        first = data.find("meshio")
-        second = data.find("-->")
-        return data[:first] + data[second:]
-
     def compare_vtu_files(self, test_file: str, reference_file: str) -> bool:
         """Determine whether two vtu files, accessed by their paths, are identical.
         Returns True if both files are identified as the same, False otherwise.
@@ -369,9 +363,6 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = np.ones((3, network_2d.num_frac()))
         data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
-        if not os.path.exists(self.folder):
-            os.makedirs(self.folder)
-
         network_2d.to_file(
             self.folder + self.file_name + ".vtu",
             data=data,
@@ -396,9 +387,6 @@ class MeshioExporterTest(unittest.TestCase):
         dummy_vector = [[np.ones(3)] for _ in range(num_frac)]
         data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
-        if not os.path.exists(self.folder):
-            os.makedirs(self.folder)
-
         network_3d.to_file(
             self.folder + self.file_name + ".vtu",
             data=data,
@@ -409,20 +397,6 @@ class MeshioExporterTest(unittest.TestCase):
             "test_vtk_reference/fractures_3d.vtu",
         )
         self.assertTrue(same_vtu_files)
-
-    ## Below follows functions that return strings that reproduce the exact output of
-    # the test functions at a time when the code was considered trustworthy.
-
-    def _cross_platform_integer_type(self, txt: str) -> str:
-        """Ensures that the primitive integer type is cross-platform
-        Int types in NumPy are platform-dependent, see:
-        https://github.com/numpy/numpy/issues/9464
-        """
-        # Default integer type in windows is Int32
-        if sys.platform == "win32":
-            return txt.replace("Int64", "Int32")
-        else:
-            return txt
 
 
 if __name__ == "__main__":
