@@ -13,7 +13,6 @@ import unittest
 import meshio
 import numpy as np
 
-# NOTE: non-standard library; would introduce new dependency
 from deepdiff import DeepDiff
 
 import porepy as pp
@@ -25,25 +24,36 @@ class MeshioExporterTest(unittest.TestCase):
         self.folder = "./test_vtk/"
         self.file_name = "grid"
 
+    # TODO rm.
     def sliceout(self, data):
         first = data.find("meshio")
         second = data.find("-->")
         return data[:first] + data[second:]
 
     def compare_vtu_files(self, test_file: str, reference_file: str):
+        """Determine whether two vtu files, accessed by their paths, are identical.
+        Returns True if both files are identified as the same, False otherwise.
+        This is the main auxiliary routine used to compare down below wheter the
+        Exporter produces identical outputs as stored reference files."""
 
-        # Use meshio to read to presumably same format
+        # Trust meshio to read the vtu files
         test_data = meshio.read(test_file)
         reference_data = meshio.read(reference_file)
 
-        # Compare the relevant data stored in the meshio meshes; the same if the diff is empty
+        # Determine the difference between the two meshio objects.
+        # Ignore differences in the data type if values close.
+        # To judge whether values are close, only consider certain
+        # number of significant digits and base the comparison in
+        # exponential form.
         diff = DeepDiff(
             test_data.__dict__,
             reference_data.__dict__,
             significant_digits=8,
-            number_format_notation="f",
+            number_format_notation="e",
             ignore_numeric_type_changes=True,
         )
+
+        # If the difference is empty, the meshio objects are identified as identical.
         return diff == {}
 
     def test_single_subdomain_1d(self):
@@ -61,12 +71,11 @@ class MeshioExporterTest(unittest.TestCase):
         )
         save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
-        # Compare exported filed with corresponding reference file
-        comparison = self.compare_vtu_files(
+        same_vtu_files = self.compare_vtu_files(
             f"{self.folder}/{self.file_name}_1.vtu",
             "test_vtk_reference/single_subdomain_1d.vtu",
         )
-        self.assertTrue(comparison)
+        self.assertTrue(same_vtu_files)
 
     def test_single_subdomain_2d_simplex_grid(self):
         sd = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
