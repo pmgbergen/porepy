@@ -13,6 +13,7 @@ necessarily mean that something is wrong.
 import os
 import shutil
 import unittest
+from collections import namedtuple
 
 import meshio
 import numpy as np
@@ -68,207 +69,90 @@ class MeshioExporterTest(unittest.TestCase):
         # If the difference is empty, the meshio objects are identified as identical.
         return diff == {}
 
-    def test_single_subdomain_1d(self):
-        # Test of the Exporter for a 1d grid (line). Exporting of scalar and vectorial
-        # data is tested.
+    def test_single_subdomains(self):
+        # Test of the Exporter for single subdomains of different dimensionality,
+        # and different grid type. Exporting of scalar and vectorial data is tested.
 
-        # Define grid
-        sd = pp.CartGrid(3, 1)
-        sd.compute_geometry()
+        # Prepare polytopal grids
+        sd_polytop_2d = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
+        sd_polytop_2d.compute_geometry()
+        pp.coarsening.generate_coarse_grid(sd_polytop_2d, [0, 1, 3, 3, 1, 1, 2, 2])
 
-        # Define data
-        dummy_scalar = np.ones(sd.num_cells) * sd.dim
-        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-
-        # Export data
-        save = pp.Exporter(
-            sd,
-            self.file_name,
-            self.folder,
-            export_constants_separately=False,
-        )
-        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
-        # Check that exported vtu file and reference file are the same
-        same_vtu_files: bool = self.compare_vtu_files(
-            f"{self.folder}/{self.file_name}_1.vtu",
-            f"{self.folder_reference}/single_subdomain_1d.vtu",
-        )
-        self.assertTrue(same_vtu_files)
-
-    def test_single_subdomain_2d_simplex_grid(self):
-        # Test of the Exporter for 2d simplex grids. Exporting of scalar and vectorial data
-        # is tested.
-
-        # Define grid
-        sd = pp.StructuredTriangleGrid([3] * 2, [1] * 2)
-        sd.compute_geometry()
-
-        # Define data
-        dummy_scalar = np.ones(sd.num_cells) * sd.dim
-        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-
-        # Export data
-        save = pp.Exporter(
-            sd,
-            self.file_name,
-            self.folder,
-            export_constants_separately=False,
-        )
-        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
-        # Check that exported vtu file and reference file are the same
-        same_vtu_files: bool = self.compare_vtu_files(
-            f"{self.folder}/{self.file_name}_2.vtu",
-            f"{self.folder_reference}/single_subdomain_2d_simplex_grid.vtu",
-        )
-        self.assertTrue(same_vtu_files)
-
-    def test_single_subdomain_2d_cart_grid(self):
-        # Test of the Exporter for 2d Cartesian grids. Exporting of scalar and vectorial
-        # data is tested.
-
-        # Define grid
-        sd = pp.CartGrid([4] * 2, [1] * 2)
-        sd.compute_geometry()
-
-        # Define data
-        dummy_scalar = np.ones(sd.num_cells) * sd.dim
-        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-
-        # Export data
-        save = pp.Exporter(
-            sd,
-            self.file_name,
-            self.folder,
-            export_constants_separately=False,
-        )
-        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
-        # Check that exported vtu file and reference file are the same
-        same_vtu_files: bool = self.compare_vtu_files(
-            f"{self.folder}/{self.file_name}_2.vtu",
-            f"{self.folder_reference}/single_subdomain_2d_cart_grid.vtu",
-        )
-        self.assertTrue(same_vtu_files)
-
-    def test_single_subdomain_2d_polytop(self):
-        # Test of the Exporter for 2d polytopal grids. Exporting of scalar and vectorial
-        # data is tested.
-
-        # Define grid
-        sd = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
-        sd.compute_geometry()
-        pp.coarsening.generate_coarse_grid(sd, [0, 1, 3, 3, 1, 1, 2, 2])
-        sd.compute_geometry()
-
-        # Define data
-        dummy_scalar = np.ones(sd.num_cells) * sd.dim
-        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-
-        # Export data
-        save = pp.Exporter(
-            sd,
-            self.file_name,
-            self.folder,
-            export_constants_separately=False,
-        )
-        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
-        # Check that exported vtu file and reference file are the same
-        same_vtu_files: bool = self.compare_vtu_files(
-            f"{self.folder}/{self.file_name}_2.vtu",
-            f"{self.folder_reference}/single_subdomain_2d_polytop_grid.vtu",
-        )
-        self.assertTrue(same_vtu_files)
-
-    def test_single_subdomain_3d_simplex_grid(self):
-        # Test of the Exporter for 3d simplex grids. Exporting of scalar and vectorial
-        # data is tested.
-
-        # Define grid
-        sd = pp.StructuredTetrahedralGrid([3] * 3, [1] * 3)
-        sd.compute_geometry()
-
-        # Define data
-        dummy_scalar = np.ones(sd.num_cells) * sd.dim
-        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-
-        # Export data
-        save = pp.Exporter(
-            sd,
-            self.file_name,
-            self.folder,
-            export_constants_separately=False,
-        )
-        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
-        # Check that exported vtu file and reference file are the same
-        same_vtu_files: bool = self.compare_vtu_files(
-            f"{self.folder}/{self.file_name}_3.vtu",
-            f"{self.folder_reference}/single_subdomain_3d_simplex_grid.vtu",
-        )
-        self.assertTrue(same_vtu_files)
-
-    def test_single_subdomain_3d_cart_grid(self):
-        # Test of the Exporter for 3d Cartesian grids. Exporting of scalar and vectorial
-        # data is tested.
-
-        # Define grid
-        sd = pp.CartGrid([4] * 3, [1] * 3)
-        sd.compute_geometry()
-
-        # Define data
-        dummy_scalar = np.ones(sd.num_cells) * sd.dim
-        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-
-        # Export data
-        save = pp.Exporter(
-            sd,
-            self.file_name,
-            self.folder,
-            export_constants_separately=False,
-        )
-        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
-
-        # Check that exported vtu file and reference file are the same
-        same_vtu_files: bool = self.compare_vtu_files(
-            f"{self.folder}/{self.file_name}_3.vtu",
-            f"{self.folder_reference}/single_subdomain_3d_cart_grid.vtu",
-        )
-        self.assertTrue(same_vtu_files)
-
-    def test_single_subdomain_3d_polytop_grid(self):
-        # Test of the Exporter for 3d polytopal grids. Exporting of scalar and vectorial
-        # data is tested.
-
-        # Define grid
-        sd = pp.CartGrid([3, 2, 3], [1] * 3)
-        sd.compute_geometry()
+        sd_polytop_3d = pp.CartGrid([3, 2, 3], [1] * 3)
+        sd_polytop_3d.compute_geometry()
         pp.coarsening.generate_coarse_grid(
-            sd, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
+            sd_polytop_3d, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
         )
-        sd.compute_geometry()
 
-        # Define data
-        dummy_scalar = np.ones(sd.num_cells) * sd.dim
-        dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
+        # Define collection of single subdomains
+        SingleSubdomain = namedtuple("SingleSubdomain", ["grid", "ref_vtu_file"])
 
-        # Export data
-        save = pp.Exporter(
-            sd,
-            self.file_name,
-            self.folder,
-            export_constants_separately=False,
-        )
-        save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
+        single_subdomains = [
+            # 1d grid
+            SingleSubdomain(
+                pp.CartGrid(3, 1),
+                f"{self.folder_reference}/single_subdomain_1d.vtu",
+            ),
+            # 2d simplex grid
+            SingleSubdomain(
+                pp.StructuredTriangleGrid([3] * 2, [1] * 2),
+                f"{self.folder_reference}/single_subdomain_2d_simplex_grid.vtu",
+            ),
+            # 2d Cartesian grid
+            SingleSubdomain(
+                pp.CartGrid([4] * 2, [1] * 2),
+                f"{self.folder_reference}/single_subdomain_2d_cart_grid.vtu",
+            ),
+            # 2d polytopal grid
+            SingleSubdomain(
+                sd_polytop_2d,
+                f"{self.folder_reference}/single_subdomain_2d_polytop_grid.vtu",
+            ),
+            # 3d simplex grid
+            SingleSubdomain(
+                pp.StructuredTetrahedralGrid([3] * 3, [1] * 3),
+                f"{self.folder_reference}/single_subdomain_3d_simplex_grid.vtu",
+            ),
+            # 3d Cartesian grid
+            SingleSubdomain(
+                pp.CartGrid([4] * 3, [1] * 3),
+                f"{self.folder_reference}/single_subdomain_3d_cart_grid.vtu",
+            ),
+            # 3d polytopal grid
+            SingleSubdomain(
+                sd_polytop_3d,
+                f"{self.folder_reference}/single_subdomain_3d_polytop_grid.vtu",
+            ),
+        ]
 
-        # Check that exported vtu file and reference file are the same
-        same_vtu_files: bool = self.compare_vtu_files(
-            f"{self.folder}/{self.file_name}_3.vtu",
-            f"{self.folder_reference}/single_subdomain_3d_polytop_grid.vtu",
-        )
-        self.assertTrue(same_vtu_files)
+        # Test each subdomain separately
+        for subdomain in single_subdomains:
+
+            # Define grid
+            sd = subdomain.grid
+            sd.compute_geometry()
+
+            # Define data
+            dummy_scalar = np.ones(sd.num_cells) * sd.dim
+            dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
+
+            # Export data
+            save = pp.Exporter(
+                sd,
+                self.file_name,
+                self.folder,
+                export_constants_separately=False,
+            )
+            save.write_vtu(
+                [("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)]
+            )
+
+            # Check that exported vtu file and reference file are the same
+            same_vtu_files: bool = self.compare_vtu_files(
+                f"{self.folder}/{self.file_name}_{sd.dim}.vtu",
+                f"{subdomain.ref_vtu_file}",
+            )
+            self.assertTrue(same_vtu_files)
 
     # NOTE: Suggest removing this test.
     def test_mdg_1(self):
