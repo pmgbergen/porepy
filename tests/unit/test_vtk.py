@@ -12,8 +12,8 @@ necessarily mean that something is wrong.
 """
 import os
 import shutil
+from pathlib import Path
 from collections import namedtuple
-
 import meshio
 import numpy as np
 import pytest
@@ -48,12 +48,9 @@ def setup():
     setup = ExporterTestSetup()
     yield setup
 
-    # Teardown
-    shutil.rmtree(
-        os.getcwd() + "/" + os.path.basename(os.path.normpath(setup.folder)),
-        ignore_errors=True,
-    )
-
+    # Teardown: remove temporary directory for vtu files
+    full_path = Path.cwd() / Path.resolve(Path(setup.folder)).name
+    shutil.rmtree(full_path)
 
 def _compare_vtu_files(test_file: str, reference_file: str) -> bool:
     # Helper method to determine whether two vtu files, accessed by their
@@ -207,7 +204,6 @@ def test_mdg_1(setup):
         )
 
 
-# TODO Do we need this test if we have the subsequent one?
 def test_mdg_2(setup):
     # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
     # fractured domain. Exporting of scalar and vectorial data, separately defined
@@ -246,7 +242,11 @@ def test_mdg_2(setup):
     )
     save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"])
 
-    # Check that exported vtu files and reference files are the same
+    # Check that exported vtu files and reference files are the same.
+    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
+    # for the reference grid; thus, if this test fails, it should be
+    # rerun with an older version of Gmsh to test for failure due to
+    # external reasons.
     for appendix in ["1", "2", "mortar_1"]:
         assert _compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
@@ -307,6 +307,10 @@ def test_mdg_3(setup):
     )
 
     # Check that exported vtu files and reference files are the same
+    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
+    # for the reference grid; thus, if this test fails, it should be
+    # rerun with an older version of Gmsh to test for failure due to
+    # external reasons.
     for appendix in ["1", "2", "mortar_1"]:
         assert _compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
@@ -337,6 +341,10 @@ def test_constant_data(setup):
     save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
     # Check that exported vtu files and reference files are the same
+    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
+    # for the reference grid; thus, if this test fails, it should be
+    # rerun with an older version of Gmsh to test for failure due to
+    # external reasons.
     for appendix in ["2", "constant_2"]:
         assert _compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
@@ -369,6 +377,10 @@ def test_fractures_2d(setup):
     )
 
     # Check that exported vtu file and reference file are the same
+    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
+    # for the reference grid; thus, if this test fails, it should be
+    # rerun with an older version of Gmsh to test for failure due to
+    # external reasons.
     assert _compare_vtu_files(
         f"{setup.folder}/{setup.file_name}.vtu",
         f"{setup.folder_reference}/fractures_2d.vtu",
@@ -403,6 +415,10 @@ def test_fractures_3d(setup):
     )
 
     # Check that exported vtu file and reference file are the same
+    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
+    # for the reference grid; thus, if this test fails, it should be
+    # rerun with an older version of Gmsh to test for failure due to
+    # external reasons.
     assert _compare_vtu_files(
         f"{setup.folder}/{setup.file_name}.vtu",
         f"{setup.folder_reference}/fractures_3d.vtu",
