@@ -260,7 +260,7 @@ class AbstractModel:
             {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
         )
 
-        solver = self.params["linear_solver"]
+        solver = self.linear_solver
         if solver == "pypardiso":
             # This is the default option which is invoked unless explicitly overriden by the
             # user. We need to check if the pypardiso package is available.
@@ -290,7 +290,7 @@ class AbstractModel:
             f"Assembled and solved in {t_1-t_0:.2e} and {t_2-t_1:.2e} seconds, respectively."
         )
 
-        return x
+        return np.atleast_1d(x)
 
     @abc.abstractmethod
     def _is_nonlinear_problem(self) -> bool:

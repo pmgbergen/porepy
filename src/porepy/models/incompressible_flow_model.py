@@ -8,7 +8,6 @@ import time
 from typing import Dict, List, Optional, Union
 
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 
@@ -84,6 +83,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
         self._export()
         self._discretize()
+        self._initialize_linear_solver()
 
     def _set_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
@@ -399,19 +399,6 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         )
         flux.set_name("Fluid flux")
         return flux
-
-    def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-        """Use a direct solver for the linear system."""
-        A, b = self._eq_manager.assemble()
-        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
-        logger.debug(
-            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min"
-            + f" {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
-        )
-        tic = time.time()
-        x = sps.linalg.spsolve(A, b)
-        logger.info("Solved linear system in {} seconds".format(time.time() - tic))
-        return x
 
     def _discretize(self) -> None:
         """Discretize all terms"""
