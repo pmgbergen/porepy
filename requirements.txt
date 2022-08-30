@@ -11,4 +11,3 @@ shapely[vectorized]
 numba>=0.53.0
 gmsh
 requests
-future
