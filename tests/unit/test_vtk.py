@@ -169,7 +169,7 @@ def test_single_subdomains(setup, subdomain):
     )
 
 
-def test_mdg_2(setup):
+def test_mdg(setup):
     # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
     # fractured domain. Exporting of scalar and vectorial data, separately defined
     # on both subdomains and interfaces.
@@ -215,16 +215,17 @@ def test_mdg_2(setup):
     for appendix in ["1", "2", "mortar_1"]:
         assert _compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
-            f"{setup.folder_reference}/mdg_2_grid_{appendix}.vtu",
+            f"{setup.folder_reference}/mdg_grid_{appendix}.vtu",
         )
 
 
-def test_mdg_3(setup):
+def test_mdg_data_selection(setup):
     # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
     # fractured domain. Exporting of scalar and vectorial data, separately defined
     # on both subdomains and interfaces. Furthermore, the different possibilities
-    # of how to export data are tested: addressing data associated to all subdomains
-    # and interfaces, single ones, or defining external data (here simply cell centers.
+    # of how to export data are tested: addressing selected data associated to all
+    # subdomains and interfaces, single ones, or defining external data (here simply
+    # cell centers).
 
     # Define grid
     mdg, _ = pp.md_grids_2d.two_intersecting(
@@ -279,7 +280,7 @@ def test_mdg_3(setup):
     for appendix in ["1", "2", "mortar_1"]:
         assert _compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
-            f"{setup.folder_reference}/mdg_3_grid_{appendix}.vtu",
+            f"{setup.folder_reference}/mdg_data_selection_grid_{appendix}.vtu",
         )
 
 
