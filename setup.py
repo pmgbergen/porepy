@@ -28,7 +28,7 @@ setup(
     long_description=long_description,
     maintainer="Eirik Keilegavlen",
     maintainer_email="Eirik.Keilegavlen@uib.no",
-    platforms=["Linux", "Windows"],
+    platforms=["Linux", "Windows", "Mac OS-X"],
     package_data={"porepy": ["py.typed"]},
     packages=find_packages("src"),
     package_dir={"": "src"},
