@@ -57,7 +57,7 @@ def _compare_vtu_files(test_file: str, reference_file: str) -> bool:
     # Helper method to determine whether two vtu files, accessed by their
     # paths, are identical. Returns True if both files are identified as the
     # same, False otherwise. This is the main auxiliary routine used to compare
-    # down below wheter the Exporter produces identical outputs as stored
+    # down below whether the Exporter produces identical outputs as stored
     # reference files.
 
     # Trust meshio to read the vtu files
@@ -65,7 +65,7 @@ def _compare_vtu_files(test_file: str, reference_file: str) -> bool:
     reference_data = meshio.read(reference_file)
 
     # Determine the difference between the two meshio objects.
-    # Ignore differences in the data type if values close.
+    # Ignore differences in the data type if values are close.
     # To judge whether values are close, only consider certain
     # number of significant digits and base the comparison in
     # exponential form.
@@ -317,7 +317,7 @@ def test_constant_data(setup):
         )
 
 
-def test_fractures_2d(setup):
+def test_fracture_network_2d(setup):
     # Test of the export functionality of FractureNetwork2d.
 
     # Define network
@@ -352,7 +352,7 @@ def test_fractures_2d(setup):
     )
 
 
-def test_fractures_3d(setup):
+def test_fracture_network_3d(setup):
     # Test of the export functionality of FractureNetwork3d.
 
     # Define network
