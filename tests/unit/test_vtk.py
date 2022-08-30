@@ -52,6 +52,7 @@ def setup():
     full_path = Path.cwd() / Path.resolve(Path(setup.folder)).name
     shutil.rmtree(full_path)
 
+
 def _compare_vtu_files(test_file: str, reference_file: str) -> bool:
     # Helper method to determine whether two vtu files, accessed by their
     # paths, are identical. Returns True if both files are identified as the
@@ -166,42 +167,6 @@ def test_single_subdomains(setup, subdomain):
         f"{setup.folder}/{setup.file_name}_{sd.dim}.vtu",
         f"{subdomain.ref_vtu_file}",
     )
-
-
-# NOTE: Suggest removing this test.
-def test_mdg_1(setup):
-    # Test of the Exporter for 2d mixed-dimensional grids, here based on a simply
-    # fractured domain. Exporting of scalar and vectorial data, solely defined on
-    # the subdomains, is tested.
-
-    # Define grid
-    mdg, _ = pp.md_grids_2d.single_horizontal([4, 4], simplex=False)
-
-    # Define data
-    for sd, sd_data in mdg.subdomains(return_data=True):
-        pp.set_state(
-            sd_data,
-            {
-                "dummy_scalar": np.ones(sd.num_cells) * sd.dim,
-                "dummy_vector": np.ones((3, sd.num_cells)) * sd.dim,
-            },
-        )
-
-    # Export data
-    save = pp.Exporter(
-        mdg,
-        setup.file_name,
-        setup.folder,
-        export_constants_separately=False,
-    )
-    save.write_vtu(["dummy_scalar", "dummy_vector"])
-
-    # Check that exported vtu files and reference files are the same
-    for appendix in ["1", "2", "mortar_1"]:
-        assert _compare_vtu_files(
-            f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
-            f"{setup.folder_reference}/mdg_1_grid_{appendix}.vtu",
-        )
 
 
 def test_mdg_2(setup):
