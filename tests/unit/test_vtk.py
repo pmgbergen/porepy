@@ -60,6 +60,11 @@ def _compare_vtu_files(test_file: str, reference_file: str) -> bool:
     # down below whether the Exporter produces identical outputs as stored
     # reference files.
 
+    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
+    # for the reference grid; thus, if this test fails, it should be
+    # rerun with an older version of Gmsh to test for failure due to
+    # external reasons.
+
     # Trust meshio to read the vtu files
     test_data = meshio.read(test_file)
     reference_data = meshio.read(reference_file)
@@ -208,10 +213,6 @@ def test_mdg(setup):
     save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"])
 
     # Check that exported vtu files and reference files are the same.
-    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
-    # for the reference grid; thus, if this test fails, it should be
-    # rerun with an older version of Gmsh to test for failure due to
-    # external reasons.
     for appendix in ["1", "2", "mortar_1"]:
         assert _compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
@@ -273,10 +274,6 @@ def test_mdg_data_selection(setup):
     )
 
     # Check that exported vtu files and reference files are the same
-    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
-    # for the reference grid; thus, if this test fails, it should be
-    # rerun with an older version of Gmsh to test for failure due to
-    # external reasons.
     for appendix in ["1", "2", "mortar_1"]:
         assert _compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
@@ -307,10 +304,6 @@ def test_constant_data(setup):
     save.write_vtu([("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)])
 
     # Check that exported vtu files and reference files are the same
-    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
-    # for the reference grid; thus, if this test fails, it should be
-    # rerun with an older version of Gmsh to test for failure due to
-    # external reasons.
     for appendix in ["2", "constant_2"]:
         assert _compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
@@ -343,10 +336,6 @@ def test_fracture_network_2d(setup):
     )
 
     # Check that exported vtu file and reference file are the same
-    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
-    # for the reference grid; thus, if this test fails, it should be
-    # rerun with an older version of Gmsh to test for failure due to
-    # external reasons.
     assert _compare_vtu_files(
         f"{setup.folder}/{setup.file_name}.vtu",
         f"{setup.folder_reference}/fractures_2d.vtu",
@@ -381,10 +370,6 @@ def test_fracture_network_3d(setup):
     )
 
     # Check that exported vtu file and reference file are the same
-    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
-    # for the reference grid; thus, if this test fails, it should be
-    # rerun with an older version of Gmsh to test for failure due to
-    # external reasons.
     assert _compare_vtu_files(
         f"{setup.folder}/{setup.file_name}.vtu",
         f"{setup.folder_reference}/fractures_3d.vtu",
