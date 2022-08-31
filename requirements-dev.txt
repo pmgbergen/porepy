@@ -19,3 +19,4 @@ black == 22.6.0
 isort
 typing_extensions
 requests
+deepdiff
