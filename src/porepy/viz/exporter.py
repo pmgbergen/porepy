@@ -17,6 +17,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import meshio
 import numpy as np
+from deepdiff import DeepDiff
 
 import porepy as pp
 
@@ -183,11 +184,19 @@ class Exporter:
 
     def import_from_vtu(
         self,
-        keys: list[str],
+        keys: Union[str, list[str]],
         file_names: Union[str, list[str]],
     ) -> None:
         """
-        Import from file to mdg.
+        Import state variables from vtu file.
+
+        Args:
+            keys (string or list of strings): keywords addressing cell data to be transferred
+            file_names (string or list of strings): list of vtu files to be considered
+
+        Raises:
+            ValueError if some of the data is not compatible with the supposedly corresponding
+                grid
         """
 
         # Aux. method: Inversoe of _toVectorFormat, used to define vector-ranged values
@@ -219,13 +228,17 @@ class Exporter:
         if isinstance(file_names, str):
             file_names = [file_names]
 
-        # Consider each file separately
+        # Consider each file separately.
+        # Procedure has three steps:
+        # 1. Determine dimensionality and type of grid, addressed by the vtu file.
+        # 2. Check whether the vtu file is compatible with the corresponding grids.
+        # 3. Transfer data from vtu to the mixed-dimensional grid.
         for i, file_name in enumerate(file_names):
 
             # Read all data from vtu
             vtu_data = meshio.read(file_name)
 
-            # Determine dimension of the grid associated to vtu file, and
+            # 1. Step: Determine dimension of the grid associated to vtu file, and
             # whether the grid corresponds to a subdomain or interface.
             # Assuming grid_dim and is_mortar are among the stored vtu data
             # one could utilize those, but this does not have to be the case.
@@ -252,11 +265,36 @@ class Exporter:
                 and file_name_pieces[dim_pos - 2] == "mortar"
             )
 
-            # TODO compare Meshio variable with vtu file - one possibility is to
-            # do a simple export of the grid and see whether the mesh entries in
-            # the vtu files are the same.
+            # 2. Step: Make sure that the vtu file and the corresponding grid are
+            # identical. For this, check whether the meshio geometry is the same as
+            # in the vtu file.
+            # NOTE: Meshes could be compatible via some transformation. However,
+            # here we require identical grids.
 
-            # Loop over all keys
+            meshio_geometry = (
+                self.meshio_geom[dim] if is_subdomain_data else self.m_meshio_geom[dim]
+            )
+
+            # Make sure that both grids have same nodes
+            assert np.all(np.isclose(meshio_geometry.pts, vtu_data.points))
+
+            # TODO is it anytime something else in practice? for polyhedra?
+            num_blocks = 1
+            for i in range(num_blocks):
+
+                # Make sure that the connectivity patterns are identical
+                assert (
+                    DeepDiff(
+                        meshio_geometry.connectivity[i],
+                        vtu_data.cells[i],
+                        significant_digits=8,
+                        number_format_notation="e",
+                        ignore_numeric_type_changes=True,
+                    )
+                    == {}
+                )
+
+            # 3. Step: Transfer data. Consider each key separately.
             for key in keys:
 
                 # Only continue if the key is present in the data
