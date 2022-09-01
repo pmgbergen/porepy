@@ -9,7 +9,7 @@ from typing import Dict
 
 import porepy as pp
 
-from ._composite_utils import COMPUTATIONAL_VARIABLES, create_merged_variable
+from ._composite_utils import COMPUTATIONAL_VARIABLES, create_merged_subdomain_variable
 
 __all__ = ["Component", "FluidComponent", "SolidComponent"]
 
@@ -37,11 +37,11 @@ class Component(abc.ABC):
     """
 
     # contains per GB the singleton, using the class name as a unique identifier
-    __md_singletons: Dict[pp.MixedDimensionalGrid, Dict[str, Component]] = dict()
+    __mdg_singletons: Dict[pp.MixedDimensionalGrid, Dict[str, Component]] = dict()
     # flag if a singleton has recently been accessed, to skip re-instantiation
     __singleton_accessed: bool = False
 
-    def __new__(cls, md: pp.MixedDimensionalGrid) -> Component:
+    def __new__(cls, mdg: pp.MixedDimensionalGrid) -> Component:
         """Declarator assures the substance name is unique for a given computational domain.
         Ambiguities must be avoided due to the central storage of the AD variables and usage
         of the name as a key.
@@ -49,20 +49,20 @@ class Component(abc.ABC):
         """
 
         name = str(cls.__name__)
-        if md in Component.__md_singletons.keys():
-            if name in Component.__md_singletons[md].keys():
+        if mdg in Component.__mdg_singletons.keys():
+            if name in Component.__mdg_singletons[mdg].keys():
                 # flag that the singleton has been accessed and return it.
                 Component.__singleton_accessed = True
-                return Component.__md_singletons[md][name]
+                return Component.__mdg_singletons[mdg][name]
         else:
-            Component.__md_singletons.update({md: dict()})
+            Component.__mdg_singletons.update({mdg: dict()})
 
         # create a new instance and store it
         new_instance = super().__new__(cls)
-        Component.__md_singletons[md].update({name: new_instance})
+        Component.__mdg_singletons[mdg].update({name: new_instance})
         return new_instance
 
-    def __init__(self, md: pp.MixedDimensionalGrid) -> None:
+    def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         """Initiates component-related AD-variables.
 
         Args:
@@ -79,14 +79,14 @@ class Component(abc.ABC):
         super().__init__()
 
         ## PUBLIC
-        self.md: pp.MixedDimensionalGrid = md
+        self.mdg: pp.MixedDimensionalGrid = mdg
 
         # private attributes
         self._feed_fraction: pp.ad.MergedVariable
         self._fractions_in_phases: Dict[str, pp.ad.MergedVariable]
 
         # creating the overall molar fraction variable
-        self._omf = create_merged_variable(md, {"cells": 1}, self.fraction_var)
+        self._omf = create_merged_subdomain_variable(mdg, {"cells": 1}, self.fraction_var)
         # for a phase name (key),
         # provide the MergedVariable for the molar fraction in that phase (value)
         self._mfip: Dict[str, pp.ad.MergedVariable] = dict()
@@ -166,8 +166,8 @@ class Component(abc.ABC):
             return self._mfip[phase_name]
         # else create new one
         else:
-            mfip = create_merged_variable(
-                self.md, {"cells": 1}, self.fraction_in_phase_var(phase_name)
+            mfip = create_merged_subdomain_variable(
+                self.mdg, {"cells": 1}, self.fraction_in_phase_var(phase_name)
             )
             self._mfip.update({phase_name: mfip})
             return mfip
