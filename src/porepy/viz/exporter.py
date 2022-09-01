@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import sys
 from collections import namedtuple
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import meshio
@@ -179,6 +180,113 @@ class Exporter:
 
         # Parameter to be used in several occasions for adding time stamps.
         self._padding = 6
+
+    def import_from_vtu(
+        self,
+        keys: list[str],
+        file_names: Union[str, list[str]],
+    ) -> None:
+        """
+        Import from file to mdg.
+        """
+
+        # Aux. method: Inversoe of _toVectorFormat, used to define vector-ranged values
+        def _toScalarFormat(
+            value: np.ndarray, grid: Union[pp.Grid, pp.MortarGrid]
+        ) -> np.ndarray:
+            """
+            Check whether the value array has the right dimension corresponding
+            to the grid size. If possible, translate the value to a scalar-ranged
+            object.
+
+            Args:
+                value (np.ndarray): input array to be converted
+                grid (pp.Grid or pp.MortarGrid): subdomain or interface to which value
+                    is associated to
+
+            Raises:
+                ValueError if the value array is not compatible with the grid
+            """
+            # Make some checks
+            if not value.size % grid.num_cells == 0:
+                # This line will raise an error if node or face data is exported.
+                raise ValueError("The data array is not compatible with the grid.")
+
+            # Apply flatten with the order compatible with _toVectorFormat.
+            return value.flatten("F")
+
+        # Convert file_names to a list
+        if isinstance(file_names, str):
+            file_names = [file_names]
+
+        # Consider each file separately
+        for i, file_name in enumerate(file_names):
+
+            # Read all data from vtu
+            vtu_data = meshio.read(file_name)
+
+            # Determine dimension of the grid associated to vtu file, and
+            # whether the grid corresponds to a subdomain or interface.
+            # Assuming grid_dim and is_mortar are among the stored vtu data
+            # one could utilize those, but this does not have to be the case.
+            # Thus, use naming convention of the Exporter for this.
+
+            # TODO what about external data, not following the convention?
+            # Would it be better to use keyword arguments describing each
+            # single vtu file? Still an automatic routine could be included as well.
+
+            # Remove ending '.vtu' from file_name, and decompose into pieces
+            # separated by '_'.
+            file_name_pieces = Path(file_name).stem.split("_")
+
+            # If the last two are numbers, the first one denotes the dimension.
+            assert file_name_pieces[-1].isnumeric()
+            dim_pos = -2 if file_name_pieces[-2].isnumeric() else -1
+            dim = int(file_name_pieces[dim_pos])
+
+            # If the key words before are 'mortar', or 'mortar' and 'constant',
+            # the vtu file corresponds to intefaces; otherwise to subdomains.
+            is_subdomain_data = not (
+                file_name_pieces[dim_pos - 1] == "mortar"
+                or file_name_pieces[dim_pos - 1] == "constant"
+                and file_name_pieces[dim_pos - 2] == "mortar"
+            )
+
+            # TODO compare Meshio variable with vtu file - one possibility is to
+            # do a simple export of the grid and see whether the mesh entries in
+            # the vtu files are the same.
+
+            # Loop over all keys
+            for key in keys:
+
+                # Only continue if the key is present in the data
+                if key in vtu_data.cell_data:
+
+                    # Fetch data
+                    value = vtu_data.cell_data[key][0]
+
+                    # Chop data in pieces compatible with the subdomains and interfaces
+                    offset = 0
+                    if is_subdomain_data:
+                        for sd, sd_data in self._mdg.subdomains(
+                            dim=dim, return_data=True
+                        ):
+                            if pp.STATE not in sd_data:
+                                sd_data[pp.STATE] = {}
+                            sd_data[pp.STATE][key] = _toScalarFormat(
+                                value[offset : offset + sd.num_cells], sd
+                            )
+                            offset += sd.num_cells
+                    else:
+                        for intf, intf_data in self._mdg.interfaces(
+                            dim=dim, return_data=True
+                        ):
+                            if pp.STATE not in intf_data:
+                                intf_data[pp.STATE] = {}
+                            intf_data[pp.STATE][key] = _toScalarFormat(
+                                value[offset : offset + intf.num_cells], intf
+                            )
+                            offset += intf.num_cells
 
     def add_constant_data(
         self,
