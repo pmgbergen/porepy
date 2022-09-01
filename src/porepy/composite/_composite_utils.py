@@ -4,7 +4,7 @@ Data:
     - COMPUTATIONAL_VARIABLES
 
 Functions:
-    - create_merged_variable_on_gb
+    - create_merged_variable_on_mdg
 
 """
 from __future__ import annotations
@@ -61,8 +61,8 @@ Universal molar gas constant.
 """
 
 
-def create_merged_variable(
-    gb: "pp.GridBucket",
+def create_merged_subdomain_variable(
+    mdg: pp.MixedDimensionalGrid,
     dof_info: Dict[str, int],
     variable_name: str,
 ) -> "pp.ad.MergedVariable":
@@ -71,8 +71,8 @@ def create_merged_variable(
     Stores information about the variable in the data dictionary associated with each
     subdomain.
 
-    :param gb: grid bucket representing the whole computational domain
-    :type gb: :class:`~porepy.GridBucket`
+    :param mdg: grid bucket representing the whole computational domain
+    :type mdg: :class:`~porepy.GridBucket`
     :param dof_info: number of DOFs per grid element (e.g. cells, faces, nodes)
     :type dof_info: dict
     :param variable_name: name given to variable, used as keyword for storage
@@ -83,31 +83,31 @@ def create_merged_variable(
     """
     # creating variables on each subdomain
     variables = list()
-    for g, d in gb:
+    for sd, data in mdg.subdomains(return_data=True):
         # store DOF information about variable
-        if pp.PRIMARY_VARIABLES not in d.keys():
-            d[pp.PRIMARY_VARIABLES] = dict()
+        if pp.PRIMARY_VARIABLES not in data.keys():
+            data[pp.PRIMARY_VARIABLES] = dict()
 
-        d[pp.PRIMARY_VARIABLES].update({variable_name: dof_info})
+        data[pp.PRIMARY_VARIABLES].update({variable_name: dof_info})
 
         # create grid-specific variable
-        variables.append(pp.ad.Variable(variable_name, dof_info, grids=[g]))
+        variables.append(pp.ad.Variable(variable_name, dof_info, subdomains=[sd]))
 
         # initiate state and iterative state as zero
-        if pp.STATE not in d:
-            d[pp.STATE] = {}
-        if pp.ITERATE not in d[pp.STATE]:
-            d[pp.STATE][pp.ITERATE] = {}
+        if pp.STATE not in data:
+            data[pp.STATE] = {}
+        if pp.ITERATE not in data[pp.STATE]:
+            data[pp.STATE][pp.ITERATE] = {}
 
-        d[pp.STATE].update({variable_name: np.zeros(g.num_cells)})
-        d[pp.STATE][pp.ITERATE].update({variable_name: np.zeros(g.num_cells)})
+        data[pp.STATE].update({variable_name: np.zeros(sd.num_cells)})
+        data[pp.STATE][pp.ITERATE].update({variable_name: np.zeros(sd.num_cells)})
         # TODO for variables with not only cell values, above is wrong/incomplete
 
     return pp.ad.MergedVariable(variables)
 
 
-def create_merged_mortar_variable(
-    gb: "pp.GridBucket", dof_info: Dict[str, int], mortar_variable_name: str
+def create_merged_interface_variable(
+    mdg: pp.MixedDimensionalGrid, dof_info: Dict[str, int], mortar_variable_name: str
 ) -> "pp.ad.MergedVariable":
     """
     Creates domain-wide mortar variables for a given grid bucket.
@@ -115,8 +115,8 @@ def create_merged_mortar_variable(
     subdomain.
     The key :data:`porepy.PRIMARY_VARIABLES` and given variable names are used for storage.
 
-    :param gb: grid bucket representing the whole computational domain
-    :type gb: :class:`porepy.GridBucket`
+    :param mdg: grid bucket representing the whole computational domain
+    :type mdg: :class:`porepy.GridBucket`
     :param dof_info: number of DOFs per grid element (e.g. cell, face)
     :type dof_info: dict
     :param mortar_variable_name: (optional) name given to respective mortar variable,
@@ -128,19 +128,19 @@ def create_merged_mortar_variable(
     """
 
     mortar_variables = list()
-    for e, d in gb.edges():
+    for mg, data in mdg.interfaces(return_data=True):
         # FIXME: assure the data dict has the respective keys
-        if d["mortar_grid"].codim == 2:  # no variables in points
+        if mg.codim == 2:  # no variables in points
             continue
         else:
-            d[pp.PRIMARY_VARIABLES].update({mortar_variable_name: dof_info})
+            data[pp.PRIMARY_VARIABLES].update({mortar_variable_name: dof_info})
             # TODO test if the order of variables is alright
             mortar_variables.append(
                 pp.ad.Variable(
                     mortar_variable_name,
                     dof_info,
-                    edges=[e],
-                    num_cells=d["mortar_grid"].num_cells,
+                    interfaces=[mg],
+                    num_cells=mg.num_cells,
                 )
             )
 
