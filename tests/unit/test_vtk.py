@@ -220,6 +220,49 @@ def test_mdg(setup):
         )
 
 
+def test_mdg_import(setup):
+    # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
+    # fractured domain. Exporting of scalar and vectorial data, separately defined
+    # on both subdomains and interfaces.
+
+    # Define grid
+    mdg, _ = pp.md_grids_2d.two_intersecting(
+        [4, 4], y_endpoints=[0.25, 0.75], simplex=False
+    )
+
+    # Export data
+    save = pp.Exporter(
+        mdg,
+        setup.file_name,
+        setup.folder,
+        export_constants_separately=False,
+    )
+
+    # Define keys (correpsonds to all data stored in the vtu file).
+    keys = ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"]
+
+    # Import data
+    save.import_from_vtu(
+        keys=keys,
+        file_names=[
+            f"{setup.folder_reference}/mdg_grid_2.vtu",
+            f"{setup.folder_reference}/mdg_grid_1.vtu",
+            f"{setup.folder_reference}/mdg_grid_mortar_1.vtu",
+        ],
+    )
+
+    # Perform comparison on vtu level (seems the easiest as it only involves a
+    # comparison of dictionaries). This requires Exporter to work flawlessly.
+    save.write_vtu(keys)
+
+    # Check that exported vtu files and reference files are the same.
+    for appendix in ["1", "2", "mortar_1"]:
+        assert _compare_vtu_files(
+            f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
+            f"{setup.folder_reference}/mdg_grid_{appendix}.vtu",
+        )
+
+
 def test_mdg_data_selection(setup):
     # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
     # fractured domain. Exporting of scalar and vectorial data, separately defined
