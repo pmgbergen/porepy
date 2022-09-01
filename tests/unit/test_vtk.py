@@ -173,6 +173,45 @@ def test_single_subdomains(setup, subdomain):
         f"{subdomain.ref_vtu_file}",
     )
 
+@pytest.mark.parametrize("subdomain", single_subdomains)
+def test_single_subdomains_import(setup, subdomain):
+    # Test of the import routine of the Exporter for single subdomains.
+    # Consistent with test_single_subdomains.
+
+    # Define grid
+    sd = subdomain.grid
+    sd.compute_geometry()
+
+    # Define exporter
+    save = pp.Exporter(
+        sd,
+        setup.file_name,
+        setup.folder,
+        export_constants_separately=False,
+    )
+
+    # Define keys (correpsonds to all data stored in the vtu file).
+    keys = ["dummy_scalar", "dummy_vector"]
+
+    # Import data
+    save.import_from_vtu(
+        keys=keys,
+        file_names=f"{subdomain.ref_vtu_file}",
+        automatic=False,
+        dims = sd.dim,
+    )
+
+    # Perform comparison on vtu level (seems the easiest as it only involves a
+    # comparison of dictionaries). This requires test_single_subdomains to pass
+    # all tests.
+    save.write_vtu(keys)
+
+    # Check that exported vtu file and reference file are the same
+    assert _compare_vtu_files(
+        f"{setup.folder}/{setup.file_name}_{sd.dim}.vtu",
+        f"{subdomain.ref_vtu_file}",
+    )
+
 
 def test_mdg(setup):
     # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
@@ -221,16 +260,15 @@ def test_mdg(setup):
 
 
 def test_mdg_import(setup):
-    # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
-    # fractured domain. Exporting of scalar and vectorial data, separately defined
-    # on both subdomains and interfaces.
+    # Test of the import routine of the Exporter for 2d mixed-dimensional grids.
+    # Consistent with test_mdg.
 
     # Define grid
     mdg, _ = pp.md_grids_2d.two_intersecting(
         [4, 4], y_endpoints=[0.25, 0.75], simplex=False
     )
 
-    # Export data
+    # Define exporter
     save = pp.Exporter(
         mdg,
         setup.file_name,
@@ -252,7 +290,7 @@ def test_mdg_import(setup):
     )
 
     # Perform comparison on vtu level (seems the easiest as it only involves a
-    # comparison of dictionaries). This requires Exporter to work flawlessly.
+    # comparison of dictionaries). This requires test_mdg to pass all tests.
     save.write_vtu(keys)
 
     # Check that exported vtu files and reference files are the same.
