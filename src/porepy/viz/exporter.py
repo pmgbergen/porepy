@@ -186,6 +186,7 @@ class Exporter:
         self,
         keys: Union[str, list[str]],
         file_names: Union[str, list[str]],
+        **kwargs,
     ) -> None:
         """
         Import state variables from vtu file.
@@ -193,6 +194,15 @@ class Exporter:
         Args:
             keys (string or list of strings): keywords addressing cell data to be transferred
             file_names (string or list of strings): list of vtu files to be considered
+            kwargs: Optional keyword arguments:
+                automatic (boolean): controlling whether dimensionality of the grids and
+                    whether it is a subdomain or interface grid is read automatically from
+                    the file names; default is True
+                dims (int or list of int): compatible with file_names; list of dimensions of
+                    the corresponding grids
+                are_subdomain_data (bool or list of bool): comparible with file_names; list
+                    of indicators whether the corresponding grid is a subdomain grid;
+                    default is True
 
         Raises:
             ValueError if some of the data is not compatible with the supposedly corresponding
@@ -240,30 +250,48 @@ class Exporter:
 
             # 1. Step: Determine dimension of the grid associated to vtu file, and
             # whether the grid corresponds to a subdomain or interface.
-            # Assuming grid_dim and is_mortar are among the stored vtu data
-            # one could utilize those, but this does not have to be the case.
-            # Thus, use naming convention of the Exporter for this.
 
-            # TODO what about external data, not following the convention?
-            # Would it be better to use keyword arguments describing each
-            # single vtu file? Still an automatic routine could be included as well.
+            # Allow for automatic detection from the file name.
+            if kwargs.pop("automatic", True):
+                # Assuming grid_dim and is_mortar are among the stored vtu data
+                # one could utilize those, but this does not have to be the case.
+                # Thus, use naming convention of the Exporter for this.
 
-            # Remove ending '.vtu' from file_name, and decompose into pieces
-            # separated by '_'.
-            file_name_pieces = Path(file_name).stem.split("_")
+                # Remove ending '.vtu' from file_name, and decompose into pieces
+                # separated by '_'.
+                file_name_pieces = Path(file_name).stem.split("_")
 
-            # If the last two are numbers, the first one denotes the dimension.
-            assert file_name_pieces[-1].isnumeric()
-            dim_pos = -2 if file_name_pieces[-2].isnumeric() else -1
-            dim = int(file_name_pieces[dim_pos])
+                # If the last two are numbers, the first one denotes the dimension.
+                assert file_name_pieces[-1].isnumeric()
+                dim_pos = -2 if file_name_pieces[-2].isnumeric() else -1
+                dim = int(file_name_pieces[dim_pos])
 
-            # If the key words before are 'mortar', or 'mortar' and 'constant',
-            # the vtu file corresponds to intefaces; otherwise to subdomains.
-            is_subdomain_data = not (
-                file_name_pieces[dim_pos - 1] == "mortar"
-                or file_name_pieces[dim_pos - 1] == "constant"
-                and file_name_pieces[dim_pos - 2] == "mortar"
-            )
+                # If the key words before are 'mortar', or 'mortar' and 'constant',
+                # the vtu file corresponds to intefaces; otherwise to subdomains.
+                is_subdomain_data = not (
+                    file_name_pieces[dim_pos - 1] == "mortar"
+                    or file_name_pieces[dim_pos - 1] == "constant"
+                    and file_name_pieces[dim_pos - 2] == "mortar"
+                )
+
+            else:
+                # Read from keyword arguments
+
+                # Dimensionality of the grid
+                if "dims" not in kwargs:
+                    raise ValueError("""Provide dimensionality of the grids associated
+                        to the vtu files.""")
+                dims = kwargs.pop("dims")
+                assert isinstance(dims, list) or isinstance(dims, int) 
+                dim = dims[i] if isinstance(dims, list) else dims
+
+                # Whether the grid is a subdomain or interface
+                if "are_subdomain_data" not in kwargs:
+                    is_subdomain_data = True
+                else:
+                    are_subdomain_data = kwargs.pop("are_subdomain_data")
+                    assert isinstance(are_subdomain_data, bool) or isinstance(are_subdomain_data, list)
+                    is_subdomain_data = are_subdomain_data[i] if isinstance(are_subdomain_data, list) else are_subdomain_data
 
             # 2. Step: Make sure that the vtu file and the corresponding grid are
             # identical. For this, check whether the meshio geometry is the same as
