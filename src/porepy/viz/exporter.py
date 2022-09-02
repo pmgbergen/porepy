@@ -164,7 +164,7 @@ class Exporter:
         self._exported_timesteps: list[int] = []
 
         # Reference to the last time step used for exporting constant data.
-        self._latest_time_step_constant_data: Optional[int] = None
+        self._time_step_constant_data: Optional[int] = None
         # Storage for file name extensions for time steps, regarding constant data.
         self._exported_timesteps_constants: list[int] = list()
         # Identifier for whether constant data is up-to-date.
@@ -314,7 +314,11 @@ class Exporter:
 
                 # Store the time step counter for later reference
                 # (required for pvd files)
-                self._latest_time_step_constant_data = time_step
+                # NOTE: The counter is only updated if the constant
+                # data is outdated, so if the mesh has been updated
+                # or new constant data has been added in the course
+                # of the simulation.
+                self._time_step_constant_data = time_step
 
                 # Identify the constant data as fixed. Has the effect
                 # that the constant data won't be exported if not the
@@ -322,10 +326,10 @@ class Exporter:
                 self._exported_constant_data_up_to_date = True
 
             # Store the timestep referring to the origin of the constant data
-            if hasattr(self, "_latest_time_step_constant_data"):
-                if self._latest_time_step_constant_data is not None:
+            if hasattr(self, "_time_step_constant_data"):
+                if self._time_step_constant_data is not None:
                     self._exported_timesteps_constants.append(
-                        self._latest_time_step_constant_data
+                        self._time_step_constant_data
                     )
         else:
             # Append constant subdomain and interface data to the
@@ -1139,7 +1143,7 @@ class Exporter:
                         fm
                         % self._make_file_name(
                             self._file_name + "_constant",
-                            self._latest_time_step_constant_data,
+                            self._time_step_constant_data,
                             dim,
                         )
                     )
@@ -1154,7 +1158,7 @@ class Exporter:
                         fm
                         % self._make_file_name(
                             self._file_name + "_constant_mortar",
-                            self._latest_time_step_constant_data,
+                            self._time_step_constant_data,
                             dim,
                         )
                     )
