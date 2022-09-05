@@ -138,8 +138,6 @@ class WellNetwork3d:
 
     Attributes:
         _wells (list of Fracture): All fractures forming the network.
-        intersections (list of Intersection): All known intersections in the
-            network.
         tol (double): Geometric tolerance used in computations.
         domain (dictionary): External bounding box. See
             impose_external_boundary() for details.
