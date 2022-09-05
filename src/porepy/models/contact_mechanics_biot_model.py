@@ -208,7 +208,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     data,
                     self.mechanics_parameter_key,
                     {
-                        "time_step": self.time_step,
                         "mass_weight": np.ones(sd.num_cells),
                     },
                 )

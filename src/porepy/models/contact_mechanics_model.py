@@ -380,6 +380,10 @@ class ContactMechanics(AbstractModel):
         # Geometry
         self.create_grid()
         self.nd = self.mdg.dim_max()
+        # If no fractures are present, the following call is harmless
+        pp.contact_conditions.set_projections(self.mdg)
+
+        # Variables and parameters
         self._assign_variables()
         if self._use_ad:
             self._assign_ad_variables()
