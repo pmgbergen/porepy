@@ -262,7 +262,7 @@ class AbstractModel:
 
         solver = self.linear_solver
         if solver == "pypardiso":
-            # This is the default option which is invoked unless explicitly overriden by the
+            # This is the default option which is invoked unless explicitly overridden by the
             # user. We need to check if the pypardiso package is available.
             try:
                 from pypardiso import spsolve as sparse_solver  # type: ignore
