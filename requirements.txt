@@ -8,7 +8,6 @@ future
 six
 shapely
 shapely[vectorized]
-numba>=0.53.0
+numba >= 0.53.0, < 0.56.1
 gmsh
 requests
-future

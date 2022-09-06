@@ -6,6 +6,7 @@ from os.path import basename, splitext
 
 from setuptools import find_packages, setup
 
+
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
@@ -18,7 +19,7 @@ long_description = read("Readme.rst")
 
 setup(
     name="porepy",
-    version="1.5.0",
+    version="1.6.0",
     license="GPL",
     keywords=["porous media simulation fractures deformable"],
     author="Eirik Keilegavlen, Runar Berge, Omar Duran, Alessio Fumagalli, Michele Starnoni, Ivar Stefansson and Jhabriel Varela",
@@ -27,7 +28,7 @@ setup(
     long_description=long_description,
     maintainer="Eirik Keilegavlen",
     maintainer_email="Eirik.Keilegavlen@uib.no",
-    platforms=["Linux", "Windows"],
+    platforms=["Linux", "Windows", "Mac OS-X"],
     package_data={"porepy": ["py.typed"]},
     packages=find_packages("src"),
     package_dir={"": "src"},

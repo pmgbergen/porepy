@@ -8,7 +8,6 @@ import time
 from typing import Dict, List, Optional, Union
 
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 
@@ -84,12 +83,13 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
         self._export()
         self._discretize()
+        self._initialize_linear_solver()
 
     def _set_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
 
-        The parameters fields of the data dictionaries are updated for all
-        subdomains and edges (of codimension 1).
+        The parameter fields of the data dictionaries are updated for all
+        subdomains and interfaces (of codimension 1).
         """
         for sd, data in self.mdg.subdomains(return_data=True):
             bc = self._bc_type(sd)
@@ -230,14 +230,12 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
     def _assign_variables(self) -> None:
         """
-        Assign primary variables to the nodes and edges of the grid bucket.
+        Assign primary variables to subdomains and interfaces of the mixed-dimensional grid.
         """
-        # First for the nodes
         for _, data in self.mdg.subdomains(return_data=True):
             data[pp.PRIMARY_VARIABLES] = {
                 self.variable: {"cells": 1},
             }
-        # Then for the edges
         for intf, data in self.mdg.interfaces(return_data=True):
             if intf.codim == 2:
                 continue
@@ -266,10 +264,10 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         )
 
     def _assign_equations(self) -> None:
-        """Define equations through discretizations.
+        """Define equations.
 
         Assigns a Laplace/Darcy problem discretized using Mpfa on all subdomains with
-        Neumann conditions on all internal boundaries. On edges of co-dimension one,
+        Neumann conditions on all internal boundaries. On interfaces of co-dimension one,
         interface fluxes are related to higher- and lower-dimensional pressures using
         the RobinCoupling.
 
@@ -303,7 +301,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
             array_keyword="vector_source",
             subdomains=subdomains,
         )
-        vector_source_edges = pp.ad.ParameterArray(
+        vector_source_interfaces = pp.ad.ParameterArray(
             param_keyword=self.parameter_key,
             array_keyword="vector_source",
             interfaces=interfaces,
@@ -343,11 +341,11 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
             * (
                 self._ad.mortar_proj.primary_to_mortar_avg * p_primary
                 - self._ad.mortar_proj.secondary_to_mortar_avg * p
-                + robin_ad.mortar_vector_source * vector_source_edges
+                + robin_ad.mortar_vector_source * vector_source_interfaces
             )
             + mortar_flux
         )
-        subdomain_flow_eq.set_name("flow on nodes")
+        subdomain_flow_eq.set_name("flow on subdomains")
         interface_flow_eq.set_name("flow on interfaces")
 
         # Add to the equation list:
@@ -401,19 +399,6 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         )
         flux.set_name("Fluid flux")
         return flux
-
-    def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-        """Use a direct solver for the linear system."""
-        A, b = self._eq_manager.assemble()
-        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
-        logger.debug(
-            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min"
-            + f" {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
-        )
-        tic = time.time()
-        x = sps.linalg.spsolve(A, b)
-        logger.info("Solved linear system in {} seconds".format(time.time() - tic))
-        return x
 
     def _discretize(self) -> None:
         """Discretize all terms"""
