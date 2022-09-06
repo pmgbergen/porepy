@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import scipy.sparse as sps
-import scipy.sparse.linalg as spla
 
 import porepy as pp
 from porepy.models.abstract_model import AbstractModel
@@ -170,9 +169,9 @@ class ContactMechanics(AbstractModel):
             )
 
         # The default convergence check cannot be applied. Do a manual check instead.
-        g_max = self._nd_subdomain()
+        sd_max = self._nd_subdomain()
         mech_dof = self.dof_manager.grid_and_variable_to_dofs(
-            g_max, self.displacement_variable
+            sd_max, self.displacement_variable
         )
 
         # Also find indices for the contact variables
@@ -276,22 +275,6 @@ class ContactMechanics(AbstractModel):
 
         return error, converged, diverged
 
-    def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-
-        if self._use_ad:
-            A, b = self._eq_manager.assemble()
-        else:
-            A, b = self.assembler.assemble_matrix_rhs()  # type: ignore
-        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
-        logger.debug(
-            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min"
-            + f" {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
-        )
-        if self.linear_solver == "direct":
-            return spla.spsolve(A, b)
-        else:
-            raise NotImplementedError("Not that far yet")
-
     def reconstruct_local_displacement_jump(
         self,
         intf: pp.MortarGrid,
@@ -305,7 +288,7 @@ class ContactMechanics(AbstractModel):
             intf represented by a mortar grid, expected to have the projection
             obtained by calling pp.contact_conditions.set_projections(self.mdg)
         Returns:
-            (np.array): ambient_dim x g_l.num_cells. First 1-2 dimensions are in the
+            (np.array): ambient_dim x sd_l.num_cells. First 1-2 dimensions are in the
             tangential direction of the fracture, last dimension is normal.
         """
         interface_data = self.mdg.interface_data(intf)
@@ -385,10 +368,15 @@ class ContactMechanics(AbstractModel):
         data[pp.STATE]["stress"] = stress
 
     def prepare_simulation(self) -> None:
-        """Is run prior to a time-stepping scheme. Use this to initialize
+        """Is run prior to a time-stepping scheme. Use this to create a
+        (mixed-dimensional) grid, initialize variables, parameters, equations,
         discretizations, export for visualization, linear solvers etc.
 
+        The ordering of operations may be significant. For instance,
+        defining initial condition before parameters allows the latter to
+        depend on the former.
         """
+        # Geometry
         self.create_grid()
         self.nd = self.mdg.dim_max()
         self._assign_variables()
@@ -398,12 +386,17 @@ class ContactMechanics(AbstractModel):
             self.dof_manager = pp.DofManager(self.mdg)
         self._initial_condition()
         self._set_parameters()
+
+        # Define equations through discretizations or ad expressions
         self._assign_discretizations()
         # Once we have defined all discretizations, it's time to instantiate an
         # equation manager (needs to know which terms it should treat)
         if not self._use_ad:
             self.assembler: pp.Assembler = pp.Assembler(self.mdg, self.dof_manager)
 
+        # Initial discretization.
+        # FIXME: I think this is redundant and should be left to the before_newton_...
+        #  methods. IS
         self._discretize()
         self._initialize_linear_solver()
 
@@ -1337,24 +1330,6 @@ class ContactMechanics(AbstractModel):
         else:
             self.assembler.discretize()
         logger.info("Done. Elapsed time {}".format(time.time() - tic))
-
-    def _initialize_linear_solver(self) -> None:
-        solver: str = self.params.get("linear_solver", "direct")
-        if solver == "direct":
-            """In theory, it should be possible to instruct SuperLU to reuse the
-            symbolic factorization from one iteration to the next. However, it seems
-            the scipy wrapper around SuperLU has not implemented the necessary
-            functionality, as discussed in
-
-                https://github.com/scipy/scipy/issues/8227
-
-            We will therefore pass here, and pay the price of long computation times.
-
-            """
-            self.linear_solver = "direct"
-
-        else:
-            raise ValueError(f"Unknown linear solver {solver}")
 
     def _is_nonlinear_problem(self) -> bool:
         """
