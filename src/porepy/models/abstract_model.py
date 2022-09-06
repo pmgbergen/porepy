@@ -14,9 +14,12 @@ and general name would be something like "equation_solve".
 """
 import abc
 import logging
+import time
+import warnings
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
@@ -44,15 +47,18 @@ class AbstractModel:
             "folder_name": "visualization",
             "file_name": "data",
             "use_ad": False,
-            "linear_solver": "direct",
+            # Set the default linear solver to Pardiso; this can be overriden by
+            # user choices. If Pardiso is not available, backup solvers will automatically be
+            # invoked.
+            "linear_solver": "pypardiso",
         }
+
         default_params.update(params)
         self.params: dict = default_params
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
         self.convergence_status: bool = False
-        self.linear_solver = self.params["linear_solver"]
 
         self._nonlinear_iteration: int = 0
         assert isinstance(self.params["use_ad"], bool)
@@ -198,28 +204,90 @@ class AbstractModel:
 
             # We normalize by the size of the solution vector
             # Enforce float to make mypy happy
-            error = float(np.linalg.norm(solution)) / solution.size
-            logger.debug(f"Normalized error: {error:.2e}")
+            error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
+            logger.info(f"Normalized residual norm: {error:.2e}")
             converged = error < nl_params["nl_convergence_tol"]
             diverged = False
             return error, converged, diverged
         else:
             raise NotImplementedError
 
-    @abc.abstractmethod
+    def _initialize_linear_solver(self) -> None:
+        """Initialize linear solver.
+
+        Raises:
+            ValueError if the chosen solver is not among the three currently
+            supported, see assemble_and_solve_linear_system.
+
+            To use a custom solver in a model, override this method (and
+            assemble_and_solve_linear_system).
+
+        """
+        solver = self.params["linear_solver"]
+        self.linear_solver = solver
+
+        if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
+            raise ValueError(f"Unknown linear solver {solver}")
+
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-        """Assemble the linearized system, described by the current state of the model,
-        solve and return the new solution vector.
+        """Assemble the linearized system, solve and return the new solution vector.
+
+        The linear system is defined by the current state of the model.
+
+        The linear solver is set according to the parameter 'linear_solver' set under
+        initialization of this model.
 
         Parameters:
             tol (double): Target tolerance for the linear solver. May be used for
                 inexact approaches.
 
         Returns:
-            np.array: Solution vector.
+            np.ndarray: Solution vector.
 
         """
-        pass
+        t_0 = time.time()
+        if self._use_ad:
+            A, b = self._eq_manager.assemble()
+        else:
+            A, b = self.assembler.assemble_matrix_rhs()  # type: ignore
+        t_1 = time.time()
+        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
+        logger.debug(
+            f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
+            {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
+        )
+
+        solver = self.linear_solver
+        if solver == "pypardiso":
+            # This is the default option which is invoked unless explicitly overriden by the
+            # user. We need to check if the pypardiso package is available.
+            try:
+                from pypardiso import spsolve as sparse_solver  # type: ignore
+            except ImportError:
+                # Fall back on the standard scipy sparse solver.
+                sparse_solver = sps.linalg.spsolve
+                warnings.warn(
+                    """PyPardiso could not be imported,
+                    falling back on scipy.sparse.linalg.spsolve"""
+                )
+            x = sparse_solver(A, b)
+        elif solver == "umfpack":
+            # Following may be needed:
+            # A.indices = A.indices.astype(np.int64)
+            # A.indptr = A.indptr.astype(np.int64)
+            x = sps.linalg.spsolve(A, b, use_umfpack=True)
+        elif solver == "scipy_sparse":
+            x = sps.linalg.spsolve(A, b)
+        else:
+            raise ValueError(
+                f"AbstractModel does not know how to apply the linear solver {solver}"
+            )
+        t_2 = time.time()
+        logger.debug(
+            f"Assembled and solved in {t_1-t_0:.2e} and {t_2-t_1:.2e} seconds, respectively."
+        )
+
+        return np.atleast_1d(x)
 
     @abc.abstractmethod
     def _is_nonlinear_problem(self) -> bool:
