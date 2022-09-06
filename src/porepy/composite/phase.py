@@ -6,7 +6,7 @@ from typing import Dict, Generator, List, Union
 
 import porepy as pp
 
-from ._composite_utils import COMPUTATIONAL_VARIABLES, create_merged_variable
+from ._composite_utils import COMPUTATIONAL_VARIABLES, create_merged_subdomain_variable
 
 __all__ = ["Phase"]
 
@@ -38,26 +38,27 @@ class Phase(abc.ABC):
             Currently a combination of the general symbol and the name.
     """
 
-    """ For a grid bucket (keys), contains a list of present phases (values). """
-    __md_singletons: Dict[pp.MixedDimensionalGrid, Dict[str, Phase]] = dict()
+    """ For a mixed-dimensional grid (keys), contains a list of present phases (values).
+    """
+    __mdg_singletons: Dict[pp.MixedDimensionalGrid, Dict[str, Phase]] = dict()
     __singleton_accessed: bool = False
 
-    def __new__(cls, md: pp.MixedDimensionalGrid, name: str) -> Phase:
-        """Assures the class is a name-gb-based Singleton."""
-        if md in Phase.__md_singletons.keys():
-            if name in Phase.__md_singletons[md].keys():
+    def __new__(cls, mdg: pp.MixedDimensionalGrid, name: str) -> Phase:
+        """Assures the class is a name-mdg-based Singleton."""
+        if mdg in Phase.__mdg_singletons:
+            if name in Phase.__mdg_singletons[mdg]:
                 # flag that the singleton has been accessed and return it.
                 Phase.__singleton_accessed = True
-                return Phase.__md_singletons[md][name]
+                return Phase.__mdg_singletons[mdg][name]
         else:
-            Phase.__md_singletons.update({md: dict()})
+            Phase.__mdg_singletons.update({mdg: dict()})
 
         # create a new instance and store it
         new_instance = super().__new__(cls)
-        Phase.__md_singletons[md].update({name: new_instance})
+        Phase.__mdg_singletons[mdg].update({name: new_instance})
         return new_instance
 
-    def __init__(self, md: pp.MixedDimensionalGrid, name: str) -> None:
+    def __init__(self, mdg: pp.MixedDimensionalGrid, name: str) -> None:
         """Initiated phase-related AD variables.
 
         If the same combination of ``name`` and ``GridBucket`` was already used once,
@@ -77,7 +78,7 @@ class Phase(abc.ABC):
         super().__init__()
 
         # public attributes
-        self.md: pp.MixedDimensionalGrid = md
+        self.mdg: pp.MixedDimensionalGrid = mdg
 
         # private attributes
         self._s: pp.ad.MergedVariable
@@ -85,10 +86,10 @@ class Phase(abc.ABC):
         self._name = str(name)
         self._present_components: List[pp.composite.Component] = list()
         # Instantiate saturation variable
-        self._s = create_merged_variable(md, {"cells": 1}, self.saturation_var)
+        self._s = create_merged_subdomain_variable(mdg, {"cells": 1}, self.saturation_var)
         # Instantiate phase molar fraction variable
-        self._molar_fraction = create_merged_variable(
-            self.md, {"cells": 1}, self.fraction_var
+        self._molar_fraction = create_merged_subdomain_variable(
+            self.mdg, {"cells": 1}, self.fraction_var
         )
 
     def __iter__(self) -> Generator[pp.composite.Component, None, None]:

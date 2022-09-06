@@ -100,7 +100,7 @@ class Composition:
 
     """
 
-    def __init__(self, md: pp.MixedDimensionalGrid) -> None:
+    def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         """
         Args:
             gb (:class:`~porepy.GridBucket`): A grid bucket representing the geometric domain.
@@ -108,10 +108,10 @@ class Composition:
 
         """
         # public attributes
-        self.md: pp.MixedDimensionalGrid = md
-        self.dof_manager: pp.DofManager = pp.DofManager(md)
+        self.mdg: pp.MixedDimensionalGrid = mdg
+        self.dof_manager: pp.DofManager = pp.DofManager(mdg)
         self.eq_manager: pp.ad.EquationManager = pp.ad.EquationManager(
-            md, self.dof_manager
+            mdg, self.dof_manager
         )
         # contains chronologically information about past flash procedures
         self.flash_history: List[Dict[str, Any]] = list()
@@ -139,7 +139,7 @@ class Composition:
         # this is set true once a proper feed composition was set
         self._feed_composition_set: bool = False
         # Number of cells. The equilibrium is computed cell-wise.
-        self._nc = self.md.num_subdomain_cells()
+        self._nc = self.mdg.num_subdomain_cells()
 
     def __str__(self) -> str:
         """Returns string representation of the composition,
