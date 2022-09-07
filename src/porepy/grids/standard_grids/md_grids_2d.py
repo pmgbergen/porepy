@@ -24,6 +24,8 @@ def _n_cells(mesh_args: Union[np.ndarray, dict, None]):
     if mesh_args is None:
         return np.array([2, 2])
     else:
+        if isinstance(mesh_args, list):
+            mesh_args = np.array(mesh_args)
         assert type(mesh_args) == np.ndarray
         return mesh_args
 
