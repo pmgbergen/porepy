@@ -10,6 +10,7 @@ The provided geometries are:
     seven_fractures_one_L: Seven fractures with one L intersection
     benchmark_regular: Six fractures intersecting in 3 X and 6 Y intersections
 """
+from __future__ import annotations
 
 from typing import Union
 
@@ -17,6 +18,14 @@ import numpy as np
 
 import porepy as pp
 import porepy.grids.standard_grids.utils as utils
+
+
+def _n_cells(mesh_args: Union[np.ndarray, dict, None]):
+    if mesh_args is None:
+        return np.array([2, 2])
+    else:
+        assert type(mesh_args) == np.ndarray
+        return mesh_args
 
 
 def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
@@ -33,11 +42,11 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
             provided, the endpoints will be set to [0, 1]
 
     Returns:
-        Mixed-dimensional grid for the domain.
+        Mixed-dimensional grid and domain.
 
     """
     if x_endpoints is None:
-        x_endpoints = [0, 1]
+        x_endpoints = np.array([0, 1])
 
     domain = utils.unit_domain(2)
     if simplex:
@@ -49,7 +58,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
 
     else:
         fracture = np.array([x_endpoints, [0.5, 0.5]])
-        mdg = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(2))
+        mdg = pp.meshing.cart_grid([fracture], _n_cells(mesh_args), physdims=np.ones(2))
     return mdg, domain
 
 
@@ -76,7 +85,7 @@ def single_vertical(
 
 
     Returns:
-        Mixed-dimensional grid for the domain.
+        Mixed-dimensional grid and domain.
 
     """
     if y_endpoints is None:
@@ -91,9 +100,8 @@ def single_vertical(
         mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
 
     else:
-        assert type(mesh_args) == np.ndarray
         fracture = np.array([[0.5, 0.5], y_endpoints])
-        mdg = pp.meshing.cart_grid([fracture], mesh_args, physdims=np.ones(2))
+        mdg = pp.meshing.cart_grid([fracture], _n_cells(mesh_args), physdims=np.ones(2))
     return mdg, domain
 
 
@@ -115,7 +123,7 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
         simplex (bool): Whether to use triangular or Cartesian 2d grid.
 
     Returns:
-        Mixed-dimensional grid for the domain.
+        Mixed-dimensional grid and domain.
 
     """
 
@@ -141,7 +149,7 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
         fracture1 = np.array([[0.5, 0.5], y_endpoints])
         mdg = pp.meshing.cart_grid(
             [fracture0, fracture1],
-            mesh_args,
+            _n_cells(mesh_args),
             physdims=[domain["xmax"], domain["ymax"]],
         )
         mdg.compute_geometry()
@@ -160,7 +168,7 @@ def seven_fractures_one_L_intersection(mesh_args=None):
             set by utils.set_mesh_sizes.
 
     Returns:
-        Mixed-dimensional grid for the domain.
+        Mixed-dimensional grid and domain.
 
     """
     points = np.array(
@@ -196,7 +204,7 @@ def benchmark_regular(mesh_args, is_coarse=False):
             values of "mesh_size_bound" and "mesh_size_min" are not provided, these are
             set by utils.set_mesh_sizes.
     Returns:
-        Mixed-dimensional grid for the domain.
+        Mixed-dimensional grid and domain.
     """
     points = np.array(
         [
