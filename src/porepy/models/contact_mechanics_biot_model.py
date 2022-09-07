@@ -101,6 +101,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         self.time: float = 0
         self.time_step: float = self.params.get("time_step", 1.0)
         self.end_time: float = self.params.get("end_time", 1.0)
+        self.time_index = 0
 
         # Temperature
         self.scalar_variable: str = "p"
@@ -131,6 +132,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     ) -> None:
         super().after_newton_convergence(solution, errors, iteration_counter)
         self._save_mechanical_bc_values()
+
+    def after_simulation(self):
+        if hasattr(self, "exporter"):
+            self.exporter.write_pvd()
 
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """

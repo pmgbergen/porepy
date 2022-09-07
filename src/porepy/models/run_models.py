@@ -29,7 +29,7 @@ def run_time_dependent_model(model, params):
         model: Model class containing all information on parameters, variables,
             discretization, geometry. Various methods such as those relating to solving
             the system, see the appropriate solver for documentation.
-        params: Parameters related to the solution proceedure. # Why not just set these
+        params: Parameters related to the solution procedure. # Why not just set these
             as e.g. model.solution_parameters.
     """
     # Assign parameters, variables and discretizations. Discretize time-indepedent terms
