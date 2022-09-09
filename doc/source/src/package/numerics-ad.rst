@@ -39,7 +39,7 @@ PorePy AD provides objects for
 
     - `Elemental AD data structures`_
     - `Common mathematical functions`_
-    - `Representation of constant scalars, vectors, matrices and tensors`_
+    - `Representation of constant scalars, vectors and matrices`_
     - `Variables on single and mixed-dimensional domains`_
     - `Operator functions`_
     - `Grid operators`_
@@ -65,10 +65,20 @@ Common mathematical functions
 
 qwer
 
-Representation of constant scalars, vectors, matrices and tensors
-=================================================================
+Representation of constant scalars, vectors and matrices
+========================================================
 
-qwer
+.. autoclass:: Scalar
+    :members:
+    :undoc-members:
+
+.. autoclass:: Array
+    :members:
+    :undoc-members:
+
+.. autoclass:: Matrix
+    :members:
+    :undoc-members:
 
 Variables on single and mixed-dimensional domains
 =================================================

@@ -257,11 +257,18 @@ class Operator:
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
+
         Subclasses that represent atomic operators (leaves in a tree-representation of
         an operator) should override this method to return e.g. a number, an array or a
         matrix.
         This method should not be called on operators that are formed as combinations
-        of atomic operators; such operators should be evaluated by the method evaluate().
+        of atomic operators; such operators should be evaluated by the method :meth:`evaluate`.
+
+        Args:
+            mdg: Mixed-dimensional grid on which this operator is to be parsed.
+
+        Returns:
+            A numerical format representing this operators value on given domain.
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
@@ -794,23 +801,21 @@ class Operator:
 class Matrix(Operator):
     """Ad representation of a sparse matrix.
 
-    For dense matrices, use an Array instead.
+    For dense matrices, use :class:`Array` instead.
 
     This is a shallow wrapper around the real matrix; it is needed to combine the matrix
     with other types of Ad objects.
 
+    Args:
+        mat: Sparse matrix to be wrapped as an AD operator.
+        name: Name of this operator
+
     Attributes:
-        shape (Tuple of ints): Shape of the wrapped matrix.
+        shape (tuple): Shape of the wrapped matrix.
 
     """
 
     def __init__(self, mat: sps.spmatrix, name: Optional[str] = None) -> None:
-        """Construct an Ad representation of a matrix.
-
-        Parameters:
-            mat (sps.spmatrix): Sparse matrix to be represented.
-
-        """
         super().__init__(name=name)
         self._mat = mat
         self._set_tree()
@@ -825,40 +830,34 @@ class Matrix(Operator):
             s += self._name
         return s
 
-    def parse(self, mdg) -> sps.spmatrix:
-        """Convert the Ad matrix into an actual matrix.
-
-        Parameters:
-            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
-                needed as input to be compatible with parse methods for other operators.
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
+        """See :meth:`Operator.parse`.
 
         Returns:
-            sps.spmatrix: The wrapped matrix.
+            The wrapped matrix.
 
         """
         return self._mat
 
     def transpose(self) -> "Matrix":
+        """Returns an AD operator representing the transposed matrix."""
         return Matrix(self._mat.transpose())
 
 
 class Array(Operator):
-    """Ad representation of a numpy array.
+    """AD representation of a numpy array.
 
-    For sparse matrices, use a Matrix instead.
+    For sparse matrices, use :class:`Matrix` instead.
 
     This is a shallow wrapper around the real array; it is needed to combine the array
-    with other types of Ad objects.
+    with other types of AD operators.
+
+    Args:
+        values: Numpy array to be represented.
 
     """
 
-    def __init__(self, values, name: Optional[str] = None) -> None:
-        """Construct an Ad representation of a numpy array.
-
-        Parameters:
-            values (np.ndarray): Numpy array to be represented.
-
-        """
+    def __init__(self, values: np.ndarray, name: Optional[str] = None) -> None:
         super().__init__(name=name)
         self._values = values
         self._set_tree()
@@ -873,15 +872,11 @@ class Array(Operator):
         return s
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
-        """Convert the Ad Array into an actual array.
-
-        Parameters:
-            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
-                needed as input to be compatible with parse methods for other operators.
+        """
+        See :meth:`Operator.parse`.
 
         Returns:
-            np.ndarray: The wrapped array.
-
+            The wrapped array
         """
         return self._values
 
@@ -889,18 +884,16 @@ class Array(Operator):
 class Scalar(Operator):
     """Ad representation of a scalar.
 
-    This is a shallow wrapper around the real scalar; it may be useful to combine
+    This is a shallow wrapper around a real scalar. It may be useful to combine
     the scalar with other types of Ad objects.
+
+    Args:
+        value: Number to be wrapped as an AD operator.
+        name: Name of this operator
 
     """
 
     def __init__(self, value: float, name: Optional[str] = None) -> None:
-        """Construct an Ad representation of a float.
-
-        Parameters:
-            value (float): Number to be represented
-
-        """
         super().__init__(name=name)
         self._value = value
         self._set_tree()
@@ -915,14 +908,10 @@ class Scalar(Operator):
         return s
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
-        """Convert the Ad Scalar into an actual number.
-
-        Parameters:
-            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. Not used, but it is
-                needed as input to be compatible with parse methods for other operators.
+        """See :meth:`Operator.parse`.
 
         Returns:
-            float: The wrapped number.
+            The wrapped number.
 
         """
         return self._value
