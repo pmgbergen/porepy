@@ -86,7 +86,8 @@ RUN conda config --add channels conda-forge
 # is not too big)
 ENV TMP_DIR /tmp
 WORKDIR ${TMP_DIR}
-RUN wget https://raw.githubusercontent.com/pmgbergen/porepy/develop/requirements-dev.txt
+RUN wget https://raw.githubusercontent.com/pmgbergen/porepy/develop/requirements.txt && \
+    wget https://raw.githubusercontent.com/pmgbergen/porepy/develop/requirements-dev.txt
 
 # For some reason, which is completely incomprehenible to EK, the conda install
 # of gmsh fails: Conda will list it as being installed, but 'import gmsh' in python
@@ -94,7 +95,7 @@ RUN wget https://raw.githubusercontent.com/pmgbergen/porepy/develop/requirements
 # since updates like 'conda update --all' will not update all packages, likely contrary
 # to the user's expectation, but it will have to do.
 # Remove gmsh from the list of requirements for PorePy.
-RUN sed -i '/gmsh/d' requirements-dev.txt 
+RUN sed -i '/gmsh/d' requirements.txt 
 
 # Activating the conda environment inside the Docker container is
 # not straightforward, since every RUN command is executed in a separate
@@ -104,7 +105,7 @@ SHELL ["conda", "run", "-n", "pp_env", "/bin/bash", "-c"]
 RUN conda env list
 
 # Install all requirements
-RUN conda install -c conda-forge --file requirements-dev.txt
+RUN conda install -c conda-forge --file requirements.txt --file requirements-dev.txt
 
 # Pip install gmsh, since we skipped it from the conda install
 RUN pip install gmsh
