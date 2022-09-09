@@ -21,12 +21,14 @@ import porepy.grids.standard_grids.utils as utils
 
 
 def _n_cells(mesh_args: Union[np.ndarray, dict, None]):
+    """Convert mesh_args to n_cells argument of cartesian grid construction.
+    """
     if mesh_args is None:
         return np.array([2, 2])
     else:
         if isinstance(mesh_args, list):
             mesh_args = np.array(mesh_args)
-        assert type(mesh_args) == np.ndarray
+        assert isinstance(mesh_args, np.ndarray)
         return mesh_args
 
 
