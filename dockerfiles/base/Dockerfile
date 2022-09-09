@@ -2,7 +2,7 @@
 # instead, use the stable or development versions.
 # To build:
 #
-#    docker build . --tag porepy
+#    docker build  --tag porepy --file dockerfiles/base/Dockerfile .
 #
 # To run (sharing the current directory with the container)
 #
@@ -105,7 +105,8 @@ SHELL ["conda", "run", "-n", "pp_env", "/bin/bash", "-c"]
 RUN conda env list
 
 # Install all requirements
-RUN conda install -c conda-forge --file requirements.txt --file requirements-dev.txt
+RUN conda install -c conda-forge --file requirements.txt && \
+    conda install -c conda-forge --file requirements-dev.txt
 
 # Pip install gmsh, since we skipped it from the conda install
 RUN pip install gmsh
