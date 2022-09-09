@@ -4,5 +4,5 @@ pytest-cov
 pytest-runner
 flake8
 mypy
-black
+black == 22.8.0
 isort
