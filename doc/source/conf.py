@@ -31,18 +31,22 @@ copyright = "2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LE
 
 # -- General configuration --------------------------------------------------------------------
 
+# Name of the root document or "homepage"
+root_doc = "home"
+
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-
-root_doc = "home"
-
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
     'sphinx.ext.todo',
 ]
+
+# Removes the module name space in front of classes and functions
+# i.e. porepy.ad.Scalar() -> Scalar()
+add_module_names = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -55,7 +59,7 @@ exclude_patterns = []
 # -- Options for HTML output ------------------------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages. Currently set to theme of Python 2 docs
-html_theme = "classic"
+html_theme = "nature"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -65,11 +69,11 @@ html_static_path = ["_static"]
 # Customize the html theme here. Supported  customization depends on the chosen HTML theme,
 # but unknown entries will cause no error when compiling.
 html_theme_options = {
-    "rightsidebar": "false",
-    "relbarbgcolor": "black",
-    "externalrefs": "true",
-    "bodyfont": "Arial",
-    "headfont": "Arial",
+    # "rightsidebar": "false",
+    # "relbarbgcolor": "black",
+    # "externalrefs": "true",
+    # "bodyfont": "Arial",
+    # "headfont": "Arial",
 }
 
 html_short_title = "PorePy"
@@ -77,6 +81,20 @@ html_split_index = True
 html_copy_source = False
 html_show_sourcelink = False
 html_show_sphinx = False
+
+# -- Autodoc Settings -------------------------------------------------------------------------
+
+# autoclass concatenates docs strings from init and class.
+autoclass_content = "class"  # class-both-init
+
+# Display the signature next to class name
+autodoc_class_signature = "mixed"  # mixed-separated
+
+# orders the members of an object group wise, e.g. private, special or public methods
+autodoc_member_order = "groupwise"  # alphabetical-groupwise-bysource
+
+# type hints will be shortened: porepy.grids.grid.Grid -> Grid
+autodoc_typehints_format = "short"
 
 # -- Napoleon Settings ------------------------------------------------------------------------
 
@@ -98,7 +116,10 @@ napoleon_attr_annotations = True
 # -- Intersphinx Settings ---------------------------------------------------------------------
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None)
+    'python': ("https://docs.python.org/3", None),
+    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+    'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
+    'matplotlib': ('http://matplotlib.sourceforge.net/', None)
 }
 
 # -- Todo Settings ----------------------------------------------------------------------------

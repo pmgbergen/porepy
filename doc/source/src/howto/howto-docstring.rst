@@ -1,5 +1,6 @@
-**How-To docstring**
-====================
+================
+How-To docstring
+================
 
 .. automodule:: example_docstrings
 
