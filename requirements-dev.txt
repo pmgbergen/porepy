@@ -1,22 +1,8 @@
-meshio >= 5.0
-networkx
-numpy
-scipy
-sympy
-matplotlib
-future
-six
-shapely
-shapely[vectorized]
+deepdiff
 pytest >= 4.6
 pytest-cov
 pytest-runner
-numba >= 0.53.0, < 0.56.1
-gmsh
 flake8
 mypy
-black == 22.8.0
+black
 isort
-typing_extensions
-requests
-deepdiff
