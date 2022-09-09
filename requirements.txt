@@ -1,4 +1,4 @@
-meshio>=5.0
+meshio >= 5.0
 networkx
 numpy
 scipy
@@ -10,4 +10,4 @@ shapely
 shapely[vectorized]
 numba >= 0.53.0, < 0.56.1
 gmsh
-requests
+typing_extensions
