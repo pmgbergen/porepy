@@ -635,7 +635,7 @@ class Operator:
         self,
         dof_manager: "pp.DofManager",
         state: Optional[np.ndarray] = None,
-    ):
+    ) -> Ad_array:
         """Evaluate the residual and Jacobian matrix for a given state.
 
         Args:
