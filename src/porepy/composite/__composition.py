@@ -1,4 +1,4 @@
-""" Contains the physical extension for :class:`~porepy.grids.grid_bucket.GridBucket`."""
+"""OUTDATED. DO NOT USE."""
 
 from __future__ import annotations
 
