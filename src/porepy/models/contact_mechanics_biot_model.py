@@ -133,7 +133,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         super().after_newton_convergence(solution, errors, iteration_counter)
         self._save_mechanical_bc_values()
 
-    def after_simulation(self):
+    def after_simulation(self) -> None:
         if hasattr(self, "exporter"):
             self.exporter.write_pvd()
 
