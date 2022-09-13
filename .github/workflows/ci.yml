@@ -69,14 +69,21 @@ jobs:
         sudo apt-get install libglu1-mesa libgeos-dev
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
 
-    - name: Install PorePy
+    - name: Install requirements
       run: |
         pip install -U pip
         # Install requirements, using eager updates to avoid stalled dependencies due to caching
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
-        pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt
+        pip install --upgrade --upgrade-strategy eager -r requirements.txt
+
+    - name: Install requirements-dev
+      run: |
+        pip install --upgrade --upgrade-strategy eager -r requirements-dev.txt        
+
+    - name: Install PorePy
+      run: |
         pip install .
-        pip freeze
+        pip freeze       
 
     - name: black
       if: ${{ always() }}
