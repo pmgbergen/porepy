@@ -20,7 +20,7 @@ import porepy as pp
 import porepy.grids.standard_grids.utils as utils
 
 
-def _n_cells(mesh_args: Union[np.ndarray, dict, None]):
+def _n_cells(mesh_args: Union[np.ndarray, dict, None]) -> np.ndarray:
     """Convert mesh_args to n_cells argument of cartesian grid construction."""
     if mesh_args is None:
         return np.array([2, 2])
