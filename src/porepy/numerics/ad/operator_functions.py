@@ -435,8 +435,9 @@ class ADmethod:
 
     The return value will be an AD operator of a type passed to the decorator.
 
-    EXAMPLE USAGE:
     .. code-block:: python
+        :caption: Example usage
+
         import porepy as pp
 
         # decorating class methods
@@ -566,11 +567,10 @@ class ADmethod:
         are always passed in unbound form to the decorator when the code is
         evaluated
         (i.e. they don't have a reference to the `self` argument, contrary to bound
-         methods)
+        methods)
 
-         Args:
-            binding_instance: instance, whose method/attribute has been decorated
-                by this class.
+        Args:
+            binding_instance: instance, whose method/attribute has been decorated by this class.
             binding_type: type instance of the decorated method's class/owner.
 
         """
