@@ -1869,8 +1869,8 @@ class Exporter:
                 cf_indices = grid.cell_faces.indices
                 fn_indptr = grid.face_nodes.indptr
                 fn_indices = grid.face_nodes.indices
-                # FIXME: Close parenthesis
-                # Determine the cell-face connectivity (with faces described by their
+
+                # Determine the cell-face connectivity with faces described by their
                 # nodes ordered such that they form a chain and are identified by the
                 # face boundary. The final data format is a list[list[np.ndarray]].
                 # The outer list loops over all cells. Each cell entry contains a
