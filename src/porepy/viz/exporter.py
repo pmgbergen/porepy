@@ -101,7 +101,7 @@ class Exporter:
             file_name (str): basis for file names used for storing the output
             folder_name (str, optional): name of the folder in which files are stored
             kwargs: Optional keywords arguments:
-                fixed_grid (boolean): to control whether the grid may be redfined later
+                fixed_grid (boolean): to control whether the grid may be redefined later
                     (default True)
                 binary (boolean): controlling whether data is stored in binary format
                     (default True)
@@ -185,7 +185,7 @@ class Exporter:
         data: Optional[Union[DataInput, list[DataInput]]] = None,
     ) -> None:
         """
-        Collect user-defined constant-in-time data, associated to grids,
+        Collect user-defined constant-in-time data, associated with grids,
         and to be exported to separate files instead of the main files.
 
         In principle, constant data is not different from standard output
@@ -1870,7 +1870,7 @@ class Exporter:
                 fn_indptr = grid.face_nodes.indptr
                 fn_indices = grid.face_nodes.indices
 
-                # Determine the cell-face connectivity (with faces described by their
+                # Determine the cell-face connectivity with faces described by their
                 # nodes ordered such that they form a chain and are identified by the
                 # face boundary. The final data format is a list[list[np.ndarray]].
                 # The outer list loops over all cells. Each cell entry contains a
