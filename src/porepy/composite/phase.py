@@ -43,7 +43,7 @@ class Phase(abc.ABC):
     __mdg_singletons: Dict[pp.MixedDimensionalGrid, Dict[str, Phase]] = dict()
     __singleton_accessed: bool = False
 
-    def __new__(cls, mdg: pp.MixedDimensionalGrid, name: str) -> Phase:
+    def __new__(cls, name: str, mdg: pp.MixedDimensionalGrid) -> Phase:
         """Assures the class is a name-mdg-based Singleton."""
         if mdg in Phase.__mdg_singletons:
             if name in Phase.__mdg_singletons[mdg]:
@@ -58,7 +58,7 @@ class Phase(abc.ABC):
         Phase.__mdg_singletons[mdg].update({name: new_instance})
         return new_instance
 
-    def __init__(self, mdg: pp.MixedDimensionalGrid, name: str) -> None:
+    def __init__(self, name: str, mdg: pp.MixedDimensionalGrid) -> None:
         """Initiated phase-related AD variables.
 
         If the same combination of ``name`` and ``GridBucket`` was already used once,
@@ -77,18 +77,19 @@ class Phase(abc.ABC):
 
         super().__init__()
 
-        # public attributes
+        ### PUBLIC
         self.mdg: pp.MixedDimensionalGrid = mdg
 
-        # private attributes
-        self._s: pp.ad.MergedVariable
-        self._fraction: pp.ad.MergedVariable
+        #### PRIVATE
         self._name = str(name)
         self._present_components: List[pp.composite.Component] = list()
+
         # Instantiate saturation variable
-        self._s = create_merged_subdomain_variable(mdg, {"cells": 1}, self.saturation_var)
+        self._s: pp.ad.MergedVariable = create_merged_subdomain_variable(
+            mdg, {"cells": 1}, self.saturation_var
+        )
         # Instantiate phase molar fraction variable
-        self._molar_fraction = create_merged_subdomain_variable(
+        self._fraction: pp.ad.MergedVariable = create_merged_subdomain_variable(
             self.mdg, {"cells": 1}, self.fraction_var
         )
 
@@ -117,6 +118,13 @@ class Phase(abc.ABC):
         :rtype: str
         """
         return self._name
+
+    @property
+    def num_components(self) -> int:
+        """
+        Returns: number of present components
+        """
+        return len(self._present_components)
 
     @property
     def saturation(self) -> pp.ad.MergedVariable:

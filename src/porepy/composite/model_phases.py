@@ -20,36 +20,38 @@ class SaltWater(Phase):
     # https://en.wikipedia.org/wiki/Table_of_specific_heat_capacities
     molar_heat_capacity = 0.075327  # kJ / mol / K
 
-    def __init__(self, name: str, gb: pp.GridBucket) -> None:
-        super().__init__(name, gb)
+    def __init__(self, name: str, mdg: pp.MixedDimensionalGrid) -> None:
+        super().__init__(name, mdg)
         # saving external reference for simplicity
-        self.water = H2O(gb)
-        self.salt = NaCl(gb)
+        self.water = H2O(mdg)
+        self.salt = NaCl(mdg)
         # adding 'internally' to use parent class functions
-        self.add_substance(self.water)
-        self.add_substance(self.salt)
+        self.add_component(self.water)
+        self.add_component(self.salt)
 
-    def molar_density(
-        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+        self._nc = self.mdg.num_subdomain_cells()
+
+    def density(
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
         density = 998.21 / H2O.molar_mass()
-        return pp.ad.Array(density * np.ones(self.md.num_cells()))
+        return pp.ad.Array(density * np.ones(self._nc))
 
-    def specific_molar_enthalpy(
-        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+    def specific_enthalpy(
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
         return (
-            pressure / self.molar_density(pressure, temperature)
-            + temperature * self.molar_heat_capacity
+            p / self.density(p, T)
+            + T * self.molar_heat_capacity
         )
 
     def dynamic_viscosity(
-        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        return pp.ad.Array(np.ones(self.md.num_cells()))  # 0.001
+        return pp.ad.Array(np.ones(self._nc))  # 0.001
 
-    def thermal_conductivity(self, pressure: float, temperature: float) -> float:
-        return pp.ad.Array(np.ones(self.md.num_cells()))
+    def thermal_conductivity(self, p: float, T: float) -> float:
+        return pp.ad.Array(np.ones(self._nc))
 
 
 class WaterVapor(Phase):
@@ -59,33 +61,35 @@ class WaterVapor(Phase):
     specific_molar_gas_constant = 0.4615 * H2O.molar_mass()  # kJ / mol / K
     molar_heat_capacity = 1.864 * H2O.molar_mass()  # kJ / mol / K
 
-    def __init__(self, name: str, gb: pp.GridBucket) -> None:
-        super().__init__(name, gb)
+    def __init__(self, name: str, mdg: pp.MixedDimensionalGrid) -> None:
+        super().__init__(name, mdg)
         # saving external reference for simplicity
-        self.water = H2O(gb)
+        self.water = H2O(mdg)
         # adding 'internally' to use parent class functions
-        self.add_substance(self.water)
+        self.add_component(self.water)
 
-    def molar_density(
-        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+        self._nc = self.mdg.num_subdomain_cells()
+
+    def density(
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
 
-        return pressure / (temperature * self.specific_molar_gas_constant)
+        return p / (T * self.specific_molar_gas_constant)
 
-    def specific_molar_enthalpy(
-        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+    def specific_enthalpy(
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
         return (
-            pressure / self.molar_density(pressure, temperature)
-            + temperature * self.molar_heat_capacity
+            p / self.density(p, T)
+            + T * self.molar_heat_capacity
         )
 
     def dynamic_viscosity(
-        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        return pp.ad.Array(np.ones(self.md.num_cells()))  # 0.0003
+        return pp.ad.Array(np.ones(self._nc))  # 0.0003
 
     def thermal_conductivity(
-        self, pressure: pp.ad.MergedVariable, temperature: pp.ad.MergedVariable
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
     ) -> pp.ad.Operator:
-        return pp.ad.Array(np.ones(self.md.num_cells()))  # 0.05
+        return pp.ad.Array(np.ones(self._nc))  # 0.05

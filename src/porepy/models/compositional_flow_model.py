@@ -19,7 +19,7 @@ import porepy as pp
 
 
 class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
-    """Non-isothermal and non-isobaric flow consisting of water in liquid in vapor phase
+    """Non-isothermal flow consisting of water in liquid in vapor phase
     and salt in liquid phase.
 
     The phase equilibria equations for water are given using fugacities (k-values).
@@ -70,7 +70,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         )
         # D-BC temperature Kelvin
         boundary_temperature = 383. # 110 Celsius
-        # N-BC one tenth of injection
+        # D-BC one tenth of injection
         boundary_pressure = 1.
 
         ### PUBLIC
@@ -83,7 +83,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # residual tolerance for the balance equations
         self.tolerance_balance_equations = 1e-10
         # create default grid bucket for this model
-        self.gb: pp.GridBucket
+        self.mdg: pp.MixedDimensionalGrid
         self.box: Dict = dict()
         self.create_grid()
 
@@ -108,12 +108,12 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.conductive_upwind_bc: pp.ad.BoundaryCondition
 
         ### GEOTHERMAL MODEL SET UP
-        self.composition = pp.composite.Composition(self.gb)
+        self.composition = pp.composite.Composition(self.mdg)
 
-        self.saltwater = pp.composite.SaltWater("brine", self.gb)
+        self.saltwater = pp.composite.SaltWater("brine", self.mdg)
         self.saltwater.set_initial_fractions([[0.96, 0.04]])
 
-        self.watervapor = pp.composite.WaterVapor("vapor", self.gb)
+        self.watervapor = pp.composite.WaterVapor("vapor", self.mdg)
         self.watervapor.set_initial_fractions([[1.0]])
 
         self.composition.add_phases([self.saltwater, self.watervapor])
@@ -169,9 +169,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # will also be set during preparations
         self._system_vars: Tuple[List, List]
         # list of grids as ordered in GridBucket
-        self._grids = [g for g, _ in self.gb]
+        self._grids = [g for g, _ in self.mdg]
         # list of edges as ordered in GridBucket
-        self._edges = [e for e, _ in self.gb.edges()]
+        self._edges = [e for e, _ in self.mdg.edges()]
 
         ## model-specific input.
         self._source_quantity = {
@@ -201,7 +201,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         g = pp.CartGrid(n_cells, phys_dims)
         self.box = pp.geometry.bounding_box.from_points(np.array([[0, 0], phys_dims]).T)
         g.compute_geometry()
-        self.gb = pp.meshing._assemble_in_bucket([[g]])
+        self.mdg = pp.meshing._assemble_in_bucket([[g]])
 
     def prepare_simulation(self) -> None:
         """
@@ -223,7 +223,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         # Exporter initialization for saving results
         self.exporter = pp.Exporter(
-            self.gb, self.params["file_name"], folder_name=self.params["folder_name"]
+            self.mdg, self.params["file_name"], folder_name=self.params["folder_name"]
         )
 
         # Define primary and secondary variables/system which are secondary and primary in
@@ -250,7 +250,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self._set_energy_balance_equation()
 
         # NOTE this can be optimized. Some component need to be discretized only once.
-        self.eqm.discretize(self.gb)
+        self.eqm.discretize(self.mdg)
         # prepare datastructures for the solver
         self._prim_vars = self.eqm._variables_as_list(self.primary_subsystem["primary_vars"])
         self._sec_vars = self.eqm._variables_as_list(self.primary_subsystem["secondary_vars"])
@@ -290,21 +290,21 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         kw = self.flow_parameter_key
         kw_store = self.flow_upwind_parameter_key
         variable = self.composition._pressure_var
-        pp.fvutils.compute_darcy_flux(self.gb, kw, kw_store, p_name=variable)
+        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw_store, p_name=variable)
         # re-discretize the upwinding of the Darcy flux
-        self.darcy_upwind.upwind.discretize(self.gb)
-        self.darcy_upwind.bound_transport_dir.discretize(self.gb)
-        self.darcy_upwind.bound_transport_neu.discretize(self.gb)
+        self.darcy_upwind.upwind.discretize(self.mdg)
+        self.darcy_upwind.bound_transport_dir.discretize(self.mdg)
+        self.darcy_upwind.bound_transport_neu.discretize(self.mdg)
 
         # compute the heat flux
         kw = self.energy_parameter_key
         kw_store = self.conduction_upwind_parameter_key
         variable = self.composition._temperature_var
-        pp.fvutils.compute_darcy_flux(self.gb, kw, kw_store, p_name=variable)
+        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw_store, p_name=variable)
         # re-discretize the upwinding of the conductive flux
-        self.conductive_upwind.upwind.discretize(self.gb)
-        self.conductive_upwind.bound_transport_dir.discretize(self.gb)
-        self.conductive_upwind.bound_transport_neu.discretize(self.gb)
+        self.conductive_upwind.upwind.discretize(self.mdg)
+        self.conductive_upwind.bound_transport_dir.discretize(self.mdg)
+        self.conductive_upwind.bound_transport_neu.discretize(self.mdg)
 
     def after_newton_iteration(self, solution_vector: np.ndarray, iteration: int) -> None:
         """
@@ -440,12 +440,12 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         A modularization of the solid skeleton properties is still missing.
         """
 
-        for g, d in self.gb:
+        for g, d in self.mdg:
 
             source = self._unitary_source(g)
             unit_tensor = pp.SecondOrderTensor(np.ones(g.num_cells))
             # TODO is this a must-have parameter?
-            zero_vector_source = np.zeros((self.gb.dim_max(), g.num_cells))
+            zero_vector_source = np.zeros((self.mdg.dim_max(), g.num_cells))
 
             ### Mass weight parameter. Same for all balance equations
             pp.initialize_data(
@@ -484,7 +484,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                     "bc_values": bc_vals,
                     "second_order_tensor": transmissibility,
                     "vector_source": np.copy(zero_vector_source.ravel("F")),
-                    "ambient_dimension": self.gb.dim_max(),
+                    "ambient_dimension": self.mdg.dim_max(),
                 },
             )
             # parameters for upwinding
@@ -523,7 +523,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                     "bc_values": bc_vals,
                     "second_order_tensor": unit_tensor,
                     "vector_source": np.copy(zero_vector_source.ravel("F")),
-                    "ambient_dimension": self.gb.dim_max(),
+                    "ambient_dimension": self.mdg.dim_max(),
                 }
             )
             pp.initialize_data(
@@ -545,7 +545,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             )
 
         # For now we consider only a single domain
-        for e, data_edge in self.gb.edges():
+        for e, data_edge in self.mdg.edges():
             raise NotImplementedError("Mixed dimensional case not yet available.")
 
         ### Instantiating discretization operators

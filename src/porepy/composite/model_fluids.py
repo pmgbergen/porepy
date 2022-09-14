@@ -46,6 +46,8 @@ class IdealFluid(FluidComponent):
 
 
 class H2O(FluidComponent):
+    # TODO decorate methods and turn them into AD methods
+    
     @staticmethod
     def molar_mass() -> float:
         """Taken from https://pubchem.ncbi.nlm.nih.gov/compound/water ."""
@@ -65,26 +67,23 @@ class H2O(FluidComponent):
     def dynamic_viscosity(self, p: float, T: float) -> float:
         water = IAPWS95(P=p, T=T)
         return water.mu
-    
+
     @staticmethod
     def critical_pressure() -> float:
         """Taken from https://en.wikipedia.org/wiki/Critical_point_(thermodynamics) ."""
         return 22064
-    
+
     @staticmethod
     def critical_temperature() -> float:
         """Taken from https://en.wikipedia.org/wiki/Critical_point_(thermodynamics) ."""
         return 647.096
-    
+
     @staticmethod
     def triple_point_pressure() -> float:
-        """ Taken from https://en.wikipedia.org/wiki/Triple_point#Triple_point_of_water 
-        """
+        """Taken from https://en.wikipedia.org/wiki/Triple_point#Triple_point_of_water"""
         return 0.611657
-    
+
     @staticmethod
     def triple_point_temperature() -> float:
-        """ Taken from https://en.wikipedia.org/wiki/Triple_point#Triple_point_of_water 
-        """
+        """Taken from https://en.wikipedia.org/wiki/Triple_point#Triple_point_of_water"""
         return 273.1600
-        
