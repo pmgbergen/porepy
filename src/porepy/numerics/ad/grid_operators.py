@@ -2,6 +2,8 @@
 defined here are mainly wrappers that constructs Ad matrices based on grid information.
 
 """
+from __future__ import annotations
+
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -567,16 +569,17 @@ class Geometry(Operator):
         face_areas (pp.ad.Matrix):  Diagonal ad matrix of face areas.
         nd (int): Ambient/highest dimension of the mixed-dimensional grid.
 
+    FIXME: Implement parse??
     """
 
-    def __init__(self, grids: List[pp.Grid], nd: int, name: Optional[str] = None):
+    def __init__(self, subdomains: List[pp.Grid], nd: int, name: Optional[str] = None):
         """Construct concatenated grid operators for a given set of subdomains.
 
         The operators will be ordered according to the ordering in grids. It is critical
         that the same ordering is used by other operators.
 
         Parameters:
-            grids (List of pp.Grid): List of grids. The order of the grids in the list
+            subdomains (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the geometry operators. Can be either subdomain (pp.Grid)
                 or interface (pp.MortarGrid) grids.
             nd: ambient dimension.
@@ -585,16 +588,16 @@ class Geometry(Operator):
         """
         super().__init__(name=name)
 
-        self.grids = grids
-        self._num_grids: int = len(grids)
+        self.subdomains = subdomains
+        self._num_grids: int = len(subdomains)
         self.nd = nd
 
-        self.num_cells: int = sum([g.num_cells for g in grids])
-        self.num_faces: int = sum([g.num_faces for g in grids])
+        self.num_cells: int = sum([g.num_cells for g in subdomains])
+        self.num_faces: int = sum([g.num_faces for g in subdomains])
 
         # Wrap the stacked matrices into Ad objects (could be extended to e.g. face normals)
         for field in ["cell_volumes", "face_areas"]:
-            ad_matrix = Matrix(sps.diags(np.hstack([getattr(g, field) for g in grids])))
+            ad_matrix = Matrix(sps.diags(np.hstack([getattr(g, field) for g in subdomains])))
             setattr(self, field, ad_matrix)
 
         def scalar_to_nd(size):
@@ -623,8 +626,8 @@ class Geometry(Operator):
 
     def __repr__(self) -> str:
         s = (
-            f"Geometry operator for {self._num_grids} grids\n"
-            f"Aimed at variables with dimension {self.nd}\n"
+            f"Geometry operator for {self._num_grids} grids.\n"
+            f"Ambient dimension is {self.nd}.\n"
         )
         return s
 
