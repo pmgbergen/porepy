@@ -597,7 +597,9 @@ class Geometry(Operator):
 
         # Wrap the stacked matrices into Ad objects (could be extended to e.g. face normals)
         for field in ["cell_volumes", "face_areas"]:
-            ad_matrix = Matrix(sps.diags(np.hstack([getattr(g, field) for g in subdomains])))
+            ad_matrix = Matrix(
+                sps.diags(np.hstack([getattr(g, field) for g in subdomains]))
+            )
             setattr(self, field, ad_matrix)
 
         def scalar_to_nd(size):
