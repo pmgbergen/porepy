@@ -78,15 +78,16 @@ class Component(abc.ABC):
 
         super().__init__()
 
-        ## PUBLIC
+        ### PUBLIC
         self.mdg: pp.MixedDimensionalGrid = mdg
 
-        # private attributes
-        self._feed_fraction: pp.ad.MergedVariable
-        self._fractions_in_phases: Dict[str, pp.ad.MergedVariable]
-
+        #### PRIVATE
         # creating the overall molar fraction variable
-        self._omf = create_merged_subdomain_variable(mdg, {"cells": 1}, self.fraction_var)
+        self._feed_fraction: pp.ad.MergedVariable = create_merged_subdomain_variable(
+            mdg, {"cells": 1}, self.fraction_var
+        )
+        self._fractions_in_phases: Dict[str, pp.ad.MergedVariable] = dict()
+
         # for a phase name (key),
         # provide the MergedVariable for the molar fraction in that phase (value)
         self._mfip: Dict[str, pp.ad.MergedVariable] = dict()
@@ -207,64 +208,6 @@ class Component(abc.ABC):
         """
         pass
 
-    @staticmethod
-    @abc.abstractmethod
-    def critical_pressure() -> float:
-        """This is a constant value, hence to be a static function.
-
-        Math. Dimension:        scalar
-        Phys. Dimension:        [kPa]
-
-        Returns:
-            float: critical pressure for this component (critical point in p-T diagram)
-
-        """
-        pass
-
-    @staticmethod
-    @abc.abstractmethod
-    def critical_temperature() -> float:
-        """This is a constant value, hence to be a static function.
-
-        Math. Dimension:        scalar
-        Phys. Dimension:        [K]
-
-        Returns:
-            float: critical temperature for this component (critical point in p-T diagram)
-
-        """
-        pass
-
-    @staticmethod
-    @abc.abstractmethod
-    def triple_point_pressure() -> float:
-        """This is a constant value, hence to be a static function.
-
-        Math. Dimension:        scalar
-        Phys. Dimension:        [kPa]
-
-        Returns:
-            float: triple point pressure for this component
-                (intersection of vapor and melting curve in p-T diagram)
-
-        """
-        pass
-
-    @staticmethod
-    @abc.abstractmethod
-    def triple_point_temperature() -> float:
-        """This is a constant value, hence to be a static function.
-
-        Math. Dimension:        scalar
-        Phys. Dimension:        [K]
-
-        Returns:
-            float: triple point temperature for this component
-                (intersection of vapor and melting curve in p-T diagram)
-
-        """
-        pass
-
     # -----------------------------------------------------------------------------------------
     ### NON-CONSTANT ABSTRACT PHYSICAL PROPERTIES
     # -----------------------------------------------------------------------------------------
@@ -325,6 +268,65 @@ class FluidComponent(Component):
     usually used for fluids in flow problems.
 
     """
+
+    @staticmethod
+    @abc.abstractmethod
+    def critical_pressure() -> float:
+        """This is a constant value, hence to be a static function.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [kPa]
+
+        Returns:
+            float: critical pressure for this component (critical point in p-T diagram)
+
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def critical_temperature() -> float:
+        """This is a constant value, hence to be a static function.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [K]
+
+        Returns:
+            float: critical temperature for this component (critical point in p-T diagram)
+
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def triple_point_pressure() -> float:
+        """This is a constant value, hence to be a static function.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [kPa]
+
+        Returns:
+            float: triple point pressure for this component
+                (intersection of vapor and melting curve in p-T diagram)
+
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def triple_point_temperature() -> float:
+        """This is a constant value, hence to be a static function.
+
+        Math. Dimension:        scalar
+        Phys. Dimension:        [K]
+
+        Returns:
+            float: triple point temperature for this component
+                (intersection of vapor and melting curve in p-T diagram)
+
+        """
+        pass
+
 
     @abc.abstractmethod
     def dynamic_viscosity(self, p: float, T: float) -> float:

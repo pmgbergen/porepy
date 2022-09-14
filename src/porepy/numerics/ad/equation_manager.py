@@ -63,6 +63,7 @@ class EquationManager:
             equations (Dict, Optional): Dict of equations. Defaults to empty Dict.
             secondary_variables (List of Ad Variable or MergedVariable): Variables
                 to be considered secondary for this EquationManager.
+
         """
         self.mdg = mdg
 
@@ -71,9 +72,11 @@ class EquationManager:
         self._set_variables(mdg)
 
         if equations is None:
-            equations = dict()
+            self.equations: Dict[str, pp.ad.Operator] = {}
+        else:
+            self.equations = equations
 
-        self.equations.update(equations)
+        self.dof_manager: pp.DofManager = dof_manager
 
         # Define secondary variables.
         # Note that secondary variables will be present in self.variables; the exclusion
@@ -117,6 +120,7 @@ class EquationManager:
 
         # Defaults to None, will be overwritten by assembly methods.
         self.row_block_indices_last_assembled: Optional[np.ndarray] = None
+        self.dofs_per_equation_last_assembled: Dict[str, np.ndarray] = dict()
 
     def _set_variables(self, mdg: pp.MixedDimensionalGrid):
         # Define variables as specified in the MixedDimensionalGrid
@@ -437,22 +441,6 @@ class EquationManager:
 
         return S, bs
 
-    def update_variables_from_merged(self, merged_var: pp.ad.MergedVariable) -> None:
-        """Takes a merged variable and stores its variables per grid/interface internally.
-        NOTE VL: This is contrary to the current principle of creating merged vars from vars.
-        But it is necessary if one wants to make the modelling more dynamic.
-        It needs a better solution... TODO
-        """
-
-        for sub_var in merged_var.sub_vars:
-            grid = sub_var._g
-            name = sub_var._name
-            
-            if grid not in self.variables.keys():
-                self.variables.update({grid: dict()})
-            
-            self.variables[grid].update({name: sub_var})
-
     def subsystem_equation_manager(
         self,
         eq_names: Sequence[str],
@@ -580,30 +568,6 @@ class EquationManager:
         # Do the complement
         other_variables = list(set(all_variables).difference(set(variables)))
         return other_variables
-
-    def _set_variables_from_gridbucket(self, gb: pp.GridBucket):
-        # Define variables as specified in the GridBucket
-        variables = {}
-        for g, d in gb:
-            variables[g] = {}
-            if pp.PRIMARY_VARIABLES in d.keys():
-                for var, info in d[pp.PRIMARY_VARIABLES].items():
-                    variables[g][var] = operators.Variable(var, info, grids=[g])
-            else:
-                d.update({pp.PRIMARY_VARIABLES: dict()})
-
-        for e, d in gb.edges():
-            variables[e] = {}
-            num_cells = d["mortar_grid"].num_cells
-            if pp.PRIMARY_VARIABLES in d.keys():
-                for var, info in d[pp.PRIMARY_VARIABLES].items():
-                    variables[e][var] = operators.Variable(
-                        var, info, edges=[e], num_cells=num_cells
-                    )
-            else:
-                d.update({pp.PRIMARY_VARIABLES: dict()})
-
-        self.variables = variables
 
     def _variables_as_list(
         self,

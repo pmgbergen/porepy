@@ -49,7 +49,7 @@ COMPUTATIONAL_VARIABLES: Dict[str, str] = {
     "displacement": "u",  # [m]
     "component_fraction": "z",  # (fractional, molar) [-]
     "component_fraction_in_phase": "x",  # (fractional, molar) [-]
-    "molar_phase_fraction": "xi",  # (fractional, molar) [-]
+    "molar_phase_fraction": "y",  # (fractional, molar) [-]
     "saturation": "s",  # (fractional, volumetric) [-]
 }
 
