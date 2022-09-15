@@ -12,6 +12,8 @@ after_newton_convergence/after_newton_divergence, (only NewtonSolver:) before_ne
 after_newton_iteration. The name "newton" is there for legacy reasons, a more fitting
 and general name would be something like "equation_solve".
 """
+from __future__ import annotations
+
 import abc
 import logging
 import time
