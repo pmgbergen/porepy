@@ -183,10 +183,7 @@ class Exporter:
         self._padding = 6
 
     def import_from_vtu(
-        self,
-        keys: Union[str, list[str]],
-        file_names: Union[str, list[str]],
-        **kwargs,
+        self, keys: Union[str, list[str]], file_names: Union[str, list[str]], **kwargs
     ) -> None:
         """
         Import state variables from vtu file.
@@ -279,10 +276,12 @@ class Exporter:
 
                 # Dimensionality of the grid
                 if "dims" not in kwargs:
-                    raise ValueError("""Provide dimensionality of the grids associated
-                        to the vtu files.""")
+                    raise ValueError(
+                        """Provide dimensionality of the grids associated
+                        to the vtu files."""
+                    )
                 dims = kwargs.pop("dims")
-                assert isinstance(dims, list) or isinstance(dims, int) 
+                assert isinstance(dims, list) or isinstance(dims, int)
                 dim = dims[i] if isinstance(dims, list) else dims
 
                 # Whether the grid is a subdomain or interface
@@ -290,12 +289,17 @@ class Exporter:
                     is_subdomain_data = True
                 else:
                     are_subdomain_data = kwargs.pop("are_subdomain_data")
-                    assert isinstance(are_subdomain_data, bool) or isinstance(are_subdomain_data, list)
-                    is_subdomain_data = are_subdomain_data[i] if isinstance(are_subdomain_data, list) else are_subdomain_data
+                    assert isinstance(are_subdomain_data, bool) or isinstance(
+                        are_subdomain_data, list
+                    )
+                    is_subdomain_data = (
+                        are_subdomain_data[i]
+                        if isinstance(are_subdomain_data, list)
+                        else are_subdomain_data
+                    )
 
-            # 2. Step: Make sure that the vtu file and the corresponding grid are
-            # identical. For this, check whether the meshio geometry is the same as
-            # in the vtu file.
+            # 2. Step: Make sure that the vtu file and the current grid are identical.
+            # For this, check whether the meshio geometry is the same as in the vtu file.
             # NOTE: Meshes could be compatible via some transformation. However,
             # here we require identical grids.
 
@@ -306,14 +310,12 @@ class Exporter:
             # Make sure that both grids have same nodes
             assert np.all(np.isclose(meshio_geometry.pts, vtu_data.points))
 
-            # TODO is it anytime something else in practice? for polyhedra?
-            num_blocks = 1
-            for i in range(num_blocks):
+            for i, connectivity in enumerate(meshio_geometry.connectivity):
 
                 # Make sure that the connectivity patterns are identical
                 assert (
                     DeepDiff(
-                        meshio_geometry.connectivity[i],
+                        connectivity,
                         vtu_data.cells[i],
                         significant_digits=8,
                         number_format_notation="e",
@@ -328,8 +330,10 @@ class Exporter:
                 # Only continue if the key is present in the data
                 if key in vtu_data.cell_data:
 
-                    # Fetch data
-                    value = vtu_data.cell_data[key][0]
+                    # Data is stored in a list with each element storing data for one specific
+                    # cell type (most relevant for polygonal and polyhedral grids). Accumulate
+                    # the data again, assuming the same dimensionality in each cell.
+                    value = np.concatenate(tuple(vtu_data.cell_data[key]), axis=0)
 
                     # Chop data in pieces compatible with the subdomains and interfaces
                     offset = 0
@@ -355,8 +359,7 @@ class Exporter:
                             offset += intf.num_cells
 
     def add_constant_data(
-        self,
-        data: Optional[Union[DataInput, list[DataInput]]] = None,
+        self, data: Optional[Union[DataInput, list[DataInput]]] = None
     ) -> None:
         """
         Collect user-defined constant-in-time data, associated to grids,
@@ -2073,10 +2076,7 @@ class Exporter:
         return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _write(
-        self,
-        fields: Iterable[Field],
-        file_name: str,
-        meshio_geom: Meshio_Geom,
+        self, fields: Iterable[Field], file_name: str, meshio_geom: Meshio_Geom
     ) -> None:
         """
         Interface to meshio for exporting cell data.
