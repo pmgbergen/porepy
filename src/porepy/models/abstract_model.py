@@ -50,7 +50,7 @@ class AbstractModel:
             "folder_name": "visualization",
             "file_name": "data",
             "use_ad": False,
-            # Set the default linear solver to Pardiso; this can be overriden by
+            # Set the default linear solver to Pardiso; this can be overridden by
             # user choices. If Pardiso is not available, backup solvers will automatically be
             # invoked.
             "linear_solver": "pypardiso",
@@ -72,6 +72,7 @@ class AbstractModel:
         self.dof_manager: pp.DofManager
         self.mdg: pp.MixedDimensionalGrid
         self.box: dict
+        self.linear_system: tuple[sps.spmatrix, np.ndarray]
 
     def create_grid(self) -> None:
         """Create the grid bucket.
@@ -220,10 +221,10 @@ class AbstractModel:
 
         Raises:
             ValueError if the chosen solver is not among the three currently
-            supported, see assemble_and_solve_linear_system.
+            supported, see linear_solve.
 
             To use a custom solver in a model, override this method (and
-            assemble_and_solve_linear_system).
+            linear_solve).
 
         """
         solver = self.params["linear_solver"]
@@ -232,20 +233,17 @@ class AbstractModel:
         if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
             raise ValueError(f"Unknown linear solver {solver}")
 
-    def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
+    def assemble_linear_system(self):
         """Assemble the linearized system, solve and return the new solution vector.
 
         The linear system is defined by the current state of the model.
 
-        The linear solver is set according to the parameter 'linear_solver' set under
-        initialization of this model.
 
-        Parameters:
-            tol (double): Target tolerance for the linear solver. May be used for
-                inexact approaches.
 
-        Returns:
-            np.ndarray: Solution vector.
+
+
+        Attributes:
+            linear_system is assigned.
 
         """
         t_0 = time.time()
@@ -253,7 +251,24 @@ class AbstractModel:
             A, b = self._eq_manager.assemble()
         else:
             A, b = self.assembler.assemble_matrix_rhs()  # type: ignore
-        t_1 = time.time()
+        self.linear_system = (A, b)
+        logger.debug(f"Assembled linear system in {t_0-time.time():.2e} seconds.")
+
+    def linear_solve(self):
+        """Solve linear system.
+
+        Default method is a direct solver. The linear solver is chosen in the
+        initialize_linear_solver of this model. Implemented options are
+            scipy.sparse.spsolve
+                with and without call to umfpack
+            pypardiso.spsolve
+
+        Returns:
+            np.ndarray: Solution vector.
+
+        """
+        A, b = self.linear_system
+        t_0 = time.time()
         logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
         logger.debug(
             f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
@@ -262,7 +277,7 @@ class AbstractModel:
 
         solver = self.linear_solver
         if solver == "pypardiso":
-            # This is the default option which is invoked unless explicitly overriden by the
+            # This is the default option which is invoked unless explicitly overridden by the
             # user. We need to check if the pypardiso package is available.
             try:
                 from pypardiso import spsolve as sparse_solver  # type: ignore
@@ -285,10 +300,7 @@ class AbstractModel:
             raise ValueError(
                 f"AbstractModel does not know how to apply the linear solver {solver}"
             )
-        t_2 = time.time()
-        logger.debug(
-            f"Assembled and solved in {t_1-t_0:.2e} and {t_2-t_1:.2e} seconds, respectively."
-        )
+        logger.debug(f"Solved linear system in {t_0-time.time():.2e} seconds.")
 
         return np.atleast_1d(x)
 

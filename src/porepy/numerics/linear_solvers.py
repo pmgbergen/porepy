@@ -48,7 +48,9 @@ class LinearSolver:
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters
         # for linear solvers should be a property of the model, not the solver. This
         # needs clarification at some point.
-        sol = setup.assemble_and_solve_linear_system(tol=0)
+        setup.assemble_linear_system()
+        sol = setup.linear_solve()
+
         error_norm, is_converged, _ = setup.check_convergence(
             sol, prev_sol, prev_sol, self.params
         )
@@ -61,7 +63,7 @@ class LinearSolver:
             # Since the setup's after_newton_convergence may expect that the converged
             # solution is already stored as an iterate (this may happen if a model is
             # implemented to be valid for both linear and non-linear problems, as is
-            # the case for ContactMechanics and possibly others). Thus we first call
+            # the case for ContactMechanics and possibly others). Thus, we first call
             # after_newton_iteration(), and then after_newton_convergence()
             setup.after_newton_iteration(sol)
             setup.after_newton_convergence(sol, error_norm, iteration_counter=1)
