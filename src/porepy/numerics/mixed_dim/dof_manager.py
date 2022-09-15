@@ -97,8 +97,8 @@ class DofManager:
                 full_dof.append(total_local_dofs)
 
         # Array version of the number of dofs per node/edge and variable
-        self.full_dof = np.array(full_dof)
-        self.block_dof = block_dof
+        self.full_dof: np.ndarray = np.array(full_dof)
+        self.block_dof: Dict[Tuple[GridLike, str], int] = block_dof
 
     def grid_and_variable_to_dofs(self, grid: GridLike, variable: str) -> np.ndarray:
         """Get the indices in the global system of variables associated with a
