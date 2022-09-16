@@ -13,7 +13,7 @@ class TimeSteppingControl:
         schedule: list,
         dt_init: float,
         constant_dt: bool = False,
-        dt_min_max: Optional[Tuple[float, float], None] = None,
+        dt_min_max: Optional[Union[Tuple[float, float], None]] = None,
         iter_max: int = 15,
         iter_optimal_range: Tuple[int, int] = (4, 7),
         iter_lowupp_factor: Tuple[float, float] = (1.3, 0.7),
@@ -98,7 +98,16 @@ class TimeSteppingControl:
                 "Initial time step cannot be larger than final simulation time."
             )
 
+        # Set dt_min_max if necessary
+        if dt_min_max is None:
+            dt_min_max = (0.01 * schedule[-1], 0.1 * schedule[1])
+
+        # More sanity checks below. Note that all the remaining sanity checks (but one) are
+        # only needed when constant_dt = False. Thus, to save time when constant_dt = True,
+        # we use this rather ugly if-statement from below.
+
         if not constant_dt:
+
             # Sanity checks for dt_min and dt_max
             if dt_init < dt_min_max[0]:
                 raise ValueError(
@@ -111,9 +120,9 @@ class TimeSteppingControl:
 
             # NOTE: The above checks guarantee that minimum time step <= maximum time step
 
-            # Sanity checks for maximum number of iterations. Note that 0 is a possibility.
-            # This will imply that the solver reaches convergence directly, e.g., as in
-            # linear solvers.
+            # Sanity checks for maximum number of iterations.
+            # Note that 0 is a possibility. This will imply that the solver reaches
+            # convergence directly, e.g., as in linear solvers.
             if iter_max < 0:
                 raise ValueError("Maximum number of iterations must be non-negative.")
 
@@ -151,6 +160,7 @@ class TimeSteppingControl:
                 raise ValueError("Number of recomputation attempts must be > 0.")
 
         else:
+
             # If the time step is constant, check that the scheduled times and the time
             # step are compatible.
             # E.g. dt=2 works with schedule = [0,2,4,8], but dt=3 does not.
