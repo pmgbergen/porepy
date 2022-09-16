@@ -1178,7 +1178,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     {self.mortar_scalar_variable: {"cells": 1}}
                 )
 
-    def _assign_ad_variables(self) -> None:
+    def _create_ad_variables(self) -> None:
         """Assign variables to self._ad
 
 
@@ -1193,7 +1193,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         None
 
         """
-        super()._assign_ad_variables()
+        super()._create_ad_variables()
 
         interfaces = self._ad.codim_one_interfaces
         # Primary variables on Ad form
