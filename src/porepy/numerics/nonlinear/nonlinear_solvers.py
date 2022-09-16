@@ -66,7 +66,7 @@ class NewtonSolver:
 
         return error_norm, is_converged, iteration_counter
 
-    def iteration(self, model):
+    def iteration(self, model) -> np.ndarray:
         """A single Newton iteration.
 
         Right now, this is a single line, however, we keep it as a separate function

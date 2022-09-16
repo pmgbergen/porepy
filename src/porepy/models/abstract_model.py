@@ -256,7 +256,7 @@ class AbstractModel:
         self.linear_system = (A, b)
         logger.debug(f"Assembled linear system in {t_0-time.time():.2e} seconds.")
 
-    def linear_solve(self):
+    def linear_solve(self) -> np.ndarray:
         """Solve linear system.
 
         Default method is a direct solver. The linear solver is chosen in the
