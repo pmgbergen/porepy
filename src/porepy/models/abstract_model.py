@@ -236,7 +236,7 @@ class AbstractModel:
             raise ValueError(f"Unknown linear solver {solver}")
 
     def assemble_linear_system(self):
-        """Assemble the linearized system, solve and return the new solution vector.
+        """Assemble the linearized system.
 
         The linear system is defined by the current state of the model.
 
