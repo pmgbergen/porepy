@@ -303,9 +303,10 @@ class Exporter:
             # NOTE: Meshes could be compatible via some transformation. However,
             # here we require identical grids.
 
-            meshio_geometry: Meshio_Geom = (
+            meshio_geometry = (
                 self.meshio_geom[dim] if is_subdomain_data else self.m_meshio_geom[dim]
             )
+            assert isinstance(meshio_geometry, Meshio_Geom)
 
             # Make sure that both grids have same nodes
             assert np.all(np.isclose(meshio_geometry.pts, vtu_data.points))
