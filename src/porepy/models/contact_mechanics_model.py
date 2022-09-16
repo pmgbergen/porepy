@@ -141,6 +141,7 @@ class ContactMechanics(AbstractModel):
         else:
             self.assembler.distribute_variable(solution)
         self.convergence_status = True
+        self._export()
 
     def check_convergence(
         self,
