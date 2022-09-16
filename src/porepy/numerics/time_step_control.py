@@ -1,11 +1,9 @@
-
-import numpy as np
 from typing import Tuple, Union
+import numpy as np
 
 __all__ = ["TimeSteppingControl"]
 
 
-# Dummy comment to open PR
 class TimeSteppingControl:
     """Parent class for iteration-based time stepping control routine."""
 
@@ -13,7 +11,8 @@ class TimeSteppingControl:
         self,
         schedule: list,
         dt_init: float,
-        dt_min_max: Tuple[float, float],
+        constant_dt: bool = False,
+        dt_min_max: Tuple[float, float] = (1e-10, 1e2),
         iter_max: int = 15,
         iter_optimal_range: Tuple[int, int] = (4, 7),
         iter_lowupp_factor: Tuple[float, float] = (1.3, 0.7),
@@ -34,7 +33,11 @@ class TimeSteppingControl:
                 Examples of invalid inputs are:
                   [1], [1, 0], [0, 1, 1, 2].
             dt_init (float): Initial time step.
+            constant_dt (bool): Whether to treat the time step as constant or not. Note that
+                `constant_dt` is True, then the time-stepping control algorithm is effectively
+                 not used.
             dt_min_max (Tuple of float): Minimum and maximum permissible time steps.
+                Default is (1e-10, 1e2)
             iter_max (int): Maximum number of iterations. Default is 15.
             iter_optimal_range (Tuple of int): Lower and upper optimal iteration range.
                 Default is (4, 7).
@@ -64,7 +67,7 @@ class TimeSteppingControl:
 
         """
 
-        # Checks for schedule
+        # Sanity checks for schedule
         if len(schedule) < 2:
             raise ValueError("Expected schedule with at least two items.")
         elif any(time < 0 for time in schedule):
@@ -72,62 +75,76 @@ class TimeSteppingControl:
         elif not self._is_strictly_increasing(schedule):
             raise ValueError("Schedule must contain strictly increasing times.")
 
-        # Checks for initial time step
+        # Sanity checks for initial time step
         if dt_init <= 0:
             raise ValueError("Initial time step must be positive.")
         elif dt_init > schedule[-1]:
             raise ValueError(
                 "Initial time step cannot be larger than final simulation time."
             )
-        elif dt_init < dt_min_max[0]:
-            raise ValueError(
-                "Initial time step cannot be smaller than minimum time step."
-            )
-        elif dt_init > dt_min_max[1]:
-            raise ValueError(
-                "Initial time step cannot be larger than maximum time step."
-            )
 
-        # NOTE: The above checks satisfy that minimum time step <= maximum time step
+        if not constant_dt:
+            # Sanity checks for dt_min and dt_max
+            if dt_init < dt_min_max[0]:
+                raise ValueError(
+                    "Initial time step cannot be smaller than minimum time step."
+                )
+            elif dt_init > dt_min_max[1]:
+                raise ValueError(
+                    "Initial time step cannot be larger than maximum time step."
+                )
 
-        # Check maximum number of iterations. Note that 0 is a possibility. This
-        # will imply that the solver reaches convergence directly, i.e., as in
-        # linear solvers.
-        if iter_max < 0:
-            raise ValueError("Maximum number of iterations must be non-negative.")
+            # NOTE: The above checks guarantee that minimum time step <= maximum time step
 
-        # Checks for optimal iteration range
-        if iter_optimal_range[0] > iter_optimal_range[1]:
-            s = "Lower optimal iteration range cannot be larger than"
-            s += " upper optimal iteration range."
-            raise ValueError(s)
-        elif iter_optimal_range[1] > iter_max:
-            s = "Upper optimal iteration range cannot be larger than"
-            s += " maximum number of iterations."
-            raise ValueError(s)
-        elif iter_optimal_range[0] < 0:
-            s = "Lower optimal iteration range cannot be negative."
-            raise ValueError(s)
+            # Sanity checks for maximum number of iterations. Note that 0 is a possibility.
+            # This will imply that the solver reaches convergence directly, e.g., as in
+            # linear solvers.
+            if iter_max < 0:
+                raise ValueError("Maximum number of iterations must be non-negative.")
 
-        # Checks for lower and upper multiplication factors
-        if iter_lowupp_factor[0] <= 1:
-            raise ValueError("Expected lower multiplication factor > 1.")
-        elif iter_lowupp_factor[1] >= 1:
-            raise ValueError("Expected upper multiplication factor < 1.")
+            # Sanity checks for optimal iteration range
+            if iter_optimal_range[0] > iter_optimal_range[1]:
+                s = "Lower optimal iteration range cannot be larger than"
+                s += " upper optimal iteration range."
+                raise ValueError(s)
+            elif iter_optimal_range[1] > iter_max:
+                s = "Upper optimal iteration range cannot be larger than"
+                s += " maximum number of iterations."
+                raise ValueError(s)
+            elif iter_optimal_range[0] < 0:
+                s = "Lower optimal iteration range cannot be negative."
+                raise ValueError(s)
 
-        # Checks for sensible combinations of iter_optimal_range and iter_lowupp_factor
-        if dt_min_max[0] * iter_lowupp_factor[0] > dt_min_max[1]:
-            raise ValueError("Encountered dt_min * iter_low_factor > dt_max.")
-        elif dt_min_max[1] * iter_lowupp_factor[1] < dt_min_max[0]:
-            raise ValueError("Encountered dt_max * iter_upp_factor < dt_min.")
+            # Sanity checks for lower and upper multiplication factors
+            if iter_lowupp_factor[0] <= 1:
+                raise ValueError("Expected lower multiplication factor > 1.")
+            elif iter_lowupp_factor[1] >= 1:
+                raise ValueError("Expected upper multiplication factor < 1.")
 
-        # Check for recomputation factor
-        if recomp_factor >= 1:
-            raise ValueError("Expected recomputation multiplication factor < 1.")
+            # Checks for sensible combinations of iter_optimal_range and iter_lowupp_factor
+            if dt_min_max[0] * iter_lowupp_factor[0] > dt_min_max[1]:
+                raise ValueError("Encountered dt_min * iter_low_factor > dt_max.")
+            elif dt_min_max[1] * iter_lowupp_factor[1] < dt_min_max[0]:
+                raise ValueError("Encountered dt_max * iter_upp_factor < dt_min.")
 
-        # Check for maximum number of recomputation attempts
-        if recomp_max <= 0:
-            raise ValueError("Number of recomputation attempts must be > 0.")
+            # Sanity check for recomputation factor
+            if recomp_factor >= 1:
+                raise ValueError("Expected recomputation multiplication factor < 1.")
+
+            # Sanity check for maximum number of recomputation attempts
+            if recomp_max <= 0:
+                raise ValueError("Number of recomputation attempts must be > 0.")
+
+        else:
+            # If the time step is constant, check that the scheduled times and the time
+            # step are compatible.
+            # E.g. dt=2 works with schedule = [0,2,4,8], but dt=3 does not.
+            sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
+            intersect = np.intersect1d(sim_times, schedule)
+            # If the length of the intersection and scheduled times are unequal, there is a
+            # mismatch
+            if (len(intersect) - len(schedule)) != 0:
+                raise ValueError("Mismatch between the time step and scheduled time.")
 
         # Schedule, initial, and final times
         self.schedule = schedule
@@ -140,10 +157,14 @@ class TimeSteppingControl:
         # Minimum and maximum allowable time steps
         self.dt_min, self.dt_max = dt_min_max
 
-        # Maximum amount of iterations
+        # Maximum number of iterations
+        # TODO: This is really a property of the nonlinear solver. A full integration will
+        #  most likely requiring "pulling" this parameter from the solver side.
         self.iter_max = iter_max
 
-        # Target iteration range
+        # Optimal iteration range
+        # TODO: This is really a property of the nonlinear solver. A full integration will
+        #  most likely requiring "pulling" this parameter from the solver side.
         self.iter_low, self.iter_upp = iter_optimal_range
 
         # Lower and upper multiplication factors
@@ -154,6 +175,9 @@ class TimeSteppingControl:
 
         # Number of permissible re-computation attempts
         self.recomp_max = recomp_max
+
+        # Constant time step flag
+        self.is_constant = constant_dt
 
         # Time
         self.time: Union[int, float] = self.time_init
@@ -174,17 +198,6 @@ class TimeSteppingControl:
 
         # Flag to keep track of recomputed solutions
         self._recomp_sol: bool = False
-        
-        # # If the time step is constant, check that the scheduled times 
-        # # and time step are compatible.
-        # # E.g. dt=2 matches schedule = [0,2,4,8], but dt=3 do not.
-        # if constant_dt:
-        #     x = np.arange(self.time_init, self.time_final+self.dt, self.dt)
-        #     y = np.intersect1d(x,self.schedule) # Check for identical values
-        #     # If the length of the intersection and scheduled time are
-        #     # unequal, there is a mismatch 
-        #     if (len(y) - len(self.schedule)) !=0 :
-        #         raise ValueError("Mismatch between the time step and scheduled time")
 
     def __repr__(self) -> str:
 
@@ -231,6 +244,11 @@ class TimeSteppingControl:
         # First, check if we reach final simulation time
         if self.time >= self.time_final:
             return None
+
+        # if time step is constant, always return that value
+        if self.is_constant:
+            # TODO if time step is constant, this can lead to an infinite loop
+            return self.dt_init
 
         # If the solution did not convergence and we are allow to recompute it:
         #   Update simulation time (since solution will be recomputed).
@@ -298,6 +316,7 @@ class TimeSteppingControl:
         schedule_time = self.schedule[self._scheduled_idx]
         if (self.time + self.dt) > schedule_time:
             self.dt = schedule_time - self.time  # adapt time step
+
             if self._scheduled_idx < len(self.schedule) - 1:
                 self._scheduled_idx += 1  # increase index to catch next scheduled time
                 if self._print_info:
