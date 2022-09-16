@@ -7,6 +7,7 @@ numba >= 0.53.0, < 0.56.3
 numpy
 requests
 scipy
+setuptools
 shapely
 shapely[vectorized]
 six
