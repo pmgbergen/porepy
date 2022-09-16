@@ -405,9 +405,9 @@ def _stepwise_newton_with_comparison(model_as, model_ad, prepare=True) -> None:
 
         # Solve linear system
         model_as.assemble_linear_system()
-        sol_as = model_as.linear_solve()
+        sol_as = model_as.solve_linear_system()
         model_ad.assemble_linear_system()
-        sol_ad = model_ad.linear_solve()
+        sol_ad = model_ad.solve_linear_system()
 
         model_as.after_newton_iteration(sol_as)
         model_ad.after_newton_iteration(sol_ad)

@@ -235,14 +235,10 @@ class AbstractModel:
         if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
             raise ValueError(f"Unknown linear solver {solver}")
 
-    def assemble_linear_system(self):
+    def assemble_linear_system(self) -> None:
         """Assemble the linearized system.
 
         The linear system is defined by the current state of the model.
-
-
-
-
 
         Attributes:
             linear_system is assigned.
@@ -256,7 +252,7 @@ class AbstractModel:
         self.linear_system = (A, b)
         logger.debug(f"Assembled linear system in {t_0-time.time():.2e} seconds.")
 
-    def linear_solve(self) -> np.ndarray:
+    def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
 
         Default method is a direct solver. The linear solver is chosen in the

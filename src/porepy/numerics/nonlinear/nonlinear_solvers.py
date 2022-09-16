@@ -75,6 +75,6 @@ class NewtonSolver:
 
         # Assemble and solve
         model.assemble_linear_system()
-        sol = model.linear_solve()
+        sol = model.solve_linear_system()
 
         return sol

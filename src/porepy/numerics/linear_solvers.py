@@ -49,7 +49,7 @@ class LinearSolver:
         # for linear solvers should be a property of the model, not the solver. This
         # needs clarification at some point.
         setup.assemble_linear_system()
-        sol = setup.linear_solve()
+        sol = setup.solve_linear_system()
 
         error_norm, is_converged, _ = setup.check_convergence(
             sol, prev_sol, prev_sol, self.params
