@@ -303,7 +303,7 @@ class Exporter:
             # NOTE: Meshes could be compatible via some transformation. However,
             # here we require identical grids.
 
-            meshio_geometry = (
+            meshio_geometry: Meshio_Geom = (
                 self.meshio_geom[dim] if is_subdomain_data else self.m_meshio_geom[dim]
             )
 
