@@ -5,6 +5,8 @@ Implemented classes
 """
 import logging
 
+import numpy as np
+
 # Module-wide logger
 logger = logging.getLogger(__name__)
 
