@@ -103,7 +103,7 @@ class Exporter:
             file_name (str): basis for file names used for storing the output
             folder_name (str, optional): name of the folder in which files are stored
             kwargs: Optional keywords arguments:
-                fixed_grid (boolean): to control whether the grid may be redfined later
+                fixed_grid (boolean): to control whether the grid may be redefined later
                     (default True)
                 binary (boolean): controlling whether data is stored in binary format
                     (default True)
@@ -166,7 +166,7 @@ class Exporter:
         self._exported_timesteps: list[int] = []
 
         # Reference to the last time step used for exporting constant data.
-        self._time_step_constants: int = 0
+        self._time_step_constant_data: Optional[int] = None
         # Storage for file name extensions for time steps, regarding constant data.
         self._exported_timesteps_constants: list[int] = list()
         # Identifier for whether constant data is up-to-date.
@@ -363,7 +363,7 @@ class Exporter:
         self, data: Optional[Union[DataInput, list[DataInput]]] = None
     ) -> None:
         """
-        Collect user-defined constant-in-time data, associated to grids,
+        Collect user-defined constant-in-time data, associated with grids,
         and to be exported to separate files instead of the main files.
 
         In principle, constant data is not different from standard output
@@ -492,6 +492,10 @@ class Exporter:
 
                 # Store the time step counter for later reference
                 # (required for pvd files)
+                # NOTE: The counter is only updated if the constant
+                # data is outdated, so if the mesh has been updated
+                # or new constant data has been added in the course
+                # of the simulation.
                 self._time_step_constant_data = time_step
 
                 # Identify the constant data as fixed. Has the effect
@@ -1317,7 +1321,7 @@ class Exporter:
                         fm
                         % self._make_file_name(
                             self._file_name + "_constant",
-                            self._time_step_constants,
+                            self._time_step_constant_data,
                             dim,
                         )
                     )
@@ -1332,7 +1336,7 @@ class Exporter:
                         fm
                         % self._make_file_name(
                             self._file_name + "_constant_mortar",
-                            self._time_step_constants,
+                            self._time_step_constant_data,
                             dim,
                         )
                     )
@@ -1537,18 +1541,18 @@ class Exporter:
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T
 
-            # Determine cell types based on number of faces=nodes per cell.
-            num_faces_per_cell = grid.cell_faces.getnnz(axis=0)
+            # Determine cell types based on number of nodes.
+            num_nodes_per_cell = grid.cell_nodes().getnnz(axis=0)
 
             # Loop over all available cell types and group cells of one type.
             g_cell_map = dict()
-            for n in np.unique(num_faces_per_cell):
+            for n in np.unique(num_nodes_per_cell):
 
                 # Define cell type; check if it coincides with a predefined cell type
                 cell_type = polygon_map.get(f"polygon{n}", f"polygon{n}")
 
-                # Find all cells with n faces, and store for later use
-                cells = np.nonzero(num_faces_per_cell == n)[0]
+                # Find all cells with n nodes, and store for later use
+                cells = np.nonzero(num_nodes_per_cell == n)[0]
                 g_cell_map[cell_type] = cells
 
                 # Store cell ids in global container; init if entry not yet established
@@ -1561,7 +1565,7 @@ class Exporter:
             # Determine cell-node connectivity for each cell type and all cells.
             # Treat triangle, quad and polygonal cells differently
             # aiming for optimized performance.
-            for n in np.unique(num_faces_per_cell):
+            for n in np.unique(num_nodes_per_cell):
 
                 # Define the cell type
                 cell_type = polygon_map.get(f"polygon{n}", f"polygon{n}")
@@ -2000,20 +2004,19 @@ class Exporter:
             sl = slice(nodes_offset, nodes_offset + grid.num_nodes)
             meshio_pts[sl, :] = grid.nodes.T
 
-            # The number of faces per cell wil be later used to determining
-            # the cell types
-            num_faces_per_cell = grid.cell_faces.getnnz(axis=0)
-
-            # Categorize all polyhedron cells by their number of faces.
+            # Categorize all polyhedron cells by their number of nodes.
             # Each category will be treated separately allowing for using
             # fitting datastructures.
+            num_nodes_per_cell = grid.cell_nodes().getnnz(axis=0)
+
             g_cell_map = dict()
-            for n in np.unique(num_faces_per_cell):
+
+            for n in np.unique(num_nodes_per_cell):
 
                 cell_type = f"polyhedron{n}"
 
                 # Find all cells with n faces, and store for later use
-                cells = np.nonzero(num_faces_per_cell == n)[0]
+                cells = np.nonzero(num_nodes_per_cell == n)[0]
                 g_cell_map[cell_type] = cells
 
                 # Store cell ids in global container; init if entry not yet established
@@ -2044,7 +2047,7 @@ class Exporter:
                 fn_indptr = grid.face_nodes.indptr
                 fn_indices = grid.face_nodes.indices
 
-                # Determine the cell-face connectivity (with faces described by their
+                # Determine the cell-face connectivity with faces described by their
                 # nodes ordered such that they form a chain and are identified by the
                 # face boundary. The final data format is a list[list[np.ndarray]].
                 # The outer list loops over all cells. Each cell entry contains a
