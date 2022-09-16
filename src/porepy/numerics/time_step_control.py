@@ -13,7 +13,7 @@ class TimeSteppingControl:
         schedule: list,
         dt_init: float,
         constant_dt: bool = False,
-        dt_min_max: Optional[Union[Tuple[float, float], None]] = None,
+        dt_min_max: Optional[Tuple[float, float]] = None,
         iter_max: int = 15,
         iter_optimal_range: Tuple[int, int] = (4, 7),
         iter_lowupp_factor: Tuple[float, float] = (1.3, 0.7),
