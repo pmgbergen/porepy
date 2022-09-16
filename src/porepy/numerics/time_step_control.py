@@ -1,3 +1,5 @@
+
+import numpy as np
 from typing import Tuple, Union
 
 __all__ = ["TimeSteppingControl"]
@@ -172,6 +174,17 @@ class TimeSteppingControl:
 
         # Flag to keep track of recomputed solutions
         self._recomp_sol: bool = False
+        
+        # # If the time step is constant, check that the scheduled times 
+        # # and time step are compatible.
+        # # E.g. dt=2 matches schedule = [0,2,4,8], but dt=3 do not.
+        # if constant_dt:
+        #     x = np.arange(self.time_init, self.time_final+self.dt, self.dt)
+        #     y = np.intersect1d(x,self.schedule) # Check for identical values
+        #     # If the length of the intersection and scheduled time are
+        #     # unequal, there is a mismatch 
+        #     if (len(y) - len(self.schedule)) !=0 :
+        #         raise ValueError("Mismatch between the time step and scheduled time")
 
     def __repr__(self) -> str:
 
