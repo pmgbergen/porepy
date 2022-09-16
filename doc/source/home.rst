@@ -18,6 +18,10 @@ In the following, a documentation of PorePy is given submodule-wise:
 For developers
 ==============
 
+Below you will find guidelines and instructions for developing activities in PorePy.
+All new developers are required to familiarize themselves with the *How-To-X* sections before
+attempting a pull-request.
+
 .. toctree::
    :numbered:
    :titlesonly:

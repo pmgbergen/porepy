@@ -1,361 +1,324 @@
-""" 
-Official PorePy docstring style guide.
+"""
+Welcome to the *How-To* on creating documentation for your functions, classes and submodules.
+Here we explain shortly how the documentation works and give examples for how to write proper
+docstrings.
 
-This guide is written as a complement to the Google style guide [1, 2] 
+The PorePy documentation is created using *Sphinx*, an engine effectively importing the Python
+package and extracting its docstrings. The docstrings are then used to fill a pre-defined
+structure and create a HTML-based documentation.
 
-[1] https://google.github.io/styleguide/pyguide.html 
+Docstrings are written using a markup language called *reStructuredText* (short *rst*).
+A quick overview can be found at
+`rst-quickref <https://docutils.sourceforge.io/docs/user/rst/quickref.html>`_.
+You can also find vast support for rst elsewhere on the internet.
 
-[2] https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google 
+PorePy follows closely the
+`Google Python Style <https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google>`_
+for its docstrings. The Sphinx-extension *napoleon* ensures a proper interpretation.
 
-Example Google style-based PorePy docstrings.
-This module demonstrates documentation as specified by the `Google Python Style Guide` but
-tailored to PorePy's specific needs.
-In addition to the Google style guide rules, we further require the description of
-class arguments and functions/methods to follow specific standards.  
-The current document aims to be as self-contained as possible.
-However, some indications/hints might be given as side comments for now.
-In a docstring, sections are created with a header and a colon followed by a block of
-indented text. Consider the Example section shown below. 
+While the general layout follows Google's recommendations, PorePy introduces minor adaptions
+for readability and functionality reasons. After familiarizing yourself with rst and the
+Google style, you can read through the rest of this How-To to get to know the PorePy specifics.
 
- 
-Example: 
-    Examples can be given using either the ``Example`` or ``Examples`` 
-    sections. Example sections are particularly useful to show how to instantiate 
-    specific classes or how to use certain methods.  
- 
-Section breaks are created by resuming unintended text. Section breaks 
-are also implicitly created anytime a new section starts. 
+Once you have programmed, tested, documented and *merged* your contribution into the PorePy 
+source, contact one of the core developers to ensure a proper integration of your documentation
+into the whole structure.
 
-Todo: 
-    * Here you can add the TODOs of the module. 
-    * You can have as many TODOs as you want. 
+-----
+
+In the following we demonstrate how to document various aspects of your code in
+`PorePy style`_.
+While we aim for providing complete instructions, we cannot guarantee the coverage of every 
+possible case of the vast Python world. If you are unsure about an issue, don't hesitate to
+contact one of the core developers.
+
+Next to the compiled documentation you will find fleeting links ``[source]`` to the source code 
+``example_docstrings.py``, where you can see the raw docstring in all its rst-glory and the
+respective Python code. This way you will be able to directly compare what certain syntax will
+in the end look like in the compiled format.
+
+Once the your code is properly documented, it will be included using
+`autodoc <https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html>`_ directives
+into the global structure of the PorePy documentation.
+This will be done in a next step. Before that, familiarize yourself with the various directives
+and their options beforehand.
+
 """ 
 
 import porepy as pp 
 import numpy as np 
 import scipy.sparse as sps 
 
-from typing import Optional 
+from typing import Generator, Optional
 
 
-module_level_var1: str = "var" 
-"""str: Variables at the module level are documented inline after declaration."""
+module_level_var_1: str = "var" 
+"""Variables at the module level are documented inline after declaration."""
 
 
-module_level_var2: int = 216879 
-"""int: Multiline docstrings are also valid. 
+module_level_var_2: int = 1 
+"""Multi-line docstrings are also valid. 
 
 You might want to use multiline docstrings when a more detailed description
 of the variable is required.
-In both cases, the type must be specified at the beginning of the docstring followed by a
-colon. 
-""" 
 
-def module_level_function(param1: int, param2: str) -> bool: 
-    """General description of the module function must fit in one line. 
-    Detailed description can be given next if necessary. Of course, this description 
-    can span several lines.     
+"""
+
+module_level_var_3: int = 42
+"""int: **DO NOT** start the docstring with ``int:``, i.e. with type hints.
+
+This will render the below ``Type: int``, which is unnecessary due to the already present
+annotation after the variable name. As you can test above, clicking on *int* will forward you
+to the right documentation.
+
+**DO:**
+
+.. code:: Python
+
+    module_level_var_3: int = 1
+    \"\"\"This is var 3.\"\"\"
+
+**DO NOT:**
+
+.. code:: Python
+    
+    module_level_var_3 = 1
+    \"\"\"int: This is var 3.\"\"\"
+
+"""
+
+def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool: 
+    """A short description of the functionality must fit in the first line. 
+    
+    Detailed description can be given next if necessary. The extended description 
+    can of course span several lines.     
 
     When natural, the description can be break into several paragraphs that start 
     without indentation. 
 
-    Args: 
-        param1 (int): Description of param1.  
-        param2 (str): Description of param2. If the description of a parameter spans 
-            more than one line, the lines must be indented.  
+    The description of arguments is started using the Google Style directive *Parameters:*,
+    or equivalently *Args:*.
+
+    .. note:: 
+
+        You can find the ``[source]`` link in the upper right corner of this function's
+        documentation and take a look at the Python and rst source code of this docstring, 
+        as well as for every docstring that follows.
+
+    The return value can be described using the Google Style directive *Returns:*.
+
+    Parameters: 
+        arg1: Description of arg1.
+        arg2: Description of arg2. If the description of a parameter spans more than one line,
+            the lines must be indented.  
 
             You can even use multiple paragraphs for describing a parameter. There 
-            are no restrictions in this regard. 
+            are no restrictions in this regard.
+        arg3 (bool): **DO NOT** include type hints in the *Parameters* directive.
+            For this the annotations in the signature are utilized.
 
-    Returns: 
-        bool: True if param1 is bigger than the length of param2, False otherwise. 
+    Returns:
+        Describe the return value here. Multiple lines can be used and you have
+        to indent the lines.
+        
+        **DO NOT** use type hints here as they are present in the signature.
 
     """   
-    return param1 > len(param2) 
+    return (arg1 > len(arg2)) and arg3
 
  
-def module_level_function2(
-    param1: int, 
-    param2: Optional[int]=None, 
-    *args, 
-    **kwargs, 
-    ): 
-    """General description of the module function must fit in one line. 
+def module_level_function_2(optional_arg: Optional[int]=None, *args, **kwargs) -> None: 
+    """Optional arguments must be type-hinted using :class:`typing.Optional`.
+    
+    As evident, you can link objects in-text. You can also link functions like
+    :meth:`module_level_function_1`.
 
-    If ``*args`` or ``**kwargs`` are accepted, 
-    they should be listed as ``*args`` and ``**kwargs``. 
+    If ``*args`` or ``**kwargs`` are accepted,
+    they must be listed as ``*args`` and ``**kwargs`` in the *Parameters* directive. 
 
     Args: 
-        param1 (int): Description of ``param1``.  
-        param2 (int, default=None): Description of ``param2``. Default value for the 
-            parameter is given in parentheses next to the type. 
-        *args: Variable length argument list. 
-        **kwargs: Arbitrary keyword arguments. 
+        optional_arg: Description of ``optional_arg``.
+            The default value is described at the end.
+            Use easily spottable wording like 'Defaults to None.'
+        *args: Arbitrary arguments. Describe adequately how they are used. 
+        **kwargs: Arbitrary keyword arguments. You can use rst-lists to describe admissible
+            keywords:
+
+            - ``kw_arg1``: Some admissible keyword argument
+            - ``kw_arg2``: Some other admissible keyword argument
 
     Raises: 
-        ValueError: If ``param1`` is     
+        ValueError: You can use the the Google Style directive *Raises:* to describe error
+            sources you have programmed. Here for example we can raise  value error
+            if an unexpected keyword argument was passed.
+        TypeError: You can hint multiple errors. Be aware of necessary indentations when
+            descriptions span multiple lines.
+
+    .. note::
+        We note that this function returns ``None`` as per signature.
+        This is the default return value of Python and as such does not need documentation.
+        I.e., we can omit the *Returns:* directive. 
+
     """   
-    if param1 == param2: 
-        raise ValueError("param1 cannot be equal to param2.") 
+    pass
 
 
-def module_level_function(param1, param2=None, *args, **kwargs): 
-    """This is an example of a module level function. 
- 
-    Function parameters should be documented in the ``Args`` section. The name 
-    of each parameter is required. The type and description of each parameter 
-    is optional but should be included if not obvious. 
- 
-    If ``*args`` or ``**kwargs`` are accepted, 
-    they should be listed as ``*args`` and ``**kwargs``. 
- 
-    The format for a parameter is: 
- 
-        name (type): description 
-            The description may span multiple lines. Following 
-            lines should be indented. The "(type)" is optional. 
- 
-            Multiple paragraphs are supported in parameter 
-            descriptions. 
- 
+def module_level_function_3(
+    mdg: pp.MixedDimensionalGrid,
+    vector: np.ndarray,
+    matrix: sps.spmatrix,
+    option: str = "A"
+    ) -> sps.spmatrix: 
+    """We demonstrate here the intra- and inter-doc linking to non-base-type Python objects
+    in the signature,
+    as well as how to document special requirements for the arguments.
+
     Args: 
-        param1 (int): The first parameter. 
-        param2 (:obj:`str`, optional): The second parameter. Defaults to None. 
-            The second line of description should be indented. 
-        *args: Variable length argument list. 
-        **kwargs: Arbitrary keyword arguments. 
+        mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``
+        vector (len=nc): This vectors special requirement is a certain length.
+            We use the type hint brackets to indicate its supposed length.
+            The required length is ``nc``, the number of cells (obviously in ``mdg``).
+        matrix (shape=(3,nc)): This argument is a sparse matrix with 3 rows and ``nc``
+            columns. 
+        option ({'A', 'B', 'C'}): This argument has admissible values, namely it can only be 
+            a string ``'A'``, ``'B'`` or ``'C'``.
  
     Returns: 
-        bool: True if successful, False otherwise. 
- 
-        The return type is optional and may be specified at the beginning of 
-        the ``Returns`` section followed by a colon. 
- 
-        The ``Returns`` section may span multiple lines and paragraphs. 
-        The following lines should be indented to match the first line. 
- 
-        The ``Returns`` section supports any reStructuredText formatting, 
-        including literal blocks: 
- 
-            { 
-                'param1': param1, 
-                'param2': param2 
-            } 
+        Describe the return value here. You can also describe its dependence on the value of
+        ``option`` here, or alternatively in the extended description at the beginning of the
+        docstring.
  
     Raises: 
-        AttributeError: The ``Raises`` section is a list of all exceptions 
-            that are relevant to the interface. 
-        ValueError: If ``param2`` is equal to ``param1``. 
- 
+        ValueError: If ``option`` is not in ``{'A', 'B', 'C'}``. 
+
     """ 
-    if param1 == param2: 
-        raise ValueError('param1 may not be equal to param2') 
-    return True 
+    pass
  
  
-def example_generator(n): 
-    """Generators have a ``Yields`` section instead of a ``Returns`` section. 
+def example_generator(n: int) -> Generator[int, None, None]: 
+    """When documenting a generator, use the *Yields:* directive instead of *Returns:*.
+    Their usage is equivalent, indicating only that this is a generator object, not a regular
+    function.
  
     Args: 
-        n (int): The upper limit of the range to generate, from ``0`` to ``n-1``. 
+        n: Some upper integer limit. 
  
     Yields: 
-        int: The next number in the range of 0 to ``0`` to ``n-1``. 
+        numbers until ``n`` is reached. 
  
     Examples: 
-        Examples should be written in doctest format, and should illustrate how 
-        to use the function. 
+        The Google Style offers an *Examples:* directives where you can write text but also
+        include inline examples of code usage, without the special code directive from Sphinx.
  
         >>> print([i for i in example_generator(4)]) 
         [0, 1, 2, 3] 
- 
+
     """ 
     for i in range(n): 
         yield i 
  
  
-class ExampleError(Exception): 
-    """Exceptions are documented in the same way as classes. 
- 
-    The __init__ method may be documented in either the class level 
-    docstring, or as a docstring on the __init__ method itself. 
- 
-    Either form is acceptable, but the two should not be mixed. Choose one 
-    convention to document the __init__ method and be consistent with it. 
- 
-    Note: 
-        Do not include the ``self`` parameter in the ``Args`` section. 
- 
-    Args: 
-        msg (str): Human readable string describing the exception. 
-        code (:obj:`int`, optional): Error code. 
- 
-    Attributes: 
-        msg (str): Human readable string describing the exception. 
-        code (int): Exception error code. 
- 
-    """ 
- 
-    def __init__(self, msg, code): 
-        self.msg = msg 
-        self.code = code 
- 
- 
 class ExampleClass: 
-    """The summary line for a class docstring should fit on one line. 
- 
-    If the class has public attributes, they may be documented here 
-    in an ``Attributes`` section and follow the same formatting as a 
-    function's ``Args`` section. Alternatively, attributes may be documented 
-    inline with the attribute's declaration (see __init__ method below). 
- 
-    Properties created with the ``@property`` decorator should be documented 
-    in the property's getter method. 
- 
-    Attributes: 
-        attr1 (str): Description of `attr1`. 
-        attr2 (:obj:`int`, optional): Description of `attr2`. 
- 
+    """A quick purpose of the class is to be provided in the first line.
+    
+    After the first line, a broader, multi-line description of the class can follow. It can
+    contain multiple paragraphs as well as elements like code snippets.
+
+    At the end follows the *Parameters:* directive and an eventual *Raises:* directive.
+
+    Parameters:
+        arg1: first argument
+        arg2: second argument    
+
+    """
+
+    class_attribute_1: int = 1
+    """This is how to properly document a class-level attribute.
+    
+    The value is shown because it is static upon class type creation.
+
+    """
+
+    class_attribute_2: str = "A"
+    """str: This is a class attribute with a redundant field 'Type:' caused by type hints
+    in the docstring. The type should only be given by its annotation.
+    **DO NOT** use type hints in docstrings.
+
     """ 
  
-    def __init__(self, param1, param2, param3): 
-        """Example of docstring on the __init__ method. 
- 
-        The __init__ method may be documented in either the class level 
-        docstring, or as a docstring on the __init__ method itself. 
- 
-        Either form is acceptable, but the two should not be mixed. Choose one 
-        convention to document the __init__ method and be consistent with it. 
- 
-        Note: 
-            Do not include the `self` parameter in the ``Args`` section. 
- 
-        Args: 
-            param1 (str): Description of `param1`. 
-            param2 (:obj:`int`, optional): Description of `param2`. Multiple 
-                lines are supported. 
-            param3 (list(str)): Description of `param3`. 
- 
-        """ 
-        self.attr1 = param1 
-        self.attr2 = param2 
-        self.attr3 = param3  #: Doc comment *inline* with attribute 
- 
-        #: list(str): Doc comment *before* attribute, with type specified 
-        self.attr4 = ['attr4'] 
- 
-        self.attr5 = None 
-        """str: Docstring *after* attribute, with type specified.""" 
+    def __init__(self, arg1: int, arg2: str) -> None:
+        # !!! no docstring for __init__ !!!
+
+        self.attribute_1: int = arg1 
+        """This is how to properly document a instance-level attribute inside the constructor.
+        """
+
+        self.attribute_2: str = arg2
+        """str: This is an instance-level attribute with a redundant field 'Type:' caused by
+        type hints in the docstring. The type should only be given by its annotation.
+        **DO NOT** use type hints in docstrings.
+
+        """
+     
+    @property 
+    def readonly_property(self) -> str: 
+        """Document properties only in their getter-methods.""" 
+        return 'readonly' 
  
     @property 
-    def readonly_property(self): 
-        """str: Properties should be documented in their getter method.""" 
-        return 'readonly_property' 
- 
-    @property 
-    def readwrite_property(self): 
-        """list(str): Properties with both a getter and setter 
-        should only be documented in their getter method. 
+    def readwrite_property(self) -> str: 
+        """Properties with both a getter and setter should only be documented in their
+        getter method. 
  
         If the setter method contains notable behavior, it should be 
         mentioned here. 
         """ 
-        return ['readwrite_property'] 
+        return 'readwrite' 
  
     @readwrite_property.setter 
     def readwrite_property(self, value): 
         value 
- 
-    def example_method(self, param1, param2): 
-        """Class methods are similar to regular functions. 
- 
-        Note: 
-            Do not include the ``self`` parameter in the ``Args`` section. 
- 
-        Args: 
-            param1: The first parameter. 
-            param2: The second parameter. 
- 
-        Returns: 
-            True if successful, False otherwise. 
- 
-        """ 
-        return True 
-
- 
-    def example_method_with_typings(self,  
-
-        param1: np.ndarray,  
-
-        param2: bool = False 
-
-        ) -> bool :
-        """Class methods are similar to regular functions. 
+    
+    @staticmethod
+    def example_static_method() -> None:
+        """This is the docstring of a static method.
         
-        Note: 
-            Do not include the `self` parameter in the ``Args`` section. 
+        Note the absence of ``self``.
 
+        """
+    
+    @classmethod
+    def example_class_method(cls) -> None:
+        """This is the docstring of a class method.
+
+        Note that the ``self`` argument is replaced by the ``cls`` argument.
+
+        """
+ 
+    def example_method(self, arg: bool) -> bool: 
+        """A short description of the method must fit in the first line.
+
+        A more elaborate description can follow afterwards.
+ 
         Args: 
-            param1 (np.ndarray, (num_cells, )): Description of parameter1. 
-            param2 (bool, optional): Description of parameter2. Default is False. 
-
+            arg: The first argument (even though ``self`` is technically the first one).
+ 
         Returns: 
-            True if successful, False otherwise. 
-
+            the argument itself. 
+ 
         """ 
         return True 
 
-    def __special__(self): 
-        """By default special members with docstrings are not included. 
- 
-        Special members are any methods or attributes that start with and 
-        end with a double underscore. Any special member with a docstring 
-        will be included in the output, if 
-        ``napoleon_include_special_with_doc`` is set to True. 
- 
-        This behavior can be enabled by changing the following setting in 
-        Sphinx's conf.py:: 
- 
-            napoleon_include_special_with_doc = True 
+    def __special__(self) -> None: 
+        """Special methods (starting and ending with two underscores) are by default not
+        included. Their documentation needs to be assured by an *option* in the rst files.
  
         """ 
         pass 
  
-    def __special_without_docstring__(self): 
-        pass 
- 
-    def _private(self): 
-        """By default private members are not included. 
- 
-        Private members are any methods or attributes that start with an 
-        underscore and are *not* special. By default they are not included 
-        in the output. 
- 
-        This behavior can be changed such that private members *are* included 
-        by changing the following setting in Sphinx's conf.py:: 
- 
-            napoleon_include_private_with_doc = True 
+    def _private(self) -> None: 
+        """Private methods are by default not included in the compiled documentation.
+        They should be nevertheless documented properly
  
         """ 
         pass 
- 
-    def _private_without_docstring(self): 
-        pass 
- 
-class ExamplePEP526Class: 
-    """The summary line for a class docstring should fit on one line. 
- 
-    If the class has public attributes, they may be documented here 
-    in an ``Attributes`` section and follow the same formatting as a 
-    function's ``Args`` section. If ``napoleon_attr_annotations`` 
-    is True, types can be specified in the class body using ``PEP 526`` 
-    annotations. 
- 
-    Attributes: 
-        attr1: Description of `attr1`. 
-        attr2: Description of `attr2`. 
- 
-    """ 
- 
-    attr1: str 
-    attr2: int 

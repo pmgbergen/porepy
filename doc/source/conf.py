@@ -42,6 +42,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
     'sphinx.ext.todo',
+    'sphinx.ext.viewcode',
 ]
 
 # Removes the module name space in front of classes and functions
@@ -96,13 +97,22 @@ autodoc_member_order = "groupwise"  # alphabetical-groupwise-bysource
 # type hints will be shortened: porepy.grids.grid.Grid -> Grid
 autodoc_typehints_format = "short"
 
+# default configurations for all autodoc directives
+autodoc_default_options = {
+    "members": True,
+    "special-members": False,
+    "private-members": False,
+    "show-inheritance": True,
+    "no-value": False
+}
+
 # -- Napoleon Settings ------------------------------------------------------------------------
 
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 napoleon_include_init_with_doc = True
 napoleon_include_private_with_doc = False
-napoleon_include_special_with_doc = True
+napoleon_include_special_with_doc = False
 napoleon_use_admonition_for_examples = False
 napoleon_use_admonition_for_notes = False
 napoleon_use_admonition_for_references = False
@@ -126,4 +136,6 @@ intersphinx_mapping = {
 
 todo_include_todos = True
 todo_emit_warnings = False
-todo_link_only = False 
+todo_link_only = False
+
+# -- Viewcode Settings ------------------------------------------------------------------------
