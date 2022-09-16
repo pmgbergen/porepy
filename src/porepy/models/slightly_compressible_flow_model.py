@@ -103,3 +103,10 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         #  Adding accumulation term to incompressible flow equations
         self._eq_manager.equations["subdomain_flow"] += accumulation_term
+
+    def _export(self):
+        if hasattr(self, "exporter"):
+            self.exporter.write_vtu([self.variable], time_dependent=True)
+
+    def after_simulation(self):
+        self.exporter.write_pvd()
