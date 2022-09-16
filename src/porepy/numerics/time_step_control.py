@@ -66,8 +66,22 @@ class TimeSteppingControl:
         print(tsc)
 
     Attributes:
-        dt_init (float): Initial time step.
-
+        dt (float): Time step.
+        dt_init (float): Intial time step.
+        dt_max (float): Maximum time step.
+        dt_min (float): Minimum time step.
+        is_constant (bool): Constant time step flag.
+        iter_low (int): Lower bound of the optimal iteration range.
+        iter_low_factor (float): Lower multiplication factor. Strictly greater than one.
+        iter_max (int): Maximum number of iterations.
+        iter_upp (int): Upper bound of the optimal iteration range.
+        iter_upp_factor (float): Upper multiplication factor. Strictly lower than one.
+        recomp_factor (float): Recomputation factor. Strictly lower than one.
+        recomp_max (int): Maximum number of recomputation attempts.
+        schedule (list): List of scheduled times including initial and final times.
+        time (float): Current time.
+        time_final (float): Final simulation time.
+        time_init (float): Initial simulation time.
     """
 
     def __init__(
