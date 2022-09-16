@@ -50,6 +50,9 @@ class SubdomainProjections(Operator):
             subdomains (List of pp.Grid): List of subdomains. The order of the subdomains in
                 the list will establish the ordering of the subdomain projections.
             nd (int, optional): Dimension of the quantities to be projected.
+            FIXME: Is dim a better argument and attribute name? It's the dimension of the
+                projected quantities, not the ambient dimension of the simulation (for which
+                 we usually reserve "nd").
 
         """
         self._name = "SubdomainProjection"

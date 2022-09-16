@@ -69,7 +69,12 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.create_grid()
         # Exporter initialization must be done after grid creation.
         self.exporter = pp.Exporter(
-            self.mdg, self.params["file_name"], folder_name=self.params["folder_name"]
+            self.mdg,
+            self.params["file_name"],
+            folder_name=self.params["folder_name"],
+            export_constants_separately=self.params.get(
+                "export_constants_separately", False
+            ),
         )
 
         self._assign_variables()
