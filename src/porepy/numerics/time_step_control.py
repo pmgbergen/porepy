@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 
@@ -13,44 +13,58 @@ class TimeSteppingControl:
         schedule: list,
         dt_init: float,
         constant_dt: bool = False,
-        dt_min_max: Tuple[float, float] = (1e-10, 1e2),
+        dt_min_max: Optional[Tuple[float, float], None] = None,
         iter_max: int = 15,
         iter_optimal_range: Tuple[int, int] = (4, 7),
         iter_lowupp_factor: Tuple[float, float] = (1.3, 0.7),
         recomp_factor: float = 0.5,
         recomp_max: int = 10,
         print_info: bool = False,
-    ):
-        """Computes the next time step based on the number of non-linear iterations.
+    ) -> None:
+        """Constructor for the TimeSteppingControl class.
 
         Parameters:
-            schedule (List): List containing the target times for the simulation.
+            schedule: List containing the target times for the simulation.
                 The time-stepping algorithm will adapt the time step so that the target
                 times are guaranteed to be hit/reached. The list must contain minimally
-                two elements, corresponding to the the initial and final simulation times.
+                two elements, corresponding to the initial and final simulation times.
                 Lists of length > 2 must contain strictly increasing times.
-                Examples of valid inputs are:
-                  [0, 1], [0, 10, 30, 50], [0, 1*pp.HOUR, 3*pp.HOUR].
-                Examples of invalid inputs are:
-                  [1], [1, 0], [0, 1, 1, 2].
-            dt_init (float): Initial time step.
-            constant_dt (bool): Whether to treat the time step as constant or not. Note that
-                `constant_dt` is True, then the time-stepping control algorithm is effectively
-                 not used.
-            dt_min_max (Tuple of float): Minimum and maximum permissible time steps.
-                Default is (1e-10, 1e2)
-            iter_max (int): Maximum number of iterations. Default is 15.
-            iter_optimal_range (Tuple of int): Lower and upper optimal iteration range.
-                Default is (4, 7).
-            iter_lowupp_factor (Tuple of float, optional): Lower and upper multiplication
-                factors. Default is (1.3, 0.7).
-            recomp_factor (float). Failed-to-converge recomputation factor.
-                Default is 0.5.
-            recomp_max (int). Failed-to-converge maximum recomputation attempts.
-                Default is 10.
-            print_info (bool). Print time-stepping information. Default is False.
+                Examples of VALID inputs are:
+                  [0, 1]
+                  [0, 10, 30, 50]
+                  [0, 1*pp.HOUR, 3*pp.HOUR].
+                Examples of INVALID inputs are:
+                  [1]
+                  [1, 0]
+                  [0, 1, 1, 2]
+            dt_init: Initial time step. If `constant_dt` is True, then `dt_init` is taken as
+                the constant time step.
+            constant_dt: Whether to treat the time step as constant or not. If True, then
+                the time-stepping control algorithm is effectively bypassed. To be
+                precise, the algorithm won't adapt the time step in any situation.
+                Nevertheless, the attributes (such as scheduled times) will still be accesible.
+            dt_min_max: Minimum and maximum permissible time steps. If None, then the
+                minimum time step is set to 0.1% of the final simulation time and the
+                maximum time step is set to 10% of the final simulation time. If given, then
+                the first and second elements of the tuple corresponds to the minimum and
+                maximum time steps, respectively.
+            iter_max: Maximum number of iterations.
+            iter_optimal_range: Optimal iteration range. The first and second elements of the
+                tuple corresponds to the lower and upper bounds of the optimal iteration range.
+            iter_lowupp_factor: Lower and upper multiplication factors. The first and second
+                elements of the tuple corresponds to the lower and upper multiplication
+                factors, respectively. We require the lower multiplication factor to be
+                strictly greater than one, whereas the upper multiplication factor is
+                required to be strictly less than one.
+            recomp_factor: Failed-to-converge recomputation factor. Factor by which the
+                time step will be multiplied in case the solution must be recomputed (see
+                documentation of `next_time_step` method).
+            recomp_max: Failed-to-converge maximum recomputation attempts. The maximum
+                allowable number of consecutive recomputation attempts. If `recomp_max` is
+                exceeded, an error will be raised.
+            print_info. Print time-stepping information.
 
-        Example
+        Example:
             # The following is an example on how to construct a time-stepping object
             tsc = pp.TimeSteppingControl(
                 schedule=[0, 10],
