@@ -190,7 +190,7 @@ def test_single_subdomains_import(setup, subdomain):
         export_constants_separately=False,
     )
 
-    # Define keys (correpsonds to all data stored in the vtu file).
+    # Define keys (here corresponding to all data stored in the vtu file to pass the test).
     keys = ["dummy_scalar", "dummy_vector"]
 
     # Import data
@@ -276,7 +276,7 @@ def test_mdg_import(setup):
         export_constants_separately=False,
     )
 
-    # Define keys (correpsonds to all data stored in the vtu file).
+    # Define keys (here corresponding to all data stored in the vtu file to pass the test).
     keys = ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"]
 
     # Import data

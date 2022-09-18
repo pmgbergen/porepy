@@ -189,24 +189,24 @@ class Exporter:
         Import state variables from vtu file.
 
         Args:
-            keys (string or list of strings): keywords addressing cell data to be transferred
-            file_names (string or list of strings): list of vtu files to be considered
+            keys (string or list of strings): keywords addressing cell data to be transferred.
+            file_names (string or list of strings): list of vtu files to be considered.
             kwargs: Optional keyword arguments:
                 automatic (boolean): controlling whether dimensionality of the grids and
                     whether it is a subdomain or interface grid is read automatically from
-                    the file names; default is True
+                    the file names; default is True.
                 dims (int or list of int): compatible with file_names; list of dimensions of
-                    the corresponding grids
+                    the corresponding grids.
                 are_subdomain_data (bool or list of bool): comparible with file_names; list
                     of indicators whether the corresponding grid is a subdomain grid;
-                    default is True
+                    default is True.
 
         Raises:
             ValueError if some of the data is not compatible with the supposedly corresponding
-                grid
+                grid.
         """
 
-        # Aux. method: Inversoe of _toVectorFormat, used to define vector-ranged values
+        # Aux. method: Inverse of _toVectorFormat, used to define vector-ranged values
         def _toScalarFormat(
             value: np.ndarray, grid: Union[pp.Grid, pp.MortarGrid]
         ) -> np.ndarray:
