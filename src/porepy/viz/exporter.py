@@ -103,10 +103,10 @@ class Exporter:
             file_name (str): basis for file names used for storing the output
             folder_name (str, optional): name of the folder in which files are stored
             kwargs: Optional keywords arguments:
-                fixed_grid (boolean): to control whether the grid may be redefined later
-                    (default True)
+                fixed_grid (boolean): to control whether the grid may be redfined later
+                    (default True).
                 binary (boolean): controlling whether data is stored in binary format
-                    (default True)
+                    (default True).
                 export_constants_separately (boolean): controlling whether
                     constant data is exported in separate files, which may be of interest
                     when exporting large data sets (in particular of constant data) for
@@ -216,12 +216,12 @@ class Exporter:
             object.
 
             Args:
-                value (np.ndarray): input array to be converted
+                value (np.ndarray): input array to be converted.
                 grid (pp.Grid or pp.MortarGrid): subdomain or interface to which value
-                    is associated to
+                    is associated to.
 
             Raises:
-                ValueError if the value array is not compatible with the grid
+                ValueError if the value array is not compatible with the grid.
             """
             # Make some checks
             if not value.size % grid.num_cells == 0:
@@ -685,7 +685,7 @@ class Exporter:
                 brought into unified format.
 
         Raises:
-            ValueError if the data type provided is not supported
+            ValueError if the data type provided is not supported.
         """
 
         # The strategy is to traverse the input data and check each data point
@@ -710,12 +710,12 @@ class Exporter:
             scalar data.
 
             Args:
-                value (np.ndarray): input array to be converted
+                value (np.ndarray): input array to be converted.
                 grid (pp.Grid or pp.MortarGrid): subdomain or interface to which value
-                    is associated to
+                    is associated to.
 
             Raises:
-                ValueError if the value array is not compatible with the grid
+                ValueError if the value array is not compatible with the grid.
             """
             # Make some checks
             if not value.size % grid.num_cells == 0:
@@ -742,7 +742,7 @@ class Exporter:
             interfaces identified by the key.
 
             Raises:
-                ValueError if no data available in the mixed-dimensional grid for given key
+                ValueError if no data available in the mixed-dimensional grid for given key.
             """
 
             # Only continue in case data is of type str
@@ -808,7 +808,7 @@ class Exporter:
             This routine explicitly checks only for subdomain data.
 
             Raises:
-                ValueError if there exists no state in the subdomain data with given key
+                ValueError if there exists no state in the subdomain data with given key.
             """
 
             # Implementation of isinstance(data_pt, tuple[list[pp.Grid], str]).
@@ -859,10 +859,10 @@ class Exporter:
             where interfaces is a list of interfaces, and key is a string.
             This routine explicitly checks only for interface data.
 
-            This routine is a translation of add_data_from_tuple_subdomains_str to interfaces
+            This routine is a translation of add_data_from_tuple_subdomains_str to interfaces.
 
             Raises:
-                ValueError if there exists no state in the interface data with given key
+                ValueError if there exists no state in the interface data with given key.
             """
 
             # Implementation of isinstance(t, tuple[list[pp.MortarGrid], str]).
@@ -984,7 +984,7 @@ class Exporter:
             This only works when the mixed-dimensional grid contains a single subdomain.
 
             Raises:
-                ValueError if the mixed-dimensional grid contains more than one subdomain
+                ValueError if the mixed-dimensional grid contains more than one subdomain.
             """
 
             # Implementation if isinstance(data_pt, tuple[str, np.ndarray].
@@ -1190,17 +1190,17 @@ class Exporter:
 
         Args:
             data (Union[SubdomainData, InterfaceData]): Subdomain or interface data.
-            time_step (int): time_step to be used to append the file name
+            time_step (int): time_step to be used to append the file name.
             kwargs: Optional keyword arguments:
                 'interface_data' (boolean) indicates whether data is associated to
-                    an interface, default is False;
+                    an interface, default is False.
                 'constant_data' (boolean) indicates whether data is treated as
                     constant in time, default is False.
 
         Raises:
-            TypeError if keyword arguments contain unsupported keyword
+            TypeError if keyword arguments contain unsupported keyword.
             ValueError if data provided for some but not all subdomains or interfaces
-                of particular dimension
+                of particular dimension.
         """
         # Check for optional keywords
         self.interface_data: bool = kwargs.pop("interface_data", False)
@@ -1275,8 +1275,8 @@ class Exporter:
         several files for distinct grid dimensions.
 
         Args:
-            file_name (str): storage path for pvd file
-            time_step (int): used as appendix for the file name
+            file_name (str): storage path for pvd file.
+            time_step (int): used as appendix for the file name.
         """
         # Open the file
         o_file = open(file_name, "w")
@@ -1386,7 +1386,7 @@ class Exporter:
             in correct meshio format.
 
         Raises:
-            ValueError if dim not 0, 1, 2, 3
+            ValueError if dim not 0, 1, 2, 3.
         """
         if dim == 0:
             return None
@@ -1471,7 +1471,7 @@ class Exporter:
         Args:
             n (int): dimension of the simplices in the grid.
             grid (pp.Grid): grid containing cells and nodes.
-            cells (np.ndarray, optional): all n-simplex cells
+            cells (np.ndarray, optional): all n-simplex cells.
 
         Returns:
             np.ndarray: cell to node connectivity array, in which for each row
@@ -1877,7 +1877,7 @@ class Exporter:
         of meshio.
 
         Raises:
-            ImportError if numba is not installed
+            ImportError if numba is not installed.
         """
 
         try:
@@ -2093,7 +2093,7 @@ class Exporter:
                 meshio format (for a single dimension).
 
         Raises:
-            ValueError if some data has wrong dimension
+            ValueError if some data has wrong dimension.
         """
         # Initialize empty cell data dictionary
         cell_data: dict[str, list[np.ndarray]] = {}
@@ -2133,8 +2133,8 @@ class Exporter:
         setting up a path for exporting.
 
         Args:
-            folder_name (str, optional): name of the folder
-            name (str): prefix of the name of the files to be written
+            folder_name (str, optional): name of the folder.
+            name (str): prefix of the name of the files to be written.
 
         Returns:
             str: complete path to the files to be written.
@@ -2167,14 +2167,14 @@ class Exporter:
         the related data is associated to.
 
         Args:
-            file_name (str): prefix of the name of file to be exported
-            time_step (Union[float int], optional): time or time step (index)
-            dim (int, optional): dimension of the exported grid
+            file_name (str): prefix of the name of file to be exported.
+            time_step (Union[float int], optional): time or time step (index).
+            dim (int, optional): dimension of the exported grid.
             extension (str): extension of the file, typically file ending
-                defining the format
+                defining the format.
 
         Returns:
-            str: complete name of file
+            str: complete name of file.
         """
 
         # Define non-empty time step extension including zero padding.
