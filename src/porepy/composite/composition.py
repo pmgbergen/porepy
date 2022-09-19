@@ -419,7 +419,7 @@ class Composition:
             # if not enough equations available, add it
             if eq_num_is < eq_num_max:
                 self.equilibrium_equations[component.name].update({equ_name: equation})
-            # if enough are available, check if one is replacable (same name)
+            # if enough are available, check if one is replaceable (same name)
             elif eq_num_is == eq_num_max:
                 if equ_name in self.equilibrium_equations[component.name].keys():
                     self.equilibrium_equations[component.name].update(
@@ -626,12 +626,15 @@ class Composition:
                     - ``feed``: feed composition values are used as initial guesses
                     - ``uniform``: uniform fractions adding up to 1 are used as initial guesses
 
+        Returns:
+            indicator if flash was successful or not. If not successful, the ITERATE will 
+            **not** be copied to the STATE, even if flagged ``True`` by ``copy_to_state``.
         """
         success = self._Newton_min(self.pT_subsystem, copy_to_state, initial_guess)
         if success:
             self._renormalize_absent_phase_composition(copy_to_state)
         else: # if not successful, we re-normalize only the iterate # if not successful, we re-normalize only the iterate
-            self._renormalize_absent_phase_composition()
+            self._renormalize_absent_phase_composition(False)
         return success
 
     def isenthalpic_flash(
@@ -649,12 +652,15 @@ class Composition:
                     - ``feed``: feed composition values are used as initial guesses
                     - ``uniform``: uniform fractions adding up to 1 are used as initial guesses
 
+        Returns:
+            indicator if flash was successful or not. If not successful, the ITERATE will 
+            **not** be copied to the STATE, even if flagged ``True`` by ``copy_to_state``.
         """
         success = self._Newton_min(self.ph_subsystem, copy_to_state, initial_guess)
         if success:
             self._renormalize_absent_phase_composition(copy_to_state)
         else: # if not successful, we re-normalize only the iterate
-            self._renormalize_absent_phase_composition()
+            self._renormalize_absent_phase_composition(False)
         return success
 
     def evaluate_saturations(self, copy_to_state: bool = True) -> None:
@@ -850,6 +856,9 @@ class Composition:
                     additive=True,
                     to_iterate=True,
                 )
+                # counting necessary number of iterations
+                iter_final = i + 1  # shift since range() starts with zero
+
                 # assemble new matrix and residual
                 A, b = self._assemble_semi_smooth_system(equations, complementary_cond, vars)
 
@@ -864,10 +873,9 @@ class Composition:
                         self.dof_manager.distribute_variable(X, variables=var_names)
 
                     success = True
-                    iter_final = i + 1  # shift since range() starts with zero
 
                     # compute the inverse Jacobian, for Schur complement with flow
-                    # TODO make inverter more efficient (block inverter)
+                    # TODO make inverter more efficient (block inverter?)
                     self._last_inverted = np.linalg.inv(A.A)
 
                     break
@@ -876,7 +884,7 @@ class Composition:
         self._history_entry(
             flash=flash_type,
             method="Newton-min",
-            iterations=iter_final,
+                iterations=iter_final,
             success=success,
             variables=[v._name for v in vars],
             equations=equations,
@@ -929,11 +937,13 @@ class Composition:
             b_ns = -b1.val.copy()
             b_ns[active_set] = -b2.val[active_set]
 
-            A_ns = b1.jac
-            A_ns[active_set] = b2.jac[active_set]
+            A_ns = b1.jac.tolil()
+            # TODO scipy.sparse gives an efficiency warning here, told me to change to
+            # lil. Is this really the way to go?
+            A_ns[active_set] = b2.jac.tolil()[active_set]
 
             all_b_ns.append(b_ns)
-            all_A_ns.append([A_ns])
+            all_A_ns.append([A_ns.tocsr()])
         
         A_ns = sps.bmat(all_A_ns, format="csr") * projection
         
@@ -1115,12 +1125,12 @@ class Composition:
         self.flash_history.append(
             {
                 "flash": flash,
-                "method:": method,
-                "iterations:": iterations,
-                "success:": success,
-                "variables:": str(variables),
-                "equations:": str(equations),
-                "other:": str(kwargs),
+                "method": method,
+                "iterations": iterations,
+                "success": success,
+                "variables": str(variables),
+                "equations": str(equations),
+                "other": str(kwargs),
             }
         )
         if len(self.flash_history) > self._max_history:
