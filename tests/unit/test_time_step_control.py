@@ -136,11 +136,12 @@ class TestParameterInputs:
             Ts(schedule=[0, 1], dt_init=0.51, dt_min_max=(0.1, 0.5))
         assert msg in str(excinfo.value)
 
-    def test_max_number_of_iterations_non_negative(self):
-        """An error should be raised if the maximum number of iterations is negative."""
-        msg = "Maximum number of iterations must be non-negative."
+    @pytest.mark.parametrize("iter_max", [0, -1])
+    def test_max_number_of_iterations_positive(self, iter_max):
+        """An error should be raised if the maximum number of iterations is not positive."""
+        msg = "Maximum number of iterations must be positive."
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=[0, 1], dt_init=0.1, dt_min_max=(0.1, 0.5), iter_max=-1)
+            Ts(schedule=[0, 1], dt_init=0.1, dt_min_max=(0.1, 0.5), iter_max=iter_max)
         assert msg in str(excinfo.value)
 
     def test_lower_iter_smaller_than_upper_iter(self):
