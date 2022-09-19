@@ -215,6 +215,8 @@ class Exporter:
             to the grid size. If possible, translate the value to a scalar-ranged
             object.
 
+            This method is meant for cell data only.
+
             Args:
                 value (np.ndarray): input array to be converted.
                 grid (pp.Grid or pp.MortarGrid): subdomain or interface to which value
@@ -223,13 +225,13 @@ class Exporter:
             Raises:
                 ValueError if the value array is not compatible with the grid.
             """
-            # Make some checks
+            # Make some checks - note that this method handles cell data only.
             if not value.size % grid.num_cells == 0:
                 # This line will raise an error if node or face data is exported.
                 raise ValueError("The data array is not compatible with the grid.")
 
-            # Apply flatten with the order compatible with _to_vector_format.
-            return value.flatten("F")
+            # Flatten the data compatible with _to_vector_format.
+            return np.ravel(value, "F")
 
         # Convert file_names to a list
         if isinstance(file_names, str):
