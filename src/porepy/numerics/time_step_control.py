@@ -288,7 +288,7 @@ class TimeSteppingControl:
         if self.is_constant:
             return self.dt_init
 
-        # If the solution did not convergence and we are allow to recompute it, then:
+        # If the solution did not convergence and we are allowed to recompute it, then:
         #   (S1) Update simulation time since solution will be recomputed.
         #   (S2) Decrease time step multiplying it by the recomputing factor < 1.
         #   (S3) Increase counter that tracks the number of times that the solution was
