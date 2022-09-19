@@ -135,10 +135,10 @@ class TimeSteppingControl:
             # Sanity checks for dt_min and dt_max
             mssg_dtmin = "Initial time step cannot be smaller than minimum time step. "
             mssg_dtmax = "Initial time step cannot be larger than maximum time step. "
-            mssg_unset = "You are seeing this error because `dt_min_max` was not set on "
-            mssg_unset += "initialization and values of dt_min and dt_max were assigned "
-            mssg_unset += "based on the final simulation time. To use this initial "
-            mssg_unset += "time step, consider passing `dt_min_max` explictly."
+            mssg_unset = "This error was raised since `dt_min_max` was not set on "
+            mssg_unset += "initialization, and values of dt_min and dt_max were assigned "
+            mssg_unset += "based on the final simulation time. If you still want to use "
+            mssg_unset += "this initial time step, consider passing `dt_min_max` explictly."
 
             if dt_init < dt_min_max[0]:
                 if dt_min_max_passed is not None:
