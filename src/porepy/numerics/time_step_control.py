@@ -286,7 +286,7 @@ class TimeSteppingControl:
 
         Parameters:
             iterations: Number of non-linear iterations. In time-dependent simulations,
-                this tipically represent the number of iterations for a given time step.
+                this typically represents the number of iterations for a given time step.
             recompute_solution: Whether the solution needs to be recomputed or not. If True,
                 then the time step is multiplied by recomp_factor. If False, the time step
                 will be tuned accordingly.
