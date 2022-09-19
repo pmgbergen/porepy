@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Optional, Union
 
 import numpy as np
@@ -10,8 +11,9 @@ class TimeSteppingControl:
 
     Parameters:
         schedule: List containing the target times for the simulation.
-            The time-stepping algorithm will ensure that the target times are hit. The list
-            must contain minimally two elements, corresponding to the initial and final
+            Unless a constant time step is prescribed, the time-stepping algorithm will adapt
+            the time step so that the scheduled times are guaranteed to be hit. The `schedule`
+            list must contain minimally two elements, corresponding to the initial and final
             simulation times. Lists of length > 2 must contain strictly increasing times.
             Examples of VALID inputs are:
                 [0, 1]
@@ -135,10 +137,10 @@ class TimeSteppingControl:
             # Sanity checks for dt_min and dt_max
             mssg_dtmin = "Initial time step cannot be smaller than minimum time step. "
             mssg_dtmax = "Initial time step cannot be larger than maximum time step. "
-            mssg_unset = "This error was raised since `dt_min_max` was not set on "
-            mssg_unset += "initialization, and values of dt_min and dt_max were assigned "
-            mssg_unset += "based on the final simulation time. If you still want to use "
-            mssg_unset += "this initial time step, consider passing `dt_min_max` explictly."
+            mssg_unset = """ This error was raised since `dt_min_max` was not set on 
+            initialization. Thus, values of dt_min and dt_max were assigned based on the 
+            final simulation time. If you still want to use this initial time step, 
+            consider passing `dt_min_max` explictly."""
 
             if dt_init < dt_min_max[0]:
                 if dt_min_max_passed is not None:
@@ -196,8 +198,7 @@ class TimeSteppingControl:
         else:
 
             # If the time step is constant, check that the scheduled times and the time
-            # step are compatible.
-            # E.g. dt=2 works with schedule = [0,2,4,8], but dt=3 does not.
+            # step are compatible. See documentation of `schedule`.
             sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
             intersect = np.intersect1d(sim_times, schedule)
             # If the length of the intersection and scheduled times are unequal, there is a
@@ -338,7 +339,6 @@ class TimeSteppingControl:
             self._recomp_num = 0
         else:  # number of recomputing attempts has been exhausted
             msg = f"Solution did not converge after {self.recomp_max} recomputing attempts."
-            # TODO: Should this be a RunTimeError perhaps?
             raise ValueError(msg)
 
         # If iters < max_iter. Proceed to determine the next time step using the
@@ -403,11 +403,10 @@ class TimeSteppingControl:
     def _is_strictly_increasing(check_list: list) -> bool:
         """Checks if a list is strictly increasing
 
-        Parameters
-            check_list (List): List to be tested
+        Parameters:
+            check_list: List to be tested.
 
-        Returns
-            (bool): True or False
+        Returns: True or False.
 
         """
         return all(a < b for a, b in zip(check_list, check_list[1:]))
