@@ -206,8 +206,8 @@ class Exporter:
                 grid.
         """
 
-        # Aux. method: Inverse of _toVectorFormat, used to define vector-ranged values
-        def _toScalarFormat(
+        # Aux. method: Inverse of _to_vector_format, used to define vector-ranged values
+        def _from_vector_format(
             value: np.ndarray, grid: Union[pp.Grid, pp.MortarGrid]
         ) -> np.ndarray:
             """
@@ -228,7 +228,7 @@ class Exporter:
                 # This line will raise an error if node or face data is exported.
                 raise ValueError("The data array is not compatible with the grid.")
 
-            # Apply flatten with the order compatible with _toVectorFormat.
+            # Apply flatten with the order compatible with _to_vector_format.
             return value.flatten("F")
 
         # Convert file_names to a list
@@ -344,7 +344,7 @@ class Exporter:
                         ):
                             if pp.STATE not in sd_data:
                                 sd_data[pp.STATE] = {}
-                            sd_data[pp.STATE][key] = _toScalarFormat(
+                            sd_data[pp.STATE][key] = _from_vector_format(
                                 value[offset : offset + sd.num_cells], sd
                             )
                             offset += sd.num_cells
@@ -354,7 +354,7 @@ class Exporter:
                         ):
                             if pp.STATE not in intf_data:
                                 intf_data[pp.STATE] = {}
-                            intf_data[pp.STATE][key] = _toScalarFormat(
+                            intf_data[pp.STATE][key] = _from_vector_format(
                                 value[offset : offset + intf.num_cells], intf
                             )
                             offset += intf.num_cells
@@ -700,7 +700,7 @@ class Exporter:
         # actual routine.
 
         # Aux. method: Transform scalar- to vector-ranged values.
-        def _toVectorFormat(
+        def _to_vector_format(
             value: np.ndarray, grid: Union[pp.Grid, pp.MortarGrid]
         ) -> np.ndarray:
             """
@@ -762,7 +762,7 @@ class Exporter:
                 ) -> bool:
                     if pp.STATE in grid_data and key in grid_data[pp.STATE]:
                         # Fetch data and convert to vectorial format if suggested by the size
-                        value: np.ndarray = _toVectorFormat(
+                        value: np.ndarray = _to_vector_format(
                             grid_data[pp.STATE][key], grid
                         )
 
@@ -838,7 +838,7 @@ class Exporter:
                         )
 
                     # Fetch data and convert to vectorial format if suitable
-                    value = _toVectorFormat(sd_data[pp.STATE][key], sd)
+                    value = _to_vector_format(sd_data[pp.STATE][key], sd)
 
                     # Add data point in correct format to collection
                     subdomain_data[(sd, key)] = value
@@ -892,7 +892,7 @@ class Exporter:
                         )
 
                     # Fetch data and convert to vectorial format if suitable
-                    value = _toVectorFormat(intf_data[pp.STATE][key], intf)
+                    value = _to_vector_format(intf_data[pp.STATE][key], intf)
 
                     # Add data point in correct format to collection
                     interface_data[(intf, key)] = value
@@ -926,7 +926,7 @@ class Exporter:
                 # Interpret (sd, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 sd = data_pt[0]
                 key = data_pt[1]
-                value = _toVectorFormat(data_pt[2], sd)
+                value = _to_vector_format(data_pt[2], sd)
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
@@ -961,7 +961,7 @@ class Exporter:
                 # Interpret (intf, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 intf = data_pt[0]
                 key = data_pt[1]
-                value = _toVectorFormat(data_pt[2], intf)
+                value = _to_vector_format(data_pt[2], intf)
 
                 # Add data point in correct format to collection
                 interface_data[(intf, key)] = value
@@ -1006,7 +1006,7 @@ class Exporter:
                 # Fetch remaining ingredients required to define subdomain data element
                 sd = subdomains[0]
                 key = data_pt[0]
-                value = _toVectorFormat(data_pt[1], sd)
+                value = _to_vector_format(data_pt[1], sd)
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
