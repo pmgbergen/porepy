@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -89,10 +89,10 @@ class TimeSteppingControl:
         schedule: list,
         dt_init: float,
         constant_dt: bool = False,
-        dt_min_max: Optional[Tuple[float, float]] = None,
+        dt_min_max: Optional[tuple[float, float]] = None,
         iter_max: int = 15,
-        iter_optimal_range: Tuple[int, int] = (4, 7),
-        iter_lowupp_factor: Tuple[float, float] = (1.3, 0.7),
+        iter_optimal_range: tuple[int, int] = (4, 7),
+        iter_lowupp_factor: tuple[float, float] = (1.3, 0.7),
         recomp_factor: float = 0.5,
         recomp_max: int = 10,
         print_info: bool = False,
