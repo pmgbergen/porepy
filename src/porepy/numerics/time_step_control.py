@@ -10,29 +10,36 @@ class TimeSteppingControl:
 
     Parameters:
         schedule: List containing the target times for the simulation.
-            The time-stepping algorithm will adapt the time step so that the target
-            times are guaranteed to be hit/reached. The list must contain minimally
-            two elements, corresponding to the initial and final simulation times.
-            Lists of length > 2 must contain strictly increasing times.
+            The time-stepping algorithm will ensure that the target times are hit. The list
+            must contain minimally two elements, corresponding to the initial and final
+            simulation times. Lists of length > 2 must contain strictly increasing times.
             Examples of VALID inputs are:
                 [0, 1]
                 [0, 10, 30, 50]
-                [0, 1*pp.HOUR, 3*pp.HOUR].
+                [0, 1*pp.HOUR, 3*pp.HOUR]
             Examples of INVALID inputs are:
                 [1]
                 [1, 0]
                 [0, 1, 1, 2]
-        dt_init: Initial time step. If `constant_dt` is True, then `dt_init` is taken as
-            the constant time step.
+            If a constant time steps is used (`constant_dt = True`), then the time step
+            (`dt_init`) is required to be compatible with the scheduled times given in
+            `schedule`. Otherwise, an error will be raised.
+            Examples of VALID inputs for `constant_dt = True` and `dt_init = 2` are:
+                [0, 2]
+                [0, 4, 6, 10]
+            Examples of INVALID inputs for `constant_dt = True` and `dt_init = 2` are:
+                [0, 3]
+                [0, 4, 5, 10]
         constant_dt: Whether to treat the time step as constant or not. If True, then
-            the time-stepping control algorithm is effectively bypassed. To be
-            precise, the algorithm won't adapt the time step in any situation.
-            Nevertheless, the attributes (such as scheduled times) will still be accesible.
-        dt_min_max: Minimum and maximum permissible time steps. If None, then the
-            minimum time step is set to 0.1% of the final simulation time and the
-            maximum time step is set to 10% of the final simulation time. If given, then
-            the first and second elements of the tuple corresponds to the minimum and
-            maximum time steps, respectively.
+            the time-stepping control algorithm is effectively bypassed. The algorithm
+            will not adapt the time step in any situation, even if the user attempts to
+            recompute the solution. Nevertheless, the attributes such as scheduled times
+            will still be accesible (provided the time step and the schedule are compatible).
+        dt_min_max: Minimum and maximum permissible time steps. If None, then the minimum
+            time step is set to 0.1% of the final simulation time and the maximum time step
+            is set to 10% of the final simulation time. If given, then the first and second
+            elements of the tuple corresponds to the minimum and maximum time steps,
+            respectively.
         iter_max: Maximum number of iterations.
         iter_optimal_range: Optimal iteration range. The first and second elements of the
             tuple corresponds to the lower and upper bounds of the optimal iteration range.
@@ -115,6 +122,7 @@ class TimeSteppingControl:
             )
 
         # Set dt_min_max if necessary
+        dt_min_max_passed = dt_min_max
         if dt_min_max is None:
             dt_min_max = (0.001 * schedule[-1], 0.1 * schedule[-1])
 
@@ -125,14 +133,24 @@ class TimeSteppingControl:
         if not constant_dt:
 
             # Sanity checks for dt_min and dt_max
+            mssg_dtmin = "Initial time step cannot be smaller than minimum time step. "
+            mssg_dtmax = "Initial time step cannot be larger than maximum time step. "
+            mssg_unset = "You are seeing this error because `dt_min_max` was not set on "
+            mssg_unset += "initialization and values of dt_min and dt_max were assigned "
+            mssg_unset += "based on the final simulation time. To use this initial "
+            mssg_unset += "time step, consider passing `dt_min_max` explictly."
+
             if dt_init < dt_min_max[0]:
-                raise ValueError(
-                    "Initial time step cannot be smaller than minimum time step."
-                )
-            elif dt_init > dt_min_max[1]:
-                raise ValueError(
-                    "Initial time step cannot be larger than maximum time step."
-                )
+                if dt_min_max_passed is not None:
+                    raise ValueError(mssg_dtmin)
+                else:
+                    raise ValueError(mssg_dtmin + mssg_unset)
+
+            if dt_init > dt_min_max[1]:
+                if dt_min_max_passed is not None:
+                    raise ValueError(mssg_dtmax)
+                else:
+                    raise ValueError(mssg_dtmax + mssg_unset)
 
             # NOTE: The above checks guarantee that minimum time step <= maximum time step
 
