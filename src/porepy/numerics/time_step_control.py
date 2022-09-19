@@ -155,10 +155,10 @@ class TimeSteppingControl:
             # NOTE: The above checks guarantee that minimum time step <= maximum time step
 
             # Sanity checks for maximum number of iterations.
-            # Note that 0 is a possibility. This will imply that the solver reaches
-            # convergence directly, e.g., as in linear solvers.
-            if iter_max < 0:
-                raise ValueError("Maximum number of iterations must be non-negative.")
+            # Note that 1 is a possibility. This will imply that the solver reaches
+            # convergence directly, e.g., as in direct solvers.
+            if iter_max <= 0:
+                raise ValueError("Maximum number of iterations must be positive.")
 
             # Sanity checks for optimal iteration range
             if iter_optimal_range[0] > iter_optimal_range[1]:
@@ -306,17 +306,17 @@ class TimeSteppingControl:
         if self.is_constant:
             return self.dt_init
 
-        # If the solution did not convergence and we are allowed to recompute it, then:
+        # If the solution did not converge AND we are allowed to recompute it, then:
         #   (S1) Update simulation time since solution will be recomputed.
         #   (S2) Decrease time step multiplying it by the recomputing factor < 1.
-        #   (S3) Increase counter that tracks the number of times that the solution was
-        #       recomputed.
+        #   (S3) Increase counter that keeps track of the number of times the solution was
+        #        recomputed.
         #   (S4) Check if calculated time step is larger than dt_min. Otherwise, use dt_min.
 
         # Note that iterations is not really used here. So, as long as
         # recompute_solution=True and recomputation_attempts < max_recomp_attempts,
         # the method is entirely agnostic to the number of iterations passed. This design
-        # choice was made to give more flexibility, in the sense that we are no limiting
+        # choice was made to give more flexibility, in the sense that we are not limiting
         # the recomputation criteria to _only_ reaching the maximum number of iterations,
         # even though that is the primary intended usage.
         if recompute_solution and self._recomp_num < self.recomp_max:
