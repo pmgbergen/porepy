@@ -103,7 +103,7 @@ class Exporter:
             file_name (str): basis for file names used for storing the output
             folder_name (str, optional): name of the folder in which files are stored
             kwargs: Optional keywords arguments:
-                fixed_grid (boolean): to control whether the grid may be redfined later
+                fixed_grid (boolean): to control whether the grid may be redefined later
                     (default True).
                 binary (boolean): controlling whether data is stored in binary format
                     (default True).
@@ -245,7 +245,7 @@ class Exporter:
             # Read all data from vtu
             vtu_data = meshio.read(file_name)
 
-            # 1. Step: Determine dimension of the grid associated to vtu file, and
+            # 1st step: Determine dimension of the grid associated to vtu file, and
             # whether the grid corresponds to a subdomain or interface.
 
             # Allow for automatic detection from the file name.
@@ -298,7 +298,7 @@ class Exporter:
                         else are_subdomain_data
                     )
 
-            # 2. Step: Make sure that the vtu file and the current grid are identical.
+            # 2nd step: Make sure that the vtu file and the current grid are identical.
             # For this, check whether the meshio geometry is the same as in the vtu file.
             # NOTE: Meshes could be compatible via some transformation. However,
             # here we require identical grids.
@@ -325,7 +325,7 @@ class Exporter:
                     == {}
                 )
 
-            # 3. Step: Transfer data. Consider each key separately.
+            # 3rd step: Transfer data. Consider each key separately.
             for key in keys:
 
                 # Only continue if the key is present in the data
