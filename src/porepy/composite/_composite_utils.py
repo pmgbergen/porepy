@@ -15,6 +15,18 @@ import numpy as np
 
 import porepy as pp
 
+
+COMPUTATIONAL_VARIABLES: Dict[str, str] = {
+    "mortar": "mortar",  # prefix for symbols for variables which appear on mortar grids
+    "pressure": "p",  # [Pa] = [N / m^2] = [ kg / m / s^2]
+    "enthalpy": "h",  # (specific, molar) [J / mol] = [kg m^2 / s^2 / mol]
+    "temperature": "T",  # [K]
+    "displacement": "u",  # [m]
+    "component_fraction": "z",  # (fractional, molar) [-]
+    "component_fraction_in_phase": "x",  # (fractional, molar) [-]
+    "molar_phase_fraction": "y",  # (fractional, molar) [-]
+    "saturation": "s",  # (fractional, volumetric) [-]
+}
 """ Contains an overview of computational variables.
 
 The dictionary :data:`~porepy.params.computational_variables.COMPUTATIONAL_VARIABLES`
@@ -41,17 +53,7 @@ if the modeler decides to call the substance class 'H20' and the phase 'vapor'
 
 Assumed, default SI units of the respective variables are found below in comments.
 """
-COMPUTATIONAL_VARIABLES: Dict[str, str] = {
-    "mortar": "mortar",  # prefix for symbols for variables which appear on mortar grids
-    "pressure": "p",  # [Pa] = [N / m^2] = [ kg / m / s^2]
-    "enthalpy": "h",  # (specific, molar) [J / mol] = [kg m^2 / s^2 / mol]
-    "temperature": "T",  # [K]
-    "displacement": "u",  # [m]
-    "component_fraction": "z",  # (fractional, molar) [-]
-    "component_fraction_in_phase": "x",  # (fractional, molar) [-]
-    "molar_phase_fraction": "y",  # (fractional, molar) [-]
-    "saturation": "s",  # (fractional, volumetric) [-]
-}
+
 
 R_IDEAL: float = 0.00831446261815324
 """
@@ -145,22 +147,3 @@ def create_merged_interface_variable(
             )
 
     return pp.ad.MergedVariable(mortar_variables)
-
-
-class ConvergenceError(Exception):
-    """Error class to be raised when numerical algorithms do not converge."""
-
-    def __init__(self, *args) -> None:
-        """Constructor for catching arguments passed by the error stack."""
-        if args:
-            self._msg = args[0]
-        else:
-            self._msg = None
-
-    def __str__(self) -> str:
-        """Construct the actual error message."""
-
-        if self._msg:
-            return "ConvergenceError: %s" % (str(self._msg))
-        else:
-            return "ConvergenceError."
