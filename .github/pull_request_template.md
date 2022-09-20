@@ -19,7 +19,7 @@ _Put an `x` in the boxes that apply_
 
 ## Checklist
 
-_Put an `x` in the boxes that apply or explain briefly why the box is not relevant_
+_Put an `x` in the boxes that apply or explain briefly why the box is not relevant._
 
 - [ ] The documentation is up-to-date.	
 - [ ] Static typing is included in the update.
