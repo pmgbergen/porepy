@@ -301,7 +301,7 @@ class TimeSteppingControl:
 
     # TODO: Split method in smaller parts
     def next_time_step(
-        self, iterations: int, recompute_solution: bool
+        self, iterations: int, recompute_solution: bool = False
     ) -> Union[float, None]:
         """Determine next time step based on the previous number of iterations.
 
