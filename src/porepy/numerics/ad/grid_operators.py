@@ -616,7 +616,7 @@ class Geometry(Operator):
             rows: np.ndarray = np.arange(size * self.nd)
             cols: np.ndarray = np.kron(np.arange(size), np.ones(self.nd))
             data: np.ndarray = np.ones(size * self.nd)
-            mat = sps.csr_matrix(
+            mat = sps.csc_matrix(
                 (data, (rows, cols)),
                 shape=(size * self.nd, size),
             )
@@ -945,7 +945,7 @@ class ParameterMatrix(ParameterArray):
                 will be taken from the data dictionaries with the relevant keyword.
 
         Returns:
-            sps.csr_matrix: Value of boundary conditions.
+            sps.spmatrix: Value of boundary conditions.
 
         """
         val = []
@@ -956,7 +956,7 @@ class ParameterMatrix(ParameterArray):
             data = mdg.interface_data(intf)
             val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
         if len(val) > 0:
-            return sps.diags(np.hstack([v for v in val]), format="csr")
+            return sps.diags(np.hstack([v for v in val]))
         else:
             return sps.csr_matrix((0, 0))
 
