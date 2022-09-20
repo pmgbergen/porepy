@@ -9,7 +9,7 @@ VL refactored the model for usage with the composite submodule.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -19,41 +19,22 @@ import porepy as pp
 
 
 class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
-    """Non-isothermal flow consisting of water in liquid in vapor phase
+    """Non-isothermal flow consisting of water in liquid and vapor phase
     and salt in liquid phase.
 
-    The phase equilibria equations for water are given using fugacities (k-values).
+    The phase equilibria equations for water are given using k-values. The composition class is
+    instantiated in the constructor using a sub-routine which can be inherited and overwritten.
 
-    Public properties:
-        - gb : :class:`~porepy.grids.grid_bucket.GridBucket`
-          Grid object for simulation (3:1 cartesian grid by default)
-        - composition : :class:`~porepy.composite.composition.Composition`
-        - box: 'dict' containing 'xmax','xmin' as keys and the respective bounding box values.
-          Hold also for 'y' and 'z'.
-    """
+    Parameters:
+        params: general model parameters including
 
-    def __init__(
-        self,
-        params: Dict,
-        flash_params: Dict = {
-            "max_iter_flash": 200,
-            "tol_flash": 1e-10,
-            "use_TRU": False,
-            "k_value": 0.5,
-            "elimination": None,
-        },
-        monolithic_solver: bool = True,
-    ) -> None:
-        """Base constructor for a standard grid.
-
-        The following configurations can be passed:
             - 'use_ad' : Bool  -  indicates whether :module:`porepy.ad` is used or not
             - 'file_name' : str  -  name of file for exporting simulation results
             - 'folder_name' : str  -  absolute path to directory for saving simulation results
+        monolithic_solver: flag for solving the monolithic solving strategy.
+    """
 
-        :param params: contains information about above configurations
-        :type params: dict
-        """
+    def __init__(self, params: dict, monolithic_solver: bool = True) -> None:
         super().__init__(params)
 
         ### MODEL TUNING
@@ -76,19 +57,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### PUBLIC
         # time step size
         self.dt: float = 1.0
-        # maximal number of iterations for flash and equilibrium calculations
-        self.max_iter_equilibrium: int = 100
-        # residual tolerance for flash and equilibrium calculations
-        self.tolerance_equilibrium = 1e-10
         # residual tolerance for the balance equations
         self.tolerance_balance_equations = 1e-10
         # create default grid bucket for this model
         self.mdg: pp.MixedDimensionalGrid
-        self.box: Dict = dict()
+        self.box: dict = dict()
         self.create_grid()
 
         # contains information about the primary system
-        self.primary_subsystem: Dict[str, list] = dict()
+        self.primary_subsystem: dict[str, list] = dict()
 
         # Parameter keywords
         self.flow_parameter_key: str = "flow"
