@@ -13,7 +13,7 @@ _Put an `x` in the boxes that apply_
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Testing (contribution related to testing of existing or new functionality)
 - [ ] Documentation (contribution related to adding, improving, or fixing documentation)
-- [ ] GitHub actions workflows (e.g. workflow files `*.yml`)
+- [ ] GitHub actions workflows (e.g., workflow files `*.yml`)
 - [ ] Other: 
 
 ## Checklist
