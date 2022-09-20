@@ -49,9 +49,52 @@ class DofManager:
         """
 
         self.mdg = mdg
+        """Mixed-dimensional grid for which the DOFs are managed."""
+        self.full_dof: np.ndarray = np.array([], dtype=int)
+        """Array containing the number of DOFS per block index."""
+        self.block_dof: Dict[Tuple[Union[pp.Grid, pp.MortarGrid], str], int] = {}
+        """Dictionary containing the block index per combination of variable name and
+        grid/ mortar grid.
 
+        """
+
+        full_dof, block_dof = self._create_dofs()
+
+        self.full_dof = np.concatenate([self.full_dof, full_dof])
+        self.block_dof.update(block_dof)
+
+    def append_dofs(self, var_names: list[str]) -> None:
+        """Appends DOFs for a given primary variable.
+
+        This is meant to add DOFs dynamically after the DofManager has been instantiated. 
+        I.e., this function looks up the local dofs for given names and appends new DOFs
+        to the global system, such that the previous DOFs/indices are not changed.
+
+        Does nothing if the names cannot be found in the data dicts as primary variable.
+
+        Parameters:
+            var_names: name of the new variable to be found in the data dictionaries
+
+        Raises:
+            ValueError: if any DOFs have already been added for a name in ``var_names``
+
+        """
+
+        full_dof, block_dof = self._create_dofs(var_names)
+        
+        # append the DOFs
+        self.full_dof = np.concatenate([self.full_dof, full_dof])
+        self.block_dof.update(block_dof)
+
+    def _create_dofs(self, for_vars: Optional[list[str]] = None) -> tuple[np.ndarray, dict]:
+        """Creates DOFs to be appended to the global DOFs so far.
+        
+        Parameters: 
+            for_vars: if given, creates only dofs for variable with names found in this list.
+    
+        """
         # Counter for block index
-        block_dof_counter = 0
+        block_dof_counter = len(self.block_dof)
 
         # Dictionary that maps node/edge + variable combination to an index.
         block_dof: Dict[Tuple[Union[pp.Grid, pp.MortarGrid], str], int] = {}
@@ -60,11 +103,20 @@ class DofManager:
         # to the ordering specified in block_dof
         full_dof: List[int] = []
 
-        for sd, data in mdg.subdomains(return_data=True):
+        for sd, data in self.mdg.subdomains(return_data=True):
             if pp.PRIMARY_VARIABLES not in data:
                 continue
 
             for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
+                # filter for which variables DOFs should be created
+                if isinstance(for_vars, list):
+                    if local_var not in for_vars:
+                        continue
+
+                # make sure DOFs are not added more than once per combination
+                if (sd, local_var) in self.block_dof.keys():
+                    raise ValueError(f"DOFs already present for variable '{local_var}'.")
+
                 # First assign a block index.
                 # Note that the keys in the dictionary is a tuple, with a grid
                 # and a variable name (str)
@@ -80,11 +132,19 @@ class DofManager:
                 )
                 full_dof.append(total_local_dofs)
 
-        for intf, data in mdg.interfaces(return_data=True):
+        for intf, data in self.mdg.interfaces(return_data=True):
             if pp.PRIMARY_VARIABLES not in data:
                 continue
 
             for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
+                # filter for which variables DOFs should be created
+                if isinstance(for_vars, list):
+                    if local_var not in for_vars:
+                        continue
+
+                # make sure DOFs are not added more than once per combination
+                if (intf, local_var) in self.block_dof.keys():
+                    raise ValueError(f"DOFs already present for variable '{local_var}'.")
 
                 # First count the number of dofs per variable. Note that the
                 # identifier here is a tuple of the edge and a variable str.
@@ -95,10 +155,8 @@ class DofManager:
                 # This will not change in the foreseeable future
                 total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
                 full_dof.append(total_local_dofs)
-
-        # Array version of the number of dofs per node/edge and variable
-        self.full_dof: np.ndarray = np.array(full_dof)
-        self.block_dof: Dict[Tuple[GridLike, str], int] = block_dof
+        
+        return np.array(full_dof, dtype=int), block_dof
 
     def num_dofs(
         self,
@@ -110,7 +168,7 @@ class DofManager:
 
         """
         return np.sum(self.full_dof)
-    
+
     def distribute_variable(
         self,
         values: np.ndarray,
