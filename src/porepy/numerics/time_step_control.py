@@ -8,7 +8,7 @@ __all__ = ["TimeSteppingControl"]
 
 
 class TimeSteppingControl:
-    """Parent class for iteration-based time stepping control routine.
+    """Parent class for iteration-based time-stepping control routine.
 
     Parameters:
         schedule: List containing the target times for the simulation.
@@ -46,11 +46,10 @@ class TimeSteppingControl:
         iter_max: Maximum number of iterations.
         iter_optimal_range: Optimal iteration range. The first and second elements of the
             tuple corresponds to the lower and upper bounds of the optimal iteration range.
-        iter_lowupp_factor: Lower and upper multiplication factors. The first and second
-            elements of the tuple corresponds to the lower and upper multiplication
-            factors, respectively. We require the lower multiplication factor to be
-            strictly greater than one, whereas the upper multiplication factor is
-            required to be strictly less than one.
+        iter_relax_factors: Relaxation factors. The first and second elements of the tuple
+            corresponds to the under- and over-relaxation factors, respectively. We require
+            the under-relaxation factor to be less or equal to one, whereas the over-relaxation
+            factor is required to be greater or equal to one.
         recomp_factor: Failed-to-converge recomputation factor. Factor by which the
             time step will be multiplied in case the solution must be recomputed (see
             documentation of `next_time_step` method).
@@ -77,21 +76,21 @@ class TimeSteppingControl:
 
     Attributes:
         dt (float): Time step.
-        dt_init (float): Intial time step.
+        dt_init (float): Initial time step.
         dt_max (float): Maximum time step.
         dt_min (float): Minimum time step.
         is_constant (bool): Constant time step flag.
-        iter_low (int): Lower bound of the optimal iteration range.
-        iter_low_factor (float): Lower multiplication factor. Strictly greater than one.
+        iter_low (int): Lower endpoint of the optimal iteration range.
         iter_max (int): Maximum number of iterations.
-        iter_upp (int): Upper bound of the optimal iteration range.
-        iter_upp_factor (float): Upper multiplication factor. Strictly lower than one.
+        iter_upp (int): Upper endpoint of the optimal iteration range.
+        over_relax_factor (float): Over-relaxation factor. Strictly greater than one.
         recomp_factor (float): Recomputation factor. Strictly lower than one.
         recomp_max (int): Maximum number of recomputation attempts.
         schedule (list): List of scheduled times including initial and final times.
         time (float): Current time.
         time_final (float): Final simulation time.
         time_init (float): Initial simulation time.
+        under_relax_factor (float): Under-relaxation factor. Strictly lower than one.
     """
 
     def __init__(
@@ -102,7 +101,7 @@ class TimeSteppingControl:
         dt_min_max: Optional[tuple[float, float]] = None,
         iter_max: int = 15,
         iter_optimal_range: tuple[int, int] = (4, 7),
-        iter_lowupp_factor: tuple[float, float] = (1.3, 0.7),
+        iter_relax_factors: tuple[float, float] = (0.7, 1.3),
         recomp_factor: float = 0.5,
         recomp_max: int = 10,
         print_info: bool = False,
@@ -186,20 +185,20 @@ class TimeSteppingControl:
                 raise ValueError(msg)
 
             # Sanity checks for lower and upper multiplication factors
-            if iter_lowupp_factor[0] <= 1:
-                raise ValueError("Expected lower multiplication factor > 1.")
-            elif iter_lowupp_factor[1] >= 1:
-                raise ValueError("Expected upper multiplication factor < 1.")
+            if iter_relax_factors[0] >= 1:
+                raise ValueError("Expected under-relaxation factor < 1.")
+            elif iter_relax_factors[1] <= 1:
+                raise ValueError("Expected over-relaxation factor > 1.")
 
-            # Checks for sensible combinations of iter_optimal_range and iter_lowupp_factor
-            if dt_min_max[0] * iter_lowupp_factor[0] > dt_min_max[1]:
-                raise ValueError("Encountered dt_min * iter_low_factor > dt_max.")
-            elif dt_min_max[1] * iter_lowupp_factor[1] < dt_min_max[0]:
-                raise ValueError("Encountered dt_max * iter_upp_factor < dt_min.")
+            # Checks for sensible combinations of iter_optimal_range and iter_relax_factors
+            if dt_min_max[0] * iter_relax_factors[1] > dt_min_max[1]:
+                raise ValueError("Encountered dt_min * over_relax_factor > dt_max.")
+            elif dt_min_max[1] * iter_relax_factors[0] < dt_min_max[0]:
+                raise ValueError("Encountered dt_max * under_relax_factor < dt_min.")
 
             # Sanity check for recomputation factor
             if recomp_factor >= 1:
-                raise ValueError("Expected recomputation multiplication factor < 1.")
+                raise ValueError("Expected recomputation factor < 1.")
 
             # Sanity check for maximum number of recomputation attempts
             if recomp_max <= 0:
@@ -238,7 +237,7 @@ class TimeSteppingControl:
         self.iter_low, self.iter_upp = iter_optimal_range
 
         # Lower and upper multiplication factors
-        self.iter_low_factor, self.iter_upp_factor = iter_lowupp_factor
+        self.under_relax_factor, self.over_relax_factor = iter_relax_factors
 
         # Re-computation multiplication factor
         self.recomp_factor = recomp_factor
@@ -277,8 +276,8 @@ class TimeSteppingControl:
         s += f"Minimum and maximum time steps = ({self.dt_min}, {self.dt_max})\n"
         s += f"Optimal iteration range = ({self.iter_low}, {self.iter_upp})\n"
         s += (
-            f"Lower and upper multiplication factors = ({self.iter_low_factor}, "
-            f"{self.iter_upp_factor})\n"
+            f"Under- and over-relaxation factors = ({self.under_relax_factor}, "
+            f"{self.over_relax_factor})\n"
         )
         s += f"Recompute solution multiplication factor = {self.recomp_factor}\n"
         s += f"Maximum recomputation attempts = {self.recomp_max}\n"
@@ -353,26 +352,26 @@ class TimeSteppingControl:
 
         # If iters < max_iter. Proceed to determine the next time step using the
         # following criteria:
-        #     (C1) If iters is less than the lower optimal iteration range "iter_low",
-        #     we can relax the time step, and multiply by a lower multiplication factor
-        #     greater than 1, i.e., "factor_low".
+        #     (C1) If iters is less than the lower endpoint of the optimal iteration range
+        #     `iter_low`, we can relax the time step, and multiply by an over-relaxation factor
+        #     greater than 1, i.e., `over_relax_factor`.
         #     (C2) If the number of iterations is greater than the upper optimal
-        #     iteration range "iter_upp", we have to decrease the time step by multiplying
-        #     by an upper multiplication factor smaller than 1, i.e., "factor_upp".
+        #     iteration range `iter_upp`, we have to decrease the time step by multiplying
+        #     by an under-relaxation factor smaller than 1, i.e., "under_relax_factor".
         #     (C3) If neither of these situations occur, then the number iterations lies
-        #     between the optimal iteration range and the time step remains unchanged.
+        #     in the optimal iteration range, and the time step remains unchanged.
         if iterations <= self.iter_low:  # (C1)
-            self.dt = self.dt * self.iter_low_factor
+            self.dt = self.dt * self.over_relax_factor
             if self._print_info:
                 print(f"Relaxing time step. Next dt = {self.dt}.")
         elif iterations >= self.iter_upp:  # (C2)
-            self.dt = self.dt * self.iter_upp_factor
+            self.dt = self.dt * self.under_relax_factor
             if self._print_info:
                 print(f"Restricting time step. Next dt = {self.dt}.")
         else:
             pass  # (C3)
 
-        # There are three more cases that we have to consider and that will modifiy the
+        # There are three more cases that we have to consider that can modifiy the
         # value of the time step:
         #     (C4) If the calculated dt < dt_min
         #     (C5) If the calculated dt > dt_max
