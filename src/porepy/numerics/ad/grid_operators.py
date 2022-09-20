@@ -563,7 +563,6 @@ class Trace(Operator):
 class Geometry(Operator):
     """Wrapper class for Ad representations of grids.
 
-
     Attributes:
         cell_volumes (pp.ad.Matrix): Diagonal ad matrix of cell volumes.
         face_areas (pp.ad.Matrix):  Diagonal ad matrix of face areas.
@@ -572,7 +571,7 @@ class Geometry(Operator):
     FIXME: Implement parse??
     """
 
-    def __init__(self, subdomains: List[pp.Grid], nd: int, name: Optional[str] = None):
+    def __init__(self, subdomains: list[pp.Grid], nd: int, name: Optional[str] = None):
         """Construct concatenated grid operators for a given set of subdomains.
 
         The operators will be ordered according to the ordering in grids. It is critical

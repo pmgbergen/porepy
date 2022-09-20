@@ -368,7 +368,6 @@ class THM(pp.ContactMechanicsBiot):
     def _source_temperature(self, sd: pp.Grid) -> np.ndarray:
         """Zero source term.
 
-
         Args:
             sd: Grid representing a subdomain
 
