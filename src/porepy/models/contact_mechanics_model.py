@@ -977,12 +977,12 @@ class ContactMechanics(AbstractModel):
             subdomains=subdomains,
             interfaces=fracture_matrix_interfaces,
             mdg=self.mdg,
-            nd=self.nd,
+            dim=self.nd,
         )
 
         # Prolongation and restriction between subdomain subsets and full subdomain list
         ad.subdomain_projections_vector = pp.ad.SubdomainProjections(
-            subdomains=subdomains, nd=self.nd
+            subdomains=subdomains, dim=self.nd
         )
 
     def _displacement_jump(

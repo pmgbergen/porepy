@@ -700,7 +700,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         ad.all_subdomains = subdomains
         ad.codim_one_interfaces = interfaces
         ad.mortar_projections_scalar = pp.ad.MortarProjections(
-            subdomains=subdomains, interfaces=interfaces, mdg=mdg, nd=1
+            subdomains=subdomains, interfaces=interfaces, mdg=mdg, dim=1
         )
 
         normal_proj_list = []
