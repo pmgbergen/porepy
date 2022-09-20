@@ -124,8 +124,8 @@ class TimeSteppingControl:
                 "Initial time step cannot be larger than final simulation time."
             )
 
-        # Set dt_min_max if necessary
-        dt_min_max_passed = dt_min_max
+        # If dt_min_max is not given, set dt_min=0.001*final_time and dt_max=0.1*final_time
+        dt_min_max_passed = dt_min_max  # store for later use
         if dt_min_max is None:
             dt_min_max = (0.001 * schedule[-1], 0.1 * schedule[-1])
 
@@ -136,24 +136,26 @@ class TimeSteppingControl:
         if not constant_dt:
 
             # Sanity checks for dt_min and dt_max
-            mssg_dtmin = "Initial time step cannot be smaller than minimum time step. "
-            mssg_dtmax = "Initial time step cannot be larger than maximum time step. "
-            mssg_unset = """ This error was raised since `dt_min_max` was not set on
-             initialization. Thus, values of dt_min and dt_max were assigned based on the
-             final simulation time. If you still want to use this initial time step,
-             consider passing `dt_min_max` explictly."""
+            msg_dtmin = "Initial time step cannot be smaller than minimum time step. "
+            msg_dtmax = "Initial time step cannot be larger than maximum time step. "
+            msg_unset = (
+                "This error was raised since `dt_min_max` was not set on "
+                "initialization. Thus, values of dt_min and dt_max were assigned "
+                "based on the final simulation time. If you still want to use this "
+                "initial time step, consider passing `dt_min_max` explictly."
+            )
 
             if dt_init < dt_min_max[0]:
                 if dt_min_max_passed is not None:
-                    raise ValueError(mssg_dtmin)
+                    raise ValueError(msg_dtmin)
                 else:
-                    raise ValueError(mssg_dtmin + mssg_unset)
+                    raise ValueError(msg_dtmin + msg_unset)
 
             if dt_init > dt_min_max[1]:
                 if dt_min_max_passed is not None:
-                    raise ValueError(mssg_dtmax)
+                    raise ValueError(msg_dtmax)
                 else:
-                    raise ValueError(mssg_dtmax + mssg_unset)
+                    raise ValueError(msg_dtmax + msg_unset)
 
             # NOTE: The above checks guarantee that minimum time step <= maximum time step
 
@@ -165,16 +167,23 @@ class TimeSteppingControl:
 
             # Sanity checks for optimal iteration range
             if iter_optimal_range[0] > iter_optimal_range[1]:
-                s = "Lower optimal iteration range cannot be larger than"
-                s += " upper optimal iteration range."
-                raise ValueError(s)
+                msg = (
+                    f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration range "
+                    f"cannot be larger than upper endpoint '{iter_optimal_range[1]}'."
+                )
+                raise ValueError(msg)
             elif iter_optimal_range[1] > iter_max:
-                s = "Upper optimal iteration range cannot be larger than"
-                s += " maximum number of iterations."
-                raise ValueError(s)
+                msg = (
+                    f"Upper endpoint '{iter_optimal_range[1]}' of optimal iteration range "
+                    f"cannot be larger than maximum number of iterations '{iter_max}'."
+                )
+                raise ValueError(msg)
             elif iter_optimal_range[0] < 0:
-                s = "Lower optimal iteration range cannot be negative."
-                raise ValueError(s)
+                msg = (
+                    f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration range "
+                    "cannot be negative."
+                )
+                raise ValueError(msg)
 
             # Sanity checks for lower and upper multiplication factors
             if iter_lowupp_factor[0] <= 1:
