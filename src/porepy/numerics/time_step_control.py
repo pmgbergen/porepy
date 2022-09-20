@@ -13,65 +13,72 @@ class TimeSteppingControl:
     Parameters:
         schedule: List containing the target times for the simulation.
             Unless a constant time step is prescribed, the time-stepping algorithm will adapt
-            the time step so that the scheduled times are guaranteed to be hit. The `schedule`
-            list must contain minimally two elements, corresponding to the initial and final
-            simulation times. Lists of length > 2 must contain strictly increasing times.
-            Examples of VALID inputs are:
-                [0, 1]
-                [0, 10, 30, 50]
-                [0, 1*pp.HOUR, 3*pp.HOUR]
-            Examples of INVALID inputs are:
-                [1]
-                [1, 0]
-                [0, 1, 1, 2]
-            If a constant time steps is used (`constant_dt = True`), then the time step
-            (`dt_init`) is required to be compatible with the scheduled times given in
-            `schedule`. Otherwise, an error will be raised.
-            Examples of VALID inputs for `constant_dt = True` and `dt_init = 2` are:
-                [0, 2]
-                [0, 4, 6, 10]
-            Examples of INVALID inputs for `constant_dt = True` and `dt_init = 2` are:
-                [0, 3]
-                [0, 4, 5, 10]
-        constant_dt: Whether to treat the time step as constant or not. If True, then
-            the time-stepping control algorithm is effectively bypassed. The algorithm
-            will not adapt the time step in any situation, even if the user attempts to
-            recompute the solution. Nevertheless, the attributes such as scheduled times
-            will still be accesible (provided the time step and the schedule are compatible).
-        dt_min_max: Minimum and maximum permissible time steps. If None, then the minimum
-            time step is set to 0.1% of the final simulation time and the maximum time step
-            is set to 10% of the final simulation time. If given, then the first and second
-            elements of the tuple corresponds to the minimum and maximum time steps,
-            respectively.
+            the time step so that the scheduled times are guaranteed to be hit.
+
+            The `schedule` list must contain minimally two items, corresponding to the
+            initial and final simulation times. Lists of length > 2 must contain strictly
+            increasing times. Examples of VALID inputs are: [0, 1], [0, 10, 30, 50], and
+            [0, 1*pp.HOUR, 3*pp.HOUR]. Examples of INVALID inputs are: [1], [1, 0], and
+            [0, 1, 1, 2].
+
+            If a constant time step is used (`constant_dt = True`), then the time step
+            (`dt_init`) is required to be compatible with the scheduled times in `schedule`.
+            Otherwise, an error will be raised. Examples of VALID inputs for `constant_dt =
+            True` and `dt_init = 2` are: [0, 2] and [0, 4, 6, 10]. Examples of INVALID inputs
+            for `constant_dt = True` and `dt_init = 2` are [0, 3] and [0, 4, 5, 10].
+        constant_dt: Whether to treat the time step as constant or not.
+            If True, then the time-stepping control algorithm is effectively bypassed. The
+            algorithm will NOT adapt the time step in any situation, even if the user
+            attempts to recompute the solution. Nevertheless, the attributes such as
+            scheduled times will still be accesible, provided `dt_init` and `schedule` are
+            compatible.
+        dt_min_max: Minimum and maximum permissible time steps.
+            If None, then the minimum time step is set to 0.1% of the final simulation time
+            and the maximum time step is set to 10% of the final simulation time. If given,
+            then the first and second elements of the tuple corresponds to the minimum and
+            maximum time steps, respectively.
+
+            To avoid oscilations and ensure a stable time step adaption in combination with
+            the relaxation factors, we further require:
+                dt_min_max[0] * iter_relax_factors[1] < dt_min_max[1], and
+                dt_min_max[1] * iter_relax_factors[0] > dt_min_max[0].
+            Note that in practical applications, these conditions are ussually met.
         iter_max: Maximum number of iterations.
-        iter_optimal_range: Optimal iteration range. The first and second elements of the
-            tuple corresponds to the lower and upper bounds of the optimal iteration range.
-        iter_relax_factors: Relaxation factors. The first and second elements of the tuple
-            corresponds to the under- and over-relaxation factors, respectively. We require
-            the under-relaxation factor to be less or equal to one, whereas the over-relaxation
-            factor is required to be greater or equal to one.
-        recomp_factor: Failed-to-converge recomputation factor. Factor by which the
-            time step will be multiplied in case the solution must be recomputed (see
-            documentation of `next_time_step` method).
-        recomp_max: Failed-to-converge maximum recomputation attempts. The maximum
-            allowable number of consecutive recomputation attempts. If `recomp_max` is
-            exceeded, an error will be raised.
-        print_info. Print time-stepping information.
+        iter_optimal_range: Optimal iteration range.
+            The first and second elements of the tuple correspond to the lower and upper
+            endpoints of the optimal iteration range.
+        iter_relax_factors: Relaxation factors.
+            The first and second elements of the tuple corresponds to the under- and
+            over-relaxation factors, respectively. We require the under-relaxation factor
+            to be strictly lower than one, whereas the over-relaxation factor is required to
+            be strictly greater than one.
+
+            To avoid oscilations and ensure a stable time step adaption in combination with
+            the minimum and maximum allowable time steps, we further require:
+                dt_min_max[0] * iter_relax_factors[1] < dt_min_max[1], and
+                dt_min_max[1] * iter_relax_factors[0] > dt_min_max[0].
+            Note that in practical applications, these conditions are ussually met.
+        recomp_factor: Failed-to-converge solution recomputation factor.
+            Factor by which the time step will be multiplied in case the solution must be
+            recomputed. We require `recomp_factor` to be strictly less than one.
+        recomp_max: Failed-to-converge maximum recomputation attempts. The maximum allowable
+            number of consecutive recomputation attempts.
+        print_info. Wheter to print on-the-fly time-stepping information or not.
 
     Example:
-        # The following is an example on how to construct a time-stepping object
+        # The following is an example on how to initialize a time-stepping object
         tsc = pp.TimeSteppingControl(
             schedule=[0, 10],
             dt_init=0.5,
             dt_min_max=(0.1, 2),
             iter_max=10,
-            iter_optimal_range=(4, 7),
-            iter_lowupp_factor=(1.1, 0.9),
-            recomp_factor=0.5,
+            iter_optimal_range=(3, 8),
+            iter_relax_factors=(0.9, 1.1),
+            recomp_factor=0.1,
             recomp_max=5,
             print_info=True
         )
-        # To inspect the current attributes of the object
+        # To inspect the attributes of the object
         print(tsc)
 
     Attributes:
@@ -91,6 +98,7 @@ class TimeSteppingControl:
         time_final (float): Final simulation time.
         time_init (float): Initial simulation time.
         under_relax_factor (float): Under-relaxation factor. Strictly lower than one.
+
     """
 
     def __init__(
@@ -191,10 +199,16 @@ class TimeSteppingControl:
                 raise ValueError("Expected over-relaxation factor > 1.")
 
             # Checks for sensible combinations of iter_optimal_range and iter_relax_factors
+            msg_dtmin_over = "Encountered dt_min * over_relax_factor > dt_max. "
+            msg_dtmax_under = "Encountered dt_max * under_relax_factor < dt_min. "
+            msg_osc = (
+                "The algorithm will behave erratically for such a combination of parameters. "
+                "See documentation of `dt_min_max` or `iter_relax_factors`."
+            )
             if dt_min_max[0] * iter_relax_factors[1] > dt_min_max[1]:
-                raise ValueError("Encountered dt_min * over_relax_factor > dt_max.")
+                raise ValueError(msg_dtmin_over + msg_osc)
             elif dt_min_max[1] * iter_relax_factors[0] < dt_min_max[0]:
-                raise ValueError("Encountered dt_max * under_relax_factor < dt_min.")
+                raise ValueError(msg_dtmax_under + msg_osc)
 
             # Sanity check for recomputation factor
             if recomp_factor >= 1:
@@ -279,12 +293,13 @@ class TimeSteppingControl:
             f"Under- and over-relaxation factors = ({self.under_relax_factor}, "
             f"{self.over_relax_factor})\n"
         )
-        s += f"Recompute solution multiplication factor = {self.recomp_factor}\n"
+        s += f"Recomputation factor = {self.recomp_factor}\n"
         s += f"Maximum recomputation attempts = {self.recomp_max}\n"
         s += f"Current time step and time are {self.dt} and {self.time}."
 
         return s
 
+    # TODO: Split method in smaller parts
     def next_time_step(
         self, iterations: int, recompute_solution: bool
     ) -> Union[float, None]:
@@ -301,7 +316,7 @@ class TimeSteppingControl:
                 then the time step is multiplied by recomp_factor. If False, the time step
                 will be tuned accordingly.
 
-        Returns: Next time step if time < final_simulation time. None otherwise.
+        Returns: Next time step if time < final_time. None, otherwise.
 
         """
 
@@ -312,7 +327,7 @@ class TimeSteppingControl:
         if self.time >= self.time_final:
             return None
 
-        # If time step is constant, always return that value
+        # If the time step is constant, always return that value
         if self.is_constant:
             return self.dt_init
 
