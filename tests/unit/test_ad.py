@@ -44,7 +44,7 @@ def test_subdomain_projections(scalar):
         proj_dim = Nd
 
     subdomains = np.array([sd for sd in mdg.subdomains()])
-    proj = pp.ad.SubdomainProjections(subdomains=subdomains, nd=proj_dim)
+    proj = pp.ad.SubdomainProjections(subdomains=subdomains, dim=proj_dim)
 
     cell_start = np.cumsum(
         np.hstack((0, np.array([sd.num_cells for sd in subdomains])))
@@ -176,7 +176,7 @@ def test_mortar_projections(scalar):
     interfaces = [intf01, intf02, intf13, intf23]
 
     proj = pp.ad.MortarProjections(
-        subdomains=subdomains, interfaces=interfaces, mdg=mdg, nd=proj_dim
+        subdomains=subdomains, interfaces=interfaces, mdg=mdg, dim=proj_dim
     )
 
     cell_start = proj_dim * np.cumsum(

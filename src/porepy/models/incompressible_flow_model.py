@@ -288,7 +288,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         interfaces = [intf for intf in self.mdg.interfaces() if intf.codim < 2]
 
         self._ad.mortar_proj = pp.ad.MortarProjections(
-            interfaces=interfaces, subdomains=subdomains, mdg=self.mdg, nd=1
+            interfaces=interfaces, subdomains=subdomains, mdg=self.mdg, dim=1
         )
 
         # Ad representation of discretizations
