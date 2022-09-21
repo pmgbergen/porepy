@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional, Union
 
 import numpy as np
+import warnings
 
 __all__ = ["TimeSteppingControl"]
 
@@ -305,7 +306,7 @@ class TimeSteppingControl:
     ) -> Union[float, None]:
         """Determine next time step based on the previous number of iterations.
 
-        For an in-depth explanation of the algorith, refer to the sections Algorithm
+        For an in-depth explanation of the algorithm, refer to the sections Algorithm
         Overview and Algorithm Workflow from below.
 
         Parameters:
@@ -323,13 +324,13 @@ class TimeSteppingControl:
             based on `iterations`. If `iterations` is less than the lower endpoint of the
             optimal iteration range, then it will decrease the time step by an
             `over_relax_factor`. If `iterations` is greater than the upper endpoint of the
-            optimal iteration range it will increase the time step by an`under_relax_factor`.
+            optimal iteration range it will increase the time step by an `under_relax_factor`.
             Otherwise, `iterations` lies in the optimal iteration range, then the time step
             will remain unchanged.
 
             If `recompute_solution = True`, then the time step will be decreased by
-            `recomp_factor` with the hope of increasing the chances of convergence. To avoid
-            an infinite loop, an error will be raised if the method is called more than
+            `recomp_factor` with the hope of achieving convergence in the next time level. To
+            avoid an infinite loop, an error will be raised if the method is called more than
             `recomp_max` consecutive times with the flag `recompute_solution = True`.
 
             Now that the algorithm determined a new time step, it has to ensure three more
@@ -341,10 +342,8 @@ class TimeSteppingControl:
 
         Algorithm Workflow: For completeness, we include the full algorithm in pseudocode.
 
-            BEGIN_PROGRAM
-
             INPUT
-                self // time step control object properly initialized
+                tsc // time step control object properly initialized
                 iterations // number of non-linear interations.
                 recompute_solution // boolean flag.
 
@@ -389,11 +388,10 @@ class TimeSteppingControl:
 
             RETURN dt
 
-            END_PROGRAM
-
         """
 
         # For bookkeeping reasons, save recomputation flag
+        # TODO: Consider purging self._recomp_sol from class and tests
         self._recomp_sol = recompute_solution
 
         # First, check if we reach final simulation time
@@ -404,81 +402,122 @@ class TimeSteppingControl:
         if self.is_constant:
             return self.dt_init
 
-        # If the solution will not be recomputed, then:
+        # Adapt time step
         if not recompute_solution:
-            # Make sure to reset the recomp_num counter
-            self._recomp_num = 0
-
-            # Proceed to determine the next time step using the following criteria:
-            #     (C1) If iters is less than the lower endpoint of the optimal iteration range
-            #     `iter_low`, we can relax the time step, and multiply by an over-relaxation
-            #     factor greater than 1, i.e., `over_relax_factor`.
-            #     (C2) If the number of iterations is greater than the upper optimal
-            #     iteration range `iter_upp`, we have to decrease the time step by multiplying
-            #     by an under-relaxation factor smaller than 1, i.e., "under_relax_factor".
-            #     (C3) If neither of these situations occur, then the number iterations lies
-            #     in the optimal iteration range, and the time step remains unchanged.
-            if iterations <= self.iter_low:  # (C1)
-                self.dt = self.dt * self.over_relax_factor
-                if self._print_info:
-                    print(f"Relaxing time step. Next dt = {self.dt}.")
-            elif iterations >= self.iter_upp:  # (C2)
-                self.dt = self.dt * self.under_relax_factor
-                if self._print_info:
-                    print(f"Restricting time step. Next dt = {self.dt}.")
-            else:
-                pass  # (C3)
+            self._adaptation_based_on_iterations(iterations)
         else:
-            if self._recomp_num < self.recomp_max:
-                # If the solution did not converge AND we are allowed to recompute it, then:
-                #   (S1) Update simulation time since solution will be recomputed.
-                #   (S2) Decrease time step multiplying it by the recomputing factor < 1.
-                #   (S3) Increase counter that keeps track of the number of times the solution
-                #        was recomputed.
+            self._adaptation_based_on_recomputation()
 
-                # Note that iterations is not really used here. So, as long as
-                # recompute_solution=True and recomputation_attempts < max_recomp_attempts,
-                # the method is entirely agnostic to the number of iterations passed. This
-                # design choice was made to give more flexibility, in the sense that we are
-                # not limiting the recomputation criteria to _only_ reaching the maximum
-                # number of iterations, even though that is the primary intended usage.
-                self.time -= self.dt  # (S1)
-                self.dt *= self.recomp_factor  # (S2)
-                self._recomp_num += 1  # (S3)
-                if self._print_info:
-                    s = "Solution did not converge and will be recomputed."
-                    s += f" Recomputing attempt #{self._recomp_num}. Next dt = {self.dt}."
-                    print(s)
-            else:
-                # The solution did not converge AND we exhausted all recomputation attempts
+        # Correct time step
+        self._correction_based_on_dt_min()
+        self._correction_based_on_dt_max()
+        self._correction_based_on_schedule()
+
+        return self.dt
+
+    def _adaptation_based_on_iterations(self, iterations) -> None:
+        """Provided convergence, adapt time step based on the number of iterations.
+
+        Parameters:
+            iterations: Number of non-linear iterations needed to achieve convergence.
+
+        Raises: Warning if `iterations` > `max_iter`.
+
+        """
+
+        # Sanity check: Make sure the given number of iterations is less or equal than the
+        # maximum number of iterations
+        # TODO: Add unit test for this sanity check
+        if iterations > self.iter_max:
+            msg = (
+                f"The given number of iterations '{iterations}' is larger than the maximum "
+                f"number of iterations '{self.iter_max}'. This usually means that the solver "
+                f"did not converge, but since recompute_solution = False was given, the "
+                f"algorithm will adapt the time step anyways."
+            )
+            warnings.warn(msg)
+
+        # Make sure to reset the recomputation counter
+        self._recomp_num = 0
+
+        # Proceed to determine the next time step using the following criteria:
+        #     (C1) If the number of iterations is less than the lower endpoint of the optimal
+        #     iteration range `iter_low`, we can relax the time step by multiplying it by an
+        #     over-relaxation factor greater than 1, i.e., `over_relax_factor`.
+        #     (C2) If the number of iterations is greater than the upper endpoint of the
+        #     optimal iteration range `iter_upp`, we have to decrease the time step by
+        #     multiplying it by an under-relaxation factor smaller than 1, i.e.,
+        #     `under_relax_factor`.
+        #     (C3) If neither of these situations occur, then the number iterations lies
+        #     in the optimal iteration range, and the time step remains unchanged.
+        if iterations <= self.iter_low:  # (C1)
+            self.dt = self.dt * self.over_relax_factor
+            if self._print_info:
+                print(f"Relaxing time step. Next dt = {self.dt}.")
+        elif iterations >= self.iter_upp:  # (C2)
+            self.dt = self.dt * self.under_relax_factor
+            if self._print_info:
+                print(f"Restricting time step. Next dt = {self.dt}.")
+        else:
+            pass  # (C3)
+
+    def _adaptation_based_on_recomputation(self) -> None:
+        """Adapt (decrease) time step when the solution failed to converge.
+
+        Raises: ValueError if recomp_attemps > max_recomp_attempts. That is, when the maximum
+            number ofrecomputation attempts has been exhausted.
+
+        """
+
+        if self._recomp_num < self.recomp_max:
+            # If the solution did not converge AND we are allowed to recompute it, then:
+            #   (S1) Update simulation time since solution will be recomputed.
+            #   (S2) Decrease time step multiplying it by the recomputing factor < 1.
+            #   (S3) Increase counter that keeps track of the number of times the solution
+            #        was recomputed.
+
+            # Note that iterations is not really used here. So, as long as
+            # recompute_solution = True and recomputation_attempts < max_recomp_attempts,
+            # the method is entirely agnostic to the number of iterations passed. This
+            # design choice was made to give more flexibility, in the sense that we are
+            # not limiting the recomputation criteria to _only_ reaching the maximum
+            # number of iterations, even though that is the primary intended usage.
+            self.time -= self.dt  # (S1)
+            self.dt *= self.recomp_factor  # (S2)
+            self._recomp_num += 1  # (S3)
+            if self._print_info:
                 msg = (
-                    f"Solution did not converge after {self.recomp_max} recomputing "
-                    "attempts."
+                    "Solution did not converge and will be recomputed."
+                    f" Recomputing attempt #{self._recomp_num}. Next dt = {self.dt}."
                 )
-                raise ValueError(msg)
+                print(msg)
+        else:
+            # The solution did not converge AND we exhausted all recomputation attempts
+            msg = (
+                f"Solution did not converge after {self.recomp_max} recomputing "
+                "attempts."
+            )
+            raise ValueError(msg)
 
-        # There are three more cases that we have to consider that can modifiy the
-        # value of the time step:
-        #     (C4) If the calculated dt < dt_min
-        #     (C5) If the calculated dt > dt_max
-        #     (C6) If dt >= scheduled_time
-
-        # Modify dt based on (C4)
+    def _correction_based_on_dt_min(self) -> None:
+        """Correct time step if dt < dt_min."""
         if self.dt < self.dt_min:
             self.dt = self.dt_min
             if self._print_info:
                 print(f"Calculated dt < dt_min. Using dt_min = {self.dt_min} instead.")
 
-        # Modify dt based on (C5)
+    def _correction_based_on_dt_max(self) -> None:
+        """Correct time step if dt > dt_max."""
         if self.dt > self.dt_max:
             self.dt = self.dt_max
             if self._print_info:
                 print(f"Calculated dt > dt_max. Using dt_max = {self.dt_max} instead.")
 
-        # Modify dt based on (C6)
+    def _correction_based_on_schedule(self) -> None:
+        """Correct time step if time + dt > scheduled_time."""
         schedule_time = self.schedule[self._scheduled_idx]
         if (self.time + self.dt) > schedule_time:
-            self.dt = schedule_time - self.time  # adapt time step
+            self.dt = schedule_time - self.time  # correct  time step
 
             if self._scheduled_idx < len(self.schedule) - 1:
                 self._scheduled_idx += 1  # increase index to catch next scheduled time
@@ -491,7 +530,6 @@ class TimeSteppingControl:
                     print(
                         f"Correcting time step to match final time. Final dt = {self.dt}."
                     )
-        return self.dt
 
     # Helpers
     @staticmethod
