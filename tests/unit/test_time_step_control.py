@@ -22,8 +22,8 @@ class TestParameterInputs:
         assert tsc.iter_max == 15
         assert tsc.iter_low == 4
         assert tsc.iter_upp == 7
-        assert tsc.iter_low_factor == 1.3
-        assert tsc.iter_upp_factor == 0.7
+        assert tsc.under_relax_factor == 0.7
+        assert tsc.over_relax_factor == 1.3
         assert tsc.recomp_factor == 0.5
         assert tsc.recomp_max == 10
         assert tsc.time == 0
@@ -144,114 +144,133 @@ class TestParameterInputs:
             Ts(schedule=[0, 1], dt_init=0.1, dt_min_max=(0.1, 0.5), iter_max=iter_max)
         assert msg in str(excinfo.value)
 
-    def test_lower_iter_smaller_than_upper_iter(self):
-        """An error should be raised if the lower optimal iteration range is larger than
-        the upper optimal iteration range."""
-        msg = "Lower optimal iteration range cannot be larger than"
-        msg += " upper optimal iteration range."
+    def test_lower_iter_endpoint_smaller_than_upper_iter_endpoint(self):
+        """An error should be raised if the lower endpoint of the optimal iteration range is
+        larger than the upper endpoint of the optimal iteration range."""
+        iter_optimal_range = (3, 2)
+        msg = (
+            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration range "
+            f"cannot be larger than upper endpoint '{iter_optimal_range[1]}'."
+        )
         with pytest.raises(ValueError) as excinfo:
             Ts(
                 schedule=[0, 1],
                 dt_init=0.1,
                 dt_min_max=(0.1, 0.5),
                 iter_max=5,
-                iter_optimal_range=(3, 2),
+                iter_optimal_range=iter_optimal_range,
             )
         assert msg in str(excinfo.value)
 
-    def test_upper_iter_less_or_equal_than_max_iter(self):
-        """An error should be raised if the upper optimal iteration range is larger than
-        the maximum number of iterations."""
-        msg = "Upper optimal iteration range cannot be larger than"
-        msg += " maximum number of iterations."
+    def test_upper_iter_endpoint_less_or_equal_than_max_iter(self):
+        """An error should be raised if the upper endpoint of the optimal iteration range is
+        larger than the maximum number of iterations."""
+        iter_optimal_range = (2, 6)
+        iter_max = 5
+        msg = (
+            f"Upper endpoint '{iter_optimal_range[1]}' of optimal iteration range "
+            f"cannot be larger than maximum number of iterations '{iter_max}'."
+        )
         with pytest.raises(ValueError) as excinfo:
             Ts(
                 schedule=[0, 1],
                 dt_init=0.1,
                 dt_min_max=(0.1, 0.5),
-                iter_max=5,
-                iter_optimal_range=(2, 6),
+                iter_max=iter_max,
+                iter_optimal_range=iter_optimal_range,
             )
         assert msg in str(excinfo.value)
 
-    def test_lower_iter_greater_or_equal_than_zero(self):
+    def test_lower_iter_endpoint_greater_than_or_equal_to_zero(self):
         """An error should be raised if the lower iteration range is less than zero."""
-        msg = "Lower optimal iteration range cannot be negative."
+        iter_optimal_range = (-1, 2)
+        msg = (
+            f"Lower endpoint '{iter_optimal_range[0]}' of optimal iteration range "
+            "cannot be negative."
+        )
         with pytest.raises(ValueError) as excinfo:
             Ts(
                 schedule=[0, 1],
                 dt_init=0.1,
                 dt_min_max=(0.1, 0.5),
                 iter_max=5,
-                iter_optimal_range=(-1, 2),
+                iter_optimal_range=iter_optimal_range,
             )
         assert msg in str(excinfo.value)
 
     @pytest.mark.parametrize(
-        "schedule, dt_init, dt_min_max, iter_lowupp_factor",
+        "schedule, dt_init, dt_min_max, iter_relax_factors",
         [
-            ([0, 1], 0.1, (0.1, 0.5), (1, 0.7)),
-            ([0, 1], 0.1, (0.1, 0.5), (0.95, 0.7)),
+            ([0, 1], 0.1, (0.1, 0.5), (1.0, 1.3)),
+            ([0, 1], 0.1, (0.1, 0.5), (1.05, 1.3)),
         ],
     )
-    def test_lower_factor_greater_than_one(
-        self, schedule, dt_init, dt_min_max, iter_lowupp_factor
+    def test_under_relaxation_factor_less_than_one(
+        self, schedule, dt_init, dt_min_max, iter_relax_factors
     ):
-        """An error should be raised if the lower multiplication factor is less or equal than
-        one."""
-        msg = "Expected lower multiplication factor > 1."
+        """An error should be raised if under-relaxation factor >= 1"""
+        msg = "Expected under-relaxation factor < 1."
         with pytest.raises(ValueError) as excinfo:
             Ts(
                 schedule,
                 dt_init,
                 dt_min_max=dt_min_max,
-                iter_lowupp_factor=iter_lowupp_factor,
+                iter_relax_factors=iter_relax_factors,
             )
         assert msg in str(excinfo.value)
 
     @pytest.mark.parametrize(
-        "schedule, dt_init, dt_min_max, iter_lowupp_factor",
+        "schedule, dt_init, dt_min_max, iter_relax_factors",
         [
-            ([0, 1], 0.1, (0.1, 0.5), (1.3, 1)),
-            ([0, 1], 0.1, (0.1, 0.5), (1.3, 1.05)),
+            ([0, 1], 0.1, (0.1, 0.5), (0.7, 1.0)),
+            ([0, 1], 0.1, (0.1, 0.5), (0.7, 0.95)),
         ],
     )
-    def test_upper_factor_less_than_one(
-        self, schedule, dt_init, dt_min_max, iter_lowupp_factor
+    def test_over_relaxation_factor_greater_than_one(
+        self, schedule, dt_init, dt_min_max, iter_relax_factors
     ):
-        """An error should be raised if the upper multiplication factor is greater or equal
-        than one."""
-        msg = "Expected upper multiplication factor < 1."
+        """An error should be raised if over-relaxation factor <= 1"""
+        msg = "Expected over-relaxation factor > 1."
         with pytest.raises(ValueError) as excinfo:
             Ts(
                 schedule,
                 dt_init,
                 dt_min_max=dt_min_max,
-                iter_lowupp_factor=iter_lowupp_factor,
+                iter_relax_factors=iter_relax_factors,
             )
         assert msg in str(excinfo.value)
 
-    def test_dt_min_times_low_iter_factor_less_than_dt_max(self):
-        """An error should be raised if dt_min * iter_low_factor > dt_max."""
-        msg = "Encountered dt_min * iter_low_factor > dt_max."
+    def test_dt_min_times_over_relax_factor_less_than_dt_max(self):
+        """An error should be raised if dt_min * over_relax_factor > dt_max."""
+        msg_dtmin_over = "Encountered dt_min * over_relax_factor > dt_max. "
+        msg_osc = (
+            "The algorithm will behave erratically for such a combination of parameters. "
+            "See documentation of `dt_min_max` or `iter_relax_factors`."
+        )
+        msg = msg_dtmin_over + msg_osc
         with pytest.raises(ValueError) as excinfo:
             Ts(
                 schedule=[0, 1],
                 dt_init=0.1,
                 dt_min_max=(0.1, 0.5),
-                iter_lowupp_factor=(6, 0.9),
+                iter_relax_factors=(0.9, 6),
             )
         assert msg in str(excinfo.value)
 
-    def test_dt_max_times_upp_iter_factor_greater_than_dt_min(self):
-        """An error should be raised if dt_max * iter_upp_factor < dt_min."""
-        msg = "Encountered dt_max * iter_upp_factor < dt_min."
+    def test_dt_max_times_under_relax_factor_greater_than_dt_min(self):
+        """An error should be raised if dt_max * under_relax_factor < dt_min."""
+        msg_dtmax_under = "Encountered dt_max * under_relax_factor < dt_min. "
+        msg_osc = (
+            "The algorithm will behave erratically for such a combination of parameters. "
+            "See documentation of `dt_min_max` or `iter_relax_factors`."
+        )
+        msg = msg_dtmax_under + msg_osc
         with pytest.raises(ValueError) as excinfo:
             Ts(
                 schedule=[0, 1],
                 dt_init=0.1,
                 dt_min_max=(0.1, 0.5),
-                iter_lowupp_factor=(1.3, 0.01),
+                iter_relax_factors=(0.01, 1.3),
             )
         assert msg in str(excinfo.value)
 
@@ -265,8 +284,8 @@ class TestParameterInputs:
     def test_recomputation_factor_less_than_one(
         self, schedule, dt_init, dt_min_max, recomp_factor
     ):
-        """An error should be raised if the recomputation factor greater or equal to one."""
-        msg = "Expected recomputation multiplication factor < 1."
+        """An error should be raised if the recomputation factor is greater or equal to one."""
+        msg = "Expected recomputation factor < 1."
         with pytest.raises(ValueError) as excinfo:
             Ts(
                 schedule=schedule,
@@ -317,6 +336,20 @@ class TestTimeControl:
         dt = tsc.next_time_step(iterations=0, recompute_solution=False)
         assert dt is None
 
+    def test_constant_time_step(self):
+        """Test if a constant time step is returned, independent of any configuration or
+        input."""
+        tsc = Ts(schedule=[0, 1], dt_init=0.1, constant_dt=True)
+
+        dt = tsc.next_time_step(1000, True)
+        assert dt == 0.1
+        dt = tsc.next_time_step(1000, False)
+        assert dt == 0.1
+        dt = tsc.next_time_step(1, True)
+        assert dt == 0.1
+        dt = tsc.next_time_step(1, False)
+        assert dt == 0.1
+
     def test_non_recomputed_solution_conditions(self):
         """Test behaviour of the algorithm when the solution should NOT be recomputed"""
         # Check if internal flag _recomp_sol remains unchanged when recompute_solution=False
@@ -357,56 +390,43 @@ class TestTimeControl:
         """Test when a solution is recomputed and the calculated time step is less than
         the minimum allowable time step, the time step is indeed the minimum time step"""
         tsc = Ts([0, 100], 2, dt_min_max=(0.6, 10), recomp_factor=0.5)
-        # Emulate the scenario where the solution must be recomputed b
+        # Emulate the scenario where the solution must be recomputed
         tsc.time = 5
         tsc.dt = 1
-        tsc.next_time_step(recompute_solution=True, iterations=1000)
+        tsc.next_time_step(iterations=1000, recompute_solution=True)
         # First the algorithm will reduce dt by half (so dt=0.5), but this is less than
         # dt_min. Hence, dt_min should be set.
         assert tsc.dt == tsc.dt_min
 
-    def test_constant_time_step(self):
-        """Test if a constant time step is returned, independent of any configuration or
-        input."""
-        tsc = Ts(schedule=[0, 1], dt_init=0.1, constant_dt=True)
-
-        dt = tsc.next_time_step(1000, True)
-        assert dt == 0.1
-        dt = tsc.next_time_step(1000, False)
-        assert dt == 0.1
-        dt = tsc.next_time_step(1, True)
-        assert dt == 0.1
-        dt = tsc.next_time_step(1, False)
-        assert dt == 0.1
-
     @pytest.mark.parametrize("iterations", [1, 3, 5])
-    def test_relaxing_time_step(self, iterations):
-        """Test if the time step is relaxed after the number of iterations is less or equal
-        than the lower optimal iteration range, by its corresponding factor"""
+    def test_decreasing_time_step(self, iterations):
+        """Test if the time step decreases after the number of iterations is less or equal
+        than the lower endpoint of the optimal iteration range by its corresponding factor"""
         tsc = Ts(
             [0, 100],
             2,
             dt_min_max=(0.1, 10),
             iter_optimal_range=(5, 9),
-            iter_lowupp_factor=(1.3, 0.7),
+            iter_relax_factors=(0.7, 1.3),
         )
         tsc.dt = 1
-        tsc.next_time_step(recompute_solution=False, iterations=iterations)
+        tsc.next_time_step(iterations=iterations, recompute_solution=False)
         assert tsc.dt == 1.3
 
     @pytest.mark.parametrize("iterations", [9, 11, 13])
-    def test_restricting_time_step(self, iterations):
+    def test_increasing_time_step(self, iterations):
         """Test if the time step is restricted after the number of iterations is greater or
-        equal than the upper optimal iteration range, by its corresponding factor"""
+        equal than the upper endpoint of the optimal iteration range by its corresponding
+        factor"""
         tsc = Ts(
             [0, 100],
             2,
             dt_min_max=(0.1, 10),
             iter_optimal_range=(5, 9),
-            iter_lowupp_factor=(1.3, 0.7),
+            iter_relax_factors=(0.7, 1.3),
         )
         tsc.dt = 1
-        tsc.next_time_step(recompute_solution=False, iterations=iterations)
+        tsc.next_time_step(iterations=iterations, recompute_solution=False)
         assert tsc.dt == 0.7
 
     @pytest.mark.parametrize("iterations", [6, 7, 8])
@@ -418,10 +438,10 @@ class TestTimeControl:
             2,
             dt_min_max=(0.1, 10),
             iter_optimal_range=(5, 9),
-            iter_lowupp_factor=(1.3, 0.7),
+            iter_relax_factors=(0.7, 1.3),
         )
         tsc.dt = 1
-        tsc.next_time_step(recompute_solution=False, iterations=iterations)
+        tsc.next_time_step(iterations=iterations)
         assert tsc.dt == 1
 
     @pytest.mark.parametrize("dt", [0.13, 0.1, 0.075])
@@ -429,7 +449,7 @@ class TestTimeControl:
         """Test if the algorithm passes dt_min when the calculated dt is less than dt_min"""
         tsc = Ts([0, 100], 2, dt_min_max=(0.1, 10), iter_optimal_range=(4, 7))
         tsc.dt = dt
-        tsc.next_time_step(recompute_solution=False, iterations=7)
+        tsc.next_time_step(iterations=7)
         assert tsc.dt == tsc.dt_min
 
     @pytest.mark.parametrize("dt", [9, 10, 15])
@@ -437,7 +457,7 @@ class TestTimeControl:
         """Test if the algorithm passes dt_max when the calculated dt is greater than dt_max"""
         tsc = Ts([0, 100], 2, dt_min_max=(0.1, 10), iter_optimal_range=(4, 7))
         tsc.dt = dt
-        tsc.next_time_step(recompute_solution=False, iterations=4)
+        tsc.next_time_step(iterations=4)
         assert tsc.dt == tsc.dt_max
 
     @pytest.mark.parametrize(
