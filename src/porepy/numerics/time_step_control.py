@@ -305,9 +305,8 @@ class TimeSteppingControl:
     ) -> Union[float, None]:
         """Determine next time step based on the previous number of iterations.
 
-        If convergence was not achieved, then the time step is reduced by recomp_factor. The
-        time-stepping control routine will recompute the solution recomp_max times.
-        Otherwise, an error will be raised and the simulation stopped.
+        For an in-depth explanation of the algorith, refer to the sections Algorithm
+        Overview and Algorithm Workflow from below.
 
         Parameters:
             iterations: Number of non-linear iterations. In time-dependent simulations,
@@ -317,6 +316,79 @@ class TimeSteppingControl:
                 will be tuned accordingly.
 
         Returns: Next time step if time < final_time. None, otherwise.
+
+        Algorithm Overview: Below, we provide a brief overview of the algorithm.
+
+            Provided `recompute_solution = False`, the algorithm will adapt the time step
+            based on `iterations`. If `iterations` is less than the lower endpoint of the
+            optimal iteration range, then it will decrease the time step by an
+            `over_relax_factor`. If `iterations` is greater than the upper endpoint of the
+            optimal iteration range it will increase the time step by an`under_relax_factor`.
+            Otherwise, `iterations` lies in the optimal iteration range, then the time step
+            will remain unchanged.
+
+            If `recompute_solution = True`, then the time step will be decreased by
+            `recomp_factor` with the hope of increasing the chances of convergence. To avoid
+            an infinite loop, an error will be raised if the method is called more than
+            `recomp_max` consecutive times with the flag `recompute_solution = True`.
+
+            Now that the algorithm determined a new time step, it has to ensure three more
+            conditions, (1) the calculated time step cannot be smaller than `dt_min`,
+            (2) the calculated time step cannot be larger than `dt_max`, and (3) the time
+            step cannot be too large such that the next time will exceed a scheduled
+            time. These three conditions are implemented in this order of precedence and
+            will overrride any of the previous calculated time steps.
+
+        Algorithm Workflow: For completeness, we include the full algorithm in pseudocode.
+
+            REQUIRED INPUT:
+                self (pp.TimeSteppingControl): time step control object properly initialized.
+                iterations (int): number of non-linear interations.
+                recompute_solution (bool): recompute solution flag.
+
+            IF time > final simulation time THEN
+                RETURN None  # Simulation finished
+            ENDIF
+
+            IF constant_dt is True THEN
+                RETURN dt_init  # to the next time level
+            ENDIF
+
+            IF recompute_solution is True AND recomputation attempts are not exhausted THEN
+                SUBSTRACT dt from current time  # we have to "go back in time"
+                DECREASE dt  # multiply by recomp_factor
+                INCREASE counter that keeps track of number of recomputing attempts
+                IF time step < dt_min THEN
+                    SET dt = dt_min
+                ENDIF
+                RETURN dt  # to the next time level
+            IFELSE recompute_solution is False THEN
+                RESET counter that keeps track of number of recomputing attempts
+            ELSE
+                RAISE Error  # Maximum number of recomputing attempts has been exhausted
+            ENDIF
+
+            IF iterations < lower endpoint of optimal iteration range THEN
+                DECREASE dt  # multiply by over_relax_factor
+            IFELSE iterations > upper endpoint of optimal iteration range THEN
+                INCREASE dt  # multiply by under_relax_factor
+            ELSE
+                # Do Nothing (keep same dt)
+            ENDIF
+
+            IF dt < dt_min THEN
+                SET dt = dt_min
+            ENDIF
+
+            IF dt > dt_max THEN
+                SET dt = dt_max
+            ENDIF
+
+            IF time + dt > a scheduled time THEN
+                SET dt = scheduled time - time
+            ENDIF
+
+            RETURN dt  # to the next time level
 
         """
 
