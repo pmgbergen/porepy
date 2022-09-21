@@ -79,29 +79,23 @@ class SubdomainProjections(Operator):
                 projection.
 
         """
-        if isinstance(subdomains, pp.Grid):
-            return pp.ad.Matrix(
-                self._cell_projection[subdomains].T, name="CellRestriction"
-            )
-        elif isinstance(subdomains, list):
-            if len(subdomains) > 0:
-                # A key error will be raised if a grid in g is not known to
-                # self._cell_projection
-                # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
-                # be much less than the number of columns.
-                mat = sps.bmat(
-                    [[self._cell_projection[g].T] for g in subdomains]
-                ).tocsr()
-            else:
-                # If the grid list is empty, we project from the full set of cells to
-                # nothing.
-                mat = sps.csr_matrix((0, self._tot_num_cells * self.dim))
-            return pp.ad.Matrix(
-                mat,
-                name="CellRestriction",
-            )
-        else:
+        if not isinstance(subdomains, list):
             raise ValueError(self._error_message())
+
+        if len(subdomains) > 0:
+            # A key error will be raised if a grid in g is not known to
+            # self._cell_projection
+            # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
+            # be much less than the number of columns.
+            mat = sps.bmat([[self._cell_projection[g].T] for g in subdomains]).tocsr()
+        else:
+            # If the grid list is empty, we project from the full set of cells to
+            # nothing.
+            mat = sps.csr_matrix((0, self._tot_num_cells * self.dim))
+        return pp.ad.Matrix(
+            mat,
+            name="CellRestriction",
+        )
 
     def cell_prolongation(self, subdomains: List[pp.Grid]) -> Matrix:
         """Construct prolongation from subdomain to global cell quantities.
@@ -584,10 +578,15 @@ class Geometry(Operator):
             nd: ambient dimension.
             name (str, optional): Name of the operator. Default is None.
 
+        Raises:
+            AssertionError if nd is smaller than the dimension of any subdomain.
         """
         super().__init__(name=name)
 
         self.subdomains = subdomains
+        for sd in subdomains:
+            assert sd.dim <= nd
+
         self._num_grids: int = len(subdomains)
         self.nd = nd
 
