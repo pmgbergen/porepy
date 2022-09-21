@@ -341,39 +341,38 @@ class TimeSteppingControl:
 
         Algorithm Workflow: For completeness, we include the full algorithm in pseudocode.
 
-            REQUIRED INPUT:
-                self (pp.TimeSteppingControl): time step control object properly initialized.
-                iterations (int): number of non-linear interations.
-                recompute_solution (bool): recompute solution flag.
+            BEGIN_PROGRAM
+
+            INPUT
+                self // time step control object properly initialized
+                iterations // number of non-linear interations.
+                recompute_solution // boolean flag.
 
             IF time > final simulation time THEN
-                RETURN None  # Simulation finished
+                RETURN None
             ENDIF
 
             IF constant_dt is True THEN
-                RETURN dt_init  # to the next time level
+                RETURN dt_init
             ENDIF
 
-            IF recompute_solution is True AND recomputation attempts are not exhausted THEN
-                SUBSTRACT dt from current time  # we have to "go back in time"
-                DECREASE dt  # multiply by recomp_factor
-                INCREASE counter that keeps track of number of recomputing attempts
-                IF time step < dt_min THEN
-                    SET dt = dt_min
-                ENDIF
-                RETURN dt  # to the next time level
-            IFELSE recompute_solution is False THEN
+            IF recompute_solution is False THEN
                 RESET counter that keeps track of number of recomputing attempts
+                IF iterations < lower endpoint of optimal iteration range THEN
+                    DECREASE dt // multiply by over_relax_factor
+                IFELSE iterations > upper endpoint of optimal iteration range THEN
+                    INCREASE dt // multiply by under_relax_factor
+                ELSE
+                    PASS // dt reamains unchanged
+                ENDIF
             ELSE
-                RAISE Error  # Maximum number of recomputing attempts has been exhausted
-            ENDIF
-
-            IF iterations < lower endpoint of optimal iteration range THEN
-                DECREASE dt  # multiply by over_relax_factor
-            IFELSE iterations > upper endpoint of optimal iteration range THEN
-                INCREASE dt  # multiply by under_relax_factor
-            ELSE
-                # Do Nothing (keep same dt)
+                IF number of recomputing attempts has not been exhausted THEN
+                    SUBSTRACT dt from current time // we have to "go back in time"
+                    DECREASE dt // multiply by recomp_factor
+                    INCREASE counter that keeps track of number of recomputing attempts
+                ELSE
+                    RAISE Error // maximum number of recomputing attempts has been exhausted
+                ENDIF
             ENDIF
 
             IF dt < dt_min THEN
@@ -388,7 +387,9 @@ class TimeSteppingControl:
                 SET dt = scheduled time - time
             ENDIF
 
-            RETURN dt  # to the next time level
+            RETURN dt
+
+            END_PROGRAM
 
         """
 
@@ -408,8 +409,7 @@ class TimeSteppingControl:
             # Make sure to reset the recomp_num counter
             self._recomp_num = 0
 
-            # If iters < max_iter. Proceed to determine the next time step using the
-            # following criteria:
+            # Proceed to determine the next time step using the following criteria:
             #     (C1) If iters is less than the lower endpoint of the optimal iteration range
             #     `iter_low`, we can relax the time step, and multiply by an over-relaxation
             #     factor greater than 1, i.e., `over_relax_factor`.
