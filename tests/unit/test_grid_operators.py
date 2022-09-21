@@ -1,481 +1,477 @@
 """Tests of grid_operator classes, currently covering
+    SubdomainProjections
+    MortarProjections
     Geometry
+    Trace
+    Divergence
+    BoundaryCondition
+    ParameterVector
+    ParameterMatrix
 """
+from __future__ import annotations
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from tests.unit.test_ad import _compare_matrices, _list_ind_of_grid
 
 
-class EquationManagerSetup:
-    """Class to set up an EquationManager with a combination of variables
-    and equations, designed to make it convenient to test critical functionality
-    of the EM.
+def set_parameters(
+    dim: int, subdomains: list[pp.Grid], key: str, mdg: pp.MixedDimensionalGrid
+):
+    """Set two parameters in the data dictionary.
+
+    Args:
+        dim: Dimension of the two parameters. 1 corresponds to face-wise scalars, higher
+            integers to vectors.
+        subdomains: Subdomains for which data is assigned. Should be in mdg.subdomains().
+        key: Parameter keyword.
+        mdg: Mixed-dimensional grid.
+
+    Returns:
+        known_values (np.ndarray): The assigned values concatenated in the order defined by
+            subdomains.
+        face_indices (list): Each element contains the indices for extracting the known_values
+            of the corresponding subdomain in the subdomains list.
+
     """
+    np.random.seed(42)
+    # Start of all faces. If vector problem, all faces have dim numbers
+    face_start = dim * np.cumsum(
+        np.hstack((0, np.array([sd.num_faces for sd in subdomains])))
+    )
 
-    def __init__(self):
-        sd_1 = pp.CartGrid([3, 1])
-        sd_2 = pp.CartGrid([4, 1])
+    # Build values of known values (to be filled during assignment of bcs)
+    known_values = np.zeros(sum([sd.num_faces for sd in subdomains]) * dim)
+    face_indices = []
+    # Loop over grids, assign values, keep track of assigned values
+    for sd in subdomains:
+        data = mdg.subdomain_data(sd)
+        grid_ind = _list_ind_of_grid(subdomains, sd)
+        # Repeat values along the vector dimension to enable comparison with
+        # parameters expanded from face-wise scalar to face-wise vector using
+        # the geometry operator.
+        values = np.random.rand(sd.num_faces)
+        if sd.dim > 0:
+            # The if is just to avoid problems with kron when values is empty.
+            values = np.kron(values, np.ones(dim))
 
-        mdg = pp.MixedDimensionalGrid()
-        mdg.add_subdomains([sd_1, sd_2])
-
-        for sd, data in mdg.subdomains(return_data=True):
-            data[pp.PRIMARY_VARIABLES] = {
-                "x": {"cells": 1},
-                "y": {"cells": 1},
-            }
-            if sd == sd_2:
-                # Add a third variable on the second grid
-                data[pp.PRIMARY_VARIABLES].update({"z": {"cells": 1}})
-
-            x = 2 * np.ones(sd.num_cells)
-            y = 3 * np.ones(sd.num_cells)
-            z = 4 * np.ones(sd.num_cells)
-
-            data[pp.STATE] = {
-                "x": x,
-                "y": y,
-                "z": z,
-                pp.ITERATE: {"x": x.copy(), "y": y.copy(), "z": z.copy()},
-            }
-
-        # Ad representation of variables
-        dof_manager = pp.DofManager(mdg)
-        eq_manager = pp.ad.EquationManager(mdg, dof_manager)
-
-        x_ad = eq_manager.variable(sd_2, "x")
-        y_ad = eq_manager.variable(sd_2, "y")
-        z_ad = eq_manager.variable(sd_2, "z")
-
-        x_merged = eq_manager.merge_variables([(sd_1, "x"), (sd_2, "x")])
-        y_merged = eq_manager.merge_variables([(sd_1, "y"), (sd_2, "y")])
-
-        projections = pp.ad.SubdomainProjections(subdomains=[sd_1, sd_2])
-        proj = projections.cell_restriction(sd_2)
-
-        # One equation with only simple variables (not merged)
-        eq_simple = x_ad * y_ad + 2 * z_ad
-        # One equation using only merged variables
-        eq_merged = y_merged * (1 + x_merged)
-        # One equation combining merged and simple variables
-        eq_combined = x_ad + y_ad * (proj * y_merged)
-
-        eq_manager.equations.update(
-            {"simple": eq_simple, "merged": eq_merged, "combined": eq_combined}
+        pp.initialize_data(
+            sd,
+            data,
+            key,
+            {
+                "bc_values": values,
+                "parameter_key": values,
+            },
         )
 
-        A, b = eq_manager.assemble()
-        self.A = A
-        self.b = b
-        self.eq_manager = eq_manager
+        # Put face values in the right place in the vector of knowns
+        face_inds_loc = np.arange(face_start[grid_ind], face_start[grid_ind + 1])
+        known_values[face_inds_loc] = values
+        face_indices.append(face_inds_loc)
 
-        self.x1 = x_ad
-        self.x2 = eq_manager.variable(sd_1, "x")
-
-        self.z1 = z_ad
-        self.x_merged = x_merged
-        self.y_merged = y_merged
-
-        self.sd_1 = sd_1
-        self.sd_2 = sd_2
-
-    ## Helper methods below.
-
-    def var_size(self, var):
-        # For a given variable, get its size (number of dofs) based on what
-        # we know about the variables specified in self.__init__
-        if var == self.x1:
-            return self.sd_2.num_cells
-        elif var == self.x_merged:
-            return self.sd_1.num_cells + self.sd_2.num_cells
-        elif var == self.y_merged:
-            return self.sd_1.num_cells + self.sd_2.num_cells
-        elif var == self.z1:
-            return self.sd_2.num_cells
-        else:
-            raise ValueError
-
-    def dof_ind(self, var):
-        # For a given variable, get the global indices assigned by
-        # the DofManager. Based on knowledge of how the variables were
-        # defined in self.__init__
-
-        def inds(g, n):
-            return dof_manager.grid_and_variable_to_dofs(g, n)
-
-        dof_manager = self.eq_manager.dof_manager
-        if var == self.x1:
-            return inds(self.x1._g, self.x1._name)
-
-        elif var == self.x2:
-            return inds(self.x2._g, self.x1._name)
-
-        elif var == self.x_merged:
-            dofs = np.hstack(
-                [
-                    inds(self.sd_1, self.x_merged._name),
-                    inds(self.sd_2, self.x_merged._name),
-                ]
-            )
-            return dofs
-
-        elif var == self.y_merged:
-            dofs = np.hstack(
-                [
-                    inds(self.sd_1, self.y_merged._name),
-                    inds(self.sd_2, self.y_merged._name),
-                ]
-            )
-            return dofs
-
-        elif var == self.z1:
-            return inds(self.z1._g, self.z1._name)
-        else:
-            raise ValueError
-
-    def eq_ind(self, name):
-        # Get row indices of an equation, based on the (known) order in which
-        # equations were added to the EquationManager
-        if name == "simple":
-            return np.arange(4)
-        elif name == "merged":
-            return 4 + np.arange(7)
-        elif name == "combined":
-            return 11 + np.arange(4)
-        else:
-            raise ValueError
-
-    def block_size(self, name):
-        # Get the size of an equation block
-        if name == "simple":
-            return 4
-        elif name == "merged":
-            return 7
-        elif name == "combined":
-            return 4
-        else:
-            raise ValueError
+    return known_values, face_indices
 
 
-def _eliminate_columns_from_matrix(A, indices, reverse):
-    # Helper method to extract submatrix by column indices
-    if reverse:
-        inds = np.setdiff1d(np.arange(A.shape[1]), indices)
-    else:
-        inds = indices
-    return A[:, inds]
+def geometry_information(
+    mdg: pp.MixedDimensionalGrid, dim: int
+) -> tuple[int, int, int]:
+    """Geometry information used in multiple test methods.
+
+    Args:
+        mdg: Mixed-dimensional grid.
+        dim: Dimension. Each of the return values is multiplied by dim.
+
+    Returns:
+        n_cells (int): Number of subdomain cells.
+        n_faces (int): Number of subdomain faces.
+        n_mortar_cells (int): Number of interface cells.
+    """
+    n_cells = sum([sd.num_cells for sd in mdg.subdomains()]) * dim
+    n_faces = sum([sd.num_faces for sd in mdg.subdomains()]) * dim
+    n_mortar_cells = sum([intf.num_cells for intf in mdg.interfaces()]) * dim
+    return n_cells, n_faces, n_mortar_cells
 
 
 @pytest.fixture
-def setup():
-    # Method to deliver a setup to all tests
-    return EquationManagerSetup()
+def mdg():
+    """Provide a mixed-dimensional grid for the tests."""
+    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    md_grid = pp.meshing.cart_grid(fracs, np.array([2, 2]))
+    return md_grid
 
 
-def _eliminate_rows_from_matrix(A, indices, reverse):
-    # Helper method to extract submatrix by row indices
-    if reverse:
-        inds = np.setdiff1d(np.arange(A.shape[0]), indices)
-    else:
-        inds = indices
-    return A[inds]
+@pytest.mark.parametrize("scalar", [True, False])
+def test_subdomain_projections(mdg, scalar):
+    """Test of subdomain projections. Both face and cell restriction and prolongation.
 
+    Test three specific cases:
+        1. Projections generated by passing a md-grid and a list of grids are identical
+        2. All projections for all grids (individually) in a simple md-grid.
+        3. Combined projections for list of grids.
+    """
+    proj_dim = 1 if scalar else mdg.dim_max()
+    n_cells, n_faces, _ = geometry_information(mdg, proj_dim)
 
-def _compare_matrices(m1, m2):
-    # Helper method to compare two matrices. Returns True only if the matrices are
-    # identical up to a small tolerance.
-    if m1.shape != m2.shape:
-        # Matrices with different shape are unequal, unless the number of
-        # rows and columns is zero in at least one dimension.
-        if m1.shape[0] == 0 and m2.shape[0] == 0:
-            return True
-        elif m1.shape[1] == 0 and m2.shape[1] == 0:
-            return True
-        return False
-    d = m1 - m2
+    subdomains = mdg.subdomains()
+    proj = pp.ad.SubdomainProjections(subdomains=subdomains, dim=proj_dim)
 
-    if d.data.size > 0:
-        if np.max(np.abs(d.data)) > 1e-10:
-            return False
-    return True
-
-
-@pytest.mark.parametrize(
-    "var_names",
-    [
-        [],  # No secondary variables
-        ["x1"],  # A simple variable which is also part of a merged one
-        ["x_merged"],  # Merged variable
-        ["z1"],  # Simple variable not available as merged
-        ["z1", "y_merged"],  # Combination of simple and merged.
-    ],
-)
-def test_secondary_variable_assembly(setup, var_names):
-    # Test of the standard assemble method. The only interesting test is the
-    # secondary variable functionality (the other functionality is tested elsewhere).
-
-    # The tests compare assembly by an EquationManager with explicitly defined
-    # secondary variables with a 'truth' based on direct elimination of columns
-    # in the Jacobian matrix.
-    # The expected behavior is that the residual vector is fixed, while the
-    # Jacobian matrix is altered only in columns that correspond to eliminated
-    # variables.
-
-    variables = [getattr(setup, name) for name in var_names]
-    setup.eq_manager.secondary_variables = variables
-    A, b = setup.eq_manager.assemble()
-
-    # Get dof indices of the variables that have been eliminated
-    if len(variables) > 0:
-        dofs = np.sort(np.hstack([setup.dof_ind(var) for var in variables]))
-    else:
-        dofs = []
-
-    # The residual vectors should be the same
-    assert np.allclose(b, setup.b)
-    # Compare system matrices. Since the variables specify columns to eliminate,
-    # we use the reverse argument
-    assert _compare_matrices(
-        A, _eliminate_columns_from_matrix(setup.A, dofs, reverse=True)
+    cell_start = np.cumsum(
+        np.hstack((0, np.array([sd.num_cells for sd in subdomains])))
     )
-    # Check that the size of equation blocks (rows) were correctly recorded
-    assert np.allclose(
-        setup.eq_manager.row_block_indices_last_assembled, np.array([0, 4, 11, 15])
+    face_start = np.cumsum(
+        np.hstack((0, np.array([sd.num_faces for sd in subdomains])))
     )
 
+    # Helper method to get indices for sparse matrices
+    def _mat_inds(nc, nf, grid_ind, dim, cell_start, face_start):
+        cell_inds = np.arange(cell_start[grid_ind], cell_start[grid_ind + 1])
+        face_inds = np.arange(face_start[grid_ind], face_start[grid_ind + 1])
 
-@pytest.mark.parametrize(
-    "var_names",
-    [
-        None,  # Should give all variables by default
-        [],  # Empty list (as oposed to None) should give a system with zero columns
-        ["x1"],  # simple variable
-        ["y_merged"],  # Merged variable
-        ["x1", "y_merged"],  # Combination of simple and merged
-        ["y_merged", "x1"],  # Combination reversed - check just to be sure
-        ["x_merged", "x1"],  # Merged and simple version of same variable
-    ],
-)
-@pytest.mark.parametrize(
-    "eq_names",
-    [
-        None,  # should give all equations by default
-        [],  # Empty list should give a system with zero rows
-        ["combined"],  # Single equation
-        ["simple", "merged"],  # Combination of two equations
-        ["merged", "simple"],  # Combination reversed
-        ["simple", "merged", "combined"],  # Three equations
-    ],
-)
-def test_assemble_subsystem(setup, var_names, eq_names):
-    # Test of functionality to assemble subsystems from an EquationManager.
-    #
-    # The test is based on assembly of a subsystem and comparing this to a truth
-    # from assembly of the full system, and then explicitly dump rows and columns.
+        data_cell = np.ones(nc * dim)
+        row_cell = np.arange(nc * dim)
+        data_face = np.ones(nf * dim)
+        row_face = np.arange(nf * dim)
+        col_cell = pp.fvutils.expand_indices_nd(cell_inds, dim)
+        col_face = pp.fvutils.expand_indices_nd(face_inds, dim)
+        return row_cell, col_cell, data_cell, row_face, col_face, data_face
 
-    eq_manager = setup.eq_manager
+    # Test projection of one fracture at a time for the full set of grids
+    for sd in subdomains:
 
-    # Convert variable names into variables
-    if var_names is not None:
-        variables = [getattr(setup, var) for var in var_names]
-    else:
-        variables = None
+        ind = _list_ind_of_grid(subdomains, sd)
 
-    A_sub, b_sub = eq_manager.assemble_subsystem(eq_names=eq_names, variables=variables)
+        nc, nf = sd.num_cells, sd.num_faces
 
-    # Get active rows and columns. If eq_names is None, all rows should be included.
-    # If equation list is set to empty list, no indices are included.
-    # Otherwise, get the numbering from setup.
-    # Same logic for variables
-    if eq_names is None:
-        # If no equations are specified, all should be included.
-        rows = np.arange(15)
-        expected_blocks = np.array([0, 4, 11, 15])
-    elif len(eq_names) > 0:
-        # Do not sort row indices - these are allowed to change.
-        rows = np.hstack([setup.eq_ind(eq) for eq in eq_names])
-        expected_blocks = np.cumsum(
-            np.hstack([0, [setup.block_size(eq) for eq in eq_names]])
+        num_rows_cell = nc * proj_dim
+        num_rows_face = nf * proj_dim
+
+        row_cell, col_cell, data_cell, row_face, col_face, data_face = _mat_inds(
+            nc, nf, ind, proj_dim, cell_start, face_start
         )
+
+        known_cell_proj = sps.coo_matrix(
+            (data_cell, (row_cell, col_cell)), shape=(num_rows_cell, n_cells)
+        ).tocsr()
+        known_face_proj = sps.coo_matrix(
+            (data_face, (row_face, col_face)), shape=(num_rows_face, n_faces)
+        ).tocsr()
+
+        assert _compare_matrices(proj.cell_restriction([sd]), known_cell_proj)
+        assert _compare_matrices(proj.cell_prolongation([sd]), known_cell_proj.T)
+        assert _compare_matrices(proj.face_restriction([sd]), known_face_proj)
+        assert _compare_matrices(proj.face_prolongation([sd]), known_face_proj.T)
+
+    # Project between the full grid and both 1d grids (to combine two grids)
+    g1, g2 = mdg.subdomains(dim=1)
+    rc1, cc1, dc1, rf1, cf1, df1 = _mat_inds(
+        g1.num_cells,
+        g1.num_faces,
+        _list_ind_of_grid(subdomains, g1),
+        proj_dim,
+        cell_start,
+        face_start,
+    )
+    rc2, cc2, dc2, rf2, cf2, df2 = _mat_inds(
+        g2.num_cells,
+        g2.num_faces,
+        _list_ind_of_grid(subdomains, g2),
+        proj_dim,
+        cell_start,
+        face_start,
+    )
+
+    # Adjust the indices of the second grid, we will stack the matrices.
+    rc2 += rc1.size
+    rf2 += rf1.size
+    num_rows_cell = (g1.num_cells + g2.num_cells) * proj_dim
+    num_rows_face = (g1.num_faces + g2.num_faces) * proj_dim
+
+    known_cell_proj = sps.coo_matrix(
+        (np.hstack((dc1, dc2)), (np.hstack((rc1, rc2)), np.hstack((cc1, cc2)))),
+        shape=(num_rows_cell, n_cells),
+    ).tocsr()
+    known_face_proj = sps.coo_matrix(
+        (np.hstack((df1, df2)), (np.hstack((rf1, rf2)), np.hstack((cf1, cf2)))),
+        shape=(num_rows_face, n_faces),
+    ).tocsr()
+
+    assert _compare_matrices(proj.cell_restriction([g1, g2]), known_cell_proj)
+    assert _compare_matrices(proj.cell_prolongation([g1, g2]), known_cell_proj.T)
+    assert _compare_matrices(proj.face_restriction([g1, g2]), known_face_proj)
+    assert _compare_matrices(proj.face_prolongation([g1, g2]), known_face_proj.T)
+
+
+@pytest.mark.parametrize("scalar", [True, False])
+def test_mortar_projections(mdg, scalar):
+    # Test of mortar projections between mortar grids and standard subdomain grids.
+
+    proj_dim = 1 if scalar else mdg.dim_max()
+    n_cells, n_faces, n_mortar_cells = geometry_information(mdg, proj_dim)
+
+    g0 = mdg.subdomains(dim=2)[0]
+    g1, g2 = mdg.subdomains(dim=1)
+    g3 = mdg.subdomains(dim=0)[0]
+
+    intf01 = mdg.subdomain_pair_to_interface((g0, g1))
+    intf02 = mdg.subdomain_pair_to_interface((g0, g2))
+
+    intf13 = mdg.subdomain_pair_to_interface((g1, g3))
+    intf23 = mdg.subdomain_pair_to_interface((g2, g3))
+
+    ########
+    # First test projection between all grids and all interfaces
+    subdomains = [g0, g1, g2, g3]
+    interfaces = [intf01, intf02, intf13, intf23]
+
+    proj = pp.ad.MortarProjections(
+        subdomains=subdomains, interfaces=interfaces, mdg=mdg, dim=proj_dim
+    )
+
+    cell_start = proj_dim * np.cumsum(
+        np.hstack((0, np.array([g.num_cells for g in subdomains])))
+    )
+    face_start = proj_dim * np.cumsum(
+        np.hstack((0, np.array([g.num_faces for g in subdomains])))
+    )
+
+    f0 = np.hstack(
+        (
+            sps.find(intf01.mortar_to_primary_int(nd=proj_dim))[0],
+            sps.find(intf02.mortar_to_primary_int(nd=proj_dim))[0],
+        )
+    )
+    f1 = sps.find(intf13.mortar_to_primary_int(nd=proj_dim))[0]
+    f2 = sps.find(intf23.mortar_to_primary_int(nd=proj_dim))[0]
+
+    c1 = sps.find(intf01.mortar_to_secondary_int(nd=proj_dim))[0]
+    c2 = sps.find(intf02.mortar_to_secondary_int(nd=proj_dim))[0]
+    c3 = np.hstack(
+        (
+            sps.find(intf13.mortar_to_secondary_int(nd=proj_dim))[0],
+            sps.find(intf23.mortar_to_secondary_int(nd=proj_dim))[0],
+        )
+    )
+
+    rows_higher = np.hstack((f0, f1 + face_start[1], f2 + face_start[2]))
+    cols_higher = np.arange(n_mortar_cells)
+    data = np.ones(n_mortar_cells)
+
+    proj_known_higher = sps.coo_matrix(
+        (data, (rows_higher, cols_higher)), shape=(n_faces, n_mortar_cells)
+    ).tocsr()
+
+    assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_int)
+    assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_avg)
+    assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_int)
+    assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_avg)
+
+    rows_lower = np.hstack((c1 + cell_start[1], c2 + cell_start[2], c3 + cell_start[3]))
+    cols_lower = np.arange(n_mortar_cells)
+    data = np.ones(n_mortar_cells)
+
+    proj_known_lower = sps.coo_matrix(
+        (data, (rows_lower, cols_lower)), shape=(n_cells, n_mortar_cells)
+    ).tocsr()
+    assert _compare_matrices(proj_known_lower, proj.mortar_to_secondary_int)
+
+    # Also test block matrices for the sign of mortar projections.
+    # This is a diagonal matrix with first -1, then 1.
+    # If this test fails, something is fundamentally wrong.
+    vals = np.array([])
+    for intf in interfaces:
+        sz = int(np.round(intf.num_cells / 2) * proj_dim)
+        vals = np.hstack((vals, -np.ones(sz), np.ones(sz)))
+
+    known_sgn_mat = sps.dia_matrix((vals, 0), shape=(n_mortar_cells, n_mortar_cells))
+    assert _compare_matrices(known_sgn_mat, proj.sign_of_mortar_sides)
+
+
+@pytest.mark.parametrize("scalar", [True, False])
+def test_boundary_condition(mdg: pp.MixedDimensionalGrid, scalar: bool):
+    """Test of boundary condition representation.
+
+    Args:
+        mdg: Mixed-dimensional grid.
+        scalar:
+
+    Returns:
+
+    """
+    subdomains = mdg.subdomains()
+    dim = 1 if scalar else mdg.dim_max()
+    key = "foo"
+
+    known_values, _ = set_parameters(dim, subdomains, key, mdg)
+
+    # Ad representation of the boundary conditions.
+    op = pp.ad.BoundaryCondition(key, subdomains)
+
+    # Parse.
+    val = op.parse(mdg)
+
+    assert np.allclose(val, known_values)
+
+
+@pytest.mark.parametrize("scalar", [True, False])
+def test_parameter(mdg: pp.MixedDimensionalGrid, scalar: bool):
+    """Test of boundary condition representation."""
+    subdomains = mdg.subdomains()
+    dim = 1 if scalar else mdg.dim_max()
+    key = "foo"
+
+    known_values, _ = set_parameters(dim, subdomains, key, mdg)
+
+    # Ad representation of the boundary conditions.
+    if scalar:
+        op = pp.ad.ParameterArray(key, "parameter_key", subdomains)
     else:
-        # Equations are set to empty
-        rows = []
-        expected_blocks = np.array([0])
+        op = pp.ad.ParameterMatrix(key, "parameter_key", subdomains)
+        known_values = sps.diags(known_values)
 
-    if variables is None:
-        # If no variables are specified, all should be included.
-        cols = np.arange(18)
-    elif len(variables) > 0:
-        # Sort variable indices
-        cols = np.sort(np.hstack([setup.dof_ind(var) for var in variables]))
+    # Parse.
+    val = op.parse(mdg)
+    if scalar:
+        assert np.allclose(val, known_values)
     else:
-        # Variables are set to empty
-        cols = []
+        assert _compare_matrices(val, known_values)
 
-    # Uniquify columns, in case variables are represented many times.
-    cols = np.unique(cols)
 
-    # Check matrix and vector items
-    assert np.allclose(b_sub, setup.b[rows])
-    assert _compare_matrices(A_sub, setup.A[rows][:, cols])
-    # Also check that the equation row sizes were correctly recorded.
-    assert np.allclose(
-        expected_blocks, setup.eq_manager.row_block_indices_last_assembled
+# Geometry based operators
+def test_trace(mdg: pp.MixedDimensionalGrid):
+    """Test Trace operator.
+
+    Args:
+        mdg: Mixed-dimensional grid.
+
+    This test is not ideal. It follows the implementation of Trace relatively closely,
+    but nevertheless provides some coverage, especially if Trace is carelessly changed.
+    The test constructs the expected md trace and inv_trace matrices and compares them
+    to the ones of Trace. Also checks that an error is raised if a non-scalar trace is
+    constructed (not implemented).
+    """
+    # The operator should work on any subset of mdg.subdomains.
+    subdomains = mdg.subdomains(dim=1)
+
+    # Construct expected matrices
+    traces, inv_traces = list(), list()
+    # No check on this function here.
+    # TODO: A separate unit test might be appropriate.
+    cell_projections, face_projections = pp.ad.grid_operators._subgrid_projections(
+        subdomains, dim=1
     )
+    for sd in subdomains:
+        local_block = np.abs(sd.cell_faces.tocsr())
+        traces.append(local_block * cell_projections[sd].T)
+        inv_traces.append(local_block.T * face_projections[sd].T)
+
+    # Compare to operator class
+    op = pp.ad.Trace(subdomains)
+    _compare_matrices(op.trace, sps.bmat([[m] for m in traces]))
+    _compare_matrices(op.inv_trace, sps.bmat([[m] for m in inv_traces]))
+
+    # As of the writing of this test, Trace is not implemented for vector values.
+    # If it is ever extended, the test should be extended accordingly (e.g. parametrized with
+    # dim=[1, 2]).
+    with pytest.raises(NotImplementedError):
+        pp.ad.Trace(subdomains, dim=2)
 
 
 @pytest.mark.parametrize(
-    "var_names",
+    "sd_inds",
     [
-        [],
-        ["x1"],
-        ["y_merged"],
-        ["x1", "y_merged"],
-        ["y_merged", "x1"],
-        ["x_merged", "y_merged", "z1"],
+        slice(0, 2),
+        slice(1, 3),
     ],
 )
-@pytest.mark.parametrize(
-    "eq_names",
-    [
-        [],
-        ["simple"],
-        ["simple", "merged"],
-        ["merged", "combined"],
-        ["simple", "merged", "combined"],
-    ],
-)
-def test_extract_subsystem(setup, eq_names, var_names):
-    # Check functionality to extract subsystems from the EquationManager.
-    # The tests check that the expected variables and equations are present in
-    # the subsystem.
+@pytest.mark.parametrize("nd", [3, 2])
+def test_geometry(mdg: pp.MixedDimensionalGrid, sd_inds: slice, nd: int):
+    """Test Geometry.
 
-    eq_manager = setup.eq_manager
+    Args:
+        mdg: Mixed-dimensional grid.
+        sd_inds: Which of the mdg's subdomains to use.
+        nd: Ambient dimension.
 
-    # Get Ad variables from strings
-    variables = [getattr(setup, var) for var in var_names]
+    Checks that
+        1) the following attributes are as expected:
+            cell_volumes
+            face_areas
+            num_cells
+            num_faces
+        2) the action of face_areas and scalar_to_nd_face on a parameter array are as expected.
+            This might belong in an integration test. The cell equivalents are constructed by
+            the same functions, so are not tested here (could be added).
+        3)
+    """
+    # This test is not ideal. It follows the implementation of Trace relatively closely,
+    # but nevertheless provides some coverage.
 
-    # Secondary variables are constructed as atomic. The number of these is found by
-    # the number of variables + the number of merged variables (known to be defined
-    # on exactly two grids)
-    num_atomic_vars = len(var_names) + sum(["merged" in var for var in var_names])
-    # The number of secondary variables is also known
-    num_secondary = 5 - num_atomic_vars
+    # The operator should work on any subset of mdg.subdomains.
+    subdomains = mdg.subdomains()[sd_inds]
+    cell_volumes, face_areas = list(), list()
 
-    new_manager = eq_manager.subsystem_equation_manager(eq_names, variables)
+    for sd in subdomains:
+        cell_volumes.append(sd.cell_volumes)
+        face_areas.append(sd.face_areas)
+    op = pp.ad.Geometry(subdomains, nd)
+    _compare_matrices(op.cell_volumes, sps.diags(np.hstack(cell_volumes)))
+    _compare_matrices(op.face_areas, sps.diags(np.hstack(face_areas)))
+    assert op.num_cells == sum(sd.num_cells for sd in subdomains)
+    assert op.num_faces == sum(sd.num_faces for sd in subdomains)
 
-    # Check that the number of variables and equations are as expected
-    assert len(new_manager.secondary_variables) == num_secondary
-    assert len(new_manager.equations) == len(eq_names)
+    # Check the action of the Geometry on other (face-wise) objects.
+    # 1: Face area weighting
+    # 2: Expansion from face-wise scalar to nd. I.e., [a, b, c, ...] becomes
+    # [a, a, a, b, b, b, c, c, c, ...] in the case nd=3.
+    key = "foo"
+    known_vectors, vector_inds = set_parameters(nd, subdomains, key, mdg)
 
-    # Check that the active / primary equations are present in the new manager
-    for eq in new_manager.equations:
-        assert eq in eq_names
+    known_scalars, scalar_inds = set_parameters(1, subdomains, key, mdg)
+    array = pp.ad.ParameterArray(key, "parameter_key", subdomains)
+    # Expand to vector
+    for sd, inds in zip(subdomains, scalar_inds):
+        known_scalars[inds] *= sd.face_areas
 
-    # Check that the secondary variables are not among the active (primary) variables.
-    for sec_var in new_manager.secondary_variables:
+    scalar_vals = op.face_areas.parse(mdg) * array.parse(mdg)
+    assert np.all(np.isclose(scalar_vals, known_scalars))
+    # Vector assignment overwrites from scalar to vector parameter and must therefore be done
+    # after scalar check.
+    vector_vals = op.scalar_to_nd_face.parse(mdg) * array.parse(mdg)
 
-        # Check that the secondary variable has a representation in a form known to the
-        # new EquationManager.
-        assert sec_var in new_manager._variables_as_list()
-
-        sec_name = sec_var._name
-        for vi, active_name in enumerate(var_names):
-            if sec_name[0] != active_name[0]:
-                # Okay, this secondary variable has nothing in common with this active var
-                continue
-            else:
-                # With the setup of the tests, this is acceptable only if the active
-                # variable is x1, and the secondary variable has name 'x', is active on
-                # grid sd_1.
-
-                # Get the active variable
-                active_var = variables[vi]
-                assert active_var._g == setup.sd_2
-                assert active_var._name == "x"
-
-                # Check the secondary variable
-                assert sec_var._g == setup.sd_1
-                assert sec_name == "x"
+    assert np.all(np.isclose(vector_vals, known_vectors))
+    # Trigger sanity check on dimension of subdomains exceeding ambient dimension
+    with pytest.raises(AssertionError):
+        pp.ad.Geometry(subdomains, nd=subdomains[0].dim - 1)
 
 
-@pytest.mark.parametrize(
-    "eq_var_to_exclude",
-    # Combinations of variables and variables. These cannot be set independently, since
-    # the block to be eliminated should be square and invertible.
-    [
-        [["simple"], ["z1"]],  # Single equation, atomic variable
-        [["simple"], ["x1"]],  # Atomic version of variable which is also merged
-        [["merged"], ["y_merged"]],  # Merged equation, variable is only merged
-        [["merged"], ["x_merged"]],  # variable is both merged and atomic
-        [["combined"], ["x1"]],  # Combined equation, atomic variable
-        [["simple", "merged"], ["x1", "y_merged"]],  # Two equations, two variables
-    ],
-)
-def test_schur_complement(setup, eq_var_to_exclude):
-    # Test assembly by a Schur complement.
-    # The test constructs the Schur complement 'manually', using known information on
-    # the ordering of equations and unknowns, and compares with the method in EquationManager.
+@pytest.mark.parametrize("dim", [1, 4])
+def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
+    """Test Divergence.
 
-    # NOTE: Input parameters to this test are interpreted as equations and variables to be
-    # eliminated (this makes interpretation of test results easier), while the method in
-    # EquationManager expects equations and variables to be kept. Some work is needed to invert
-    # the sets.
+    Args:
+        mdg: Mixed-dimensional grid.
+        dim: Dimension of vector field to which Divergence is applied.
 
-    eq_to_exclude, var_to_exclude = eq_var_to_exclude
-    eq_manager = setup.eq_manager
-    # Equations to keep
-    # This construction preserves the order
-    eq_name = [eq for eq in eq_manager.equations if eq not in eq_to_exclude]
+    This test is not ideal. It follows the implementation of Divergence relatively closely,
+    but nevertheless provides some coverage. Frankly, there is not much more to do than
+    comparing against the expected matrices, unless one wants to add more integration-type
+    tests e.g. evaluating combinations with other ad entities.
+    """
+    # The operator should work on any subset of mdg.subdomains.
+    subdomains = mdg.subdomains(dim=2) + mdg.subdomains(dim=0)
 
-    # Set of all variables. z and y are only given in one form as input to this test.
-    all_variables = ["z1", "y_merged"]
+    # Construct expected matrix
+    divergences = list()
+    for sd in subdomains:
+        # Kron does no harm if dim=1
+        local_block = sps.kron(sd.cell_faces.tocsr().T, sps.eye(dim))
+        divergences.append(local_block)
 
-    # x can be both merged and simple
-    if "x_merged" in var_to_exclude:
-        all_variables.append("x_merged")
-    else:  # We can work with atomic representation of the x variable
-        all_variables += ["x1", "x2"]
-
-    # Names of variables to keep
-    var_name = list(set(all_variables).difference(set(var_to_exclude)))
-
-    # Convert from variable names to actual variables
-    variables = [getattr(setup, name) for name in var_name]
-
-    inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
-
-    # Rows and columns to keep
-    rows_keep = np.sort(np.hstack([setup.eq_ind(name) for name in eq_name]))
-    cols_keep = np.sort(np.hstack([setup.dof_ind(var) for var in variables]))
-
-    # Rows and columns to eliminate
-    rows_elim = np.setdiff1d(np.arange(15), rows_keep)
-    cols_elim = np.setdiff1d(np.arange(18), cols_keep)
-
-    # Split the full matrix into [[A, B], [C, D]], where D is to be eliminated
-    A = setup.A[rows_keep][:, cols_keep]
-    B = setup.A[rows_keep][:, cols_elim]
-    C = setup.A[rows_elim][:, cols_keep]
-    D = setup.A[rows_elim][:, cols_elim]
-
-    b_1 = setup.b[rows_elim]
-    b_2 = setup.b[rows_keep]
-
-    S_known = A - B * inverter(D) * C
-    b_known = b_2 - B * inverter(D) * b_1
-
-    # Compute Schur complement with method to be tested
-    S, bS = eq_manager.assemble_schur_complement_system(eq_name, variables, inverter)
-
-    assert np.allclose(bS, b_known)
-    assert _compare_matrices(S, S_known)
-    # Also check that the equation row sizes were correctly recorded.
-    expected_blocks = np.cumsum(
-        np.hstack([0, [setup.block_size(eq) for eq in eq_name]])
-    )
-    assert np.allclose(
-        expected_blocks, setup.eq_manager.row_block_indices_last_assembled
-    )
+    # Compare to operators parsed value
+    op = pp.ad.Divergence(subdomains)
+    val = op.parse(mdg)
+    _compare_matrices(val, sps.block_diag(divergences))
