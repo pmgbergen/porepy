@@ -355,21 +355,24 @@ class TestTimeControl:
         # Check if internal flag _recomp_sol remains unchanged when recompute_solution=False
         # regardless of the number of iterations provided by the user
         tsc = Ts([0, 1], 0.1, dt_min_max=(0.1, 0.5))
-        tsc.next_time_step(recompute_solution=False, iterations=5)
+        tsc.next_time_step(iterations=5)
         assert not tsc._recomp_sol
-        tsc.next_time_step(recompute_solution=False, iterations=1000)
+        tsc.next_time_step(iterations=1000)
         assert not tsc._recomp_sol
         # Check if _recomp_num resets to zero when solution is NOT recomputed
         tsc = Ts([0, 1], 0.1, dt_min_max=(0.1, 0.5))
         tsc._recomp_num = 3  # manually change recomputation attempts
-        tsc.next_time_step(recompute_solution=False, iterations=5)
+        tsc.next_time_step(iterations=5)
         assert tsc._recomp_num == 0
         # Assume recompute_solution=True, but we reach or exceeded maximum number of attempts
         tsc = Ts([0, 1], 0.1, dt_min_max=(0.1, 0.5), recomp_max=5)
         tsc._recomp_num = 5
         with pytest.raises(ValueError) as excinfo:
-            msg = f"Solution did not converge after {tsc.recomp_max} recomputing attempts."
-            tsc.next_time_step(recompute_solution=True, iterations=5)
+            msg = (
+                f"Solution did not converge after {tsc.recomp_max} recomputing "
+                "attempts."
+            )
+            tsc.next_time_step(iterations=5, recompute_solution=True)
         assert tsc._recomp_sol and (msg in str(excinfo.value))
 
     def test_recomputed_solutions(self):

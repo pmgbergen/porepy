@@ -403,60 +403,59 @@ class TimeSteppingControl:
         if self.is_constant:
             return self.dt_init
 
-        # If the solution did not converge AND we are allowed to recompute it, then:
-        #   (S1) Update simulation time since solution will be recomputed.
-        #   (S2) Decrease time step multiplying it by the recomputing factor < 1.
-        #   (S3) Increase counter that keeps track of the number of times the solution was
-        #        recomputed.
-        #   (S4) Check if calculated time step is larger than dt_min. Otherwise, use dt_min.
-
-        # Note that iterations is not really used here. So, as long as
-        # recompute_solution=True and recomputation_attempts < max_recomp_attempts,
-        # the method is entirely agnostic to the number of iterations passed. This design
-        # choice was made to give more flexibility, in the sense that we are not limiting
-        # the recomputation criteria to _only_ reaching the maximum number of iterations,
-        # even though that is the primary intended usage.
-        if recompute_solution and self._recomp_num < self.recomp_max:
-            self.time -= self.dt  # (S1)
-            self.dt *= self.recomp_factor  # (S2)
-            self._recomp_num += 1  # (S3)
-            if self._print_info:
-                s = "Solution did not converge and will be recomputed."
-                s += f" Recomputing attempt #{self._recomp_num}. Next dt = {self.dt}."
-                print(s)
-            if self.dt < self.dt_min:  # (S4)
-                self.dt = self.dt_min
-                if self._print_info:
-                    print(
-                        f"Calculated dt < dt_min. Using dt_min = {self.dt_min} instead."
-                    )
-            return self.dt
-        elif not recompute_solution:  # we reach convergence, set recomp_num to zero
+        # If the solution will not be recomputed, then:
+        if not recompute_solution:
+            # Make sure to reset the recomp_num counter
             self._recomp_num = 0
-        else:  # number of recomputing attempts has been exhausted
-            msg = f"Solution did not converge after {self.recomp_max} recomputing attempts."
-            raise ValueError(msg)
 
-        # If iters < max_iter. Proceed to determine the next time step using the
-        # following criteria:
-        #     (C1) If iters is less than the lower endpoint of the optimal iteration range
-        #     `iter_low`, we can relax the time step, and multiply by an over-relaxation factor
-        #     greater than 1, i.e., `over_relax_factor`.
-        #     (C2) If the number of iterations is greater than the upper optimal
-        #     iteration range `iter_upp`, we have to decrease the time step by multiplying
-        #     by an under-relaxation factor smaller than 1, i.e., "under_relax_factor".
-        #     (C3) If neither of these situations occur, then the number iterations lies
-        #     in the optimal iteration range, and the time step remains unchanged.
-        if iterations <= self.iter_low:  # (C1)
-            self.dt = self.dt * self.over_relax_factor
-            if self._print_info:
-                print(f"Relaxing time step. Next dt = {self.dt}.")
-        elif iterations >= self.iter_upp:  # (C2)
-            self.dt = self.dt * self.under_relax_factor
-            if self._print_info:
-                print(f"Restricting time step. Next dt = {self.dt}.")
+            # If iters < max_iter. Proceed to determine the next time step using the
+            # following criteria:
+            #     (C1) If iters is less than the lower endpoint of the optimal iteration range
+            #     `iter_low`, we can relax the time step, and multiply by an over-relaxation
+            #     factor greater than 1, i.e., `over_relax_factor`.
+            #     (C2) If the number of iterations is greater than the upper optimal
+            #     iteration range `iter_upp`, we have to decrease the time step by multiplying
+            #     by an under-relaxation factor smaller than 1, i.e., "under_relax_factor".
+            #     (C3) If neither of these situations occur, then the number iterations lies
+            #     in the optimal iteration range, and the time step remains unchanged.
+            if iterations <= self.iter_low:  # (C1)
+                self.dt = self.dt * self.over_relax_factor
+                if self._print_info:
+                    print(f"Relaxing time step. Next dt = {self.dt}.")
+            elif iterations >= self.iter_upp:  # (C2)
+                self.dt = self.dt * self.under_relax_factor
+                if self._print_info:
+                    print(f"Restricting time step. Next dt = {self.dt}.")
+            else:
+                pass  # (C3)
         else:
-            pass  # (C3)
+            if self._recomp_num < self.recomp_max:
+                # If the solution did not converge AND we are allowed to recompute it, then:
+                #   (S1) Update simulation time since solution will be recomputed.
+                #   (S2) Decrease time step multiplying it by the recomputing factor < 1.
+                #   (S3) Increase counter that keeps track of the number of times the solution
+                #        was recomputed.
+
+                # Note that iterations is not really used here. So, as long as
+                # recompute_solution=True and recomputation_attempts < max_recomp_attempts,
+                # the method is entirely agnostic to the number of iterations passed. This
+                # design choice was made to give more flexibility, in the sense that we are
+                # not limiting the recomputation criteria to _only_ reaching the maximum
+                # number of iterations, even though that is the primary intended usage.
+                self.time -= self.dt  # (S1)
+                self.dt *= self.recomp_factor  # (S2)
+                self._recomp_num += 1  # (S3)
+                if self._print_info:
+                    s = "Solution did not converge and will be recomputed."
+                    s += f" Recomputing attempt #{self._recomp_num}. Next dt = {self.dt}."
+                    print(s)
+            else:
+                # The solution did not converge AND we exhausted all recomputation attempts
+                msg = (
+                    f"Solution did not converge after {self.recomp_max} recomputing "
+                    "attempts."
+                )
+                raise ValueError(msg)
 
         # There are three more cases that we have to consider that can modifiy the
         # value of the time step:
