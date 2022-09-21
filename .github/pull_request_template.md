@@ -11,20 +11,18 @@ _Put an `x` in the boxes that apply_
 - [ ] New feature (non-breaking change which adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] Testing (contribution related mainly to testing of existing functionality)
-- [ ] Documentation update (contribution related mainly to documentation of existing functionality)
-- [ ] Other: (if none of the other choices apply)
+- [ ] Documentation update (if none of the other choices apply)
+- [ ] Other: 
 
 ## Checklist
 
-_Enter one &check; in each row. The table can be updated after creating the PR._
+_Enter one &check; (`&check;`) in each row. The table can be updated after creating the PR._
 
-|                                              |Yes|No|NA|
-|----------------------------------------------|---|---|---|
-| The update is covered by the  test suite     |_|_|_|
-| The documentation is up-to-date              |_|_|_|
-| The documentation is up-to-date              |_|_|_|
-| I have provided type hints in the new code   |_|_|_|
-| I have not duplicated existing functionality |_|_|_|
+||Yes|No|NA|
+|---|---|---|---|
+|The update is covered by the  test suite |_|_|_|
+|The documentation is up-to-date |_|_|_|
+|I have not duplicated existing functionality |_|_|_|
 
 ## Further comments
 
