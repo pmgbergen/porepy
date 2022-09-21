@@ -386,7 +386,7 @@ class ContactMechanics(AbstractModel):
         # Variables and parameters
         self._assign_variables()
         if self._use_ad:
-            self._assign_ad_variables()
+            self._create_ad_variables()
         if not hasattr(self, "dof_manager"):
             self.dof_manager = pp.DofManager(self.mdg)
         self._initial_condition()
@@ -664,7 +664,7 @@ class ContactMechanics(AbstractModel):
             else:
                 data[pp.PRIMARY_VARIABLES] = {}
 
-    def _assign_ad_variables(self) -> None:
+    def _create_ad_variables(self) -> None:
         """Assign variables to self._ad
 
         Raises
@@ -790,7 +790,7 @@ class ContactMechanics(AbstractModel):
     def _assign_equations(self):
         """Assign equations to self._eq_manager.
 
-        The ad variables are set by a previous call to _assign_ad_variables and
+        The ad variables are set by a previous call to _create_ad_variables and
         accessed through self._ad.*variable_name*
 
         The following equations are assigned to the equation manager:
