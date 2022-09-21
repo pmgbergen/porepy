@@ -39,7 +39,7 @@ class TimeSteppingControl:
             then the first and second elements of the tuple corresponds to the minimum and
             maximum time steps, respectively.
 
-            To avoid oscilations and ensure a stable time step adaption in combination with
+            To avoid oscilations and ensure a stable time step adaptation in combination with
             the relaxation factors, we further require:
                 dt_min_max[0] * iter_relax_factors[1] < dt_min_max[1], and
                 dt_min_max[1] * iter_relax_factors[0] > dt_min_max[0].
@@ -49,12 +49,12 @@ class TimeSteppingControl:
             The first and second elements of the tuple correspond to the lower and upper
             endpoints of the optimal iteration range.
         iter_relax_factors: Relaxation factors.
-            The first and second elements of the tuple corresponds to the under- and
+            The first and second elements of the tuple corresponds to the under-relaxation and
             over-relaxation factors, respectively. We require the under-relaxation factor
             to be strictly lower than one, whereas the over-relaxation factor is required to
             be strictly greater than one.
 
-            To avoid oscilations and ensure a stable time step adaption in combination with
+            To avoid oscilations and ensure a stable time step adaptation in combination with
             the minimum and maximum allowable time steps, we further require:
                 dt_min_max[0] * iter_relax_factors[1] < dt_min_max[1], and
                 dt_min_max[1] * iter_relax_factors[0] > dt_min_max[0].
@@ -168,8 +168,8 @@ class TimeSteppingControl:
             # NOTE: The above checks guarantee that minimum time step <= maximum time step
 
             # Sanity checks for maximum number of iterations.
-            # Note that 1 is a possibility. This will imply that the solver reaches
-            # convergence directly, e.g., as in direct solvers.
+            # Note that iter_max = 1 is a possibility. This will imply that the solver
+            # reaches convergence directly, e.g., as in direct solvers.
             if iter_max <= 0:
                 raise ValueError("Maximum number of iterations must be positive.")
 
@@ -221,6 +221,7 @@ class TimeSteppingControl:
 
         else:
 
+            # TODO: Add unit test for this sanity check
             # If the time step is constant, check that the scheduled times and the time
             # step are compatible. See documentation of `schedule`.
             sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
@@ -243,18 +244,16 @@ class TimeSteppingControl:
 
         # Maximum number of iterations
         # TODO: This is really a property of the nonlinear solver. A full integration will
-        #  most likely requiring "pulling" this parameter from the solver side.
+        #  most likely required "pulling" this parameter from the solver side.
         self.iter_max = iter_max
 
         # Optimal iteration range
-        # TODO: This is really a property of the nonlinear solver. A full integration will
-        #  most likely requiring "pulling" this parameter from the solver side.
         self.iter_low, self.iter_upp = iter_optimal_range
 
         # Lower and upper multiplication factors
         self.under_relax_factor, self.over_relax_factor = iter_relax_factors
 
-        # Re-computation multiplication factor
+        # Recomputation multiplication factor
         self.recomp_factor = recomp_factor
 
         # Number of permissible re-computation attempts
@@ -281,6 +280,7 @@ class TimeSteppingControl:
         self._print_info: bool = print_info
 
         # Flag to keep track of recomputed solutions
+        # TODO: Is this really needed?
         self._recomp_sol: bool = False
 
     def __repr__(self) -> str:
@@ -300,21 +300,20 @@ class TimeSteppingControl:
 
         return s
 
-    # TODO: Split method in smaller parts
     def next_time_step(
         self, iterations: int, recompute_solution: bool = False
     ) -> Union[float, None]:
         """Determine next time step based on the previous number of iterations.
 
-        For an in-depth explanation of the algorithm, refer to the sections Algorithm
-        Overview and Algorithm Workflow from below.
+        For an in-depth explanation of the algorithm, refer to the sections Algorithm Overview
+        and Algorithm Workflow from below.
 
         Parameters:
             iterations: Number of non-linear iterations. In time-dependent simulations,
                 this typically represents the number of iterations for a given time step.
             recompute_solution: Whether the solution needs to be recomputed or not. If True,
-                then the time step is multiplied by recomp_factor. If False, the time step
-                will be tuned accordingly.
+                then the time step is multiplied by recomp_factor. If False, then the time
+                step will be tuned accordingly.
 
         Returns: Next time step if time < final_time. None, otherwise.
 
@@ -322,18 +321,18 @@ class TimeSteppingControl:
 
             Provided `recompute_solution = False`, the algorithm will adapt the time step
             based on `iterations`. If `iterations` is less than the lower endpoint of the
-            optimal iteration range, then it will decrease the time step by an
+            optimal iteration range, then it will increase the time step by a factor
             `over_relax_factor`. If `iterations` is greater than the upper endpoint of the
-            optimal iteration range it will increase the time step by an `under_relax_factor`.
-            Otherwise, `iterations` lies in the optimal iteration range, then the time step
-            will remain unchanged.
+            optimal iteration range it will decrease the time step by a factor
+            `under_relax_factor`. Otherwise, `iterations` lies in the optimal iteration range,
+            and time step remains unchanged.
 
-            If `recompute_solution = True`, then the time step will be decreased by
+            If `recompute_solution = True`, then the time step will be decreased by a factor
             `recomp_factor` with the hope of achieving convergence in the next time level. To
             avoid an infinite loop, an error will be raised if the method is called more than
             `recomp_max` consecutive times with the flag `recompute_solution = True`.
 
-            Now that the algorithm determined a new time step, it has to ensure three more
+            Now that the algorithm has determined a new time step, it has to ensure three more
             conditions, (1) the calculated time step cannot be smaller than `dt_min`,
             (2) the calculated time step cannot be larger than `dt_max`, and (3) the time
             step cannot be too large such that the next time will exceed a scheduled
@@ -344,8 +343,8 @@ class TimeSteppingControl:
 
             INPUT
                 tsc // time step control object properly initialized
-                iterations // number of non-linear interations.
-                recompute_solution // boolean flag.
+                iterations // number of non-linear interations
+                recompute_solution // boolean flag
 
             IF time > final simulation time THEN
                 RETURN None
@@ -391,7 +390,7 @@ class TimeSteppingControl:
         """
 
         # For bookkeeping reasons, save recomputation flag
-        # TODO: Consider purging self._recomp_sol from class and tests
+        # TODO: Is this really needed?
         self._recomp_sol = recompute_solution
 
         # First, check if we reach final simulation time
@@ -465,7 +464,7 @@ class TimeSteppingControl:
         """Adapt (decrease) time step when the solution failed to converge.
 
         Raises: ValueError if recomp_attemps > max_recomp_attempts. That is, when the maximum
-            number ofrecomputation attempts has been exhausted.
+            number of recomputation attempts has been exhausted.
 
         """
 
@@ -534,7 +533,7 @@ class TimeSteppingControl:
     # Helpers
     @staticmethod
     def _is_strictly_increasing(check_list: list) -> bool:
-        """Checks if a list is strictly increasing
+        """Checks if a list is strictly increasing.
 
         Parameters:
             check_list: List to be tested.
