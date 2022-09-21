@@ -403,7 +403,7 @@ class TimeSteppingControl:
 
         # Adapt time step
         if not recompute_solution:
-            self._adaptation_based_on_iterations(iterations)
+            self._adaptation_based_on_iterations(iterations=iterations)
         else:
             self._adaptation_based_on_recomputation()
 
@@ -414,7 +414,7 @@ class TimeSteppingControl:
 
         return self.dt
 
-    def _adaptation_based_on_iterations(self, iterations) -> None:
+    def _adaptation_based_on_iterations(self, iterations: int) -> None:
         """Provided convergence, adapt time step based on the number of iterations.
 
         Parameters:
