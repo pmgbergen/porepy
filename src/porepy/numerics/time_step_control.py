@@ -4,6 +4,7 @@ import warnings
 from typing import Optional, Union
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 __all__ = ["TimeSteppingControl"]
 
@@ -12,21 +13,22 @@ class TimeSteppingControl:
     """Parent class for iteration-based time-stepping control routine.
 
     Parameters:
-        schedule: List containing the target times for the simulation.
+        schedule: Array-like object containing the target times for the simulation.
             Unless a constant time step is prescribed, the time-stepping algorithm will adapt
             the time step so that the scheduled times are guaranteed to be hit.
 
-            The `schedule` list must contain minimally two items, corresponding to the
-            initial and final simulation times. Lists of length > 2 must contain strictly
-            increasing times. Examples of VALID inputs are: [0, 1], [0, 10, 30, 50], and
-            [0, 1*pp.HOUR, 3*pp.HOUR]. Examples of INVALID inputs are: [1], [1, 0], and
-            [0, 1, 1, 2].
+            The `schedule` must contain minimally two elements, corresponding to the
+            initial and final simulation times. Schedules of size > 2 must contain strictly
+            increasing times. Examples of VALID inputs are: [0, 1], np.array([0, 10, 30,50]),
+            and [0, 1*pp.HOUR, 3*pp.HOUR]. Examples of INVALID inputs are: [1], [1,0],
+            and np.array([0, 1, 1, 2]).
 
             If a constant time step is used (`constant_dt = True`), then the time step
             (`dt_init`) is required to be compatible with the scheduled times in `schedule`.
             Otherwise, an error will be raised. Examples of VALID inputs for `constant_dt =
-            True` and `dt_init = 2` are: [0, 2] and [0, 4, 6, 10]. Examples of INVALID inputs
-            for `constant_dt = True` and `dt_init = 2` are [0, 3] and [0, 4, 5, 10].
+            True` and `dt_init = 2` are: [0, 2] and np.array([0, 4, 6, 10]). Examples of
+            INVALID inputs for `constant_dt = True` and `dt_init = 2` are [0, 3] and
+            np.array([0, 4, 5, 10]).
         constant_dt: Whether to treat the time step as constant or not.
             If True, then the time-stepping control algorithm is effectively bypassed. The
             algorithm will NOT adapt the time step in any situation, even if the user
@@ -85,29 +87,26 @@ class TimeSteppingControl:
     Attributes:
         dt (float): Time step.
         dt_init (float): Initial time step.
-        dt_max (float): Maximum time step.
-        dt_min (float): Minimum time step.
+        dt_min_max (tuple[Union[int, float], Union[int, float]]): Min and max time steps.
         is_constant (bool): Constant time step flag.
-        iter_low (int): Lower endpoint of the optimal iteration range.
         iter_max (int): Maximum number of iterations.
-        iter_upp (int): Upper endpoint of the optimal iteration range.
-        over_relax_factor (float): Over-relaxation factor. Strictly greater than one.
+        iter_optimal_range (tuple[int, int]): Optimal iteration range.
+        iter_relax_factors (tuple[float, float]): Relaxation factors.
         recomp_factor (float): Recomputation factor. Strictly lower than one.
         recomp_max (int): Maximum number of recomputation attempts.
-        schedule (list): List of scheduled times including initial and final times.
+        schedule (ArrayLike): List of scheduled times including initial and final times.
         time (float): Current time.
         time_final (float): Final simulation time.
         time_init (float): Initial simulation time.
-        under_relax_factor (float): Under-relaxation factor. Strictly lower than one.
 
     """
 
     def __init__(
         self,
-        schedule: list,
-        dt_init: float,
+        schedule: ArrayLike,
+        dt_init: Union[int, float],
         constant_dt: bool = False,
-        dt_min_max: Optional[tuple[float, float]] = None,
+        dt_min_max: Optional[tuple[Union[int, float], Union[int, float]]] = None,
         iter_max: int = 15,
         iter_optimal_range: tuple[int, int] = (4, 7),
         iter_relax_factors: tuple[float, float] = (0.7, 1.3),
@@ -116,9 +115,11 @@ class TimeSteppingControl:
         print_info: bool = False,
     ) -> None:
 
+        # TODO: Add test to make sure schedule can indeed be an ArrayLike object
+        schedule = np.array(schedule)
         # Sanity checks for schedule
-        if len(schedule) < 2:
-            raise ValueError("Expected schedule with at least two items.")
+        if np.size(schedule) < 2:
+            raise ValueError("Expected schedule with at least two elements.")
         elif any(time < 0 for time in schedule):
             raise ValueError("Encountered at least one negative time in schedule.")
         elif not self._is_strictly_increasing(schedule):
@@ -193,7 +194,7 @@ class TimeSteppingControl:
                 )
                 raise ValueError(msg)
 
-            # Sanity checks for lower and upper multiplication factors
+            # Sanity checks for relaxation factors
             if iter_relax_factors[0] >= 1:
                 raise ValueError("Expected under-relaxation factor < 1.")
             elif iter_relax_factors[1] <= 1:
@@ -240,7 +241,7 @@ class TimeSteppingControl:
         self.dt_init = dt_init
 
         # Minimum and maximum allowable time steps
-        self.dt_min, self.dt_max = dt_min_max
+        self.dt_min_max = dt_min_max
 
         # Maximum number of iterations
         # TODO: This is really a property of the nonlinear solver. A full integration will
@@ -248,10 +249,10 @@ class TimeSteppingControl:
         self.iter_max = iter_max
 
         # Optimal iteration range
-        self.iter_low, self.iter_upp = iter_optimal_range
+        self.iter_optimal_range = iter_optimal_range
 
-        # Lower and upper multiplication factors
-        self.under_relax_factor, self.over_relax_factor = iter_relax_factors
+        # Relaxation factors
+        self.iter_relax_factors = iter_relax_factors
 
         # Recomputation multiplication factor
         self.recomp_factor = recomp_factor
@@ -285,15 +286,12 @@ class TimeSteppingControl:
 
     def __repr__(self) -> str:
 
-        s = "Time-stepping control object with atributes:\n"
+        s = "Time-stepping control object with attributes:\n"
         s += f"Initial and final simulation time = ({self.time_init}, {self.time_final})\n"
         s += f"Initial time step = {self.dt_init}\n"
-        s += f"Minimum and maximum time steps = ({self.dt_min}, {self.dt_max})\n"
-        s += f"Optimal iteration range = ({self.iter_low}, {self.iter_upp})\n"
-        s += (
-            f"Under- and over-relaxation factors = ({self.under_relax_factor}, "
-            f"{self.over_relax_factor})\n"
-        )
+        s += f"Minimum and maximum time steps = {self.dt_min_max}\n"
+        s += f"Optimal iteration range = {self.iter_optimal_range}\n"
+        s += f"Relaxation factors = {self.iter_relax_factors}\n"
         s += f"Recomputation factor = {self.recomp_factor}\n"
         s += f"Maximum recomputation attempts = {self.recomp_max}\n"
         s += f"Current time step and time are {self.dt} and {self.time}."
@@ -312,7 +310,7 @@ class TimeSteppingControl:
             iterations: Number of non-linear iterations. In time-dependent simulations,
                 this typically represents the number of iterations for a given time step.
             recompute_solution: Whether the solution needs to be recomputed or not. If True,
-                then the time step is multiplied by recomp_factor. If False, then the time
+                then the time step is multiplied by `recomp_factor`. If False, then the time
                 step will be tuned accordingly.
 
         Returns: Next time step if time < final_time. None, otherwise.
@@ -322,10 +320,10 @@ class TimeSteppingControl:
             Provided `recompute_solution = False`, the algorithm will adapt the time step
             based on `iterations`. If `iterations` is less than the lower endpoint of the
             optimal iteration range, then it will increase the time step by a factor
-            `over_relax_factor`. If `iterations` is greater than the upper endpoint of the
+            `iter_relax_factors[1]`. If `iterations` is greater than the upper endpoint of the
             optimal iteration range it will decrease the time step by a factor
-            `under_relax_factor`. Otherwise, `iterations` lies in the optimal iteration range,
-            and time step remains unchanged.
+            `iter_relax_factors[0]`. Otherwise, `iterations` lies in the optimal iteration
+            range, and time step remains unchanged.
 
             If `recompute_solution = True`, then the time step will be decreased by a factor
             `recomp_factor` with the hope of achieving convergence in the next time level. To
@@ -333,9 +331,9 @@ class TimeSteppingControl:
             `recomp_max` consecutive times with the flag `recompute_solution = True`.
 
             Now that the algorithm has determined a new time step, it has to ensure three more
-            conditions, (1) the calculated time step cannot be smaller than `dt_min`,
-            (2) the calculated time step cannot be larger than `dt_max`, and (3) the time
-            step cannot be too large such that the next time will exceed a scheduled
+            conditions, (1) the calculated time step cannot be smaller than dt_min,
+            (2) the calculated time step cannot be larger than dt_max, and (3) the
+            time step cannot be too large such that the next time will exceed a scheduled
             time. These three conditions are implemented in this order of precedence and
             will override any of the previous calculated time steps.
 
@@ -449,12 +447,12 @@ class TimeSteppingControl:
         #     `under_relax_factor`.
         #     (C3) If neither of these situations occur, then the number iterations lies
         #     in the optimal iteration range, and the time step remains unchanged.
-        if iterations <= self.iter_low:  # (C1)
-            self.dt = self.dt * self.over_relax_factor
+        if iterations <= self.iter_optimal_range[0]:  # (C1)
+            self.dt = self.dt * self.iter_relax_factors[1]
             if self._print_info:
                 print(f"Relaxing time step. Next dt = {self.dt}.")
-        elif iterations >= self.iter_upp:  # (C2)
-            self.dt = self.dt * self.under_relax_factor
+        elif iterations >= self.iter_optimal_range[1]:  # (C2)
+            self.dt = self.dt * self.iter_relax_factors[0]
             if self._print_info:
                 print(f"Restricting time step. Next dt = {self.dt}.")
         else:
@@ -500,17 +498,21 @@ class TimeSteppingControl:
 
     def _correction_based_on_dt_min(self) -> None:
         """Correct time step if dt < dt_min."""
-        if self.dt < self.dt_min:
-            self.dt = self.dt_min
+        if self.dt < self.dt_min_max[0]:
+            self.dt = self.dt_min_max[0]
             if self._print_info:
-                print(f"Calculated dt < dt_min. Using dt_min = {self.dt_min} instead.")
+                print(
+                    f"Calculated dt < dt_min. Using dt_min = {self.dt_min_max[0]} instead."
+                )
 
     def _correction_based_on_dt_max(self) -> None:
         """Correct time step if dt > dt_max."""
-        if self.dt > self.dt_max:
-            self.dt = self.dt_max
+        if self.dt > self.dt_min_max[1]:
+            self.dt = self.dt_min_max[1]
             if self._print_info:
-                print(f"Calculated dt > dt_max. Using dt_max = {self.dt_max} instead.")
+                print(
+                    f"Calculated dt > dt_max. Using dt_max = {self.dt_min_max[1]} instead."
+                )
 
     def _correction_based_on_schedule(self) -> None:
         """Correct time step if time + dt > scheduled_time."""
@@ -532,13 +534,13 @@ class TimeSteppingControl:
 
     # Helpers
     @staticmethod
-    def _is_strictly_increasing(check_list: list) -> bool:
+    def _is_strictly_increasing(check_array: np.ndarray) -> bool:
         """Checks if a list is strictly increasing.
 
         Parameters:
-            check_list: List to be tested.
+            check_array: Array to be tested.
 
         Returns: True or False.
 
         """
-        return all(a < b for a, b in zip(check_list, check_list[1:]))
+        return all(a < b for a, b in zip(check_array, check_array[1:]))
