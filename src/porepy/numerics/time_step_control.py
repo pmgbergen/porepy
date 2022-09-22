@@ -64,7 +64,7 @@ class TimeSteppingControl:
             recomputed. We require `recomp_factor` to be strictly less than one.
         recomp_max: Failed-to-converge maximum recomputation attempts. The maximum allowable
             number of consecutive recomputation attempts.
-        print_info. Wheter to print on-the-fly time-stepping information or not.
+        print_info. Whether to print on-the-fly time-stepping information or not.
 
     Example:
         # The following is an example on how to initialize a time-stepping object
