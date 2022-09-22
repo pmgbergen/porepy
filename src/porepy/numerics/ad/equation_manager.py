@@ -52,8 +52,8 @@ class EquationManager:
         self,
         mdg: pp.MixedDimensionalGrid,
         dof_manager: pp.DofManager,
-        equations: Optional[Dict[str, "pp.ad.Operator"]] = None,
-        secondary_variables: Optional[Sequence["pp.ad.Variable"]] = None,
+        equations: Optional[Dict[str, pp.ad.Operator]] = None,
+        secondary_variables: Optional[Sequence[pp.ad.Variable]] = None,
     ) -> None:
         """Initialize the EquationManager.
 
@@ -68,7 +68,7 @@ class EquationManager:
         self.mdg = mdg
 
         # Inform mypy about variables, and then set them by a dedicated method.
-        self.variables: Dict[GridLike, Dict[str, "pp.ad.Variable"]]
+        self.variables: Dict[GridLike, Dict[str, pp.ad.Variable]]
         self._set_variables(mdg)
 
         if equations is None:
@@ -144,7 +144,7 @@ class EquationManager:
 
     def merge_variables(
         self, grid_var: Sequence[Tuple[GridLike, str]]
-    ) -> "pp.ad.MergedVariable":
+    ) -> pp.ad.MergedVariable:
         """Concatenate a variable defined over several subdomains or interfaces.
 
 
@@ -169,7 +169,7 @@ class EquationManager:
         """
         return pp.ad.MergedVariable([self.variables[g][v] for g, v in grid_var])
 
-    def variable(self, grid_like: GridLike, variable: str) -> "pp.ad.Variable":
+    def variable(self, grid_like: GridLike, variable: str) -> pp.ad.Variable:
         """Get a variable for a specified grid or interface between grids, that is
         a mortar grid.
 
@@ -268,7 +268,7 @@ class EquationManager:
         self,
         eq_names: Optional[Sequence[str]] = None,
         variables: Optional[
-            Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
+            Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]]
         ] = None,
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
@@ -352,7 +352,7 @@ class EquationManager:
     def assemble_schur_complement_system(
         self,
         primary_equations: Sequence[str],
-        primary_variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
+        primary_variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]],
         inverter: Callable[[sps.spmatrix], sps.spmatrix],
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
@@ -444,8 +444,8 @@ class EquationManager:
     def subsystem_equation_manager(
         self,
         eq_names: Sequence[str],
-        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
-    ) -> "EquationManager":
+        variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]],
+    ) -> EquationManager:
         """Extract an EquationManager for a subset of variables and equations.
         In effect, this produce a nonlinear subsystem.
 
@@ -541,8 +541,8 @@ class EquationManager:
 
     def _variable_set_complement(
         self,
-        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]] = None,
-    ) -> List["pp.ad.Variable"]:
+        variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]] = None,
+    ) -> List[pp.ad.Variable]:
         """
         Take the complement of a set of variables, with respect to the full set of
         variables. The variables are returned as atomic (merged variables are
@@ -572,9 +572,9 @@ class EquationManager:
     def _variables_as_list(
         self,
         variables: Optional[
-            Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
+            Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]]
         ] = None,
-    ) -> List["pp.ad.Variable"]:
+    ) -> List[pp.ad.Variable]:
         """Unravel a list of variables into atomic (non-merged) variables.
 
         This is a bit cumbersome, since the variables are stored as a

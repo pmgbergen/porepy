@@ -551,17 +551,6 @@ class Operator:
                 assert res.shape[0] <= 1 or res.shape[1] <= 1
                 results[i] = res.toarray().ravel()
 
-    def __repr__(self) -> str:
-        if self._name is None or len(self._name) == 0:
-            s = "Operator with no name"
-        else:
-            s = f"Operator named {self._name}"
-        s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
-        return s
-
-    def __str__(self) -> str:
-        return self._name if self._name is not None else ""
-
     def viz(self):
         """Give a visualization of the operator tree that has this operator at the top."""
         G = nx.Graph()
@@ -581,42 +570,9 @@ class Operator:
         nx.draw(G, with_labels=True)
         plt.show()
 
-    ### Below here are method for overloading arithmetic operators
-
-    def __mul__(self, other):
-        children = self._parse_other(other)
-        return Operator(
-            tree=Tree(Operation.mul, children), name="Multiplication operator"
-        )
-
-    def __truediv__(self, other):
-        children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.div, children), name="Division operator")
-
-    def __add__(self, other):
-        children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.add, children), name="Addition operator")
-
-    def __sub__(self, other):
-        children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
-
-    def __rmul__(self, other):
-        return self.__mul__(other)
-
-    def __radd__(self, other):
-        return self.__add__(other)
-
-    def __rsub__(self, other):
-        # consider the expression a-b. right-subtraction means self == b
-        children = self._parse_other(other)
-        # we need to change the order here since a-b != b-a
-        children = [children[1], children[0]]
-        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
-
     def evaluate(
         self,
-        dof_manager: "pp.DofManager",
+        dof_manager: pp.DofManager,
         state: Optional[np.ndarray] = None,
     ):
         """Evaluate the residual and Jacobian matrix for a given state.
@@ -763,6 +719,50 @@ class Operator:
         eq = self._parse_operator(self, mdg)
 
         return eq
+
+    ### Below here are method for overloading arithmetic operators and other special methods
+
+    def __repr__(self) -> str:
+        if self._name is None or len(self._name) == 0:
+            s = "Operator with no name"
+        else:
+            s = f"Operator named {self._name}"
+        s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
+        return s
+
+    def __str__(self) -> str:
+        return self._name if self._name is not None else ""
+
+    def __mul__(self, other):
+        children = self._parse_other(other)
+        return Operator(
+            tree=Tree(Operation.mul, children), name="Multiplication operator"
+        )
+
+    def __truediv__(self, other):
+        children = self._parse_other(other)
+        return Operator(tree=Tree(Operation.div, children), name="Division operator")
+
+    def __add__(self, other):
+        children = self._parse_other(other)
+        return Operator(tree=Tree(Operation.add, children), name="Addition operator")
+
+    def __sub__(self, other):
+        children = self._parse_other(other)
+        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __rsub__(self, other):
+        # consider the expression a-b. right-subtraction means self == b
+        children = self._parse_other(other)
+        # we need to change the order here since a-b != b-a
+        children = [children[1], children[0]]
+        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
