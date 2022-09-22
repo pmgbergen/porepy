@@ -10,11 +10,9 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
-
-
 __all__ = ["DofManager"]
 
+csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
@@ -25,17 +23,14 @@ class DofManager:
     This class should be used for setting the state of variables, and to get
     indices of the degrees of freedom for grids and variables.
 
-    Attributes:
-        block_dof: Is a dictionary with keys that are either
-            Tuple[pp.Grid, variable_name: str] for nodes in the MixedDimensionalGrid, or
-            Tuple[pp.MortarGrid, str] for edges in the MixedDimensionalGrid.
-            The values in block_dof are integers 0, 1, ..., that identify the block
-            index of this specific grid (or edge) - variable combination.
+    """
 
-        full_dof: Is a np.ndarray of int that stores the number of degrees of
-            freedom per key-item pair in block_dof. Thus
-              len(full_dof) == len(block_dof).
-            The total size of the global system is self.num_dofs() = full_dof.sum().
+    admissible_dof_types: set[str] = {"cells", "faces", "nodes"}
+    """A set denoting admissible types of local DOFs for variables.
+
+    - nodes: DOFs per node, which constitute the grid
+    - cells: DOFs per cell (center), which are defined by nodes
+    - faces: DOFS per face, which form the (polygonal) boundary of cells
 
     """
 
@@ -50,11 +45,16 @@ class DofManager:
 
         self.mdg = mdg
         """Mixed-dimensional grid for which the DOFs are managed."""
+
         self.full_dof: np.ndarray = np.array([], dtype=int)
-        """Array containing the number of DOFS per block index."""
+        """Array containing the number of DOFS per block index. The block index corresponds
+        to this array's indices.
+
+        """
+
         self.block_dof: Dict[Tuple[Union[pp.Grid, pp.MortarGrid], str], int] = {}
-        """Dictionary containing the block index per combination of variable name and
-        grid/ mortar grid.
+        """Dictionary containing the block index for a given combination of variable name and
+        grid/ mortar grid (key)
 
         """
 
@@ -157,6 +157,31 @@ class DofManager:
                 full_dof.append(total_local_dofs)
         
         return np.array(full_dof, dtype=int), block_dof
+
+    def get_variables(self, primary: bool, secondary: bool) -> tuple[str]:
+        """Returns a set of all, currently stored variables.
+
+        Parameters:
+            primary: if true, includes the primary variables
+            secondary: if true, includes the secondary variables
+
+        """
+        # a set keeps variable names unique
+        vars = set()
+        # get vars on subdomains
+        for data in self.mdg.subdomain_data():
+            if primary:
+                vars.add(set(data[pp.PRIMARY_VARIABLES].keys()))
+            if secondary:
+                vars.add(set(data[pp.SECONDARY_VARIABLES].keys()))
+        # get vars on interfaces
+        for data in self.mdg.interface_data():
+            if primary:
+                vars.add(set(data[pp.PRIMARY_VARIABLES].keys()))
+            if secondary:
+                vars.add(set(data[pp.SECONDARY_VARIABLES].keys()))
+
+        return tuple(vars)
 
     def num_dofs(
         self,
@@ -551,6 +576,48 @@ class DofManager:
         block_range = self._block_range_from_grid_and_var(g, variable)
         dof_range: np.ndarray = np.arange(block_range[0], block_range[1])
         return dof_range
+
+    def projection_to(self, variables: Sequence[str]) -> sps.spmatrix:
+        """Create a projection matrix from the global variable vector to a subspace specified
+        by given ``variables``.
+
+        The transpose of the returned matrix can be used to slice respective columns out of a
+        global system matrix.
+
+        Parameters:
+            variables: names of variables to be projected on. The projection is
+                preserving the order defined for the global DOFs.
+
+        Returns:
+            sparse projection matrix. Can be rectangular ``MxN``, where ``M<=N`` and ``N`` is
+            the current size of the global DOF vector.
+
+        """
+        num_global_dofs = self.num_dofs()
+
+        # Array for the dofs associated with each grid-variable combination
+        inds = []
+
+        # Loop over variables, find dofs
+        for var in variables:
+            var_grids = [pair[0] for pair in self.block_dof if pair[1] == var]
+            for grid in var_grids:
+                inds.append(self.grid_and_variable_to_dofs(grid, var))
+
+        if len(inds) == 0:
+            # Special case if no indices were returned
+            return sps.csr_matrix((0, num_global_dofs))
+
+        # Create projection matrix. Uniquify indices here, both to sort (will preserve
+        # the ordering of the unknowns given by the DofManager) and remove duplicates
+        # (in case variables were specified more than once).
+        local_dofs = np.unique(np.hstack(inds))
+        num_local_dofs = local_dofs.size
+
+        return sps.coo_matrix(
+            (np.ones(num_local_dofs), (np.arange(num_local_dofs), local_dofs)),
+            shape=(num_local_dofs, num_global_dofs),
+        ).tocsr()
 
     def __str__(self) -> str:
         grid_likes = [key[0] for key in self.block_dof]
