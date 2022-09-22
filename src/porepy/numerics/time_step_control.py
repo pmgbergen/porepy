@@ -58,7 +58,7 @@ class TimeSteppingControl:
             the minimum and maximum allowable time steps, we further require:
                 dt_min_max[0] * iter_relax_factors[1] < dt_min_max[1], and
                 dt_min_max[1] * iter_relax_factors[0] > dt_min_max[0].
-            Note that in practical applications, these conditions are ussually met.
+            Note that in practical applications, these conditions are usually met.
         recomp_factor: Failed-to-converge solution recomputation factor.
             Factor by which the time step will be multiplied in case the solution must be
             recomputed. We require `recomp_factor` to be strictly less than one.
