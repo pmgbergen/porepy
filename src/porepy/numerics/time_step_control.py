@@ -337,7 +337,7 @@ class TimeSteppingControl:
             (2) the calculated time step cannot be larger than `dt_max`, and (3) the time
             step cannot be too large such that the next time will exceed a scheduled
             time. These three conditions are implemented in this order of precedence and
-            will overrride any of the previous calculated time steps.
+            will override any of the previous calculated time steps.
 
         Algorithm Workflow: For completeness, we include the full algorithm in pseudocode.
 
