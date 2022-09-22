@@ -2,6 +2,8 @@
 defined here are mainly wrappers that constructs Ad matrices based on grid information.
 
 """
+from __future__ import annotations
+
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -15,6 +17,7 @@ __all__ = [
     "MortarProjections",
     "Divergence",
     "BoundaryCondition",
+    "Geometry",
     "Trace",
     "SubdomainProjections",
     "ParameterArray",
@@ -25,7 +28,7 @@ __all__ = [
 class SubdomainProjections(Operator):
     """Wrapper class for generating projection to and from subdomains.
 
-    One use case in when variables are defined on only some of the subdomains.
+    One use case in when variables are defined on only some subdomains.
 
     The class should be used through the methods {cell, face}_{projection, restriction}.
 
@@ -36,7 +39,7 @@ class SubdomainProjections(Operator):
     def __init__(
         self,
         subdomains: List[pp.Grid],
-        nd: int = 1,
+        dim: int = 1,
     ) -> None:
         """Construct subdomain restrictions and prolongations for a set of subdomains.
 
@@ -46,12 +49,12 @@ class SubdomainProjections(Operator):
         Parameters:
             subdomains (List of pp.Grid): List of subdomains. The order of the subdomains in
                 the list will establish the ordering of the subdomain projections.
-            nd (int, optional): Dimension of the quantities to be projected.
+            dim (int, optional): Dimension of the quantities to be projected.
 
         """
         self._name = "SubdomainProjection"
-        self._nd = nd
-        self._is_scalar: bool = nd == 1
+        self.dim = dim
+        self._is_scalar: bool = dim == 1
 
         self._num_grids: int = len(subdomains)
 
@@ -61,7 +64,7 @@ class SubdomainProjections(Operator):
         self._tot_num_faces: int = sum([g.num_faces for g in subdomains])
 
         self._cell_projection, self._face_projection = _subgrid_projections(
-            subdomains, self._nd
+            subdomains, self.dim
         )
 
     def cell_restriction(self, subdomains: List[pp.Grid]) -> Matrix:
@@ -76,29 +79,23 @@ class SubdomainProjections(Operator):
                 projection.
 
         """
-        if isinstance(subdomains, pp.Grid):
-            return pp.ad.Matrix(
-                self._cell_projection[subdomains].T, name="CellRestriction"
-            )
-        elif isinstance(subdomains, list):
-            if len(subdomains) > 0:
-                # A key error will be raised if a grid in g is not known to
-                # self._cell_projection
-                # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
-                # be much less than the number of columns.
-                mat = sps.bmat(
-                    [[self._cell_projection[g].T] for g in subdomains]
-                ).tocsr()
-            else:
-                # If the grid list is empty, we project from the full set of cells to
-                # nothing.
-                mat = sps.csr_matrix((0, self._tot_num_cells * self._nd))
-            return pp.ad.Matrix(
-                mat,
-                name="CellRestriction",
-            )
-        else:
+        if not isinstance(subdomains, list):
             raise ValueError(self._error_message())
+
+        if len(subdomains) > 0:
+            # A key error will be raised if a grid in g is not known to
+            # self._cell_projection
+            # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
+            # be much less than the number of columns.
+            mat = sps.bmat([[self._cell_projection[g].T] for g in subdomains]).tocsr()
+        else:
+            # If the grid list is empty, we project from the full set of cells to
+            # nothing.
+            mat = sps.csr_matrix((0, self._tot_num_cells * self.dim))
+        return pp.ad.Matrix(
+            mat,
+            name="CellRestriction",
+        )
 
     def cell_prolongation(self, subdomains: List[pp.Grid]) -> Matrix:
         """Construct prolongation from subdomain to global cell quantities.
@@ -126,7 +123,7 @@ class SubdomainProjections(Operator):
             else:
                 # If the grid list is empty, we project from nothing to the full set of
                 # cells
-                mat = sps.csc_matrix((self._tot_num_cells * self._nd, 0))
+                mat = sps.csc_matrix((self._tot_num_cells * self.dim, 0))
             return pp.ad.Matrix(
                 mat,
                 name="CellProlongation",
@@ -164,7 +161,7 @@ class SubdomainProjections(Operator):
             else:
                 # If the grid list is empty, we project from the full set of faces to
                 # nothing.
-                mat = sps.csr_matrix((0, self._tot_num_faces * self._nd))
+                mat = sps.csr_matrix((0, self._tot_num_faces * self.dim))
             return pp.ad.Matrix(
                 mat,
                 name="FaceRestriction",
@@ -198,7 +195,7 @@ class SubdomainProjections(Operator):
             else:
                 # If the grid list is empty, we project from nothing to the full set of
                 # faces
-                mat = sps.csc_matrix((self._tot_num_faces * self._nd, 0))
+                mat = sps.csc_matrix((self._tot_num_faces * self.dim, 0))
             return pp.ad.Matrix(
                 mat,
                 name="FaceProlongation",
@@ -209,7 +206,7 @@ class SubdomainProjections(Operator):
     def __repr__(self) -> str:
         s = (
             f"Restriction and prolongation operators for {self._num_grids} subdomains\n"
-            f"Aimed at variables with dimension {self._nd}\n"
+            f"Aimed at variables with dimension {self.dim}\n"
         )
         return s
 
@@ -256,7 +253,7 @@ class MortarProjections(Operator):
         mdg: pp.MixedDimensionalGrid,
         subdomains: List[pp.Grid],
         interfaces: List[pp.MortarGrid],
-        nd: int = 1,
+        dim: int = 1,
     ) -> None:
         """Construct mortar projection object.
 
@@ -272,15 +269,15 @@ class MortarProjections(Operator):
             interfaces (List of edges): List of edges for which the projections
                 should apply. The order of the grids in the list establishes the ordering of
                 the subdomain projections.
-            nd (int, optional): Dimension of the quantities to be projected.
+            dim (int, optional): Dimension of the quantities to be projected.
 
         """
         self._name = "MortarProjection"
         self._num_edges: int = len(interfaces)
-        self._nd: int = nd
+        self.dim: int = dim
 
         # Initialize projections
-        cell_projection, face_projection = _subgrid_projections(subdomains, self._nd)
+        cell_projection, face_projection = _subgrid_projections(subdomains, self.dim)
 
         # IMPLEMENTATION NOTE:
         # sparse blocks are slow; it should be possible to do a right multiplication
@@ -328,36 +325,36 @@ class MortarProjections(Operator):
                 # Projections to primary
                 mortar_to_primary_int.append(
                     pp.matrix_operations.optimized_compressed_storage(
-                        primary_projection * intf.mortar_to_primary_int(nd)
+                        primary_projection * intf.mortar_to_primary_int(dim)
                     )
                 )
                 mortar_to_primary_avg.append(
                     pp.matrix_operations.optimized_compressed_storage(
-                        primary_projection * intf.mortar_to_primary_avg(nd)
+                        primary_projection * intf.mortar_to_primary_avg(dim)
                     )
                 )
 
                 # Projections from primary
                 primary_to_mortar_int.append(
                     pp.matrix_operations.optimized_compressed_storage(
-                        intf.primary_to_mortar_int(nd) * primary_projection.T
+                        intf.primary_to_mortar_int(dim) * primary_projection.T
                     )
                 )
                 primary_to_mortar_avg.append(
                     pp.matrix_operations.optimized_compressed_storage(
-                        intf.primary_to_mortar_avg(nd) * primary_projection.T
+                        intf.primary_to_mortar_avg(dim) * primary_projection.T
                     )
                 )
 
                 # Projections to secondary
                 mortar_to_secondary_int.append(
                     pp.matrix_operations.optimized_compressed_storage(
-                        cell_projection[g_secondary] * intf.mortar_to_secondary_int(nd)
+                        cell_projection[g_secondary] * intf.mortar_to_secondary_int(dim)
                     )
                 )
                 mortar_to_secondary_avg.append(
                     pp.matrix_operations.optimized_compressed_storage(
-                        cell_projection[g_secondary] * intf.mortar_to_secondary_avg(nd)
+                        cell_projection[g_secondary] * intf.mortar_to_secondary_avg(dim)
                     )
                 )
 
@@ -370,13 +367,13 @@ class MortarProjections(Operator):
                 # relevant test case was the field case in the 3d flow benchmark).
                 secondary_to_mortar_int.append(
                     pp.matrix_operations.optimized_compressed_storage(
-                        intf.secondary_to_mortar_int(nd).tocsr()
+                        intf.secondary_to_mortar_int(dim).tocsr()
                         * cell_projection[g_secondary].T
                     )
                 )
                 secondary_to_mortar_avg.append(
                     pp.matrix_operations.optimized_compressed_storage(
-                        intf.secondary_to_mortar_avg(nd).tocsr()
+                        intf.secondary_to_mortar_avg(dim).tocsr()
                         * cell_projection[g_secondary].T
                     )
                 )
@@ -389,8 +386,8 @@ class MortarProjections(Operator):
             # clear what to do, so we'll raise an error.
             assert len(subdomains) == 1
 
-            num_cells_lower_dimension = sum([g.num_cells for g in subdomains]) * nd
-            num_faces_higher_dimension = sum([g.num_faces for g in subdomains]) * nd
+            num_cells_lower_dimension = sum([g.num_cells for g in subdomains]) * dim
+            num_faces_higher_dimension = sum([g.num_faces for g in subdomains]) * dim
 
             # Projections to and from the grid
             to_face = sps.csc_matrix((num_faces_higher_dimension, 0))
@@ -453,7 +450,7 @@ class MortarProjections(Operator):
         mats = []
         for intf in interfaces:
             assert isinstance(intf, pp.MortarGrid)  # Appease mypy
-            mats.append(intf.sign_of_mortar_sides(nd))
+            mats.append(intf.sign_of_mortar_sides(dim))
         if len(interfaces) == 0:
             self.sign_of_mortar_sides = Matrix(
                 sps.bmat([[None]]), name="SignOfMortarSides"
@@ -466,7 +463,7 @@ class MortarProjections(Operator):
     def __repr__(self) -> str:
         s = (
             f"Mortar projection for {self._num_edges} interfaces\n"
-            f"Aimed at variables with dimension {self._nd}\n"
+            f"Aimed at variables with dimension {self.dim}\n"
             f"Projections to primary have dimensions {self.mortar_to_primary_avg.shape}\n"
             f"Projections to secondary have dimensions {self.mortar_to_secondary_avg.shape}\n"
         )
@@ -493,7 +490,7 @@ class Trace(Operator):
     def __init__(
         self,
         subdomains: List[pp.Grid],
-        nd: int = 1,
+        dim: int = 1,
         name: Optional[str] = None,
     ):
         """Construct trace operators and their inverse for a given set of subdomains.
@@ -504,36 +501,36 @@ class Trace(Operator):
         Parameters:
             subdomains (List of pp.Grid): List of grids. The order of the grids in the list
                 sets the ordering of the trace operators.
-            nd (int, optional): Dimension of the quantities to be projected. Defaults to 1.
+            dim (int, optional): Dimension of the quantities to be projected. Defaults to 1.
             name (str, optional): Name of the operator. Default is None.
 
         """
         super().__init__(name=name)
 
         self.grids = subdomains
-        self._nd: int = nd
-        self._is_scalar: bool = nd == 1
+        self.dim: int = dim
+        self._is_scalar: bool = dim == 1
         self._num_grids: int = len(subdomains)
 
-        cell_projections, face_projections = _subgrid_projections(subdomains, self._nd)
+        cell_projections, face_projections = _subgrid_projections(subdomains, self.dim)
 
-        trace: sps.spmatrix = []
-        inv_trace: sps.spmatrix = []
+        trace: list[sps.spmatrix] = []
+        inv_trace: list[sps.spmatrix] = []
 
-        for g in subdomains:
+        for sd in subdomains:
             if self._is_scalar:
 
                 # TEMPORARY CONSTRUCT: Use the divergence operator as a trace.
                 # It would be better to define a dedicated function for this,
                 # perhaps in the grid itself.
-                div = np.abs(pp.fvutils.scalar_divergence(g))
+                div = np.abs(pp.fvutils.scalar_divergence(sd))
 
                 # Restrict global cell values to the local grid, use transpose of div
                 # to map cell values to faces.
-                trace.append(div.T * cell_projections[g].T)
+                trace.append(div.T * cell_projections[sd].T)
                 # Similarly restrict a global face quantity to the local grid, then
                 # map back to cells.
-                inv_trace.append(div * face_projections[g].T)
+                inv_trace.append(div * face_projections[sd].T)
             else:
                 raise NotImplementedError("kronecker")
         # Stack both trace and inv_trace vertically to make them into mappings to
@@ -545,13 +542,97 @@ class Trace(Operator):
     def __repr__(self) -> str:
         s = (
             f"Trace operator for {self._num_grids} subdomains\n"
-            f"Aimed at variables with dimension {self._nd}\n"
+            f"Aimed at variables with dimension {self.dim}\n"
             f"Projection from grid to mortar has dimensions {self.trace}\n"
         )
         return s
 
     def __str__(self) -> str:
         s = "Trace"
+        if self._name is not None:
+            s += f" named {self._name}"
+        return s
+
+
+class Geometry(Operator):
+    """Wrapper class for Ad representations of grids.
+
+    Attributes:
+        cell_volumes (pp.ad.Matrix): Diagonal ad matrix of cell volumes.
+        face_areas (pp.ad.Matrix):  Diagonal ad matrix of face areas.
+        nd (int): Ambient/highest dimension of the mixed-dimensional grid.
+
+    FIXME: Implement parse??
+    """
+
+    def __init__(self, subdomains: list[pp.Grid], nd: int, name: Optional[str] = None):
+        """Construct concatenated grid operators for a given set of subdomains.
+
+        The operators will be ordered according to the ordering in grids. It is critical
+        that the same ordering is used by other operators.
+
+        Parameters:
+            subdomains (List of pp.Grid): List of grids. The order of the grids in the list
+                sets the ordering of the geometry operators. Can be either subdomain (pp.Grid)
+                or interface (pp.MortarGrid) grids.
+            nd: ambient dimension.
+            name (str, optional): Name of the operator. Default is None.
+
+        Raises:
+            AssertionError if nd is smaller than the dimension of any subdomain.
+        """
+        super().__init__(name=name)
+
+        self.subdomains = subdomains
+        for sd in subdomains:
+            assert sd.dim <= nd
+
+        self._num_grids: int = len(subdomains)
+        self.nd = nd
+
+        self.num_cells: int = sum([g.num_cells for g in subdomains])
+        self.num_faces: int = sum([g.num_faces for g in subdomains])
+
+        # Wrap the stacked matrices into Ad objects (could be extended to e.g. face normals)
+        for field in ["cell_volumes", "face_areas"]:
+            ad_matrix = Matrix(
+                sps.diags(np.hstack([getattr(g, field) for g in subdomains]))
+            )
+            setattr(self, field, ad_matrix)
+
+        def scalar_to_nd(size):
+            """Expand matrix of size [N x M] to [nd*N x M].
+
+            When left multiplied to a matrix A, each row of A is
+            repeated nd times.
+
+            Usage example: Scaling from traction to force is
+
+                    force = (scalar_to_nd_face * face_areas) * traction
+
+            FIXME: Refactor?
+            """
+            rows: np.ndarray = np.arange(size * self.nd)
+            cols: np.ndarray = np.kron(np.arange(size), np.ones(self.nd))
+            data: np.ndarray = np.ones(size * self.nd)
+            mat = sps.csc_matrix(
+                (data, (rows, cols)),
+                shape=(size * self.nd, size),
+            )
+            return pp.ad.Matrix(mat)
+
+        self.scalar_to_nd_cell = scalar_to_nd(self.num_cells)
+        self.scalar_to_nd_face = scalar_to_nd(self.num_faces)
+
+    def __repr__(self) -> str:
+        s = (
+            f"Geometry operator for {self._num_grids} grids.\n"
+            f"Ambient dimension is {self.nd}.\n"
+        )
+        return s
+
+    def __str__(self) -> str:
+        s = "Compound geometry"
         if self._name is not None:
             s += f" named {self._name}"
         return s
@@ -569,7 +650,7 @@ class Divergence(Operator):
         """Construct divergence operators for a set of subdomains.
 
         The operators will be ordered according to the ordering in subdomains, or the order
-        of the MixedDimensionalGrid iteration over subdomains. Iit is critical that the same
+        of the MixedDimensionalGrid iteration over subdomains. It is critical that the same
         ordering is used by other operators.
 
         IMPLEMENTATION NOTE: Only scalar quantities so far; vector operators will be
@@ -724,7 +805,6 @@ class DirBC(Operator):
         return f"Dirichlet boundary data of size {self._bc.val.size}"
 
     def parse(self, mdg: pp.MixedDimensionalGrid):
-
         bc_val = self._bc.parse(mdg)  # TODO Is this done anyhow already?
         keyword = self._bc.keyword
         g = self.subdomains[0]
@@ -864,7 +944,7 @@ class ParameterMatrix(ParameterArray):
                 will be taken from the data dictionaries with the relevant keyword.
 
         Returns:
-            np.ndarray: Value of boundary conditions.
+            sps.spmatrix: Value of boundary conditions.
 
         """
         val = []
@@ -884,11 +964,21 @@ class ParameterMatrix(ParameterArray):
 
 
 def _subgrid_projections(
-    subdomains: List[pp.Grid], nd: int
+    subdomains: List[pp.Grid], dim: int
 ) -> Tuple[Dict[pp.Grid, sps.spmatrix], Dict[pp.Grid, sps.spmatrix]]:
     """Construct prolongation matrices from individual subdomains to a set of subdomains.
 
-    Matrices for both cells and faces are constructed.
+    Args:
+        subdomains: List of grids representing subdomains.
+        dim: Dimension of the quantities to be projected. 1 corresponds to scalars, 2 to a
+            vector of two components etc.
+
+    Returns:
+        cell_projection: Dictionary with the individual subdomains as keys and projection
+            matrices for cell-based quantities as items.
+        face_projection: Dictionary with the individual subdomains as keys and projection
+            matrices for face-based quantities as items.
+
 
     The global cell and face numbering is set according to the order of the
     input subdomains.
@@ -896,9 +986,10 @@ def _subgrid_projections(
     """
     face_projection: Dict[pp.Grid, np.ndarray] = {}
     cell_projection: Dict[pp.Grid, np.ndarray] = {}
-    if "mortar_grid" not in subdomains[0].name:
-        tot_num_faces = np.sum([g.num_faces for g in subdomains]) * nd
-    tot_num_cells = np.sum([g.num_cells for g in subdomains]) * nd
+    are_interfaces = isinstance(subdomains[0], pp.MortarGrid)
+    if not are_interfaces:
+        tot_num_faces = np.sum([g.num_faces for g in subdomains]) * dim
+    tot_num_cells = np.sum([g.num_cells for g in subdomains]) * dim
 
     face_offset = 0
     cell_offset = 0
@@ -906,9 +997,9 @@ def _subgrid_projections(
     for sd in subdomains:
 
         cell_ind = cell_offset + pp.fvutils.expand_indices_nd(
-            np.arange(sd.num_cells), nd
+            np.arange(sd.num_cells), dim
         )
-        cell_sz = sd.num_cells * nd
+        cell_sz = sd.num_cells * dim
 
         # Create matrix and convert to csc format, since the number of rows is (much)
         # higher than the number of columns.
@@ -918,11 +1009,11 @@ def _subgrid_projections(
         ).tocsc()
         cell_offset = cell_ind[-1] + 1
 
-        if "mortar_grid" not in sd.name:
+        if not are_interfaces:
             face_ind = face_offset + pp.fvutils.expand_indices_nd(
-                np.arange(sd.num_faces), nd
+                np.arange(sd.num_faces), dim
             )
-            face_sz, cell_sz = sd.num_faces * nd, sd.num_cells * nd
+            face_sz, cell_sz = sd.num_faces * dim, sd.num_cells * dim
             face_projection[sd] = sps.coo_matrix(
                 (np.ones(face_sz), (face_ind, np.arange(face_sz))),
                 shape=(tot_num_faces, face_sz),
