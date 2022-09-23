@@ -42,9 +42,10 @@ coord_3 = [
         np.array([2, 3, 4]),
     ],
 ]
+# An array with 2d values.
+coord_2d_values = [[[np.array([0]), np.array([1]), np.array([0])], np.array([[42, 2, 3], [4, 43, 7]])]]
 
-coordinates = coord_1 + coord_2 + coord_3
-
+coordinates = coord_1 + coord_2 + coord_3 + coord_2d_values
 
 @pytest.mark.parametrize("coords_values", coordinates)
 def test_sparse_nd_array(coords_values: list[np.ndarray]):
@@ -66,7 +67,13 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     # Split the data and values, infer dimension from the coordinates.
     coords, values = coords_values
     dim = coords[0].size
-
+    
+    # Force all values to be 2d (this will be done inside the array as data is added,
+    # doing it here simplifies comparison and indexing).
+    values = np.atleast_2d(values)
+    # Dimension of the values to be represented    
+    value_dim = values.shape[0]
+    
     all_coords = np.vstack(coords).T
 
     _, all_2_unique, unique_2_all = np.unique(
@@ -78,7 +85,7 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
 
     # Find the expected values for the coordinates. For coordinates with duplicates,
     # this will differ between additive  and overwrite modes.
-    expected_values_additive = np.zeros(values.size)
+    expected_values_additive = np.zeros(values.shape)
     expected_values_overwrite = np.zeros_like(expected_values_additive)
 
     # Loop over all the inidivual coordinates, compare to the array of merged
@@ -92,39 +99,39 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
             np.sum((c.reshape((-1, 1)) - all_coords) ** 2, axis=0) < 0.5
         )[0]
         # In additive mode, do a sum
-        expected_values_additive[ind] = np.sum(values[all_occurrences])
+        expected_values_additive[:, ind] = np.sum(values[:, all_occurrences], axis=1)
         # For overwrite mode, find the last occurence and use that.
         last_written = all_occurrences[-1]
-        expected_values_overwrite[ind] = values[last_written]
+        expected_values_overwrite[:, ind] = values[:, last_written]
 
     # All tests are now run in the same way: Make an array, add values (either in one
     # bath or one by one), retrieve the values and check that the result is as expected.
 
     # Additive, add all at the same time
-    arr_additive = pp.array_operations.SparseNdArray(dim)
+    arr_additive = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
     arr_additive.add(coords, values, additive=True)
     retrieved_values_additive = arr_additive.get(coords)
     assert np.allclose(retrieved_values_additive, expected_values_additive)
 
     # Overwrite, all at the same time
-    arr_overwrite = pp.array_operations.SparseNdArray(dim)
+    arr_overwrite = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
     arr_overwrite.add(coords, values)
     retrieved_values_overwrite = arr_overwrite.get(coords)
     assert np.allclose(retrieved_values_overwrite, expected_values_overwrite)
 
     # Additive, add one by one
-    arr_additive_incremental = pp.array_operations.SparseNdArray(dim)
+    arr_additive_incremental = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
     for ind, coord in enumerate(coords):
-        arr_additive_incremental.add([coord], np.atleast_1d(values[ind]), additive=True)
+        arr_additive_incremental.add([coord], values[:, ind].reshape((-1, 1)), additive=True)
     retrieved_values_additive_incremental = arr_additive_incremental.get(coords)
     # The expeted value is the same as when all coordinates are added at the same time
     assert np.allclose(retrieved_values_additive_incremental, expected_values_additive)
 
     # Overwrite, one at a time
-    arr_overwrite_incremental = pp.array_operations.SparseNdArray(dim)
+    arr_overwrite_incremental = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
     for ind, coord in enumerate(coords):
         arr_overwrite_incremental.add(
-            [coord], np.atleast_1d(values[ind]), additive=False
+            [coord], values[:, ind].reshape((-1, 1)), additive=False
         )
     retrieved_values_overwrite_incremental = arr_overwrite_incremental.get(coords)
     assert np.allclose(
