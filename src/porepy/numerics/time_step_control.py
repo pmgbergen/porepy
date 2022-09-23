@@ -422,7 +422,6 @@ class TimeSteppingControl:
 
         # Sanity check: Make sure the given number of iterations is less or equal than the
         # maximum number of iterations
-        # TODO: Add unit test for this sanity check
         if iterations > self.iter_max:
             msg = (
                 f"The given number of iterations '{iterations}' is larger than the maximum "
