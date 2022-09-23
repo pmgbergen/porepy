@@ -115,7 +115,6 @@ class TimeSteppingControl:
         print_info: bool = False,
     ) -> None:
 
-        # TODO: Add test to make sure schedule can indeed be an ArrayLike object
         schedule = np.array(schedule)
         # Sanity checks for schedule
         if np.size(schedule) < 2:
@@ -222,7 +221,6 @@ class TimeSteppingControl:
 
         else:
 
-            # TODO: Add unit test for this sanity check
             # If the time step is constant, check that the scheduled times and the time
             # step are compatible. See documentation of `schedule`.
             sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
