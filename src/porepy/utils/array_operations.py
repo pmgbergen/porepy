@@ -16,31 +16,33 @@ class SparseNdArray:
     the data should be mapped prior to feeding it to the data. To do this, it is
     recommended to consider the class AdaptiveInterpolationTable.
 
+    Args:
+        dims (int): Number of coordinate axes of the table.
+        value_dim: Dimension of the values to be represented in the array. Defaults to 1.
+
     """
 
     # IMPLEMENTATION NOTE: It would be feasible to allow for non-integer coordinates,
     # e.g., to move the mapping from AdaptiveInterpolationTable to this class. However,
-    # the current solution seems like a reasonable compromise.
+    # the current solution seems like a reasonable compromise; specifically, desicions
+    # on what to do with accuracy of point errors should be left to clients of this
+    # class.
+    #
     # IMPLEMENTATION NOTE: Storage of vector data can easily be accommodated by making
     # self._values a 2d-array, but this has not been prioritized.
+    #
     # IMPLEMENTATION NOTE: Depending on how this ends up being used, it could be useful
     # to implement a method 'sanity_check' which can check that the array coordinates
     # and values are within specified bounds.
 
-    def __init__(self, dims: int) -> None:
-        """Initialize the table.
-
-        Args:
-            dims (int): Dimension of the table.
-
-        """
-
-        self.ndim: int = dims
+    def __init__(self, dim: int, value_dim: int=1) -> None:
+        self.dim: int = dim
 
         # Data structure for the coordinates (an ndim x npt array), and values.
         # Initialize as empty arrays.
-        self._coords: np.ndarray = np.ndarray((self.ndim, 0), dtype=int)
-        self._values: np.ndarray = np.ndarray((0), dtype=float)
+        self._coords: np.ndarray = np.ndarray((self.dim, 0), dtype=int)
+        # Data structure for the values.
+        self._values: np.ndarray = np.ndarray((value_dim, 0), dtype=float)
 
     def add(
         self, coords: list[np.ndarray], values: np.ndarray, additive: bool = False
@@ -52,15 +54,14 @@ class SparseNdArray:
         parameter additive.
 
         Args:
-            coords (list[np.ndarray]): List of coordinates, each corresponding to an
-                indivdiual data point.
-            values (np.ndarray): New values. Each element corresponds to an item in the
-                list of new coordinates.
-            additive (bool, optional): If True, values associated with duplicate
-                coordinates (either between new and existing coordinates, or within the
-                new coordinates) are added. If False, existing values will be
-                overwritten by the new value (if there are duplicates in new coordinates
-                the last of this coordinates are used). Defaults to False.
+            coords: List of coordinates, each corresponding to an indivdiual data point.
+            values: New values. Each element corresponds to an item in the list of new
+                coordinates.
+            additive: If True, values associated with duplicate coordinates (either
+                between new and existing coordinates, or within the new coordinates) are
+                added. If False, existing values will be overwritten by the new value
+                (if there are duplicates in new coordinates the last of this coordinates
+                are used). Defaults to False.
 
         """
         # IMPLEMENTATION NOTE: We could have passed coordinates as a 2d np.ndarray,
@@ -70,7 +71,9 @@ class SparseNdArray:
         # Shortcut for empty coordinate array.
         if len(coords) == 0:
             return
-
+        
+        values = np.atleast_2d(values)
+        
         # The main idea is to do a search for the new coordinates in the array of
         # existing coordinates. This becomes simpler if we first remove duplicates in
         # the list of new coordinates.
@@ -89,19 +92,20 @@ class SparseNdArray:
 
         # Next, consolidate the values for duplicate coordinates.
         if additive:
-            # In additive mode, use numpy bincount.
-            unique_values = np.bincount(all_2_unique, weights=values)
+            # In additive mode, use numpy bincount. We need to split the arrays here,
+            # since bincount only works with 1d weights.
+            unique_values = np.vstack([np.bincount(all_2_unique, weights=values[i]) for i in range(values.shape[0])])
         else:
             # We need to overwrite (the right) data for duplicate points.
             if np.all(counts == 1):
                 # No duplicates, simply map the coordinates.
-                unique_values = values[all_2_unique]
+                unique_values = values[:, all_2_unique]
             else:
                 # We have duplicates. Find the last occurrence of each coordinate,
                 # assign this to the new values.
-                unique_values = np.zeros(counts.size)
+                unique_values = np.zeros((self._values.shape[0], counts.size))
                 for i in range(unique_coords.shape[1]):
-                    unique_values[i] = values[np.where(all_2_unique == i)[0][-1]]
+                    unique_values[:, i] = values[:, np.where(all_2_unique == i)[0][-1]]
 
         # Next, find which of the new coordinates are already present in the coordinate
         # array.
@@ -110,9 +114,9 @@ class SparseNdArray:
         # For the coordinates previously added, either add or overwrite the values.
         # There is no need to worry about duplicate coordinates in the new values.
         if additive:
-            self._values[ind] += unique_values[is_mem]
+            self._values[:, ind] += unique_values[:, is_mem]
         else:
-            self._values[ind] = unique_values[is_mem]
+            self._values[:, ind] = unique_values[:, is_mem]
 
         # Append the new coordinates and values to the storage arrays.
         new_coord = unique_coords[:, np.logical_not(is_mem)]
@@ -121,7 +125,7 @@ class SparseNdArray:
             new_coord = np.reshape((-1, 1))
 
         self._coords = np.hstack((self._coords, new_coord))
-        self._values = np.hstack((self._values, unique_values[np.logical_not(is_mem)]))
+        self._values = np.hstack((self._values, unique_values[:, np.logical_not(is_mem)]))
 
     def get(self, coords: list[np.ndarray]) -> np.ndarray:
         """Retrieve values from the sparse array.
@@ -157,11 +161,12 @@ class SparseNdArray:
         ind = np.ravel(ind_list)
 
         # Return values.
-        return self._values[ind]
+        return self._values[:, ind]
 
     def __repr__(self) -> str:
         # String representation.
-        s = f"Sparse array of dimension {self.dim}\n"
+        s = f"Sparse array of dimension {self.dim}.\n"
+        s += f"The values in the array are {self._values.shape[0]}-dimensional."
         s += f"There are {self._coords.shape[1]} coordinates present.\n"
         s += f"The minimum coodinate is {np.min(self._coords, axis=1)}."
         s += f"The maximum coodinate is {np.max(self._coords, axis=1)}.\n"
