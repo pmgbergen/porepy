@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 
 import porepy as pp
 from porepy.numerics.time_step_control import TimeSteppingControl as Ts
@@ -25,11 +25,10 @@ class TestParameterInputs:
         assert tsc.dt == 0.1
 
     @pytest.mark.parametrize(
-        "schedule",
-        [(0, 0.5, 1), [0, 0.5, 1], np.array([0, 0.5, 1])]
+        "schedule", [(0, 0.5, 1), [0, 0.5, 1], np.array([0, 0.5, 1])]
     )
     def test_schedule_argument_type_compatibility(self, schedule):
-        """The 'schedule' object is supposed to take any array-like object. """
+        """The 'schedule' object is supposed to take any array-like object."""
         tsc = Ts(schedule=schedule, dt_init=0.01)
 
     @pytest.mark.parametrize(
@@ -266,9 +265,7 @@ class TestParameterInputs:
             ([0, 1], 0.1, 1.05),
         ],
     )
-    def test_recomputation_factor_less_than_one(
-        self, schedule, dt_init, recomp_factor
-    ):
+    def test_recomputation_factor_less_than_one(self, schedule, dt_init, recomp_factor):
         """An error should be raised if the recomputation factor is greater or equal to one."""
         msg = "Expected recomputation factor < 1."
         with pytest.raises(ValueError) as excinfo:
@@ -378,11 +375,26 @@ class TestTimeControl:
         tsc = Ts([0, 100], 0.15, recomp_factor=0.5)
         # Emulate the scenario where the solution must be recomputed
         tsc.time = 5
-        #tsc.dt = 1
+        # tsc.dt = 1
         tsc.next_time_step(iterations=1000, recompute_solution=True)
         # First the algorithm will reduce dt by half (so dt=0.5), but this is less than
         # dt_min. Hence, dt_min should be set.
         assert tsc.dt == tsc.dt_min_max[0]
+
+    @pytest.mark.parametrize("iterations", [11, 100])
+    def test_warning_iteration_is_greater_than_max_iter(self, iterations):
+        """Test if a warning is raised when the number of iterations passed to the method is
+        greater than max_iter and the solution is not recomputed"""
+        tsc = Ts([0, 1], 0.1, iter_max=10)
+        warn_msg = (
+            f"The given number of iterations '{iterations}' is larger than the maximum "
+            f"number of iterations '{tsc.iter_max}'. This usually means that the solver "
+            f"did not converge, but since recompute_solution = False was given, the "
+            f"algorithm will adapt the time step anyways."
+        )
+        with pytest.warns() as record:
+            tsc.next_time_step(iterations=iterations, recompute_solution=False)
+        assert str(record[0].message) == warn_msg
 
     @pytest.mark.parametrize("iterations", [1, 3, 5])
     def test_decreasing_time_step(self, iterations):
@@ -449,7 +461,10 @@ class TestTimeControl:
             ([0, 1], 0.1),
             ([0, 10, 20, 30], 1),
             ([10, 11, 15, 16, 19, 20], 1),
-            ([0, 0.01, 1 * pp.HOUR, 2 * pp.HOUR, 100 * pp.HOUR, 101 * pp.HOUR], 2 * pp.HOUR),
+            (
+                [0, 0.01, 1 * pp.HOUR, 2 * pp.HOUR, 100 * pp.HOUR, 101 * pp.HOUR],
+                2 * pp.HOUR,
+            ),
         ],
     )
     def test_hitting_schedule_times(self, schedule, dt_init):
