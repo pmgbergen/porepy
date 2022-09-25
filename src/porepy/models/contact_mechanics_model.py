@@ -380,6 +380,10 @@ class ContactMechanics(AbstractModel):
         # Geometry
         self.create_grid()
         self.nd = self.mdg.dim_max()
+        # If no fractures are present, the following call is harmless
+        pp.contact_conditions.set_projections(self.mdg)
+
+        # Variables and parameters
         self._assign_variables()
         if self._use_ad:
             self._create_ad_variables()
@@ -973,12 +977,12 @@ class ContactMechanics(AbstractModel):
             subdomains=subdomains,
             interfaces=fracture_matrix_interfaces,
             mdg=self.mdg,
-            nd=self.nd,
+            dim=self.nd,
         )
 
         # Prolongation and restriction between subdomain subsets and full subdomain list
         ad.subdomain_projections_vector = pp.ad.SubdomainProjections(
-            subdomains=subdomains, nd=self.nd
+            subdomains=subdomains, dim=self.nd
         )
 
     def _displacement_jump(

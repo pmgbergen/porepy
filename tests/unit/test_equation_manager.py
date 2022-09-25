@@ -22,8 +22,8 @@ class EquationManagerSetup:
     """
 
     def __init__(self):
-        sd_1 = pp.CartGrid([3, 1])
-        sd_2 = pp.CartGrid([4, 1])
+        sd_1 = pp.CartGrid(np.array([3, 1]))
+        sd_2 = pp.CartGrid(np.array([4, 1]))
 
         mdg = pp.MixedDimensionalGrid()
         mdg.add_subdomains([sd_1, sd_2])
@@ -60,7 +60,7 @@ class EquationManagerSetup:
         y_merged = eq_manager.merge_variables([(sd_1, "y"), (sd_2, "y")])
 
         projections = pp.ad.SubdomainProjections(subdomains=[sd_1, sd_2])
-        proj = projections.cell_restriction(sd_2)
+        proj = projections.cell_restriction([sd_2])
 
         # One equation with only simple variables (not merged)
         eq_simple = x_ad * y_ad + 2 * z_ad
@@ -171,7 +171,7 @@ def _eliminate_columns_from_matrix(A, indices, reverse):
     if reverse:
         inds = np.setdiff1d(np.arange(A.shape[1]), indices)
     else:
-        inds = inds
+        inds = indices
     return A[:, inds]
 
 
@@ -257,7 +257,7 @@ def test_secondary_variable_assembly(setup, var_names):
     "var_names",
     [
         None,  # Should give all variables by default
-        [],  # Empty list (as oposed to None) should give a system with zero columns
+        [],  # Empty list (as opposed to None) should give a system with zero columns
         ["x1"],  # simple variable
         ["y_merged"],  # Merged variable
         ["x1", "y_merged"],  # Combination of simple and merged
