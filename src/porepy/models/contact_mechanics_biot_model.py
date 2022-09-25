@@ -208,7 +208,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     data,
                     self.mechanics_parameter_key,
                     {
-                        "time_step": self.time_step,
                         "mass_weight": np.ones(sd.num_cells),
                     },
                 )
@@ -701,7 +700,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         ad.all_subdomains = subdomains
         ad.codim_one_interfaces = interfaces
         ad.mortar_projections_scalar = pp.ad.MortarProjections(
-            subdomains=subdomains, interfaces=interfaces, mdg=mdg, nd=1
+            subdomains=subdomains, interfaces=interfaces, mdg=mdg, dim=1
         )
 
         normal_proj_list = []
