@@ -1,3 +1,90 @@
+"""
+This module contains a routine for iteration-based time-stepping control.
+
+The algorithm is heavily inspired on [1], which was later used on [2].
+
+[1] Simunek, J., Van Genuchten, M. T., & Sejna, M. (2005). The HYDRUS-1D software package for
+    simulating the one-dimensional movement of water, heat, and multiple solutes in
+    variably-saturated media. University of California-Riverside Research Reports, 3, 1-240.
+
+[2] Varela, J., Gasda, S. E., Keilegavlen, E., & Nordbotten, J. M. (2021). A
+    Finite-Volume-Based Module for Unsaturated Poroelasticity. Advanced Modeling with the
+    MATLAB Reservoir Simulation Toolbox.
+
+
+Algorithm Overview:
+
+    Provided `recompute_solution = False`, the algorithm will adapt the time step
+    based on `iterations`. If `iterations` is less than the lower endpoint of the
+    optimal iteration range, then it will increase the time step by a factor
+    `iter_relax_factors[1]`. If `iterations` is greater than the upper endpoint of the
+    optimal iteration range it will decrease the time step by a factor
+    `iter_relax_factors[0]`. Otherwise, `iterations` lies in the optimal iteration
+    range, and time step remains unchanged.
+
+    If `recompute_solution = True`, then the time step will be decreased by a factor
+    `recomp_factor` with the hope of achieving convergence in the next time level. To
+    avoid an infinite loop, an error will be raised if the method is called more than
+    `recomp_max` consecutive times with the flag `recompute_solution = True`.
+
+    Now that the algorithm has determined a new time step, it has to ensure three more
+    conditions, (1) the calculated time step cannot be smaller than dt_min,
+    (2) the calculated time step cannot be larger than dt_max, and (3) the
+    time step cannot be too large such that the next time will exceed a scheduled
+    time. These three conditions are implemented in this order of precedence and
+    will override any of the previous calculated time steps.
+
+Algorithm Workflow:
+
+    INPUT
+        tsc // time step control object properly initialized
+        iterations // number of non-linear interations
+        recompute_solution // boolean flag
+
+    IF time > final simulation time THEN
+        RETURN None
+    ENDIF
+
+    IF constant_dt is True THEN
+        RETURN dt_init
+    ENDIF
+
+    IF recompute_solution is False THEN
+        RESET counter that keeps track of number of recomputing attempts
+        IF iterations < lower endpoint of optimal iteration range THEN
+            DECREASE dt // multiply by over_relax_factor
+        IFELSE iterations > upper endpoint of optimal iteration range THEN
+            INCREASE dt // multiply by under_relax_factor
+        ELSE
+            PASS // dt reamains unchanged
+        ENDIF
+    ELSE
+        IF number of recomputing attempts has not been exhausted THEN
+            SUBSTRACT dt from current time // we have to "go back in time"
+            DECREASE dt // multiply by recomp_factor
+            INCREASE counter that keeps track of number of recomputing attempts
+        ELSE
+            RAISE Error // maximum number of recomputing attempts has been exhausted
+        ENDIF
+    ENDIF
+
+    IF dt < dt_min THEN
+        SET dt = dt_min
+    ENDIF
+
+    IF dt > dt_max THEN
+        SET dt = dt_max
+    ENDIF
+
+    IF time + dt > a scheduled time THEN
+        SET dt = scheduled time - time
+    ENDIF
+
+    RETURN dt
+
+"""
+
+
 from __future__ import annotations
 
 import warnings
@@ -301,8 +388,7 @@ class TimeSteppingControl:
     ) -> Union[float, None]:
         """Determine next time step based on the previous number of iterations.
 
-        For an in-depth explanation of the algorithm, refer to the sections Algorithm Overview
-        and Algorithm Workflow from below.
+        See also Algorithm Overview and Algorithm Workflow from the module documentation.
 
         Parameters:
             iterations: Number of non-linear iterations. In time-dependent simulations,
@@ -312,76 +398,6 @@ class TimeSteppingControl:
                 step will be tuned accordingly.
 
         Returns: Next time step if time < final_time. None, otherwise.
-
-        Algorithm Overview: Below, we provide a brief overview of the algorithm.
-
-            Provided `recompute_solution = False`, the algorithm will adapt the time step
-            based on `iterations`. If `iterations` is less than the lower endpoint of the
-            optimal iteration range, then it will increase the time step by a factor
-            `iter_relax_factors[1]`. If `iterations` is greater than the upper endpoint of the
-            optimal iteration range it will decrease the time step by a factor
-            `iter_relax_factors[0]`. Otherwise, `iterations` lies in the optimal iteration
-            range, and time step remains unchanged.
-
-            If `recompute_solution = True`, then the time step will be decreased by a factor
-            `recomp_factor` with the hope of achieving convergence in the next time level. To
-            avoid an infinite loop, an error will be raised if the method is called more than
-            `recomp_max` consecutive times with the flag `recompute_solution = True`.
-
-            Now that the algorithm has determined a new time step, it has to ensure three more
-            conditions, (1) the calculated time step cannot be smaller than dt_min,
-            (2) the calculated time step cannot be larger than dt_max, and (3) the
-            time step cannot be too large such that the next time will exceed a scheduled
-            time. These three conditions are implemented in this order of precedence and
-            will override any of the previous calculated time steps.
-
-        Algorithm Workflow: For completeness, we include the full algorithm in pseudocode.
-
-            INPUT
-                tsc // time step control object properly initialized
-                iterations // number of non-linear interations
-                recompute_solution // boolean flag
-
-            IF time > final simulation time THEN
-                RETURN None
-            ENDIF
-
-            IF constant_dt is True THEN
-                RETURN dt_init
-            ENDIF
-
-            IF recompute_solution is False THEN
-                RESET counter that keeps track of number of recomputing attempts
-                IF iterations < lower endpoint of optimal iteration range THEN
-                    DECREASE dt // multiply by over_relax_factor
-                IFELSE iterations > upper endpoint of optimal iteration range THEN
-                    INCREASE dt // multiply by under_relax_factor
-                ELSE
-                    PASS // dt reamains unchanged
-                ENDIF
-            ELSE
-                IF number of recomputing attempts has not been exhausted THEN
-                    SUBSTRACT dt from current time // we have to "go back in time"
-                    DECREASE dt // multiply by recomp_factor
-                    INCREASE counter that keeps track of number of recomputing attempts
-                ELSE
-                    RAISE Error // maximum number of recomputing attempts has been exhausted
-                ENDIF
-            ENDIF
-
-            IF dt < dt_min THEN
-                SET dt = dt_min
-            ENDIF
-
-            IF dt > dt_max THEN
-                SET dt = dt_max
-            ENDIF
-
-            IF time + dt > a scheduled time THEN
-                SET dt = scheduled time - time
-            ENDIF
-
-            RETURN dt
 
         """
 
