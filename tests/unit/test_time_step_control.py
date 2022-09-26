@@ -30,6 +30,8 @@ class TestParameterInputs:
     def test_schedule_argument_type_compatibility(self, schedule):
         """The 'schedule' object is supposed to take any array-like object."""
         tsc = Ts(schedule=schedule, dt_init=0.01)
+        assert isinstance(tsc.schedule, np.ndarray)
+        assert (tsc.schedule == np.array([0., 0.5, 1.])).all()
 
     @pytest.mark.parametrize(
         "schedule, dt_init",
@@ -185,7 +187,6 @@ class TestParameterInputs:
             )
         assert msg in str(excinfo.value)
 
-    # TODO: Remove dt_min_max from parameters
     @pytest.mark.parametrize(
         "schedule, dt_init, iter_relax_factors",
         [
@@ -375,7 +376,6 @@ class TestTimeControl:
         tsc = Ts([0, 100], 0.15, recomp_factor=0.5)
         # Emulate the scenario where the solution must be recomputed
         tsc.time = 5
-        # tsc.dt = 1
         tsc.next_time_step(iterations=1000, recompute_solution=True)
         # First the algorithm will reduce dt by half (so dt=0.5), but this is less than
         # dt_min. Hence, dt_min should be set.
