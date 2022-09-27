@@ -262,7 +262,7 @@ class ADSystemManager:
     def get_var_names_from(
         self,
         variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]],
-    ) -> tuple[pp.ad.Variable]:
+    ) -> tuple[str]:
         """Extracts the (unique) names of passed variables.
 
         Merged variables are unravelled into single-domain variables.
