@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Fri Sep  6 11:21:54 2019
-
-@author: eke001
+Nonlinear solvers to be used with model classes.
+Implemented classes
+    NewtonSolver
 """
 import logging
 
@@ -48,8 +46,7 @@ class NewtonSolver:
             # Re-discretize the nonlinear term
             model.before_newton_iteration()
 
-            lin_tol = np.minimum(1e-4, error_norm)
-            sol = self.iteration(model, lin_tol)
+            sol = self.iteration(model)
 
             model.after_newton_iteration(sol)
 
@@ -71,7 +68,7 @@ class NewtonSolver:
 
         return error_norm, is_converged, iteration_counter
 
-    def iteration(self, model, lin_tol):
+    def iteration(self, model) -> np.ndarray:
         """A single Newton iteration.
 
         Right now, this is a single line, however, we keep it as a separate function
@@ -79,6 +76,7 @@ class NewtonSolver:
         """
 
         # Assemble and solve
-        sol = model.assemble_and_solve_linear_system(lin_tol)
+        model.assemble_linear_system()
+        sol = model.solve_linear_system()
 
         return sol
