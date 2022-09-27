@@ -1,5 +1,5 @@
-""" Implementation of a degree of freedom manager.
-"""
+"""Implementation of a degree of freedom manager."""
+
 from __future__ import annotations
 
 import itertools
@@ -23,6 +23,9 @@ class DofManager:
     This class should be used for setting the state of variables, and to get
     indices of the degrees of freedom for grids and variables.
 
+    Parameters:
+        mdg: mixed-dimensional grid representing the computational domain.
+
     """
 
     admissible_dof_types: set[str] = {"cells", "faces", "nodes"}
@@ -35,15 +38,8 @@ class DofManager:
     """
 
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
-        """Set up a DofManager for a mixed-dimensional grid.
 
-        Parameters:
-            mdg (pp.MixedDimensionalGrid): MixedDimensionalGrid representing the
-                mixed-dimensional grid.
-
-        """
-
-        self.mdg = mdg
+        self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional grid for which the DOFs are managed."""
 
         self.full_dof: np.ndarray = np.array([], dtype=int)
@@ -52,9 +48,9 @@ class DofManager:
 
         """
 
-        self.block_dof: Dict[Tuple[Union[pp.Grid, pp.MortarGrid], str], int] = {}
-        """Dictionary containing the block index for a given combination of variable name and
-        grid/ mortar grid (key)
+        self.block_dof: Dict[Tuple[Union[pp.Grid, pp.MortarGrid], str], int] = dict()
+        """Dictionary containing the block index for a given combination of grid/ mortar grid 
+        and variable name (key).
 
         """
 
@@ -73,10 +69,10 @@ class DofManager:
         Does nothing if the names cannot be found in the data dicts as primary variable.
 
         Parameters:
-            var_names: name of the new variable to be found in the data dictionaries
+            var_names: name(s) of the new variable(s) to be found in the data dictionaries.
 
         Raises:
-            ValueError: if any DOFs have already been added for a name in ``var_names``
+            ValueError: if any DOFs have already been added for a name in ``var_names``.
 
         """
 
@@ -87,10 +83,10 @@ class DofManager:
         self.block_dof.update(block_dof)
 
     def _create_dofs(self, for_vars: Optional[list[str]] = None) -> tuple[np.ndarray, dict]:
-        """Creates DOFs to be appended to the global DOFs so far.
+        """Creates DOFs to be appended to the already existing global DOFs.
         
         Parameters: 
-            for_vars: if given, creates only dofs for variable with names found in this list.
+            for_vars: if given, creates only DOFs for variables with names found in this list.
     
         """
         # Counter for block index
@@ -103,6 +99,7 @@ class DofManager:
         # to the ordering specified in block_dof
         full_dof: List[int] = []
 
+        # Add dofs on nodes
         for sd, data in self.mdg.subdomains(return_data=True):
             if pp.PRIMARY_VARIABLES not in data:
                 continue
@@ -115,16 +112,16 @@ class DofManager:
 
                 # make sure DOFs are not added more than once per combination
                 if (sd, local_var) in self.block_dof.keys():
-                    raise ValueError(f"DOFs already present for variable '{local_var}'.")
+                    raise ValueError(
+                        f"DOFs already present for variable '{local_var}' on subdomain '{sd}'."
+                    )
 
                 # First assign a block index.
-                # Note that the keys in the dictionary is a tuple, with a grid
-                # and a variable name (str)
                 block_dof[(sd, local_var)] = block_dof_counter
                 block_dof_counter += 1
 
                 # Count number of dofs for this variable on this grid and store it.
-                # The number of dofs for each grid entity type defaults to zero.
+                # The number of dofs for each dof type defaults to zero.
                 total_local_dofs = (
                     sd.num_cells * local_dofs.get("cells", 0)
                     + sd.num_faces * local_dofs.get("faces", 0)
@@ -132,6 +129,7 @@ class DofManager:
                 )
                 full_dof.append(total_local_dofs)
 
+        # Add dofs on edges
         for intf, data in self.mdg.interfaces(return_data=True):
             if pp.PRIMARY_VARIABLES not in data:
                 continue
@@ -144,14 +142,15 @@ class DofManager:
 
                 # make sure DOFs are not added more than once per combination
                 if (intf, local_var) in self.block_dof.keys():
-                    raise ValueError(f"DOFs already present for variable '{local_var}'.")
+                    raise ValueError(
+                        f"DOFs already present for variable '{local_var}' on interface '{intf}'."
+                    )
 
-                # First count the number of dofs per variable. Note that the
-                # identifier here is a tuple of the edge and a variable str.
+                # Adding block dof counter
                 block_dof[(intf, local_var)] = block_dof_counter
                 block_dof_counter += 1
 
-                # We only allow for cell variables on the mortar grid.
+                # We only allow for cell variables on the mortar grids.
                 # This will not change in the foreseeable future
                 total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
                 full_dof.append(total_local_dofs)
