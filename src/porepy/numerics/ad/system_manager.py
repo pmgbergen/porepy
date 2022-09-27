@@ -190,8 +190,9 @@ class ADSystemManager:
         self.variables.update({name: merged_var})
 
         # append the new DOFs to the global system if a primary variable has been created
-        if primary:
-            self.dof_manager.append_dofs([name])
+        # TODO change below as soon as primary variables become actual primary variables
+        # if primary:
+        self.dof_manager.append_dofs([name])
 
         return merged_var
 
