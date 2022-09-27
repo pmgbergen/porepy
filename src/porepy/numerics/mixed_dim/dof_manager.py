@@ -23,6 +23,12 @@ class DofManager:
     This class should be used for setting the state of variables, and to get
     indices of the degrees of freedom for grids and variables.
 
+    Notes:
+        Currently both variable types, secondary and primary contribute to the global DOFs.
+        The only difference is to where they are stored in the data dictionaries.
+        This will change in the near future and the primary variables will **not** be part of
+        the global DOF vector.
+
     Parameters:
         mdg: mixed-dimensional grid representing the computational domain.
 
@@ -101,59 +107,109 @@ class DofManager:
 
         # Add dofs on nodes
         for sd, data in self.mdg.subdomains(return_data=True):
-            if pp.PRIMARY_VARIABLES not in data:
-                continue
+            # creating dofs only for primary variables
+            if pp.PRIMARY_VARIABLES in data:
+                for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
+                    # filter for which variables DOFs should be created
+                    if isinstance(for_vars, list):
+                        if local_var not in for_vars:
+                            continue
 
-            for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
-                # filter for which variables DOFs should be created
-                if isinstance(for_vars, list):
-                    if local_var not in for_vars:
-                        continue
+                    # make sure DOFs are not added more than once per combination
+                    if (sd, local_var) in self.block_dof.keys():
+                        raise ValueError(
+                            f"DOFs already present for variable '{local_var}' on "
+                            f"subdomain '{sd}'."
+                        )
 
-                # make sure DOFs are not added more than once per combination
-                if (sd, local_var) in self.block_dof.keys():
-                    raise ValueError(
-                        f"DOFs already present for variable '{local_var}' on subdomain '{sd}'."
+                    # First assign a block index.
+                    block_dof[(sd, local_var)] = block_dof_counter
+                    block_dof_counter += 1
+
+                    # Count number of dofs for this variable on this grid and store it.
+                    # The number of dofs for each dof type defaults to zero.
+                    total_local_dofs = (
+                        sd.num_cells * local_dofs.get("cells", 0)
+                        + sd.num_faces * local_dofs.get("faces", 0)
+                        + sd.num_nodes * local_dofs.get("nodes", 0)
                     )
+                    full_dof.append(total_local_dofs)
+            # creating dofs only for secondary variables.
+            # NOTE this will be removed in the near future.
+            if pp.SECONDARY_VARIABLES in data:
+                for local_var, local_dofs in data[pp.SECONDARY_VARIABLES].items():
+                    # filter for which variables DOFs should be created
+                    if isinstance(for_vars, list):
+                        if local_var not in for_vars:
+                            continue
 
-                # First assign a block index.
-                block_dof[(sd, local_var)] = block_dof_counter
-                block_dof_counter += 1
+                    # make sure DOFs are not added more than once per combination
+                    if (sd, local_var) in self.block_dof.keys():
+                        raise ValueError(
+                            f"DOFs already present for variable '{local_var}' "
+                            f"on subdomain '{sd}'."
+                        )
 
-                # Count number of dofs for this variable on this grid and store it.
-                # The number of dofs for each dof type defaults to zero.
-                total_local_dofs = (
-                    sd.num_cells * local_dofs.get("cells", 0)
-                    + sd.num_faces * local_dofs.get("faces", 0)
-                    + sd.num_nodes * local_dofs.get("nodes", 0)
-                )
-                full_dof.append(total_local_dofs)
+                    # First assign a block index.
+                    block_dof[(sd, local_var)] = block_dof_counter
+                    block_dof_counter += 1
+
+                    # Count number of dofs for this variable on this grid and store it.
+                    # The number of dofs for each dof type defaults to zero.
+                    total_local_dofs = (
+                        sd.num_cells * local_dofs.get("cells", 0)
+                        + sd.num_faces * local_dofs.get("faces", 0)
+                        + sd.num_nodes * local_dofs.get("nodes", 0)
+                    )
+                    full_dof.append(total_local_dofs)
 
         # Add dofs on edges
         for intf, data in self.mdg.interfaces(return_data=True):
-            if pp.PRIMARY_VARIABLES not in data:
-                continue
+            # creating dofs only for primary variables
+            if pp.PRIMARY_VARIABLES in data:
+                for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
+                    # filter for which variables DOFs should be created
+                    if isinstance(for_vars, list):
+                        if local_var not in for_vars:
+                            continue
 
-            for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
-                # filter for which variables DOFs should be created
-                if isinstance(for_vars, list):
-                    if local_var not in for_vars:
-                        continue
+                    # make sure DOFs are not added more than once per combination
+                    if (intf, local_var) in self.block_dof.keys():
+                        raise ValueError(
+                            f"DOFs already present for variable '{local_var}' on interface '{intf}'."
+                        )
 
-                # make sure DOFs are not added more than once per combination
-                if (intf, local_var) in self.block_dof.keys():
-                    raise ValueError(
-                        f"DOFs already present for variable '{local_var}' on interface '{intf}'."
-                    )
+                    # Adding block dof counter
+                    block_dof[(intf, local_var)] = block_dof_counter
+                    block_dof_counter += 1
 
-                # Adding block dof counter
-                block_dof[(intf, local_var)] = block_dof_counter
-                block_dof_counter += 1
+                    # We only allow for cell variables on the mortar grids.
+                    # This will not change in the foreseeable future
+                    total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
+                    full_dof.append(total_local_dofs)
+            # creating dofs only for secondary variables.
+            # NOTE this will be removed in the near future.
+            if pp.SECONDARY_VARIABLES in data:
+                for local_var, local_dofs in data[pp.SECONDARY_VARIABLES].items():
+                    # filter for which variables DOFs should be created
+                    if isinstance(for_vars, list):
+                        if local_var not in for_vars:
+                            continue
 
-                # We only allow for cell variables on the mortar grids.
-                # This will not change in the foreseeable future
-                total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
-                full_dof.append(total_local_dofs)
+                    # make sure DOFs are not added more than once per combination
+                    if (intf, local_var) in self.block_dof.keys():
+                        raise ValueError(
+                            f"DOFs already present for variable '{local_var}' on interface '{intf}'."
+                        )
+
+                    # Adding block dof counter
+                    block_dof[(intf, local_var)] = block_dof_counter
+                    block_dof_counter += 1
+
+                    # We only allow for cell variables on the mortar grids.
+                    # This will not change in the foreseeable future
+                    total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
+                    full_dof.append(total_local_dofs)
         
         return np.array(full_dof, dtype=int), block_dof
 

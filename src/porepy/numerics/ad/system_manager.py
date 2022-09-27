@@ -87,7 +87,7 @@ class ADSystemManager:
                 physical quantity.
             primary: indicator if primary variable. Otherwise it is a secondary variable and
                 will not contribute to the global DOFs. **This is a coming feature. Currently
-                all variables are treated as primary in the system.**
+                all variables are treated as primary in the system, but stored differently.**
             dof_info: dictionary containing information about number of DOFs per admissible
                 type (see :data:`admissible_dof_types`). Defaults to ``{'cells':1}``.
             subdomains: List of subdomains on which the variable is defined. If None, then it
@@ -128,12 +128,10 @@ class ADSystemManager:
 
         variables = list()
 
-        # TODO activate when feature becomes available
-        # if primary:
-        #     variable_category = pp.PRIMARY_VARIABLES
-        # else:
-        #     variable_category = pp.SECONDARY_VARIABLES
-        variable_category = pp.PRIMARY_VARIABLES
+        if primary:
+            variable_category = pp.PRIMARY_VARIABLES
+        else:
+            variable_category = pp.SECONDARY_VARIABLES
 
         if isinstance(subdomains, list):
             for sd in subdomains:
