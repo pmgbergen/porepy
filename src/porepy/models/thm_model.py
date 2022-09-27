@@ -357,7 +357,7 @@ class THM(pp.ContactMechanicsBiot):
             sd: Grid representing a subdomain
 
         Returns:
-            values: cell-wise array.
+            values: face-wise array.
 
         Note that currently, Neumann values are collected by both advection
         and convection discretization. Consider dividing by two.
@@ -366,6 +366,14 @@ class THM(pp.ContactMechanicsBiot):
         return values
 
     def _source_temperature(self, sd: pp.Grid) -> np.ndarray:
+        """Zero source term.
+
+        Args:
+            sd: Grid representing a subdomain
+
+        Returns:
+            values: cell-wise array.
+        """
         return np.zeros(sd.num_cells)
 
     def _biot_beta(self, sd: pp.Grid) -> Union[float, np.ndarray]:
@@ -400,7 +408,7 @@ class THM(pp.ContactMechanicsBiot):
                 }
             )
 
-    def _assign_ad_variables(self) -> None:
+    def _create_ad_variables(self) -> None:
         """Assign variables to self._ad
 
 
@@ -415,7 +423,7 @@ class THM(pp.ContactMechanicsBiot):
         None
 
         """
-        super()._assign_ad_variables()
+        super()._create_ad_variables()
 
         interfaces = self._ad.codim_one_interfaces
         # Primary variables on Ad form

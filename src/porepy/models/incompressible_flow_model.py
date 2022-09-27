@@ -69,7 +69,12 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.create_grid()
         # Exporter initialization must be done after grid creation.
         self.exporter = pp.Exporter(
-            self.mdg, self.params["file_name"], folder_name=self.params["folder_name"]
+            self.mdg,
+            self.params["file_name"],
+            folder_name=self.params["folder_name"],
+            export_constants_separately=self.params.get(
+                "export_constants_separately", False
+            ),
         )
 
         self._assign_variables()
@@ -283,7 +288,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         interfaces = [intf for intf in self.mdg.interfaces() if intf.codim < 2]
 
         self._ad.mortar_proj = pp.ad.MortarProjections(
-            interfaces=interfaces, subdomains=subdomains, mdg=self.mdg, nd=1
+            interfaces=interfaces, subdomains=subdomains, mdg=self.mdg, dim=1
         )
 
         # Ad representation of discretizations
