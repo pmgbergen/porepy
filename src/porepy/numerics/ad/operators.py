@@ -13,6 +13,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.grids.grid import Grid
 from porepy.params.tensor import SecondOrderTensor
 
 from . import _ad_utils
@@ -973,7 +974,7 @@ class Variable(Operator):
         self._nodes: int = ndof.get("nodes", 0)
         self._set_subdomains_or_interfaces(subdomains, interfaces)
 
-        self._g: Union[pp.Grid, pp.MortarGrid]
+        self._g: GridLike
 
         # Shorthand access to grid or edge:
         if len(self.interfaces) == 0:
@@ -996,6 +997,16 @@ class Variable(Operator):
 
         self.id = next(self._ids)
         self._set_tree()
+
+    @property
+    def name(self) -> str:
+        """Returns the given name of this variable."""
+        return self._name
+
+    @property
+    def grid(self) -> GridLike:
+        """Returns the grid or mortar grid on which this variable is defined."""
+        self._g
 
     def size(self) -> int:
         """Get the number of dofs for this grid.
