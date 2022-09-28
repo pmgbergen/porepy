@@ -361,7 +361,6 @@ class TimeSteppingControl:
         self._print_info: bool = print_info
 
         # Flag to keep track of recomputed solutions
-        # TODO: Is this really needed?
         self._recomp_sol: bool = False
 
     def __repr__(self) -> str:
@@ -397,7 +396,6 @@ class TimeSteppingControl:
         """
 
         # For bookkeeping reasons, save recomputation flag
-        # TODO: Is this really needed?
         self._recomp_sol = recompute_solution
 
         # First, check if we reach final simulation time
