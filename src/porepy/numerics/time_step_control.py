@@ -1,7 +1,7 @@
 """
 This module contains a routine for iteration-based time-stepping control.
 
-The algorithm is heavily inspired on [1], which was later used on [2].
+The algorithm is heavily inspired by [1], which was later used in [2].
 
 [1] Simunek, J., Van Genuchten, M. T., & Sejna, M. (2005). The HYDRUS-1D software package for
     simulating the one-dimensional movement of water, heat, and multiple solutes in
@@ -10,7 +10,6 @@ The algorithm is heavily inspired on [1], which was later used on [2].
 [2] Varela, J., Gasda, S. E., Keilegavlen, E., & Nordbotten, J. M. (2021). A
     Finite-Volume-Based Module for Unsaturated Poroelasticity. Advanced Modeling with the
     MATLAB Reservoir Simulation Toolbox.
-
 
 Algorithm Overview:
 
@@ -38,7 +37,7 @@ Algorithm Workflow:
 
     INPUT
         tsc // time step control object properly initialized
-        iterations // number of non-linear interations
+        iterations // number of non-linear iterations
         recompute_solution // boolean flag
 
     IF time > final simulation time THEN
@@ -52,16 +51,16 @@ Algorithm Workflow:
     IF recompute_solution is False THEN
         RESET counter that keeps track of number of recomputing attempts
         IF iterations < lower endpoint of optimal iteration range THEN
-            DECREASE dt // multiply by over_relax_factor
+            DECREASE dt // multiply by an over relaxation factor > 1
         IFELSE iterations > upper endpoint of optimal iteration range THEN
-            INCREASE dt // multiply by under_relax_factor
+            INCREASE dt // multiply by an under relaxation factor < 1
         ELSE
-            PASS // dt reamains unchanged
+            PASS // dt remains unchanged
         ENDIF
     ELSE
         IF number of recomputing attempts has not been exhausted THEN
-            SUBSTRACT dt from current time // we have to "go back in time"
-            DECREASE dt // multiply by recomp_factor
+            SUBTRACT dt from current time // we have to "go back in time"
+            DECREASE dt // multiply by recomputation factor < 1
             INCREASE counter that keeps track of number of recomputing attempts
         ELSE
             RAISE Error // maximum number of recomputing attempts has been exhausted
@@ -106,8 +105,8 @@ class TimeSteppingControl:
 
             The `schedule` must contain minimally two elements, corresponding to the
             initial and final simulation times. Schedules of size > 2 must contain strictly
-            increasing times. Examples of VALID inputs are: [0, 1], np.array([0, 10, 30,50]),
-            and [0, 1*pp.HOUR, 3*pp.HOUR]. Examples of INVALID inputs are: [1], [1,0],
+            increasing times. Examples of VALID inputs are: [0, 1], np.array([0, 10, 30, 50]),
+            and [0, 1*pp.HOUR, 3*pp.HOUR]. Examples of INVALID inputs are: [1], [1, 0],
             and np.array([0, 1, 1, 2]).
 
             If a constant time step is used (`constant_dt = True`), then the time step
@@ -120,7 +119,7 @@ class TimeSteppingControl:
             If True, then the time-stepping control algorithm is effectively bypassed. The
             algorithm will NOT adapt the time step in any situation, even if the user
             attempts to recompute the solution. Nevertheless, the attributes such as
-            scheduled times will still be accesible, provided `dt_init` and `schedule` are
+            scheduled times will still be accessible, provided `dt_init` and `schedule` are
             compatible.
         dt_min_max: Minimum and maximum permissible time steps.
             If None, then the minimum time step is set to 0.1% of the final simulation time
@@ -128,11 +127,11 @@ class TimeSteppingControl:
             then the first and second elements of the tuple corresponds to the minimum and
             maximum time steps, respectively.
 
-            To avoid oscilations and ensure a stable time step adaptation in combination with
+            To avoid oscillations and ensure a stable time step adaptation in combination with
             the relaxation factors, we further require:
                 dt_min_max[0] * iter_relax_factors[1] < dt_min_max[1], and
                 dt_min_max[1] * iter_relax_factors[0] > dt_min_max[0].
-            Note that in practical applications, these conditions are ussually met.
+            Note that in practical applications, these conditions are usually met.
         iter_max: Maximum number of iterations.
         iter_optimal_range: Optimal iteration range.
             The first and second elements of the tuple correspond to the lower and upper
@@ -141,13 +140,9 @@ class TimeSteppingControl:
             The first and second elements of the tuple corresponds to the under-relaxation and
             over-relaxation factors, respectively. We require the under-relaxation factor
             to be strictly lower than one, whereas the over-relaxation factor is required to
-            be strictly greater than one.
-
-            To avoid oscilations and ensure a stable time step adaptation in combination with
-            the minimum and maximum allowable time steps, we further require:
-                dt_min_max[0] * iter_relax_factors[1] < dt_min_max[1], and
-                dt_min_max[1] * iter_relax_factors[0] > dt_min_max[0].
-            Note that in practical applications, these conditions are usually met.
+            be strictly greater than one. Note that the values of `iter_relax_factors` must be
+            selected such that they avoid oscillations in combination with `dt_min_max`. Refer
+            to the documentation of `dt_min_max` for the explicit condition to be satisfied.
         recomp_factor: Failed-to-converge solution recomputation factor.
             Factor by which the time step will be multiplied in case the solution must be
             recomputed. We require `recomp_factor` to be strictly less than one.
