@@ -370,13 +370,19 @@ class TestTimeControl:
             tsc.next_time_step(iterations=5, recompute_solution=True)
         assert tsc._recomp_sol and (msg in str(excinfo.value))
 
+    def test_recompute_solution_false_by_default(self):
+        """"Checks if recompute solution is False by default"""
+        tsc = Ts([0, 1], 0.1)
+        tsc.next_time_step(iterations=3)
+        assert not tsc._recomp_sol
+
     def test_recomputed_solutions(self):
         """Test behaviour of the algorithm when the solution should be recomputed. Note
         that this should be independent of the number of iterations that the user passes"""
         tsc = Ts([0, 100], 2, recomp_factor=0.5)
         tsc.time = 5
         tsc.dt = 1
-        tsc.next_time_step(recompute_solution=True, iterations=1000)
+        tsc.next_time_step(iterations=1000, recompute_solution=True)
         # We expect the time step to be reduced half, time to be corrected (decreased
         # accordingly), _recomp_sol == True, and the counter _recomp_num increased by 1.
         assert tsc.time == 4
