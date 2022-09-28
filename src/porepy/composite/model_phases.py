@@ -29,7 +29,7 @@ class SaltWater(Phase):
         self.add_component(self.water)
         self.add_component(self.salt)
 
-        self._nc = self.mdg.num_subdomain_cells()
+        self._nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
 
     def density(
         self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
@@ -68,7 +68,7 @@ class WaterVapor(Phase):
         # adding 'internally' to use parent class functions
         self.add_component(self.water)
 
-        self._nc = self.mdg.num_subdomain_cells()
+        self._nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
 
     def density(
         self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
