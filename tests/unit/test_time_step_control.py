@@ -1,3 +1,17 @@
+"""
+This module contains a collection of unit tests for the `TimeSteppingControl` class. The
+module contains two test classes, namely: `TestParameterInputs` and `TestTimeControl`.
+
+`TestParameterInputs` contains test methods that check the sanity of the input parameters.
+This includes checks for default parameters in initialization, checks for admissible parameter
+values, and checks for admissible parameter types.
+
+`TestTimeControl` contains checks for the correct behaviour of the time-stepping control
+algorithm via the `next_time_step()` method. Here, the tests are designed to check that the
+time step is indeed adapted (based on iterations or recomputation criteria) and corrected
+(based on minimum and maximum allowable time steps or to satisfy required scheduled times).
+"""
+
 import numpy as np
 import pytest
 
