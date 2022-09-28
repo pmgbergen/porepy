@@ -13,7 +13,7 @@ from . import (
     phase,
     physical_domain,
 )
-from ._composite_utils import COMPUTATIONAL_VARIABLES, R_IDEAL
+from ._composite_utils import R_IDEAL
 from .component import *
 from .composition import *
 from .model_fluids import *
