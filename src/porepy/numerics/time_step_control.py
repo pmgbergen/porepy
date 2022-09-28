@@ -21,10 +21,11 @@ Algorithm Overview:
     `iter_relax_factors[0]`. Otherwise, `iterations` lies in the optimal iteration
     range, and time step remains unchanged.
 
-    If `recompute_solution = True`, then the time step will be decreased by a factor
-    `recomp_factor` with the hope of achieving convergence in the next time level. To
-    avoid an infinite loop, an error will be raised if the method is called more than
-    `recomp_max` consecutive times with the flag `recompute_solution = True`.
+    If `recompute_solution = True`, then the time step will be reduced by a factor
+    `recomp_factor` with the hope of achieving convergence in the next time level. The
+    algorithm will keep decreasing the time step unless: (1) the time step is equal to the
+    minimum admissible time step or (2) the number of recomputing attempts has been
+    exhausted. In both cases, an error will be raised.
 
     Now that the algorithm has determined a new time step, it has to ensure three more
     conditions, (1) the calculated time step cannot be smaller than dt_min,
@@ -33,7 +34,7 @@ Algorithm Overview:
     time. These three conditions are implemented in this order of precedence and
     will override any of the previous calculated time steps.
 
-Algorithm Workflow:
+Algorithm Workflow in Pseudocode:
 
     INPUT
         tsc // time step control object properly initialized
@@ -59,6 +60,9 @@ Algorithm Workflow:
         ENDIF
     ELSE
         IF number of recomputing attempts has not been exhausted THEN
+            IF dt is equal to dt_min THEN
+                RAISE Error // since recomputation will not have any effect
+            ENDIF
             SUBTRACT dt from current time // we have to "go back in time"
             DECREASE dt // multiply by recomputation factor < 1
             INCREASE counter that keeps track of number of recomputing attempts
@@ -391,7 +395,8 @@ class TimeSteppingControl:
                 then the time step is multiplied by `recomp_factor`. If False, then the time
                 step will be tuned accordingly.
 
-        Returns: Next time step if time < final_time. None, otherwise.
+        Returns:
+            Next time step if time < final_time. None, otherwise.
 
         """
 
@@ -407,7 +412,7 @@ class TimeSteppingControl:
             return self.dt_init
 
         # Adapt time step
-        if not recompute_solution:
+        if not self._recomp_sol:
             self._adaptation_based_on_iterations(iterations=iterations)
         else:
             self._adaptation_based_on_recomputation()
@@ -465,14 +470,29 @@ class TimeSteppingControl:
             pass  # (C3)
 
     def _adaptation_based_on_recomputation(self) -> None:
-        """Adapt (decrease) time step when the solution failed to converge.
+        """Adapt (decrease) time step when `recompute_solution` = True.
 
-        Raises: ValueError if recomp_attemps > max_recomp_attempts. That is, when the maximum
-            number of recomputation attempts has been exhausted.
+        Raises:
+            ValueError if dt = dt_min, since any further recomputation attempt will be
+                pointless.
+            ValueError if recomp_attempts > max_recomp_attempts. That is, if the maximum
+                number of recomputation attempts has been exhausted.
 
         """
 
         if self._recomp_num < self.recomp_max:
+
+            # If dt = dt_min, adaptation based on recomputation won't have any effect
+            # in the next iteration (any decrease in time step will be corrected to dt_min
+            # by self.correction_based_on_dt_min() in a subsequent correction step). Thus,
+            # to avoid pointless iterations, we raise an error.
+            if self.dt == self.dt_min_max[0]:
+                msg = (
+                    "Recomputation will not have any effect since the time step achieved its"
+                    f"minimum admissible value -> dt = dt_min = {self.dt}."
+                )
+                raise ValueError(msg)
+
             # If the solution did not converge AND we are allowed to recompute it, then:
             #   (S1) Update simulation time since solution will be recomputed.
             #   (S2) Decrease time step multiplying it by the recomputing factor < 1.
@@ -495,7 +515,7 @@ class TimeSteppingControl:
                 )
                 print(msg)
         else:
-            # The solution did not converge AND we exhausted all recomputation attempts
+            # The solution did not converge AND recomputation attempts have been exhausted
             msg = (
                 f"Solution did not converge after {self.recomp_max} recomputing "
                 "attempts."
