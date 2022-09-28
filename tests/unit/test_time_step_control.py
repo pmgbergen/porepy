@@ -401,6 +401,20 @@ class TestTimeControl:
         # dt_min. Hence, dt_min should be set.
         assert tsc.dt == tsc.dt_min_max[0]
 
+    def test_raise_error_when_adapting_based_on_recomputation_with_dt_equal_to_dt_min(self):
+        """An error should be raised when adaption based on recomputation is attempted with
+        dt = dt_min"""
+        tsc = Ts(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
+        # For these parameters, we have tsc.dt = tsc.dt_init = tsc.dt_min_max[0]
+        # Attempting a recomputation should raise an error
+        with pytest.raises(ValueError) as excinfo:
+            msg = (
+                "Recomputation will not have any effect since the time step achieved its"
+                f"minimum admissible value -> dt = dt_min = {tsc.dt}."
+            )
+            tsc.next_time_step(iterations=5, recompute_solution=True)
+        assert tsc._recomp_sol and (msg in str(excinfo.value))
+
     @pytest.mark.parametrize("iterations", [11, 100])
     def test_warning_iteration_is_greater_than_max_iter(self, iterations):
         """Test if a warning is raised when the number of iterations passed to the method is
