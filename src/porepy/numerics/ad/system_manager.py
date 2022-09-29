@@ -8,8 +8,9 @@ from __future__ import annotations
 from typing import Callable, Dict, Optional, Sequence, Union
 
 import numpy as np
-import porepy as pp
 import scipy.sparse as sps
+
+import porepy as pp
 
 from . import _ad_utils
 
@@ -149,9 +150,9 @@ class ADSystemManager:
 
                 # create grid-specific variable
                 new_var = pp.ad.Variable(name, dof_info, subdomains=[sd])
-                if not sd in self.grid_variables.keys():
+                if sd not in self.grid_variables.keys():
                     self.grid_variables.update({sd: dict()})
-                if not name in self.grid_variables[sd].keys():
+                if name not in self.grid_variables[sd].keys():
                     self.grid_variables[sd].update({name: new_var})
                 variables.append(new_var)
 
@@ -179,9 +180,9 @@ class ADSystemManager:
                     new_var = pp.ad.Variable(
                         name, dof_info, interfaces=[intf], num_cells=intf.num_cells
                     )
-                    if not intf in self.grid_variables.keys():
+                    if intf not in self.grid_variables.keys():
                         self.grid_variables.update({intf: dict()})
-                    if not name in self.grid_variables[intf].keys():
+                    if name not in self.grid_variables[intf].keys():
                         self.grid_variables[intf].update({name: new_var})
                     variables.append(new_var)
 

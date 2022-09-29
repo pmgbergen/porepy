@@ -34,8 +34,8 @@ class PhysicalSubdomain:
 
     def __init__(
         self,
-        grid: "pp.Grid",
-        substances: "pp.composite.SolidSubstance",
+        grid: pp.Grid,
+        substances: pp.composite.SolidComponent,
         rel_perm_law: str,
     ) -> None:
         """Constructor using geometrical and substance information.
@@ -48,7 +48,7 @@ class PhysicalSubdomain:
         """
 
         self.grid: pp.Grid = grid
-        self.substance: "pp.composite.SolidSubstance" = substances
+        self.substance: pp.composite.SolidComponent = substances
 
         self.rel_perm_law = str(rel_perm_law)
 
@@ -57,7 +57,7 @@ class PhysicalSubdomain:
         out = "Physical subdomain made of %s on grid:\n" % (self.substance.name)
         return out + str(self.grid)
 
-    def base_porosity(self) -> "pp.ad.Operator":
+    def base_porosity(self) -> pp.ad.Operator:
         """
         :return: AD representation of the base porosity
         :rtype: :class:`~porepy.numerics.ad.operators.Array`
@@ -66,7 +66,7 @@ class PhysicalSubdomain:
 
         return pp.ad.Array(arr)
 
-    def base_permeability(self) -> "pp.ad.SecondOrderTensorAd":
+    def base_permeability(self) -> pp.SecondOrderTensor:
         """
         :return: AD representation of the base permeability
         :rtype: :class:`~porepy.numerics.ad.operators.SecondOrderTensorAd`
