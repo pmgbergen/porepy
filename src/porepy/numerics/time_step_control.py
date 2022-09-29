@@ -119,6 +119,8 @@ class TimeSteppingControl:
             True` and `dt_init = 2` are: [0, 2] and np.array([0, 4, 6, 10]). Examples of
             INVALID inputs for `constant_dt = True` and `dt_init = 2` are [0, 3] and
             np.array([0, 4, 5, 10]).
+        dt_init: Initial time step. The initial time step is required to be positive and
+            and less or equal than the final simulation time.
         constant_dt: Whether to treat the time step as constant or not.
             If True, then the time-stepping control algorithm is effectively bypassed. The
             algorithm will NOT adapt the time step in any situation, even if the user
