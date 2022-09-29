@@ -82,13 +82,11 @@ class Component(abc.ABC):
         #### PRIVATE
 
         # creating the overall molar fraction variable
-        self._fraction: Optional[pp.ad.MergedVariable] = None
+        self._fraction: VarLike
         if ad_system:
-            self._fraction = ad_system.create_variable(
-                self.fraction_var_name, True
-            )
+            self._fraction = ad_system.create_variable(self.fraction_var_name, True)
         else:
-            self._fraction = 0.
+            self._fraction = 0.0
 
         # for a phase name (key),
         # provide the MergedVariable for the molar fraction in that phase (value)
@@ -107,21 +105,8 @@ class Component(abc.ABC):
         """Name of the feed fraction variable, given by the general symbol and :meth:`name`."""
         return "z" + "_" + self.name
 
-    # def fraction_in_phase_var(self, phase_name: str) -> str:
-    #     """
-    #     Parameters:
-    #         phase_name: :meth:`~porepy.composite.Phase.name` of the phase in which this
-    #             component is present.
-
-    #     Returns:
-    #         name of the respective variable, given by the general symbol, the
-    #         component name and the phase name
-
-    #     """
-    #     return f"x_{self.name}_{phase_name}"
-
     @property
-    def fraction(self) -> Optional[pp.ad.MergedVariable]:
+    def fraction(self) -> VarLike:
         """Initialized with 0.
 
         | Math. Dimension:        scalar
@@ -142,7 +127,7 @@ class Component(abc.ABC):
 
         """
         return self._fraction
-    
+
     @fraction.setter
     def fraction(self, value: float) -> None:
         if self.ad_system:
@@ -153,36 +138,7 @@ class Component(abc.ABC):
         else:
             self._fraction = value
 
-    # def fraction_in_phase(self, phase_name: str) -> Optional[pp.ad.MergedVariable]:
-    #     """
-    #     | Math. Dimension:        scalar
-    #     | Phys. Dimension:        [-] fractional
-
-    #     Parameters:
-    #         phase_name: :meth:`~porepy.composite.Phase.name` of the phase in which this
-    #             component is present.
-
-    #     Returns:
-    #         fraction in phase, a secondary variable on the whole domain (cell-wise).
-    #         Indicates how many moles in a present phase belongs to this component.
-    #         It is supposed to represent the value at thermodynamic equilibrium.
-
-    #     """
-    #     # if variable for this phase already exists, return it
-    #     if phase_name in self._fractions_in_phases.keys():
-    #         return self._fractions_in_phases[phase_name]
-    #     # else create new one otherwise
-    #     else:
-    #         # for AD systems create a merged variable
-    #         if self.ad_system:
-    #             mfip = self.ad_system.create_variable(
-    #                 self.fraction_in_phase_var(phase_name), False)
-    #         # for standalone applications this remains None
-    #         else:
-    #             mfip = None
-    #         # store and return the variable
-    #         self._fractions_in_phases.update({phase_name: mfip})
-    #         return mfip
+    ### PHYSICAL PROPERTIES -------------------------------------------------------------------
 
     def mass_density(self, p: VarLike, T: VarLike) -> VarLike:
         """Uses the molar mass and molar density to compute the mass density.
@@ -199,10 +155,6 @@ class Component(abc.ABC):
         """
         return self.molar_mass() * self.density(p, T)
 
-    # -----------------------------------------------------------------------------------------
-    ### ABSTRACT PHYSICAL PROPERTIES
-    # -----------------------------------------------------------------------------------------
-
     @staticmethod
     @abc.abstractmethod
     def molar_mass() -> float:
@@ -215,10 +167,6 @@ class Component(abc.ABC):
 
         """
         pass
-
-    # -----------------------------------------------------------------------------------------
-    ### NON-CONSTANT ABSTRACT PHYSICAL PROPERTIES
-    # -----------------------------------------------------------------------------------------
 
     @abc.abstractmethod
     def density(self, p: VarLike, T: VarLike) -> VarLike:

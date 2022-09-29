@@ -4,6 +4,8 @@ from __future__ import annotations
 import abc
 from typing import Dict, Generator, List, Optional, Union
 
+import numpy as np
+
 import porepy as pp
 
 from .component import VarLike
@@ -93,9 +95,10 @@ class Phase(abc.ABC):
         self._fraction: Optional[pp.ad.MergedVariable] = None
         if ad_system:
             self._s = ad_system.create_variable(self.saturation_var_name, False)
-            self._fraction = ad_system.create_variable(
-                self.fraction_var_name, False
-            )
+            self._fraction = ad_system.create_variable(self.fraction_var_name, False)
+            nc = ad_system.dof_manager.mdg.num_subdomain_cells()
+            ad_system.set_var_values(self.saturation_var_name, np.zeros(nc), True)
+            ad_system.set_var_values(self.fraction_var_name, np.zeros(nc), True)
         # contains fractional values per present component name (key)
         self._composition: Dict[str, VarLike] = dict()
 
@@ -162,7 +165,7 @@ class Phase(abc.ABC):
         """
         return self._fraction
 
-    def fraction_of_component(self, component: pp.composite.Component) -> VarLike:
+    def component_fraction_of(self, component: pp.composite.Component) -> VarLike:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -190,9 +193,9 @@ class Phase(abc.ABC):
             raise RuntimeError(
                 f"Component '{component.name}' instantiated with a different AD system."
             )
-        return self._composition.get(self.fraction_of_component_var_name(component), 0.0)
-    
-    def fraction_of_component_var_name(self, component: pp.composite.Component) -> str:
+        return self._composition.get(self.component_fraction_var_name(component), 0.0)
+
+    def component_fraction_var_name(self, component: pp.composite.Component) -> str:
         """
         Parameters:
             component: component for which the respective name is requested.
@@ -202,7 +205,7 @@ class Phase(abc.ABC):
             component name and the phase name.
 
         """
-        return f"x_{self.name}_{component.name}"
+        return f"x_{component.name}_{self.name}"
 
     def add_component(
         self,
@@ -240,17 +243,21 @@ class Phase(abc.ABC):
             if comp.name in present_components:
                 continue
             # create the name for the variable 'component fraction in this phase'
-            fraction_name = self.fraction_of_component_var_name(comp)
+            fraction_name = self.component_fraction_var_name(comp)
             # create the fraction of the component in this phase
             comp_fraction: VarLike
             if self.ad_system:
                 comp_fraction = self.ad_system.create_variable(fraction_name, False)
+                nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
+                self.ad_system.set_var_values(fraction_name, np.zeros(nc), True)
             else:
                 comp_fraction = 0.0
             # store reference to present substance
             self._present_components.append(comp)
             # store the compositional variable
             self._composition.update({fraction_name: comp_fraction})
+
+    ### Physical properties -------------------------------------------------------------------
 
     def mass_density(self, p: VarLike, T: VarLike) -> VarLike:
         """Uses the  molar mass in combination with the molar masses and fractions
@@ -266,9 +273,7 @@ class Phase(abc.ABC):
         Returns: mass density of this phase.
 
         """
-
         weight = 0.0
-
         # add the mass-weighted fraction for each present substance.
         # if no components are present, the weight is zero!
         for component in self._present_components:
@@ -276,10 +281,6 @@ class Phase(abc.ABC):
 
         # Multiply the mass weight with the molar density and return the operator
         return weight * self.density(p, T)
-
-    # ------------------------------------------------------------------------------
-    ### Abstract, phase-related physical properties
-    # ------------------------------------------------------------------------------
 
     @abc.abstractmethod
     def density(self, p: VarLike, T: VarLike) -> VarLike:

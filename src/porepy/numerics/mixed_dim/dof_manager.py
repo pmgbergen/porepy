@@ -55,7 +55,7 @@ class DofManager:
         """
 
         self.block_dof: Dict[Tuple[Union[pp.Grid, pp.MortarGrid], str], int] = dict()
-        """Dictionary containing the block index for a given combination of grid/ mortar grid 
+        """Dictionary containing the block index for a given combination of grid/ mortar grid
         and variable name (key).
 
         """
@@ -65,10 +65,21 @@ class DofManager:
         self.full_dof = np.concatenate([self.full_dof, full_dof])
         self.block_dof.update(block_dof)
 
+    ### DOF management ------------------------------------------------------------------------
+
+    def num_dofs(self) -> np.int_:
+        """Get the number of degrees of freedom in this DofManager.
+
+        Returns:
+            np.int_: Size of subsystem.
+
+        """
+        return np.sum(self.full_dof)
+
     def append_dofs(self, var_names: list[str]) -> None:
         """Appends DOFs for a given primary variable.
 
-        This is meant to add DOFs dynamically after the DofManager has been instantiated. 
+        This is meant to add DOFs dynamically after the DofManager has been instantiated.
         I.e., this function looks up the local dofs for given names and appends new DOFs
         to the global system, such that the previous DOFs/indices are not changed.
 
@@ -83,17 +94,19 @@ class DofManager:
         """
 
         full_dof, block_dof = self._create_dofs(var_names)
-        
+
         # append the DOFs
         self.full_dof = np.concatenate([self.full_dof, full_dof])
         self.block_dof.update(block_dof)
 
-    def _create_dofs(self, for_vars: Optional[list[str]] = None) -> tuple[np.ndarray, dict]:
+    def _create_dofs(
+        self, for_vars: Optional[list[str]] = None
+    ) -> tuple[np.ndarray, dict]:
         """Creates DOFs to be appended to the already existing global DOFs.
-        
-        Parameters: 
+
+        Parameters:
             for_vars: if given, creates only DOFs for variables with names found in this list.
-    
+
         """
         # Counter for block index
         block_dof_counter = len(self.block_dof)
@@ -176,7 +189,8 @@ class DofManager:
                     # make sure DOFs are not added more than once per combination
                     if (intf, local_var) in self.block_dof.keys():
                         raise ValueError(
-                            f"DOFs already present for variable '{local_var}' on interface '{intf}'."
+                            f"DOFs already present for variable '{local_var}' "
+                            "on interface '{intf}'."
                         )
 
                     # Adding block dof counter
@@ -199,7 +213,8 @@ class DofManager:
                     # make sure DOFs are not added more than once per combination
                     if (intf, local_var) in self.block_dof.keys():
                         raise ValueError(
-                            f"DOFs already present for variable '{local_var}' on interface '{intf}'."
+                            f"DOFs already present for variable '{local_var}' "
+                            "on interface '{intf}'."
                         )
 
                     # Adding block dof counter
@@ -210,8 +225,10 @@ class DofManager:
                     # This will not change in the foreseeable future
                     total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
                     full_dof.append(total_local_dofs)
-        
+
         return np.array(full_dof, dtype=int), block_dof
+
+    ### Variable management by strings (names) ------------------------------------------------
 
     def get_variables(self, primary: bool, secondary: bool) -> tuple[str]:
         """Returns a set of all, currently stored variables.
@@ -238,16 +255,59 @@ class DofManager:
 
         return tuple(vars)
 
-    def num_dofs(
+    def assemble_variable(
         self,
-    ) -> np.int_:
-        """Get the number of degrees of freedom in this DofManager.
+        grids: Optional[List[GridLike]] = None,
+        variables: Optional[List[str]] = None,
+        from_iterate: bool = False,
+    ) -> np.ndarray:
+        """Assemble a vector from the variable state stored in nodes and edges in
+        the MixedDimensionalGrid.
+
+        Parameters:
+            grids (list of grids or grid tuples (interfaces), optional): Names of the
+                grids (both subdomains and interfaces) to be assembled from. If not provided,
+                all variables found in self.block_dof will be considered.
+            variables (list of str, optional): Names of the variables to be
+                assembled. If not provided, all variables found in self.block_dof
+                will be cosidered.
+            from_iterate (bool, optional): If True, assemble from iterates, and not the
+                state itself. Set this to True inside a non-linear scheme (Newton), False
+                at the end of a time step.
 
         Returns:
-            np.int_: Size of subsystem.
+            np.ndarray: Vector, size equal to self.num_dofs(). Values taken from the
+                state for those indices corresponding to an active grid-variable
+                combination. Other values are set to zero.
 
         """
-        return np.sum(self.full_dof)
+        if grids is None:
+            grids = list(set([key[0] for key in self.block_dof]))
+
+        if variables is None:
+            variables = list(set([key[1] for key in self.block_dof]))
+
+        values = np.zeros(self.num_dofs())
+
+        for g, var in itertools.product(grids, variables):
+            if (g, var) not in self.block_dof:
+                continue
+
+            dof_ind = self.grid_and_variable_to_dofs(g, var)
+
+            if isinstance(g, pp.MortarGrid):
+                # This is really an edge
+                data = self.mdg.interface_data(g)
+            else:
+                data = self.mdg.subdomain_data(g)
+
+            if from_iterate:
+                # Use copy to avoid nasty bugs.
+                values[dof_ind] = data[pp.STATE][pp.ITERATE][var].copy()
+            else:
+                values[dof_ind] = data[pp.STATE][var].copy()
+
+        return values
 
     def distribute_variable(
         self,
@@ -321,59 +381,49 @@ class DofManager:
                 else:
                     data[pp.STATE][var] = vals.copy()
 
-    def assemble_variable(
-        self,
-        grids: Optional[List[GridLike]] = None,
-        variables: Optional[List[str]] = None,
-        from_iterate: bool = False,
-    ) -> np.ndarray:
-        """Assemble a vector from the variable state stored in nodes and edges in
-        the MixedDimensionalGrid.
+    def projection_to(self, variables: Sequence[str]) -> sps.spmatrix:
+        """Create a projection matrix from the global variable vector to a subspace specified
+        by given ``variables``.
+
+        The transpose of the returned matrix can be used to slice respective columns out of a
+        global system matrix.
 
         Parameters:
-            grids (list of grids or grid tuples (interfaces), optional): Names of the
-                grids (both subdomains and interfaces) to be assembled from. If not provided,
-                all variables found in self.block_dof will be considered.
-            variables (list of str, optional): Names of the variables to be
-                assembled. If not provided, all variables found in self.block_dof
-                will be cosidered.
-            from_iterate (bool, optional): If True, assemble from iterates, and not the
-                state itself. Set this to True inside a non-linear scheme (Newton), False
-                at the end of a time step.
+            variables: names of variables to be projected on. The projection is
+                preserving the order defined for the global DOFs.
 
         Returns:
-            np.ndarray: Vector, size equal to self.num_dofs(). Values taken from the
-                state for those indices corresponding to an active grid-variable
-                combination. Other values are set to zero.
+            sparse projection matrix. Can be rectangular ``MxN``, where ``M<=N`` and ``N`` is
+            the current size of the global DOF vector.
 
         """
-        if grids is None:
-            grids = list(set([key[0] for key in self.block_dof]))
+        num_global_dofs = self.num_dofs()
 
-        if variables is None:
-            variables = list(set([key[1] for key in self.block_dof]))
+        # Array for the dofs associated with each grid-variable combination
+        inds = []
 
-        values = np.zeros(self.num_dofs())
+        # Loop over variables, find dofs
+        for var in variables:
+            var_grids = [pair[0] for pair in self.block_dof if pair[1] == var]
+            for grid in var_grids:
+                inds.append(self.grid_and_variable_to_dofs(grid, var))
 
-        for g, var in itertools.product(grids, variables):
-            if (g, var) not in self.block_dof:
-                continue
+        if len(inds) == 0:
+            # Special case if no indices were returned
+            return sps.csr_matrix((0, num_global_dofs))
 
-            dof_ind = self.grid_and_variable_to_dofs(g, var)
+        # Create projection matrix. Uniquify indices here, both to sort (will preserve
+        # the ordering of the unknowns given by the DofManager) and remove duplicates
+        # (in case variables were specified more than once).
+        local_dofs = np.unique(np.hstack(inds))
+        num_local_dofs = local_dofs.size
 
-            if isinstance(g, pp.MortarGrid):
-                # This is really an edge
-                data = self.mdg.interface_data(g)
-            else:
-                data = self.mdg.subdomain_data(g)
+        return sps.coo_matrix(
+            (np.ones(num_local_dofs), (np.arange(num_local_dofs), local_dofs)),
+            shape=(num_local_dofs, num_global_dofs),
+        ).tocsr()
 
-            if from_iterate:
-                # Use copy to avoid nasty bugs.
-                values[dof_ind] = data[pp.STATE][pp.ITERATE][var].copy()
-            else:
-                values[dof_ind] = data[pp.STATE][var].copy()
-
-        return values
+    ### DOF look ups --------------------------------------------------------------------------
 
     def dof_var(
         self,
@@ -632,47 +682,7 @@ class DofManager:
         dof_range: np.ndarray = np.arange(block_range[0], block_range[1])
         return dof_range
 
-    def projection_to(self, variables: Sequence[str]) -> sps.spmatrix:
-        """Create a projection matrix from the global variable vector to a subspace specified
-        by given ``variables``.
-
-        The transpose of the returned matrix can be used to slice respective columns out of a
-        global system matrix.
-
-        Parameters:
-            variables: names of variables to be projected on. The projection is
-                preserving the order defined for the global DOFs.
-
-        Returns:
-            sparse projection matrix. Can be rectangular ``MxN``, where ``M<=N`` and ``N`` is
-            the current size of the global DOF vector.
-
-        """
-        num_global_dofs = self.num_dofs()
-
-        # Array for the dofs associated with each grid-variable combination
-        inds = []
-
-        # Loop over variables, find dofs
-        for var in variables:
-            var_grids = [pair[0] for pair in self.block_dof if pair[1] == var]
-            for grid in var_grids:
-                inds.append(self.grid_and_variable_to_dofs(grid, var))
-
-        if len(inds) == 0:
-            # Special case if no indices were returned
-            return sps.csr_matrix((0, num_global_dofs))
-
-        # Create projection matrix. Uniquify indices here, both to sort (will preserve
-        # the ordering of the unknowns given by the DofManager) and remove duplicates
-        # (in case variables were specified more than once).
-        local_dofs = np.unique(np.hstack(inds))
-        num_local_dofs = local_dofs.size
-
-        return sps.coo_matrix(
-            (np.ones(num_local_dofs), (np.arange(num_local_dofs), local_dofs)),
-            shape=(num_local_dofs, num_global_dofs),
-        ).tocsr()
+    ### Special methods -----------------------------------------------------------------------
 
     def __str__(self) -> str:
         grid_likes = [key[0] for key in self.block_dof]
