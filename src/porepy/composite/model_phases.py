@@ -10,6 +10,7 @@ import porepy as pp
 from .model_fluids import H2O
 from .model_solids import NaCl
 from .phase import Phase
+from ._composite_utils import R_IDEAL
 
 __all__ = ["SaltWater", "WaterVapor"]
 
@@ -36,7 +37,9 @@ class SaltWater(Phase):
             self._nc = 1
 
     def density(self, p, T):
-        density = 998.21 / H2O.molar_mass()
+        # https://www.usgs.gov/special-topics/water-science-school/science/water-density
+        # converted to kg / m^3 then to mol / m^3
+        density = 958.65 / H2O.molar_mass()
         return pp.ad.Array(density * np.ones(self._nc))
 
     def specific_enthalpy(self, p, T):
@@ -52,9 +55,8 @@ class SaltWater(Phase):
 class WaterVapor(Phase):
     """Values found on Wikipedia..."""
 
-    # https://en.wikipedia.org/wiki/Water_vapor see specific gas constant (mass)
-    specific_molar_gas_constant = 0.4615 * H2O.molar_mass()  # kJ / mol / K
-    molar_heat_capacity = 1.864 * H2O.molar_mass()  # kJ / mol / K
+    # https://en.wikipedia.org/wiki/Table_of_specific_heat_capacities (steam)
+    molar_heat_capacity = 0.03747  # kJ / mol / K
 
     def __init__(
         self, name: str, ad_system: Optional[pp.ad.ADSystemManager] = None
@@ -66,7 +68,7 @@ class WaterVapor(Phase):
         self.add_component(self.water)
 
     def density(self, p, T):
-        return p / (T * self.specific_molar_gas_constant)
+        return p / (T * R_IDEAL)
 
     def specific_enthalpy(self, p, T):
         return p / self.density(p, T) + T * self.molar_heat_capacity
