@@ -48,7 +48,7 @@ class H2O(FluidComponent):
     @staticmethod
     def molar_mass():
         """Taken from https://en.wikipedia.org/wiki/Water_vapor ."""
-        return 0.01801528
+        return 0.0180152833
 
     def density(self, p, T):
         water = IAPWS95(P=p, T=T)

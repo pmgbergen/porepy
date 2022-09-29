@@ -44,7 +44,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # Pa
         self.initial_pressure = 1013200
         # Kelvin
-        self.initial_temperature = 323.0
+        self.initial_temperature = 323.15
         # %
         self.initial_salt_concentration = 0.02
         # kg to mol
@@ -55,7 +55,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             + self.initial_pressure / (998.21 / pp.composite.H2O.molar_mass())
         )
         # D-BC temperature Kelvin for conductive flux
-        self.boundary_temperature = 383.0  # 110 Celsius
+        self.boundary_temperature = 383.15  # 110 Celsius
         # D-BC on outflow boundary
         self.boundary_pressure = 1.0
         # base porosity for grid
@@ -69,7 +69,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # time step size
         self.dt: float = 1.0
         # residual tolerance for the balance equations
-        self.tolerance_balance_equations = 1e-10
+        self.tolerance_balance_equations = 1e-8
         # create default grid bucket for this model
         self.mdg: pp.MixedDimensionalGrid
         self.box: dict = dict()

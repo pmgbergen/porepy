@@ -423,6 +423,16 @@ class Operator:
                 if isinstance(results[1], pp.ad.Ad_array):
                     # See remarks by EK in case ndarray / Ad_array
                     return (results[0] * results[1] ** -1)[0]
+                elif isinstance(results[1], numbers.Real): # trivial case
+                    return results[0] / results[1]
+                elif isinstance(results[1], np.ndarray):
+                    # element-wise division for numpy vectors
+                    if len(results[1].shape) == 1:
+                        return results[0] / results[1]
+                    else:  # if it is a matrix, the inversion should be treated differently
+                        return NotImplementedError(
+                            "Encountered a case not covered when dividing Ad objects"
+                        )
                 else:
                     # In case above argument, that the divisor can only be an Ad_array,
                     # is wrong
