@@ -4,45 +4,12 @@ i.e. they are associated with the flow.
 """
 from iapws import IAPWS95
 
-from ._composite_utils import R_IDEAL
 from .component import FluidComponent
 
-__all__ = ["IdealFluid", "H2O"]
+__all__ = ["IAPWS95_H2O"]
 
 
-class IdealFluid(FluidComponent):
-    """
-    Represents the academic example fluid with all properties constant and unitary.
-
-    The liquid and solid density are constant and unitary.
-    The gas density is implemented according to the Ideal Gas Law.
-
-    Intended usage is testing, debugging and demonstration.
-
-    For a proper documentation of all properties, see parent class.
-    """
-
-    @staticmethod
-    def molar_mass():
-        return 1.0
-
-    def density(self, p, T):
-        return p / (R_IDEAL * T)
-
-    def Fick_diffusivity(self, p, T):
-        return 1.0
-
-    def thermal_conductivity(self, p, T):
-        return 1.0
-
-    def dynamic_viscosity(self, p, T):
-        return 1.0
-
-    def molar_heat_capacity(self, p, T):
-        return 1.0
-
-
-class H2O(FluidComponent):
+class IAPWS95_H2O(FluidComponent):
     # TODO decorate methods and turn them into AD methods
 
     @staticmethod

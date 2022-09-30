@@ -12,7 +12,7 @@ from . import (
     model_solids,
     phase,
 )
-from ._composite_utils import R_IDEAL
+from ._composite_utils import *
 from .component import *
 from .composition import *
 from .model_fluids import *

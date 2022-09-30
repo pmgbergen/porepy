@@ -48,11 +48,11 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # %
         self.initial_salt_concentration = 0.02
         # kg to mol
-        self.injected_moles_water = 10.0 / pp.composite.H2O.molar_mass()
+        self.injected_moles_water = 10.0 / pp.composite.IAPWS95_H2O.molar_mass()
         # kJ / mol , specific heat capacity from Wikipedia
         self.injected_water_enthalpy = (
             0.075327 * self.initial_temperature
-            + self.initial_pressure / (998.21 / pp.composite.H2O.molar_mass())
+            + self.initial_pressure / (998.21 / pp.composite.IAPWS95_H2O.molar_mass())
         )
         # D-BC temperature Kelvin for conductive flux
         self.boundary_temperature = 383.15  # 110 Celsius
@@ -158,11 +158,13 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         Use this method to inherit and override the composition, while keeping the (generic)
         rest of the model.
         """
+        self.water = pp.composite.IAPWS95_H2O(self.mdg)
+        self.salt = pp.composite.NaCl(self.mdg)
         self.composition = pp.composite.Composition(self.mdg)
-        self.brine = pp.composite.SaltWater("brine", self.mdg)
-        self.water = self.brine.water
-        self.salt = self.brine.salt
-        self.vapor = pp.composite.WaterVapor("vapor", self.mdg)
+        self.brine = pp.composite.IncompressibleFluid("brine", self.mdg)
+        self.vapor = pp.composite.IdealGas("vapor", self.mdg)
+        self.brine.add_component([self.water, self.salt])
+        self.vapor.add_component(self.water)
 
         self.composition.add_component(self.water)
         self.composition.add_component(self.salt)

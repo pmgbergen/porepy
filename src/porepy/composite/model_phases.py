@@ -1,88 +1,57 @@
 """Contains concrete implementation of phases."""
 from __future__ import annotations
 
-from typing import Optional
-
+import porepy as pp
 import numpy as np
 
-import porepy as pp
-
-from .model_fluids import H2O
-from .model_solids import NaCl
 from .phase import Phase
-from ._composite_utils import R_IDEAL
+from ._composite_utils import R_IDEAL, T_REF, P_REF, CP_REF, V_REF, U_REF
 
-__all__ = ["SaltWater", "WaterVapor"]
+__all__ = ["IncompressibleFluid", "IdealGas"]
 
-
-class SaltWater(Phase):
-
-    # https://en.wikipedia.org/wiki/Table_of_specific_heat_capacities
-    molar_heat_capacity = 0.075327  # kJ / mol / K
-
-    def __init__(
-        self, name: str, ad_system: Optional[pp.ad.ADSystemManager] = None
-    ) -> None:
-        super().__init__(name, ad_system)
-        # saving external reference for simplicity
-        self.water = H2O(ad_system)
-        self.salt = NaCl(ad_system)
-        # adding 'internally' to use parent class functions
-        self.add_component(self.water)
-        self.add_component(self.salt)
-
-        if ad_system:
-            self._nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
-        else:
-            self._nc = 1
+# TODO ADify properly
+class IncompressibleFluid(Phase):
+    """Ideal, Incompressible fluid with constant density of 1,000,000 moles per V_REF.
+    
+    The EOS is reduced to
+    
+    const rho = 1000000 / V_REF ( = 1000000 / V )
+    V = V_REF
+    
+    """
 
     def density(self, p, T):
-        # https://www.usgs.gov/special-topics/water-science-school/science/water-density
-        # converted to kg / m^3 then to mol / m^3
-        density = 958.65 / H2O.molar_mass()
-        return pp.ad.Array(density * np.ones(self._nc))
+        return pp.ad.Array(np.array([1000000. / V_REF]))
 
     def specific_enthalpy(self, p, T):
-        return p / self.density(p, T) + T * self.molar_heat_capacity
+        return U_REF + P_REF / (1000000 / V_REF) + CP_REF * (T - T_REF) + V_REF * (p - P_REF)
 
     def dynamic_viscosity(self, p, T):
-        return pp.ad.Array(np.ones(self._nc))  # 0.001
+        return pp.ad.Scalar([1.])
 
     def thermal_conductivity(self, p, T):
-        return pp.ad.Array(np.ones(self._nc))
+        return pp.ad.Scalar([1.])
 
 
-class WaterVapor(Phase):
-    """Values found on Wikipedia..."""
+class IdealGas(Phase):
+    """Ideal water vapor phase with EoS:
+    
+     rho = n / V  = p / (R * T)
 
-    # https://en.wikipedia.org/wiki/Table_of_specific_heat_capacities (steam)
-    molar_heat_capacity = 0.03747  # kJ / mol / K
-
-    def __init__(
-        self, name: str, ad_system: Optional[pp.ad.ADSystemManager] = None
-    ) -> None:
-        super().__init__(name, ad_system)
-        # saving external reference for simplicity
-        self.water = H2O(ad_system)
-        # adding 'internally' to use parent class functions
-        self.add_component(self.water)
+    """
 
     def density(self, p, T):
         return p / (T * R_IDEAL)
 
     def specific_enthalpy(self, p, T):
-        return p / self.density(p, T) + T * self.molar_heat_capacity
+        # enthalpy at reference state is
+        # h = u + p / rho(p,T)
+        # which due to the ideal gas law simplifies to
+        # h = u + R * T
+        return U_REF + R_IDEAL * T_REF + CP_REF * (T - T_REF)
 
     def dynamic_viscosity(self, p, T):
-        if self.ad_system:
-            nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
-            return pp.ad.Array(np.ones(nc))  # 0.0003
-        else:
-            return 1.
+        return pp.ad.Scalar([1.])
 
     def thermal_conductivity(self, p, T):
-        if self.ad_system:
-            nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
-            return pp.ad.Array(np.ones(nc))  # 0.0003
-        else:
-            return 1.
+        return pp.ad.Scalar([1.])
