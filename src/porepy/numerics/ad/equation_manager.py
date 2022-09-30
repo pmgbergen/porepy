@@ -52,15 +52,15 @@ class EquationManager:
         self,
         mdg: pp.MixedDimensionalGrid,
         dof_manager: pp.DofManager,
-        equations: Optional[Dict[str, pp.ad.Operator]] = None,
-        secondary_variables: Optional[Sequence[pp.ad.Variable]] = None,
+        equations: Optional[Dict[str, "pp.ad.Operator"]] = None,
+        secondary_variables: Optional[Sequence["pp.ad.Variable"]] = None,
     ) -> None:
         """Initialize the EquationManager.
 
         Parameters:
             mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid for this EquationManager.
             dof_manager (pp.DofManager): Degree of freedom manager.
-            equations (Dict, Optional): Dict of equations. Defaults to empty Dict.
+            equations (List, Optional): List of equations. Defaults to empty list.
             secondary_variables (List of Ad Variable or MergedVariable): Variables
                 to be considered secondary for this EquationManager.
 
@@ -68,7 +68,7 @@ class EquationManager:
         self.mdg = mdg
 
         # Inform mypy about variables, and then set them by a dedicated method.
-        self.variables: Dict[GridLike, Dict[str, pp.ad.Variable]]
+        self.variables: Dict[GridLike, Dict[str, "pp.ad.Variable"]]
         self._set_variables(mdg)
 
         if equations is None:
@@ -118,9 +118,9 @@ class EquationManager:
 
         self.secondary_variables = sec_var
 
+        # Start index for blocks corresponding to rows of the different equations.
         # Defaults to None, will be overwritten by assembly methods.
         self.row_block_indices_last_assembled: Optional[np.ndarray] = None
-        self.dofs_per_equation_last_assembled: Dict[str, np.ndarray] = dict()
 
     def _set_variables(self, mdg: pp.MixedDimensionalGrid):
         # Define variables as specified in the MixedDimensionalGrid
@@ -144,7 +144,7 @@ class EquationManager:
 
     def merge_variables(
         self, grid_var: Sequence[Tuple[GridLike, str]]
-    ) -> pp.ad.MergedVariable:
+    ) -> "pp.ad.MergedVariable":
         """Concatenate a variable defined over several subdomains or interfaces.
 
 
@@ -169,7 +169,7 @@ class EquationManager:
         """
         return pp.ad.MergedVariable([self.variables[g][v] for g, v in grid_var])
 
-    def variable(self, grid_like: GridLike, variable: str) -> pp.ad.Variable:
+    def variable(self, grid_like: GridLike, variable: str) -> "pp.ad.Variable":
         """Get a variable for a specified grid or interface between grids, that is
         a mortar grid.
 
@@ -219,24 +219,17 @@ class EquationManager:
         mat: List[sps.spmatrix] = []
         rhs: List[np.ndarray] = []
 
-        # Keep track of DOFs for each equation/block
+        # Keep track of first row index for each equation/block
         ind_start: List[int] = [0]
-        self.dofs_per_equation_last_assembled = dict()
 
         # Iterate over equations, assemble.
-        for name, eq in self.equations.items():
+        for eq in self.equations.values():
             ad = eq.evaluate(self.dof_manager, state)
             # Append matrix and rhs
             mat.append(ad.jac)
             # Multiply by -1 to move to the rhs
             rhs.append(-ad.val)
-            start_idx = ind_start[-1]
-            end_idx = start_idx + ad.val.size
-            ind_start.append(end_idx)
-            self.dofs_per_equation_last_assembled.update(
-                {name: np.array(range(start_idx, end_idx))}
-            )
-
+            ind_start.append(ind_start[-1] + ad.val.size)
 
         # The system assembled in the for-loop above contains derivatives for both
         # primary and secondary variables, where the primary is understood as the
@@ -268,7 +261,7 @@ class EquationManager:
         self,
         eq_names: Optional[Sequence[str]] = None,
         variables: Optional[
-            Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]]
+            Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
         ] = None,
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
@@ -311,9 +304,7 @@ class EquationManager:
         # Projection to the subset of active variables
         projection = self._column_projection(variables)
 
-        # DOF tracking for equations/blocks
         ind_start = [0]
-        self.dofs_per_equation_last_assembled = dict()
 
         # Iterate over equations, assemble.
         for name in eq_names:
@@ -328,12 +319,7 @@ class EquationManager:
             # Multiply by -1 to move to the rhs
             rhs.append(-ad.val)
 
-            start_idx = ind_start[-1]
-            end_idx = start_idx + ad.val.size
-            ind_start.append(end_idx)
-            self.dofs_per_equation_last_assembled.update(
-                {name: np.array(range(start_idx, end_idx))}
-            )
+            ind_start.append(ind_start[-1] + ad.val.size)
 
         # Concatenate results.
         if len(mat) > 0:
@@ -352,7 +338,7 @@ class EquationManager:
     def assemble_schur_complement_system(
         self,
         primary_equations: Sequence[str],
-        primary_variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]],
+        primary_variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
         inverter: Callable[[sps.spmatrix], sps.spmatrix],
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
@@ -444,8 +430,8 @@ class EquationManager:
     def subsystem_equation_manager(
         self,
         eq_names: Sequence[str],
-        variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]],
-    ) -> EquationManager:
+        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
+    ) -> "EquationManager":
         """Extract an EquationManager for a subset of variables and equations.
         In effect, this produce a nonlinear subsystem.
 
@@ -501,7 +487,7 @@ class EquationManager:
         unique_discr = _ad_utils.uniquify_discretization_list(discr)
         _ad_utils.discretize_from_list(unique_discr, mdg)
 
-    def _column_projection(self, variables: Sequence[pp.ad.Variable]) -> sps.spmatrix:
+    def _column_projection(self, variables: Sequence["pp.ad.Variable"]) -> sps.spmatrix:
         """Create a projection matrix from the full variable set to a subset.
 
         Parameters:
@@ -531,7 +517,7 @@ class EquationManager:
         # Create projection matrix. Uniquify indices here, both to sort (will preserve
         # the ordering of the unknowns given by the DofManager) and remove duplicates
         # (in case variables were specified more than once).
-        local_dofs = np.unique(np.hstack(inds))
+        local_dofs = np.unique(np.hstack([i for i in inds]))
         num_local_dofs = local_dofs.size
 
         return sps.coo_matrix(
@@ -541,8 +527,8 @@ class EquationManager:
 
     def _variable_set_complement(
         self,
-        variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]] = None,
-    ) -> List[pp.ad.Variable]:
+        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]] = None,
+    ) -> List["pp.ad.Variable"]:
         """
         Take the complement of a set of variables, with respect to the full set of
         variables. The variables are returned as atomic (merged variables are
@@ -572,9 +558,9 @@ class EquationManager:
     def _variables_as_list(
         self,
         variables: Optional[
-            Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]]
+            Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
         ] = None,
-    ) -> List[pp.ad.Variable]:
+    ) -> List["pp.ad.Variable"]:
         """Unravel a list of variables into atomic (non-merged) variables.
 
         This is a bit cumbersome, since the variables are stored as a

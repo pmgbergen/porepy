@@ -42,7 +42,10 @@ class AbstractModel:
     """
 
     def __init__(self, params: Optional[Dict] = None):
-
+        if params is None:
+            self.params = {}
+        else:
+            self.params = params
         if params is None:
             params = {}
         default_params = {
@@ -56,7 +59,7 @@ class AbstractModel:
         }
 
         default_params.update(params)
-        self.params: dict = default_params
+        self.params = default_params
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
