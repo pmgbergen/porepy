@@ -365,19 +365,26 @@ class TestTimeControl:
         dt = tsc.next_time_step(iterations=0, recompute_solution=False)
         assert dt is None
 
-    def test_constant_time_step(self):
+    @pytest.mark.parametrize(
+        "schedule, dt_init, time, time_index, iters, recomp_sol",
+        [
+            ([0, 1], 0.1, 0.3, 3, 1000, True),
+            ([0, 10], 1, 2, 0, None, False),
+            ([0, pp.HOUR, 3*pp.HOUR], 0.5*pp.HOUR, 0, 0, None, False),
+            ([0, pp.HOUR, 3 * pp.HOUR], 0.5 * pp.HOUR, 1.5*pp.HOUR, 678, 342, True),
+        ]
+    )
+    def test_constant_time_step(self, schedule, dt_init, time, time_index, iters, recomp_sol):
         """Test if a constant time step is returned, independent of any configuration or
-        input."""
-        tsc = Ts(schedule=[0, 1], dt_init=0.1, constant_dt=True)
+        input. We also test that the time and the time index are updated accordingly"""
+        tsc = Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
+        tsc.time = time
+        tsc.time_index = time_index
 
-        dt = tsc.next_time_step(1000, True)
-        assert dt == 0.1
-        dt = tsc.next_time_step(1000, False)
-        assert dt == 0.1
-        dt = tsc.next_time_step(1, True)
-        assert dt == 0.1
-        dt = tsc.next_time_step(1, False)
-        assert dt == 0.1
+        dt = tsc.next_time_step(iterations=iters, recompute_solution=recomp_sol)
+        assert tsc.dt == dt
+        assert tsc.time == time + dt
+        assert tsc.time_index == time_index + 1
 
     def test_raise_warning_iteration_not_none_for_constant_time_step(self):
         """A warning should be raised if iterations is given and time step is constant"""
@@ -437,14 +444,23 @@ class TestTimeControl:
         that this should be independent of the number of iterations that the user passes"""
         tsc = Ts([0, 100], 2, recomp_factor=0.5)
         tsc.time = 5
+        tsc.time_index = 13
         tsc.dt = 1
+        tsc._recomp_num = 6
         tsc.next_time_step(iterations=1000, recompute_solution=True)
-        # We expect the time step to be reduced half, time to be corrected (decreased
-        # accordingly), _recomp_sol == True, and the counter _recomp_num increased by 1.
-        assert tsc.time == 4
+        # We expect the following actions to occur:
+        #     time to be reduced by old dt (time = 5 - 1 = 4)
+        #     time index to be reduced by one (time_index = 13 - 1 = 12)
+        #     new dt to be half of the old one (dt = 1 * 0.5 = 0.5)
+        #     recomputation flag set to True (_recomp_flag = True)
+        #     recomputation counter to increase by 1 (_recomp_num = 6 + 1 = 7)
+        #     time to be added increased by new dt (time = 4 + 0.5 = 4.5)
+        #     time index to be increased by one (time_index = 12 + 1 = 13)
+        assert tsc.time == 4.5
+        assert tsc.time_index == 13
         assert tsc.dt == 0.5
         assert tsc._recomp_sol
-        assert tsc._recomp_num == 1
+        assert tsc._recomp_num == 7
 
     def test_recomputed_solution_with_calculated_dt_less_than_dt_min(self):
         """Test when a solution is recomputed and the calculated time step is less than
@@ -582,5 +598,5 @@ class TestTimeControl:
         for time in schedule[1:]:
             tsc.time = 0.99 * time
             tsc.dt = tsc.dt_min_max[1]
-            tsc.next_time_step(recompute_solution=False, iterations=4)
-            assert time == tsc.time + tsc.dt
+            tsc.next_time_step(iterations=4)
+            assert time == tsc.time
