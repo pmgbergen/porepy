@@ -94,14 +94,36 @@ class TestParameterInputs:
     @pytest.mark.parametrize(
         "schedule, dt_init",
         [
+            ([0, 1], 1),
+            ([0, 1], 1.0),
+            ([0, 1, 2], 1),
+            ([0, 0.05, 2.0, 4.0, 10.0], 0.05),
+            ([5.0, 10.0, 60.0, 62.5, 70.0], 2.5),
+        ]
+    )
+    def test_constant_dt_compatibility_with_schedule(self, schedule, dt_init):
+        """No error should be raised if dt and schedule are compatible"""
+        try:
+            Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
+        except Exception as exc:
+            assert False, f"The following exception was raised: {exc}"
+
+    @pytest.mark.parametrize(
+        "schedule, dt_init",
+        [
             ([0, 1], 0.4),
             ([0, 1], 0.3333),
             ([0, 0.4, 0.5, 0.8, 1], 0.2),
+            ([13.1, 13.2, 13.3], 0.2)
         ],
     )
-    def test_schedule_matches_constant_time_step(self, schedule, dt_init):
-        """An error should be raised if the schedule does not match the constant time step."""
-        msg = "Mismatch between the time step and scheduled time."
+    def test_raise_error_incompatible_dt_and_schedule(self, schedule, dt_init):
+        """An error should be raised if the schedule is incompatible with the constant time
+        step."""
+        msg = (
+            "Mismatch between the time step and scheduled time. Make sure the two are "
+            "compatible, or consider adjusting the tolerances of the sanity check."
+        )
         with pytest.raises(ValueError) as excinfo:
             Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
         assert msg in str(excinfo.value)
