@@ -151,18 +151,30 @@ class TestParameterInputs:
 
     def test_initial_time_step_larger_than_minimum_time_step(self):
         """An error should be raised if initial time step is less than minimum time step."""
-        msg = "Initial time step cannot be smaller than minimum time step."
+        msg_dtmin = "Initial time step cannot be smaller than minimum time step. "
+        msg_unset = (
+            "This error was raised since `dt_min_max` was not set on "
+            "initialization. Thus, values of dt_min and dt_max were assigned "
+            "based on the final simulation time. If you still want to use this "
+            "initial time step, consider passing `dt_min_max` explicitly."
+        )
         with pytest.raises(ValueError) as excinfo:
             Ts(schedule=[0, 1], dt_init=0.0009)
-        assert msg in str(excinfo.value)
+        assert (msg_dtmin + msg_unset) in str(excinfo.value)
 
     def test_initial_time_step_smaller_than_maximum_time_step(self):
         """An error should be raised if initial time step is larger than the maximum time
         step."""
-        msg = "Initial time step cannot be larger than maximum time step."
+        msg_dtmax = "Initial time step cannot be larger than maximum time step. "
+        msg_unset = (
+            "This error was raised since `dt_min_max` was not set on "
+            "initialization. Thus, values of dt_min and dt_max were assigned "
+            "based on the final simulation time. If you still want to use this "
+            "initial time step, consider passing `dt_min_max` explicitly."
+        )
         with pytest.raises(ValueError) as excinfo:
             Ts(schedule=[0, 1], dt_init=0.11)
-        assert msg in str(excinfo.value)
+        assert (msg_dtmax + msg_unset) in str(excinfo.value)
 
     @pytest.mark.parametrize("iter_max", [0, -1])
     def test_max_number_of_iterations_positive(self, iter_max):
