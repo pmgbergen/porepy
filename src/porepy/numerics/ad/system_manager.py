@@ -71,6 +71,14 @@ class ADSystemManager:
 
         """
 
+        ### PRIVATE
+
+        self._schur_complement_expansion: Optional[tuple] = None
+        """Contains block matrices and the split rhs of the last assembled Schur complement,
+        such that the expansion can be made.
+
+        """
+
     ### Variable management -------------------------------------------------------------------
 
     def create_variable(
@@ -551,10 +559,28 @@ class ADSystemManager:
         secondary_vars = list(all_vars.difference(primary_vars))
 
         # First assemble the primary and secondary equations for all variables
-        # Note the reverse order here: Assemble the primary variables last so that
-        # the attribute assembled_equation_indices contains the right ones.
-        A_s, b_s = self.assemble_subsystem(secondary_equations, all_vars)
+        # save the indices and shift the indices for the second assembly accordingly
+        # Keep track of DOFs for each equation/block
+        ind_start = 0
+        assembled_equation_indices = dict()
         A_p, b_p = self.assemble_subsystem(primary_equations, all_vars)
+        for equ in primary_equations:
+            # get assembled subsystem indexing, accumulate length of the primary block
+            block_indices = self.assembled_equation_indices[equ]
+            ind_start += len(block_indices)
+            # store the primary block indices as given
+            assembled_equation_indices.update({equ: block_indices})
+
+        A_s, b_s = self.assemble_subsystem(secondary_equations, all_vars)
+        # shift the secondary equation blocks
+        for equ in secondary_equations:
+            # get the indexing of the secondary subsystem and shift them by the length of the
+            # primary row block
+            block_indices = self.assembled_equation_indices[equ] + ind_start
+            assembled_equation_indices.update({equ: block_indices})
+        
+        # store the indices for the Schur complement assembly
+        self.assembled_equation_indices = assembled_equation_indices
 
         # Projection matrices to reduce matrices to the relevant columns
         proj_primary = self.dof_manager.projection_to(primary_vars).transpose()
@@ -573,7 +599,48 @@ class ADSystemManager:
         S = A_pp - A_ps * inv_A_ss * A_sp
         bs = b_p - A_ps * inv_A_ss * b_s
 
+        # storing necessary information for Schur complement expansion
+        self._schur_complement_expansion = (inv_A_ss, bs, A_sp, proj_primary, proj_secondary)
+
         return S, bs
+
+    def expand_schur_complement_solution(self, reduced_solution: np.ndarray) -> np.ndarray:
+        """Expands the solution of the Schur complement system to the global solution.
+
+        I.e it takes x_p from
+
+            [A_pp, A_ps  [x_p   = [b_p
+             A_sp, A_ss]  x_s]     b_s]
+        
+        and returns the whole [x_p, x_s] where
+
+            x_s = inv(A_ss) * (b_s - A_sp * x_p)
+
+        This method works with any vector of fitting size, i.e. use knowingly.
+
+        Parameters:
+            reduced_solution: Solution to the linear system returned by
+                :meth:`assemble_schur_complement_system`
+
+        Returns:
+            the complete solution, where ``reduced_solution`` constitutes the first part of the
+            vector.
+        
+        Raises:
+            RuntimeError: if the Schur complement system was not assembled before.
+
+        """
+        if self._schur_complement_expansion:
+            # get data stored from last complement
+            inv_A_ss, b_s, A_sp, prolong_p, prolong_s = self._schur_complement_expansion
+            # calculate the complement solution
+            x_s = inv_A_ss * (b_s - A_sp * reduced_solution)
+            # prolong primary and secondary block to global-sized arrays using the transpose
+            # of the projection
+            X = prolong_p * reduced_solution + prolong_s * x_s
+            return X
+        else:
+            RuntimeError("Schur complement was not assembled beforehand.")
 
     def create_subsystem_manager(self, eq_names: Sequence[str]) -> ADSystemManager:
         """Creates an ``ADSystemManager`` for a given subset of equations.
