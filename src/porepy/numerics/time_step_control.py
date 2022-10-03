@@ -238,7 +238,7 @@ class TimeSteppingControl:
                 "This error was raised since `dt_min_max` was not set on "
                 "initialization. Thus, values of dt_min and dt_max were assigned "
                 "based on the final simulation time. If you still want to use this "
-                "initial time step, consider passing `dt_min_max` explictly."
+                "initial time step, consider passing `dt_min_max` explicitly."
             )
 
             if dt_init < dt_min_max[0]:
@@ -310,13 +310,22 @@ class TimeSteppingControl:
         else:
 
             # If the time step is constant, check that the scheduled times and the time
-            # step are compatible. See documentation of `schedule`.
+            # step are compatible. See documentation of ``schedule``.
             sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
-            intersect = np.intersect1d(sim_times, schedule)
-            # If the length of the intersection and scheduled times are unequal, there is a
-            # mismatch
-            if (len(intersect) - len(schedule)) != 0:
-                raise ValueError("Mismatch between the time step and scheduled time.")
+            compat_rtol = 1e-05
+            compat_atol = 1e-08
+            is_compatible = self.is_schedule_in_simulated_times(
+                schedule,
+                sim_times,
+                rtol=compat_rtol,
+                atol=compat_atol,
+            )
+            if not is_compatible:
+                msg = (
+                    "Mismatch between the time step and scheduled time. Make sure the two are "
+                    "compatible, or consider adjusting the tolerances of the sanity check."
+                )
+                raise ValueError(msg)
 
         # Schedule, initial, and final times
         self.schedule = schedule
@@ -572,3 +581,31 @@ class TimeSteppingControl:
 
         """
         return all(a < b for a, b in zip(check_array, check_array[1:]))
+
+    @staticmethod
+    def is_schedule_in_simulated_times(
+        schedule: np.ndarray,
+        sim_times: np.ndarray,
+        rtol: float = 1e-05,
+        atol: float = 1e-08,
+    ) -> bool:
+        """Checks if ``schedule`` is a proper subset of ``sim_times`` for given tolerances
+
+        Reference: https://github.com/numpy/numpy/issues/7784#issuecomment-848036186
+
+        Parameters:
+            schedule: First array.
+            sim_times: Second array.
+            rtol: Relative tolerance.
+            atol: Absolute tolerance.
+
+        Returns:
+            True if all times in ``schedule`` intersect the elements of ``sim_times`` with
+            relative tolerance ``rtol`` and absolute tolerance ``atol`. False otherwise.
+
+        """
+        ss = np.searchsorted(schedule[1:-1], sim_times, side="left")
+        in1d = np.isclose(schedule[ss], sim_times, rtol=rtol, atol=atol) | np.isclose(
+            schedule[ss + 1], sim_times, rtol=rtol, atol=atol
+        )
+        return schedule.size == np.sum(in1d)
