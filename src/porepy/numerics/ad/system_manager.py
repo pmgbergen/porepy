@@ -397,9 +397,7 @@ class ADSystemManager:
     def assemble_subsystem(
         self,
         eq_names: Optional[Sequence[str]] = None,
-        variables: Optional[
-            Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]]
-        ] = None,
+        variables: Optional[Sequence[str]] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
         equations and variables.
@@ -416,8 +414,8 @@ class ADSystemManager:
             eq_names (optional): a subset of known equation names to be assembled.
                 If not provided (None), all equations known to this manager will be included.
                 Defaults to None.
-            variables (optional): Variables for which the columns should to be returned.
-                If not provided (None), all columns will be returned.
+            variables (optional): names of variables for which the columns should to be
+                returned. If not provided (None), all columns will be returned.
 
         Returns:
             spmatrix: (Part of the) Jacobian matrix corresponding to the current variable
@@ -427,10 +425,18 @@ class ADSystemManager:
                 Scaled with -1 (moved to rhs).
 
         """
+        all_vars = set(self.dof_manager.get_variables(True, True))
+        
         if variables:
-            var_names = self.get_var_names_from(variables)
+            sub_vars = set(variables)
+            # sanity check before proceeding
+            if not sub_vars.issubset(all_vars):
+                unknown_vars = sub_vars.difference(all_vars)
+                raise ValueError(f"Unknown variables '{unknown_vars}'.")
+            else:
+                var_names = list(sub_vars)
         else:
-            var_names = self.dof_manager.get_variables(True, True)
+            var_names = list(all_vars)
 
         if eq_names is None:
             eq_names = list(self.equations.keys())
@@ -476,7 +482,7 @@ class ADSystemManager:
     def assemble_schur_complement_system(
         self,
         primary_equations: Sequence[str],
-        primary_variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]],
+        primary_variables: Sequence[str],
         inverter: Callable[[sps.spmatrix], sps.spmatrix],
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
@@ -512,7 +518,7 @@ class ADSystemManager:
         Parameters:
             primary_equations: equations to be assembled, representing the row-block A_pp.
                 Should have length > 0.
-            primary_variables: Variables representing the columns of A_pp.
+            primary_variables: names of variables representing the columns of A_pp.
                 Should have length > 0.
             inverter (Callable): Method to compute the inverse of the matrix A_ss.
 
@@ -529,28 +535,30 @@ class ADSystemManager:
         if len(primary_variables) == 0:
             raise ValueError("Must make Schur complement with at least one variable")
 
-        # Unravel any merged variables
-        primary_var_names = self.get_var_names_from(primary_variables)
+        primary_vars = set(primary_variables)
+        all_vars = set(self.dof_manager.get_variables(True, True))
+
+        # sanity check before proceeding
+        if not primary_vars.issubset(all_vars):
+            unknown_vars = primary_vars.difference(all_vars)
+            raise ValueError(f"Unknown variables '{unknown_vars}'.")
 
         # Get lists of all variables and equations, and find the secondary items
         # by a set difference
         all_eq_names = list(self.equations.keys())
-        all_var_names = self.dof_manager.get_variables(True, True)
 
         secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
-        secondary_var_names = list(
-            set(all_var_names).difference(set(primary_var_names))
-        )
+        secondary_vars = list(all_vars.difference(primary_vars))
 
         # First assemble the primary and secondary equations for all variables
         # Note the reverse order here: Assemble the primary variables last so that
         # the attribute assembled_equation_indices contains the right ones.
-        A_s, b_s = self.assemble_subsystem(secondary_equations, all_var_names)
-        A_p, b_p = self.assemble_subsystem(primary_equations, all_var_names)
+        A_s, b_s = self.assemble_subsystem(secondary_equations, all_vars)
+        A_p, b_p = self.assemble_subsystem(primary_equations, all_vars)
 
         # Projection matrices to reduce matrices to the relevant columns
-        proj_primary = self.dof_manager.projection_to(primary_var_names).transpose()
-        proj_secondary = self.dof_manager.projection_to(secondary_var_names).transpose()
+        proj_primary = self.dof_manager.projection_to(primary_vars).transpose()
+        proj_secondary = self.dof_manager.projection_to(secondary_vars).transpose()
 
         # Matrices involved in the Schur complements
         A_pp = A_p * proj_primary
