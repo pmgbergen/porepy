@@ -120,7 +120,7 @@ class TimeSteppingControl:
             INVALID inputs for `constant_dt = True` and `dt_init = 2` are [0, 3] and
             np.array([0, 4, 5, 10]).
         dt_init: Initial time step. The initial time step is required to be positive and
-            and less or equal than the final simulation time.
+            less or equal than the final simulation time.
         constant_dt: Whether to treat the time step as constant or not.
             If True, then the time-stepping control algorithm is effectively bypassed. The
             algorithm will NOT adapt the time step in any situation, even if the user
@@ -375,8 +375,9 @@ class TimeSteppingControl:
         # TODO: In the future, printing should be promoted to a logging strategy
         self._print_info: bool = print_info
 
-        # Flag to keep track of recomputed solutions
+        # Keep track of recomputed solutions and current number of iterations
         self._recomp_sol: bool = False
+        self._iters: Union[int, None] = None
 
     def __repr__(self) -> str:
 
@@ -402,6 +403,8 @@ class TimeSteppingControl:
         Parameters:
             iterations: Number of non-linear iterations. In time-dependent simulations,
                 this typically represents the number of iterations for a given time step.
+                A warning is raised if `iterations` is given, when `recompute_solution = True`
+                and `constant_dt = True`.
             recompute_solution: Whether the solution needs to be recomputed or not. If True,
                 then the time step is multiplied by `recomp_factor`. If False, then the time
                 step will be tuned accordingly.
@@ -421,6 +424,16 @@ class TimeSteppingControl:
 
         # If the time step is constant, always return that value
         if self.is_constant:
+            if self._iters is not None:
+                msg = (
+                    f"iterations '{self._iters}' has no effect if time step is constant."
+                )
+                warnings.warn(msg)
+            if self._recomp_sol:
+                msg = (
+                    "recompute_solution=True has no effect if time step is constant."
+                )
+                warnings.warn(msg)
             return self.dt_init
 
         # Adapt time step
@@ -494,7 +507,7 @@ class TimeSteppingControl:
         Raises:
             ValueError if dt = dt_min, since any recomputation attempt will be pointless.
             ValueError if recomp_attempts > max_recomp_attempts.
-            
+
         """
 
         if self._recomp_num < self.recomp_max:
