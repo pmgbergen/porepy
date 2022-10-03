@@ -364,6 +364,9 @@ class TimeSteppingControl:
         # Time step. Initially, equal to the initial time step
         self.dt: Union[int, float] = self.dt_init
 
+        # Time index
+        self.time_index: int = 0
+
         # Private attributes
         # Number of times the solution has been recomputed
         self._recomp_num: int = 0
@@ -403,8 +406,8 @@ class TimeSteppingControl:
         Parameters:
             iterations: Number of non-linear iterations. In time-dependent simulations,
                 this typically represents the number of iterations for a given time step.
-                A warning is raised if `iterations` is given, when `recompute_solution = True`
-                and `constant_dt = True`.
+                A warning is raised if `iterations` is given when `recompute_solution = True`
+                or `constant_dt = True`.
             recompute_solution: Whether the solution needs to be recomputed or not. If True,
                 then the time step is multiplied by `recomp_factor`. If False, then the time
                 step will be tuned accordingly.
@@ -424,6 +427,7 @@ class TimeSteppingControl:
 
         # If the time step is constant, always return that value
         if self.is_constant:
+            # Some sanity checks
             if self._iters is not None:
                 msg = (
                     f"iterations '{self._iters}' has no effect if time step is constant."
@@ -434,6 +438,11 @@ class TimeSteppingControl:
                     "recompute_solution=True has no effect if time step is constant."
                 )
                 warnings.warn(msg)
+
+            # Update time and time index
+            self.time += self.dt_init
+            self.time_index += 1
+
             return self.dt_init
 
         # Adapt time step
@@ -446,6 +455,10 @@ class TimeSteppingControl:
         self._correction_based_on_dt_min()
         self._correction_based_on_dt_max()
         self._correction_based_on_schedule()
+
+        # Update time and time index
+        self.time += self.dt
+        self.time_index += 1
 
         return self.dt
 
@@ -530,8 +543,9 @@ class TimeSteppingControl:
 
             # If the solution did not converge AND we are allowed to recompute it, then:
             #   (S1) Update simulation time since solution will be recomputed.
-            #   (S2) Decrease time step multiplying it by the recomputing factor < 1.
-            #   (S3) Increase counter that keeps track of the number of times the solution
+            #   (S2) Update time index since solution will be recomputed.
+            #   (S3) Decrease time step multiplying it by the recomputing factor < 1.
+            #   (S4) Increase counter that keeps track of the number of times the solution
             #        was recomputed.
 
             # Note that iterations is not really used here. So, as long as
@@ -541,8 +555,9 @@ class TimeSteppingControl:
             # not limiting the recomputation criteria to _only_ reaching the maximum
             # number of iterations, even though that is the primary intended usage.
             self.time -= self.dt  # (S1)
-            self.dt *= self.recomp_factor  # (S2)
-            self._recomp_num += 1  # (S3)
+            self.time_index -= 1  # (S2)
+            self.dt *= self.recomp_factor  # (S3)
+            self._recomp_num += 1  # (S4)
             if self._print_info:
                 msg = (
                     "Solution did not converge and will be recomputed."
