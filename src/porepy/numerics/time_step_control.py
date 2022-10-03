@@ -429,14 +429,10 @@ class TimeSteppingControl:
         if self.is_constant:
             # Some sanity checks
             if self._iters is not None:
-                msg = (
-                    f"iterations '{self._iters}' has no effect if time step is constant."
-                )
+                msg = f"iterations '{self._iters}' has no effect if time step is constant."
                 warnings.warn(msg)
             if self._recomp_sol:
-                msg = (
-                    "recompute_solution=True has no effect if time step is constant."
-                )
+                msg = "recompute_solution=True has no effect if time step is constant."
                 warnings.warn(msg)
 
             # Update time and time index
