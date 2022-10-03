@@ -386,7 +386,7 @@ class ADSystemManager:
             # create indices range and shift to correct position
             block_indices = np.arange(len(ad.val)) + ind_start
             # extract last index as starting point for next block of indices
-            ind_start = block_indices[-1]
+            ind_start = block_indices[-1] + 1
             self.assembled_equation_indices.update({name: block_indices})
 
         # The system assembled in the for-loop above contains derivatives for both
@@ -472,7 +472,7 @@ class ADSystemManager:
             # create indices range and shift to correct position
             block_indices = np.arange(len(ad.val)) + ind_start
             # extract last index as starting point for next block of indices
-            ind_start = block_indices[-1]
+            ind_start = block_indices[-1] + 1
             self.assembled_equation_indices.update({name: block_indices})
 
         # Concatenate results.
@@ -600,7 +600,7 @@ class ADSystemManager:
         bs = b_p - A_ps * inv_A_ss * b_s
 
         # storing necessary information for Schur complement expansion
-        self._schur_complement_expansion = (inv_A_ss, bs, A_sp, proj_primary, proj_secondary)
+        self._schur_complement_expansion = (inv_A_ss, b_s, A_sp, proj_primary, proj_secondary)
 
         return S, bs
 

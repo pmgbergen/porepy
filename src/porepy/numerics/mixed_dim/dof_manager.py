@@ -238,22 +238,30 @@ class DofManager:
             secondary: if true, includes the secondary variables
 
         """
-        # a set keeps variable names unique
-        vars = set()
+        # storage
+        all_vars = list()
         # get vars on subdomains
-        for data in self.mdg.subdomain_data():
+        for _, data in self.mdg.subdomains(return_data=True):
             if primary:
-                vars.add(set(data[pp.PRIMARY_VARIABLES].keys()))
+                vars = data.get(pp.PRIMARY_VARIABLES, None)
+                if vars:
+                    all_vars += vars.keys()
             if secondary:
-                vars.add(set(data[pp.SECONDARY_VARIABLES].keys()))
+                vars = data.get(pp.SECONDARY_VARIABLES, None)
+                if vars:
+                    all_vars += vars.keys()
         # get vars on interfaces
-        for data in self.mdg.interface_data():
+        for _, data in self.mdg.interfaces(return_data=True):
             if primary:
-                vars.add(set(data[pp.PRIMARY_VARIABLES].keys()))
+                vars = data.get(pp.PRIMARY_VARIABLES, None)
+                if vars:
+                    all_vars += vars.keys()
             if secondary:
-                vars.add(set(data[pp.SECONDARY_VARIABLES].keys()))
+                vars = data.get(pp.SECONDARY_VARIABLES, None)
+                if vars:
+                    all_vars += vars.keys()
 
-        return tuple(vars)
+        return tuple(set(all_vars))
 
     def assemble_variable(
         self,
