@@ -435,6 +435,15 @@ class TestTimeControl:
         # dt_min. Hence, dt_min should be set.
         assert tsc.dt == tsc.dt_min_max[0]
 
+    def test_warning_when_iterations_is_given_and_recomputation_is_true(self):
+        """A warning should be raised when iterations is not None and the recomputation flag
+        is True"""
+        tsc = Ts([0, 1], 0.1, iter_max=10)
+        msg = "Number of iterations has no effect in recomputation."
+        with pytest.warns() as record:
+            tsc.next_time_step(iterations=1, recompute_solution=True)
+        assert str(record[0].message) == msg
+
     def test_raise_error_when_adapting_based_on_recomputation_with_dt_equal_to_dt_min(self):
         """An error should be raised when adaption based on recomputation is attempted with
         dt = dt_min"""
