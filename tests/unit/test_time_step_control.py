@@ -379,6 +379,28 @@ class TestTimeControl:
         dt = tsc.next_time_step(1, False)
         assert dt == 0.1
 
+    def test_raise_warning_iteration_not_none_for_constant_time_step(self):
+        """A warning should be raised if iterations is given and time step is constant"""
+        tsc = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
+        iterations = 1
+        msg = (
+            f"iterations '{iterations}' has no effect if time step is constant."
+        )
+        with pytest.warns() as record:
+            tsc.next_time_step(iterations=iterations)
+        assert str(record[0].message) == msg
+
+    def test_raise_warning_recompute_solution_true_for_constant_time_step(self):
+        """A warning should be raised if recompute_solution is True and time step is
+        constant"""
+        tsc = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
+        msg = (
+            "recompute_solution=True has no effect if time step is constant."
+        )
+        with pytest.warns() as record:
+            tsc.next_time_step(recompute_solution=True)
+        assert str(record[0].message) == msg
+
     def test_non_recomputed_solution_conditions(self):
         """Test behaviour of the algorithm when the solution should NOT be recomputed"""
         # Check if internal flag _recomp_sol remains unchanged when recompute_solution=False
