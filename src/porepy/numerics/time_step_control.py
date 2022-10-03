@@ -393,7 +393,7 @@ class TimeSteppingControl:
         return s
 
     def next_time_step(
-        self, iterations: int, recompute_solution: bool = False
+        self, iterations: Optional[int] = None, recompute_solution: bool = False
     ) -> Union[float, None]:
         """Determine next time step based on the previous number of iterations.
 
@@ -441,9 +441,16 @@ class TimeSteppingControl:
         Parameters:
             iterations: Number of non-linear iterations needed to achieve convergence.
 
-        Raises: Warning if `iterations` > `max_iter`.
+        Raises:
+            ValueError if `iterations` is None.
+            Warning if `iterations` > `max_iter`.
 
         """
+
+        # Sanity check: Make sure number of iterations is not None
+        if iterations is None:
+            msg = "Time step cannot be adapted without 'iterations'."
+            raise ValueError(msg)
 
         # Sanity check: Make sure the given number of iterations is less or equal than the
         # maximum number of iterations
