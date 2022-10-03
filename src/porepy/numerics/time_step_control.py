@@ -411,8 +411,9 @@ class TimeSteppingControl:
 
         """
 
-        # For bookkeeping reasons, save recomputation flag
+        # For bookkeeping reasons, save recomputation and iterations
         self._recomp_sol = recompute_solution
+        self._iters = iterations
 
         # First, check if we reach final simulation time
         if self.time >= self.time_final:
@@ -447,7 +448,7 @@ class TimeSteppingControl:
 
         """
 
-        # Sanity check: Make sure number of iterations is not None
+        # Sanity check: Make sure iterations is give
         if iterations is None:
             msg = "Time step cannot be adapted without 'iterations'."
             raise ValueError(msg)
@@ -491,11 +492,9 @@ class TimeSteppingControl:
         """Adapt (decrease) time step when `recompute_solution` = True.
 
         Raises:
-            ValueError if dt = dt_min, since any further recomputation attempt will be
-                pointless.
-            ValueError if recomp_attempts > max_recomp_attempts. That is, if the maximum
-                number of recomputation attempts has been exhausted.
-
+            ValueError if dt = dt_min, since any recomputation attempt will be pointless.
+            ValueError if recomp_attempts > max_recomp_attempts.
+            
         """
 
         if self._recomp_num < self.recomp_max:
@@ -510,6 +509,11 @@ class TimeSteppingControl:
                     f"minimum admissible value -> dt = dt_min = {self.dt}."
                 )
                 raise ValueError(msg)
+
+            # Raise a warning if iterations is not None
+            if self._iters is not None:
+                msg = "Number of iterations has no effect in recomputation."
+                warnings.warn(msg)
 
             # If the solution did not converge AND we are allowed to recompute it, then:
             #   (S1) Update simulation time since solution will be recomputed.
