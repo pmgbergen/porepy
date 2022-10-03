@@ -437,6 +437,16 @@ class TestTimeControl:
             tsc.next_time_step(iterations=5, recompute_solution=True)
         assert tsc._recomp_sol and (msg in str(excinfo.value))
 
+    def test_raise_error_when_adapting_based_on_iterations_with_iterations_none(self):
+        """An error should be raised if adaptation based on iteration is intended but
+        iterations is None.
+        """
+        tsc = Ts(schedule=[0, 100], dt_init=1)
+        with pytest.raises(ValueError) as excinfo:
+            msg = "Time step cannot be adapted without 'iterations'."
+            tsc.next_time_step()
+        assert not tsc._recomp_sol and (msg in str(excinfo.value))
+
     @pytest.mark.parametrize("iterations", [11, 100])
     def test_warning_iteration_is_greater_than_max_iter(self, iterations):
         """Test if a warning is raised when the number of iterations passed to the method is
