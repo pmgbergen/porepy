@@ -1,15 +1,29 @@
 """ This module contains functions to run stationary and time-dependent models."""
 
 import logging
+from typing import Union
 
 import porepy as pp
 
 logger = logging.getLogger(__name__)
 
 
-def run_stationary_model(model, params) -> None:
+def run_stationary_model(model, params: dict) -> None:
+    """
+    Run a stationary model.
+
+    Args:
+        model: Model class containing all information on parameters, variables,
+            discretization, geometry. Various methods such as those relating to solving
+            the system, see the appropriate model for documentation.
+        params: Parameters related to the solution procedure. # Why not just set these
+            as e.g. model.solution_parameters.
+
+    """
+
     model.prepare_simulation()
 
+    solver: Union[pp.LinearSolver, pp.NewtonSolver]
     if model._is_nonlinear_problem():
         solver = pp.NewtonSolver(params)
     else:
@@ -22,7 +36,7 @@ def run_stationary_model(model, params) -> None:
 
 def run_time_dependent_model(model, params) -> None:
     """
-    Time loop for the model classes.
+    Run a time dependent model.
 
     Args:
         model: Model class containing all information on parameters, variables,
@@ -37,6 +51,7 @@ def run_time_dependent_model(model, params) -> None:
         model.prepare_simulation()
 
     # Assign a solver
+    solver: Union[pp.LinearSolver, pp.NewtonSolver]
     if model._is_nonlinear_problem():
         solver = pp.NewtonSolver(params)
     else:
@@ -57,10 +72,19 @@ def run_time_dependent_model(model, params) -> None:
     model.after_simulation()
 
 
-def _run_iterative_model(model, params) -> None:
-    """Intended use is for multi-step models with iterative couplings.
+def _run_iterative_model(model, params: dict) -> None:
+    """
+    Run an iterative model.
 
-    Only known instance so far is the combination of fracture deformation and propagation.
+    The intended use is for multi-step models with iterative couplings. Only known instance
+    so far is the combination of fracture deformation and propagation.
+
+    Args:
+        model: Model class containing all information on parameters, variables,
+            discretization, geometry. Various methods such as those relating to solving
+            the system, see the appropriate solver for documentation.
+        params: Parameters related to the solution procedure. # Why not just set these
+            as e.g. model.solution_parameters.
 
     """
 
@@ -68,7 +92,8 @@ def _run_iterative_model(model, params) -> None:
     if params.get("prepare_simulation", True):
         model.prepare_simulation()
 
-    # Assing a solver
+    # Assign a solver
+    solver: Union[pp.LinearSolver, pp.NewtonSolver]
     if model._is_nonlinear_problem():
         solver = pp.NewtonSolver(params)
     else:
@@ -87,7 +112,6 @@ def _run_iterative_model(model, params) -> None:
         )
         while model.keep_propagating():
             model.propagation_index += 1
-
             solver.solve(model)
         model.after_propagation_loop()
 
