@@ -435,10 +435,6 @@ class TimeSteppingControl:
                 msg = "recompute_solution=True has no effect if time step is constant."
                 warnings.warn(msg)
 
-            # Update time and time index
-            self.time += self.dt_init
-            self.time_index += 1
-
             return self.dt_init
 
         # Adapt time step
@@ -451,10 +447,6 @@ class TimeSteppingControl:
         self._correction_based_on_dt_min()
         self._correction_based_on_dt_max()
         self._correction_based_on_schedule()
-
-        # Update time and time index
-        self.time += self.dt
-        self.time_index += 1
 
         return self.dt
 
@@ -611,8 +603,6 @@ class TimeSteppingControl:
                     print(
                         f"Correcting time step to match final time. Final dt = {self.dt}."
                     )
-
-
 
     # Helpers
     @staticmethod
