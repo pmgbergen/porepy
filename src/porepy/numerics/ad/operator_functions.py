@@ -23,6 +23,7 @@ __all__ = [
     "ConstantFunction",
     "DiagonalJacobianFunction",
     "InterpolatedFunction",
+    "SemiSmoothMin",
     "ADmethod",
 ]
 
@@ -421,6 +422,58 @@ class InterpolatedFunction(AbstractFunction):
 
         return jac
 
+
+class SemiSmoothMin(AbstractFunction):
+    """Function representing the semi-smooth ``min(-,-)``-function for two operators.
+    
+    The evaluation of the derivative (and function-values) follows basically an
+    active-set-strategy.
+    
+    The active set is defined by the those DOFs, where operator 1 has (strictly) larger values.
+    On the active set, the values correspond to the values of operator 2.
+    On the inactive set, the values correspond to the values of operator 1.
+    
+    The Jacobian is chosen from elements of the B-sub-differential.
+    On the active set, the derivatives of operator 2 are chosen.
+    On the inactive set, the derivatives of operator 1 are chosen.
+    
+    In a multi-dimensional setting this corresponds to selecting respective rows of each
+    sub-differential and inserting them in the final Jacobian.
+    
+    Parameters:
+        op1: first AD Operator, representing the first argument to the min-function.
+        op1: second AD Operator, representing the second argument to the min-function.
+
+    """
+
+    def __init__(self):
+        name = f"semi-smooth MIN operator"
+        # dummy function, not supposed to be used
+        def func(x,y):
+            return x if x < y else y
+        super().__init__(func, name, False, False)
+    
+    def get_values(self, *args: Ad_array) -> np.ndarray:
+        # this will throw an error if more than two arguments were passed
+        op1, op2 = args
+        # active set choice
+        active_set = (op1.val - op2.val) > 0.
+        # default/inactive vals
+        vals = op1.val.copy()
+        # replace vals on active set
+        vals[active_set] = op2.val[active_set]
+        return vals
+    
+    def get_jacobian(self, *args: Ad_array) -> sps.spmatrix:
+        # this will throw an error if more than two arguments were passed
+        op1, op2 = args
+        # active set choice
+        active_set = (op1.val - op2.val) > 0.
+        # default/inactive choice (lil format for faster assembly)
+        jac = op1.jac.tolil()
+        # replace (active set) rows with the differential from the other operator
+        jac[active_set] = op2.jac.tolil()[active_set]
+        return jac.tocsr()  # back to csr
 
 ### FUNCTION DECORATOR ------------------------------------------------------------------------
 

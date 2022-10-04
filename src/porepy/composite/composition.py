@@ -152,8 +152,12 @@ class Composition:
         self._phase_fraction_unity: str = "flash_phase_unity"
         self._complementary: str = "flash_complementary"  # complementary conditions
         self._enthalpy_constraint: str = "flash_h_constraint"  # for p-h flash
-        # complementary condition tuple TODO better solution...
+        # complementary condition tuple for a given name (key)
         self._complementary_eq: dict = dict()
+        if ad_system:
+            self._ss_min: pp.ad.Operator = pp.ad.SemiSmoothMin()
+        else:
+            self._ss_min = None  # TODO
 
         # for standalone applications, flash results are stored in the composition class, not
         # in the AD variables
@@ -567,6 +571,17 @@ class Composition:
                 f"Component '{component.name}' not present in composition."
             )
 
+    def phases_of(self, component: pp.composite.Component) -> list[pp.composite.Phase]:
+        """
+        Parameters:
+            component: component object for which the inquiry is made.
+
+        Returns:
+            a list containing all phase objects which contain the component.
+
+        """
+        return self._phases_of_component.get(component.name, list())
+
     def initialize(self) -> None:
         """Initializes the flash equations for this system, based on the added components,
         phases and equilibrium equations.
@@ -633,16 +648,18 @@ class Composition:
         for phase in self._phases[1:]:
             name = f"{self._complementary}_{phase.name}"
             condition = self.get_complementary_condition_for(phase)
-
             self._complementary_eq.update({name: condition})
+            # we store the complementary conditions separately, but also instantiate the
+            # AD version of the semi-smooth min function, such that the AD system can take care
+            # of everythin
+            equation = self._ss_min(condition[0], condition[1])
+            equations.update({name: equation})
             pT_subsystem["equations"].append(name)
             ph_subsystem["equations"].append(name)
 
         # adding equations to AD system
         if self.ad_system:
             for name, equ in equations.items():
-                # TODO the ad-system has no clue about the complementary conditions
-                # write a AD wrapper for the semi-smooth min
                 self.ad_system.set_equation(name, equ)
         # storing references to the subsystems
         self.pT_subsystem = pT_subsystem
@@ -689,61 +706,45 @@ class Composition:
         return {
             "equations": list(),
             "primary_vars": list(),
-            "primary_var_names": list(),
             "secondary_vars": list(),
-            "secondary_var_names": list(),
         }
 
     def _set_subsystem_vars(
         self, ph_subsystem: Dict[str, list], pT_subsystem: Dict[str, list]
     ) -> None:
         """Auxiliary function to set the variables in respective subsystems."""
-
+        ### SECONDARY VARIABLES
         # pressure is always a secondary var in the flash
-        pT_subsystem["secondary_vars"].append(self._p)
-        pT_subsystem["secondary_var_names"].append(self._p_var)
-        ph_subsystem["secondary_vars"].append(self._p)
-        ph_subsystem["secondary_var_names"].append(self._p_var)
+        pT_subsystem["secondary_vars"].append(self._p_var)
+        ph_subsystem["secondary_vars"].append(self._p_var)
         # for the p-H flash, enthalpy is a secondary var
-        ph_subsystem["secondary_vars"].append(self._h)
-        ph_subsystem["secondary_var_names"].append(self._h_var)
+        ph_subsystem["secondary_vars"].append(self._h_var)
         # for the p-T flash, temperature AND enthalpy are secondary vars,
         # because h can be evaluated for given T and fractions
-        pT_subsystem["secondary_vars"].append(self._h)
-        pT_subsystem["secondary_var_names"].append(self._h_var)
-        pT_subsystem["secondary_vars"].append(self._T)
-        pT_subsystem["secondary_var_names"].append(self._T_var)
+        pT_subsystem["secondary_vars"].append(self._h_var)
+        pT_subsystem["secondary_vars"].append(self._T_var)
         # feed fractions are always secondary vars
         for component in self.components:
-            pT_subsystem["secondary_vars"].append(component.fraction)
-            pT_subsystem["secondary_var_names"].append(component.fraction_var_name)
-            ph_subsystem["secondary_vars"].append(component.fraction)
-            ph_subsystem["secondary_var_names"].append(component.fraction_var_name)
+            pT_subsystem["secondary_vars"].append(component.fraction_var_name)
+            ph_subsystem["secondary_vars"].append(component.fraction_var_name)
         # saturations are always secondary vars
         for phase in self.phases:
-            pT_subsystem["secondary_vars"].append(phase.saturation)
-            pT_subsystem["secondary_var_names"].append(phase.saturation_var_name)
-            ph_subsystem["secondary_vars"].append(phase.saturation)
-            ph_subsystem["secondary_var_names"].append(phase.saturation_var_name)
+            pT_subsystem["secondary_vars"].append(phase.saturation_var_name)
+            ph_subsystem["secondary_vars"].append(phase.saturation_var_name)
 
+        ### PRIMARY VARIABLES
         # primary vars which are same for both subsystems
         # phase fractions
         for phase in self.phases:
-            pT_subsystem["primary_vars"].append(phase.fraction)
-            pT_subsystem["primary_var_names"].append(phase.fraction_var_name)
-            ph_subsystem["primary_vars"].append(phase.fraction)
-            ph_subsystem["primary_var_names"].append(phase.fraction_var_name)
+            pT_subsystem["primary_vars"].append(phase.fraction_var_name)
+            ph_subsystem["primary_vars"].append(phase.fraction_var_name)
             # phase composition
             for component in phase:
-                var = phase.component_fraction_of(component)
                 var_name = phase.component_fraction_var_name(component)
-                pT_subsystem["primary_vars"].append(var)
-                pT_subsystem["primary_var_names"].append(var_name)
-                ph_subsystem["primary_vars"].append(var)
-                ph_subsystem["primary_var_names"].append(var_name)
+                pT_subsystem["primary_vars"].append(var_name)
+                ph_subsystem["primary_vars"].append(var_name)
         # for the p-h flash, T is an additional var
-        ph_subsystem["primary_vars"].append(self._T)
-        ph_subsystem["primary_var_names"].append(self._T_var)
+        ph_subsystem["primary_vars"].append(self._T_var)
 
     def print_x(self) -> None:
         X = self.ad_system.dof_manager.assemble_variable()
@@ -989,16 +990,13 @@ class Composition:
 
         """
         success = False
-        vars = subsystem["primary_vars"]
-        var_names = subsystem["primary_var_names"]
+        var_names = subsystem["primary_vars"]
         if self._T_var in var_names:
             flash_type = "isenthalpic"
         else:
             flash_type = "isothermal"
-        # separating smooth and non-smooth parts
-        equations = set(subsystem["equations"])
-        complementary_cond = set(self._complementary_eq.keys())
-        equations = equations.difference(complementary_cond)
+        # defining smooth and non-smooth parts
+        equations = list(subsystem["equations"])
 
         if flash_type == "isenthalpic":
             self._set_initial_guess(initial_guess, True)
@@ -1006,7 +1004,8 @@ class Composition:
             self._set_initial_guess(initial_guess)
 
         # assemble linear system of eq for semi-smooth subsystem
-        A, b = self._assemble_semi_smooth_system(equations, complementary_cond, vars)
+        # A, b = self._assemble_semi_smooth_system(equations, complementary_cond, var_names)
+        A, b = self.ad_system.assemble_subsystem(equations, var_names)
 
         # if residual is already small enough
         if np.linalg.norm(b) <= self.flash_tolerance:
@@ -1033,9 +1032,10 @@ class Composition:
                 iter_final = i + 1  # shift since range() starts with zero
 
                 # assemble new matrix and residual
-                A, b = self._assemble_semi_smooth_system(
-                    equations, complementary_cond, vars
-                )
+                # A, b = self._assemble_semi_smooth_system(
+                #     equations, complementary_cond, var_names
+                # )
+                A, b = self.ad_system.assemble_subsystem(equations, var_names)
 
                 # in case of convergence
                 if np.linalg.norm(b) <= self.flash_tolerance:
@@ -1065,7 +1065,6 @@ class Composition:
             success=success,
             variables=var_names,
             equations=equations,
-            complementary=complementary_cond,
         )
 
         return success
@@ -1074,7 +1073,7 @@ class Composition:
         self,
         equations: List[pp.ad.Operator],
         complementary_cond: Tuple[pp.ad.Operator],
-        vars: List[pp.ad.MergedVariable],
+        var_names: List[pp.ad.MergedVariable],
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Returns an element of the subgradient of the ``min(-,-)`` function and the
         respective right-hand side of the Newton-min linearized system.
@@ -1086,7 +1085,7 @@ class Composition:
         Parameters:
             equations: list of operators representing the smooth part of the system
             complementary_cond: a 2-tuple of AD operators representing the arguments for min
-            vars: list of variables w.r.t. which the lin. equations should be assembled
+            var_names: list of variables w.r.t. which the lin. equations should be assembled
 
         Returns:
             spmatrix: subgradient element w.r.t. to the given variables
@@ -1094,13 +1093,12 @@ class Composition:
 
         """
         # assemble smooth subsystem
-        A_s, b_s = self.ad_system.assemble_subsystem(equations, vars)
+        A_s, b_s = self.ad_system.assemble_subsystem(equations, var_names)
 
         # assemble non-smooth subsystem
         all_b_ns = list()
         all_A_ns = list()
         # projection to primary variables
-        var_names = self.ad_system.get_var_names_from(vars)
         projection = self.ad_system.dof_manager.projection_to(var_names).transpose()
 
         for comp_cond in complementary_cond:
