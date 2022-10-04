@@ -7,7 +7,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-def run_stationary_model(model, params):
+def run_stationary_model(model, params) -> None:
     model.prepare_simulation()
 
     if model._is_nonlinear_problem():
@@ -20,7 +20,7 @@ def run_stationary_model(model, params):
     model.after_simulation()
 
 
-def run_time_dependent_model(model, params):
+def run_time_dependent_model(model, params) -> None:
     """
     Time loop for the model classes.
 
@@ -30,6 +30,7 @@ def run_time_dependent_model(model, params):
             the system, see the appropriate solver for documentation.
         params: Parameters related to the solution procedure. # Why not just set these
             as e.g. model.solution_parameters.
+
     """
     # Assign parameters, variables and discretizations. Discretize time-indepedent terms
     if params.get("prepare_simulation", True):
@@ -56,7 +57,7 @@ def run_time_dependent_model(model, params):
     model.after_simulation()
 
 
-def _run_iterative_model(model, params):
+def _run_iterative_model(model, params) -> None:
     """Intended use is for multi-step models with iterative couplings.
 
     Only known instance so far is the combination of fracture deformation and propagation.
