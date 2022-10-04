@@ -25,7 +25,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
     The simulation starts at time t=0.
 
-    Overwritten methods include:
+    Overridden methods include:
         1. _set_parameters: compressibility added
         2. _assign_discretizations: Upgrade incompressible flow equations
             to slightly compressible
@@ -34,10 +34,8 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         1. _compressibility: constant compressibility per cell
 
     Attributes:
-        end_time (float): Upper limit of considered time interval
-        time_step (float): time step size
-        time (float): simulation time
-        time_index (int): number of time steps passed
+        tsc: Time-stepping control manager.
+
     """
 
     def __init__(self, params: Optional[Dict] = None) -> None:
