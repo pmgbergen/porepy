@@ -597,3 +597,32 @@ class TestTimeControl:
             tsc.dt = tsc.dt_min_max[1]
             tsc.next_time_step(iterations=4)
             assert time == tsc.time + tsc.dt
+
+    @pytest.mark.parametrize(
+        "schedule, dt_init, is_constant, time, dt",
+        [
+            ([0, 1], 0.1, False, 0.3, 0.2),
+            ([0, 1], 0.1, True, 0.3, 0.2),
+        ]
+    )
+    def test_update_time(self, schedule, dt_init, is_constant, time, dt):
+        """Checks if time is correctly updated"""
+        tsc = Ts(schedule=schedule, dt_init=dt_init, constant_dt=is_constant)
+        tsc.time = time
+        tsc.dt = dt
+        tsc.increase_time()
+        assert tsc.time == time + dt
+
+    @pytest.mark.parametrize(
+        "schedule, dt_init, is_constant, time_index",
+        [
+            ([0, 1], 0.1, False, 13),
+            ([0, 1], 0.1, True, 13),
+        ]
+    )
+    def test_update_time_index(self, schedule, dt_init, is_constant, time_index):
+        """Checks if time index is correctly updated"""
+        tsc = Ts(schedule=schedule, dt_init=dt_init, constant_dt=is_constant)
+        tsc.time_index = time_index
+        tsc.increase_time_index()
+        assert tsc.time_index == (time_index + 1)
