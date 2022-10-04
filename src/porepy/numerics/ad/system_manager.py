@@ -451,11 +451,12 @@ class ADSystemManager:
             A = sps.csr_matrix((0, 0))
             rhs_cat = np.empty(0)
 
-        # slice out the columns belonging to the requested variables and return the results
-        if projection:
-            return A * projection, rhs_cat
-        else:
+        # slice out the columns belonging to the requested variables (if necessary)
+        # and return the results
+        if projection is None:
             return A, rhs_cat
+        else:
+            return A * projection, rhs_cat
 
     def assemble_schur_complement_system(
         self,
