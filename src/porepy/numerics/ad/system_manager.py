@@ -350,12 +350,11 @@ class ADSystemManager:
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector.
 
-        If ``state`` is given, this method will use the data stored in grid dictionaries.
-        It will use ITERATE. Alternatively it will use STATE (as per AD operator standard).
-        Derivatives for secondary variables are not included in the final Jacobian matrix.
+        This is a shallow wrapper of :meth:`assemble_subsystem`, where the subsystem is the
+        complete set of equations and primary and secondary variables.
 
         Parameters:
-            state (optional): State vector to assemble from. Defaults to None.
+            state (optional): see :meth:`assemble_subsystem`. Defaults to None.
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the targeted state.
@@ -365,47 +364,13 @@ class ADSystemManager:
                 scaled with -1 (moved to rhs).
 
         """
-        ## Data structures for building the Jacobian matrix and residual vector
-        # list of row blocks
-        mat = list()
-        # list of corresponding row blocks of the rhs
-        rhs: list[np.ndarray] = []
-
-        # Keep track of DOFs for each equation/block
-        ind_start = 0
-        self.assembled_equation_indices = dict()
-
-        # Iterate over equations, assemble.
-        for name, eq in self.equations.items():
-            ad = eq.evaluate(self.dof_manager, state)
-            # Append matrix and rhs
-            mat.append(ad.jac)
-            # Multiply by -1 to move to the rhs
-            rhs.append(-ad.val)
-
-            # create indices range and shift to correct position
-            block_indices = np.arange(len(ad.val)) + ind_start
-            # extract last index as starting point for next block of indices
-            ind_start = block_indices[-1] + 1
-            self.assembled_equation_indices.update({name: block_indices})
-
-        # The system assembled in the for-loop above contains derivatives for both
-        # primary and secondary variables, where the primary is understood as the
-        # complement of the secondary ones. Columns relating to secondary variables
-        # should therefore be removed. Construct a projection matrix onto the set
-        # of primary variables and right multiply the Jacobian matrix.
-        primary_variables = self.dof_manager.get_variables(True, False)
-        projection = self.dof_manager.projection_to(primary_variables).transpose()
-
-        # Concatenate matrix and remove columns of secondary variables
-        A = sps.bmat([[m] for m in mat], format="csr") * projection
-
-        return A, np.concatenate(rhs)
+        return self.assemble_subsystem(state=state)
 
     def assemble_subsystem(
         self,
-        eq_names: Optional[Sequence[str]] = None,
+        equations: Optional[Sequence[str]] = None,
         variables: Optional[Sequence[str]] = None,
+        state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
         equations and variables.
@@ -419,18 +384,19 @@ class ADSystemManager:
             to this system.
 
         Parameters:
-            eq_names (optional): a subset of known equation names to be assembled.
+            equations (optional): a subset of known equation names to be assembled.
                 If not provided (None), all equations known to this manager will be included.
                 Defaults to None.
             variables (optional): names of variables for which the columns should to be
                 returned. If not provided (None), all columns will be returned.
+            state (optional): State vector to assemble from. By default the stored ITERATE and
+                STATE are used, in that order. Defaults to None.
 
         Returns:
-            spmatrix: (Part of the) Jacobian matrix corresponding to the current variable
-                state, as found in grid dictionaries, for the specified equations and columns.
-            ndarray: Residual vector corresponding to the current variable state,
-                as found in the grid dictionaries, for the specified equations.
-                Scaled with -1 (moved to rhs).
+            spmatrix: (Part of the) Jacobian matrix corresponding to the targeted variable
+                state, for the specified equations and columns.
+            ndarray: Residual vector corresponding to the targeted variable state,
+                for the specified equations. Scaled with -1 (moved to rhs).
 
         """
         all_vars = set(self.dof_manager.get_variables(True, True))
@@ -443,27 +409,28 @@ class ADSystemManager:
                 raise ValueError(f"Unknown variables '{unknown_vars}'.")
             else:
                 var_names = list(sub_vars)
+            # Projection to the subset of active variables
+            projection = self.dof_manager.projection_to(var_names).transpose()
         else:
             var_names = list(all_vars)
+            # projection is unity in the case all variables are requested
+            projection = None
 
-        if eq_names is None:
-            eq_names = list(self.equations.keys())
+        if equations is None:
+            equations = list(self.equations.keys())
 
         # Data structures for building matrix and residual vector
         mat: list[sps.spmatrix] = []
         rhs: list[np.ndarray] = []
-
-        # Projection to the subset of active variables
-        projection = self.dof_manager.projection_to(var_names).transpose()
 
         # Keep track of DOFs for each equation/block
         ind_start = 0
         self.assembled_equation_indices = dict()
 
         # Iterate over equations, assemble.
-        for name in eq_names:
+        for name in equations:
             eq = self.equations[name]
-            ad = eq.evaluate(self.dof_manager)
+            ad = eq.evaluate(self.dof_manager, state)
             # append matrices and rhs
             mat.append(ad.jac)
             # Multiply by -1 to move to the rhs
@@ -485,13 +452,17 @@ class ADSystemManager:
             rhs_cat = np.empty(0)
 
         # slice out the columns belonging to the requested variables and return the results
-        return A * projection, rhs_cat
+        if projection:
+            return A * projection, rhs_cat
+        else:
+            return A, rhs_cat
 
     def assemble_schur_complement_system(
         self,
         primary_equations: Sequence[str],
         primary_variables: Sequence[str],
         inverter: Callable[[sps.spmatrix], sps.spmatrix],
+        state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
         elimination of the variables and equations not to be included.
@@ -528,7 +499,8 @@ class ADSystemManager:
                 Should have length > 0.
             primary_variables: names of variables representing the columns of A_pp.
                 Should have length > 0.
-            inverter (Callable): Method to compute the inverse of the matrix A_ss.
+            inverter: callable object to compute the inverse of the matrix A_ss.
+            state (optional): see :meth:`assemble_subsystem`. Defaults to None.
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the current variable state,
@@ -563,7 +535,9 @@ class ADSystemManager:
         # Keep track of DOFs for each equation/block
         ind_start = 0
         assembled_equation_indices = dict()
-        A_p, b_p = self.assemble_subsystem(primary_equations, all_vars)
+        A_p, b_p = self.assemble_subsystem(
+            equations=primary_equations, variables=all_vars, state=state
+        )
         for equ in primary_equations:
             # get assembled subsystem indexing, accumulate length of the primary block
             block_indices = self.assembled_equation_indices[equ]
@@ -571,7 +545,9 @@ class ADSystemManager:
             # store the primary block indices as given
             assembled_equation_indices.update({equ: block_indices})
 
-        A_s, b_s = self.assemble_subsystem(secondary_equations, all_vars)
+        A_s, b_s = self.assemble_subsystem(
+            equations=secondary_equations, variables=all_vars, state=state
+        )
         # shift the secondary equation blocks
         for equ in secondary_equations:
             # get the indexing of the secondary subsystem and shift them by the length of the
@@ -594,24 +570,26 @@ class ADSystemManager:
 
         # Explicitly compute the inverse.
         # Depending on the matrix, and the inverter, this can take a long time.
+        # TODO optimize
         inv_A_ss = inverter(A_ss)
 
         S = A_pp - A_ps * inv_A_ss * A_sp
-        bs = b_p - A_ps * inv_A_ss * b_s
+        rhs_S = b_p - A_ps * inv_A_ss * b_s
 
         # storing necessary information for Schur complement expansion
         self._schur_complement_expansion = (inv_A_ss, b_s, A_sp, proj_primary, proj_secondary)
 
-        return S, bs
+        return S, rhs_S
 
     def expand_schur_complement_solution(self, reduced_solution: np.ndarray) -> np.ndarray:
-        """Expands the solution of the Schur complement system to the global solution.
+        """Expands the solution of the **last assembled** Schur complement system to the
+        global solution.
 
         I.e it takes x_p from
 
             [A_pp, A_ps  [x_p   = [b_p
              A_sp, A_ss]  x_s]     b_s]
-        
+
         and returns the whole [x_p, x_s] where
 
             x_s = inv(A_ss) * (b_s - A_sp * x_p)
@@ -625,7 +603,7 @@ class ADSystemManager:
         Returns:
             the complete solution, where ``reduced_solution`` constitutes the first part of the
             vector.
-        
+
         Raises:
             RuntimeError: if the Schur complement system was not assembled before.
 

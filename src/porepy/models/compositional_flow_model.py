@@ -137,6 +137,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self._grids = [g for g in self.mdg.subdomains()]
         # list of edges as ordered in GridBucket
         self._edges = [e for e in self.mdg.interfaces()]
+        # exporter, set during prepare_simulation
+        self._exporter: pp.Exporter
 
     def create_grid(self) -> None:
         """Assigns a cartesian grid as computational domain.
@@ -215,8 +217,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
 
         # Exporter initialization for saving results
-        self.exporter = pp.Exporter(
-            self.mdg, self.params["file_name"], folder_name=self.params["folder_name"]
+        self._exporter = pp.Exporter(
+            self.mdg, self.params["file_name"], folder_name=self.params["folder_name"], False
         )
 
         # Define primary and secondary variables/system which are secondary and primary in
@@ -276,6 +278,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                 self.flow_subsystem["primary_vars"],
                 self.flow_subsystem["primary_var_names"],
             )
+        
+        self._export()
 
     def print_x(self, where=""):
         print("-------- %s" % (str(where)))
@@ -283,6 +287,14 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         print(self.dof_man.assemble_variable(from_iterate=True))
         print("State")
         print(self.dof_man.assemble_variable())
+
+    def _export(self) -> None:
+        if hasattr(self, "_exporter"):
+            variables = (
+                self.flow_subsystem["primary_var_names"]
+                + self.flow_subsystem["secondary_var_names"]
+            )
+            self._exporter.write_vtu([variables])
 
     ### NEWTON --------------------------------------------------------------------------------
 
