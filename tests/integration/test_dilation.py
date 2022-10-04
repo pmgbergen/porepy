@@ -11,7 +11,7 @@ import porepy as pp
 
 class TestDilation(unittest.TestCase):
     def _solve(self, setup):
-        if hasattr(setup, "end_time"):
+        if hasattr(setup, "tsc"):
             pp.run_time_dependent_model(setup, {"convergence_tol": 1e-10})
         else:
             pp.run_stationary_model(setup, {"convergence_tol": 1e-10})
@@ -166,7 +166,6 @@ class TestDilation(unittest.TestCase):
         setup = SetupContactMechanics(
             ux_south=0.1, uy_south=-0.09, ux_north=0, uy_north=0
         )
-        setup.time, setup.time_step, setup.end_time = 0, 0.5, 0.5
         setup.ux_south_initial = 0
         setup.dilation_angle = np.pi / 4
         setup.fracture_endpoints = np.array([0.0, 1.0])
@@ -180,7 +179,7 @@ class TestDilation(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(u_mortar_0[0], 0)))
 
         # Second step
-        setup.end_time = 1
+        setup.tsc.time_final = 1  # increase final time to enter time loop again
         u_mortar_1, contact_force_1 = self._solve(setup)
         # Should be in contact (u_x > u_y on boundary):
         self.assertTrue(np.all(contact_force_1[1] < setup.zero_tol))
@@ -205,7 +204,7 @@ class SetupContactMechanics(
         self.ux_north = ux_north
         self.uy_north = uy_north
         self.zero_tol = 1e-8
-        self.time = 1
+        self.tsc = pp.TimeSteppingControl(schedule=[0, 0.5], dt_init=0.5, constant_dt=True)
 
     def create_grid(self):
         """
@@ -236,7 +235,7 @@ class SetupContactMechanics(
         _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
         values = np.zeros((g.dim, g.num_faces))
         # Dirty hack for the two-stage test. All other tests have time > 0
-        if hasattr(self, "ux_south_initial") and self.time < (1 - self.zero_tol):
+        if hasattr(self, "ux_south_initial") and self.tsc.time < (1 - self.zero_tol):
             values[0, south] = self.ux_south_initial
         else:
             values[0, south] = self.ux_south
