@@ -242,7 +242,7 @@ class THM(pp.ContactMechanicsBiot):
                 sd,
                 data,
                 self.t2s_parameter_key,
-                {"mass_weight": t2s_coupling, "time_step": self.time_step},
+                {"mass_weight": t2s_coupling, "time_step": self.tsc.dt},
             )
 
     def _set_temperature_parameters(self) -> None:
@@ -291,14 +291,14 @@ class THM(pp.ContactMechanicsBiot):
                     "advection_weight": advection_weight,  # TODO: remove on ad purge
                     "advection_weight_boundary": advection_weight_faces,
                     "heat_capacity": heat_capacity,
-                    "time_step": self.time_step,
+                    "time_step": self.tsc.dt,
                 },
             )
             pp.initialize_data(
                 sd,
                 data,
                 self.s2t_parameter_key,
-                {"mass_weight": s2t_coupling, "time_step": self.time_step},
+                {"mass_weight": s2t_coupling, "time_step": self.tsc.dt},
             )
 
         # Assign diffusivity in the normal direction of the fractures.
