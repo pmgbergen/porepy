@@ -45,12 +45,15 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
                 Some frequently used entries are file and folder names for export,
                 mesh sizes...
         """
+        if params is None:
+            params = {}
         super().__init__(params)
 
         # Time manager
-        tsc = pp.TimeSteppingControl(schedule=[0, 1], dt_init=1, constant_dt=True)
-        self.tsc = params.get("time_manager", tsc)
-
+        self.tsc = params.get(
+            "time_manager",
+            pp.TimeSteppingControl(schedule=[0, 1], dt_init=1, constant_dt=True),
+        )
         self._ad = _AdVariables()
 
     def _set_parameters(self) -> None:

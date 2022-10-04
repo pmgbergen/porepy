@@ -96,11 +96,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         super().__init__(params)
 
         # Time-step control
-        tsc = pp.TimeSteppingControl(
-            schedule=[0, 1],
-            dt_init=1,
-            constant_dt=True
-        )
+        tsc = pp.TimeSteppingControl(schedule=[0, 1], dt_init=1, constant_dt=True)
         self.tsc: pp.TimeSteppingControl = self.params.get("time_manager", tsc)
 
         # Time

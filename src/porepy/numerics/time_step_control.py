@@ -439,7 +439,7 @@ class TimeSteppingControl:
 
         # Adapt time step
         if not self._recomp_sol:
-            self._adaptation_based_on_iterations(iterations=iterations)
+            self._adaptation_based_on_iterations(iterations=self._iters)
         else:
             self._adaptation_based_on_recomputation()
 
@@ -458,7 +458,7 @@ class TimeSteppingControl:
         """Increase time index counter by one."""
         self.time_index += 1
 
-    def _adaptation_based_on_iterations(self, iterations: int) -> None:
+    def _adaptation_based_on_iterations(self, iterations: Optional[int]) -> None:
         """Provided convergence, adapt time step based on the number of iterations.
 
         Parameters:
