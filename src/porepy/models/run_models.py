@@ -37,21 +37,20 @@ def run_time_dependent_model(model, params):
         model.prepare_simulation()
 
     # Prepare for the time loop
-    t_end = model.end_time
-    model.time_index = 0
     if model._is_nonlinear_problem():
         solver = pp.NewtonSolver(params)
     else:
         solver = pp.LinearSolver(params)
-    while model.time < t_end:
-        model.time += model.time_step
-        model.time_index += 1
+    while model.tsc.time < model.tsc.time_final:
+        model.tsc.increase_time()
+        model.tsc.increase_time_index()
         logger.info(
             "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                model.time_index, model.time, t_end, model.time_step
+                model.tsc.time_index, model.tsc.time, model.tsc.time_final, model.tsc.dt
             )
         )
         solver.solve(model)
+        model.tsc.next_time_step()
 
     model.after_simulation()
 
