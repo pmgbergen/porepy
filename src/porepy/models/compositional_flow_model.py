@@ -118,13 +118,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             "IAPWS95_H2O": self.injected_water_enthalpy,  # in kJ
             "NaCl": 0.0,  # no new salt enters the system
         }
-
+        # indicator if converged
+        self.converged: bool = False
         ### PRIVATE
 
-        # projections from global dofs to primary and secondary variables
+        # projections/ prolongation from global dofs to primary and secondary variables
         # will be set during `prepare simulations`
-        self._proj_prim: sps.spmatrix
-        self._proj_sec: sps.spmatrix
+        self._prolong_prim: sps.spmatrix
+        self._prolong_sec: sps.spmatrix
+        self._prolong_system: sps.spmatrix
         # system variables, depends whether solver monolithic or not
         self._system_vars: list
         # exporter
@@ -133,6 +135,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self._grids = [g for g in self.mdg.subdomains()]
         # list of edges as ordered in GridBucket
         self._edges = [e for e in self.mdg.interfaces()]
+        # storing names of all saturation variables, which are tertiary
+        self._satur_vars: list[str] = list()
+        # data for Schur complement expansion
+        self._for_expansion = (None, None, None)
 
     def create_grid(self) -> None:
         """Assigns a cartesian grid as computational domain.
@@ -141,6 +147,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         cells_per_dim = 1
         phys_dims = [1, 1]
         n_cells = [i * cells_per_dim for i in phys_dims]
+        bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
+        self.box = pp.geometry.bounding_box.from_points(bounding_box_points)
         sg = pp.CartGrid(n_cells, phys_dims)
         self.mdg = pp.MixedDimensionalGrid()
         self.mdg.add_subdomains(sg)
@@ -197,10 +205,13 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # setting initial temperature
         T_vals = self.initial_temperature * np.ones(nc)
         self.ad_sys.set_var_values(self.composition._T_var, T_vals, True)
+        # set zero enthalpy values at the beginning to get the AD framework properly started
+        h_vals = np.zeros(nc)
+        self.ad_sys.set_var_values(self.composition._h_var, h_vals, True)
 
         self.composition.isothermal_flash(copy_to_state=True, initial_guess="feed")
         self.composition.evaluate_saturations()
-        # This also sets the initial values for the primary variable enthalpy
+        # This corrects the initial values
         self.composition.evaluate_specific_enthalpy()
         
     def prepare_simulation(self) -> None:
@@ -232,6 +243,11 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # deep copies, just in case
         primary_vars = [var for var in self.composition.ph_subsystem["secondary_vars"]]
         secondary_vars = [var for var in self.composition.ph_subsystem["primary_vars"]]
+        self._satur_vars = list()
+        # remove the saturations, which are actually secondary in both systems... tertiary?TODO
+        for phase in self.composition.phases:
+            primary_vars.remove(phase.saturation_var_name)
+            self._satur_vars.append(phase.saturation_var_name)
         self.flow_subsystem.update({"primary_vars": primary_vars})
         self.flow_subsystem.update({"secondary_vars": secondary_vars})
 
@@ -247,17 +263,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # NOTE this can be optimized. Some component need to be discretized only once.
         self.ad_sys.discretize()
         # prepare datastructures for the solver
-        self._proj_prim = self.dof_man.projection_to(primary_vars)
-        self._proj_sec = self.dof_man.projection_to(secondary_vars)
+        self._prolong_prim = self.dof_man.projection_to(primary_vars).transpose()
+        self._prolong_sec = self.dof_man.projection_to(secondary_vars).transpose()
         
-        # the system vars depend on whether we solve it monolithically or not
-        if self.monolithic:
-            self._system_vars = (
-                self.flow_subsystem["primary_vars"]
-                + self.flow_subsystem["secondary_vars"]
-            )
-        else:
-            self._system_vars = self.flow_subsystem["primary_vars"]
+        # the system vars are everything except the saturations
+        self._system_vars = (
+            self.flow_subsystem["primary_vars"]
+            + self.flow_subsystem["secondary_vars"]
+        )
+        self._prolong_system = self.dof_man.projection_to(self._system_vars).transpose()
         
         self._export()
 
@@ -273,14 +287,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             variables = (
                 self.flow_subsystem["primary_vars"]
                 + self.flow_subsystem["secondary_vars"]
+                + self._satur_vars
             )
-            self._exporter.write_vtu([variables])
+            # self._exporter.write_vtu([variables])
 
     ### NEWTON --------------------------------------------------------------------------------
 
     def before_newton_loop(self) -> None:
         """Resets the iteration counter and convergence status."""
-        self.convergence_status = False
+        self.converged = False
         self._nonlinear_iteration = 0
 
     def before_newton_iteration(self) -> None:
@@ -306,6 +321,16 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.conductive_upwind.bound_transport_dir.discretize(self.mdg)
         self.conductive_upwind.bound_transport_neu.discretize(self.mdg)
 
+        if not self.monolithic:
+            print(f".. .. isenthalpic flash at iteration {self._nonlinear_iteration}")
+            success = self.composition.isenthalpic_flash(False, initial_guess="iterate")
+            if not success:
+                self.print_x("Isenthalpic flash failure.")
+                raise RuntimeError("FAILURE: Isenthalpic flash.")
+            else:
+                print(".. .. Success: Isenthalpic flash.")
+        self.composition.evaluate_saturations(False)
+
     def after_newton_iteration(
         self, solution_vector: np.ndarray, iteration: int
     ) -> None:
@@ -313,29 +338,22 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         Increases the iteration counter.
         """
         self._nonlinear_iteration += 1
-        vars, var_names = self._system_vars
-        solution_vector = self.composition._prolongation_matrix(vars) * solution_vector
+
+        if self.monolithic:
+            # expant
+            DX = self._prolong_system * solution_vector
+        else:
+            inv_A_ss, b_s, A_sp = self._for_expansion
+            x_s = inv_A_ss * (b_s - A_sp * solution_vector)
+            DX = self._prolong_prim * solution_vector + self._prolong_sec * x_s
 
         self.dof_man.distribute_variable(
-            values=solution_vector,
-            variables=var_names,
-            additive=True,
-            to_iterate=True,
-        )
-
-        if not self._monolithic:
-            print(".. starting equilibrium calculations at iteration %i" % (iteration))
-            equilibrated = self.composition.isenthalpic_flash(
-                self._max_iter_flash,
-                self._tol_flash,
-                copy_to_state=False,
-                trust_region=self._use_TRU,
-                eliminate_unity=self._elimination,
+                values=DX,
+                variables=self._system_vars,
+                additive=True,
+                to_iterate=True,
             )
-            if not equilibrated:
-                raise RuntimeError(
-                    "Isenthalpic flash failed in iteration %i." % (iteration)
-                )
+        self.composition.evaluate_saturations(False)
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -344,20 +362,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         (for next time step).
         Exports the results.
         """
-        _, var_names = self._system_vars
-        self.dof_man.distribute_variable(solution, variables=var_names)
-
-        if not self.monolithic:
-            # TODO check if Schur complement expansion should be used sa initial guess
-            # or new state
-            print(
-                ".. starting equilibrium calculations after iteration %i converged"
-                % (iteration_counter)
-            )
-            equilibrated = self.composition.isenthalpic_flash(True, "feed")
-            if not equilibrated:
-                raise RuntimeError("Isenthalpic flash failed after Newton converged.")
-
+        self.dof_man.distribute_variable(solution, variables=self._system_vars)
+        self.composition.evaluate_saturations(True)
         self._export()
 
     def after_newton_failure(
@@ -380,13 +386,25 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
 
         if self.monolithic:
-            A, b = self.eqm.assemble()
+            A, b = self.ad_sys.assemble_subsystem(variables=self._system_vars)
         else:
             # non-linear Schur complement elimination of secondary variables
-            A_pp, b_p = self.eqm.assemble_subsystem(self._prim_equ, self._prim_vars)
-            A_sp, _ = self.eqm.assemble_subsystem(self._sec_equ, self._prim_vars)
-            A_ps, _ = self.eqm.assemble_subsystem(self._prim_equ, self._sec_vars)
-            A_ss, b_s = self.eqm.assemble_subsystem(self._sec_equ, self._sec_vars)
+            A_pp, b_p = self.ad_sys.assemble_subsystem(
+                self.flow_subsystem["primary_equations"],
+                self.flow_subsystem["primary_vars"]
+            )
+            A_sp, _ = self.ad_sys.assemble_subsystem(
+                self.flow_subsystem["secondary_equations"],
+                self.flow_subsystem["primary_vars"]
+            )
+            A_ps, _ = self.ad_sys.assemble_subsystem(
+                self.flow_subsystem["primary_equations"],
+                self.flow_subsystem["secondary_vars"]
+            )
+            A_ss, b_s = self.ad_sys.assemble_subsystem(
+                self.flow_subsystem["secondary_equations"],
+                self.flow_subsystem["secondary_vars"]
+            )
             if self.composition._last_inverted is not None:
                 inv_A_ss = self.composition._last_inverted
             else:
@@ -394,16 +412,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
             A = A_pp - A_ps * inv_A_ss * A_sp
             A = sps.csr_matrix(A)
-            b = b_p  # - A_ps * inv_A_ss * b_s
+            b = b_p - A_ps * inv_A_ss * b_s
+            self._for_expansion = (inv_A_ss, b_s, A_sp)
 
         res_norm = np.linalg.norm(b)
         if res_norm < tol:
-            self.convergence_status = True
-            _, var_names = self._system_vars
-            x = self.dof_man.assemble_variable(variables=var_names, from_iterate=True)
+            self.converged = True
+            x = self.dof_man.assemble_variable(variables=self._system_vars, from_iterate=True)
             return x
 
-        # TODO direct solver only nice to small systems
         dx = spla.spsolve(A, b)
 
         return dx
@@ -536,7 +553,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### Instantiating discretization operators
 
         # divergence (based on grid)
-        self.div = pp.ad.Divergence(grids=self._grids, name="Divergence")
+        self.div = pp.ad.Divergence(subdomains=self._grids, dim = 2, name="Divergence")
 
         # darcy flux
         mpfa = pp.ad.MpfaAd(self.flow_parameter_key, self._grids)
@@ -746,7 +763,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
             ### SOURCE
             keyword = "%s_%s" % (self.mass_parameter_key, component.name)
-            source = pp.ad.ParameterArray(keyword, "source", grids=self._grids)
+            source = pp.ad.ParameterArray(keyword, "source", subdomains=self._grids)
 
             ### MASS BALANCE PER COMPONENT
             # minus in advection already included
@@ -807,13 +824,13 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### SOURCE
         # rock enthalpy source
         source = pp.ad.ParameterArray(
-            self.energy_parameter_key, "source", grids=self._grids
+            self.energy_parameter_key, "source", subdomains=self._grids
         )
         # enthalpy source due to mass source
         for component in cp.components:
             kw = "source_%s" % (component.name)
             source += pp.ad.ParameterArray(
-                self.energy_parameter_key, kw, grids=self._grids
+                self.energy_parameter_key, kw, subdomains=self._grids
             )
 
         ### GLOBAL ENERGY BALANCE
