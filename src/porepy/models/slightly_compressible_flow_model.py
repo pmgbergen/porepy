@@ -49,16 +49,10 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         """
         super().__init__(params)
 
-        # attributes
-        if isinstance(params, type(None)):
-            self.end_time = float(1)
-            self.time_step = float(1)
-        else:
-            self.end_time = self.params.get("end_time", float(1))
-            self.time_step = self.params.get("time_step", float(1))
+        # Time manager
+        tsc = pp.TimeSteppingControl(schedule=[0, 1], dt_init=1, constant_dt=True)
+        self.tsc = params.get("time_manager", tsc)
 
-        self.time = float(0)
-        self.time_index = 0
         self._ad = _AdVariables()
 
     def _set_parameters(self) -> None:
@@ -95,7 +89,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         # Access to pressure ad variable
         p = self._ad.pressure
-        self._ad.time_step = pp.ad.Scalar(self.time_step, "time step")
+        self._ad.time_step = pp.ad.Scalar(self.tsc.dt, "time step")
 
         accumulation_term = (
             accumulation_term.mass * (p - p.previous_timestep()) / self._ad.time_step

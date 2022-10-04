@@ -99,11 +99,19 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
+        # Time-step control
+        tsc = pp.TimeSteppingControl(
+            schedule=[0, 1],
+            dt_init=1,
+            constant_dt=True
+        )
+        self.tsc: pp.TimeSteppingControl = self.params.get("time_manager", tsc)
+
         # Time
-        self.time: float = 0
-        self.time_step: float = self.params.get("time_step", 1.0)
-        self.end_time: float = self.params.get("end_time", 1.0)
-        self.time_index: int = 0
+        # self.time: float = 0
+        # self.time_step: float = self.params.get("time_step", 1.0)
+        # self.end_time: float = self.params.get("end_time", 1.0)
+        # self.time_index: int = 0
 
         # Temperature
         self.scalar_variable: str = "p"
@@ -196,7 +204,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     {
                         "bc": self._bc_type_mechanics(sd),
                         "bc_values": self._bc_values_mechanics(sd),
-                        "time_step": self.time_step,
+                        "time_step": self.tsc.dt,
                         "biot_alpha": self._biot_alpha(sd),
                         "p_reference": self._reference_scalar(sd),
                     },
@@ -238,7 +246,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     "biot_alpha": alpha,
                     "source": self._source_scalar(sd),
                     "second_order_tensor": diffusivity,
-                    "time_step": self.time_step,
+                    "time_step": self.tsc.dt,
                     "vector_source": self._vector_source(sd),
                     "ambient_dimension": self.mdg.dim_max(),
                 },
@@ -716,7 +724,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         ad.local_fracture_coord_transformation_normal = normal_proj
         # Facilitate updates of dt. self.time_step_ad.time_step._value must be updated
         # if time steps are changed.
-        ad.time_step = pp.ad.Scalar(self.time_step, "time step")
+        ad.time_step = pp.ad.Scalar(self.tsc.dt, "time step")
 
     def _force_balance_equation(
         self,
