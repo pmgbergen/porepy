@@ -45,7 +45,7 @@ class TestParameterInputs:
         """The 'schedule' object is supposed to take any array-like object."""
         tsc = Ts(schedule=schedule, dt_init=0.01)
         assert isinstance(tsc.schedule, np.ndarray)
-        assert (tsc.schedule == np.array([0., 0.5, 1.])).all()
+        assert (tsc.schedule == np.array([0.0, 0.5, 1.0])).all()
 
     @pytest.mark.parametrize(
         "schedule, dt_init",
@@ -99,7 +99,7 @@ class TestParameterInputs:
             ([0, 1, 2], 1),
             ([0, 0.05, 2.0, 4.0, 10.0], 0.05),
             ([5.0, 10.0, 60.0, 62.5, 70.0], 2.5),
-        ]
+        ],
     )
     def test_constant_dt_compatibility_with_schedule(self, schedule, dt_init):
         """No error should be raised if dt and schedule are compatible"""
@@ -114,7 +114,7 @@ class TestParameterInputs:
             ([0, 1], 0.4),
             ([0, 1], 0.3333),
             ([0, 0.4, 0.5, 0.8, 1], 0.2),
-            ([13.1, 13.2, 13.3], 0.2)
+            ([13.1, 13.2, 13.3], 0.2),
         ],
     )
     def test_raise_error_incompatible_dt_and_schedule(self, schedule, dt_init):
@@ -370,11 +370,13 @@ class TestTimeControl:
         [
             ([0, 1], 0.1, 0.3, 3, 1000, True),
             ([0, 10], 1, 2, 0, None, False),
-            ([0, pp.HOUR, 3*pp.HOUR], 0.5*pp.HOUR, 0, 0, None, False),
-            ([0, pp.HOUR, 3 * pp.HOUR], 0.5 * pp.HOUR, 1.5*pp.HOUR, 678, 342, True),
-        ]
+            ([0, pp.HOUR, 3 * pp.HOUR], 0.5 * pp.HOUR, 0, 0, None, False),
+            ([0, pp.HOUR, 3 * pp.HOUR], 0.5 * pp.HOUR, 1.5 * pp.HOUR, 678, 342, True),
+        ],
     )
-    def test_constant_time_step(self, schedule, dt_init, time, time_index, iters, recomp_sol):
+    def test_constant_time_step(
+        self, schedule, dt_init, time, time_index, iters, recomp_sol
+    ):
         """Test if a constant time step is returned, independent of any configuration or
         input. We also test that the time and the time index are updated accordingly"""
         tsc = Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
@@ -390,9 +392,7 @@ class TestTimeControl:
         """A warning should be raised if iterations is given and time step is constant"""
         tsc = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
         iterations = 1
-        msg = (
-            f"iterations '{iterations}' has no effect if time step is constant."
-        )
+        msg = f"iterations '{iterations}' has no effect if time step is constant."
         with pytest.warns() as record:
             tsc.next_time_step(iterations=iterations)
         assert str(record[0].message) == msg
@@ -401,9 +401,7 @@ class TestTimeControl:
         """A warning should be raised if recompute_solution is True and time step is
         constant"""
         tsc = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
-        msg = (
-            "recompute_solution=True has no effect if time step is constant."
-        )
+        msg = "recompute_solution=True has no effect if time step is constant."
         with pytest.warns() as record:
             tsc.next_time_step(recompute_solution=True)
         assert str(record[0].message) == msg
@@ -434,7 +432,7 @@ class TestTimeControl:
         assert tsc._recomp_sol and (msg in str(excinfo.value))
 
     def test_recompute_solution_false_by_default(self):
-        """"Checks if recompute solution is False by default"""
+        """ "Checks if recompute solution is False by default"""
         tsc = Ts([0, 1], 0.1)
         tsc.next_time_step(iterations=3)
         assert not tsc._recomp_sol
@@ -482,7 +480,9 @@ class TestTimeControl:
             tsc.next_time_step(iterations=1, recompute_solution=True)
         assert str(record[0].message) == msg
 
-    def test_raise_error_when_adapting_based_on_recomputation_with_dt_equal_to_dt_min(self):
+    def test_raise_error_when_adapting_based_on_recomputation_with_dt_equal_to_dt_min(
+        self,
+    ):
         """An error should be raised when adaption based on recomputation is attempted with
         dt = dt_min"""
         tsc = Ts(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
