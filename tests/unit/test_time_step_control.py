@@ -377,16 +377,15 @@ class TestTimeControl:
     def test_constant_time_step(
         self, schedule, dt_init, time, time_index, iters, recomp_sol
     ):
-        """Test if a constant time step is returned, independent of any configuration or
-        input. We also test that the time and the time index are updated accordingly"""
+        """Test if a constant dt is returned, independent of any configuration or input."""
         tsc = Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
         tsc.time = time
         tsc.time_index = time_index
 
         dt = tsc.next_time_step(iterations=iters, recompute_solution=recomp_sol)
         assert tsc.dt == dt
-        assert tsc.time == time + dt
-        assert tsc.time_index == time_index + 1
+        assert tsc.time == time
+        assert tsc.time_index == time_index
 
     def test_raise_warning_iteration_not_none_for_constant_time_step(self):
         """A warning should be raised if iterations is given and time step is constant"""
@@ -452,10 +451,8 @@ class TestTimeControl:
         #     new dt to be half of the old one (dt = 1 * 0.5 = 0.5)
         #     recomputation flag set to True (_recomp_flag = True)
         #     recomputation counter to increase by 1 (_recomp_num = 6 + 1 = 7)
-        #     time to be added increased by new dt (time = 4 + 0.5 = 4.5)
-        #     time index to be increased by one (time_index = 12 + 1 = 13)
-        assert tsc.time == 4.5
-        assert tsc.time_index == 13
+        assert tsc.time == 4.0
+        assert tsc.time_index == 12
         assert tsc.dt == 0.5
         assert tsc._recomp_sol
         assert tsc._recomp_num == 7
@@ -599,4 +596,4 @@ class TestTimeControl:
             tsc.time = 0.99 * time
             tsc.dt = tsc.dt_min_max[1]
             tsc.next_time_step(iterations=4)
-            assert time == tsc.time
+            assert time == tsc.time + tsc.dt
