@@ -60,9 +60,7 @@ class THM(pp.ContactMechanicsBiot):
     adjustment needed is to specify the method create_grid().
 
     Attributes:
-        time (float): Current time.
-        time_step (float): Size of an individual time step
-        end_time (float): Time at which the simulation should stop.
+        tsc : Time-stepping control manager.
 
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
