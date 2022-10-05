@@ -144,7 +144,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Assigns a cartesian grid as computational domain.
         Overwrites the instance variables 'gb'.
         """
-        cells_per_dim = 1
+        cells_per_dim = 3
         phys_dims = [1, 1]
         n_cells = [i * cells_per_dim for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
@@ -409,7 +409,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                 inv_A_ss = self.composition._last_inverted
             else:
                 inv_A_ss = np.linalg.inv(A_ss.A)
-
+            inv_A_ss = sps.csr_matrix(inv_A_ss)
             A = A_pp - A_ps * inv_A_ss * A_sp
             A = sps.csr_matrix(A)
             b = b_p - A_ps * inv_A_ss * b_s
