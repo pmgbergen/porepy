@@ -11,6 +11,8 @@ from typing import Optional
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
+import matplotlib.pyplot as plot
+import matplotlib.colors as mcolors
 
 import porepy as pp
 
@@ -280,7 +282,22 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         print("Iterate")
         print(self.dof_man.assemble_variable(from_iterate=True))
         print("State")
-        print(self.dof_man.assemble_variable())
+        print(self.dof_man.assemble_variable(from_iterate=False))
+
+    def matrix_plot(self, J):
+        plot.figure()
+        plot.subplot(211)
+        plot.matshow(J.todense())
+        plot.colorbar(orientation="vertical")
+        plot.set_cmap("terrain")
+
+        plot.subplot(212)
+        norm = mcolors.TwoSlopeNorm(vmin=-10.0, vcenter=0, vmax=10.0)
+        plot.matshow(J.todense(),norm=norm,cmap='RdBu_r')
+        plot.colorbar()
+        
+        plot.show()
+        
 
     def _export(self) -> None:
         if hasattr(self, "_exporter"):
