@@ -73,7 +73,7 @@ class ADSystemManager:
 
         ### PRIVATE
 
-        self._schur_complement_expansion: Optional[tuple] = None
+        self._for_Schur_expansion: Optional[tuple] = None
         """Contains block matrices and the split rhs of the last assembled Schur complement,
         such that the expansion can be made.
 
@@ -348,7 +348,7 @@ class ADSystemManager:
         self,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
-        """Assemble Jacobian matrix and residual vector.
+        """Assemble Jacobian matrix and residual vector of the whole system.
 
         This is a shallow wrapper of :meth:`assemble_subsystem`, where the subsystem is the
         complete set of equations and primary and secondary variables.
@@ -368,8 +368,9 @@ class ADSystemManager:
 
     def assemble_subsystem(
         self,
-        equations: Optional[Sequence[str]] = None,
-        variables: Optional[Sequence[str]] = None,
+        equations: Optional[Union[str, Sequence[str]]] = None,
+        variables: Optional[Union[str, Sequence[str]]] = None,
+        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
@@ -384,13 +385,16 @@ class ADSystemManager:
             to this system.
 
         Parameters:
-            equations (optional): a subset of known equation names to be assembled.
+            equations (optional): a subset of equation names to which the subsystem should be
+                restricted.
                 If not provided (None), all equations known to this manager will be included.
-                Defaults to None.
-            variables (optional): names of variables for which the columns should to be
-                returned. If not provided (None), all columns will be returned.
-            state (optional): State vector to assemble from. By default the stored ITERATE and
-                STATE are used, in that order. Defaults to None.
+            variables (optional): names of variables to which the subsystem should be
+                restricted. If not provided (None), all variables will be included.
+            grids (optional): grids or mortar grids to which the subsystem should be
+                restricted.
+                If not provided (None), all grids and mortar grids will be included.
+            state (optional): State vector to assemble from. By default the stored ITERATE or
+                STATE are used, in that order.
 
         Returns:
             spmatrix: (Part of the) Jacobian matrix corresponding to the targeted variable
@@ -399,25 +403,28 @@ class ADSystemManager:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
-        all_vars = set(self.dof_manager.get_variables(True, True))
-        
-        if variables:
-            sub_vars = set(variables)
-            # sanity check before proceeding
-            if not sub_vars.issubset(all_vars):
-                unknown_vars = sub_vars.difference(all_vars)
-                raise ValueError(f"Unknown variables '{unknown_vars}'.")
-            else:
-                var_names = list(sub_vars)
-            # Projection to the subset of active variables
-            projection = self.dof_manager.projection_to(var_names).transpose()
-        else:
-            var_names = list(all_vars)
-            # projection is unity in the case all variables are requested
-            projection = None
-
+        # reformat non-sequential arguments
+        # if no restriction, use all variables and grids
+        if variables is None:
+            variables = list(set([key[1] for key in self.dof_manager.block_dof]))  # type: ignore
+        elif isinstance(variables, str):
+            variables = [variables]  # type: ignore
         if equations is None:
-            equations = list(self.equations.keys())
+            equations = list(self.equations.keys())  # type: ignore
+        elif isinstance(equations, str):
+            equations = [equations]  # type: ignore
+        if grids is None:
+            grids = list(set([key[0] for key in self.dof_manager.block_dof]))  # type: ignore
+        elif isinstance(grids, GridLike):
+            grids = [grids]  # type: ignore
+        
+        # TODO think about argument validation, i.e. are the variables, equations and grids
+        # known to this system and dof manager.
+        # This will help users during debugging, otherwise just some key errors will be raised
+        # at some points.
+
+        # Projection to the subset of variables and grids
+        projection = self.dof_manager.projection_to(variables, grids).transpose()
 
         # Data structures for building matrix and residual vector
         mat: list[sps.spmatrix] = []
@@ -451,18 +458,15 @@ class ADSystemManager:
             A = sps.csr_matrix((0, 0))
             rhs_cat = np.empty(0)
 
-        # slice out the columns belonging to the requested variables (if necessary)
-        # and return the results
-        if projection is None:
-            return A, rhs_cat
-        else:
-            return A * projection, rhs_cat
+        # slice out the columns belonging to the requested subsets and return the results
+        return A * projection, rhs_cat
 
     def assemble_schur_complement_system(
         self,
-        primary_equations: Sequence[str],
-        primary_variables: Sequence[str],
-        inverter: Callable[[sps.spmatrix], sps.spmatrix],
+        primary_equations: Union[str, Sequence[str]],
+        primary_variables: Union[str, Sequence[str]],
+        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None,
+        inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
@@ -500,7 +504,10 @@ class ADSystemManager:
                 Should have length > 0.
             primary_variables: names of variables representing the columns of A_pp.
                 Should have length > 0.
-            inverter: callable object to compute the inverse of the matrix A_ss.
+            grids (optional): grids and mortar grids to which the primary system should be
+                restricted. If not given (None), no grid restriction will be performed.
+            inverter (optional): callable object to compute the inverse of the matrix A_ss.
+                If not given (None), the scipy sparse inverter is used.
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
 
         Returns:
@@ -511,33 +518,33 @@ class ADSystemManager:
                 Scaled with -1 (moved to rhs).
 
         """
-        if len(primary_equations) == 0:
-            raise ValueError("Must make Schur complement with at least one equation")
+        # reformatting non-sequential arguments
+        if isinstance(primary_variables, str):
+            primary_variables = [primary_variables]  # type: ignore
+        if isinstance(primary_equations, str):
+            primary_equations = [primary_equations]  # type: ignore
+        if isinstance(grids, GridLike):
+            grids = [grids]  # type: ignore
+        # ensuring the Schur complement is not the whole matrix
         if len(primary_variables) == 0:
             raise ValueError("Must make Schur complement with at least one variable")
-
-        primary_vars = set(primary_variables)
-        all_vars = set(self.dof_manager.get_variables(True, True))
-
-        # sanity check before proceeding
-        if not primary_vars.issubset(all_vars):
-            unknown_vars = primary_vars.difference(all_vars)
-            raise ValueError(f"Unknown variables '{unknown_vars}'.")
+        if len(primary_equations) == 0:
+            raise ValueError("Must make Schur complement with at least one equation")
 
         # Get lists of all variables and equations, and find the secondary items
         # by a set difference
+        all_variables = self.dof_manager.get_variables(True, True)
         all_eq_names = list(self.equations.keys())
-
         secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
-        secondary_vars = list(all_vars.difference(primary_vars))
+        secondary_variables = list(set(all_variables).difference(set(primary_variables)))
 
-        # First assemble the primary and secondary equations for all variables
+        # First assemble the primary and secondary equations for all variables and all grids
         # save the indices and shift the indices for the second assembly accordingly
         # Keep track of DOFs for each equation/block
         ind_start = 0
         assembled_equation_indices = dict()
         A_p, b_p = self.assemble_subsystem(
-            equations=primary_equations, variables=all_vars, state=state
+            equations=primary_equations, variables=all_variables, state=state
         )
         for equ in primary_equations:
             # get assembled subsystem indexing, accumulate length of the primary block
@@ -547,7 +554,7 @@ class ADSystemManager:
             assembled_equation_indices.update({equ: block_indices})
 
         A_s, b_s = self.assemble_subsystem(
-            equations=secondary_equations, variables=all_vars, state=state
+            equations=secondary_equations, variables=all_variables, state=state
         )
         # shift the secondary equation blocks
         for equ in secondary_equations:
@@ -560,8 +567,22 @@ class ADSystemManager:
         self.assembled_equation_indices = assembled_equation_indices
 
         # Projection matrices to reduce matrices to the relevant columns
-        proj_primary = self.dof_manager.projection_to(primary_vars).transpose()
-        proj_secondary = self.dof_manager.projection_to(secondary_vars).transpose()
+        # case where no further restriction on grids is made, projection is simple to compute
+        if grids is None:
+            proj_primary = self.dof_manager.projection_to(primary_variables).transpose()
+            proj_secondary = self.dof_manager.projection_to(secondary_variables).transpose()
+        # case where primary vars are further restricted to grids, here the secondary
+        # projection involves the primary vars on the other grids, which are not among the
+        # restricted grid:
+        else:
+            all_grids = set([key[0] for key in self.dof_manager.block_dof])
+            secondary_grids = list(all_grids.difference(set(grids)))
+            
+            proj_primary = self.dof_manager.projection_to(primary_variables, grids).transpose()
+            # projection to all variables on secondary grids
+            proj_secondary = self.dof_manager.projection_to(
+                all_variables, secondary_grids
+            ).transpose()
 
         # Matrices involved in the Schur complements
         A_pp = A_p * proj_primary
@@ -569,16 +590,16 @@ class ADSystemManager:
         A_sp = A_s * proj_primary
         A_ss = A_s * proj_secondary
 
-        # Explicitly compute the inverse.
+        # Explicitly compute the inverse of the secondary block.
         # Depending on the matrix, and the inverter, this can take a long time.
-        # TODO optimize
+        # this should raise an error if the secondary block is not invertible
         inv_A_ss = inverter(A_ss)
 
         S = A_pp - A_ps * inv_A_ss * A_sp
         rhs_S = b_p - A_ps * inv_A_ss * b_s
 
         # storing necessary information for Schur complement expansion
-        self._schur_complement_expansion = (inv_A_ss, b_s, A_sp, proj_primary, proj_secondary)
+        self._for_Schur_expansion = (inv_A_ss, b_s, A_sp, proj_primary, proj_secondary)
 
         return S, rhs_S
 
@@ -595,7 +616,8 @@ class ADSystemManager:
 
             x_s = inv(A_ss) * (b_s - A_sp * x_p)
 
-        This method works with any vector of fitting size, i.e. use knowingly.
+        Notes:
+            This method works with any vector of fitting size, i.e. be aware of what you do.
 
         Parameters:
             reduced_solution: Solution to the linear system returned by
@@ -609,9 +631,9 @@ class ADSystemManager:
             RuntimeError: if the Schur complement system was not assembled before.
 
         """
-        if self._schur_complement_expansion:
+        if self._for_Schur_expansion:
             # get data stored from last complement
-            inv_A_ss, b_s, A_sp, prolong_p, prolong_s = self._schur_complement_expansion
+            inv_A_ss, b_s, A_sp, prolong_p, prolong_s = self._for_Schur_expansion
             # calculate the complement solution
             x_s = inv_A_ss * (b_s - A_sp * reduced_solution)
             # prolong primary and secondary block to global-sized arrays using the transpose
@@ -621,7 +643,7 @@ class ADSystemManager:
         else:
             RuntimeError("Schur complement was not assembled beforehand.")
 
-    def create_subsystem_manager(self, eq_names: Sequence[str]) -> ADSystemManager:
+    def create_subsystem_manager(self, eq_names: Union[str, Sequence[str]]) -> ADSystemManager:
         """Creates an ``ADSystemManager`` for a given subset of equations.
 
         Parameters:
@@ -635,6 +657,10 @@ class ADSystemManager:
         """
         # creating a new manager and adding the requested equations
         new_manger = ADSystemManager(self.dof_manager)
+
+        if isinstance(eq_names, str):
+            eq_names = [eq_names]  # type: ignore
+
         for name in eq_names:
             new_manger.set_equation(name, self.equations[name])
 
