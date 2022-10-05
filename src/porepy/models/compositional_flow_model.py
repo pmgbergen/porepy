@@ -285,6 +285,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         print(self.dof_man.assemble_variable(from_iterate=False))
 
     def matrix_plot(self, J):
+        print(J.todense())
         plot.figure()
         plot.subplot(211)
         plot.matshow(J.todense())
@@ -297,7 +298,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         plot.colorbar()
         
         plot.show()
-        
 
     def _export(self) -> None:
         if hasattr(self, "_exporter"):

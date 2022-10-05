@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Dict, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -70,13 +70,12 @@ class DofManager:
     def num_dofs(self) -> np.int_:
         """Get the number of degrees of freedom in this DofManager.
 
-        Returns:
-            np.int_: Size of subsystem.
+        Returns: size of subsystem.
 
         """
         return np.sum(self.full_dof)
 
-    def append_dofs(self, var_names: list[str]) -> None:
+    def append_dofs(self, var_names: Union[str, Sequence[str]]) -> None:
         """Appends DOFs for a given primary variable.
 
         This is meant to add DOFs dynamically after the DofManager has been instantiated.
@@ -86,12 +85,14 @@ class DofManager:
         Does nothing if the names cannot be found in the data dicts as primary variable.
 
         Parameters:
-            var_names: name(s) of the new variable(s) to be found in the data dictionaries.
+            var_names: names of the new variables to be found in the data dictionaries.
 
         Raises:
             ValueError: if any DOFs have already been added for a name in ``var_names``.
 
         """
+        if isinstance(var_names, str):
+            var_names = [var_names]  # type: ignore
 
         full_dof, block_dof = self._create_dofs(var_names)
 
@@ -100,7 +101,7 @@ class DofManager:
         self.block_dof.update(block_dof)
 
     def _create_dofs(
-        self, for_vars: Optional[list[str]] = None
+        self, for_vars: Optional[Sequence[str]] = None
     ) -> tuple[np.ndarray, dict]:
         """Creates DOFs to be appended to the already existing global DOFs.
 
@@ -116,7 +117,7 @@ class DofManager:
 
         # Storage for number of dofs per variable per node/edge, with respect
         # to the ordering specified in block_dof
-        full_dof: List[int] = []
+        full_dof: Sequence[int] = []
 
         # Add dofs on nodes
         for sd, data in self.mdg.subdomains(return_data=True):
@@ -124,7 +125,7 @@ class DofManager:
             if pp.PRIMARY_VARIABLES in data:
                 for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
                     # filter for which variables DOFs should be created
-                    if isinstance(for_vars, list):
+                    if isinstance(for_vars, Sequence):
                         if local_var not in for_vars:
                             continue
 
@@ -152,7 +153,7 @@ class DofManager:
             if pp.SECONDARY_VARIABLES in data:
                 for local_var, local_dofs in data[pp.SECONDARY_VARIABLES].items():
                     # filter for which variables DOFs should be created
-                    if isinstance(for_vars, list):
+                    if isinstance(for_vars, Sequence):
                         if local_var not in for_vars:
                             continue
 
@@ -182,7 +183,7 @@ class DofManager:
             if pp.PRIMARY_VARIABLES in data:
                 for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
                     # filter for which variables DOFs should be created
-                    if isinstance(for_vars, list):
+                    if isinstance(for_vars, Sequence):
                         if local_var not in for_vars:
                             continue
 
@@ -206,7 +207,7 @@ class DofManager:
             if pp.SECONDARY_VARIABLES in data:
                 for local_var, local_dofs in data[pp.SECONDARY_VARIABLES].items():
                     # filter for which variables DOFs should be created
-                    if isinstance(for_vars, list):
+                    if isinstance(for_vars, Sequence):
                         if local_var not in for_vars:
                             continue
 
@@ -260,40 +261,43 @@ class DofManager:
                 vars = data.get(pp.SECONDARY_VARIABLES, None)
                 if vars:
                     all_vars += vars.keys()
-
+        # make unique with set
         return tuple(set(all_vars))
 
     def assemble_variable(
         self,
-        grids: Optional[List[GridLike]] = None,
-        variables: Optional[List[str]] = None,
+        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None,
+        variables: Optional[Union[str, Sequence[str]]] = None,
         from_iterate: bool = False,
     ) -> np.ndarray:
         """Assemble a vector from the variable state stored in nodes and edges in
         the MixedDimensionalGrid.
 
         Parameters:
-            grids (list of grids or grid tuples (interfaces), optional): Names of the
-                grids (both subdomains and interfaces) to be assembled from. If not provided,
-                all variables found in self.block_dof will be considered.
-            variables (list of str, optional): Names of the variables to be
-                assembled. If not provided, all variables found in self.block_dof
-                will be cosidered.
-            from_iterate (bool, optional): If True, assemble from iterates, and not the
-                state itself. Set this to True inside a non-linear scheme (Newton), False
-                at the end of a time step.
+            grids (optional): Names of the grids (both subdomains and interfaces) to be
+                assembled from. If not provided, all variables found in self.block_dof will be
+                considered.
+            variables (optional): Names of the variables to be assembled.
+                If not provided, all variables found in self.block_dof will be considered.
+            from_iterate (optional): If True, assemble from iterates, and not the state itself.
+                Set this to True inside a non-linear scheme (Newton),
+                False at the end of a time step.
 
         Returns:
-            np.ndarray: Vector, size equal to self.num_dofs(). Values taken from the
-                state for those indices corresponding to an active grid-variable
-                combination. Other values are set to zero.
+            Vector, size equal to :meth:`num_dofs`. Values taken from the
+            state for those indices corresponding to an active grid-variable
+            combination. Other values are set to zero.
 
         """
         if grids is None:
             grids = list(set([key[0] for key in self.block_dof]))
+        elif isinstance(grids, GridLike):
+            grids = [grids]  # type: ignore
 
         if variables is None:
             variables = list(set([key[1] for key in self.block_dof]))
+        elif isinstance(variables, str):
+            variables = [variables]  # type: ignore
 
         values = np.zeros(self.num_dofs())
 
@@ -320,8 +324,8 @@ class DofManager:
     def distribute_variable(
         self,
         values: np.ndarray,
-        grids: Optional[List[GridLike]] = None,
-        variables: Optional[List[str]] = None,
+        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None,
+        variables: Optional[Union[str, Sequence[str]]] = None,
         additive: bool = False,
         to_iterate: bool = False,
     ) -> None:
@@ -331,28 +335,30 @@ class DofManager:
         component parts.
 
         Parameters:
-            values (np.array): Vector to be split. It is assumed that the ordering in
+            values: Vector to be split. It is assumed that the ordering in
                 values coresponds to that implied in self._block_dof and self._full_dof.
                 Should have size self.num_dofs(), thus projections from subsets of
                 variables must be done before calling this function.
-            grids (list of pp.Grid or pp.MortarGrid, optional): The subdomains
-                and interfaces to be considered. If not provided, all grids and edges
-                found in self.block_dof will be considered.
-            variables (list of str, optional): Names of the variables to be
-                distributed. If not provided, all variables found in self.block_dof
-                will be considered.
-            additive (bool, optional): If True, the variables are added to the current
+            grids (optional): The subdomains and interfaces to be considered.
+                If not provided, all grids and edges found in ``block_dof`` will be considered.
+            variables (optional): Names of the variables to be distributed.
+                If not provided, all variables found in ``block_dof`` will be considered.
+            additive (optional): If True, the variables are added to the current
                 state or iterate, instead of overwrite the existing value.
-            to_iterate (bool, optional): If True, distribute to iterates, and not the
-                state itself. Set to True inside a non-linear scheme (Newton), False
+            to_iterate (optional): If True, distribute to ITERATE, and not the
+                STATE itself. Set to True inside a non-linear scheme (Newton), False
                 at the end of a time step.
 
         """
         if grids is None:
             grids = list(set([key[0] for key in self.block_dof]))
+        elif isinstance(grids, GridLike):
+            grids = [grids]  # type: ignore
 
         if variables is None:
             variables = list(set([key[1] for key in self.block_dof]))
+        elif isinstance(variables, str):
+            variables = [variables]  # type: ignore
 
         # Loop over grid-variable combinations and update data in pp.STATE or pp.ITERATE
         for g, var in itertools.product(grids, variables):
@@ -389,16 +395,30 @@ class DofManager:
                 else:
                     data[pp.STATE][var] = vals.copy()
 
-    def projection_to(self, variables: Sequence[str]) -> sps.spmatrix:
+    def projection_to(
+        self,
+        variables: Union[str, Sequence[str]],
+        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None
+    ) -> sps.spmatrix:
         """Create a projection matrix from the global variable vector to a subspace specified
-        by given ``variables``.
+        by given ``variables`` and optionally on specific subdomains and interfaces.
 
         The transpose of the returned matrix can be used to slice respective columns out of a
         global system matrix.
 
+        Notes:
+            If a combination of variable names and subdomains/ interfaces is passed, where the
+            variable is not defined on the respective subdomain/ interface,
+            the restriction will be ignored!
+            E.g. if a complete mismatch of variable - subdomain/interface combination is passed
+            the resulting projection will project into the null space.
+            TODO check with IS and EK if an error should be raised instead.
+
         Parameters:
             variables: names of variables to be projected on. The projection is
                 preserving the order defined for the global DOFs.
+            grids (optional): grids or mortar grids to which the projection should be
+                restricted.
 
         Returns:
             sparse projection matrix. Can be rectangular ``MxN``, where ``M<=N`` and ``N`` is
@@ -406,6 +426,14 @@ class DofManager:
 
         """
         num_global_dofs = self.num_dofs()
+        # reformat non-sequential arguments
+        # if no restriction, use all grids
+        if isinstance(variables, str):
+            variables = [variables]  # type: ignore
+        if isinstance(grids, GridLike):
+            grids = [grids]  # type: ignore
+        elif grids is None:
+            grids = list(set([key[0] for key in self.block_dof]))  # type: ignore
 
         # Array for the dofs associated with each grid-variable combination
         inds = []
@@ -414,7 +442,9 @@ class DofManager:
         for var in variables:
             var_grids = [pair[0] for pair in self.block_dof if pair[1] == var]
             for grid in var_grids:
-                inds.append(self.grid_and_variable_to_dofs(grid, var))
+                # restrict to specific grids
+                if grid in grids:
+                    inds.append(self.grid_and_variable_to_dofs(grid, var))
 
         if len(inds) == 0:
             # Special case if no indices were returned
@@ -435,12 +465,12 @@ class DofManager:
 
     def dof_var(
         self,
-        var: Union[List[str], str],
+        var: Union[str, Sequence[str]],
         return_projection: Optional[bool] = False,
         matrix_format: csc_or_csr_matrix = sps.csr_matrix,
     ) -> Union[np.ndarray, Tuple[np.ndarray, csc_or_csr_matrix]]:
-        """Get the indices in the global system of variables given as input on all
-        nodes and edges (in the MixedDimensionalGrid sense).
+        """Get the indices in the global system of variables on all grids the variable is 
+        defined.
 
         This method is primarily intended used when equations are assembled with an
         Assembler object. If you use the newer Ad framework (recommended), the
@@ -448,16 +478,16 @@ class DofManager:
         better way.
 
         Parameters:
-            var (str or list of str): Name or names of the variable. Should be an
-                active variable.
-            return_projection (bool, optional): Return the projection matrix from for
+            var: names of the variables.
+            return_projection (optional): Return the projection matrix from for
                 selecting only the requested variables. Default to False.
-            matrix_format (csc_or_csr_matrix, optional): Format of the projection matrix.
+            matrix_format (optional): Format of the projection matrix. 
                 Default to sps.csr_matrix.
 
         """
-        if not isinstance(var, list):
+        if isinstance(var, str):
             var = [var]  # type: ignore
+
         dofs = np.empty(0, dtype=int)
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
 
@@ -487,12 +517,14 @@ class DofManager:
         given node / edge (in the MixedDimensionalGrid sense) and a given variable.
 
         Parameters:
-            g (pp.Grid or pp.MixedDimensionalGrid edge): Either a grid or an edge in the
-                MixedDimensionalGrid.
-           variable (str): Name of a variable.
+            g: grid or mortar grid.
+           variable: name of a variable.
 
         Returns:
-            np.array (int): Index of degrees of freedom for this variable.
+            an array of indices of DOFs for this variable - grid combination.
+
+        Raises:
+            KeyError: if an undefined combination of grid and variable is passed.
 
         """
         block_ind = self.block_dof[(grid, variable)]
@@ -500,19 +532,18 @@ class DofManager:
         return np.arange(dof_start[block_ind], dof_start[block_ind + 1])
 
     def dof_to_grid_and_variable(self, ind: int) -> Tuple[GridLike, str]:
-        """Find the grid (or grid pair) and variable name for a degree of freedom,
+        """Find the grid/ mortar grid and variable name for a degree of freedom,
         specified by its index in the global ordering.
 
         Parameters:
-            ind (int): Index of degree of freedom.
+            ind: index of degree of freedom.
 
         Returns:
-            pp.Grid or pp.MortarGrid: Grid on subdomain, or pair of grids which
-                define an interface.
-            str: Name of variable.
+            a 2-tuple consisting of a grid and a variable name (str). The grid can be a regular
+            grid or a mortar grid
 
         Raises:
-            ValueError: If the given index is negative or larger than the system size.
+            ValueError: if the given index is negative or larger than the system size.
 
         """
         dof_start = np.hstack((0, np.cumsum(self.full_dof)))
@@ -533,14 +564,13 @@ class DofManager:
 
     def grid_and_variable_block_range(
         self,
-        grids: Optional[List[GridLike]] = None,
-        variables: Optional[List[str]] = None,
+        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None,
+        variables: Optional[Union[str, Sequence[str]]] = None,
         sort_by: Literal["grids", "variables", ""] = "",
         return_str: bool = False,
     ) -> Dict | str:
         """Get the range of indices in the global system of variables
-        associated with combinations of nodes / edges (in the MixedDimensionalGrid sense)
-        and variables.
+        associated with combinations of grid/ mortar grid and variables.
 
         This function is intended mainly for inquiries into the ordering of blocks
         in systems with multiple variables and/or grids. The results can be returned
@@ -548,31 +578,33 @@ class DofManager:
         the output.
 
         Parameters:
-            grids (pp.Grid or pp.MixedDimensionalGrid edge): List of grids, edges (in the
-                MixedDimensionalGrid) or combinations of the two. If not provided, all
-            grids and edges that are assigned variables will be considered.
-            variables (str): Name of variables. If not provided, all variables assigned
-                to at least one grid or variable will be considered).
-            sort_by (str): Should take one of the values 'grids', 'variables' or an empty
-                str (default). If either grids or variables is specified, the return
-                 argument will be sorted according to the corresponding type.
-            return_str (bool): If True, information will be returned as a string instead
-                of as variables.
+            grids grids or mortar grids for which the inquiry is made.
+                If not provided, all grids and mortar grids that are assigned to the variables
+                will be considered.
+            variables: name of variables. If not provided, all variables assigned
+                to at least one grid or mortar grid will be considered.
+            sort_by ('grids', 'variables', ''): flag for returning the result sorted by grids,
+                variables or unsorted. Defaults to unsorted (``''``).
+            return_str: if True, information will be returned as a string instead.
 
         Returns:
             Information on the range for grid-variable combinations. The format will
-            depend on the value of sort_by: If set to grids, a dictionary with grids as
+            depend on the sorting: If set to ``'grids'``, a dictionary with grids as
             keys will be returned, correspondingly for variables. If not specified,
             unsorted grid-variable combinations are returned.
 
-            If return_str is True, the information will instead be returned as a string,
-            with formatting determined on the value of sort_by.
+            If ``return_str`` is True, the information will instead be returned as a string,
+            with formatting determined on the value of ``sort_by``.
 
         """
         if grids is None:
             grids = list(set([key[0] for key in self.block_dof]))
+        elif isinstance(grids, GridLike):
+            grids = [grids]  # type: ignore
         if variables is None:
             variables = list(set([key[1] for key in self.block_dof]))
+        elif isinstance(variables, str):
+            variables = [variables]  # type: ignore
 
         # Get the range of all grid-variable combinations.
         # The iteration strategy depends on the specified output format, given by
@@ -661,13 +693,12 @@ class DofManager:
         (start and end of the associated dofs).
 
         Parameters:
-            g (pp.Grid or pp.MortarGrid): Grid on subdomain, or pair of grids which
-                define an interface.
-            variable (str): Name of variable.
+            g: grid or mortar grid.
+            variable: name of variable.
 
         Returns:
-            tuple(int, int): Start and end of the block for this grid-variable combination.
-                The end index is the start of the next block.
+            a tuple containing start and end of the block for this grid-variable combination.
+            The end index is the start of the next block.
 
         """
         block_ind = self.block_dof[(g, variable)]
@@ -678,12 +709,11 @@ class DofManager:
         """Helper function to get the indices for a grid-variable combination.
 
         Parameters:
-            g (pp.Grid or pp.MortarGrid): Grid on subdomain, or pair of grids which
-                define an interface.
-            variable (str): Name of variable.
+            g: grid or mortar grid.
+            variable: name of variable.
 
         Returns:
-            np.ndarray: Indices of the degrees of freedom for this grid-variable combination.
+            an array of indices of the degrees of freedom for this grid-variable combination.
 
         """
         block_range = self._block_range_from_grid_and_var(g, variable)
