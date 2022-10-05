@@ -553,7 +553,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### Instantiating discretization operators
 
         # divergence (based on grid)
-        self.div = pp.ad.Divergence(subdomains=self._grids, dim = 2, name="Divergence")
+        self.div = pp.ad.Divergence(subdomains=self._grids, name="Divergence")
 
         # darcy flux
         mpfa = pp.ad.MpfaAd(self.flow_parameter_key, self._grids)
