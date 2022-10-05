@@ -21,16 +21,17 @@ class IncompressibleFluid(Phase):
     """
 
     def density(self, p, T):
-        return pp.ad.Array(np.array([1000000. / V_REF]))
+          # TODO p / p is a hack to create cell-wise dofs
+        return pp.ad.Scalar(1000000. / V_REF) * p / p
 
     def specific_enthalpy(self, p, T):
         return U_REF + P_REF / (1000000 / V_REF) + CP_REF * (T - T_REF) + V_REF * (p - P_REF)
 
     def dynamic_viscosity(self, p, T):
-        return pp.ad.Scalar([1.])
+        return pp.ad.Scalar(1.) 
 
     def thermal_conductivity(self, p, T):
-        return pp.ad.Scalar([1.])
+        return pp.ad.Scalar(1.)
 
 
 class IdealGas(Phase):
@@ -51,7 +52,7 @@ class IdealGas(Phase):
         return U_REF + R_IDEAL * T_REF + CP_REF * (T - T_REF)
 
     def dynamic_viscosity(self, p, T):
-        return pp.ad.Scalar([1.])
+        return pp.ad.Scalar(1.)
 
     def thermal_conductivity(self, p, T):
-        return pp.ad.Scalar([1.])
+        return pp.ad.Scalar(1.)
