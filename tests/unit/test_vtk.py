@@ -173,6 +173,7 @@ def test_single_subdomains(setup, subdomain):
         f"{subdomain.ref_vtu_file}",
     )
 
+
 @pytest.mark.parametrize("subdomain", single_subdomains)
 def test_single_subdomains_import(setup, subdomain):
     # Test of the import routine of the Exporter for single subdomains.
@@ -198,7 +199,7 @@ def test_single_subdomains_import(setup, subdomain):
         keys=keys,
         file_names=f"{subdomain.ref_vtu_file}",
         automatic=False,
-        dims = sd.dim,
+        dims=sd.dim,
     )
 
     # Perform comparison on vtu level (seems the easiest as it only involves a
@@ -259,7 +260,8 @@ def test_mdg(setup):
         )
 
 
-def test_mdg_import(setup):
+@pytest.mark.parametrize("addendum", ["", "nontrivial_data_"])
+def test_mdg_import(setup, addendum):
     # Test of the import routine of the Exporter for 2d mixed-dimensional grids.
     # Consistent with test_mdg.
 
@@ -283,9 +285,9 @@ def test_mdg_import(setup):
     save.import_from_vtu(
         keys=keys,
         file_names=[
-            f"{setup.folder_reference}/mdg_grid_2.vtu",
-            f"{setup.folder_reference}/mdg_grid_1.vtu",
-            f"{setup.folder_reference}/mdg_grid_mortar_1.vtu",
+            f"{setup.folder_reference}/mdg_{addendum}grid_2.vtu",
+            f"{setup.folder_reference}/mdg_{addendum}grid_1.vtu",
+            f"{setup.folder_reference}/mdg_{addendum}grid_mortar_1.vtu",
         ],
     )
 
@@ -297,7 +299,7 @@ def test_mdg_import(setup):
     for appendix in ["1", "2", "mortar_1"]:
         assert _compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
-            f"{setup.folder_reference}/mdg_grid_{appendix}.vtu",
+            f"{setup.folder_reference}/mdg_{addendum}grid_{appendix}.vtu",
         )
 
 
