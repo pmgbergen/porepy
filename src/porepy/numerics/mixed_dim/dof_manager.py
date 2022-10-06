@@ -291,7 +291,7 @@ class DofManager:
         """
         if grids is None:
             grids = list(set([key[0] for key in self.block_dof]))
-        elif isinstance(grids, GridLike):
+        elif isinstance(grids, (pp.Grid, pp.MortarGrid)):
             grids = [grids]  # type: ignore
 
         if variables is None:
@@ -352,7 +352,7 @@ class DofManager:
         """
         if grids is None:
             grids = list(set([key[0] for key in self.block_dof]))
-        elif isinstance(grids, GridLike):
+        elif isinstance(grids, (pp.Grid, pp.MortarGrid)):
             grids = [grids]  # type: ignore
 
         if variables is None:
@@ -430,7 +430,7 @@ class DofManager:
         # if no restriction, use all grids
         if isinstance(variables, str):
             variables = [variables]  # type: ignore
-        if isinstance(grids, GridLike):
+        if isinstance(grids, (pp.Grid, pp.MortarGrid)):
             grids = [grids]  # type: ignore
         elif grids is None:
             grids = list(set([key[0] for key in self.block_dof]))  # type: ignore
@@ -599,7 +599,7 @@ class DofManager:
         """
         if grids is None:
             grids = list(set([key[0] for key in self.block_dof]))
-        elif isinstance(grids, GridLike):
+        elif isinstance(grids, (pp.Grid, pp.MortarGrid)):
             grids = [grids]  # type: ignore
         if variables is None:
             variables = list(set([key[1] for key in self.block_dof]))

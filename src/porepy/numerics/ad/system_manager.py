@@ -86,7 +86,7 @@ class ADSystemManager:
         name: str,
         primary: bool,
         dof_info: dict[str, int] = {"cells": 1},
-        subdomains: Union[None, list[pp.Grid]] = list(),
+        subdomains: Union[None, list[pp.Grid]] = list(),  # TODO distinguis sd and intf or collectively grids
         interfaces: Optional[list[pp.MortarGrid]] = None,
     ) -> pp.ad.MergedVariable:
         """Creates a new variable according to specifications.
@@ -384,6 +384,17 @@ class ADSystemManager:
             provided by the DofManager. The rows are of the same order as equations were added
             to this system.
 
+            If a combination of variables and grids is chosen, s.t. the variables were **not**
+            defined on those grids, the resulting matrix is a zero matrix which **does not**
+            appear as a block in the complete assembly using :meth:`assemble`,
+            because the methods assemble by default only columns belonging to well-defined dofs
+            , i.e. dofs for which the the grid-var combo was properly defined.
+            The matrix is of shape ``num_equations x 0``. (see project_to of DofManager)
+            This means that this method can create blocks which are **not** in the global
+            system. TODO ask IS and EK if an error should be raised instead.
+            This is connected with the TODO in project_to of the DofManager
+            (0 projection or error or projection with adequate size but still 0)
+
         Parameters:
             equations (optional): a subset of equation names to which the subsystem should be
                 restricted.
@@ -415,7 +426,7 @@ class ADSystemManager:
             equations = [equations]  # type: ignore
         if grids is None:
             grids = list(set([key[0] for key in self.dof_manager.block_dof]))  # type: ignore
-        elif isinstance(grids, GridLike):
+        elif isinstance(grids, (pp.Grid, pp.MortarGrid)):
             grids = [grids]  # type: ignore
         
         # TODO think about argument validation, i.e. are the variables, equations and grids
@@ -457,7 +468,7 @@ class ADSystemManager:
             # Special case if the restriction produced an empty system.
             A = sps.csr_matrix((0, 0))
             rhs_cat = np.empty(0)
-
+        # TODO row slicing when restricting grids
         # slice out the columns belonging to the requested subsets and return the results
         return A * projection, rhs_cat
 
@@ -523,7 +534,7 @@ class ADSystemManager:
             primary_variables = [primary_variables]  # type: ignore
         if isinstance(primary_equations, str):
             primary_equations = [primary_equations]  # type: ignore
-        if isinstance(grids, GridLike):
+        if isinstance(grids, (pp.Grid, pp.MortarGrid)):
             grids = [grids]  # type: ignore
         # ensuring the Schur complement is not the whole matrix
         if len(primary_variables) == 0:
@@ -537,6 +548,9 @@ class ADSystemManager:
         all_eq_names = list(self.equations.keys())
         secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
         secondary_variables = list(set(all_variables).difference(set(primary_variables)))
+        if grids:
+            all_grids = set([key[0] for key in self.dof_manager.block_dof])
+            secondary_grids = list(all_grids.difference(set(grids)))
 
         # First assemble the primary and secondary equations for all variables and all grids
         # save the indices and shift the indices for the second assembly accordingly
@@ -553,13 +567,29 @@ class ADSystemManager:
             # store the primary block indices as given
             assembled_equation_indices.update({equ: block_indices})
 
+        # if a restriction to grids was made, there is possibly a sub-block of
+        # primary equations for exactly those grids.
+        # This sub-block must be part of the secondary block in the Schur sense
+        if grids:
+            # TODO row slicing, separate rows from A_p belonging to restricted grids
+            A_pr, b_pr = self.assemble_subsystem(
+                equations=primary_equations, variables=all_variables, state=state
+            )
+            for equ in primary_equations:
+                # get the indexing of the excluded primary block and shift them by the length
+                # of the primary row block
+                # TODO naming convention fails here, need names for primary equations on excluded grids
+                block_indices = self.assembled_equation_indices[equ] + ind_start
+                ind_start += len(block_indices)
+                assembled_equation_indices.update({equ: block_indices})
+
         A_s, b_s = self.assemble_subsystem(
             equations=secondary_equations, variables=all_variables, state=state
         )
         # shift the secondary equation blocks
         for equ in secondary_equations:
             # get the indexing of the secondary subsystem and shift them by the length of the
-            # primary row block
+            # blocks before
             block_indices = self.assembled_equation_indices[equ] + ind_start
             assembled_equation_indices.update({equ: block_indices})
         
@@ -575,11 +605,14 @@ class ADSystemManager:
         # projection involves the primary vars on the other grids, which are not among the
         # restricted grid:
         else:
-            all_grids = set([key[0] for key in self.dof_manager.block_dof])
-            secondary_grids = list(all_grids.difference(set(grids)))
-            
+            # the secondary block consists now of the sub-block of primaries excluded by the
+            # grid restriction and the secondary block in the Schur sense
+            b_s = np.hstack([b_pr, b_s])
+            A_s = sps.vstack([A_pr, A_s])
+            # projection to primaries on restricted grids
             proj_primary = self.dof_manager.projection_to(primary_variables, grids).transpose()
             # projection to all variables on secondary grids
+            # (which includes primaries on the grids not included in the grid restriction)
             proj_secondary = self.dof_manager.projection_to(
                 all_variables, secondary_grids
             ).transpose()
