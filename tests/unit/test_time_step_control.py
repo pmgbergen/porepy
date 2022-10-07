@@ -382,7 +382,9 @@ class TestTimeControl:
         time_manager.time = time
         time_manager.time_index = time_index
 
-        dt = time_manager.compute_time_step(iterations=iters, recompute_solution=recomp_sol)
+        dt = time_manager.compute_time_step(
+            iterations=iters, recompute_solution=recomp_sol
+        )
         assert time_manager.dt == dt
         assert time_manager.time == time
         assert time_manager.time_index == time_index
@@ -515,7 +517,9 @@ class TestTimeControl:
             f"algorithm will adapt the time step anyways."
         )
         with pytest.warns() as record:
-            time_manager.compute_time_step(iterations=iterations, recompute_solution=False)
+            time_manager.compute_time_step(
+                iterations=iterations, recompute_solution=False
+            )
         assert str(record[0].message) == warn_msg
 
     @pytest.mark.parametrize("iterations", [1, 3, 5])
@@ -603,7 +607,7 @@ class TestTimeControl:
         [
             ([0, 1], 0.1, False, 0.3, 0.2),
             ([0, 1], 0.1, True, 0.3, 0.2),
-        ]
+        ],
     )
     def test_update_time(self, schedule, dt_init, is_constant, time, dt):
         """Checks if time is correctly updated"""
@@ -618,7 +622,7 @@ class TestTimeControl:
         [
             ([0, 1], 0.1, False, 13),
             ([0, 1], 0.1, True, 13),
-        ]
+        ],
     )
     def test_update_time_index(self, schedule, dt_init, is_constant, time_index):
         """Checks if time index is correctly updated"""

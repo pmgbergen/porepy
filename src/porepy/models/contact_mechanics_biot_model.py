@@ -97,7 +97,9 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         # Time manager
         time_manager = pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True)
-        self.time_manager: pp.TimeManager = self.params.get("time_manager", time_manager)
+        self.time_manager: pp.TimeManager = self.params.get(
+            "time_manager", time_manager
+        )
 
         # Temperature
         self.scalar_variable: str = "p"
