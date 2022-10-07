@@ -67,7 +67,7 @@ def run_time_dependent_model(model, params) -> None:
             )
         )
         solver.solve(model)
-        model.tsc.next_time_step()
+        model.tsc.compute_time_step()
 
     model.after_simulation()
 
