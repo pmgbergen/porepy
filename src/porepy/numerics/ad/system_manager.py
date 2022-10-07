@@ -62,9 +62,6 @@ class ADSystemManager:
 
         """
 
-        self.equations: Dict[str, pp.ad.Operator] = dict()
-        """Contains references to equations in AD operator form for a given name (key)."""
-
         self.assembled_equation_indices: Dict[str, np.ndarray] = dict()
         """Contains the row indices in the last assembled (sub-) system for a given equation
         name (key).
@@ -72,6 +69,21 @@ class ADSystemManager:
         """
 
         ### PRIVATE
+
+        self._equations: Dict[str, pp.ad.Operator] = dict()
+        """Contains references to equations in AD operator form for a given name (key).
+        Private to avoid having people setting equations directly and circumventing the current
+        set-method which included information about the image space.
+
+        """
+
+        self._equ_image_space_composition: Dict[str, Dict[GridLike, np.ndarray]] = dict()
+        """Contains for every equation name (key) a dictionary, which provides again for every
+        involved grid (key) the indices of equations expressed through the equation operator.
+        The ordering of the items in the grid-array dictionaries is assumed to be consistent
+        with the remaining PorePy framework.
+
+        """
 
         self._for_Schur_expansion: Optional[tuple] = None
         """Contains block matrices and the split rhs of the last assembled Schur complement,
@@ -86,7 +98,7 @@ class ADSystemManager:
         name: str,
         primary: bool,
         dof_info: dict[str, int] = {"cells": 1},
-        subdomains: Union[None, list[pp.Grid]] = list(),  # TODO distinguis sd and intf or collectively grids
+        subdomains: Union[None, list[pp.Grid]] = list(),
         interfaces: Optional[list[pp.MortarGrid]] = None,
     ) -> pp.ad.MergedVariable:
         """Creates a new variable according to specifications.
@@ -305,18 +317,99 @@ class ADSystemManager:
 
     ### Equation management -------------------------------------------------------------------
 
-    def set_equation(self, name: str, equation_operator: pp.ad.Operator) -> None:
+    def set_equation(
+        self, 
+        name: str, 
+        equation_operator: pp.ad.Operator,
+        num_equ_per_dof: Dict[GridLike, Dict[str, int]],
+    ) -> None:
         """Sets an equation and assigns the given name.
 
         If an equation already exists under that name, it is overwritten.
+
+        Information about the image space must be provided for now, such that grid-wise row
+        slicing is possible. This will hopefully be provided automatically in the future. TODO
 
         Parameters:
             name: given name for this equation. Used as identifier and key.
             equation_operator: An equation in AD operator form, assuming the right-hand side is
                 zero and this instance represents the left-hand side.
+                The equation mus be ready for evaluation! i.e. all involved variables must have
+                values set.
+            num_equ_per_dof: a dictionary describing how many equations ``equation_operator`` 
+                provides. This is a temporary work-around until operators are able to provide
+                information on their image space.
+                The dictionary must contain the number of equations per
+
+                - ``'cells'``
+                - ``'nodes'``
+                - ``'faces'``
+
+                (see :data:`porepy.DofManager.admissible_dof_types`),
+                for each grid the operator was defined on.
+
+                The order of the items in ``num_equ_per_dof`` must be consistent with the 
+                general order of grids, as used by the dof manager and implemented in various
+                discretizations used inside ``equation_operator``.
 
         """
-        self.equations.update({name: equation_operator})
+        image_info: Dict[GridLike, np.ndarray] = dict()
+        total_num_equ = 0
+
+        for grid, dof_info in num_equ_per_dof.items():
+            # calculate number of equations per grid
+            if isinstance(grid, pp.Grid):
+                num_equ_per_grid = (
+                    grid.num_cells * dof_info.get('cells', 0)
+                    + grid.num_nodes * dof_info.get('nodes', 0)
+                    + grid.num_faces * dof_info.get('faces', 0)
+                )
+            # mortar grids have only cell-wise dofs
+            elif isinstance(grid, pp.MortarGrid):
+                num_equ_per_grid = (
+                    grid.num_cells * dof_info.get('cells', 0)
+                )
+            # create operator-specific block indices with shift regarding previous blocks
+            block_idx = np.arange(num_equ_per_grid) + total_num_equ
+            # cumulate total number of equations
+            total_num_equ += num_equ_per_grid
+            # store block idx per grid
+            image_info.update({grid: block_idx})
+
+        # perform a validity check of the input
+        equ_ad = equation_operator.evaluate(self.dof_manager)
+        is_num_equ = len(equ_ad.val)
+        if total_num_equ != is_num_equ:
+            raise ValueError(
+                f"Passed 'equation_operator' has {is_num_equ} equations,"
+                f" opposing indicated number of {total_num_equ}."
+            )
+        
+        # if all good, we assume we can proceed
+        self._equ_image_space_composition.update({name: image_info})
+        self._equations.update({name: equation_operator})
+
+    def get_equation(self, name: str) -> pp.ad.Operator:
+        """
+        Returns: a reference to a previously passed equation in operator form.
+
+        Raises:
+            KeyError: if ``name`` does not correspond to any known equation.
+
+        """
+        return self._equations[name]
+    
+    def remove_equation(self, name: str) -> pp.ad.Operator | None:
+        """Removes a previously set equation and all related information.
+        
+        Returns:
+            a reference to the equation in operator form or None, if the equation is unknown.
+
+        """
+        if name in self._equations.keys():
+            equ = self._equations.pop(name)
+            del self._equ_image_space_composition[name]
+            return equ
 
     ### System assembly and discretization ----------------------------------------------------
 
@@ -335,7 +428,7 @@ class ADSystemManager:
 
         # List of discretizations, build up by iterations over all equations
         discr: list = []
-        for eqn in self.equations.values():
+        for eqn in self._equations.values():
             # This will expand the list discr with new discretizations.
             # The list may contain duplicates.
             discr = eqn._identify_subtree_discretizations(discr)
@@ -351,7 +444,7 @@ class ADSystemManager:
         """Assemble Jacobian matrix and residual vector of the whole system.
 
         This is a shallow wrapper of :meth:`assemble_subsystem`, where the subsystem is the
-        complete set of equations and primary and secondary variables.
+        complete set of equations, primary and secondary variables, and grids.
 
         Parameters:
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
@@ -370,7 +463,8 @@ class ADSystemManager:
         self,
         equations: Optional[Union[str, Sequence[str]]] = None,
         variables: Optional[Union[str, Sequence[str]]] = None,
-        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None,
+        grid_rows: Optional[Union[GridLike, Sequence[GridLike]]] = None,
+        grid_columns: Optional[Union[GridLike, Sequence[GridLike]]] = None,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
@@ -390,8 +484,8 @@ class ADSystemManager:
             because the methods assemble by default only columns belonging to well-defined dofs
             , i.e. dofs for which the the grid-var combo was properly defined.
             The matrix is of shape ``num_equations x 0``. (see project_to of DofManager)
-            This means that this method can create blocks which are **not** in the global
-            system. TODO ask IS and EK if an error should be raised instead.
+            This means that this method can create (possibly empty ) blocks which are **not**
+            in the global system. TODO ask IS and EK if an error should be raised instead.
             This is connected with the TODO in project_to of the DofManager
             (0 projection or error or projection with adequate size but still 0)
 
@@ -401,8 +495,12 @@ class ADSystemManager:
                 If not provided (None), all equations known to this manager will be included.
             variables (optional): names of variables to which the subsystem should be
                 restricted. If not provided (None), all variables will be included.
-            grids (optional): grids or mortar grids to which the subsystem should be
-                restricted.
+            grid_rows (optional): grids or mortar grids which should be kept in the row-wise
+                sense, i.e. subsystems on specified domains.
+                If not provided (None), all involved grids and mortar grids will be included.
+            grid_columns (optional): grids or mortar grids for which the column-wise
+                contribution to each equation should be kept. This is a narrowing down of the
+                restriction imposed by ``variables``.
                 If not provided (None), all grids and mortar grids will be included.
             state (optional): State vector to assemble from. By default the stored ITERATE or
                 STATE are used, in that order.
@@ -414,6 +512,9 @@ class ADSystemManager:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
+        # indicator to perform grid-related row slicing on the system
+        # grid-related column slicing is handled by the projection
+        slice_rows = True
         # reformat non-sequential arguments
         # if no restriction, use all variables and grids
         if variables is None:
@@ -421,21 +522,23 @@ class ADSystemManager:
         elif isinstance(variables, str):
             variables = [variables]  # type: ignore
         if equations is None:
-            equations = list(self.equations.keys())  # type: ignore
+            equations = list(self._equations.keys())  # type: ignore
         elif isinstance(equations, str):
             equations = [equations]  # type: ignore
-        if grids is None:
-            grids = list(set([key[0] for key in self.dof_manager.block_dof]))  # type: ignore
-        elif isinstance(grids, (pp.Grid, pp.MortarGrid)):
-            grids = [grids]  # type: ignore
+        if grid_rows is None:
+            # if all row blocks related to grids are included, we do not slice
+            slice_rows = False
+        elif isinstance(grid_rows, (pp.Grid, pp.MortarGrid)):
+            grid_rows = [grid_rows]  # type: ignore
+        if grid_columns is None:
+            grid_columns = list(set([key[0] for key in self.dof_manager.block_dof]))  # type: ignore
+        elif isinstance(grid_columns, (pp.Grid, pp.MortarGrid)):
+            grid_columns = [grid_columns]  # type: ignore
         
         # TODO think about argument validation, i.e. are the variables, equations and grids
         # known to this system and dof manager.
         # This will help users during debugging, otherwise just some key errors will be raised
         # at some points.
-
-        # Projection to the subset of variables and grids
-        projection = self.dof_manager.projection_to(variables, grids).transpose()
 
         # Data structures for building matrix and residual vector
         mat: list[sps.spmatrix] = []
@@ -446,37 +549,58 @@ class ADSystemManager:
         self.assembled_equation_indices = dict()
 
         # Iterate over equations, assemble.
-        for name in equations:
-            eq = self.equations[name]
+        for equ_name in equations:
+            eq = self._equations[equ_name]
             ad = eq.evaluate(self.dof_manager, state)
-            # append matrices and rhs
-            mat.append(ad.jac)
-            # Multiply by -1 to move to the rhs
-            rhs.append(-ad.val)
+            # if restriction to grid-related row blocks was made,
+            # perform row slicing based on information we have on the image
+            if slice_rows:
+                # store row blocks for an equation related to a specific grid
+                equ_mat = list()
+                equ_rhs = list()
+                # if this equation is defined on one of the restricted grids,
+                # slice out respective rows in an order-preserving way
+                # the order is stored in the image space composition
+                for grid, block_idx in self._equ_image_space_composition[equ_name].items():
+                    if grid in grid_rows:
+                        equ_mat.append(ad.jac[block_idx])
+                        equ_rhs.append(ad.val[block_idx])
+                # stack the sliced out blocks vertically and append as equation block to the
+                # resulting subsystem
+                mat.append(sps.vstack(equ_mat, format="csr"))
+                rhs.append(np.concatenate(equ_rhs))
+                block_length = len(rhs[-1])
+            # if no grid-related row restriction was made, append the whole thing
+            else:
+                mat.append(ad.jac)
+                rhs.append(ad.val)
+                block_length = len(ad.val)
 
             # create indices range and shift to correct position
-            block_indices = np.arange(len(ad.val)) + ind_start
+            block_indices = np.arange(block_length) + ind_start
             # extract last index as starting point for next block of indices
             ind_start = block_indices[-1] + 1
-            self.assembled_equation_indices.update({name: block_indices})
+            self.assembled_equation_indices.update({equ_name: block_indices})
 
-        # Concatenate results.
+        # Concatenate results equation-wise
         if len(mat) > 0:
-            A = sps.bmat([[m] for m in mat], format="csr")
+            A = sps.vstack(mat, format="csr")
             rhs_cat = np.concatenate(rhs)
         else:
             # Special case if the restriction produced an empty system.
             A = sps.csr_matrix((0, 0))
             rhs_cat = np.empty(0)
-        # TODO row slicing when restricting grids
-        # slice out the columns belonging to the requested subsets and return the results
-        return A * projection, rhs_cat
+
+        # slice out the columns belonging to the requested subsets of variables and
+        # grid-related column blocks by using transposed projection for the global dof vector
+        # Multiply rhs by -1 to move to the rhs
+        column_projection = self.dof_manager.projection_to(variables, grid_columns).transpose()
+        return A * column_projection, - rhs_cat
 
     def assemble_schur_complement_system(
         self,
         primary_equations: Union[str, Sequence[str]],
         primary_variables: Union[str, Sequence[str]],
-        grids: Optional[Union[GridLike, Sequence[GridLike]]] = None,
         inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
@@ -492,7 +616,7 @@ class ADSystemManager:
         Where subscripts p and s define primary and secondary quantities. The Schur
         complement system is then given by
 
-            (A_pp - A_ps * inv(A_ss) * A_sp) * x_p = b_p - A_ps * inv(A_pp) * b_s.
+            (A_pp - A_ps * inv(A_ss) * A_sp) * x_p = b_p - A_ps * inv(A_ss) * b_s.
 
         The Schur complement is well-defined only if the inverse of A_ss exists,
         and the efficiency of the approach assumes that an efficient inverter for
@@ -503,8 +627,8 @@ class ADSystemManager:
 
             inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
 
-        but depending on A (size and sparsity pattern), this can be costly in terms of
-        computational time and memory.
+        (used by default) but depending on A (size and sparsity pattern),
+        this can be costly in terms of computational time and memory.
 
         The method can be used e.g. for splitting between primary and secondary variables,
         where the latter can be efficiently eliminated (for instance, they contain no
@@ -515,8 +639,6 @@ class ADSystemManager:
                 Should have length > 0.
             primary_variables: names of variables representing the columns of A_pp.
                 Should have length > 0.
-            grids (optional): grids and mortar grids to which the primary system should be
-                restricted. If not given (None), no grid restriction will be performed.
             inverter (optional): callable object to compute the inverse of the matrix A_ss.
                 If not given (None), the scipy sparse inverter is used.
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
@@ -534,8 +656,6 @@ class ADSystemManager:
             primary_variables = [primary_variables]  # type: ignore
         if isinstance(primary_equations, str):
             primary_equations = [primary_equations]  # type: ignore
-        if isinstance(grids, (pp.Grid, pp.MortarGrid)):
-            grids = [grids]  # type: ignore
         # ensuring the Schur complement is not the whole matrix
         if len(primary_variables) == 0:
             raise ValueError("Must make Schur complement with at least one variable")
@@ -545,12 +665,9 @@ class ADSystemManager:
         # Get lists of all variables and equations, and find the secondary items
         # by a set difference
         all_variables = self.dof_manager.get_variables(True, True)
-        all_eq_names = list(self.equations.keys())
+        all_eq_names = list(self._equations.keys())
         secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
         secondary_variables = list(set(all_variables).difference(set(primary_variables)))
-        if grids:
-            all_grids = set([key[0] for key in self.dof_manager.block_dof])
-            secondary_grids = list(all_grids.difference(set(grids)))
 
         # First assemble the primary and secondary equations for all variables and all grids
         # save the indices and shift the indices for the second assembly accordingly
@@ -567,22 +684,6 @@ class ADSystemManager:
             # store the primary block indices as given
             assembled_equation_indices.update({equ: block_indices})
 
-        # if a restriction to grids was made, there is possibly a sub-block of
-        # primary equations for exactly those grids.
-        # This sub-block must be part of the secondary block in the Schur sense
-        if grids:
-            # TODO row slicing, separate rows from A_p belonging to restricted grids
-            A_pr, b_pr = self.assemble_subsystem(
-                equations=primary_equations, variables=all_variables, state=state
-            )
-            for equ in primary_equations:
-                # get the indexing of the excluded primary block and shift them by the length
-                # of the primary row block
-                # TODO naming convention fails here, need names for primary equations on excluded grids
-                block_indices = self.assembled_equation_indices[equ] + ind_start
-                ind_start += len(block_indices)
-                assembled_equation_indices.update({equ: block_indices})
-
         A_s, b_s = self.assemble_subsystem(
             equations=secondary_equations, variables=all_variables, state=state
         )
@@ -598,24 +699,8 @@ class ADSystemManager:
 
         # Projection matrices to reduce matrices to the relevant columns
         # case where no further restriction on grids is made, projection is simple to compute
-        if grids is None:
-            proj_primary = self.dof_manager.projection_to(primary_variables).transpose()
-            proj_secondary = self.dof_manager.projection_to(secondary_variables).transpose()
-        # case where primary vars are further restricted to grids, here the secondary
-        # projection involves the primary vars on the other grids, which are not among the
-        # restricted grid:
-        else:
-            # the secondary block consists now of the sub-block of primaries excluded by the
-            # grid restriction and the secondary block in the Schur sense
-            b_s = np.hstack([b_pr, b_s])
-            A_s = sps.vstack([A_pr, A_s])
-            # projection to primaries on restricted grids
-            proj_primary = self.dof_manager.projection_to(primary_variables, grids).transpose()
-            # projection to all variables on secondary grids
-            # (which includes primaries on the grids not included in the grid restriction)
-            proj_secondary = self.dof_manager.projection_to(
-                all_variables, secondary_grids
-            ).transpose()
+        proj_primary = self.dof_manager.projection_to(primary_variables).transpose()
+        proj_secondary = self.dof_manager.projection_to(secondary_variables).transpose()
 
         # Matrices involved in the Schur complements
         A_pp = A_p * proj_primary
@@ -695,7 +780,7 @@ class ADSystemManager:
             eq_names = [eq_names]  # type: ignore
 
         for name in eq_names:
-            new_manger.set_equation(name, self.equations[name])
+            new_manger.set_equation(name, self._equations[name])
 
         return new_manger
 
@@ -714,9 +799,9 @@ class ADSystemManager:
         s += "Variables present on at least one grid or interface:\n\t"
         s += ", ".join(all_vars) + "\n"
 
-        if self.equations is not None:
-            eq_names = [name for name in self.equations]
-            s += f"In total {len(self.equations)} equations, with names: \n\t"
+        if self._equations is not None:
+            eq_names = [name for name in self._equations]
+            s += f"In total {len(self._equations)} equations, with names: \n\t"
             s += ", ".join(eq_names)
 
         if len(secondary_vars) > 0:
@@ -751,9 +836,9 @@ class ADSystemManager:
             s += "\n"
 
         s += "\n"
-        if self.equations is not None:
-            eq_names = [name for name in self.equations]
-            s += f"In total {len(self.equations)} equations, with names: \n\t"
+        if self._equations is not None:
+            eq_names = [name for name in self._equations]
+            s += f"In total {len(self._equations)} equations, with names: \n\t"
             s += "\n\t".join(eq_names) + "\n"
 
         return s
