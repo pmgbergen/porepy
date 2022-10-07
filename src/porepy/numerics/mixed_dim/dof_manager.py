@@ -399,7 +399,7 @@ class DofManager:
         self,
         variables: Union[str, Sequence[str]],
         grids: Optional[Union[GridLike, Sequence[GridLike]]] = None
-    ) -> sps.spmatrix:
+    ) -> sps.csr_matrix:
         """Create a projection matrix from the global variable vector to a subspace specified
         by given ``variables`` and optionally on specific subdomains and interfaces.
 
