@@ -396,7 +396,7 @@ class TimeSteppingControl:
 
         return s
 
-    def next_time_step(
+    def compute_time_step(
         self, iterations: Optional[int] = None, recompute_solution: bool = False
     ) -> Union[float, None]:
         """Determine next time step based on the previous number of iterations.
