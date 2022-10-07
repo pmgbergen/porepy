@@ -24,28 +24,28 @@ class TestParameterInputs:
 
     def test_default_parameters_and_attribute_initialization(self):
         """Test the default parameters and initialization of attributes."""
-        tsc = Ts(schedule=[0, 1], dt_init=0.1)
-        np.testing.assert_equal(tsc.schedule, np.array([0, 1]))
-        assert tsc.time_init == 0
-        assert tsc.time_final == 1
-        assert tsc.dt_init == 0.1
-        assert tsc.dt_min_max == (0.001, 0.1)
-        assert tsc.iter_max == 15
-        assert tsc.iter_optimal_range == (4, 7)
-        assert tsc.iter_relax_factors == (0.7, 1.3)
-        assert tsc.recomp_factor == 0.5
-        assert tsc.recomp_max == 10
-        assert tsc.time == 0
-        assert tsc.dt == 0.1
+        time_manager = Ts(schedule=[0, 1], dt_init=0.1)
+        np.testing.assert_equal(time_manager.schedule, np.array([0, 1]))
+        assert time_manager.time_init == 0
+        assert time_manager.time_final == 1
+        assert time_manager.dt_init == 0.1
+        assert time_manager.dt_min_max == (0.001, 0.1)
+        assert time_manager.iter_max == 15
+        assert time_manager.iter_optimal_range == (4, 7)
+        assert time_manager.iter_relax_factors == (0.7, 1.3)
+        assert time_manager.recomp_factor == 0.5
+        assert time_manager.recomp_max == 10
+        assert time_manager.time == 0
+        assert time_manager.dt == 0.1
 
     @pytest.mark.parametrize(
         "schedule", [(0, 0.5, 1), [0, 0.5, 1], np.array([0, 0.5, 1])]
     )
     def test_schedule_argument_type_compatibility(self, schedule):
         """The 'schedule' object is supposed to take any array-like object."""
-        tsc = Ts(schedule=schedule, dt_init=0.01)
-        assert isinstance(tsc.schedule, np.ndarray)
-        assert (tsc.schedule == np.array([0.0, 0.5, 1.0])).all()
+        time_manager = Ts(schedule=schedule, dt_init=0.01)
+        assert isinstance(time_manager.schedule, np.ndarray)
+        assert (time_manager.schedule == np.array([0.0, 0.5, 1.0])).all()
 
     @pytest.mark.parametrize(
         "schedule, dt_init",
@@ -355,14 +355,14 @@ class TestTimeControl:
         """Test if final simulation time returns None, irrespectively of parameters
         passed in next_time_step()."""
         # Assume we reach the final time
-        tsc = Ts(schedule=[0, 1], dt_init=0.1)
-        tsc.time = 1
-        dt = tsc.compute_time_step(iterations=1000, recompute_solution=True)
+        time_manager = Ts(schedule=[0, 1], dt_init=0.1)
+        time_manager.time = 1
+        dt = time_manager.compute_time_step(iterations=1000, recompute_solution=True)
         assert dt is None
         # Now, assume we are above the final time
-        tsc = Ts(schedule=[0, 1], dt_init=0.1)
-        tsc.time = 2
-        dt = tsc.compute_time_step(iterations=0, recompute_solution=False)
+        time_manager = Ts(schedule=[0, 1], dt_init=0.1)
+        time_manager.time = 2
+        dt = time_manager.compute_time_step(iterations=0, recompute_solution=False)
         assert dt is None
 
     @pytest.mark.parametrize(
@@ -378,103 +378,103 @@ class TestTimeControl:
         self, schedule, dt_init, time, time_index, iters, recomp_sol
     ):
         """Test if a constant dt is returned, independent of any configuration or input."""
-        tsc = Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
-        tsc.time = time
-        tsc.time_index = time_index
+        time_manager = Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
+        time_manager.time = time
+        time_manager.time_index = time_index
 
-        dt = tsc.compute_time_step(iterations=iters, recompute_solution=recomp_sol)
-        assert tsc.dt == dt
-        assert tsc.time == time
-        assert tsc.time_index == time_index
+        dt = time_manager.compute_time_step(iterations=iters, recompute_solution=recomp_sol)
+        assert time_manager.dt == dt
+        assert time_manager.time == time
+        assert time_manager.time_index == time_index
 
     def test_raise_warning_iteration_not_none_for_constant_time_step(self):
         """A warning should be raised if iterations is given and time step is constant"""
-        tsc = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
+        time_manager = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
         iterations = 1
         msg = f"iterations '{iterations}' has no effect if time step is constant."
         with pytest.warns() as record:
-            tsc.compute_time_step(iterations=iterations)
+            time_manager.compute_time_step(iterations=iterations)
         assert str(record[0].message) == msg
 
     def test_raise_warning_recompute_solution_true_for_constant_time_step(self):
         """A warning should be raised if recompute_solution is True and time step is
         constant"""
-        tsc = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
+        time_manager = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
         msg = "recompute_solution=True has no effect if time step is constant."
         with pytest.warns() as record:
-            tsc.compute_time_step(recompute_solution=True)
+            time_manager.compute_time_step(recompute_solution=True)
         assert str(record[0].message) == msg
 
     def test_non_recomputed_solution_conditions(self):
         """Test behaviour of the algorithm when the solution should NOT be recomputed"""
         # Check if internal flag _recomp_sol remains unchanged when recompute_solution=False
         # regardless of the number of iterations provided by the user
-        tsc = Ts([0, 1], 0.1)
-        tsc.compute_time_step(iterations=5)
-        assert not tsc._recomp_sol
-        tsc.compute_time_step(iterations=1000)
-        assert not tsc._recomp_sol
+        time_manager = Ts([0, 1], 0.1)
+        time_manager.compute_time_step(iterations=5)
+        assert not time_manager._recomp_sol
+        time_manager.compute_time_step(iterations=1000)
+        assert not time_manager._recomp_sol
         # Check if _recomp_num resets to zero when solution is NOT recomputed
-        tsc = Ts([0, 1], 0.1)
-        tsc._recomp_num = 3  # manually change recomputation attempts
-        tsc.compute_time_step(iterations=5)
-        assert tsc._recomp_num == 0
+        time_manager = Ts([0, 1], 0.1)
+        time_manager._recomp_num = 3  # manually change recomputation attempts
+        time_manager.compute_time_step(iterations=5)
+        assert time_manager._recomp_num == 0
         # Assume recompute_solution=True, but we reach or exceeded maximum number of attempts
-        tsc = Ts([0, 1], 0.1, recomp_max=5)
-        tsc._recomp_num = 5
+        time_manager = Ts([0, 1], 0.1, recomp_max=5)
+        time_manager._recomp_num = 5
         with pytest.raises(ValueError) as excinfo:
             msg = (
-                f"Solution did not converge after {tsc.recomp_max} recomputing "
+                f"Solution did not converge after {time_manager.recomp_max} recomputing "
                 "attempts."
             )
-            tsc.compute_time_step(iterations=5, recompute_solution=True)
-        assert tsc._recomp_sol and (msg in str(excinfo.value))
+            time_manager.compute_time_step(iterations=5, recompute_solution=True)
+        assert time_manager._recomp_sol and (msg in str(excinfo.value))
 
     def test_recompute_solution_false_by_default(self):
         """ "Checks if recompute solution is False by default"""
-        tsc = Ts([0, 1], 0.1)
-        tsc.compute_time_step(iterations=3)
-        assert not tsc._recomp_sol
+        time_manager = Ts([0, 1], 0.1)
+        time_manager.compute_time_step(iterations=3)
+        assert not time_manager._recomp_sol
 
     def test_recomputed_solutions(self):
         """Test behaviour of the algorithm when the solution should be recomputed. Note
         that this should be independent of the number of iterations that the user passes"""
-        tsc = Ts([0, 100], 2, recomp_factor=0.5)
-        tsc.time = 5
-        tsc.time_index = 13
-        tsc.dt = 1
-        tsc._recomp_num = 6
-        tsc.compute_time_step(iterations=1000, recompute_solution=True)
+        time_manager = Ts([0, 100], 2, recomp_factor=0.5)
+        time_manager.time = 5
+        time_manager.time_index = 13
+        time_manager.dt = 1
+        time_manager._recomp_num = 6
+        time_manager.compute_time_step(iterations=1000, recompute_solution=True)
         # We expect the following actions to occur:
         #     time to be reduced by old dt (time = 5 - 1 = 4)
         #     time index to be reduced by one (time_index = 13 - 1 = 12)
         #     new dt to be half of the old one (dt = 1 * 0.5 = 0.5)
         #     recomputation flag set to True (_recomp_flag = True)
         #     recomputation counter to increase by 1 (_recomp_num = 6 + 1 = 7)
-        assert tsc.time == 4.0
-        assert tsc.time_index == 12
-        assert tsc.dt == 0.5
-        assert tsc._recomp_sol
-        assert tsc._recomp_num == 7
+        assert time_manager.time == 4.0
+        assert time_manager.time_index == 12
+        assert time_manager.dt == 0.5
+        assert time_manager._recomp_sol
+        assert time_manager._recomp_num == 7
 
     def test_recomputed_solution_with_calculated_dt_less_than_dt_min(self):
         """Test when a solution is recomputed and the calculated time step is less than
         the minimum allowable time step, the time step is indeed the minimum time step"""
-        tsc = Ts([0, 100], 0.15, recomp_factor=0.5)
+        time_manager = Ts([0, 100], 0.15, recomp_factor=0.5)
         # Emulate the scenario where the solution must be recomputed
-        tsc.time = 5
-        tsc.compute_time_step(iterations=1000, recompute_solution=True)
+        time_manager.time = 5
+        time_manager.compute_time_step(iterations=1000, recompute_solution=True)
         # First the algorithm will reduce dt by half (so dt=0.5), but this is less than
         # dt_min. Hence, dt_min should be set.
-        assert tsc.dt == tsc.dt_min_max[0]
+        assert time_manager.dt == time_manager.dt_min_max[0]
 
     def test_warning_when_iterations_is_given_and_recomputation_is_true(self):
         """A warning should be raised when iterations is not None and the recomputation flag
         is True"""
-        tsc = Ts([0, 1], 0.1, iter_max=10)
+        time_manager = Ts([0, 1], 0.1, iter_max=10)
         msg = "Number of iterations has no effect in recomputation."
         with pytest.warns() as record:
-            tsc.compute_time_step(iterations=1, recompute_solution=True)
+            time_manager.compute_time_step(iterations=1, recompute_solution=True)
         assert str(record[0].message) == msg
 
     def test_raise_error_when_adapting_based_on_recomputation_with_dt_equal_to_dt_min(
@@ -482,100 +482,100 @@ class TestTimeControl:
     ):
         """An error should be raised when adaption based on recomputation is attempted with
         dt = dt_min"""
-        tsc = Ts(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
-        # For these parameters, we have tsc.dt = tsc.dt_init = tsc.dt_min_max[0]
+        time_manager = Ts(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
+        # For these parameters, we have time_manager.dt = time_manager.dt_init = time_manager.dt_min_max[0]
         # Attempting a recomputation should raise an error
         with pytest.raises(ValueError) as excinfo:
             msg = (
                 "Recomputation will not have any effect since the time step achieved its"
-                f"minimum admissible value -> dt = dt_min = {tsc.dt}."
+                f"minimum admissible value -> dt = dt_min = {time_manager.dt}."
             )
-            tsc.compute_time_step(iterations=5, recompute_solution=True)
-        assert tsc._recomp_sol and (msg in str(excinfo.value))
+            time_manager.compute_time_step(iterations=5, recompute_solution=True)
+        assert time_manager._recomp_sol and (msg in str(excinfo.value))
 
     def test_raise_error_when_adapting_based_on_iterations_with_iterations_none(self):
         """An error should be raised if adaptation based on iteration is intended but
         iterations is None.
         """
-        tsc = Ts(schedule=[0, 100], dt_init=1)
+        time_manager = Ts(schedule=[0, 100], dt_init=1)
         with pytest.raises(ValueError) as excinfo:
             msg = "Time step cannot be adapted without 'iterations'."
-            tsc.compute_time_step()
-        assert not tsc._recomp_sol and (msg in str(excinfo.value))
+            time_manager.compute_time_step()
+        assert not time_manager._recomp_sol and (msg in str(excinfo.value))
 
     @pytest.mark.parametrize("iterations", [11, 100])
     def test_warning_iteration_is_greater_than_max_iter(self, iterations):
         """Test if a warning is raised when the number of iterations passed to the method is
         greater than max_iter and the solution is not recomputed"""
-        tsc = Ts([0, 1], 0.1, iter_max=10)
+        time_manager = Ts([0, 1], 0.1, iter_max=10)
         warn_msg = (
             f"The given number of iterations '{iterations}' is larger than the maximum "
-            f"number of iterations '{tsc.iter_max}'. This usually means that the solver "
+            f"number of iterations '{time_manager.iter_max}'. This usually means that the solver "
             f"did not converge, but since recompute_solution = False was given, the "
             f"algorithm will adapt the time step anyways."
         )
         with pytest.warns() as record:
-            tsc.compute_time_step(iterations=iterations, recompute_solution=False)
+            time_manager.compute_time_step(iterations=iterations, recompute_solution=False)
         assert str(record[0].message) == warn_msg
 
     @pytest.mark.parametrize("iterations", [1, 3, 5])
     def test_decreasing_time_step(self, iterations):
         """Test if the time step decreases after the number of iterations is less or equal
         than the lower endpoint of the optimal iteration range by its corresponding factor"""
-        tsc = Ts(
+        time_manager = Ts(
             [0, 100],
             2,
             iter_optimal_range=(5, 9),
             iter_relax_factors=(0.7, 1.3),
         )
-        tsc.dt = 1
-        tsc.compute_time_step(iterations=iterations, recompute_solution=False)
-        assert tsc.dt == 1.3
+        time_manager.dt = 1
+        time_manager.compute_time_step(iterations=iterations, recompute_solution=False)
+        assert time_manager.dt == 1.3
 
     @pytest.mark.parametrize("iterations", [9, 11, 13])
     def test_increasing_time_step(self, iterations):
         """Test if the time step is restricted after the number of iterations is greater or
         equal than the upper endpoint of the optimal iteration range by its corresponding
         factor"""
-        tsc = Ts(
+        time_manager = Ts(
             [0, 100],
             2,
             iter_optimal_range=(5, 9),
             iter_relax_factors=(0.7, 1.3),
         )
-        tsc.dt = 1
-        tsc.compute_time_step(iterations=iterations, recompute_solution=False)
-        assert tsc.dt == 0.7
+        time_manager.dt = 1
+        time_manager.compute_time_step(iterations=iterations, recompute_solution=False)
+        assert time_manager.dt == 0.7
 
     @pytest.mark.parametrize("iterations", [6, 7, 8])
     def test_time_step_within_optimal_iteration_range(self, iterations):
         """Test if the time step remains unchanged when the number of iterations lies
         between the optimal iteration range"""
-        tsc = Ts(
+        time_manager = Ts(
             [0, 100],
             2,
             iter_optimal_range=(5, 9),
             iter_relax_factors=(0.7, 1.3),
         )
-        tsc.dt = 1
-        tsc.compute_time_step(iterations=iterations)
-        assert tsc.dt == 1
+        time_manager.dt = 1
+        time_manager.compute_time_step(iterations=iterations)
+        assert time_manager.dt == 1
 
     @pytest.mark.parametrize("dt", [0.13, 0.1, 0.075])
     def test_time_step_less_than_dt_min(self, dt):
         """Test if the algorithm passes dt_min when the calculated dt is less than dt_min"""
-        tsc = Ts([0, 100], 2, iter_optimal_range=(4, 7))
-        tsc.dt = dt
-        tsc.compute_time_step(iterations=7)
-        assert tsc.dt == tsc.dt_min_max[0]
+        time_manager = Ts([0, 100], 2, iter_optimal_range=(4, 7))
+        time_manager.dt = dt
+        time_manager.compute_time_step(iterations=7)
+        assert time_manager.dt == time_manager.dt_min_max[0]
 
     @pytest.mark.parametrize("dt", [9, 10, 15])
     def test_time_step_greater_than_dt_max(self, dt):
         """Test if the algorithm passes dt_max when the calculated dt is greater than dt_max"""
-        tsc = Ts([0, 100], 2, iter_optimal_range=(4, 7))
-        tsc.dt = dt
-        tsc.compute_time_step(iterations=4)
-        assert tsc.dt == tsc.dt_min_max[1]
+        time_manager = Ts([0, 100], 2, iter_optimal_range=(4, 7))
+        time_manager.dt = dt
+        time_manager.compute_time_step(iterations=4)
+        assert time_manager.dt == time_manager.dt_min_max[1]
 
     @pytest.mark.parametrize(
         "schedule, dt_init",
@@ -591,12 +591,12 @@ class TestTimeControl:
     )
     def test_hitting_schedule_times(self, schedule, dt_init):
         """Test if algorithm respects the passed target times from the schedule"""
-        tsc = Ts(schedule, dt_init)
+        time_manager = Ts(schedule, dt_init)
         for time in schedule[1:]:
-            tsc.time = 0.99 * time
-            tsc.dt = tsc.dt_min_max[1]
-            tsc.compute_time_step(iterations=4)
-            assert time == tsc.time + tsc.dt
+            time_manager.time = 0.99 * time
+            time_manager.dt = time_manager.dt_min_max[1]
+            time_manager.compute_time_step(iterations=4)
+            assert time == time_manager.time + time_manager.dt
 
     @pytest.mark.parametrize(
         "schedule, dt_init, is_constant, time, dt",
@@ -607,11 +607,11 @@ class TestTimeControl:
     )
     def test_update_time(self, schedule, dt_init, is_constant, time, dt):
         """Checks if time is correctly updated"""
-        tsc = Ts(schedule=schedule, dt_init=dt_init, constant_dt=is_constant)
-        tsc.time = time
-        tsc.dt = dt
-        tsc.increase_time()
-        assert tsc.time == time + dt
+        time_manager = Ts(schedule=schedule, dt_init=dt_init, constant_dt=is_constant)
+        time_manager.time = time
+        time_manager.dt = dt
+        time_manager.increase_time()
+        assert time_manager.time == time + dt
 
     @pytest.mark.parametrize(
         "schedule, dt_init, is_constant, time_index",
@@ -622,7 +622,7 @@ class TestTimeControl:
     )
     def test_update_time_index(self, schedule, dt_init, is_constant, time_index):
         """Checks if time index is correctly updated"""
-        tsc = Ts(schedule=schedule, dt_init=dt_init, constant_dt=is_constant)
-        tsc.time_index = time_index
-        tsc.increase_time_index()
-        assert tsc.time_index == (time_index + 1)
+        time_manager = Ts(schedule=schedule, dt_init=dt_init, constant_dt=is_constant)
+        time_manager.time_index = time_index
+        time_manager.increase_time_index()
+        assert time_manager.time_index == (time_index + 1)

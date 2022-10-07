@@ -60,7 +60,7 @@ class THM(pp.ContactMechanicsBiot):
     adjustment needed is to specify the method create_grid().
 
     Attributes:
-        tsc : Time-stepping control manager.
+        time_manager : Time-stepping control manager.
 
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
@@ -240,7 +240,7 @@ class THM(pp.ContactMechanicsBiot):
                 sd,
                 data,
                 self.t2s_parameter_key,
-                {"mass_weight": t2s_coupling, "time_step": self.tsc.dt},
+                {"mass_weight": t2s_coupling, "time_step": self.time_manager.dt},
             )
 
     def _set_temperature_parameters(self) -> None:
@@ -289,14 +289,14 @@ class THM(pp.ContactMechanicsBiot):
                     "advection_weight": advection_weight,  # TODO: remove on ad purge
                     "advection_weight_boundary": advection_weight_faces,
                     "heat_capacity": heat_capacity,
-                    "time_step": self.tsc.dt,
+                    "time_step": self.time_manager.dt,
                 },
             )
             pp.initialize_data(
                 sd,
                 data,
                 self.s2t_parameter_key,
-                {"mass_weight": s2t_coupling, "time_step": self.tsc.dt},
+                {"mass_weight": s2t_coupling, "time_step": self.time_manager.dt},
             )
 
         # Assign diffusivity in the normal direction of the fractures.

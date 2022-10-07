@@ -146,10 +146,10 @@ class ProblemDataTime:
         _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
         values = np.zeros((g.dim, g.num_faces))
 
-        values[0, south] = self.ux_south * (self.tsc.time > 0.1)
-        values[1, south] = self.uy_south * (self.tsc.time > 0.1)
-        values[0, north] = self.ux_north * (self.tsc.time > 0.1)
-        values[1, north] = self.uy_north * (self.tsc.time > 0.1)
+        values[0, south] = self.ux_south * (self.time_manager.time > 0.1)
+        values[1, south] = self.uy_south * (self.time_manager.time > 0.1)
+        values[0, north] = self.ux_north * (self.time_manager.time > 0.1)
+        values[1, north] = self.uy_north * (self.time_manager.time > 0.1)
         return values.ravel("F")
 
     def _compute_aperture(self, sd, from_iterate=True):
