@@ -52,7 +52,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         # Time manager
         self.tsc = params.get(
             "time_manager",
-            pp.TimeSteppingControl(schedule=[0, 1], dt_init=1, constant_dt=True),
+            pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
         self._ad = _AdVariables()
 

@@ -204,7 +204,7 @@ class SetupContactMechanics(
         self.ux_north = ux_north
         self.uy_north = uy_north
         self.zero_tol = 1e-8
-        self.tsc = pp.TimeSteppingControl(schedule=[0, 0.5], dt_init=0.5, constant_dt=True)
+        self.tsc = pp.TimeManager(schedule=[0, 0.5], dt_init=0.5, constant_dt=True)
 
     def create_grid(self):
         """

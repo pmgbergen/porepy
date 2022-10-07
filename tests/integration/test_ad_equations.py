@@ -479,7 +479,7 @@ def test_contact_mechanics(grid_method):
     ],
 )
 def test_contact_mechanics_biot(grid_method):
-    tsc = pp.TimeSteppingControl(schedule=[0, 1], dt_init=0.5, constant_dt=True)
+    tsc = pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
     # params = {"time_step": 0.5, "end_time": 1}
     params = {"time_manager": tsc}
     model_as = BiotContactModel(params.copy(), grid_method)
@@ -503,7 +503,7 @@ def test_contact_mechanics_biot(grid_method):
     ],
 )
 def test_thm(grid_method):
-    tsc = pp.TimeSteppingControl(schedule=[0, 1], dt_init=0.5, constant_dt=True)
+    tsc = pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
     params = {"time_manager": tsc}
     # params = {"time_step": 0.5e-0, "end_time": 1.0e-0}
     model_as = THMModel(params.copy(), grid_method)
