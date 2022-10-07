@@ -63,7 +63,10 @@ def run_time_dependent_model(model, params) -> None:
         model.time_manager.increase_time_index()
         logger.info(
             "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                model.time_manager.time_index, model.time_manager.time, model.time_manager.time_final, model.time_manager.dt
+                model.time_manager.time_index,
+                model.time_manager.time,
+                model.time_manager.time_final,
+                model.time_manager.dt,
             )
         )
         solver.solve(model)
@@ -107,7 +110,10 @@ def _run_iterative_model(model, params: dict) -> None:
         model.before_propagation_loop()
         logger.info(
             "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                model.time_manager.time_index, model.time_manager.time, model.time_manager.time_final, model.time_manager.dt
+                model.time_manager.time_index,
+                model.time_manager.time,
+                model.time_manager.time_final,
+                model.time_manager.dt,
             )
         )
         while model.keep_propagating():

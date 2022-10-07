@@ -179,7 +179,9 @@ class TestDilation(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(u_mortar_0[0], 0)))
 
         # Second step
-        setup.time_manager.time_final = 1  # increase final time to enter time loop again
+        setup.time_manager.time_final = (
+            1  # increase final time to enter time loop again
+        )
         u_mortar_1, contact_force_1 = self._solve(setup)
         # Should be in contact (u_x > u_y on boundary):
         self.assertTrue(np.all(contact_force_1[1] < setup.zero_tol))
@@ -204,7 +206,9 @@ class SetupContactMechanics(
         self.ux_north = ux_north
         self.uy_north = uy_north
         self.zero_tol = 1e-8
-        self.time_manager = pp.TimeManager(schedule=[0, 0.5], dt_init=0.5, constant_dt=True)
+        self.time_manager = pp.TimeManager(
+            schedule=[0, 0.5], dt_init=0.5, constant_dt=True
+        )
 
     def create_grid(self):
         """
@@ -235,7 +239,9 @@ class SetupContactMechanics(
         _, _, _, north, south, _, _ = self._domain_boundary_sides(g)
         values = np.zeros((g.dim, g.num_faces))
         # Dirty hack for the two-stage test. All other tests have time > 0
-        if hasattr(self, "ux_south_initial") and self.time_manager.time < (1 - self.zero_tol):
+        if hasattr(self, "ux_south_initial") and self.time_manager.time < (
+            1 - self.zero_tol
+        ):
             values[0, south] = self.ux_south_initial
         else:
             values[0, south] = self.ux_south
