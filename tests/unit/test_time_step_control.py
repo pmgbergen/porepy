@@ -16,7 +16,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.numerics.time_step_control import TimeManager as Ts
 
 
 class TestParameterInputs:
@@ -24,7 +23,7 @@ class TestParameterInputs:
 
     def test_default_parameters_and_attribute_initialization(self):
         """Test the default parameters and initialization of attributes."""
-        time_manager = Ts(schedule=[0, 1], dt_init=0.1)
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1)
         np.testing.assert_equal(time_manager.schedule, np.array([0, 1]))
         assert time_manager.time_init == 0
         assert time_manager.time_final == 1
@@ -43,7 +42,7 @@ class TestParameterInputs:
     )
     def test_schedule_argument_type_compatibility(self, schedule):
         """The 'schedule' object is supposed to take any array-like object."""
-        time_manager = Ts(schedule=schedule, dt_init=0.01)
+        time_manager = pp.TimeManager(schedule=schedule, dt_init=0.01)
         assert isinstance(time_manager.schedule, np.ndarray)
         assert (time_manager.schedule == np.array([0.0, 0.5, 1.0])).all()
 
@@ -58,7 +57,7 @@ class TestParameterInputs:
         """An error should be raised if len(schedule) < 2."""
         msg = "Expected schedule with at least two elements."
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=schedule, dt_init=dt_init)
+            pp.TimeManager(schedule=schedule, dt_init=dt_init)
         assert msg in str(excinfo.value)
 
     @pytest.mark.parametrize(
@@ -73,7 +72,7 @@ class TestParameterInputs:
         """An error should be raised if a negative time is encountered in the schedule."""
         msg = "Encountered at least one negative time in schedule."
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=schedule, dt_init=dt_init)
+            pp.TimeManager(schedule=schedule, dt_init=dt_init)
         assert msg in str(excinfo.value)
 
     @pytest.mark.parametrize(
@@ -88,7 +87,7 @@ class TestParameterInputs:
         """An error should be raised if times in schedule are not strictly increasing."""
         msg = "Schedule must contain strictly increasing times."
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=schedule, dt_init=dt_init)
+            pp.TimeManager(schedule=schedule, dt_init=dt_init)
         assert msg in str(excinfo.value)
 
     @pytest.mark.parametrize(
@@ -104,7 +103,7 @@ class TestParameterInputs:
     def test_constant_dt_compatibility_with_schedule(self, schedule, dt_init):
         """No error should be raised if dt and schedule are compatible"""
         try:
-            Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
+            pp.TimeManager(schedule=schedule, dt_init=dt_init, constant_dt=True)
         except Exception as exc:
             assert False, f"The following exception was raised: {exc}"
 
@@ -125,7 +124,7 @@ class TestParameterInputs:
             "compatible, or consider adjusting the tolerances of the sanity check."
         )
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
+            pp.TimeManager(schedule=schedule, dt_init=dt_init, constant_dt=True)
         assert msg in str(excinfo.value)
 
     @pytest.mark.parametrize(
@@ -139,14 +138,14 @@ class TestParameterInputs:
         """An error should be raised if initial time step is non-positive."""
         msg = "Initial time step must be positive."
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=schedule, dt_init=dt_init)
+            pp.TimeManager(schedule=schedule, dt_init=dt_init)
         assert msg in str(excinfo.value)
 
     def test_initial_time_step_smaller_than_final_time(self):
         """An error should be raised if initial time step is larger than final time."""
         msg = "Initial time step cannot be larger than final simulation time."
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=[0, 1], dt_init=1.0001)
+            pp.TimeManager(schedule=[0, 1], dt_init=1.0001)
         assert msg in str(excinfo.value)
 
     def test_initial_time_step_larger_than_minimum_time_step(self):
@@ -159,7 +158,7 @@ class TestParameterInputs:
             "initial time step, consider passing `dt_min_max` explicitly."
         )
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=[0, 1], dt_init=0.0009)
+            pp.TimeManager(schedule=[0, 1], dt_init=0.0009)
         assert (msg_dtmin + msg_unset) in str(excinfo.value)
 
     def test_initial_time_step_smaller_than_maximum_time_step(self):
@@ -173,7 +172,7 @@ class TestParameterInputs:
             "initial time step, consider passing `dt_min_max` explicitly."
         )
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=[0, 1], dt_init=0.11)
+            pp.TimeManager(schedule=[0, 1], dt_init=0.11)
         assert (msg_dtmax + msg_unset) in str(excinfo.value)
 
     @pytest.mark.parametrize("iter_max", [0, -1])
@@ -181,7 +180,7 @@ class TestParameterInputs:
         """An error should be raised if the maximum number of iterations is not positive."""
         msg = "Maximum number of iterations must be positive."
         with pytest.raises(ValueError) as excinfo:
-            Ts(schedule=[0, 1], dt_init=0.1, iter_max=iter_max)
+            pp.TimeManager(schedule=[0, 1], dt_init=0.1, iter_max=iter_max)
         assert msg in str(excinfo.value)
 
     def test_lower_iter_endpoint_smaller_than_upper_iter_endpoint(self):
@@ -193,7 +192,7 @@ class TestParameterInputs:
             f"cannot be larger than upper endpoint '{iter_optimal_range[1]}'."
         )
         with pytest.raises(ValueError) as excinfo:
-            Ts(
+            pp.TimeManager(
                 schedule=[0, 1],
                 dt_init=0.1,
                 iter_max=5,
@@ -211,7 +210,7 @@ class TestParameterInputs:
             f"cannot be larger than maximum number of iterations '{iter_max}'."
         )
         with pytest.raises(ValueError) as excinfo:
-            Ts(
+            pp.TimeManager(
                 schedule=[0, 1],
                 dt_init=0.1,
                 iter_max=iter_max,
@@ -227,7 +226,7 @@ class TestParameterInputs:
             "cannot be negative."
         )
         with pytest.raises(ValueError) as excinfo:
-            Ts(
+            pp.TimeManager(
                 schedule=[0, 1],
                 dt_init=0.1,
                 iter_max=5,
@@ -248,7 +247,7 @@ class TestParameterInputs:
         """An error should be raised if under-relaxation factor >= 1"""
         msg = "Expected under-relaxation factor < 1."
         with pytest.raises(ValueError) as excinfo:
-            Ts(
+            pp.TimeManager(
                 schedule,
                 dt_init,
                 iter_relax_factors=iter_relax_factors,
@@ -268,7 +267,7 @@ class TestParameterInputs:
         """An error should be raised if over-relaxation factor <= 1"""
         msg = "Expected over-relaxation factor > 1."
         with pytest.raises(ValueError) as excinfo:
-            Ts(
+            pp.TimeManager(
                 schedule,
                 dt_init,
                 iter_relax_factors=iter_relax_factors,
@@ -284,7 +283,7 @@ class TestParameterInputs:
         )
         msg = msg_dtmin_over + msg_osc
         with pytest.raises(ValueError) as excinfo:
-            Ts(
+            pp.TimeManager(
                 schedule=[0, 1],
                 dt_init=0.1,
                 iter_relax_factors=(0.9, 101),
@@ -300,7 +299,7 @@ class TestParameterInputs:
         )
         msg = msg_dtmax_under + msg_osc
         with pytest.raises(ValueError) as excinfo:
-            Ts(
+            pp.TimeManager(
                 schedule=[0, 1],
                 dt_init=0.1,
                 iter_relax_factors=(0.009, 1.3),
@@ -318,7 +317,7 @@ class TestParameterInputs:
         """An error should be raised if the recomputation factor is greater or equal to one."""
         msg = "Expected recomputation factor < 1."
         with pytest.raises(ValueError) as excinfo:
-            Ts(
+            pp.TimeManager(
                 schedule=schedule,
                 dt_init=dt_init,
                 recomp_factor=recomp_factor,
@@ -339,7 +338,7 @@ class TestParameterInputs:
         negative."""
         msg = "Number of recomputation attempts must be > 0."
         with pytest.raises(ValueError) as excinfo:
-            Ts(
+            pp.TimeManager(
                 schedule=schedule,
                 dt_init=dt_init,
                 recomp_max=recomp_max,
@@ -355,12 +354,12 @@ class TestTimeControl:
         """Test if final simulation time returns None, irrespectively of parameters
         passed in next_time_step()."""
         # Assume we reach the final time
-        time_manager = Ts(schedule=[0, 1], dt_init=0.1)
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1)
         time_manager.time = 1
         dt = time_manager.compute_time_step(iterations=1000, recompute_solution=True)
         assert dt is None
         # Now, assume we are above the final time
-        time_manager = Ts(schedule=[0, 1], dt_init=0.1)
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1)
         time_manager.time = 2
         dt = time_manager.compute_time_step(iterations=0, recompute_solution=False)
         assert dt is None
@@ -378,7 +377,9 @@ class TestTimeControl:
         self, schedule, dt_init, time, time_index, iters, recomp_sol
     ):
         """Test if a constant dt is returned, independent of any configuration or input."""
-        time_manager = Ts(schedule=schedule, dt_init=dt_init, constant_dt=True)
+        time_manager = pp.TimeManager(
+            schedule=schedule, dt_init=dt_init, constant_dt=True
+        )
         time_manager.time = time
         time_manager.time_index = time_index
 
@@ -391,7 +392,7 @@ class TestTimeControl:
 
     def test_raise_warning_iteration_not_none_for_constant_time_step(self):
         """A warning should be raised if iterations is given and time step is constant"""
-        time_manager = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
+        time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10, constant_dt=True)
         iterations = 1
         msg = f"iterations '{iterations}' has no effect if time step is constant."
         with pytest.warns() as record:
@@ -401,7 +402,7 @@ class TestTimeControl:
     def test_raise_warning_recompute_solution_true_for_constant_time_step(self):
         """A warning should be raised if recompute_solution is True and time step is
         constant"""
-        time_manager = Ts([0, 1], 0.1, iter_max=10, constant_dt=True)
+        time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10, constant_dt=True)
         msg = "recompute_solution=True has no effect if time step is constant."
         with pytest.warns() as record:
             time_manager.compute_time_step(recompute_solution=True)
@@ -411,18 +412,18 @@ class TestTimeControl:
         """Test behaviour of the algorithm when the solution should NOT be recomputed"""
         # Check if internal flag _recomp_sol remains unchanged when recompute_solution=False
         # regardless of the number of iterations provided by the user
-        time_manager = Ts([0, 1], 0.1)
+        time_manager = pp.TimeManager([0, 1], 0.1)
         time_manager.compute_time_step(iterations=5)
         assert not time_manager._recomp_sol
         time_manager.compute_time_step(iterations=1000)
         assert not time_manager._recomp_sol
         # Check if _recomp_num resets to zero when solution is NOT recomputed
-        time_manager = Ts([0, 1], 0.1)
+        time_manager = pp.TimeManager([0, 1], 0.1)
         time_manager._recomp_num = 3  # manually change recomputation attempts
         time_manager.compute_time_step(iterations=5)
         assert time_manager._recomp_num == 0
         # Assume recompute_solution=True, but we reach or exceeded maximum number of attempts
-        time_manager = Ts([0, 1], 0.1, recomp_max=5)
+        time_manager = pp.TimeManager([0, 1], 0.1, recomp_max=5)
         time_manager._recomp_num = 5
         with pytest.raises(ValueError) as excinfo:
             msg = (
@@ -434,14 +435,14 @@ class TestTimeControl:
 
     def test_recompute_solution_false_by_default(self):
         """ "Checks if recompute solution is False by default"""
-        time_manager = Ts([0, 1], 0.1)
+        time_manager = pp.TimeManager([0, 1], 0.1)
         time_manager.compute_time_step(iterations=3)
         assert not time_manager._recomp_sol
 
     def test_recomputed_solutions(self):
         """Test behaviour of the algorithm when the solution should be recomputed. Note
         that this should be independent of the number of iterations that the user passes"""
-        time_manager = Ts([0, 100], 2, recomp_factor=0.5)
+        time_manager = pp.TimeManager([0, 100], 2, recomp_factor=0.5)
         time_manager.time = 5
         time_manager.time_index = 13
         time_manager.dt = 1
@@ -462,7 +463,7 @@ class TestTimeControl:
     def test_recomputed_solution_with_calculated_dt_less_than_dt_min(self):
         """Test when a solution is recomputed and the calculated time step is less than
         the minimum allowable time step, the time step is indeed the minimum time step"""
-        time_manager = Ts([0, 100], 0.15, recomp_factor=0.5)
+        time_manager = pp.TimeManager([0, 100], 0.15, recomp_factor=0.5)
         # Emulate the scenario where the solution must be recomputed
         time_manager.time = 5
         time_manager.compute_time_step(iterations=1000, recompute_solution=True)
@@ -473,7 +474,7 @@ class TestTimeControl:
     def test_warning_when_iterations_is_given_and_recomputation_is_true(self):
         """A warning should be raised when iterations is not None and the recomputation flag
         is True"""
-        time_manager = Ts([0, 1], 0.1, iter_max=10)
+        time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10)
         msg = "Number of iterations has no effect in recomputation."
         with pytest.warns() as record:
             time_manager.compute_time_step(iterations=1, recompute_solution=True)
@@ -484,7 +485,7 @@ class TestTimeControl:
     ):
         """An error should be raised when adaption based on recomputation is attempted with
         dt = dt_min"""
-        time_manager = Ts(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
+        time_manager = pp.TimeManager(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
         # For these parameters, we have time_manager.dt = time_manager.dt_init = time_manager.dt_min_max[0]
         # Attempting a recomputation should raise an error
         with pytest.raises(ValueError) as excinfo:
@@ -499,7 +500,7 @@ class TestTimeControl:
         """An error should be raised if adaptation based on iteration is intended but
         iterations is None.
         """
-        time_manager = Ts(schedule=[0, 100], dt_init=1)
+        time_manager = pp.TimeManager(schedule=[0, 100], dt_init=1)
         with pytest.raises(ValueError) as excinfo:
             msg = "Time step cannot be adapted without 'iterations'."
             time_manager.compute_time_step()
@@ -509,7 +510,7 @@ class TestTimeControl:
     def test_warning_iteration_is_greater_than_max_iter(self, iterations):
         """Test if a warning is raised when the number of iterations passed to the method is
         greater than max_iter and the solution is not recomputed"""
-        time_manager = Ts([0, 1], 0.1, iter_max=10)
+        time_manager = pp.TimeManager([0, 1], 0.1, iter_max=10)
         warn_msg = (
             f"The given number of iterations '{iterations}' is larger than the maximum "
             f"number of iterations '{time_manager.iter_max}'. This usually means that the solver "
@@ -526,7 +527,7 @@ class TestTimeControl:
     def test_decreasing_time_step(self, iterations):
         """Test if the time step decreases after the number of iterations is less or equal
         than the lower endpoint of the optimal iteration range by its corresponding factor"""
-        time_manager = Ts(
+        time_manager = pp.TimeManager(
             [0, 100],
             2,
             iter_optimal_range=(5, 9),
@@ -541,7 +542,7 @@ class TestTimeControl:
         """Test if the time step is restricted after the number of iterations is greater or
         equal than the upper endpoint of the optimal iteration range by its corresponding
         factor"""
-        time_manager = Ts(
+        time_manager = pp.TimeManager(
             [0, 100],
             2,
             iter_optimal_range=(5, 9),
@@ -555,7 +556,7 @@ class TestTimeControl:
     def test_time_step_within_optimal_iteration_range(self, iterations):
         """Test if the time step remains unchanged when the number of iterations lies
         between the optimal iteration range"""
-        time_manager = Ts(
+        time_manager = pp.TimeManager(
             [0, 100],
             2,
             iter_optimal_range=(5, 9),
@@ -568,7 +569,7 @@ class TestTimeControl:
     @pytest.mark.parametrize("dt", [0.13, 0.1, 0.075])
     def test_time_step_less_than_dt_min(self, dt):
         """Test if the algorithm passes dt_min when the calculated dt is less than dt_min"""
-        time_manager = Ts([0, 100], 2, iter_optimal_range=(4, 7))
+        time_manager = pp.TimeManager([0, 100], 2, iter_optimal_range=(4, 7))
         time_manager.dt = dt
         time_manager.compute_time_step(iterations=7)
         assert time_manager.dt == time_manager.dt_min_max[0]
@@ -576,7 +577,7 @@ class TestTimeControl:
     @pytest.mark.parametrize("dt", [9, 10, 15])
     def test_time_step_greater_than_dt_max(self, dt):
         """Test if the algorithm passes dt_max when the calculated dt is greater than dt_max"""
-        time_manager = Ts([0, 100], 2, iter_optimal_range=(4, 7))
+        time_manager = pp.TimeManager([0, 100], 2, iter_optimal_range=(4, 7))
         time_manager.dt = dt
         time_manager.compute_time_step(iterations=4)
         assert time_manager.dt == time_manager.dt_min_max[1]
@@ -595,7 +596,7 @@ class TestTimeControl:
     )
     def test_hitting_schedule_times(self, schedule, dt_init):
         """Test if algorithm respects the passed target times from the schedule"""
-        time_manager = Ts(schedule, dt_init)
+        time_manager = pp.TimeManager(schedule, dt_init)
         for time in schedule[1:]:
             time_manager.time = 0.99 * time
             time_manager.dt = time_manager.dt_min_max[1]
@@ -611,7 +612,9 @@ class TestTimeControl:
     )
     def test_update_time(self, schedule, dt_init, is_constant, time, dt):
         """Checks if time is correctly updated"""
-        time_manager = Ts(schedule=schedule, dt_init=dt_init, constant_dt=is_constant)
+        time_manager = pp.TimeManager(
+            schedule=schedule, dt_init=dt_init, constant_dt=is_constant
+        )
         time_manager.time = time
         time_manager.dt = dt
         time_manager.increase_time()
@@ -626,7 +629,9 @@ class TestTimeControl:
     )
     def test_update_time_index(self, schedule, dt_init, is_constant, time_index):
         """Checks if time index is correctly updated"""
-        time_manager = Ts(schedule=schedule, dt_init=dt_init, constant_dt=is_constant)
+        time_manager = pp.TimeManager(
+            schedule=schedule, dt_init=dt_init, constant_dt=is_constant
+        )
         time_manager.time_index = time_index
         time_manager.increase_time_index()
         assert time_manager.time_index == (time_index + 1)
