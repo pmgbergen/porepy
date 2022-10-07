@@ -202,7 +202,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
     def test_time_dependent_pull_north_positive_opening(self):
 
         setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
-        setup.tsc.time_final *= 3
+        setup.time_manager.time_final *= 3
         setup.mesh_args = [2, 2]
         setup.simplex = False
         setup.gamma = -1e-2
@@ -241,7 +241,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
         """
         setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
         setup.beta, setup.gamma = 1e-12, 1e-12
-        setup.tsc.time_final *= 3
+        setup.time_manager.time_final *= 3
         setup.mesh_args = [2, 2]
         setup.simplex = False
         #
@@ -263,7 +263,7 @@ class TestContactMechanicsTHM(unittest.TestCase):
         to slightly more opening).
         """
         setup = SetupTHM(ux_south=0, uy_south=0, ux_north=0, uy_north=0.001)
-        setup.tsc.time_final *= 3
+        setup.time_manager.time_final *= 3
         setup.mesh_args = [2, 2]
         setup.simplex = False
         setup.T_0_Kelvin = 1

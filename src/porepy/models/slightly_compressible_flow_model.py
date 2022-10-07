@@ -34,7 +34,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         1. _compressibility: constant compressibility per cell
 
     Attributes:
-        tsc: Time-stepping control manager.
+        time_manager: Time-stepping control manager.
 
     """
 
@@ -50,7 +50,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         super().__init__(params)
 
         # Time manager
-        self.tsc = params.get(
+        self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
@@ -90,7 +90,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         # Access to pressure ad variable
         p = self._ad.pressure
-        self._ad.time_step = pp.ad.Scalar(self.tsc.dt, "time step")
+        self._ad.time_step = pp.ad.Scalar(self.time_manager.dt, "time step")
 
         accumulation_term = (
             accumulation_term.mass * (p - p.previous_timestep()) / self._ad.time_step

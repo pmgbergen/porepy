@@ -37,7 +37,7 @@ Algorithm Overview:
 Algorithm Workflow in Pseudocode:
 
     INPUT
-        tsc // time step control object properly initialized
+        time_manager // time step control object properly initialized
         iterations // number of non-linear iterations
         recompute_solution // boolean flag
 
@@ -158,7 +158,7 @@ class TimeManager:
 
     Example:
         # The following is an example on how to initialize a time-stepping object
-        tsc = pp.TimeManager(
+        time_manager = pp.TimeManager(
             schedule=[0, 10],
             dt_init=0.5,
             dt_min_max=(0.1, 2),
@@ -170,7 +170,7 @@ class TimeManager:
             print_info=True
         )
         # To inspect the attributes of the object
-        print(tsc)
+        print(time_manager)
 
     Attributes:
         dt (float): Time step.

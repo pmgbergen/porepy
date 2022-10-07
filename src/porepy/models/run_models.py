@@ -58,16 +58,16 @@ def run_time_dependent_model(model, params) -> None:
         solver = pp.LinearSolver(params)
 
     # Time loop
-    while model.tsc.time < model.tsc.time_final:
-        model.tsc.increase_time()
-        model.tsc.increase_time_index()
+    while model.time_manager.time < model.time_manager.time_final:
+        model.time_manager.increase_time()
+        model.time_manager.increase_time_index()
         logger.info(
             "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                model.tsc.time_index, model.tsc.time, model.tsc.time_final, model.tsc.dt
+                model.time_manager.time_index, model.time_manager.time, model.time_manager.time_final, model.time_manager.dt
             )
         )
         solver.solve(model)
-        model.tsc.compute_time_step()
+        model.time_manager.compute_time_step()
 
     model.after_simulation()
 
@@ -100,14 +100,14 @@ def _run_iterative_model(model, params: dict) -> None:
         solver = pp.LinearSolver(params)
 
     # Time loop
-    while model.tsc.time < model.tsc.time_final:
+    while model.time_manager.time < model.time_manager.time_final:
         model.propagation_index = 0
-        model.tsc.increase_time()
-        model.tsc.increase_time_index()
+        model.time_manager.increase_time()
+        model.time_manager.increase_time_index()
         model.before_propagation_loop()
         logger.info(
             "\nTime step {} at time {:.1e} of {:.1e} with time step {:.1e}".format(
-                model.tsc.time_index, model.tsc.time, model.tsc.time_final, model.tsc.dt
+                model.time_manager.time_index, model.time_manager.time, model.time_manager.time_final, model.time_manager.dt
             )
         )
         while model.keep_propagating():
