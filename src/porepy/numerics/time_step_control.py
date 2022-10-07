@@ -96,10 +96,10 @@ from typing import Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
 
-__all__ = ["TimeSteppingControl"]
+__all__ = ["TimeManager"]
 
 
-class TimeSteppingControl:
+class TimeManager:
     """Parent class for iteration-based time-stepping control routine.
 
     Parameters:
@@ -158,7 +158,7 @@ class TimeSteppingControl:
 
     Example:
         # The following is an example on how to initialize a time-stepping object
-        tsc = pp.TimeSteppingControl(
+        tsc = pp.TimeManager(
             schedule=[0, 10],
             dt_init=0.5,
             dt_min_max=(0.1, 2),

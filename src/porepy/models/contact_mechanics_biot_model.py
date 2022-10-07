@@ -96,8 +96,8 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         super().__init__(params)
 
         # Time manager
-        tsc = pp.TimeSteppingControl(schedule=[0, 1], dt_init=1, constant_dt=True)
-        self.tsc: pp.TimeSteppingControl = self.params.get("time_manager", tsc)
+        tsc = pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True)
+        self.tsc: pp.TimeManager = self.params.get("time_manager", tsc)
 
         # Temperature
         self.scalar_variable: str = "p"

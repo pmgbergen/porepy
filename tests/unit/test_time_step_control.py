@@ -1,5 +1,5 @@
 """
-This module contains a collection of unit tests for the `TimeSteppingControl` class. The
+This module contains a collection of unit tests for the `TimeManager` class. The
 module contains two test classes, namely: `TestParameterInputs` and `TestTimeControl`.
 
 `TestParameterInputs` contains test methods that check the sanity of the input parameters.
@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.numerics.time_step_control import TimeSteppingControl as Ts
+from porepy.numerics.time_step_control import TimeManager as Ts
 
 
 class TestParameterInputs:
