@@ -470,7 +470,7 @@ class TimeSteppingControl:
 
         """
 
-        # Sanity check: Make sure iterations is give
+        # Sanity check: Make sure iterations is given
         if iterations is None:
             msg = "Time step cannot be adapted without 'iterations'."
             raise ValueError(msg)
