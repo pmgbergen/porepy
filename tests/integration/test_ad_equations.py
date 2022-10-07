@@ -437,10 +437,6 @@ def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
     model_ad.prepare_simulation()
     model_ad.before_newton_loop()
 
-    #model_as.time_index = 0
-    #model_ad.time_index = 0
-    #t_end = model_as.end_time
-
     while model_as.tsc.time < model_as.tsc.time_final:
         for model in (model_as, model_ad):
             model.tsc.increase_time()
