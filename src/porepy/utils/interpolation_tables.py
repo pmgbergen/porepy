@@ -60,14 +60,12 @@ class InterpolationTable:
     ) -> None:
         # Data processing is left to a separate function.
         self._set_sizes(low, high, npt, dim)
-        
+
         # Evaluate the function values in all coordinate points.
 
         self._table_values = np.zeros((self.dim, self._coord[0].size))
         for i, c in enumerate(zip(*self._coord)):
             self._table_values[:, i] = function(*c)
-                
-      
 
     def _set_sizes(
         self, low: np.ndarray, high: np.ndarray, npt: np.ndarray, dim: int
@@ -141,7 +139,9 @@ class InterpolationTable:
         # vertex with the relevant weight.
         # We need a linear index here, since eval_ind will be used to access the array
         # of computed values.
-        for i, (incr, eval_ind) in enumerate(self._generate_indices(base_ind, linear=True)):
+        for i, (incr, eval_ind) in enumerate(
+            self._generate_indices(base_ind, linear=True)
+        ):
             # Incr is 0 for dimensions to be evaluated in the left (base)
             # coordinate, 1 for others.
             # eval_ind is the linear index for this vertex.
@@ -150,7 +150,7 @@ class InterpolationTable:
             weight = np.prod(
                 right_weight * incr + left_weight * (1 - incr), axis=0
             )  # Not sure about self.dim > 1.
-            
+
             # Add this part of the function evaluation
             # Handle special case: If the evaluation point is on the generalized
             # rightmost axis compared to what is covered in the table, there may be
@@ -159,7 +159,9 @@ class InterpolationTable:
             # weights are computed to zero.
             inside_grid = eval_ind < self._values.shape[1]
             assert np.all(weight[np.logical_not(inside_grid)] < 1e-10)
-            values[:, inside_grid] += weight[inside_grid] * self._values[:, eval_ind[inside_grid]]
+            values[:, inside_grid] += (
+                weight[inside_grid] * self._values[:, eval_ind[inside_grid]]
+            )
 
         return values
 
@@ -222,7 +224,7 @@ class InterpolationTable:
     def _values(self) -> np.ndarray:
         # Use a property decorator for self._values. This is not needed in this class,
         # but is convenient in the subclass AdaptiveInterpolationTable.
-        return self._table_values  
+        return self._table_values
 
     def _find_base_vertex(self, coord: np.ndarray) -> np.ndarray:
         """Helper function to get the base (generalized lower-left) vertex of a
@@ -246,7 +248,7 @@ class InterpolationTable:
     def _generate_indices(
         self, base_ind: np.ndarray, linear: bool
     ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
-        """ Iterator for linear indices that form the vertexes of a hypercube with a
+        """Iterator for linear indices that form the vertexes of a hypercube with a
         given base vertex, and the dimension-wise increments in indices from the base.
         """
 
@@ -259,10 +261,12 @@ class InterpolationTable:
             assert isinstance(eval_ind, np.ndarray)
             yield incr, eval_ind
 
-    def _index_from_base_and_increment(self, base_ind: np.ndarray, incr: np.ndarray, linear: bool) -> np.ndarray:
+    def _index_from_base_and_increment(
+        self, base_ind: np.ndarray, incr: np.ndarray, linear: bool
+    ) -> np.ndarray:
         """For a given base index and increment in each dimension, get the full index
         from a base (e.g., lower-left corner of a hypercube) and an increment.
-        
+
         NOTE: The parameter 'linear' is ignored since standard interpolation tables
         always work with a linear index (the ordering of the points in the underlying
         grid and that used in the array of values is the same).
@@ -274,12 +278,12 @@ class InterpolationTable:
     def _right_left_weights(
         self, x: np.ndarray, base_ind: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-        """ For each dimension, find the interpolation weights to the right
+        """For each dimension, find the interpolation weights to the right
         and left sides.
         """
         right_weight = np.array(
             [
-                (x[i] - (self._pt[i][base_ind[i]] ))  / self._h[i]
+                (x[i] - (self._pt[i][base_ind[i]])) / self._h[i]
                 for i in range(self._param_dim)
             ]
         )
@@ -304,29 +308,29 @@ class AdaptiveInterpolationTable(InterpolationTable):
     is costly.
 
     Args:
-        dx: Grid resolution in each direction. 
+        dx: Grid resolution in each direction.
         base_point: A point in the underlying grid. Used to fix the location of the
             grid lines.
         function (Callable): Function to represent in the table. Should be
             vectorized (if necessary with a for-loop wrapper) so that multiple
-            coordinates can be evaluated at the same time.
+            coordinates can be evaluated at the same time. If not provided, table values
+            must be assigned via the method 'assign_values'.
         dim (int): Dimension of the range of the function. Values above one
             have not been much tested, use with care.
 
     """
 
     def __init__(
-            self,
-            dx: np.ndarray,
-            base_point: Optional[np.ndarray] = None,
-            function: Optional[Callable[[np.ndarray], np.ndarray]] = None,
-            dim: int = 1,
+        self,
+        dx: np.ndarray,
+        base_point: Optional[np.ndarray] = None,
+        function: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+        dim: int = 1,
     ) -> None:
         self.dim: int = dim
-        self._param_dim = dx.shape
+        self._param_dim = dx.size
         # Construct grid for interpolation
-        self._table = pp.array_operations.SparseNdArray(param_dim)
-
+        self._table = pp.array_operations.SparseNdArray(self._param_dim)
         self._pt = np.zeros((self._param_dim, 0))
 
         self._h = dx
@@ -335,18 +339,13 @@ class AdaptiveInterpolationTable(InterpolationTable):
         self._base_point = base_point
 
         # Store function
-        if function is None:
-            self._has_function = False
-        else:
-            self._function = function
-            self._has_function = True
+        self._function = function
 
     @property
     def _values(self):
         # Use a property decorator to tie self._values to the value array of the
         # underlying sparse array.
         return self._table._values
-
 
     def interpolate(self, x: np.ndarray) -> np.ndarray:
         """Perform interpolation on a Cartesian grid by a piecewise linear
@@ -360,9 +359,13 @@ class AdaptiveInterpolationTable(InterpolationTable):
             np.ndarray: Function values.
 
         """
-        # Fill any missing function values.
-        self._fill_values(x)
-        # Use standard method for interpolation.
+        # Fill any missing function values if a function is available.
+        # NOTE: If the table is populated with the method 'assign_values', the user is
+        # responsible for assigning all necessary values.
+        if self._function is not None:
+            self._fill_values(x)
+
+        # Use parent method for interpolation.
         return super().interpolate(x)
 
     def diff(self, x: np.ndarray, axis: int) -> np.ndarray:
@@ -378,29 +381,58 @@ class AdaptiveInterpolationTable(InterpolationTable):
             np.ndarray: Function values.
 
         """
-        # Fill any missing function values.
-        self._fill_values(x)
+        # Fill any missing function values if a function is available.
+        # NOTE: If the table is populated with the method 'assign_values', the user is
+        # responsible for assigning all necessary values.
+        if self._function is not None:
+            self._fill_values(x)
+
         # Use standard method for differentiation.
         return super().diff(x, axis)
 
     def assign_values(self, coord: list[np.ndarray], val: np.ndarray) -> None:
-        """Assign values to the table.
+        """Assign externally computed values to the table.
+
+        The user is responsible that the coordinates are nodes in the Cartesian grid
+        underlying this interpolation tabel.
+
+        This method can be used, e.g., if the table values are calculated by an
+        external function which it is not desirable to pass to the interpolation table.
+        One use case is when the function is an external library (e.g., a thermodynamic
+        flash calculation) which computes several properties at the same time. In this
+        case it is better to collect all properties externally and pass it to the
+        respective interpolation tables for the individual properties.
 
         Args:
             coord (list[np.ndarray]): Coordinates of points to assign values to.
             val (np.ndarray): Values to assign.
 
         """
-        self._table.add(coord, val, additive=False)
+        # Convert the coordinates to a single numpy array.
+        coord_array = np.vstack(coord).T
+
+        # Get the corresponding indices in the underlying Cartesian grids.
+        ind_of_coord = self._find_base_vertex(coord_array)
+        ind_list = [i for i in ind_of_coord.T]
+
+        # Add values and indices to the table
+        column_permutation = self._table.add(ind_list, val, additive=False)
+        # Add the coordinates to the table.
+        self._pt = np.hstack((self._pt, coord_array[:, column_permutation]))
+
+    def interpolation_nodes_from_coordinates(
+        self, x: np.ndarray
+    ) -> tuple[list, np.ndarray]:
+        """
 
 
-    def _fill_values(self, x: np.ndarray) -> None:
-        # Find points in the interpolation grid that will be used for function
-        # evaluation. Compute function values as needed.
+        Args:
+            x: DESCRIPTION.
 
-        if self._function is None:
-            raise ValueError("No function to evaluate - should values be added instead?")
+        Returns:
+            None.
 
+        """
         # The lower-left corner of each hypercube.
         base_ind = self._find_base_vertex(x)
 
@@ -413,64 +445,88 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         # Uniquify indices to avoid computing values for the same vertex twice.
         unique_ind = np.unique(np.hstack(ind), axis=1)
+
+        coord = [self._base_point + self._h * v for v in unique_ind.T]
+
+        return coord, unique_ind
+
+    def _fill_values(self, x: np.ndarray) -> None:
+        # Find points in the interpolation grid that will be used for function
+        # evaluation. Compute function values as needed.
+
+        if self._function is None:
+            raise ValueError(
+                "No function to evaluate - should values be added instead?"
+            )
+
+        coord, unique_ind = self.interpolation_nodes_from_coordinates(x)
+
         # Find which values have been computed before.
-        _, _, precomputed, _= pp.array_operations.intersect_sets(unique_ind, self._table._coords)
-        
+        _, _, precomputed, _ = pp.array_operations.intersect_sets(
+            unique_ind, self._table._coords
+        )
+
         # Find which vertexes have not been used before.
-        indices_to_compute = unique_ind[:, np.logical_not(precomputed)].T
-        
-        coord = [self._base_point + self._h * v for v in indices_to_compute]
+        indices_to_compute = np.where(np.logical_not(precomputed))[0]
 
         # Compute and store values
-        if len(coord) > 0:
-            new_values = np.vstack(np.array([self._function(*c) for c in coord])).T
+        if indices_to_compute.size > 0:
+
+            new_values = np.vstack(
+                np.array([self._function(*coord[i]) for i in indices_to_compute])
+            ).T
             # In the spares array we use the integer indices, referring to the
             # underlying Cartesian grid of this table.
-            self._table.add([a for a in indices_to_compute], new_values)
+            self._table.add([unique_ind[:, i] for i in indices_to_compute], new_values)
             # In this table, we need to store the actual coordinates.
             self._pt = np.hstack((self._pt, np.vstack(coord).T))
 
-
-    def _index_from_base_and_increment(self, base_ind: np.ndarray, incr: np.ndarray, linear: bool) -> np.ndarray:
+    def _index_from_base_and_increment(
+        self, base_ind: np.ndarray, incr: np.ndarray, linear: bool
+    ) -> np.ndarray:
         """For a given base index and increment in each dimension, get the full index
         from a base (e.g., lower-left corner of a hypercube) and an increment.
-        
+
         For adaptive interpolation tables, with unstructured storage of data, we
         sometimes need the linear index, sometimes the multi-dimensional one.
-        
-        """        
+
+        """
         if linear:
             # Add the base ind and the increment, and then find the corresponding value
             # in the coordinate set of the table.
-            _, _, is_mem, ind_in_table = pp.array_operations.intersect_sets(base_ind + incr, self._table._coords)
-            
+            _, _, is_mem, ind_in_table = pp.array_operations.intersect_sets(
+                base_ind + incr, self._table._coords
+            )
+
             # Safeguarding.
             assert np.all(is_mem)
-            
+
             return np.ravel(ind_in_table)
         else:
             # A multi-index is wanted. Simply add the increment to the base index.
             return np.asarray(base_ind + incr)
-    
+
     def _right_left_weights(
         self, x: np.ndarray, base_ind: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-        """ For each dimension, find the interpolation weights to the right
+        """For each dimension, find the interpolation weights to the right
         and left sides.
         """
-        
+
         # First do a mapping from the structured ordering underlying this table, and
         # reflected in base_ind, to the unstructured ordering in self._table.
-        _, _, ismem, ind_in_table = pp.array_operations.intersect_sets(base_ind, self._table._coords)
+        _, _, ismem, ind_in_table = pp.array_operations.intersect_sets(
+            base_ind, self._table._coords
+        )
         raveled_ind = np.ravel(ind_in_table)
         # Sanity checks.
         assert np.all(ismem)
         assert all([len(s) == 1 for s in ind_in_table])
-        
+
         # Find the weights on the right array.
         right_weight = np.array(
             [
-                (x[i] - (self._pt[i,raveled_ind] ))  / self._h[i]
+                (x[i] - (self._pt[i, raveled_ind])) / self._h[i]
                 for i in range(self._param_dim)
             ]
         )
