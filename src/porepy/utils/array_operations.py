@@ -35,7 +35,7 @@ class SparseNdArray:
     # to implement a method 'sanity_check' which can check that the array coordinates
     # and values are within specified bounds.
 
-    def __init__(self, dim: int, value_dim: int=1) -> None:
+    def __init__(self, dim: int, value_dim: int = 1) -> None:
         self.dim: int = dim
 
         # Data structure for the coordinates (an ndim x npt array), and values.
@@ -63,6 +63,10 @@ class SparseNdArray:
                 (if there are duplicates in new coordinates the last of this coordinates
                 are used). Defaults to False.
 
+        Returns:
+            np.ndarray: Permutation vector applied before the coordinates and data were
+                added to storage.
+
         """
         # IMPLEMENTATION NOTE: We could have passed coordinates as a 2d np.ndarray,
         # but the list of 1d arrays (each representing a coordinate) is better fit to
@@ -71,9 +75,9 @@ class SparseNdArray:
         # Shortcut for empty coordinate array.
         if len(coords) == 0:
             return
-        
+
         values = np.atleast_2d(values)
-        
+
         # The main idea is to do a search for the new coordinates in the array of
         # existing coordinates. This becomes simpler if we first remove duplicates in
         # the list of new coordinates.
@@ -83,9 +87,10 @@ class SparseNdArray:
         # Uniquifying will also do a sort of the arrays. This will permute the order of
         # the coordinates when they are eventually stored in the main coordinate array,
         # but that should not be a problem, since the data is essentially unstructured.
-        unique_coords, all_2_unique, counts = np.unique(
+        unique_coords, unique_2_all, all_2_unique, counts = np.unique(
             coord_array,
             axis=1,
+            return_index=True,
             return_inverse=True,
             return_counts=True,
         )
@@ -94,7 +99,12 @@ class SparseNdArray:
         if additive:
             # In additive mode, use numpy bincount. We need to split the arrays here,
             # since bincount only works with 1d weights.
-            unique_values = np.vstack([np.bincount(all_2_unique, weights=values[i]) for i in range(values.shape[0])])
+            unique_values = np.vstack(
+                [
+                    np.bincount(all_2_unique, weights=values[i])
+                    for i in range(values.shape[0])
+                ]
+            )
         else:
             # We need to overwrite (the right) data for duplicate points.
             if np.all(counts == 1):
@@ -125,7 +135,10 @@ class SparseNdArray:
             new_coord = np.reshape((-1, 1))
 
         self._coords = np.hstack((self._coords, new_coord))
-        self._values = np.hstack((self._values, unique_values[:, np.logical_not(is_mem)]))
+        self._values = np.hstack(
+            (self._values, unique_values[:, np.logical_not(is_mem)])
+        )
+        return unique_2_all[np.logical_not(is_mem)]
 
     def get(self, coords: list[np.ndarray]) -> np.ndarray:
         """Retrieve values from the sparse array.
