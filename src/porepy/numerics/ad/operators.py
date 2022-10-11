@@ -3,9 +3,9 @@
 
 import copy
 import numbers
-from enum import Enum
+from enum import Enum, EnumMeta
 from itertools import count
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -18,12 +18,9 @@ from porepy.params.tensor import SecondOrderTensor
 from . import _ad_utils
 from .forward_mode import Ad_array, initAdArrays
 
-__all__ = ["Operator", "Matrix", "Array", "Scalar", "Variable", "MergedVariable"]
+__all__ = ["Operator", "Matrix", "Array", "Scalar", "Variable", "MixedDimensionalVariable"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
-
-# Abstract representations of mathematical operations supported by the Ad framework.
-Operation = Enum("Operation", ["void", "add", "sub", "mul", "div", "evaluate"])
 
 
 def _get_shape(mat):
@@ -37,532 +34,59 @@ def _get_shape(mat):
 class Operator:
     """Superclass for all Ad operators.
 
-    Objects of this class is not meant to be initiated directly; rather the various
+    Objects of this class are not meant to be initiated directly; rather the various
     subclasses should be used. Instances of this class will still be created when
     subclasses are combined by operations.
 
-    Attributes:
-        subdomains: List of subdomains (subdomains) on which the operator is defined. Will be
-            empty for operators not associated with specific subdomains.
-        interfaces: List of edges (tuple of subdomains) in the mixed-dimensional grid on which
-            the operator is defined. Will be empty for operators not associated with
-            specific subdomains.
+    """
+
+    Operations: EnumMeta = Enum("Operations", [
+        "void", "add", "sub", "mul", "div", "evaluate", "approximate"
+    ])
+    """Object representing all supported operations by the operator class.
+
+    Used to construct the operator tree and identify operations.
 
     """
 
     def __init__(
         self,
         name: Optional[str] = None,
-        subdomains: Optional[List[pp.Grid]] = None,
-        interfaces: Optional[List[pp.MortarGrid]] = None,
+        subdomains: Optional[Sequence[pp.Grid]] = None,
+        interfaces: Optional[Sequence[pp.MortarGrid]] = None,
         tree: Optional["Tree"] = None,
     ) -> None:
-        if name is None:
-            name = ""
-        self._name = name
-        self.subdomains: List[pp.Grid] = [] if subdomains is None else subdomains
-        self.interfaces: List[pp.MortarGrid] = [] if interfaces is None else interfaces
+
+        ### PUBLIC
+
+        self.subdomains: Sequence[pp.Grid] = [] if subdomains is None else subdomains
+        """sequence of subdomains on which the operator is defined.
+        Will be empty for operators not associated with specific subdomains.
+
+        """
+
+        self.interfaces: Sequence[pp.MortarGrid] = [] if interfaces is None else interfaces
+        """sequence of interfaces on which the operator is defined.
+        Will be empty for operators not associated with specific interfaces.
+
+        """
+
+        ### PRIVATE
+
+        self._name = name if name is not None else ""
+
         self._set_tree(tree)
 
-    def _set_tree(self, tree=None):
-        if tree is None:
-            self.tree = Tree(Operation.void)
-        else:
-            self.tree = tree
-
-    def _set_subdomains_or_interfaces(
-        self,
-        subdomains: Union[List[pp.Grid], None],
-        interfaces: Union[List[pp.MortarGrid], None],
-    ) -> None:
-        """For operators which are defined for either subdomains or interfaces but not both.
-
-        Check that exactly one of subdomains and interfaces is given and assign to the
-        operator. The unspecified grid-like type will also be set as an attribute, i.e.
-        either op.subdomains or op.interfaces is an empty list, while the other is a
-        list with len>0.
-
-        Parameters:
-            subdomains (optional list of subdomains): The subdomain list.
-            interfaces (optional list of tuples of subdomains): The interface list.
-
-        """
-        if subdomains is None:
-            assert isinstance(interfaces, list)
-            self.subdomains = []
-            self.interfaces = interfaces
-        else:
-            assert isinstance(subdomains, list)
-            assert interfaces is None
-            self.subdomains = subdomains
-            self.interfaces = []
-
-    def _find_subtree_variables(self) -> List["pp.ad.Variable"]:
-        """Method to recursively look for Variables (or MergedVariables) in an
-        operator tree.
-        """
-        # The variables should be located at leaves in the tree. Traverse the tree
-        # recursively, look for variables, and then gather the results.
-
-        if isinstance(self, Variable) or isinstance(self, pp.ad.Variable):
-            # We are at the bottom of a branch of the tree, return the operator
-            return [self]
-        else:
-            # We need to look deeper in the tree.
-            # Look for variables among the children
-            sub_variables = []
-            # When using nested pp.ad.Functions, some of the children may be Ad_arrays
-            # (forward mode), rather than Operators. For the former, don't look for
-            # children - they have none.
-            for child in self.tree.children:
-                if isinstance(child, pp.ad.Operator):
-                    sub_variables += child._find_subtree_variables()
-
-            # Some work is needed to parse the information
-            var_list: List[Variable] = []
-            for var in sub_variables:
-                if isinstance(var, Variable) or isinstance(var, pp.ad.Variable):
-                    # Effectively, this node is one step from the leaf
-                    var_list.append(var)
-                elif isinstance(var, list):
-                    # We are further up in the tree.
-                    for sub_var in var:
-                        if isinstance(sub_var, Variable) or isinstance(
-                            sub_var, pp.ad.Variable
-                        ):
-                            var_list.append(sub_var)
-            return var_list
-
-    def _identify_variables(self, dof_manager, var: Optional[list] = None):
-        """Identify all variables in this operator."""
-        # 1. Get all variables present in this operator.
-        # The variable finder is implemented in a special function, aimed at recursion
-        # through the operator tree.
-        # Uniquify by making this a set, and then sort on variable id
-        variables = sorted(
-            list(set(self._find_subtree_variables())),
-            key=lambda var: var.id,
-        )
-
-        # 2. Get a mapping between variables (*not* only MergedVariables) and their
-        # indices according to the DofManager. This is needed to access the state of
-        # a variable when parsing the operator to numerical values using forward Ad.
-
-        # For each variable, get the global index
-        inds = []
-        variable_ids = []
-        prev_time = []
-        prev_iter = []
-        for variable in variables:
-            # Indices (in DofManager sense) of this variable. Will be built gradually
-            # for MergedVariables, in one go for plain Variables.
-            ind_var = []
-            prev_time.append(variable.prev_time)
-            prev_iter.append(variable.prev_iter)
-
-            if isinstance(
-                variable, (pp.ad.MergedVariable, MergedVariable)
-            ):  # Is this equivalent to the test in previous function?
-                # Loop over all subvariables for the merged variable
-                for i, sub_var in enumerate(variable.sub_vars):
-                    # Store dofs
-                    ind_var.append(
-                        dof_manager.grid_and_variable_to_dofs(sub_var._g, sub_var._name)
-                    )
-                    if i == 0:
-                        # Store id of variable, but only for the first one; we will
-                        # concatenate the arrays in ind_var into one array
-                        variable_ids.append(variable.id)
-
-                if len(variable.sub_vars) == 0:
-                    # For empty lists of subvariables, we still need to assign an id
-                    # to the variable.
-                    variable_ids.append(variable.id)
-            else:
-                # This is a variable that lives on a single grid
-                ind_var.append(
-                    dof_manager.grid_and_variable_to_dofs(variable._g, variable._name)
-                )
-                variable_ids.append(variable.id)
-
-            # Gather all indices for this variable
-            if len(ind_var) > 0:
-                inds.append(np.hstack([i for i in ind_var]))
-            else:
-                inds.append(np.array([], dtype=int))
-
-        return inds, variable_ids, prev_time, prev_iter
-
-    def _identify_subtree_discretizations(self, discr: List) -> List:
-        """Recursive search in the tree of this operator to identify all discretizations
-        represented in the operator.
-        """
-        if len(self.tree.children) > 0:
-            # Go further in recursion
-            for child in self.tree.children:
-                discr += child._identify_subtree_discretizations([])
-
-        if isinstance(self, _ad_utils.MergedOperator):
-            # We have reached the bottom; this is a discretization (example: mpfa.flux)
-            discr.append(self)
-
-        return discr
-
-    def _identify_discretizations(
-        self,
-    ) -> Dict["_ad_utils.MergedOperator", GridLike]:
-        """Perform a recursive search to find all discretizations present in the
-        operator tree. Uniquify the list to avoid double computations.
-
-        """
-        all_discr = self._identify_subtree_discretizations([])
-        return _ad_utils.uniquify_discretization_list(all_discr)
-
-    def discretize(self, mdg: pp.MixedDimensionalGrid) -> None:
-        """Perform discretization operation on all discretizations identified in
-        the tree of this operator, using data from mdg.
-
-        IMPLEMENTATION NOTE: The discretizations was identified at initialization of
-        Expression - it is now done here to accommodate updates (?) and
-
-        """
-        unique_discretizations: Dict[
-            _ad_utils.MergedOperator, GridLike
-        ] = self._identify_discretizations()
-        _ad_utils.discretize_from_list(unique_discretizations, mdg)
-
-    def is_leaf(self) -> bool:
-        """Check if this operator is a leaf in the tree-representation of an object.
-
-        Returns:
-            bool: True if the operator has no children. Note that this implies that the
-                method parse() is expected to be implemented.
-        """
-        return len(self.tree.children) == 0
-
-    def set_name(self, name: str) -> None:
-        self._name = name
-
-    def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
-        """Translate the operator into a numerical expression.
-        Subclasses that represent atomic operators (leaves in a tree-representation of
-        an operator) should override this method to return e.g. a number, an array or a
-        matrix.
-        This method should not be called on operators that are formed as combinations
-        of atomic operators; such operators should be evaluated by the method evaluate().
-        """
-        raise NotImplementedError("This type of operator cannot be parsed right away")
-
-    def _parse_operator(self, op: "Operator", mdg: pp.MixedDimensionalGrid):
-        """TODO: Currently, there is no prioritization between the operations; for
-        some reason, things just work. We may need to make an ordering in which the
-        operations should be carried out. It seems that the strategy of putting on
-        hold until all children are processed works, but there likely are cases where
-        this is not the case.
-        """
-
-        # The parsing strategy depends on the operator at hand:
-        # 1) If the operator is a Variable, it will be represented according to its
-        #    state.
-        # 2) If the operator is a leaf in the tree-representation of the operator,
-        #    parsing is left to the operator itself.
-        # 3) If the operator is formed by combining other operators lower in the tree,
-        #    parsing is handled by first evaluating the children (leads to recursion)
-        #    and then perform the operation on the result.
-
-        # Check for case 1 or 2
-        if isinstance(op, pp.ad.Variable) or isinstance(op, Variable):
-            # Case 1: Variable
-
-            # How to access the array of (Ad representation of) states depends on weather
-            # this is a single or combined variable; see self.__init__, definition of
-            # self._variable_ids.
-            # TODO no different between merged or no merged variables!?
-            if isinstance(op, pp.ad.MergedVariable) or isinstance(op, MergedVariable):
-                if op.prev_time:
-                    return self._prev_vals[op.id]
-                elif op.prev_iter:
-                    return self._prev_iter_vals[op.id]
-                else:
-                    return self._ad[op.id]
-            else:
-                if op.prev_time:
-                    return self._prev_vals[op.id]
-                elif op.prev_iter or not (
-                    op.id in self._ad
-                ):  # TODO make it more explicit that op corresponds to a non_ad_variable?
-                    # e.g. by op.id in non_ad_variable_ids.
-                    return self._prev_iter_vals[op.id]
-                else:
-                    return self._ad[op.id]
-        elif isinstance(op, pp.ad.Ad_array):
-            # When using nested operator functions, op can be an already evaluated term.
-            # Just return it.
-            return op
-
-        elif op.is_leaf():
-            # Case 2
-            return op.parse(mdg)  # type:ignore
-
-        # This is not an atomic operator. First parse its children, then combine them
-        tree = op.tree
-        results = [self._parse_operator(child, mdg) for child in tree.children]
-
-        # Combine the results
-        if tree.op == Operation.add:
-            # To add we need two objects
-            assert len(results) == 2
-
-            # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
-            self._ravel_scipy_matrix(results)
-
-            if isinstance(results[0], np.ndarray):
-                # With the implementation of Ad arrays, addition does not
-                # commute for combinations with numpy arrays. Switch the order
-                # of results, and everything works.
-                results = results[::-1]
-            try:
-                return results[0] + results[1]
-            except ValueError as exc:
-                msg = self._get_error_message("adding", tree, results)
-                raise ValueError(msg) from exc
-
-        elif tree.op == Operation.sub:
-            # To subtract we need two objects
-            assert len(results) == 2
-
-            # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
-            self._ravel_scipy_matrix(results)
-
-            factor = 1
-
-            if isinstance(results[0], np.ndarray):
-                # With the implementation of Ad arrays, subtraction does not
-                # commute for combinations with numpy arrays. Switch the order
-                # of results, and everything works.
-                results = results[::-1]
-                factor = -1
-
-            try:
-                return factor * (results[0] - results[1])
-            except ValueError as exc:
-                msg = self._get_error_message("subtracting", tree, results)
-                raise ValueError(msg) from exc
-
-        elif tree.op == Operation.mul:
-            # To multiply we need two objects
-            assert len(results) == 2
-
-            if isinstance(results[0], np.ndarray) and isinstance(
-                results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
-            ):
-                # In the implementation of multiplication between an Ad_array and a
-                # numpy array (in the forward mode Ad), a * b and b * a do not
-                # commute. Flip the order of the results to get the expected behavior.
-                results = results[::-1]
-            try:
-                return results[0] * results[1]
-            except ValueError as exc:
-                if isinstance(
-                    results[0], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
-                ) and isinstance(results[1], np.ndarray):
-                    # Special error message here, since the information provided by
-                    # the standard method looks like a contradiction.
-                    # Move this to a helper method if similar cases arise for other
-                    # operations.
-                    msg_0 = tree.children[0]._parse_readable()
-                    msg_1 = tree.children[1]._parse_readable()
-                    nl = "\n"
-                    msg = (
-                        "Error when right multiplying \n"
-                        + f"  {msg_0}"
-                        + nl
-                        + "with"
-                        + nl
-                        + f"  numpy array {msg_1}"
-                        + nl
-                        + f"Size of arrays: {results[0].val.size} and {results[1].size}"
-                        + nl
-                        + "Did you forget some parentheses?"
-                    )
-
-                else:
-                    msg = self._get_error_message("multiplying", tree, results)
-                raise ValueError(msg) from exc
-
-        elif tree.op == Operation.div:
-            # Some care is needed here, to account for cases where item in the results
-            # array is a numpy array
-            if isinstance(results[0], pp.ad.Ad_array):
-                # If the first item is an Ad array, the implementation of the forward
-                # mode should take care of everything.
-                return results[0] / results[1]
-            elif isinstance(results[0], (np.ndarray, sps.spmatrix)):
-                # if the first array is a numpy array or sparse matrix,
-                # then numpy's implementation of division will be invoked.
-                if isinstance(results[1], (np.ndarray, numbers.Real)):
-                    # Both items are numpy arrays or scalars, everything is fine.
-                    return results[0] / results[1]
-                elif isinstance(results[1], pp.ad.Ad_array):
-                    # Numpy cannot deal with division with an Ad_array. Instead, multiply
-                    # with the inverse of results[1] (this is equivalent, and makes
-                    # numpy happy). The return from numpy will be a new array (data type
-                    # object) with the actual Ad_array as the first item. Exactly why
-                    # numpy functions in this way is not clear to EK.
-                    return (results[0] * results[1] ** -1)[0]
-                else:
-                    # Not sure what this will cover. We have to wait for it to happen.
-                    raise NotImplementedError(
-                        "Encountered a case not covered when dividing Ad objects"
-                    )
-            elif isinstance(results[0], numbers.Real):
-                # if the dividend is a number, the divisor has to be an Ad_array,
-                # otherwise the overloaded division wouldn't have been invoked
-                # We use the same strategy as in above case where the divisor is an Ad_array
-                if isinstance(results[1], pp.ad.Ad_array):
-                    # See remarks by EK in case ndarray / Ad_array
-                    return (results[0] * results[1] ** -1)[0]
-                elif isinstance(results[1], numbers.Real): # trivial case
-                    return results[0] / results[1]
-                elif isinstance(results[1], np.ndarray):
-                    # element-wise division for numpy vectors
-                    if len(results[1].shape) == 1:
-                        return results[0] / results[1]
-                    else:  # if it is a matrix, the inversion should be treated differently
-                        return NotImplementedError(
-                            "Encountered a case not covered when dividing Ad objects"
-                        )
-                else:
-                    # In case above argument, that the divisor can only be an Ad_array,
-                    # is wrong
-                    raise NotImplementedError(
-                        "Encountered a case not covered when dividing Ad objects"
-                    )
-            else:
-                # This case could include results[0] being a float, or different numbers,
-                # which again should be easy to cover.
-                raise NotImplementedError(
-                    "Encountered a case not covered when dividing Ad objects"
-                )
-
-        elif tree.op == Operation.evaluate:
-            # This is a function, which should have at least one argument
-            assert len(results) > 1
-            func_op = results[0]
-
-            # if the callable can be fed with Ad_arrays, do it
-            if func_op.ad_compatible:
-                return func_op.func(*results[1:])
-            else:
-                # This should be a Function with approximated Jacobian and value.
-                try:
-                    val = func_op.get_values(*results[1:])
-                    jac = func_op.get_jacobian(*results[1:])
-                except Exception as exc:
-                    # TODO specify what can go wrong here (Exception type)
-                    msg = "Ad parsing: Error evaluating operator function:\n"
-                    msg += func_op._parse_readable()
-                    raise ValueError(msg) from exc
-                return Ad_array(val, jac)
-
-        else:
-            raise ValueError("Should not happen")
-
-    def _get_error_message(self, operation: str, tree, results: list) -> str:
-        # Helper function to format error message
-        msg_0 = tree.children[0]._parse_readable()
-        msg_1 = tree.children[1]._parse_readable()
-
-        nl = "\n"
-        msg = (
-            f"Ad parsing: Error when {operation}\n"
-            + "  "
-            + msg_0
-            + nl
-            + "with"
-            + nl
-            + "  "
-            + msg_1
-            + nl
-        )
-
-        msg += (
-            f"Matrix sizes are {_get_shape(results[0])} and "
-            f"{_get_shape(results[1])}"
-        )
-        return msg
-
-    def _parse_readable(self) -> str:
-        """
-        Make a human-readable error message related to a parsing error.
-        NOTE: The exact formatting should be considered work in progress,
-        in particular when it comes to function evaluation.
-        """
-
-        # There are three cases to consider: Either the operator is a leaf,
-        # it is a composite operator with a name, or it is a general composite
-        # operator.
-        if self.is_leaf():
-            # Leafs are represented by their strings.
-            return str(self)
-        elif self._name is not None:
-            # Composite operators that have been given a name (possibly
-            # with a goal of simple identification of an error)
-            return self._name
-
-        # General operator. Split into its parts by recursion.
-        tree = self.tree
-
-        child_str = [child._parse_readable() for child in tree.children]
-
-        is_func = False
-        operator_str = None
-
-        # readable representations of known operations
-        if tree.op == Operation.add:
-            operator_str = "+"
-        elif tree.op == Operation.sub:
-            operator_str = "-"
-        elif tree.op == Operation.mul:
-            operator_str = "*"
-        elif tree.op == Operation.div:
-            operator_str = "/"
-        # function evaluations have their own readable representation
-        elif tree.op == Operation.evaluate:
-            is_func = True
-        # for unknown operations, 'operator_str' remains None
-
-        # error message for function evaluations
-        if is_func:
-            msg = f"{child_str[0]}("
-            msg += ", ".join([f"{child}" for child in child_str[1:]])
-            msg += ")"
-            return msg
-        # if operation is unknown, a new error will be raised to raise awareness
-        elif operator_str is None:
-            msg = "UNKNOWN parsing of operation on: "
-            msg += ", ".join([f"{child}" for child in child_str])
-            raise NotImplementedError(msg)
-        # error message for known Operations
-        else:
-            return f"({child_str[0]} {operator_str} {child_str[1]})"
-
-    def _ravel_scipy_matrix(self, results):
-        # In some cases, parsing may leave what is essentially an array, but with the
-        # format of a scipy matrix. This must be converted to a numpy array before
-        # moving on.
-        # Note: It is not clear that this conversion is meaningful in all cases, so be
-        # cautious with adding this extra parsing to more operations.
-        for i, res in enumerate(results):
-            if isinstance(res, sps.spmatrix):
-                assert res.shape[0] <= 1 or res.shape[1] <= 1
-                results[i] = res.toarray().ravel()
+    @property
+    def name(self) -> str:
+        """The name given to this variable."""
+        return self._name
 
     def viz(self):
         """Give a visualization of the operator tree that has this operator at the top."""
         G = nx.Graph()
 
-        def parse_subgraph(node):
+        def parse_subgraph(node: Operator):
             G.add_node(node)
             if len(node.tree.children) == 0:
                 return
@@ -577,24 +101,91 @@ class Operator:
         nx.draw(G, with_labels=True)
         plt.show()
 
+    def is_leaf(self) -> bool:
+        """Check if this operator is a leaf in the tree-representation of an object.
+
+        Returns:
+            bool: True if the operator has no children. Note that this implies that the
+                method parse() is expected to be implemented.
+        """
+        return len(self.tree.children) == 0
+
+    def _set_tree(self, tree=None):
+        """Helper method to set the tree, alternatively instantiate a tree using the void
+        operation.
+
+        """
+        if tree is None:
+            self.tree = Tree(Operator.Operations.void)
+        else:
+            self.tree = tree
+
+    def set_name(self, name: str) -> None:
+        self._name = name
+
+    ### Operator discretization ---------------------------------------------------------------
+    # TODO this is specific to discretizations, we should try to move this to the respective
+    # child classes
+
+    def discretize(self, mdg: pp.MixedDimensionalGrid) -> None:
+        """Perform discretization operation on all discretizations identified in
+        the tree of this operator, using data from mdg.
+
+        IMPLEMENTATION NOTE: The discretizations was identified at initialization of
+        Expression - it is now done here to accommodate updates (?) and
+
+        """
+        unique_discretizations: Dict[
+            _ad_utils.MergedOperator, GridLike
+        ] = self._identify_discretizations()
+        _ad_utils.discretize_from_list(unique_discretizations, mdg)
+
+    def _identify_discretizations(
+        self,
+    ) -> Dict["_ad_utils.MergedOperator", GridLike]:
+        """Perform a recursive search to find all discretizations present in the
+        operator tree. Uniquify the list to avoid double computations.
+
+        """
+        all_discr = self._identify_subtree_discretizations([])
+        return _ad_utils.uniquify_discretization_list(all_discr)
+
+    def _identify_subtree_discretizations(self, discr: list) -> list:
+        """Recursive search in the tree of this operator to identify all discretizations
+        represented in the operator.
+        """
+        if len(self.tree.children) > 0:
+            # Go further in recursion
+            for child in self.tree.children:
+                discr += child._identify_subtree_discretizations([])
+
+        if isinstance(self, _ad_utils.MergedOperator):
+            # We have reached the bottom; this is a discretization (example: mpfa.flux)
+            discr.append(self)
+
+        return discr
+
+
+    ### Operator parsing ----------------------------------------------------------------------
+
     def evaluate(
         self,
         dof_manager: pp.DofManager,
         state: Optional[np.ndarray] = None,
-    ):
+    ):  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given state.
 
         Parameters:
             dof_manager (pp.DofManager): used to represent the problem. Will be used
                 to parse the sub-operators that combine to form this operator.
-            state (np.ndarray, optional): State vector for which the residual and its
+            state (optional): State vector for which the residual and its
                 derivatives should be formed. If not provided, the state will be pulled from
                 the previous iterate (if this exists), or alternatively from the state
                 at the previous time step.
 
         Returns:
             An Ad-array representation of the residual and Jacobian. Note that the Jacobian
-                matrix need not be invertible, or ever square; this depends on the operator.
+            matrix need not be invertible, or ever square; this depends on the operator.
 
         """
         # Get the mixed-dimensional grid used for the dof-manager.
@@ -727,36 +318,451 @@ class Operator:
 
         return eq
 
-    ### Below here are method for overloading arithmetic operators and other special methods
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
+        """Translate the operator into a numerical expression.
+
+        Subclasses that represent atomic operators (leaves in a tree-representation of
+        an operator) should override this method to return e.g. a number, an array or a
+        matrix.
+        This method should not be called on operators that are formed as combinations
+        of atomic operators; such operators should be evaluated by the method evaluate().
+
+        """
+        raise NotImplementedError("This type of operator cannot be parsed right away")
+
+    def _identify_variables(self, dof_manager: pp.DofManager, var: Optional[list] = None):
+        """Identify all variables in this operator."""
+        # 1. Get all variables present in this operator.
+        # The variable finder is implemented in a special function, aimed at recursion
+        # through the operator tree.
+        # Uniquify by making this a set, and then sort on variable id
+        variables = sorted(
+            list(set(self._find_subtree_variables())),
+            key=lambda var: var.id,
+        )
+
+        # 2. Get a mapping between variables (*not* only MergedVariables) and their
+        # indices according to the DofManager. This is needed to access the state of
+        # a variable when parsing the operator to numerical values using forward Ad.
+
+        # For each variable, get the global index
+        inds = []
+        variable_ids = []
+        prev_time = []
+        prev_iter = []
+        for variable in variables:
+            # Indices (in DofManager sense) of this variable. Will be built gradually
+            # for MergedVariables, in one go for plain Variables.
+            ind_var = []
+            prev_time.append(variable.prev_time)
+            prev_iter.append(variable.prev_iter)
+
+            if isinstance(
+                variable, (pp.ad.MixedDimensionalVariable, MixedDimensionalVariable)
+            ):  # Is this equivalent to the test in previous function?
+                # Loop over all subvariables for the merged variable
+                for i, sub_var in enumerate(variable.sub_vars):
+                    # Store dofs
+                    ind_var.append(
+                        dof_manager.grid_and_variable_to_dofs(sub_var._g, sub_var._name)
+                    )
+                    if i == 0:
+                        # Store id of variable, but only for the first one; we will
+                        # concatenate the arrays in ind_var into one array
+                        variable_ids.append(variable.id)
+
+                if len(variable.sub_vars) == 0:
+                    # For empty lists of subvariables, we still need to assign an id
+                    # to the variable.
+                    variable_ids.append(variable.id)
+            else:
+                # This is a variable that lives on a single grid
+                ind_var.append(
+                    dof_manager.grid_and_variable_to_dofs(variable._g, variable._name)
+                )
+                variable_ids.append(variable.id)
+
+            # Gather all indices for this variable
+            if len(ind_var) > 0:
+                inds.append(np.hstack([i for i in ind_var]))
+            else:
+                inds.append(np.array([], dtype=int))
+
+        return inds, variable_ids, prev_time, prev_iter
+
+    def _find_subtree_variables(self) -> Sequence[pp.ad.Variable]:
+        """Method to recursively look for Variables (or MergedVariables) in an
+        operator tree.
+        """
+        # The variables should be located at leaves in the tree. Traverse the tree
+        # recursively, look for variables, and then gather the results.
+
+        if isinstance(self, Variable) or isinstance(self, pp.ad.Variable):
+            # We are at the bottom of a branch of the tree, return the operator
+            return [self]
+        else:
+            # We need to look deeper in the tree.
+            # Look for variables among the children
+            sub_variables = []
+            # When using nested pp.ad.Functions, some of the children may be Ad_arrays
+            # (forward mode), rather than Operators. For the former, don't look for
+            # children - they have none.
+            for child in self.tree.children:
+                if isinstance(child, pp.ad.Operator):
+                    sub_variables += child._find_subtree_variables()
+
+            # Some work is needed to parse the information
+            var_list: Sequence[Variable] = []
+            for var in sub_variables:
+                if isinstance(var, Variable) or isinstance(var, pp.ad.Variable):
+                    # Effectively, this node is one step from the leaf
+                    var_list.append(var)
+                elif isinstance(var, list):
+                    # We are further up in the tree.
+                    for sub_var in var:
+                        if isinstance(sub_var, Variable) or isinstance(
+                            sub_var, pp.ad.Variable
+                        ):
+                            var_list.append(sub_var)
+            return var_list
+
+    # TODO define clear return type
+    def _parse_operator(self, op: "Operator", mdg: pp.MixedDimensionalGrid):
+        """Parses combined operators recursively into a numeric representation.
+
+        Parses first recursively all children in the operator tree.
+        Then returns the resulting AD arrays and combines them according to Forward Mode.
+        The parsing of operation follows Python's Operator precedence.
+
+        """
+
+        # Case 1: If the operator is a Variable, it will be represented according to its state.
+        if isinstance(op, (pp.ad.Variable, Variable)):
+            # Case 1: Variable
+
+            # How to access the array of (Ad representation of) states depends on weather
+            # this is a single or combined variable; see self.__init__, definition of
+            # self._variable_ids.
+            # TODO no different between merged or no merged variables!?
+            if isinstance(op, (pp.ad.MixedDimensionalVariable, MixedDimensionalVariable)):
+                if op.prev_time:
+                    return self._prev_vals[op.id]
+                elif op.prev_iter:
+                    return self._prev_iter_vals[op.id]
+                else:
+                    return self._ad[op.id]
+            else:
+                if op.prev_time:
+                    return self._prev_vals[op.id]
+                elif op.prev_iter or not (
+                    op.id in self._ad
+                ):  # TODO make it more explicit that op corresponds to a non_ad_variable?
+                    # e.g. by op.id in non_ad_variable_ids.
+                    return self._prev_iter_vals[op.id]
+                else:
+                    return self._ad[op.id]
+        # Case 2: If the operator is already an AD array, return it
+        elif isinstance(op, pp.ad.Ad_array):
+            # When using nested operator functions, op can be an already evaluated term.
+            # Just return it.
+            return op
+        # Case 3: If the operator is a leaf in the tree-representation of the operator,
+        # parsing is left to the operator itself.
+        elif op.is_leaf():
+            # Case 2
+            return op.parse(mdg)  # type:ignore
+        
+        # Case 4:
+        # This is not an atomic operator. First parse its children (recusrively),
+        # then combine the results using the respective operation
+        tree = op.tree
+        results = [self._parse_operator(child, mdg) for child in tree.children]
+
+        # Combine the results
+        if tree.op == Operator.Operations.add:
+            # To add we need two objects
+            assert len(results) == 2
+
+            # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
+            self._ravel_scipy_matrix(results)
+
+            if isinstance(results[0], np.ndarray):
+                # With the implementation of Ad arrays, addition does not
+                # commute for combinations with numpy arrays. Switch the order
+                # of results, and everything works.
+                results = results[::-1]
+            try:
+                return results[0] + results[1]
+            except ValueError as exc:
+                msg = self._get_error_message("adding", tree, results)
+                raise ValueError(msg) from exc
+
+        elif tree.op == Operator.Operations.sub:
+            # To subtract we need two objects
+            assert len(results) == 2
+
+            # Convert any vectors that mascaraed as a nx1 (1xn) scipy matrix
+            self._ravel_scipy_matrix(results)
+
+            factor = 1
+
+            if isinstance(results[0], np.ndarray):
+                # With the implementation of Ad arrays, subtraction does not
+                # commute for combinations with numpy arrays. Switch the order
+                # of results, and everything works.
+                results = results[::-1]
+                factor = -1
+
+            try:
+                return factor * (results[0] - results[1])
+            except ValueError as exc:
+                msg = self._get_error_message("subtracting", tree, results)
+                raise ValueError(msg) from exc
+
+        elif tree.op == Operator.Operations.mul:
+            # To multiply we need two objects
+            assert len(results) == 2
+
+            if isinstance(results[0], np.ndarray) and isinstance(
+                results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+            ):
+                # In the implementation of multiplication between an Ad_array and a
+                # numpy array (in the forward mode Ad), a * b and b * a do not
+                # commute. Flip the order of the results to get the expected behavior.
+                results = results[::-1]
+            try:
+                return results[0] * results[1]
+            except ValueError as exc:
+                if isinstance(
+                    results[0], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
+                ) and isinstance(results[1], np.ndarray):
+                    # Special error message here, since the information provided by
+                    # the standard method looks like a contradiction.
+                    # Move this to a helper method if similar cases arise for other
+                    # operations.
+                    msg_0 = tree.children[0]._parse_readable()
+                    msg_1 = tree.children[1]._parse_readable()
+                    nl = "\n"
+                    msg = (
+                        "Error when right multiplying \n"
+                        + f"  {msg_0}"
+                        + nl
+                        + "with"
+                        + nl
+                        + f"  numpy array {msg_1}"
+                        + nl
+                        + f"Size of arrays: {results[0].val.size} and {results[1].size}"
+                        + nl
+                        + "Did you forget some parentheses?"
+                    )
+
+                else:
+                    msg = self._get_error_message("multiplying", tree, results)
+                raise ValueError(msg) from exc
+
+        elif tree.op == Operator.Operations.div:
+            # Some care is needed here, to account for cases where item in the results
+            # array is a numpy array
+            if isinstance(results[0], pp.ad.Ad_array):
+                # If the first item is an Ad array, the implementation of the forward
+                # mode should take care of everything.
+                return results[0] / results[1]
+            elif isinstance(results[0], (np.ndarray, sps.spmatrix)):
+                # if the first array is a numpy array or sparse matrix,
+                # then numpy's implementation of division will be invoked.
+                if isinstance(results[1], (np.ndarray, numbers.Real)):
+                    # Both items are numpy arrays or scalars, everything is fine.
+                    return results[0] / results[1]
+                elif isinstance(results[1], pp.ad.Ad_array):
+                    # Numpy cannot deal with division with an Ad_array. Instead, multiply
+                    # with the inverse of results[1] (this is equivalent, and makes
+                    # numpy happy). The return from numpy will be a new array (data type
+                    # object) with the actual Ad_array as the first item. Exactly why
+                    # numpy functions in this way is not clear to EK.
+                    return (results[0] * results[1] ** -1)[0]
+                else:
+                    # Not sure what this will cover. We have to wait for it to happen.
+                    raise NotImplementedError(
+                        "Encountered a case not covered when dividing Ad objects"
+                    )
+            elif isinstance(results[0], numbers.Real):
+                # if the dividend is a number, the divisor has to be an Ad_array,
+                # otherwise the overloaded division wouldn't have been invoked
+                # We use the same strategy as in above case where the divisor is an Ad_array
+                if isinstance(results[1], pp.ad.Ad_array):
+                    # See remarks by EK in case ndarray / Ad_array
+                    return (results[0] * results[1] ** -1)[0]
+                elif isinstance(results[1], numbers.Real): # trivial case
+                    return results[0] / results[1]
+                elif isinstance(results[1], np.ndarray):
+                    # element-wise division for numpy vectors
+                    if len(results[1].shape) == 1:
+                        return results[0] / results[1]
+                    else:  # if it is a matrix, the inversion should be treated differently
+                        return NotImplementedError(
+                            "Encountered a case not covered when dividing Ad objects"
+                        )
+                else:
+                    # In case above argument, that the divisor can only be an Ad_array,
+                    # is wrong
+                    raise NotImplementedError(
+                        "Encountered a case not covered when dividing Ad objects"
+                    )
+            else:
+                # This case could include results[0] being a float, or different numbers,
+                # which again should be easy to cover.
+                raise NotImplementedError(
+                    "Encountered a case not covered when dividing Ad objects"
+                )
+
+        # function which can handle AD Arrays
+        elif tree.op == Operator.Operations.evaluate:
+            # This is a function, which should have at least one argument
+            assert len(results) > 1
+            func_op = results[0]
+            # feed the callable directly with AD arrays
+            try:
+                return func_op.func(*results[1:])
+            except Exception as exc:
+                msg = "Ad parsing: Error evaluating operator function:\n"
+                msg += func_op._parse_readable()
+                raise ValueError(msg) from exc
+
+        # functions which need some kind of other approximation
+        elif tree.op == Operator.Operations.approximate:
+            # This is a function, which should have at least one argument
+            assert len(results) > 1
+            func_op = results[0]
+            try:
+                val = func_op.get_values(*results[1:])
+                jac = func_op.get_jacobian(*results[1:])
+            except Exception as exc:
+                msg = "Ad parsing: Error using approximate operator function:\n"
+                msg += func_op._parse_readable()
+                raise ValueError(msg) from exc
+            return Ad_array(val, jac)
+
+        # Unknown operation encountered, should not happen if AD framework used properly
+        else:
+            raise ValueError(f"Operator tree contains unknown operation {tree.op}")
+
+    def _get_error_message(self, operation: str, tree, results: list) -> str:
+        # Helper function to format error message
+        msg_0 = tree.children[0]._parse_readable()
+        msg_1 = tree.children[1]._parse_readable()
+
+        msg = (
+            f"Ad parsing: Error when {operation}\n"
+            + "  "
+            + msg_0
+            + "\nwith\n"
+            + "  "
+            + msg_1
+            + "\n"
+        )
+
+        msg += (
+            f"Matrix sizes are {_get_shape(results[0])} and "
+            f"{_get_shape(results[1])}"
+        )
+        return msg
+
+    def _parse_readable(self) -> str:
+        """
+        Make a human-readable error message related to a parsing error.
+        NOTE: The exact formatting should be considered work in progress,
+        in particular when it comes to function evaluation.
+        """
+
+        # There are three cases to consider: Either the operator is a leaf,
+        # it is a composite operator with a name, or it is a general composite
+        # operator.
+        if self.is_leaf():
+            # Leafs are represented by their strings.
+            return str(self)
+        elif self._name is not None:
+            # Composite operators that have been given a name (possibly
+            # with a goal of simple identification of an error)
+            return self._name
+
+        # General operator. Split into its parts by recursion.
+        tree = self.tree
+
+        child_str = [child._parse_readable() for child in tree.children]
+
+        is_func = False
+        operator_str = None
+
+        # readable representations of known operations
+        if tree.op == Operator.Operations.add:
+            operator_str = "+"
+        elif tree.op == Operator.Operations.sub:
+            operator_str = "-"
+        elif tree.op == Operator.Operations.mul:
+            operator_str = "*"
+        elif tree.op == Operator.Operations.div:
+            operator_str = "/"
+        # function evaluations have their own readable representation
+        elif tree.op in (Operator.Operations.evaluate, Operator.Operations.approximate):
+            is_func = True
+        # for unknown operations, 'operator_str' remains None
+
+        # error message for function evaluations
+        if is_func:
+            msg = f"{child_str[0]}("
+            msg += ", ".join([f"{child}" for child in child_str[1:]])
+            msg += ")"
+            return msg
+        # if operation is unknown, a new error will be raised to raise awareness
+        elif operator_str is None:
+            msg = "UNKNOWN parsing of operation on: "
+            msg += ", ".join([f"{child}" for child in child_str])
+            raise NotImplementedError(msg)
+        # error message for known Operations
+        else:
+            return f"({child_str[0]} {operator_str} {child_str[1]})"
+
+    def _ravel_scipy_matrix(self, results):
+        # In some cases, parsing may leave what is essentially an array, but with the
+        # format of a scipy matrix. This must be converted to a numpy array before
+        # moving on.
+        # Note: It is not clear that this conversion is meaningful in all cases, so be
+        # cautious with adding this extra parsing to more operations.
+        for i, res in enumerate(results):
+            if isinstance(res, sps.spmatrix):
+                assert res.shape[0] <= 1 or res.shape[1] <= 1
+                results[i] = res.toarray().ravel()
+
+    ### Special methods -----------------------------------------------------------------------
+
+    def __str__(self) -> str:
+        return self._name if self._name is not None else ""
 
     def __repr__(self) -> str:
         if self._name is None or len(self._name) == 0:
             s = "Operator with no name"
         else:
-            s = f"Operator named {self._name}"
+            s = f"Operator '{self._name}'"
         s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
         return s
-
-    def __str__(self) -> str:
-        return self._name if self._name is not None else ""
 
     def __mul__(self, other):
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operation.mul, children), name="Multiplication operator"
+            tree=Tree(Operator.Operations.mul, children), name="Multiplication operator"
         )
 
     def __truediv__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.div, children), name="Division operator")
+        return Operator(tree=Tree(Operator.Operations.div, children), name="Division operator")
 
     def __add__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.add, children), name="Addition operator")
+        return Operator(tree=Tree(Operator.Operations.add, children), name="Addition operator")
 
     def __sub__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
+        return Operator(tree=Tree(Operator.Operations.sub, children), name="Subtraction operator")
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -769,7 +775,7 @@ class Operator:
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
-        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
+        return Operator(tree=Tree(Operator.Operations.sub, children), name="Subtraction operator")
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
@@ -809,7 +815,6 @@ class Matrix(Operator):
         """
         super().__init__(name=name)
         self._mat = mat
-        self._set_tree()
         self.shape = mat.shape
 
     def __repr__(self) -> str:
@@ -857,7 +862,6 @@ class Array(Operator):
         """
         super().__init__(name=name)
         self._values = values
-        self._set_tree()
 
     def __repr__(self) -> str:
         return f"Wrapped numpy array of size {self._values.size}"
@@ -899,7 +903,6 @@ class Scalar(Operator):
         """
         super().__init__(name=name)
         self._value = value
-        self._set_tree()
 
     def __repr__(self) -> str:
         return f"Wrapped scalar with value {self._value}"
@@ -941,8 +944,6 @@ class Variable(Operator):
             which have not appeared yet.
         subdomains (optional): list with length one containing a grid.
         interfaces (optional): list with length one containing a mortar grid.
-        num_cells: Number of cells in the mortar grid, if the variable is defined on an
-            interface.
         previous_timestep: flag indicating that the variable represents the state at the
             previous time step.
         previous_iteration: flag indicating that the variable represents the state at the
@@ -960,9 +961,6 @@ class Variable(Operator):
         name: str,
         ndof: Dict[str, int],
         domain: Optional[GridLike] = None,
-        subdomains: Optional[List[pp.Grid]] = None,
-        interfaces: Optional[List[pp.MortarGrid]] = None,
-        num_cells: int = 0,  # TODO remove this with, information can be extracted from intf
         previous_timestep: bool = False,
         previous_iteration: bool = False,
     ):
@@ -977,43 +975,26 @@ class Variable(Operator):
 
         self.id = next(Variable._ids)
         """ID counter. Used to identify variables during operator parsing."""
+        super().__init__(name=name)
 
         ### PRIVATE
-
-        self._name: str = name
         # dofs per
         self._cells: int = ndof.get("cells", 0)
         self._faces: int = ndof.get("faces", 0)
         self._nodes: int = ndof.get("nodes", 0)
 
-        # TODO deprecate/remove this with the introduction of the domain property
-        self._set_subdomains_or_interfaces(subdomains, interfaces)
-
         self._g: Optional[GridLike] = domain
         self._is_intf_var: bool
         if isinstance(domain, pp.MortarGrid):
             self._is_intf_var = True
-        else:
+            self.subdomains = []
+            self.interfaces = [domain]
+        elif isinstance(domain, pp.Grid):
             self._is_intf_var = False
-
-        # Shorthand access to grid or edge:
-        if len(self.interfaces) == 0:
-            if len(self.subdomains) != 1:
-                raise ValueError("Variable must be associated with exactly one grid.")
-            self._g = self.subdomains[0]
-            self._is_intf_var = False
+            self.subdomains = [domain]
+            self.interfaces = []
         else:
-            if len(self.interfaces) != 1:
-                raise ValueError("Variable must be associated with exactly one edge.")
-            self._g = self.interfaces[0]
-            self._is_intf_var = True
-
-        self._set_tree()
-
-    @property
-    def name(self) -> str:
-        """The name given to this variable."""
-        return self._name
+            raise ValueError("Variable must be associated either with a grid or a mortar grid")
 
     @property
     def domain(self) -> GridLike:
@@ -1033,6 +1014,13 @@ class Variable(Operator):
                 + self._g.num_faces * self._faces
                 + self._g.num_nodes * self._nodes
             )
+
+    def set_name(self, name: str) -> None:
+        """Variables must not be re-named once defined, since the name is used as a key for
+        indexing.
+
+        """
+        raise RuntimeError("Cannot rename operators representing a variable.")
 
     def previous_timestep(self) -> "Variable":
         """Return a representation of this variable on the previous time step.
@@ -1077,7 +1065,7 @@ class Variable(Operator):
         return s
 
 
-class MergedVariable(Variable):
+class MixedDimensionalVariable(Variable):
     """Ad representation of a collection of variables that individually live on separate
     subdomains or interfaces, but which it is useful to treat jointly.
 
@@ -1090,7 +1078,7 @@ class MergedVariable(Variable):
 
     """
 
-    def __init__(self, variables: List[Variable]) -> None:
+    def __init__(self, variables: Sequence[Variable]) -> None:
 
         ### PUBLIC
 
@@ -1128,6 +1116,7 @@ class MergedVariable(Variable):
             all_names = set(var._name for var in variables)
             assert len(all_names) <= 1
 
+        # must be done since super not called here in init
         self._set_tree()
 
     @property
@@ -1144,7 +1133,7 @@ class MergedVariable(Variable):
         """
         return sum([v.size() for v in self.sub_vars])
 
-    def previous_timestep(self) -> "MergedVariable":
+    def previous_timestep(self) -> "MixedDimensionalVariable":
         """Return a representation of this merged variable on the previous time step.
 
         Returns:
@@ -1152,11 +1141,11 @@ class MergedVariable(Variable):
 
         """
         new_subs = [var.previous_timestep() for var in self.sub_vars]
-        new_var = MergedVariable(new_subs)
+        new_var = MixedDimensionalVariable(new_subs)
         new_var.prev_time = True
         return new_var
 
-    def previous_iteration(self) -> "MergedVariable":
+    def previous_iteration(self) -> "MixedDimensionalVariable":
         """Return a representation of this merged variable on the previous iteration.
 
         Returns:
@@ -1164,11 +1153,11 @@ class MergedVariable(Variable):
 
         """
         new_subs = [var.previous_iteration() for var in self.sub_vars]
-        new_var = MergedVariable(new_subs)
+        new_var = MixedDimensionalVariable(new_subs)
         new_var.prev_iter = True
         return new_var
 
-    def copy(self) -> "MergedVariable":
+    def copy(self) -> "MixedDimensionalVariable":
         # A shallow copy should be sufficient here; the attributes are not expected to
         # change.
         return copy.deepcopy(self)
@@ -1184,8 +1173,6 @@ class MergedVariable(Variable):
         s += (
             f" variable with name {self._name}, id {self.id}\n"
             f"Composed of {len(self.sub_vars)} variables\n"
-            f"Degrees of freedom in cells: {self.sub_vars[0]._cells}"  # TODO how is a single sub variable representative in terms of DOFs?
-            f", faces: {self.sub_vars[0]._faces}, nodes: {self.sub_vars[0]._nodes}\n"
             f"Total size: {self.size()}\n"
         )
 
@@ -1195,7 +1182,6 @@ class MergedVariable(Variable):
 class SecondOrderTensorAd(SecondOrderTensor, Operator):
     def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
         super().__init__(kxx, kyy, kzz, kxy, kxz, kyz)
-        self._set_tree()
 
     def __repr__(self) -> str:
         s = "AD second order tensor"
@@ -1214,13 +1200,13 @@ class Tree:
     # https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python
     def __init__(
         self,
-        operation: Operation,
-        children: Optional[List[Union[Operator, Ad_array]]] = None,
+        operation: Operator.Operations,
+        children: Optional[Sequence[Union[Operator, Ad_array]]] = None,
     ):
 
         self.op = operation
 
-        self.children: List[Union[Operator, Ad_array]] = []
+        self.children: list[Union[Operator, Ad_array]] = []
         if children is not None:
             for child in children:
                 self.add_child(child)

@@ -667,7 +667,6 @@ class Divergence(Operator):
         self.subdomains = subdomains
 
         self.dim: int = dim
-        self._set_tree(None)
 
     def __repr__(self) -> str:
         s = (
@@ -745,8 +744,6 @@ class BoundaryCondition(Operator):
         super().__init__(name=name)
         self.keyword = keyword
         self.subdomains: List[pp.Grid] = subdomains
-        # FIXME: Super sets tree. Purge?
-        self._set_tree()
 
     def __repr__(self) -> str:
         s = f"Boundary Condition operator with keyword {self.keyword}\n"
@@ -799,7 +796,6 @@ class DirBC(Operator):
         self.subdomains: List[pp.Grid] = subdomains
         if not (len(self.subdomains) == 1):
             raise RuntimeError("DirBc not implemented for more than one grid.")
-        self._set_tree()
 
     def __repr__(self) -> str:
         return f"Dirichlet boundary data of size {self._bc.val.size}"
@@ -874,7 +870,6 @@ class ParameterArray(Operator):
         self.array_keyword = array_keyword
         self.subdomains: List[pp.Grid] = subdomains
         self.interfaces: List[pp.MortarGrid] = interfaces
-        self._set_tree()
 
     def __repr__(self) -> str:
         s = (

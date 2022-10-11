@@ -61,7 +61,7 @@ class ADSystem:
         self.dof_manager: pp.DofManager = pp.DofManager(mdg)
         """DofManager created using the passed grid."""
 
-        self.variables: Dict[str, pp.ad.MergedVariable] = dict()
+        self.variables: Dict[str, pp.ad.MixedDimensionalVariable] = dict()
         """Contains references to (global) MergedVariables for a given name (key)."""
 
         self.grid_variables: Dict[GridLike, Dict[str, pp.ad.Variable]] = dict()
@@ -114,7 +114,7 @@ class ADSystem:
         subdomains: Union[None, list[pp.Grid]] = list(),
         interfaces: Optional[list[pp.MortarGrid]] = None,
         category: Optional[Enum] = None,
-    ) -> pp.ad.MergedVariable:
+    ) -> pp.ad.MixedDimensionalVariable:
         """Creates a new variable according to specifications.
 
         Parameters:
@@ -181,7 +181,7 @@ class ADSystem:
                 data[variable_category].update({name: dof_info})
 
                 # create grid-specific variable
-                new_var = pp.ad.Variable(name, dof_info, subdomains=[sd])
+                new_var = pp.ad.Variable(name, dof_info, domain=sd)
                 if sd not in self.grid_variables.keys():
                     self.grid_variables.update({sd: dict()})
                 if name not in self.grid_variables[sd].keys():
@@ -209,9 +209,7 @@ class ADSystem:
                     data[variable_category].update({name: dof_info})
 
                     # create mortar grid variable
-                    new_var = pp.ad.Variable(
-                        name, dof_info, interfaces=[intf], num_cells=intf.num_cells
-                    )
+                    new_var = pp.ad.Variable(name, dof_info, domain=intf)
                     if intf not in self.grid_variables.keys():
                         self.grid_variables.update({intf: dict()})
                     if name not in self.grid_variables[intf].keys():
@@ -219,7 +217,7 @@ class ADSystem:
                     variables.append(new_var)
 
         # create and store the merged variable
-        merged_var = pp.ad.MergedVariable(variables)
+        merged_var = pp.ad.MixedDimensionalVariable(variables)
         self.variables.update({name: merged_var})
 
         # append the new DOFs to the global system if a primary variable has been created
@@ -294,7 +292,7 @@ class ADSystem:
 
     def get_var_names_from(
         self,
-        variables: Sequence[Union[pp.ad.Variable, pp.ad.MergedVariable]],
+        variables: Sequence[Union[pp.ad.Variable, pp.ad.MixedDimensionalVariable]],
     ) -> tuple[str]:
         """Extracts the (unique) names of passed variables.
 
@@ -315,7 +313,7 @@ class ADSystem:
         for var in variables:
             # Unravels each variable inside a MergedVariable
             # TODO is this really necessary? Can a merged var contain different sd vars?
-            if isinstance(var, pp.ad.MergedVariable):
+            if isinstance(var, pp.ad.MixedDimensionalVariable):
                 for sv in var.sub_vars:
                     var_names.add(sv.name)
             elif isinstance(var, pp.ad.Variable):
