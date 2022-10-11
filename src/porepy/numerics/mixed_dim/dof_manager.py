@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+from enum import Enum, EnumMeta
 from typing import Dict, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -70,9 +71,7 @@ class DofManager:
     ### DOF management ------------------------------------------------------------------------
 
     def num_dofs(self) -> np.int_:
-        """Get the number of degrees of freedom in this DofManager.
-
-        Returns: size of subsystem.
+        """Returns the total number of DOFs managed by this DofManager
 
         """
         return np.sum(self.full_dof)
@@ -150,36 +149,8 @@ class DofManager:
                         + sd.num_nodes * local_dofs.get("nodes", 0)
                     )
                     full_dof.append(total_local_dofs)
-            # creating dofs only for secondary variables.
-            # NOTE this will be removed in the near future.
-            if pp.SECONDARY_VARIABLES in data:
-                for local_var, local_dofs in data[pp.SECONDARY_VARIABLES].items():
-                    # filter for which variables DOFs should be created
-                    if isinstance(for_vars, Sequence):
-                        if local_var not in for_vars:
-                            continue
 
-                    # make sure DOFs are not added more than once per combination
-                    if (sd, local_var) in self.block_dof.keys():
-                        raise ValueError(
-                            f"DOFs already present for variable '{local_var}' "
-                            f"on subdomain '{sd}'."
-                        )
-
-                    # First assign a block index.
-                    block_dof[(sd, local_var)] = block_dof_counter
-                    block_dof_counter += 1
-
-                    # Count number of dofs for this variable on this grid and store it.
-                    # The number of dofs for each dof type defaults to zero.
-                    total_local_dofs = (
-                        sd.num_cells * local_dofs.get("cells", 0)
-                        + sd.num_faces * local_dofs.get("faces", 0)
-                        + sd.num_nodes * local_dofs.get("nodes", 0)
-                    )
-                    full_dof.append(total_local_dofs)
-
-        # Add dofs on edges
+        # Add dofs on interfaces
         for intf, data in self.mdg.interfaces(return_data=True):
             # creating dofs only for primary variables
             if pp.PRIMARY_VARIABLES in data:
@@ -193,31 +164,7 @@ class DofManager:
                     if (intf, local_var) in self.block_dof.keys():
                         raise ValueError(
                             f"DOFs already present for variable '{local_var}' "
-                            "on interface '{intf}'."
-                        )
-
-                    # Adding block dof counter
-                    block_dof[(intf, local_var)] = block_dof_counter
-                    block_dof_counter += 1
-
-                    # We only allow for cell variables on the mortar grids.
-                    # This will not change in the foreseeable future
-                    total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
-                    full_dof.append(total_local_dofs)
-            # creating dofs only for secondary variables.
-            # NOTE this will be removed in the near future.
-            if pp.SECONDARY_VARIABLES in data:
-                for local_var, local_dofs in data[pp.SECONDARY_VARIABLES].items():
-                    # filter for which variables DOFs should be created
-                    if isinstance(for_vars, Sequence):
-                        if local_var not in for_vars:
-                            continue
-
-                    # make sure DOFs are not added more than once per combination
-                    if (intf, local_var) in self.block_dof.keys():
-                        raise ValueError(
-                            f"DOFs already present for variable '{local_var}' "
-                            "on interface '{intf}'."
+                            f"on interface '{intf}'."
                         )
 
                     # Adding block dof counter
@@ -233,36 +180,31 @@ class DofManager:
 
     ### Variable management by strings (names) ------------------------------------------------
 
-    def get_variables(self, primary: bool, secondary: bool) -> tuple[str]:
+    def get_variables(
+        self, category: Optional[Union[Enum, Sequence[Enum]]] = None
+    ) -> tuple[str]:
         """Returns a set of all, currently stored variables.
 
         Parameters:
-            primary: if true, includes the primary variables
-            secondary: if true, includes the secondary variables
+            category (optional): filter for which categories of variables are requested.
 
         """
         # storage
         all_vars = list()
         # get vars on subdomains
         for _, data in self.mdg.subdomains(return_data=True):
-            if primary:
+            if category is None:
                 vars = data.get(pp.PRIMARY_VARIABLES, None)
                 if vars:
                     all_vars += vars.keys()
-            if secondary:
-                vars = data.get(pp.SECONDARY_VARIABLES, None)
-                if vars:
-                    all_vars += vars.keys()
+
         # get vars on interfaces
         for _, data in self.mdg.interfaces(return_data=True):
-            if primary:
+            if category is None:
                 vars = data.get(pp.PRIMARY_VARIABLES, None)
                 if vars:
                     all_vars += vars.keys()
-            if secondary:
-                vars = data.get(pp.SECONDARY_VARIABLES, None)
-                if vars:
-                    all_vars += vars.keys()
+
         # make unique with set
         return tuple(set(all_vars))
 

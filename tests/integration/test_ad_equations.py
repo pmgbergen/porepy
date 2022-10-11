@@ -350,7 +350,7 @@ def _compare_solutions(m0, m1, tol=1e-7) -> None:
                     ):
                         # Reformulation; the advective flux is time integrated in
                         # non-ad but not in ad.
-                        sol1 = intf_data[pp.STATE][var] * m1.time_step
+                        sol1 = intf_data[pp.STATE][var] * m1.time_manager.dt
                     else:
                         sol1 = intf_data[pp.STATE][var]
                     break
@@ -437,14 +437,10 @@ def _timestep_stepwise_newton_with_comparison(model_as, model_ad):
     model_ad.prepare_simulation()
     model_ad.before_newton_loop()
 
-    model_as.time_index = 0
-    model_ad.time_index = 0
-    t_end = model_as.end_time
-
-    while model_as.time < t_end:
+    while model_as.time_manager.time < model_as.time_manager.time_final:
         for model in (model_as, model_ad):
-            model.time += model.time_step
-            model.time_index += 1
+            model.time_manager.increase_time()
+            model.time_manager.increase_time_index()
         _stepwise_newton_with_comparison(model_as, model_ad, prepare=False)
 
 
@@ -481,7 +477,8 @@ def test_contact_mechanics(grid_method):
     ],
 )
 def test_contact_mechanics_biot(grid_method):
-    params = {"time_step": 0.5, "end_time": 1}
+    time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
+    params = {"time_manager": time_manager}
     model_as = BiotContactModel(params.copy(), grid_method)
 
     model_ad = BiotContactModel(params, grid_method)
@@ -503,7 +500,8 @@ def test_contact_mechanics_biot(grid_method):
     ],
 )
 def test_thm(grid_method):
-    params = {"time_step": 0.5e-0, "end_time": 1.0e-0}
+    time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.5, constant_dt=True)
+    params = {"time_manager": time_manager}
     model_as = THMModel(params.copy(), grid_method)
 
     model_ad = THMModel(params, grid_method)
