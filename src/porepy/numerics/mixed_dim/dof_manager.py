@@ -34,7 +34,9 @@ class DofManager:
 
     """
 
-    admissible_dof_types: set[str] = {"cells", "faces", "nodes"}
+    admissible_dof_types: tuple[Literal["cells"], Literal["faces"], Literal["nodes"]] = (
+        "cells", "faces", "nodes"
+    )
     """A set denoting admissible types of local DOFs for variables.
 
     - nodes: DOFs per node, which constitute the grid

@@ -50,7 +50,7 @@ class Phase(abc.ABC):
     __singleton_accessed: bool = False
 
     def __new__(
-        cls, name: str, ad_system: Optional[pp.ad.ADSystemManager] = None
+        cls, name: str, ad_system: Optional[pp.ad.ADSystem] = None
     ) -> Phase:
         # check for AD singletons per grid
         if ad_system:
@@ -71,7 +71,7 @@ class Phase(abc.ABC):
         return new_instance
 
     def __init__(
-        self, name: str, ad_system: Optional[pp.ad.ADSystemManager] = None
+        self, name: str, ad_system: Optional[pp.ad.ADSystem] = None
     ) -> None:
         # skipping re-instantiation if class if __new__ returned the previous reference
         if Phase.__singleton_accessed:
@@ -82,7 +82,7 @@ class Phase(abc.ABC):
 
         ### PUBLIC
 
-        self.ad_system: Optional[pp.ad.ADSystemManager] = ad_system
+        self.ad_system: Optional[pp.ad.ADSystem] = ad_system
         """The AD system optionally passed at instantiation."""
 
         #### PRIVATE

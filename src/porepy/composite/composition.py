@@ -84,13 +84,13 @@ class Composition:
             subdomain.
     """
 
-    def __init__(self, ad_system: Optional[pp.ad.ADSystemManager] = None) -> None:
+    def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
 
         if ad_system is None:  # TODO
             raise NotImplementedError("Composition standalone model not yet available.")
         ### PUBLIC
 
-        self.ad_system: Optional[pp.ad.ADSystemManager] = ad_system
+        self.ad_system: Optional[pp.ad.ADSystem] = ad_system
         """The AD system passed at instantiation."""
 
         self.flash_history: List[Dict[str, Any]] = list()

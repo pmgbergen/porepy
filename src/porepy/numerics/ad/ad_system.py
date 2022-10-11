@@ -5,7 +5,8 @@ using the AD framework.
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Optional, Sequence, Union
+from enum import Enum, EnumMeta
+from typing import Callable, Dict, Literal, Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -14,12 +15,12 @@ import porepy as pp
 
 from . import _ad_utils
 
-__all__ = ["ADSystemManager"]
+__all__ = ["ADSystem"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
 
 
-class ADSystemManager:
+class ADSystem:
     """Represents a system of equations, modelled by AD variables and equations in AD form.
 
     This class provides functionalities to create and manage primary and secondary variables,
@@ -39,18 +40,26 @@ class ADSystemManager:
         This class also lacks optimization methods reducing the band width of the resulting
         Jacobian. This will be added in the future.
 
+        Internally, this class uses a :class:`porepy.DofManager` until further notice.
+
     Parameters:
-        dof_manager: The DOF manager, providing read-write functionalities to data dictionaries
-            and the mixed-dimensional grid itself.
+        mdg: mixed-dimensional grid representing the whole computational domain.
+        var_categories (optional): an :class:`Enum` object containing categories for variables,
+            defined by the user/modeler. They can later be used to assign categories to created
+            variables and assemble respective subsystems.
 
     """
 
-    def __init__(self, dof_manager: pp.DofManager) -> None:
+    def __init__(
+        self,
+        mdg: pp.MixedDimensionalGrid,
+        var_categories: Optional[EnumMeta] = None
+    ) -> None:
 
         ### PUBLIC
 
-        self.dof_manager: pp.DofManager = dof_manager
-        """DofManager passed at instantiation."""
+        self.dof_manager: pp.DofManager = pp.DofManager(mdg)
+        """DofManager created using the passed grid."""
 
         self.variables: Dict[str, pp.ad.MergedVariable] = dict()
         """Contains references to (global) MergedVariables for a given name (key)."""
@@ -67,6 +76,9 @@ class ADSystemManager:
         name (key).
 
         """
+
+        self.var_categories: Optional[EnumMeta] = var_categories
+        """Enumeration object containing the variable categories passed at instantiation."""
 
         ### PRIVATE
 
@@ -97,9 +109,12 @@ class ADSystemManager:
         self,
         name: str,
         primary: bool,
-        dof_info: dict[str, int] = {"cells": 1},
+        dof_info: dict[Union[Literal["cells"], Literal["faces"], Literal["nodes"]], int] = {
+            "cells": 1
+        },
         subdomains: Union[None, list[pp.Grid]] = list(),
         interfaces: Optional[list[pp.MortarGrid]] = None,
+        category: Optional[Enum] = None,
     ) -> pp.ad.MergedVariable:
         """Creates a new variable according to specifications.
 
@@ -129,7 +144,7 @@ class ADSystemManager:
         """
         # sanity check for admissible DOF types
         requested_type = set(dof_info.keys())
-        if not requested_type.issubset(self.dof_manager.admissible_dof_types):
+        if not requested_type.issubset(set(self.dof_manager.admissible_dof_types)):
             non_admissible = requested_type.difference(
                 self.dof_manager.admissible_dof_types
             )
@@ -761,7 +776,7 @@ class ADSystemManager:
         else:
             RuntimeError("Schur complement was not assembled beforehand.")
 
-    def create_subsystem_manager(self, eq_names: Union[str, Sequence[str]]) -> ADSystemManager:
+    def create_subsystem_manager(self, eq_names: Union[str, Sequence[str]]) -> ADSystem:
         """Creates an ``ADSystemManager`` for a given subset of equations.
 
         Parameters:
@@ -774,7 +789,7 @@ class ADSystemManager:
 
         """
         # creating a new manager and adding the requested equations
-        new_manger = ADSystemManager(self.dof_manager)
+        new_manger = ADSystem(self.dof_manager)
 
         if isinstance(eq_names, str):
             eq_names = [eq_names]  # type: ignore
@@ -820,7 +835,7 @@ class ADSystemManager:
 
         all_vars = self.dof_manager.get_variables(True, True)
         var_grid = [
-            (sub_var.name, sub_var.grid)
+            (sub_var.name, sub_var.domain)
             for var in self.variables.values()
             for sub_var in var.sub_vars
         ]
