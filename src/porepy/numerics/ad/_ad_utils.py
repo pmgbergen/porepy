@@ -17,7 +17,7 @@ Classes:
         discretization or a set of AD discretizations.
 
 """
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -27,17 +27,11 @@ import porepy as pp
 from . import operators
 from .forward_mode import Ad_array
 
-SubdomainList = List[pp.Grid]
-InterfaceList = List[pp.MortarGrid]
 
-
-def concatenate(variables, axis=0):
-    # NOTE: This function is related to an outdated approach to equation assembly
-    # based on forward Ad. For now, it is kept for legacy reasons, however,
-    # the newer approach based on Operators and the EquationManager is
-    # highly recommended.
-    vals = [var.val for var in variables]
-    jacs = np.array([var.jac for var in variables])
+def concatenate_ad_arrays(ad_arrays: Sequence[Ad_array], axis=0):
+    """Concatenates a sequence of AD arrays into a single AD Array along a specified axis."""
+    vals = [var.val for var in ad_arrays]
+    jacs = np.array([var.jac for var in ad_arrays])
 
     vals_stacked = np.concatenate(vals, axis=axis)
     jacs_stacked = sps.vstack(jacs)
@@ -48,8 +42,8 @@ def concatenate(variables, axis=0):
 def wrap_discretization(
     obj,
     discr,
-    subdomains: Optional[SubdomainList] = None,
-    interfaces: Optional[InterfaceList] = None,
+    subdomains: Optional[Sequence[pp.Grid]] = None,
+    interfaces: Optional[Sequence[pp.MortarGrid]] = None,
     mat_dict_key: Optional[str] = None,
     mat_dict_grids=None,
 ):
@@ -109,7 +103,8 @@ def uniquify_discretization_list(all_discr):
 
     """
     discr_type = Union["pp.Discretization", "pp.AbstractInterfaceLaw"]
-    unique_discr_grids: Dict[discr_type, Union[SubdomainList, InterfaceList]] = {}
+    unique_discr_grids: Dict[discr_type, Union[Sequence[pp.Grid], Sequence[pp.MortarGrid]]] = {
+    }
 
     # Mapping from discretization classes to the discretization.
     # We needed this for some reason.
@@ -199,8 +194,8 @@ class MergedOperator(operators.Operator):
         key: str,
         mat_dict_key: str,
         mat_dict_grids,
-        subdomains: Optional[SubdomainList] = None,
-        interfaces: Optional[InterfaceList] = None,
+        subdomains: Optional[Sequence[pp.Grid]] = None,
+        interfaces: Optional[Sequence[pp.MortarGrid]] = None,
     ) -> None:
         """Initiate a merged discretization.
 
@@ -215,16 +210,24 @@ class MergedOperator(operators.Operator):
             mat_dict_grids: EK, could this be a list of grid-likes?
 
         """
-        self._name = discr.__class__.__name__
-        self._set_subdomains_or_interfaces(subdomains, interfaces)
+        name = discr.__class__.__name__
+        super().__init__(name=name)
+
         self.key = key
         self.discr = discr
+        if subdomains is None:
+            assert isinstance(interfaces, Sequence)
+            self.subdomains = []
+            self.interfaces = interfaces
+        else:
+            assert isinstance(subdomains, Sequence)
+            assert interfaces is None
+            self.subdomains = subdomains
+            self.interfaces = []
 
         # Special field to access matrix dictionary for Biot
         self.mat_dict_key = mat_dict_key
         self.mat_dict_grids = mat_dict_grids
-
-        self._set_tree(None)
 
     def __repr__(self) -> str:
         if len(self.interfaces) == 0:
