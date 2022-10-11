@@ -357,9 +357,8 @@ class Operator:
             prev_time.append(variable.prev_time)
             prev_iter.append(variable.prev_iter)
 
-            if isinstance(
-                variable, (pp.ad.MixedDimensionalVariable, MixedDimensionalVariable)
-            ):  # Is this equivalent to the test in previous function?
+            if isinstance(variable, MixedDimensionalVariable):
+                # Is this equivalent to the test in previous function?
                 # Loop over all subvariables for the merged variable
                 for i, sub_var in enumerate(variable.sub_vars):
                     # Store dofs
@@ -397,7 +396,7 @@ class Operator:
         # The variables should be located at leaves in the tree. Traverse the tree
         # recursively, look for variables, and then gather the results.
 
-        if isinstance(self, Variable) or isinstance(self, pp.ad.Variable):
+        if isinstance(self, Variable):
             # We are at the bottom of a branch of the tree, return the operator
             return [self]
         else:
@@ -414,15 +413,13 @@ class Operator:
             # Some work is needed to parse the information
             var_list: Sequence[Variable] = []
             for var in sub_variables:
-                if isinstance(var, Variable) or isinstance(var, pp.ad.Variable):
+                if isinstance(var, Variable):
                     # Effectively, this node is one step from the leaf
                     var_list.append(var)
                 elif isinstance(var, list):
                     # We are further up in the tree.
                     for sub_var in var:
-                        if isinstance(sub_var, Variable) or isinstance(
-                            sub_var, pp.ad.Variable
-                        ):
+                        if isinstance(sub_var, Variable):
                             var_list.append(sub_var)
             return var_list
 
@@ -437,14 +434,14 @@ class Operator:
         """
 
         # Case 1: If the operator is a Variable, it will be represented according to its state.
-        if isinstance(op, (pp.ad.Variable, Variable)):
+        if isinstance(op, Variable):
             # Case 1: Variable
 
             # How to access the array of (Ad representation of) states depends on weather
             # this is a single or combined variable; see self.__init__, definition of
             # self._variable_ids.
             # TODO no different between merged or no merged variables!?
-            if isinstance(op, (pp.ad.MixedDimensionalVariable, MixedDimensionalVariable)):
+            if isinstance(op, MixedDimensionalVariable):
                 if op.prev_time:
                     return self._prev_vals[op.id]
                 elif op.prev_iter:
@@ -523,9 +520,7 @@ class Operator:
             # To multiply we need two objects
             assert len(results) == 2
 
-            if isinstance(results[0], np.ndarray) and isinstance(
-                results[1], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
-            ):
+            if isinstance(results[0], np.ndarray) and isinstance(results[1], Ad_array):
                 # In the implementation of multiplication between an Ad_array and a
                 # numpy array (in the forward mode Ad), a * b and b * a do not
                 # commute. Flip the order of the results to get the expected behavior.
@@ -533,9 +528,7 @@ class Operator:
             try:
                 return results[0] * results[1]
             except ValueError as exc:
-                if isinstance(
-                    results[0], (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)
-                ) and isinstance(results[1], np.ndarray):
+                if isinstance(results[0], Ad_array) and isinstance(results[1], np.ndarray):
                     # Special error message here, since the information provided by
                     # the standard method looks like a contradiction.
                     # Move this to a helper method if similar cases arise for other
@@ -749,20 +742,20 @@ class Operator:
     def __mul__(self, other):
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.Operations.mul, children), name="Multiplication operator"
+            tree=Tree(Operator.Operations.mul, children), name="* operator"
         )
 
     def __truediv__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.div, children), name="Division operator")
+        return Operator(tree=Tree(Operator.Operations.div, children), name="/ operator")
 
     def __add__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.add, children), name="Addition operator")
+        return Operator(tree=Tree(Operator.Operations.add, children), name="+ operator")
 
     def __sub__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.sub, children), name="Subtraction operator")
+        return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
 
     def __rmul__(self, other):
         return self.__mul__(other)
@@ -775,7 +768,7 @@ class Operator:
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
-        return Operator(tree=Tree(Operator.Operations.sub, children), name="Subtraction operator")
+        return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
@@ -784,9 +777,9 @@ class Operator:
             return [self, pp.ad.Array(other)]
         elif isinstance(other, sps.spmatrix):
             return [self, pp.ad.Matrix(other)]
-        elif isinstance(other, pp.ad.Operator) or isinstance(other, Operator):
+        elif isinstance(other, Operator):
             return [self, other]
-        elif isinstance(other, pp.ad.Ad_array):
+        elif isinstance(other, Ad_array):
             # This may happen when using nested pp.ad.Function.
             return [self, other]
         else:

@@ -59,7 +59,7 @@ class ADSystem:
         ### PUBLIC
 
         self.mdg: pp.MixedDimensionalGrid = mdg
-        """Mixed-dimensional domain passed at instantiation"""
+        """Mixed-dimensional domain passed at instantiation."""
 
         self.var_categories: Optional[EnumMeta] = var_categories
         """Enumeration object containing the variable categories passed at instantiation."""
