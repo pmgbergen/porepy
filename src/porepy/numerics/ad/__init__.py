@@ -9,13 +9,14 @@ etc.
 __all__ = []
 
 from . import (
+    ad_system,
     discretizations,
     equation_manager,
     forward_mode,
     functions,
     grid_operators,
     operator_functions,
-    operators,
+    operators
 )
 from .discretizations import *
 from .equation_manager import *
@@ -24,6 +25,7 @@ from .functions import *
 from .grid_operators import *
 from .operator_functions import *
 from .operators import *
+from .ad_system import *
 
 __all__.extend(operators.__all__)
 __all__.extend(operator_functions.__all__)
@@ -32,3 +34,4 @@ __all__.extend(functions.__all__)
 __all__.extend(forward_mode.__all__)
 __all__.extend(grid_operators.__all__)
 __all__.extend(equation_manager.__all__)
+__all__.extend(ad_system.__all__)

@@ -422,6 +422,16 @@ class Operator:
                 if isinstance(results[1], pp.ad.Ad_array):
                     # See remarks by EK in case ndarray / Ad_array
                     return (results[0] * results[1] ** -1)[0]
+                elif isinstance(results[1], numbers.Real): # trivial case
+                    return results[0] / results[1]
+                elif isinstance(results[1], np.ndarray):
+                    # element-wise division for numpy vectors
+                    if len(results[1].shape) == 1:
+                        return results[0] / results[1]
+                    else:  # if it is a matrix, the inversion should be treated differently
+                        return NotImplementedError(
+                            "Encountered a case not covered when dividing Ad objects"
+                        )
                 else:
                     # In case above argument, that the divisor can only be an Ad_array,
                     # is wrong
@@ -548,17 +558,6 @@ class Operator:
                 assert res.shape[0] <= 1 or res.shape[1] <= 1
                 results[i] = res.toarray().ravel()
 
-    def __repr__(self) -> str:
-        if self._name is None or len(self._name) == 0:
-            s = "Operator with no name"
-        else:
-            s = f"Operator named {self._name}"
-        s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
-        return s
-
-    def __str__(self) -> str:
-        return self._name if self._name is not None else ""
-
     def viz(self):
         """Give a visualization of the operator tree that has this operator at the top."""
         G = nx.Graph()
@@ -578,42 +577,9 @@ class Operator:
         nx.draw(G, with_labels=True)
         plt.show()
 
-    ### Below here are method for overloading arithmetic operators
-
-    def __mul__(self, other):
-        children = self._parse_other(other)
-        return Operator(
-            tree=Tree(Operation.mul, children), name="Multiplication operator"
-        )
-
-    def __truediv__(self, other):
-        children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.div, children), name="Division operator")
-
-    def __add__(self, other):
-        children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.add, children), name="Addition operator")
-
-    def __sub__(self, other):
-        children = self._parse_other(other)
-        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
-
-    def __rmul__(self, other):
-        return self.__mul__(other)
-
-    def __radd__(self, other):
-        return self.__add__(other)
-
-    def __rsub__(self, other):
-        # consider the expression a-b. right-subtraction means self == b
-        children = self._parse_other(other)
-        # we need to change the order here since a-b != b-a
-        children = [children[1], children[0]]
-        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
-
     def evaluate(
         self,
-        dof_manager: "pp.DofManager",
+        dof_manager: pp.DofManager,
         state: Optional[np.ndarray] = None,
     ):
         """Evaluate the residual and Jacobian matrix for a given state.
@@ -760,6 +726,50 @@ class Operator:
         eq = self._parse_operator(self, mdg)
 
         return eq
+
+    ### Below here are method for overloading arithmetic operators and other special methods
+
+    def __repr__(self) -> str:
+        if self._name is None or len(self._name) == 0:
+            s = "Operator with no name"
+        else:
+            s = f"Operator named {self._name}"
+        s += f" formed by {self.tree.op} with {len(self.tree.children)} children."
+        return s
+
+    def __str__(self) -> str:
+        return self._name if self._name is not None else ""
+
+    def __mul__(self, other):
+        children = self._parse_other(other)
+        return Operator(
+            tree=Tree(Operation.mul, children), name="Multiplication operator"
+        )
+
+    def __truediv__(self, other):
+        children = self._parse_other(other)
+        return Operator(tree=Tree(Operation.div, children), name="Division operator")
+
+    def __add__(self, other):
+        children = self._parse_other(other)
+        return Operator(tree=Tree(Operation.add, children), name="Addition operator")
+
+    def __sub__(self, other):
+        children = self._parse_other(other)
+        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __rsub__(self, other):
+        # consider the expression a-b. right-subtraction means self == b
+        children = self._parse_other(other)
+        # we need to change the order here since a-b != b-a
+        children = [children[1], children[0]]
+        return Operator(tree=Tree(Operation.sub, children), name="Subtraction operator")
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
@@ -915,26 +925,28 @@ class Scalar(Operator):
 
 
 class Variable(Operator):
-    """Ad representation of a variable defined on a single Grid or MortarGrid.
+    """Ad representation of a variable defined **either** on a single Grid **or** MortarGrid.
 
     For combinations of variables on different subdomains, see MergedVariable.
 
-    Conversion of the variable into numerical value should be done with respect to the
-    state of an array; see the method evaluate(). Therefore, the variable does not
-    implement a parse() method.
+    Conversion of the variables into numerical value should be done with respect to the
+    state of an array; see :meth:`Operator.evaluate`.
+    Therefore, the class does not implement :meth:`Operator.parse`
 
-    Attributes:
-        id (int): Unique identifier of this variable.
-        prev_iter (boolean): Whether the variable represents the state at the
-            previous iteration.
-        prev_time (boolean): Whether the variable represents the state at the
+    Parameters:
+        name : given name. Used to together with the domain to identify the variable
+        ndof: number of dofs per dof type (cells, faces, nodes).
+        domain (optional): domain of definition. Can be optional for variables defined on
+            subdomains with codimension >= 1, but "inactive". E.g. variables on fractures
+            which have not appeared yet.
+        subdomains (optional): list with length one containing a grid.
+        interfaces (optional): list with length one containing a mortar grid.
+        num_cells: Number of cells in the mortar grid, if the variable is defined on an
+            interface.
+        previous_timestep: flag indicating that the variable represents the state at the
             previous time step.
-        subdomains: List with one item, giving the single grid on which the operator is
-            defined.
-        interfaces: List with one item, giving the single edge (tuple of subdomains) on
-            which the operator is defined.
-
-        It is assumed that exactly one of subdomains and interfaces is defined.
+        previous_iteration: flag indicating that the variable represents the state at the
+            previous iteration.
 
     """
 
@@ -947,66 +959,72 @@ class Variable(Operator):
         self,
         name: str,
         ndof: Dict[str, int],
+        domain: Optional[GridLike] = None,
         subdomains: Optional[List[pp.Grid]] = None,
         interfaces: Optional[List[pp.MortarGrid]] = None,
-        num_cells: int = 0,
+        num_cells: int = 0,  # TODO remove this with, information can be extracted from intf
         previous_timestep: bool = False,
         previous_iteration: bool = False,
     ):
-        """Initiate an Ad representation of a variable associated with a grid or edge.
 
-        It is assumed that exactly one of subdomains and interfaces is defined.
-        Parameters:
-            name (str): Variable name.
-            ndof (dict): Number of dofs per grid element.
-            subdomains (optional list of pp.Grid ): List with length one containing a grid.
-            interfaces (optional list of pp.MortarGrid): List with length one containing
-                an interface.
-            num_cells (int): Number of cells in the grid. Only sued if the variable
-                is on an interface.
+        ### PUBLIC
 
-        """
+        self.prev_time: bool = previous_timestep
+        """Flag indicating if the variable represents the state at the previous time step."""
+
+        self.prev_iter: bool = previous_iteration
+        """Flag indicating if the variable represents the state at the previous iteration."""
+
+        self.id = next(Variable._ids)
+        """ID counter. Used to identify variables during operator parsing."""
+
+        ### PRIVATE
 
         self._name: str = name
+        # dofs per
         self._cells: int = ndof.get("cells", 0)
         self._faces: int = ndof.get("faces", 0)
         self._nodes: int = ndof.get("nodes", 0)
+
+        # TODO deprecate/remove this with the introduction of the domain property
         self._set_subdomains_or_interfaces(subdomains, interfaces)
 
-        self._g: Union[pp.Grid, pp.MortarGrid]
+        self._g: Optional[GridLike] = domain
+        self._is_intf_var: bool
+        if isinstance(domain, pp.MortarGrid):
+            self._is_intf_var = True
+        else:
+            self._is_intf_var = False
 
         # Shorthand access to grid or edge:
         if len(self.interfaces) == 0:
             if len(self.subdomains) != 1:
                 raise ValueError("Variable must be associated with exactly one grid.")
             self._g = self.subdomains[0]
-            self._is_edge_var = False
+            self._is_intf_var = False
         else:
             if len(self.interfaces) != 1:
                 raise ValueError("Variable must be associated with exactly one edge.")
             self._g = self.interfaces[0]
-            self._is_edge_var = True
+            self._is_intf_var = True
 
-        self.prev_time: bool = previous_timestep
-        self.prev_iter: bool = previous_iteration
-
-        # The number of cells in the grid. Will only be used if grid_like is a tuple
-        # that is, if this is a mortar variable
-        self._num_cells = num_cells
-
-        self.id = next(self._ids)
         self._set_tree()
 
+    @property
+    def name(self) -> str:
+        """The name given to this variable."""
+        return self._name
+
+    @property
+    def domain(self) -> GridLike:
+        """The grid or mortar grid on which this variable is defined."""
+        self._g
+
     def size(self) -> int:
-        """Get the number of dofs for this grid.
-
-        Returns:
-            int: Number of dofs.
-
-        """
-        if self._is_edge_var:
+        """Returns the total number of dofs this variable has."""
+        if self._is_intf_var:
             # This is a mortar grid. Assume that there are only cell unknowns
-            return self._num_cells * self._cells
+            return self._g.num_cells * self._cells
         else:
             # We now know _g is a grid by logic, make an assertion to appease mypy
             assert isinstance(self._g, pp.Grid)
@@ -1024,7 +1042,7 @@ class Variable(Operator):
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
-        if self._is_edge_var:
+        if self._is_intf_var:
             return Variable(
                 self._name, ndof, interfaces=self.interfaces, previous_timestep=True
             )
@@ -1041,7 +1059,7 @@ class Variable(Operator):
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
-        if self._is_edge_var:
+        if self._is_intf_var:
             return Variable(
                 self._name, ndof, interfaces=self.interfaces, previous_iteration=True
             )
@@ -1053,45 +1071,45 @@ class Variable(Operator):
     def __repr__(self) -> str:
         s = (
             f"Variable {self._name}, id: {self.id}\n"
-            f"Degrees of freedom in cells: {self._cells}, faces: {self._faces}, "
-            f"nodes: {self._nodes}\n"
+            f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
+            f"nodes ({self._nodes})\n"
         )
         return s
 
 
 class MergedVariable(Variable):
     """Ad representation of a collection of variables that individually live on separate
-    subdomains of interfaces, but which it is useful to treat jointly.
+    subdomains or interfaces, but which it is useful to treat jointly.
 
     Conversion of the variables into numerical value should be done with respect to the
-    state of an array; see the method evaluate().  Therefore, the class does not implement
-    a parse() method.
+    state of an array; see :meth:`Operator.evaluate`.
+    Therefore, the class does not implement :meth:`Operator.parse`
 
-    Attributes:
-        sub_vars (List of Variable): List of variable on different subdomains or interfaces.
-        id (int): Counter of all variables. Used to identify variables. Usage of this
-            term is not clear, it may change.
-        prev_iter (boolean): Whether the variable represents the state at the
-            previous iteration.
-        prev_time (boolean): Whether the variable represents the state at the
-            previous time step.
-
-        It is assumed that exactly one of subdomains and interfaces is defined.
+    Parameters:
+        variables: Variables to be merged. Must all have the same name.
 
     """
 
     def __init__(self, variables: List[Variable]) -> None:
-        """Create a merged representation of variables.
 
-        Parameters:
-            variables (list of Variable): Variables to be merged. Should all have the
-                same name.
+        ### PUBLIC
+
+        self.sub_vars = variables
+        """List of sub variables passed at instantiation, which are defined on a separate
+        domain each.
 
         """
-        self.sub_vars = variables
 
-        # Use counter from superclass to ensure unique Variable ids
         self.id = next(Variable._ids)
+        """ID counter. Used to identify variables during operator parsing."""
+
+        self.prev_time: bool = False
+        """Flag indicating if the variable represents the state at the previous time step."""
+
+        self.prev_iter: bool = False
+        """Flag indicating if the variable represents the state at the previous iteration."""
+
+        ### PRIVATE
 
         # Flag to identify variables merged over no subdomains. This requires special treatment
         # in various parts of the code.
@@ -1112,11 +1130,10 @@ class MergedVariable(Variable):
 
         self._set_tree()
 
-        if not self._no_variables:
-            self.is_interface = isinstance(self.sub_vars[0]._g, tuple)
-
-        self.prev_time: bool = False
-        self.prev_iter: bool = False
+    @property
+    def domain(self) -> set[GridLike]:
+        """A set of all domains on which the atomic sub-variables are defined."""
+        return set(([var.domain for var in self.sub_vars]))
 
     def size(self) -> int:
         """Get total size of the merged variable.
@@ -1157,24 +1174,19 @@ class MergedVariable(Variable):
         return copy.deepcopy(self)
 
     def __repr__(self) -> str:
-        sz = np.sum([var.size() for var in self.sub_vars])
-
         if self._no_variables:
             return (
                 "Merged variable defined on an empty list of subdomains or interfaces"
             )
 
-        if self.is_interface:
-            s = "Merged interface"
-        else:
-            s = "Merged"
+        s = "Merged"
 
         s += (
             f" variable with name {self._name}, id {self.id}\n"
             f"Composed of {len(self.sub_vars)} variables\n"
-            f"Degrees of freedom in cells: {self.sub_vars[0]._cells}"
+            f"Degrees of freedom in cells: {self.sub_vars[0]._cells}"  # TODO how is a single sub variable representative in terms of DOFs?
             f", faces: {self.sub_vars[0]._faces}, nodes: {self.sub_vars[0]._nodes}\n"
-            f"Total size: {sz}\n"
+            f"Total size: {self.size()}\n"
         )
 
         return s
