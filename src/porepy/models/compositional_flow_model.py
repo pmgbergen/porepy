@@ -108,8 +108,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.salt: pp.composite.SolidComponent
 
         # Use the managers from the composition and add the balance equations
-        self.dof_man: pp.DofManager = pp.DofManager(self.mdg)
-        self.ad_sys: pp.ad.ADSystemManager = pp.ad.ADSystemManager(self.dof_man)
+        self.ad_sys: pp.ad.ADSystem = pp.ad.ADSystem(self.mdg)
+        self.dof_man: pp.DofManager = self.ad_sys.dof_manager
         self.set_composition()
         # model specific sources, this must be modified for every composition
         self.mass_sources = {

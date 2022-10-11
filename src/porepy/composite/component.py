@@ -43,7 +43,7 @@ class Component(abc.ABC):
     # flag if a singleton has recently been accessed, to skip re-instantiation
     __singleton_accessed: bool = False
 
-    def __new__(cls, ad_system: Optional[pp.ad.ADSystemManager] = None) -> Component:
+    def __new__(cls, ad_system: Optional[pp.ad.ADSystem] = None) -> Component:
         # class name is used as unique identifier
         name = str(cls.__name__)
 
@@ -65,7 +65,7 @@ class Component(abc.ABC):
 
         return new_instance
 
-    def __init__(self, ad_system: Optional[pp.ad.ADSystemManager] = None) -> None:
+    def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
 
         # skipping re-instantiation if class if __new__ returned the previous reference
         if Component.__singleton_accessed:
@@ -76,7 +76,7 @@ class Component(abc.ABC):
 
         ### PUBLIC
 
-        self.ad_system: Optional[pp.ad.ADSystemManager] = ad_system
+        self.ad_system: Optional[pp.ad.ADSystem] = ad_system
         """The AD system optionally passed at instantiation."""
 
         #### PRIVATE
