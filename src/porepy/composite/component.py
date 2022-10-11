@@ -84,7 +84,7 @@ class Component(abc.ABC):
         # creating the overall molar fraction variable
         self._fraction: VarLike
         if ad_system:
-            self._fraction = ad_system.create_variable(self.fraction_var_name, True)
+            self._fraction = ad_system.create_variable(self.fraction_var_name)
         else:
             self._fraction = 0.0
 

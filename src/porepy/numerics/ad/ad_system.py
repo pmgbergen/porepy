@@ -6,6 +6,7 @@ using the AD framework.
 from __future__ import annotations
 
 from enum import Enum, EnumMeta
+from multiprocessing.sharedctypes import Value
 from typing import Callable, Dict, Literal, Optional, Sequence, Union
 
 import numpy as np
@@ -108,7 +109,6 @@ class ADSystem:
     def create_variable(
         self,
         name: str,
-        primary: bool,
         dof_info: dict[Union[Literal["cells"], Literal["faces"], Literal["nodes"]], int] = {
             "cells": 1
         },
@@ -121,9 +121,6 @@ class ADSystem:
         Parameters:
             name: used here as an identifier. Can be used to associate the variable with some
                 physical quantity.
-            primary: indicator if primary variable. Otherwise it is a secondary variable and
-                will not contribute to the global DOFs. **This is a coming feature. Currently
-                all variables are treated as primary in the system, but stored differently.**
             dof_info: dictionary containing information about number of DOFs per admissible
                 type (see :data:`admissible_dof_types`). Defaults to ``{'cells':1}``.
             subdomains: List of subdomains on which the variable is defined. If None, then it
@@ -132,6 +129,8 @@ class ADSystem:
             interfaces: List of interfaces on which the variable is defined. If None, then it
                 will not be defined on any interface. Here an empty list is equally treated as
                 None. Defaults to none.
+            category (optional): assigns a category to the variable. Must be an :class:`Enum`
+                contained in :class:`EnumMeta` passed at instantiation.
 
         Returns:
             a merged variable with above specifications.
@@ -139,6 +138,8 @@ class ADSystem:
         Raises:
             ValueError: If non-admissible DOF types are used as local DOFs.
             ValueError: If one attempts to create a variable not defined on any grid.
+            ValueError: if passed category not contained in enumeration object passed at
+                instantiation.
             KeyError: If a variable with given name is already defined.
 
         """
@@ -164,10 +165,7 @@ class ADSystem:
 
         variables = list()
 
-        if primary:
-            variable_category = pp.PRIMARY_VARIABLES
-        else:
-            variable_category = pp.SECONDARY_VARIABLES
+        variable_category = pp.PRIMARY_VARIABLES
 
         if isinstance(subdomains, list):
             for sd in subdomains:
@@ -383,6 +381,10 @@ class ADSystem:
             elif isinstance(grid, pp.MortarGrid):
                 num_equ_per_grid = (
                     grid.num_cells * dof_info.get('cells', 0)
+                )
+            else:
+                raise ValueError(
+                    f"Unknown grid type '{type(grid)}'. Use Grid or MortarGrid"
                 )
             # create operator-specific block indices with shift regarding previous blocks
             block_idx = np.arange(num_equ_per_grid) + total_num_equ
@@ -795,7 +797,8 @@ class ADSystem:
             eq_names = [eq_names]  # type: ignore
 
         for name in eq_names:
-            new_manger.set_equation(name, self._equations[name])
+            image_info = self._equ_image_space_composition[name]  # TODO fix this, incorrect
+            new_manger.set_equation(name, self._equations[name], num_equ_per_dof=image_info)
 
         return new_manger
 

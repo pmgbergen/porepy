@@ -740,7 +740,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # final equation
         equation = sum(time_derivative) + self.dt * decay * unity
 
-        self.ad_sys.set_equation(name, equation)
+        image_info = dict()
+        for sd in self.ad_sys.dof_manager.mdg.subdomains():
+            image_info.update({sd: {"cells": 1}})
+        self.ad_sys.set_equation(name, equation, num_equ_per_dof=image_info)
 
     def _set_mass_balance_equations(self) -> None:
         """Set mass balance equations per substance"""
@@ -786,7 +789,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             # minus in advection already included
             equation = accumulation + self.dt * (self.div * advection - source)
             equ_name = "mass_balance_%s" % (component.name)
-            self.ad_sys.set_equation(equ_name, equation)
+            image_info = dict()
+            for sd in self.ad_sys.dof_manager.mdg.subdomains():
+                image_info.update({sd: {"cells": 1}})
+            self.ad_sys.set_equation(equ_name, equation, num_equ_per_dof=image_info)
             self.flow_subsystem["primary_equations"].append(equ_name)
 
     def _set_energy_balance_equation(self) -> None:
@@ -853,7 +859,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### GLOBAL ENERGY BALANCE
         equation = accumulation + self.dt * (self.div * (advection + conduction) - source)
         equ_name = "energy_balance"
-        self.ad_sys.set_equation(equ_name, equation)
+        image_info = dict()
+        for sd in self.ad_sys.dof_manager.mdg.subdomains():
+            image_info.update({sd: {"cells": 1}})
+        self.ad_sys.set_equation(equ_name, equation, num_equ_per_dof=image_info)
         self.flow_subsystem["primary_equations"].append(equ_name)
 
     ### CONSTITUTIVE LAWS ---------------------------------------------------------------------
