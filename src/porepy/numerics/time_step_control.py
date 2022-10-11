@@ -37,7 +37,7 @@ Algorithm Overview:
 Algorithm Workflow in Pseudocode:
 
     INPUT
-        tsc // time step control object properly initialized
+        time_manager // time step control object properly initialized
         iterations // number of non-linear iterations
         recompute_solution // boolean flag
 
@@ -96,10 +96,10 @@ from typing import Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
 
-__all__ = ["TimeSteppingControl"]
+__all__ = ["TimeManager"]
 
 
-class TimeSteppingControl:
+class TimeManager:
     """Parent class for iteration-based time-stepping control routine.
 
     Parameters:
@@ -120,7 +120,7 @@ class TimeSteppingControl:
             INVALID inputs for `constant_dt = True` and `dt_init = 2` are [0, 3] and
             np.array([0, 4, 5, 10]).
         dt_init: Initial time step. The initial time step is required to be positive and
-            and less or equal than the final simulation time.
+            less or equal than the final simulation time.
         constant_dt: Whether to treat the time step as constant or not.
             If True, then the time-stepping control algorithm is effectively bypassed. The
             algorithm will NOT adapt the time step in any situation, even if the user
@@ -158,7 +158,7 @@ class TimeSteppingControl:
 
     Example:
         # The following is an example on how to initialize a time-stepping object
-        tsc = pp.TimeSteppingControl(
+        time_manager = pp.TimeManager(
             schedule=[0, 10],
             dt_init=0.5,
             dt_min_max=(0.1, 2),
@@ -170,7 +170,7 @@ class TimeSteppingControl:
             print_info=True
         )
         # To inspect the attributes of the object
-        print(tsc)
+        print(time_manager)
 
     Attributes:
         dt (float): Time step.
@@ -238,7 +238,7 @@ class TimeSteppingControl:
                 "This error was raised since `dt_min_max` was not set on "
                 "initialization. Thus, values of dt_min and dt_max were assigned "
                 "based on the final simulation time. If you still want to use this "
-                "initial time step, consider passing `dt_min_max` explictly."
+                "initial time step, consider passing `dt_min_max` explicitly."
             )
 
             if dt_init < dt_min_max[0]:
@@ -310,13 +310,22 @@ class TimeSteppingControl:
         else:
 
             # If the time step is constant, check that the scheduled times and the time
-            # step are compatible. See documentation of `schedule`.
+            # step are compatible. See documentation of ``schedule``.
             sim_times = np.arange(schedule[0], schedule[-1] + dt_init, dt_init)
-            intersect = np.intersect1d(sim_times, schedule)
-            # If the length of the intersection and scheduled times are unequal, there is a
-            # mismatch
-            if (len(intersect) - len(schedule)) != 0:
-                raise ValueError("Mismatch between the time step and scheduled time.")
+            compat_rtol = 1e-05
+            compat_atol = 1e-08
+            is_compatible = self.is_schedule_in_simulated_times(
+                schedule,
+                sim_times,
+                rtol=compat_rtol,
+                atol=compat_atol,
+            )
+            if not is_compatible:
+                msg = (
+                    "Mismatch between the time step and scheduled time. Make sure the two are "
+                    "compatible, or consider adjusting the tolerances of the sanity check."
+                )
+                raise ValueError(msg)
 
         # Schedule, initial, and final times
         self.schedule = schedule
@@ -355,6 +364,9 @@ class TimeSteppingControl:
         # Time step. Initially, equal to the initial time step
         self.dt: Union[int, float] = self.dt_init
 
+        # Time index
+        self.time_index: int = 0
+
         # Private attributes
         # Number of times the solution has been recomputed
         self._recomp_num: int = 0
@@ -366,8 +378,9 @@ class TimeSteppingControl:
         # TODO: In the future, printing should be promoted to a logging strategy
         self._print_info: bool = print_info
 
-        # Flag to keep track of recomputed solutions
+        # Keep track of recomputed solutions and current number of iterations
         self._recomp_sol: bool = False
+        self._iters: Union[int, None] = None
 
     def __repr__(self) -> str:
 
@@ -383,8 +396,8 @@ class TimeSteppingControl:
 
         return s
 
-    def next_time_step(
-        self, iterations: int, recompute_solution: bool = False
+    def compute_time_step(
+        self, iterations: Optional[int] = None, recompute_solution: bool = False
     ) -> Union[float, None]:
         """Determine next time step based on the previous number of iterations.
 
@@ -393,6 +406,8 @@ class TimeSteppingControl:
         Parameters:
             iterations: Number of non-linear iterations. In time-dependent simulations,
                 this typically represents the number of iterations for a given time step.
+                A warning is raised if `iterations` is given when `recompute_solution = True`
+                or `constant_dt = True`.
             recompute_solution: Whether the solution needs to be recomputed or not. If True,
                 then the time step is multiplied by `recomp_factor`. If False, then the time
                 step will be tuned accordingly.
@@ -402,8 +417,9 @@ class TimeSteppingControl:
 
         """
 
-        # For bookkeeping reasons, save recomputation flag
+        # For bookkeeping reasons, save recomputation and iterations
         self._recomp_sol = recompute_solution
+        self._iters = iterations
 
         # First, check if we reach final simulation time
         if self.time >= self.time_final:
@@ -411,11 +427,19 @@ class TimeSteppingControl:
 
         # If the time step is constant, always return that value
         if self.is_constant:
+            # Some sanity checks
+            if self._iters is not None:
+                msg = f"iterations '{self._iters}' has no effect if time step is constant."
+                warnings.warn(msg)
+            if self._recomp_sol:
+                msg = "recompute_solution=True has no effect if time step is constant."
+                warnings.warn(msg)
+
             return self.dt_init
 
         # Adapt time step
         if not self._recomp_sol:
-            self._adaptation_based_on_iterations(iterations=iterations)
+            self._adaptation_based_on_iterations(iterations=self._iters)
         else:
             self._adaptation_based_on_recomputation()
 
@@ -426,15 +450,30 @@ class TimeSteppingControl:
 
         return self.dt
 
-    def _adaptation_based_on_iterations(self, iterations: int) -> None:
+    def increase_time(self) -> None:
+        """Increase simulation time by the current time step."""
+        self.time += self.dt
+
+    def increase_time_index(self) -> None:
+        """Increase time index counter by one."""
+        self.time_index += 1
+
+    def _adaptation_based_on_iterations(self, iterations: Optional[int]) -> None:
         """Provided convergence, adapt time step based on the number of iterations.
 
         Parameters:
             iterations: Number of non-linear iterations needed to achieve convergence.
 
-        Raises: Warning if `iterations` > `max_iter`.
+        Raises:
+            ValueError if `iterations` is None.
+            Warning if `iterations` > `max_iter`.
 
         """
+
+        # Sanity check: Make sure iterations is given
+        if iterations is None:
+            msg = "Time step cannot be adapted without 'iterations'."
+            raise ValueError(msg)
 
         # Sanity check: Make sure the given number of iterations is less or equal than the
         # maximum number of iterations
@@ -475,10 +514,8 @@ class TimeSteppingControl:
         """Adapt (decrease) time step when `recompute_solution` = True.
 
         Raises:
-            ValueError if dt = dt_min, since any further recomputation attempt will be
-                pointless.
-            ValueError if recomp_attempts > max_recomp_attempts. That is, if the maximum
-                number of recomputation attempts has been exhausted.
+            ValueError if dt = dt_min, since any recomputation attempt will be pointless.
+            ValueError if recomp_attempts > max_recomp_attempts.
 
         """
 
@@ -495,10 +532,16 @@ class TimeSteppingControl:
                 )
                 raise ValueError(msg)
 
+            # Raise a warning if iterations is not None
+            if self._iters is not None:
+                msg = "Number of iterations has no effect in recomputation."
+                warnings.warn(msg)
+
             # If the solution did not converge AND we are allowed to recompute it, then:
             #   (S1) Update simulation time since solution will be recomputed.
-            #   (S2) Decrease time step multiplying it by the recomputing factor < 1.
-            #   (S3) Increase counter that keeps track of the number of times the solution
+            #   (S2) Update time index since solution will be recomputed.
+            #   (S3) Decrease time step multiplying it by the recomputing factor < 1.
+            #   (S4) Increase counter that keeps track of the number of times the solution
             #        was recomputed.
 
             # Note that iterations is not really used here. So, as long as
@@ -508,8 +551,9 @@ class TimeSteppingControl:
             # not limiting the recomputation criteria to _only_ reaching the maximum
             # number of iterations, even though that is the primary intended usage.
             self.time -= self.dt  # (S1)
-            self.dt *= self.recomp_factor  # (S2)
-            self._recomp_num += 1  # (S3)
+            self.time_index -= 1  # (S2)
+            self.dt *= self.recomp_factor  # (S3)
+            self._recomp_num += 1  # (S4)
             if self._print_info:
                 msg = (
                     "Solution did not converge and will be recomputed."
@@ -572,3 +616,31 @@ class TimeSteppingControl:
 
         """
         return all(a < b for a, b in zip(check_array, check_array[1:]))
+
+    @staticmethod
+    def is_schedule_in_simulated_times(
+        schedule: np.ndarray,
+        sim_times: np.ndarray,
+        rtol: float = 1e-05,
+        atol: float = 1e-08,
+    ) -> bool:
+        """Checks if ``schedule`` is a proper subset of ``sim_times`` for given tolerances
+
+        Reference: https://github.com/numpy/numpy/issues/7784#issuecomment-848036186
+
+        Parameters:
+            schedule: First array.
+            sim_times: Second array.
+            rtol: Relative tolerance.
+            atol: Absolute tolerance.
+
+        Returns:
+            True if all times in ``schedule`` intersect the elements of ``sim_times`` with
+            relative tolerance ``rtol`` and absolute tolerance ``atol`. False otherwise.
+
+        """
+        ss = np.searchsorted(schedule[1:-1], sim_times, side="left")
+        in1d = np.isclose(schedule[ss], sim_times, rtol=rtol, atol=atol) | np.isclose(
+            schedule[ss + 1], sim_times, rtol=rtol, atol=atol
+        )
+        return schedule.size == np.sum(in1d)
