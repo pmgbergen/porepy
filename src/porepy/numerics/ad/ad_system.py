@@ -58,6 +58,12 @@ class ADSystem:
 
         ### PUBLIC
 
+        self.mdg: pp.MixedDimensionalGrid = mdg
+        """Mixed-dimensional domain passed at instantiation"""
+
+        self.var_categories: Optional[EnumMeta] = var_categories
+        """Enumeration object containing the variable categories passed at instantiation."""
+
         self.dof_manager: pp.DofManager = pp.DofManager(mdg)
         """DofManager created using the passed grid."""
 
@@ -76,9 +82,6 @@ class ADSystem:
         name (key).
 
         """
-
-        self.var_categories: Optional[EnumMeta] = var_categories
-        """Enumeration object containing the variable categories passed at instantiation."""
 
         ### PRIVATE
 
@@ -160,7 +163,7 @@ class ADSystem:
 
         # if an empty list was received, we use ALL subdomains
         if isinstance(subdomains, list) and len(subdomains) == 0:
-            subdomains = [sg for sg in self.dof_manager.mdg.subdomains()]
+            subdomains = [sg for sg in self.mdg.subdomains()]
 
         variables = list()
 
@@ -168,7 +171,7 @@ class ADSystem:
 
         if isinstance(subdomains, list):
             for sd in subdomains:
-                data = self.dof_manager.mdg.subdomain_data(sd)
+                data = self.mdg.subdomain_data(sd)
 
                 # prepare data dictionary if this was not done already
                 if variable_category not in data:
@@ -190,7 +193,7 @@ class ADSystem:
 
         if isinstance(interfaces, list):
             for intf in interfaces:
-                data = self.dof_manager.mdg.interface_data(intf)
+                data = self.mdg.interface_data(intf)
 
                 if (
                     intf.codim == 2
@@ -427,29 +430,56 @@ class ADSystem:
 
     ### System assembly and discretization ----------------------------------------------------
 
-    def discretize(self) -> None:
-        """Loop over all discretizations in self.equations, find all unique discretizations
-        and discretize.
+    def discretize(self, equations: Optional[Sequence[str]] = None) -> None:
+        """Find and loop over all discretizations in the equation operators, extract unique
+        references and discretize.
 
         This is more efficient than discretizing on the Operator level, since
         discretizations which occur more than once in a set of equations will be
         identified and only discretized once.
 
-        """
-        # Somehow loop over all equations, discretize identified objects
-        # (but should also be able to do re-discretization based on
-        # dependency graph etc.).
+        Parameters:
+            equations (optional): name of equations to be discretized.
+                If not given, all known equations will be discretized.
 
-        # List of discretizations, build up by iterations over all equations
+        """
+        # TODO the search can be done once (in some kind of initialization) and must not be
+        # done always (performance)
+        if equations is None:
+            equations = list(self._equations.keys())  # type: ignore
+
+        # List containing all discretizations
         discr: list = []
-        for eqn in self._equations.values():
+        for eqn_name in equations:
+            eqn = self._equations[eqn_name]
             # This will expand the list discr with new discretizations.
             # The list may contain duplicates.
-            discr = eqn._identify_subtree_discretizations(discr)
+            discr += self._recursive_discretization_search(eqn, list())
 
         # Uniquify to save computational time, then discretize.
         unique_discr = _ad_utils.uniquify_discretization_list(discr)
-        _ad_utils.discretize_from_list(unique_discr, self.dof_manager.mdg)
+        _ad_utils.discretize_from_list(unique_discr, self.mdg)
+
+    @staticmethod
+    def _recursive_discretization_search(operator: pp.ad.Operator, discr: list) -> list:
+        """Recursive search in the tree of this operator to identify all discretizations
+        represented in the operator.
+
+        Parameters:
+            operator: top level operator to be searched.
+            discr: list storing found discretizations
+
+        """
+        if len(operator.tree.children) > 0:
+            # Go further in recursion
+            for child in operator.tree.children:
+                discr += ADSystem._recursive_discretization_search(child, list())
+
+        if isinstance(operator, _ad_utils.MergedOperator):
+            # We have reached the bottom; this is a discretization (example: mpfa.flux)
+            discr.append(operator)
+
+        return discr
 
     def assemble(
         self,
@@ -804,8 +834,8 @@ class ADSystem:
     def __repr__(self) -> str:
         s = (
             "AD System manager for mixed-dimensional grid with "
-            f"{self.dof_manager.mdg.num_subdomains()} subdomains "
-            f"and {self.dof_manager.mdg.num_interfaces()}"
+            f"{self.mdg.num_subdomains()} subdomains "
+            f"and {self.mdg.num_interfaces()}"
             " interfaces.\n"
         )
         # Sort variables alphabetically, not case-sensitive
@@ -823,8 +853,8 @@ class ADSystem:
     def __str__(self) -> str:
         s = (
             "AD System manager for mixed-dimensional grid with "
-            f"{self.dof_manager.mdg.num_subdomains()} subdomains "
-            f"and {self.dof_manager.mdg.num_interfaces()}"
+            f"{self.mdg.num_subdomains()} subdomains "
+            f"and {self.mdg.num_interfaces()}"
             " interfaces.\n"
         )
 
