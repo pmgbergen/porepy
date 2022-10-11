@@ -94,8 +94,8 @@ class Phase(abc.ABC):
         self._s: Optional[pp.ad.MergedVariable] = None
         self._fraction: Optional[pp.ad.MergedVariable] = None
         if ad_system:
-            self._s = ad_system.create_variable(self.saturation_var_name, False)
-            self._fraction = ad_system.create_variable(self.fraction_var_name, False)
+            self._s = ad_system.create_variable(self.saturation_var_name)
+            self._fraction = ad_system.create_variable(self.fraction_var_name)
             nc = ad_system.dof_manager.mdg.num_subdomain_cells()
             ad_system.set_var_values(self.saturation_var_name, np.zeros(nc), True)
             ad_system.set_var_values(self.fraction_var_name, np.zeros(nc), True)
@@ -247,7 +247,7 @@ class Phase(abc.ABC):
             # create the fraction of the component in this phase
             comp_fraction: VarLike
             if self.ad_system:
-                comp_fraction = self.ad_system.create_variable(fraction_name, False)
+                comp_fraction = self.ad_system.create_variable(fraction_name)
                 nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
                 self.ad_system.set_var_values(fraction_name, np.zeros(nc), True)
             else:

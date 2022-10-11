@@ -129,9 +129,9 @@ class Composition:
         self._h: VarLike
         self._T: VarLike
         if ad_system:
-            self._p = ad_system.create_variable(self._p_var, True)
-            self._h = ad_system.create_variable(self._h_var, True)
-            self._T = ad_system.create_variable(self._T_var, False)
+            self._p = ad_system.create_variable(self._p_var)
+            self._h = ad_system.create_variable(self._h_var)
+            self._T = ad_system.create_variable(self._T_var)
         else:
             self._p = 101.325
             self._h = 0.0
@@ -658,9 +658,13 @@ class Composition:
             ph_subsystem["equations"].append(name)
 
         # adding equations to AD system
+        image_info = dict()
+        for sd in self.ad_system.dof_manager.mdg.subdomains():
+            image_info.update({sd: {"cells": 1}})
         if self.ad_system:
             for name, equ in equations.items():
-                self.ad_system.set_equation(name, equ)
+
+                self.ad_system.set_equation(name, equ, num_equ_per_dof=image_info)
         # storing references to the subsystems
         self.pT_subsystem = pT_subsystem
         self.ph_subsystem = ph_subsystem
