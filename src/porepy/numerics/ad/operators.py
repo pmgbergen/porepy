@@ -124,8 +124,8 @@ class Operator:
         self._name = name
 
     ### Operator discretization ---------------------------------------------------------------
-    # TODO this is specific to discretizations, we should try to move this to the respective
-    # child classes
+    # TODO this is specific to discretizations and should not be done here
+    # let the AD system do this by calling respective util methods
 
     def discretize(self, mdg: pp.MixedDimensionalGrid) -> None:
         """Perform discretization operation on all discretizations identified in
