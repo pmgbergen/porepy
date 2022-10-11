@@ -680,7 +680,7 @@ class ADSystem:
 
         # Get lists of all variables and equations, and find the secondary items
         # by a set difference
-        all_variables = self.dof_manager.get_variables(True, True)
+        all_variables = self.dof_manager.get_variables()
         all_eq_names = list(self._equations.keys())
         secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
         secondary_variables = list(set(all_variables).difference(set(primary_variables)))
@@ -811,8 +811,7 @@ class ADSystem:
             " interfaces.\n"
         )
         # Sort variables alphabetically, not case-sensitive
-        all_vars = self.dof_manager.get_variables(True, True)
-        secondary_vars = self.dof_manager.get_variables(False, True)
+        all_vars = self.dof_manager.get_variables()
         s += "Variables present on at least one grid or interface:\n\t"
         s += ", ".join(all_vars) + "\n"
 
@@ -820,10 +819,6 @@ class ADSystem:
             eq_names = [name for name in self._equations]
             s += f"In total {len(self._equations)} equations, with names: \n\t"
             s += ", ".join(eq_names)
-
-        if len(secondary_vars) > 0:
-            s += "\n"
-            s += f"In total {len(secondary_vars)} secondary variables."
 
         return s
 
@@ -835,7 +830,7 @@ class ADSystem:
             " interfaces.\n"
         )
 
-        all_vars = self.dof_manager.get_variables(True, True)
+        all_vars = self.dof_manager.get_variables()
         var_grid = [
             (sub_var.name, sub_var.domain)
             for var in self.variables.values()
