@@ -2,8 +2,6 @@
 Utility functions for the AD package.
 
 Functions:
-    concatenate - EK, please document.
-
     wrap_discretization: Convert a discretization to its ad equivalent.
 
     uniquify_discretization_list: Define a unique list of discretization-keyword
@@ -47,14 +45,12 @@ def wrap_discretization(
     mat_dict_key: Optional[str] = None,
     mat_dict_grids=None,
 ):
-    """
-    Please add documentation, @EK.
-    It is assumed that subdomains or edges is None
+    """Convert a discretization to its ad equivalent.
     """
     if subdomains is None:
-        assert isinstance(interfaces, list)
+        assert isinstance(interfaces, Sequence)
     else:
-        assert isinstance(subdomains, list)
+        assert isinstance(subdomains, Sequence)
         assert interfaces is None
 
     key_set = []
@@ -218,11 +214,11 @@ class MergedOperator(operators.Operator):
         if subdomains is None:
             assert isinstance(interfaces, Sequence)
             self.subdomains = []
-            self.interfaces = interfaces
+            self.interfaces = list(interfaces)
         else:
             assert isinstance(subdomains, Sequence)
             assert interfaces is None
-            self.subdomains = subdomains
+            self.subdomains = list(subdomains)
             self.interfaces = []
 
         # Special field to access matrix dictionary for Biot
