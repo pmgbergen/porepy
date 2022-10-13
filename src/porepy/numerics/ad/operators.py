@@ -25,7 +25,7 @@ GridLike = Union[pp.Grid, pp.MortarGrid]
 
 def _get_shape(mat):
     """Get shape of a numpy.ndarray or the Jacobian of Ad_array"""
-    if isinstance(mat, (pp.ad.Ad_array, pp.ad.forward_mode.Ad_array)):
+    if isinstance(mat, Ad_array):
         return mat.jac.shape
     else:
         return mat.shape
@@ -142,7 +142,7 @@ class Operator:
 
     def _identify_discretizations(
         self,
-    ) -> Dict["_ad_utils.MergedOperator", GridLike]:
+    ) -> Dict['_ad_utils.MergedOperator', GridLike]:
         """Perform a recursive search to find all discretizations present in the
         operator tree. Uniquify the list to avoid double computations.
 
@@ -282,7 +282,7 @@ class Operator:
         # in the derivatives).
 
         # Dictionary which maps from Ad variable ids to Ad_array.
-        self._ad: Dict[int, pp.ad.Ad_array] = {}
+        self._ad: Dict[int, Ad_array] = {}
 
         # Loop over all variables, restrict to an Ad array corresponding to
         # this variable.
@@ -389,7 +389,7 @@ class Operator:
 
         return inds, variable_ids, prev_time, prev_iter
 
-    def _find_subtree_variables(self) -> Sequence[pp.ad.Variable]:
+    def _find_subtree_variables(self) -> Sequence['Variable']:
         """Method to recursively look for Variables (or MergedVariables) in an
         operator tree.
         """
@@ -407,7 +407,7 @@ class Operator:
             # (forward mode), rather than Operators. For the former, don't look for
             # children - they have none.
             for child in self.tree.children:
-                if isinstance(child, pp.ad.Operator):
+                if isinstance(child, Operator):
                     sub_variables += child._find_subtree_variables()
 
             # Some work is needed to parse the information
@@ -459,7 +459,7 @@ class Operator:
                 else:
                     return self._ad[op.id]
         # Case 2: If the operator is already an AD array, return it
-        elif isinstance(op, pp.ad.Ad_array):
+        elif isinstance(op, Ad_array):
             # When using nested operator functions, op can be an already evaluated term.
             # Just return it.
             return op
@@ -470,7 +470,7 @@ class Operator:
             return op.parse(mdg)  # type:ignore
         
         # Case 4:
-        # This is not an atomic operator. First parse its children (recusrively),
+        # This is not an atomic operator. First parse its children (recursively),
         # then combine the results using the respective operation
         tree = op.tree
         results = [self._parse_operator(child, mdg) for child in tree.children]
@@ -556,7 +556,7 @@ class Operator:
         elif tree.op == Operator.Operations.div:
             # Some care is needed here, to account for cases where item in the results
             # array is a numpy array
-            if isinstance(results[0], pp.ad.Ad_array):
+            if isinstance(results[0], Ad_array):
                 # If the first item is an Ad array, the implementation of the forward
                 # mode should take care of everything.
                 return results[0] / results[1]
@@ -566,7 +566,7 @@ class Operator:
                 if isinstance(results[1], (np.ndarray, numbers.Real)):
                     # Both items are numpy arrays or scalars, everything is fine.
                     return results[0] / results[1]
-                elif isinstance(results[1], pp.ad.Ad_array):
+                elif isinstance(results[1], Ad_array):
                     # Numpy cannot deal with division with an Ad_array. Instead, multiply
                     # with the inverse of results[1] (this is equivalent, and makes
                     # numpy happy). The return from numpy will be a new array (data type
@@ -582,7 +582,7 @@ class Operator:
                 # if the dividend is a number, the divisor has to be an Ad_array,
                 # otherwise the overloaded division wouldn't have been invoked
                 # We use the same strategy as in above case where the divisor is an Ad_array
-                if isinstance(results[1], pp.ad.Ad_array):
+                if isinstance(results[1], Ad_array):
                     # See remarks by EK in case ndarray / Ad_array
                     return (results[0] * results[1] ** -1)[0]
                 elif isinstance(results[1], numbers.Real): # trivial case
@@ -661,11 +661,7 @@ class Operator:
         return msg
 
     def _parse_readable(self) -> str:
-        """
-        Make a human-readable error message related to a parsing error.
-        NOTE: The exact formatting should be considered work in progress,
-        in particular when it comes to function evaluation.
-        """
+        """Make a human-readable error message related to a parsing error."""
 
         # There are three cases to consider: Either the operator is a leaf,
         # it is a composite operator with a name, or it is a general composite
@@ -772,11 +768,11 @@ class Operator:
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
-            return [self, pp.ad.Scalar(other)]
+            return [self, Scalar(other)]
         elif isinstance(other, np.ndarray):
-            return [self, pp.ad.Array(other)]
+            return [self, Array(other)]
         elif isinstance(other, sps.spmatrix):
-            return [self, pp.ad.Matrix(other)]
+            return [self, Matrix(other)]
         elif isinstance(other, Operator):
             return [self, other]
         elif isinstance(other, Ad_array):
@@ -1113,9 +1109,9 @@ class MixedDimensionalVariable(Variable):
         self._set_tree()
 
     @property
-    def domain(self) -> set[GridLike]:
-        """A set of all domains on which the atomic sub-variables are defined."""
-        return set(([var.domain for var in self.sub_vars]))
+    def domain(self) -> tuple[GridLike]:
+        """A tuple of all domains on which the atomic sub-variables are defined."""
+        return tuple([var.domain for var in self.sub_vars])
 
     def size(self) -> int:
         """Get total size of the merged variable.
