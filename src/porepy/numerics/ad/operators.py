@@ -468,7 +468,7 @@ class Operator:
         elif op.is_leaf():
             # Case 2
             return op.parse(mdg)  # type:ignore
-        
+
         # Case 4:
         # This is not an atomic operator. First parse its children (recursively),
         # then combine the results using the respective operation
