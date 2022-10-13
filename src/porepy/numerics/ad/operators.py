@@ -389,7 +389,7 @@ class Operator:
 
         return inds, variable_ids, prev_time, prev_iter
 
-    def _find_subtree_variables(self) -> Sequence[pp.ad.Variable]:
+    def _find_subtree_variables(self) -> Sequence["Variable"]:
         """Method to recursively look for Variables (or MergedVariables) in an
         operator tree.
         """
@@ -468,7 +468,7 @@ class Operator:
         elif op.is_leaf():
             # Case 2
             return op.parse(mdg)  # type:ignore
-        
+
         # Case 4:
         # This is not an atomic operator. First parse its children (recusrively),
         # then combine the results using the respective operation
