@@ -79,6 +79,10 @@ GRAVITY_ACCELERATION = 9.80665 * METER / SECOND**2
 
 # Temperature
 CELSIUS = 1.0
+KELVIN = 1.0
+
+# Energy
+JOULE = 1.0
 
 
 def CELSIUS_to_KELVIN(celsius: float) -> float:

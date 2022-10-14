@@ -51,7 +51,7 @@ class AbstractModel:
         default_params = {
             "folder_name": "visualization",
             "file_name": "data",
-            "use_ad": False,
+            "use_ad": True,
             # Set the default linear solver to Pardiso; this can be overridden by
             # user choices. If Pardiso is not available, backup solvers will automatically be
             # invoked.
