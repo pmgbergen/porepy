@@ -10,12 +10,12 @@ Consists of three types of classes
 See usage_example.py
 """
 
-from typing import Union, Optional
+from typing import Optional, Union
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
-import scipy.sparse as sps
 
 
 class SIUnits:
