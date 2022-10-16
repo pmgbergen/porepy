@@ -1,15 +1,16 @@
 import porepy as pp
-from .fluid_mass_balance import (
-    VariablesSinglePhaseFlow,
-    MassBalanceEquations,
-    SolutionStrategyCompressibleFlow,
-    ConstitutiveEquationsCompressibleFlow,
-)
+
 from .constit_library import (
     ConstantIsotropicPermeability,
     DensityFromPressure,
-    UnitRock,
     UnitFluid,
+    UnitRock,
+)
+from .fluid_mass_balance import (
+    ConstitutiveEquationsCompressibleFlow,
+    MassBalanceEquations,
+    SolutionStrategyCompressibleFlow,
+    VariablesSinglePhaseFlow,
 )
 from .geometry import Geometry
 

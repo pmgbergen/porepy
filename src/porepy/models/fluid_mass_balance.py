@@ -23,6 +23,7 @@ from typing import Dict, Optional, Union
 
 import constit_library
 import numpy as np
+import scipy.sparse as sps
 from geometry import Geometry
 
 import porepy as pp
@@ -203,11 +204,16 @@ class ConstitutiveEquationsIncompressibleFlow:
         return eq
 
     def vector_source(self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]):
-        # obs: density not sorted
+        # FIXME: Interface vector source
         num_cells = sum([sd.num_cells for sd in grids])
-        return self.constit.ad_wrapper(
-            pp.GRAVITY_ACCELERATION, num_cells * self.nd, False, "vector_source"
-        )
+        vals = pp.GRAVITY_ACCELERATION * np.ones(num_cells)
+        # Expand to nd
+        rows = np.arange(self.nd - 1, num_cells * self.nd, self.nd)
+        cols = np.arange(num_cells)
+        mat = sps.coo_matrix((vals, rows, cols), shape=(self.nd * num_cells, num_cells))
+        source = pp.ad.Matrix(mat, "gravity_acceleration") * self.density(grids)
+        source.set_name("vector_source")
+        return source
 
     def bc_values_flow(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
