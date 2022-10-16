@@ -39,7 +39,7 @@ class ScalarBalanceEquation:
     All terms need to be specified in order to define an equation.
     """
 
-    def balance_equation(self, subdomains: list[pp.Grid], accumulation, flux, source):
+    def balance_equation(self, subdomains: list[pp.Grid], accumulation, flux, source) -> pp.ad.Operator:
         """Denne er en halvveis balance_equation_discretization-metode. Gjenstår noe her!"""
 
         # FIXME: Ikke implementert. Uklart skille. Bor denne i BalanceEquations eller kanskje
@@ -47,6 +47,24 @@ class ScalarBalanceEquation:
         dt = self.time_increment_method
         div = pp.ad.Divergence(subdomains)
         return dt(accumulation) + div * flux - source
+
+    def volume_integral(self, integrand: pp.ad.Operator,
+                        grids: Union[list[pp.Grid], list[pp.MortarGrid]]) -> pp.ad.Operator:
+        """Numerical volume integral over subdomain or interface cells.
+
+        Includes cell volumes and specific volume.
+        FIXME: Decide whether to use this on source terms.
+
+        Args:
+            integrand:
+            grids:
+
+        Returns:
+
+        """
+        geometry = pp.ad.Geometry(grids, nd=self.nd)
+        return geometry.cell_volumes * self.specific_volume(grids) * integrand
+
 
 
 class MassBalanceEquations:
@@ -73,10 +91,9 @@ class MassBalanceEquations:
         return self.balance_equation(accumulation, flux, source)
 
     def fluid_mass(self, subdomains: list[pp.Grid]):
-        geometry = pp.ad.Geometry(subdomains, nd=self.nd)
-        mass = (
-            geometry.cell_volumes * self.density(subdomains) * self.porosity(subdomains)
-        )
+
+        density = self.density(subdomains) * self.porosity(subdomains)
+        mass = self.volume_integral(density, subdomains)
         mass.set_name("fluid_mass")
         return mass
 
@@ -230,7 +247,16 @@ class ConstitutiveEquationsIncompressibleFlow:
         num_faces = sum([sd.num_faces for sd in subdomains])
         return self.constit.ad_wrapper(0, num_faces, True, "bc_vals_flow")
 
-    # FIXME: Incorporate aperture and specific volumes.
+    """FIXME: Incorporate aperture and specific volumes. 
+    Current version is a mess.
+    """
+    def grid_aperture(self, grid):
+        """FIXME: Decide on how to treat interfaces."""
+        aperture = np.ones(grid.num_cells)
+        if grid.dim < self.nd:
+            aperture *= 0.1
+        aperture
+
     def aperture(self, subdomains) -> np.ndarray:
         """
         Aperture is a characteristic thickness of a cell, with units [m].
@@ -240,21 +266,33 @@ class ConstitutiveEquationsIncompressibleFlow:
         """
         apertures = np.empty((1, 0))
         for sd in subdomains:
-            a_loc = np.ones(sd.num_cells)
-            if sd.dim < self.nd:
-                a_loc *= 0.1
+            a_loc = self.grid_aperture(sd)
             apertures = np.concatenate((apertures, a_loc))
         return apertures
 
-    def _specific_volume(self, g: pp.Grid) -> np.ndarray:
+    def specific_volume(self, subdomains) -> np.ndarray:
+        """
+        Aperture is a characteristic thickness of a cell, with units [m].
+        1 in matrix, thickness of fractures and "side length" of cross-sectional
+        area/volume (or "specific volume") for intersections of dimension 1 and 0.
+        See also specific_volume.
+        """
+        volumes = np.empty((1, 0))
+        for sd in subdomains:
+            v_loc = self.grid_specific_volume(sd)
+
+            volumes = np.concatenate((volumes, v_loc))
+        return volumes
+
+    def grid_specific_volume(self, g: pp.Grid) -> np.ndarray:
         """FIXME exponent broadcasting. Special type of function?
         The specific volume of a cell accounts for the dimension reduction and has
         dimensions [m^(Nd - d)].
         Typically, equals 1 in Nd, the aperture in codimension 1 and the square/cube
         of aperture in dimension 1 and 0.
         """
-        a = self._aperture(g)
-        return np.power(a, self._nd_subdomain().dim - g.dim)
+        a = self.grid_aperture(g)
+        return np.power(a, self.nd - g.dim)
 
 
 class ConstitutiveEquationsCompressibleFlow(
@@ -405,7 +443,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         for sd, data in self.mdg.subdomains(return_data=True):
             bc = self._bc_type(sd)
 
-            specific_volume = self._specific_volume(sd)
+            specific_volume = self.grid_specific_volume(sd)
 
             kappa = self.permeability(
                 sd
