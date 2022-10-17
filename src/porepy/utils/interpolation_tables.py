@@ -413,12 +413,14 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         # Get the corresponding indices in the underlying Cartesian grids.
         ind_of_coord = self._find_base_vertex(coord_array)
+
         ind_list = [i for i in ind_of_coord.T]
 
         # Add values and indices to the table
         column_permutation = self._table.add(ind_list, val, additive=False)
         # Add the coordinates to the table.
         self._pt = np.hstack((self._pt, coord_array[:, column_permutation]))
+        breakpoint()
 
     def interpolation_nodes_from_coordinates(
         self, x: np.ndarray
@@ -434,7 +436,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         """
         # The lower-left corner of each hypercube.
-        base_ind = self._find_base_vertex(x)
+        base_ind = self._find_base_vertex(x, safeguarding=True)
 
         # Loop over all vertexes in the hypercube, store the index. In this case we do
         # not want a linear index, since we will compare the multiindex with the
@@ -447,7 +449,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         unique_ind = np.unique(np.hstack(ind), axis=1)
 
         coord = [self._base_point + self._h * v for v in unique_ind.T]
-
+        breakpoint()
         return coord, unique_ind
 
     def _fill_values(self, x: np.ndarray) -> None:
@@ -538,16 +540,54 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         return right_weight, left_weight
 
-    def _find_base_vertex(self, coord: np.ndarray) -> np.ndarray:
+    def _find_base_vertex(self, coord: np.ndarray, safeguarding=False) -> np.ndarray:
         """Helper function to get the base (generalized lower-left) vertex of a
         hypercube.
 
         """
-
         ind = list()
-        # performing Cartesian search per axis of the interpolation grid.
-        for x_i, h_i, base_i in zip(coord, self._h, self._base_point):
-            # cartesian search for uniform grid, floor division by mesh size
-            ind.append(((x_i - base_i) // h_i).astype(int))
 
-        return np.array(ind)
+        significant_rounding = np.zeros(coord.shape, dtype=bool)
+
+        # performing Cartesian search per axis of the interpolation grid.
+        for i, (x_i, h_i, base_i) in enumerate(zip(coord, self._h, self._base_point)):
+            # cartesian search for uniform grid, floor division by mesh size
+            floored_ind = ((x_i - base_i) // h_i).astype(int)
+
+            if safeguarding:
+                exact = (x_i - base_i) / h_i
+
+                significant_rounding[i, exact - floored_ind > 0.999] = True
+
+            ind.append(floored_ind)
+
+        full_ind = np.array(ind)
+
+        if safeguarding:
+            # This may render the same indices twice, so they should be uniquified.
+            columns = np.any(significant_rounding, axis=0)
+
+            rows_with_repeats = np.where(
+                np.any(significant_rounding[:, columns], axis=1)
+            )[0]
+
+            import itertools
+
+            extra_ind = []
+
+            for combination_length in range(1, rows_with_repeats.size + 1):
+                for active_rows in itertools.combinations(
+                    rows_with_repeats, combination_length
+                ):
+                    active_columns = np.all(
+                        np.atleast_2d(significant_rounding[list(active_rows)]), axis=0
+                    )
+
+                    tmp_ind = full_ind[:, active_columns].copy()
+                    tmp_ind[list(active_rows)] += 1
+                    extra_ind.append(tmp_ind)
+
+            breakpoint()
+            full_ind = np.hstack((full_ind, np.hstack(extra_ind)))
+
+        return full_ind
