@@ -98,7 +98,7 @@ class UnitFluid(Material):
     DENSITY: float = 1.0 * pp.KILOGRAM / pp.METER**3
 
     def density(self, subdomains: list[pp.Grid]) -> Union[float, np.ndarray]:
-        """
+        """Vi prøver først np.ndarray.
 
         Args:
             subdomains:
@@ -111,8 +111,8 @@ class UnitFluid(Material):
         """
         return self.convert_units(self.DENSITY, self.units.kg / self.units.m**3)
 
-    def thermal_expansion(self, subdomains) -> pp.ad.Matrix:
-        """
+    def thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+        """Trolig ikke ad-matrix pga komposisjon, ikke mixin.
 
         Args:
             subdomains:
@@ -137,6 +137,7 @@ class UnitFluid(Material):
     # The below method needs rewriting after choosing between the above shown alternatives.
 
     def viscosity(self, geometry):
+        # Se kommentar rett over.
         return self.constit.ad_wrapper(
             self.fluid.VISCOSITY, geometry.num_cells, False, "viscosity"
         )
@@ -178,6 +179,15 @@ ambiguity.
 
 
 class ConstantDensity:
+
+    """Underforstått:
+
+    def __init__(self, fluid: UnitFluid):
+        self.fluid = ...
+
+    eller tilsvarende. Se SolutionStrategiesIncompressibleFlow.
+    """
+
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
         val = self.fluid.density(subdomains)
         num_cells = sum([sd.num_cells for sd in subdomains])
@@ -194,7 +204,7 @@ class DensityFromPressure:
         # We could consider letting this class inherit from ConstantDensity (and call super
         # to obtain reference value), but I don't see what the benefit would be.
         rho_ref = self.fluid.density(subdomains)
-        rho = rho_ref * exp(dp / self.compressibility(subdomains))
+        rho = rho_ref * exp(dp / self.fluid.compressibility(subdomains))
         return rho
 
 
@@ -213,6 +223,8 @@ class DensityFromPressureAndTemperature(DensityFromPressure):
 
 class ConstantIsotropicPermeability:
     def permeability(self, subdomain: pp.Grid) -> pp.SecondOrderTensor:
+        # This will be set as before (pp.PARAMETERS) since it is a discretization parameter
+        # Hence not list[subdomains]
         perm = pp.SecondOrderTensor(
             self.rock.permeability(subdomain) * np.ones(subdomain.num_cells)
         )
