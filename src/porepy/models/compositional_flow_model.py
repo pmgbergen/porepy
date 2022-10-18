@@ -7,6 +7,7 @@ The grid, expected Phases and components can be modified in respective methods.
 from __future__ import annotations
 
 from typing import Optional
+from iapws import IAPWS95
 
 import numpy as np
 import scipy.sparse as sps
@@ -43,20 +44,16 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### MODEL TUNING
         self.params: dict = params
         # kPa
-        self.initial_pressure = 101.3200
+        self.initial_pressure = 101.3200  # 1 atm
         # Kelvin
         self.initial_temperature = 323.15  # 50 dec Celsius
         # %
         self.initial_salt_concentration = 0.02
-        # kg to mol
-        self.injected_moles_water = 10.0 / pp.composite.IAPWS95_H2O.molar_mass()
-        # kJ / mol , specific heat capacity from Wikipedia
-        # rough approximation of enthalpy source from injected material
-        # injection at ca 30 deg Celsius and 2x atmospheric pressue
-        self.injected_water_enthalpy = (
-            0.075327 * 300
-            + 2 * self.initial_pressure / (998.21 / pp.composite.IAPWS95_H2O.molar_mass())
-        )
+        # kg to mol (per second)
+        self.injected_moles_water = 2000.0 / pp.composite.IAPWS95_H2O.molar_mass()
+        # initial enthalpy through pressure in MPa and at 30 deg Cels
+        water = IAPWS95(P = 2*self.initial_pressure / 1000, T=303.15)
+        self.injected_water_enthalpy = water.h * pp.composite.IAPWS95_H2O.molar_mass()
         # D-BC temperature Kelvin for conductive flux
         self.boundary_temperature = 423.15  # 150 Celsius
         # D-BC on outflow boundary
@@ -71,8 +68,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         # time step size
         self.dt: float = 0.5
-        # residual tolerance for the balance equations
-        self.tolerance_balance_equations = 1e-8
         # create default grid bucket for this model
         self.mdg: pp.MixedDimensionalGrid
         self.create_grid()
@@ -146,8 +141,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Assigns a cartesian grid as computational domain.
         Overwrites the instance variables 'gb'.
         """
-        cells_per_dim = 3
-        phys_dims = [1, 1]
+        cells_per_dim = 7
+        phys_dims = [3, 1]
         n_cells = [i * cells_per_dim for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
         self.box = pp.geometry.bounding_box.from_points(bounding_box_points)
@@ -183,6 +178,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         # defining an equilibrium equation for water
         k_value = 0.9
+        # k_value = self._P_vap(self.composition.T)
         name = "k_value_" + self.water.name
         equilibrium = (
             self.vapor.component_fraction_of(self.water)
@@ -190,8 +186,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         )
 
         self.composition.add_equilibrium_equation(self.water, equilibrium, name)
-
-        self.composition.initialize()
 
         # setting of initial values
         nc = self.mdg.num_subdomain_cells()
@@ -211,11 +205,30 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         h_vals = np.zeros(nc)
         self.ad_sys.set_var_values(self.composition._h_var, h_vals, True)
 
+        self.composition.initialize()
+
         self.composition.isothermal_flash(copy_to_state=True, initial_guess="feed")
         self.composition.evaluate_saturations()
         # This corrects the initial values
         self.composition.evaluate_specific_enthalpy()
+
+    def _P_vap(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
+        """Implements vapor pressure using the Buck equation
         
+        P_vap = 0.061121 * exp( (18.678 - T / 234.5) * ( T / (257.14 + T)) )
+        
+        where P_vap is returned in [kPa] and T given in Celsius
+        """
+        T_celsius = T - 272.15
+
+        arg = (18.678 - T_celsius / 234.5) * (T_celsius / (257.14 + T_celsius))
+
+        ad_exp = pp.ad.Function(pp.ad.exp, name="exp")
+
+        P_vap = 0.61121 * ad_exp(arg)
+        P_vap.set_name("p_vap_Buck")
+        return P_vap
+
     def prepare_simulation(self) -> None:
         """Preparing essential simulation configurations.
 
@@ -226,7 +239,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         # Exporter initialization for saving results
         self._exporter = pp.Exporter(
-            self.mdg, self.params["file_name"],
+            self.mdg,
+            self.params["file_name"],
             folder_name=self.params["folder_name"],
             export_constants_separately=False,
         )
@@ -306,7 +320,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                 + self.flow_subsystem["secondary_vars"]
                 + self._satur_vars
             )
-            # self._exporter.write_vtu([variables])
+            self._exporter.write_vtu(variables, time_dependent=True)
 
     ### NEWTON --------------------------------------------------------------------------------
 
@@ -317,26 +331,25 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
     def before_newton_iteration(self) -> None:
         """Re-discretizes the Upwind operators and the fluxes."""
-        # Darcy flux upwinding
-        # compute the flux
+        # MPFA flux upwinding
+        # compute the advective flux (grad P)
         kw = self.flow_parameter_key
         kw_store = self.flow_upwind_parameter_key
-        variable = self.composition._p_var  # TODO access to var name
-        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw_store, p_name=variable)
-        # re-discretize the upwinding of the Darcy flux
-        self.darcy_upwind.upwind.discretize(self.mdg)
-        self.darcy_upwind.bound_transport_dir.discretize(self.mdg)
-        self.darcy_upwind.bound_transport_neu.discretize(self.mdg)
-
-        # compute the heat flux
+        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw_store, p_name=self.composition._p_var)
+        # compute the conductive flux (grad T)
         kw = self.energy_parameter_key
         kw_store = self.conduction_upwind_parameter_key
-        variable = self.composition._T_var  # TODO access to var name
-        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw_store, p_name=variable)
-        # re-discretize the upwinding of the conductive flux
-        self.conductive_upwind.upwind.discretize(self.mdg)
-        self.conductive_upwind.bound_transport_dir.discretize(self.mdg)
-        self.conductive_upwind.bound_transport_neu.discretize(self.mdg)
+        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw_store, p_name=self.composition._T_var)
+        ## re-discretize the upwinding of the Darcy flux
+        # self.darcy_upwind.upwind.discretize(self.mdg)
+        # self.darcy_upwind.bound_transport_dir.discretize(self.mdg)
+        # self.darcy_upwind.bound_transport_neu.discretize(self.mdg)
+        ## re-discretize the upwinding of the conductive flux
+        # self.conductive_upwind.upwind.discretize(self.mdg)
+        # self.conductive_upwind.bound_transport_dir.discretize(self.mdg)
+        # self.conductive_upwind.bound_transport_neu.discretize(self.mdg)
+        for eq in self.ad_sys._equations.values():
+            eq.discretize(self.mdg)
 
         if not self.monolithic:
             print(f".. .. isenthalpic flash at iteration {self._nonlinear_iteration}")
@@ -392,7 +405,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
     def after_simulation(self) -> None:
         """Does nothing currently."""
-        pass
+        if hasattr(self, "_exporter"):
+            self._exporter.write_pvd()
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
         """APerforms a Newton step for the whole system in a monolithic way, by constructing
@@ -433,6 +447,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             self._for_expansion = (inv_A_ss, b_s, A_sp)
 
         res_norm = np.linalg.norm(b)
+        # print("Res norm ", res_norm)
+        # print("Condition ", np.linalg.cond(A.todense()))
         if res_norm < tol:
             self.converged = True
             x = self.dof_man.assemble_variable(variables=self._system_vars, from_iterate=True)
@@ -705,7 +721,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
         # find and set single-cell source
         vals = np.zeros(g.num_cells)
-        source_cell = g.closest_cell(np.array([0.5, 0.5]))
+        point_source = np.array([[0.5], [0.5]])
+        source_cell = g.closest_cell(point_source)
         vals[source_cell] = 1.0
 
         return vals
@@ -834,9 +851,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         for phase in cp.phases:
             conductive_scalar.append(
                 phase.saturation
-                * phase.thermal_conductivity(cp.p, cp.T)
+                * phase.thermal_conductivity(cp.p, cp.T) * 100.  # TODO remove 100 (debug)
             )
-        conductive_scalar = mass.mass * sum(conductive_scalar)
+        # conductive_scalar = mass.mass * sum(conductive_scalar)
+        conductive_scalar = sum(conductive_scalar)
 
         conduction = (
             self.conductive_flux * (upwind_cond.upwind * conductive_scalar)
