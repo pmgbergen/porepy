@@ -39,7 +39,9 @@ class ScalarBalanceEquation:
     All terms need to be specified in order to define an equation.
     """
 
-    def balance_equation(self, subdomains: list[pp.Grid], accumulation, flux, source) -> pp.ad.Operator:
+    def balance_equation(
+        self, subdomains: list[pp.Grid], accumulation, flux, source
+    ) -> pp.ad.Operator:
         """Denne er en halvveis balance_equation_discretization-metode. Gjenstår noe her!"""
 
         # FIXME: Ikke implementert. Uklart skille. Bor denne i BalanceEquations eller kanskje
@@ -48,8 +50,11 @@ class ScalarBalanceEquation:
         div = pp.ad.Divergence(subdomains)
         return dt(accumulation) + div * flux - source
 
-    def volume_integral(self, integrand: pp.ad.Operator,
-                        grids: Union[list[pp.Grid], list[pp.MortarGrid]]) -> pp.ad.Operator:
+    def volume_integral(
+        self,
+        integrand: pp.ad.Operator,
+        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+    ) -> pp.ad.Operator:
         """Numerical volume integral over subdomain or interface cells.
 
         Includes cell volumes and specific volume.
@@ -66,14 +71,14 @@ class ScalarBalanceEquation:
         return geometry.cell_volumes * self.specific_volume(grids) * integrand
 
 
-
-class MassBalanceEquations:
+class MassBalanceEquations(ScalarBalanceEquation):
     """Mixed-dimensional mass balance equation.
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces of
     codimension one.
 
     FIXME: Well equations? Low priority.
+
     """
 
     def set_equations(self):
@@ -125,7 +130,7 @@ class ConstitutiveEquationsIncompressibleFlow:
         We should consider modularising and moving to constit_library.
     """
 
-    def pressure_trace(self, subdomains):
+    def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 
         interfaces = self.subdomains_to_interfaces(subdomains)
         projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
@@ -141,7 +146,7 @@ class ConstitutiveEquationsIncompressibleFlow:
         )
         return pressure_trace
 
-    def darcy_flux(self, subdomains):
+    def darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         interfaces = self.subdomains_to_interfaces(subdomains)
         projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
         discr = self.fluid_flux_discretization(subdomains)
@@ -158,7 +163,7 @@ class ConstitutiveEquationsIncompressibleFlow:
         flux.set_name("Fluid flux")
         return flux
 
-    def face_mobility(self, subdomains):
+    def face_mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         # interfaces = self.subdomains_to_interfaces(subdomains)
         # projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
 
@@ -169,13 +174,15 @@ class ConstitutiveEquationsIncompressibleFlow:
         flux.set_name("face_mobility")
         return flux
 
-    def darcy_flux_discretization(self, subdomains) -> pp.ad.Discretization:
+    def darcy_flux_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Discretization:
         """
         .. note::
             The ad.Discretizations may be purged altogether. Their current function is very
             similar to the ad.Geometry in that both basically wrap numpy/scipy arrays in ad
             arrays and collect them in a block matrix. This similarity could possibly be
-             exploited.
+            exploited. Revisit at some point.
 
         Args:
             subdomains:
@@ -185,7 +192,9 @@ class ConstitutiveEquationsIncompressibleFlow:
         """
         return pp.ad.MpfaAd(self.flow_discretization_parameter_key, subdomains)
 
-    def mobility_discretization(self, subdomains) -> pp.ad.Discretization:
+    def mobility_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Discretization:
         return pp.ad.UpwindAd(self.flow_discretization_parameter_key, subdomains)
 
     def interface_mobility_discretization(
@@ -249,15 +258,19 @@ class ConstitutiveEquationsIncompressibleFlow:
 
     """FIXME: Incorporate aperture and specific volumes. 
     Current version is a mess.
+    
+    FIXME: Revisit after the first attempt at restructuring mechanics models.
+    
     """
-    def grid_aperture(self, grid):
+
+    def grid_aperture(self, grid: pp.Grid):
         """FIXME: Decide on how to treat interfaces."""
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
             aperture *= 0.1
         aperture
 
-    def aperture(self, subdomains) -> np.ndarray:
+    def aperture(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """
         Aperture is a characteristic thickness of a cell, with units [m].
         1 in matrix, thickness of fractures and "side length" of cross-sectional
@@ -270,7 +283,7 @@ class ConstitutiveEquationsIncompressibleFlow:
             apertures = np.concatenate((apertures, a_loc))
         return apertures
 
-    def specific_volume(self, subdomains) -> np.ndarray:
+    def specific_volume(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """
         Aperture is a characteristic thickness of a cell, with units [m].
         1 in matrix, thickness of fractures and "side length" of cross-sectional
@@ -290,6 +303,10 @@ class ConstitutiveEquationsIncompressibleFlow:
         dimensions [m^(Nd - d)].
         Typically, equals 1 in Nd, the aperture in codimension 1 and the square/cube
         of aperture in dimension 1 and 0.
+
+        We may need to introduce methods in pp.ad.Matrix to do element (or row-wise)
+        exponents.
+
         """
         a = self.grid_aperture(g)
         return np.power(a, self.nd - g.dim)
@@ -363,6 +380,9 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
     At some point, this will be refined to be a more sophisticated (modularised) solution
     strategy class.
     More refactoring may be beneficial.
+
+    This is *not* a full-scale model (in the old sence), but must be mixed with
+    balance equations, constitutive laws etc. See user_examples.
 
     """
 
