@@ -393,6 +393,7 @@ class ADSystem:
             image_info.update({grid: block_idx})
 
         # perform a validity check of the input
+        equation_operator.discretize(self.dof_manager.mdg)
         equ_ad = equation_operator.evaluate(self.dof_manager)
         is_num_equ = len(equ_ad.val)
         if total_num_equ != is_num_equ:
