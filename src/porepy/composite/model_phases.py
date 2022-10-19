@@ -5,17 +5,17 @@ import porepy as pp
 import numpy as np
 
 from .phase import Phase
-from ._composite_utils import R_IDEAL, T_REF, P_REF, CP_REF, V_REF, U_REF
+from ._composite_utils import R_IDEAL, T_REF, P_REF, CP_REF, V_REF, U_REF, H_REF
 
 __all__ = ["IncompressibleFluid", "IdealGas"]
 
 # TODO ADify properly
 class IncompressibleFluid(Phase):
-    """Ideal, Incompressible fluid with constant density of 1,000,000 moles per V_REF.
+    """Ideal, Incompressible fluid with constant density of 1 mole per V_REF.
     
     The EOS is reduced to
     
-    const rho = 1000000 / V_REF ( = 1000000 / V )
+    const rho = 1 / V_REF ( = 1 / V )
     V = V_REF
     
     """
@@ -25,7 +25,7 @@ class IncompressibleFluid(Phase):
         return pp.ad.Scalar(1000000. / V_REF) * p / p
 
     def specific_enthalpy(self, p, T):
-        return U_REF + P_REF / (1000000 / V_REF) + CP_REF * (T - T_REF) + V_REF * (p - P_REF)
+        return H_REF + CP_REF * (T - T_REF) + V_REF * (p - P_REF)
 
     def dynamic_viscosity(self, p, T):
         return pp.ad.Scalar(1.) 

@@ -42,6 +42,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### PUBLIC
 
         ### MODEL TUNING
+        # time step size
+        self.dt: float = 0.5
         self.params: dict = params
         # kPa
         self.initial_pressure = 101.3200  # 1 atm
@@ -50,10 +52,11 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # %
         self.initial_salt_concentration = 0.02
         # kg to mol (per second)
-        self.injected_moles_water = 2000.0 / pp.composite.IAPWS95_H2O.molar_mass()
-        # initial enthalpy through pressure in MPa and at 30 deg Cels
-        water = IAPWS95(P = 2*self.initial_pressure / 1000, T=303.15)
-        self.injected_water_enthalpy = water.h * pp.composite.IAPWS95_H2O.molar_mass()
+        self.injected_moles_water = 5000.0 / pp.composite.IAPWS95_H2O.molar_mass()
+        # initial enthalpy through pressure in MPa and at 30 deg Celsius
+        water = pp.composite.IncompressibleFluid("")
+        h = water.specific_enthalpy(self.initial_pressure, 303.16)
+        self.injected_water_enthalpy = h * self.injected_moles_water
         # D-BC temperature Kelvin for conductive flux
         self.boundary_temperature = 423.15  # 150 Celsius
         # D-BC on outflow boundary
@@ -66,8 +69,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # if not, it will solve only the primary system
         self.monolithic = monolithic_solver
 
-        # time step size
-        self.dt: float = 0.5
+        # grid refinement
+        self._refinement: int = 7
         # create default grid bucket for this model
         self.mdg: pp.MixedDimensionalGrid
         self.create_grid()
@@ -76,17 +79,17 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.flow_subsystem: dict[str, list] = dict()
 
         # Parameter keywords
-        self.flow_parameter_key: str = "flow"
-        self.flow_upwind_parameter_key: str = "upwind_%s" % (self.flow_parameter_key)
-        self.upwind_parameter_key: str = "upwind"
-        self.mass_parameter_key: str = "mass"
-        self.energy_parameter_key: str = "energy"
+        self.flow_keyword: str = "flow"
+        self.flow_upwind_parameter_key: str = "upwind_%s" % (self.flow_keyword)
+        self.mass_keyword: str = "mass"
+        self.energy_keyword: str = "energy"
         self.conduction_upwind_parameter_key: str = "upwind_%s" % (
-            self.energy_parameter_key
+            self.energy_keyword
         )
 
         # references to discretization operators
         # they will be set during `prepare_simulation`
+        self.mass_matrix: pp.ad.MassMatrixAd
         self.div: pp.ad.Divergence
         self.darcy_flux: pp.ad.MpfaAd
         self.darcy_upwind: pp.ad.UpwindAd
@@ -95,13 +98,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.conductive_upwind: pp.ad.UpwindAd
         self.conductive_upwind_bc: pp.ad.BoundaryCondition
 
-        ### GEOTHERMAL MODEL SET UP
-        self.composition: pp.composite.Composition
-        self.brine: pp.composite.Phase
-        self.vapor: pp.composite.Phase
-        self.water: pp.composite.FluidComponent
-        self.salt: pp.composite.SolidComponent
-
+        ### COMPOSITION SETUP
         # Use the managers from the composition and add the balance equations
         self.ad_sys: pp.ad.ADSystem = pp.ad.ADSystem(self.mdg)
         self.dof_man: pp.DofManager = self.ad_sys.dof_manager
@@ -141,9 +138,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Assigns a cartesian grid as computational domain.
         Overwrites/sets the instance variables 'mdg'.
         """
-        cells_per_dim = 3
         phys_dims = [3, 1]
-        n_cells = [i * cells_per_dim for i in phys_dims]
+        n_cells = [i * self._refinement for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
         self.box = pp.geometry.bounding_box.from_points(bounding_box_points)
         sg = pp.CartGrid(n_cells, phys_dims)
@@ -153,57 +149,59 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
     def set_composition(self) -> None:
         """Define the composition for which the simulation should be run and performs
-        the initial (p-T) equilibrium calculations for the initial state given in p-T and feed.
+        the initial (p-T) equilibrium calculations for the initial state given in p,T and feed.
+
+        Set initial values for p, T and feed here.
 
         Use this method to inherit and override the composition, while keeping the (generic)
         rest of the model.
         """
         # creating relevant components
-        self.water = pp.composite.IAPWS95_H2O(self.ad_sys)
-        self.salt = pp.composite.NaCl(self.ad_sys)
+        water = pp.composite.IAPWS95_H2O(self.ad_sys)
+        salt = pp.composite.NaCl(self.ad_sys)
         # creating composition class
         self.composition = pp.composite.Composition(self.ad_sys)
         # creating expected phases
-        self.brine = pp.composite.IncompressibleFluid("brine", self.ad_sys)
-        self.vapor = pp.composite.IdealGas("vapor", self.ad_sys)
+        brine = pp.composite.IncompressibleFluid("brine", self.ad_sys)
+        vapor = pp.composite.IdealGas("vapor", self.ad_sys)
         # adding components to phases
-        self.brine.add_component([self.water, self.salt])
-        self.vapor.add_component(self.water)
+        brine.add_component([water, salt])
+        vapor.add_component(water)
 
         # adding everything to the composition class
-        self.composition.add_component(self.water)
-        self.composition.add_component(self.salt)
-        self.composition.add_phase(self.brine)
-        self.composition.add_phase(self.vapor)
+        self.composition.add_component(water)
+        self.composition.add_component(salt)
+        self.composition.add_phase(brine)
+        self.composition.add_phase(vapor)
 
         # defining an equilibrium equation for water
-        k_value = 0.9
+        k_value = 1.1
         # k_value = self._P_vap(self.composition.T)
-        name = "k_value_" + self.water.name
+        name = "k_value_" + water.name
         equilibrium = (
-            self.vapor.ext_fraction_of_component(self.water)
-            - k_value * self.brine.ext_fraction_of_component(self.water)
+            vapor.ext_fraction_of_component(water)
+            - k_value * brine.ext_fraction_of_component(water)
         )
 
-        self.composition.add_equilibrium_equation(self.water, equilibrium, name)
+        self.composition.add_equilibrium_equation(water, equilibrium, name)
 
         # setting of initial values
         nc = self.mdg.num_subdomain_cells()
         # setting water feed fraction
         water_frac = (1. - self.initial_salt_concentration) * np.ones(nc)
-        self.ad_sys.set_var_values(self.water.fraction_name, water_frac, True)
+        self.ad_sys.set_var_values(water.fraction_name, water_frac, True)
         # setting salt feed fraction
         salt_frac = self.initial_salt_concentration * np.ones(nc)
-        self.ad_sys.set_var_values(self.salt.fraction_name, salt_frac, True)
+        self.ad_sys.set_var_values(salt.fraction_name, salt_frac, True)
         # setting initial pressure
         p_vals = self.initial_pressure * np.ones(nc)
-        self.ad_sys.set_var_values(self.composition._p_var, p_vals, True)
+        self.ad_sys.set_var_values(self.composition.p_name, p_vals, True)
         # setting initial temperature
         T_vals = self.initial_temperature * np.ones(nc)
-        self.ad_sys.set_var_values(self.composition._T_var, T_vals, True)
+        self.ad_sys.set_var_values(self.composition.T_name, T_vals, True)
         # set zero enthalpy values at the beginning to get the AD framework properly started
         h_vals = np.zeros(nc)
-        self.ad_sys.set_var_values(self.composition._h_var, h_vals, True)
+        self.ad_sys.set_var_values(self.composition.h_name, h_vals, True)
 
         self.composition.initialize()
 
@@ -276,7 +274,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self._set_mass_balance_equations()
         self._set_energy_balance_equation()
 
-        # NOTE this can be optimized. Some component need to be discretized only once.
         self.ad_sys.discretize()
         # prepare datastructures for the solver
         self._prolong_prim = self.dof_man.projection_to(primary_vars).transpose()
@@ -333,13 +330,11 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Re-discretizes the Upwind operators and the fluxes."""
         # MPFA flux upwinding
         # compute the advective flux (grad P)
-        kw = self.flow_parameter_key
-        kw_store = self.flow_upwind_parameter_key
-        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw_store, p_name=self.composition._p_var)
+        kw = self.flow_keyword
+        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw, p_name=self.composition.p_name)
         # compute the conductive flux (grad T)
-        kw = self.energy_parameter_key
-        kw_store = self.conduction_upwind_parameter_key
-        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw_store, p_name=self.composition._T_var)
+        kw = self.energy_keyword
+        pp.fvutils.compute_darcy_flux(self.mdg, kw, kw, p_name=self.composition.T_name)
         ## re-discretize the upwinding of the Darcy flux
         # self.darcy_upwind.upwind.discretize(self.mdg)
         # self.darcy_upwind.bound_transport_dir.discretize(self.mdg)
@@ -479,79 +474,63 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
             source = self._unitary_source(g)
             unit_tensor = pp.SecondOrderTensor(np.ones(g.num_cells))
-            # TODO is this a must-have parameter?
             zero_vector_source = np.zeros((self.mdg.dim_max(), g.num_cells))
 
-            ### Mass weight parameter. Same for all balance equations
+            ### Mass parameters.
+            param_dict = dict()
+            # weight for accumulation term
+            param_dict.update({"mass_weight": self.porosity * np.ones(g.num_cells)})
+            # source terms per component
+            for component in self.composition.components:
+                param_dict.update({
+                    f"source_{component.name}": np.copy(
+                        source * self.mass_sources[component.name]
+                    )
+                })
+
             pp.initialize_data(
                 g,
                 d,
-                self.mass_parameter_key,
-                {"mass_weight": self.porosity * np.ones(g.num_cells)},
+                self.mass_keyword,
+                param_dict,
             )
-
-            ### Mass parameters per substance
-
-            for component in self.composition.components:
-                pp.initialize_data(
-                    g,
-                    d,
-                    "%s_%s" % (self.mass_parameter_key, component.name),
-                    {
-                        "source": np.copy(
-                            source * self.mass_sources[component.name]
-                        ),
-                    },
-                )
 
             ### Darcy flow parameters for assumed single pressure
             bc, bc_vals = self._bc_advective_flux(g)
             transmissibility = pp.SecondOrderTensor(
                 self.permeability * np.ones(g.num_cells)
             )
-            # parameters for MPFA discretization
+            # parameters for DARCY FLUX
             pp.initialize_data(
                 g,
                 d,
-                self.flow_parameter_key,
+                self.flow_keyword,
                 {
                     "bc": bc,
                     "bc_values": bc_vals,
                     "second_order_tensor": transmissibility,
                     "vector_source": np.copy(zero_vector_source.ravel("F")),
                     "ambient_dimension": self.mdg.dim_max(),
-                },
-            )
-            # parameters for upwinding
-            pp.initialize_data(
-                g,
-                d,
-                self.flow_upwind_parameter_key,
-                {
-                    "bc": bc,
-                    "bc_values": bc_vals,
-                    "darcy_flux": np.zeros(
-                        g.num_faces
-                    ),  # Upwinding expects an initial flux
+                    "darcy_flux": np.zeros(g.num_faces), # Upwind needs flux values non faces
                 },
             )
 
             ### Energy parameters for global energy equation
             bc, bc_vals = self._bc_conductive_flux(g)
-            # enthalpy sources due to substance mass source
             param_dict = dict()
+            # general enthalpy sources e.g., hot skeleton
+            param_dict.update({"source": np.copy(source) * 0.0})
+            # enthalpy sources due to substance mass source
             for component in self.composition.components:
                 param_dict.update(
                     {
-                        "source_%s"
-                        % (component.name): np.copy(
+                        f"source_{component.name}": np.copy(
                             source * self.enthalpy_sources[component.name]
                         )
                     }
                 )
-            # other enthalpy sources e.g., hot skeleton
-            param_dict.update({"source": np.copy(source) * 0.0})
-            # MPFA parameters for conductive flux
+
+            # CONDUCTIVE FLUX and respective upwinding parameters
             param_dict.update(
                 {
                     "bc": bc,
@@ -559,24 +538,14 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                     "second_order_tensor": unit_tensor,
                     "vector_source": np.copy(zero_vector_source.ravel("F")),
                     "ambient_dimension": self.mdg.dim_max(),
+                    "darcy_flux": np.zeros(g.num_faces),  # Upwind needs flux values on faces
                 }
             )
             pp.initialize_data(
                 g,
                 d,
-                self.energy_parameter_key,
+                self.energy_keyword,
                 param_dict,
-            )
-            # parameters for conductive upwinding
-            pp.initialize_data(
-                g,
-                d,
-                self.conduction_upwind_parameter_key,
-                {
-                    "bc": bc,
-                    "bc_values": bc_vals,
-                    "darcy_flux": np.zeros(g.num_faces),  # Upwinding expects
-                },
             )
 
         # For now we consider only a single domain
@@ -584,30 +553,27 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             raise NotImplementedError("Mixed dimensional case not yet available.")
 
         ### Instantiating discretization operators
-
+        # mass matrix
+        self.mass_matrix = pp.ad.MassMatrixAd(self.mass_keyword, self._grids)
         # divergence (based on grid)
         self.div = pp.ad.Divergence(subdomains=self._grids, name="Divergence")
-
         # darcy flux
-        mpfa = pp.ad.MpfaAd(self.flow_parameter_key, self._grids)
-        bc = pp.ad.BoundaryCondition(self.flow_parameter_key, self._grids)
+        mpfa = pp.ad.MpfaAd(self.flow_keyword, self._grids)
+        bc = pp.ad.BoundaryCondition(self.flow_keyword, self._grids)
         self.darcy_flux = mpfa.flux * self.composition.p + mpfa.bound_flux * bc
-
         # darcy upwind
-        keyword = self.flow_upwind_parameter_key
-        self.darcy_upwind = pp.ad.UpwindAd(keyword, self._grids)
-        self.darcy_upwind_bc = pp.ad.BoundaryCondition(keyword, self._grids)
+        self.darcy_upwind = pp.ad.UpwindAd(self.flow_keyword, self._grids)
+        self.darcy_upwind_bc = pp.ad.BoundaryCondition(self.flow_keyword, self._grids)
 
         # conductive flux
-        mpfa = pp.ad.MpfaAd(self.energy_parameter_key, self._grids)
-        bc = pp.ad.BoundaryCondition(self.energy_parameter_key, self._grids)
+        mpfa = pp.ad.MpfaAd(self.energy_keyword, self._grids)
+        bc = pp.ad.BoundaryCondition(self.energy_keyword, self._grids)
         self.conductive_flux = (
             mpfa.flux * self.composition.T + mpfa.bound_flux * bc
         )
         # conductive upwind
-        keyword = self.conduction_upwind_parameter_key
-        self.conductive_upwind = pp.ad.UpwindAd(keyword, self._grids)
-        self.conductive_upwind_bc = pp.ad.BoundaryCondition(keyword, self._grids)
+        self.conductive_upwind = pp.ad.UpwindAd(self.energy_keyword, self._grids)
+        self.conductive_upwind_bc = pp.ad.BoundaryCondition(self.energy_keyword, self._grids)
 
     ## Boundary Conditions
 
@@ -758,22 +724,17 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         equation = sum(time_derivative) + self.dt * decay * unity
 
         image_info = dict()
-        for sd in self.ad_sys.dof_manager.mdg.subdomains():
+        for sd in self.mdg.subdomains():
             image_info.update({sd: {"cells": 1}})
         self.ad_sys.set_equation(name, equation, num_equ_per_dof=image_info)
 
     def _set_mass_balance_equations(self) -> None:
         """Set mass balance equations per substance"""
-
-        # creating operators, parameters and shorter namespaces
-        mass = pp.ad.MassMatrixAd(self.mass_parameter_key, self._grids)
         cp = self.composition
-        upwind = self.darcy_upwind
-        bc_upwind = self.darcy_upwind_bc
 
-        for component in self.composition.components:
+        for component in cp.components:
             ### ACCUMULATION
-            accumulation = mass.mass * (
+            accumulation = self.mass_matrix.mass * (
                 component.fraction * cp.density()
                 - component.fraction.previous_timestep()
                 * cp.density(prev_time=True)
@@ -785,7 +746,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
                 scalar_part = (
                     phase.density(cp.p, cp.T)
-                    * phase.ext_fraction_of_component(component)
+                    * phase.ext_fraction_of_component(component)  # TODO use regular composition (debug factorization error when using this)
                     * self.rel_perm(phase.saturation)  # TODO change rel perm access
                     / phase.dynamic_viscosity(cp.p, cp.T)
                 )
@@ -793,21 +754,23 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             advection_scalar = sum(advection_scalar)
 
             advection = (
-                self.darcy_flux * (upwind.upwind * advection_scalar)
-                - upwind.bound_transport_dir * self.darcy_flux * bc_upwind
-                - upwind.bound_transport_neu * bc_upwind
+                self.darcy_flux * (self.darcy_upwind.upwind * advection_scalar)
+                - self.darcy_upwind.bound_transport_dir * self.darcy_flux
+                * self.darcy_upwind_bc
+                - self.darcy_upwind.bound_transport_neu * self.darcy_upwind_bc
             )
 
             ### SOURCE
-            keyword = "%s_%s" % (self.mass_parameter_key, component.name)
-            source = pp.ad.ParameterArray(keyword, "source", subdomains=self._grids)
+            keyword = f"source_{component.name}"
+            source = pp.ad.ParameterArray(self.mass_keyword, keyword, subdomains=self._grids)
+            source = self.mass_matrix.mass * source
 
             ### MASS BALANCE PER COMPONENT
             # minus in advection already included
             equation = accumulation + self.dt * (self.div * advection - source)
             equ_name = "mass_balance_%s" % (component.name)
             image_info = dict()
-            for sd in self.ad_sys.dof_manager.mdg.subdomains():
+            for sd in self.mdg.subdomains():
                 image_info.update({sd: {"cells": 1}})
             self.ad_sys.set_equation(equ_name, equation, num_equ_per_dof=image_info)
             self.flow_subsystem["primary_equations"].append(equ_name)
@@ -816,15 +779,14 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Sets the global energy balance equation in terms of enthalpy."""
 
         # creating operators, parameters and shorter namespaces
-        mass = pp.ad.MassMatrixAd(self.mass_parameter_key, self._grids)
         cp = self.composition
         upwind_adv = self.darcy_upwind
-        bc_upwind_adv = self.darcy_upwind_bc
+        upwind_adv_bc = self.darcy_upwind_bc
         upwind_cond = self.conductive_upwind
-        bc_upwind_cond = self.conductive_upwind_bc
+        upwind_cond_bc = self.conductive_upwind_bc
 
         ### ACCUMULATION
-        accumulation = mass.mass * (
+        accumulation = self.mass_matrix.mass * (
             cp.h * cp.density() - cp.h.previous_timestep() * cp.density(prev_time=True)
         )
 
@@ -842,8 +804,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         advection = (
             self.darcy_flux * (upwind_adv.upwind * advective_scalar)
-            - upwind_adv.bound_transport_dir * self.darcy_flux * bc_upwind_adv
-            - upwind_adv.bound_transport_neu * bc_upwind_adv
+            - upwind_adv.bound_transport_dir * self.darcy_flux * upwind_adv_bc
+            - upwind_adv.bound_transport_neu * upwind_adv_bc
         )
 
         ### CONDUCTION
@@ -851,34 +813,34 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         for phase in cp.phases:
             conductive_scalar.append(
                 phase.saturation
-                * phase.thermal_conductivity(cp.p, cp.T) * 100.  # TODO remove 100 (debug)
+                * phase.thermal_conductivity(cp.p, cp.T) * 10.  # TODO remove 100 (debug)
             )
-        # conductive_scalar = mass.mass * sum(conductive_scalar)
         conductive_scalar = sum(conductive_scalar)
 
         conduction = (
             self.conductive_flux * (upwind_cond.upwind * conductive_scalar)
-            - upwind_cond.bound_transport_dir * self.conductive_flux * bc_upwind_cond
-            - upwind_cond.bound_transport_neu * bc_upwind_cond
+            - upwind_cond.bound_transport_dir * self.conductive_flux * upwind_cond_bc
+            - upwind_cond.bound_transport_neu * upwind_cond_bc
         )
 
         ### SOURCE
         # rock enthalpy source
         source = pp.ad.ParameterArray(
-            self.energy_parameter_key, "source", subdomains=self._grids
+            self.energy_keyword, "source", subdomains=self._grids
         )
         # enthalpy source due to mass source
         for component in cp.components:
-            kw = "source_%s" % (component.name)
+            kw = f"source_{component.name}"
             source += pp.ad.ParameterArray(
-                self.energy_parameter_key, kw, subdomains=self._grids
+                self.energy_keyword, kw, subdomains=self._grids
             )
+        source = self.mass_matrix.mass * source
 
         ### GLOBAL ENERGY BALANCE
         equation = accumulation + self.dt * (self.div * (advection + conduction) - source)
         equ_name = "energy_balance"
         image_info = dict()
-        for sd in self.ad_sys.dof_manager.mdg.subdomains():
+        for sd in self.mdg.subdomains():
             image_info.update({sd: {"cells": 1}})
         self.ad_sys.set_equation(equ_name, equation, num_equ_per_dof=image_info)
         self.flow_subsystem["primary_equations"].append(equ_name)

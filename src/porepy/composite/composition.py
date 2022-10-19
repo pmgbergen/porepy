@@ -208,6 +208,11 @@ class Composition:
             self._p = value
 
     @property
+    def p_name(self) -> str:
+        """Returns the name of the pressure variable."""
+        return self._p_var
+
+    @property
     def h(self) -> VarLike:
         """Initialized with 0.
 
@@ -243,6 +248,11 @@ class Composition:
             )
         else:
             self._h = value
+
+    @property
+    def h_name(self) -> str:
+        """Returns the name of the enthalpy variable."""
+        return self._h_var
 
     @property
     def T(self) -> VarLike:
@@ -281,6 +291,11 @@ class Composition:
             )
         else:
             self._T = value
+
+    @property
+    def T_name(self) -> str:
+        """Returns the name of the temperature variable."""
+        return self._T_var
 
     def density(self, prev_time: bool = False) -> VarLike:
         """
@@ -681,7 +696,9 @@ class Composition:
         msg = "\nProcedure: %s\n" % (str(entry["flash"]))
         msg += "SUCCESS: %s\n" % (str(entry["success"]))
         msg += "Method: %s\n" % (str(entry["method"]))
+        msg += "Iterations: %s\n" % (str(entry["iterations"]))
         msg += "Remarks: %s" % (str(entry["other"]))
+        print(msg)
 
     def _history_entry(
         self,
@@ -721,7 +738,6 @@ class Composition:
         self, ph_subsystem: Dict[str, list], pT_subsystem: Dict[str, list]
     ) -> None:
         """Auxiliary function to set the variables in respective subsystems."""
-        ### SECONDARY VARIABLES
         # pressure is always a secondary var in the flash
         pT_subsystem["secondary_vars"].append(self._p_var)
         ph_subsystem["secondary_vars"].append(self._p_var)
@@ -740,7 +756,6 @@ class Composition:
             pT_subsystem["secondary_vars"].append(phase.saturation_name)
             ph_subsystem["secondary_vars"].append(phase.saturation_name)
 
-        ### PRIMARY VARIABLES
         # primary vars which are same for both subsystems
         # phase fractions
         for phase in self.phases:
@@ -751,14 +766,11 @@ class Composition:
                 var_name = phase.ext_component_fraction_name(component)
                 pT_subsystem["primary_vars"].append(var_name)
                 ph_subsystem["primary_vars"].append(var_name)
+                # var_name = phase.component_fraction_name(component)
+                # pT_subsystem["secondary_vars"].append(var_name)
+                # ph_subsystem["secondary_vars"].append(var_name)
         # for the p-h flash, T is an additional var
         ph_subsystem["primary_vars"].append(self._T_var)
-
-    def print_x(self) -> None:
-        X = self.ad_system.dof_manager.assemble_variable()
-        print(X)
-        X = self.ad_system.dof_manager.assemble_variable(from_iterate=True)
-        print(X)
 
     ### Flash methods -------------------------------------------------------------------------
 
@@ -1081,65 +1093,6 @@ class Composition:
         )
 
         return success
-
-    def _assemble_semi_smooth_system(
-        self,
-        equations: List[pp.ad.Operator],
-        complementary_cond: Tuple[pp.ad.Operator],
-        var_names: List[pp.ad.MergedVariable],
-    ) -> Tuple[sps.spmatrix, np.ndarray]:
-        """Returns an element of the subgradient of the ``min(-,-)`` function and the
-        respective right-hand side of the Newton-min linearized system.
-
-        References:
-            - Pang, J.S.: Newton's Method for B-Differentiable Equations
-              https://www.jstor.org/stable/3689785
-
-        Parameters:
-            equations: list of operators representing the smooth part of the system
-            complementary_cond: a 2-tuple of AD operators representing the arguments for min
-            var_names: list of variables w.r.t. which the lin. equations should be assembled
-
-        Returns:
-            spmatrix: subgradient element w.r.t. to the given variables
-            ndarray: residual vector for the current iterate state.
-
-        """
-        # assemble smooth subsystem
-        A_s, b_s = self.ad_system.assemble_subsystem(equations, var_names)
-
-        # assemble non-smooth subsystem
-        all_b_ns = list()
-        all_A_ns = list()
-        # projection to primary variables
-        projection = self.ad_system.dof_manager.projection_to(var_names).transpose()
-
-        for comp_cond in complementary_cond:
-            op1, op2 = self._complementary_eq[comp_cond]
-
-            b1 = op1.evaluate(self.ad_system.dof_manager)
-            b2 = op2.evaluate(self.ad_system.dof_manager)
-            # see reference for this active-set-strategy
-            active_set = (b1.val - b2.val) > 0
-
-            b_ns = -b1.val.copy()
-            b_ns[active_set] = -b2.val[active_set]
-
-            A_ns = b1.jac.tolil()
-            # TODO scipy.sparse gives an efficiency warning here, told me to change to
-            # lil. Is this really the way to go?
-            A_ns[active_set] = b2.jac.tolil()[active_set]
-
-            all_b_ns.append(b_ns)
-            all_A_ns.append([A_ns.tocsr()])
-
-        # slice out relevant columns
-        A_ns = sps.bmat(all_A_ns, format="csr") * projection
-        # stack smooth and non-smooth part to global semi-smooth system
-        A = sps.bmat([[A_s], [A_ns]], format="csr")
-        b = np.hstack([b_s] + all_b_ns)
-
-        return A, b
 
     def _set_initial_guess(
         self, initial_guess: str, guess_temperature: bool = False
