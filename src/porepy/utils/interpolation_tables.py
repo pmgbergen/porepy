@@ -390,7 +390,8 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # Use standard method for differentiation.
         return super().diff(x, axis)
 
-    def assign_values(self, coord: list[np.ndarray], val: np.ndarray) -> None:
+    def assign_values(self, val: np.ndarray, coord: list[np.ndarray],
+                      indices: Optional[list[np.ndarray]]=None) -> None:
         """Assign externally computed values to the table.
 
         The user is responsible that the coordinates are nodes in the Cartesian grid
@@ -404,23 +405,23 @@ class AdaptiveInterpolationTable(InterpolationTable):
         respective interpolation tables for the individual properties.
 
         Args:
-            coord (list[np.ndarray]): Coordinates of points to assign values to.
             val (np.ndarray): Values to assign.
-
+            coord (list[np.ndarray]): Coordinates of points to assign values to.
+            indices: Indices where 
         """
+        
         # Convert the coordinates to a single numpy array.
         coord_array = np.vstack(coord).T
-
-        # Get the corresponding indices in the underlying Cartesian grids.
-        ind_of_coord = self._find_base_vertex(coord_array)
-
-        ind_list = [i for i in ind_of_coord.T]
-
+    
+        if indices is None:
+            # Get the corresponding indices in the underlying Cartesian grids.
+            indices = self._find_base_vertex(coord_array)
+    
+        ind_list = [i for i in indices.T]
         # Add values and indices to the table
         column_permutation = self._table.add(ind_list, val, additive=False)
         # Add the coordinates to the table.
         self._pt = np.hstack((self._pt, coord_array[:, column_permutation]))
-        breakpoint()
 
     def interpolation_nodes_from_coordinates(
         self, x: np.ndarray
@@ -449,7 +450,6 @@ class AdaptiveInterpolationTable(InterpolationTable):
         unique_ind = np.unique(np.hstack(ind), axis=1)
 
         coord = [self._base_point + self._h * v for v in unique_ind.T]
-        breakpoint()
         return coord, unique_ind
 
     def _fill_values(self, x: np.ndarray) -> None:
@@ -573,21 +573,21 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
             import itertools
 
-            extra_ind = []
-
-            for combination_length in range(1, rows_with_repeats.size + 1):
-                for active_rows in itertools.combinations(
-                    rows_with_repeats, combination_length
-                ):
-                    active_columns = np.all(
-                        np.atleast_2d(significant_rounding[list(active_rows)]), axis=0
-                    )
-
-                    tmp_ind = full_ind[:, active_columns].copy()
-                    tmp_ind[list(active_rows)] += 1
-                    extra_ind.append(tmp_ind)
-
-            breakpoint()
-            full_ind = np.hstack((full_ind, np.hstack(extra_ind)))
+            if np.any(rows_with_repeats):
+                extra_ind = []
+    
+                for combination_length in range(1, rows_with_repeats.size + 1):
+                    for active_rows in itertools.combinations(
+                        rows_with_repeats, combination_length
+                    ):
+                        active_columns = np.all(
+                            np.atleast_2d(significant_rounding[list(active_rows)]), axis=0
+                        )
+    
+                        tmp_ind = full_ind[:, active_columns].copy()
+                        tmp_ind[list(active_rows)] += 1
+                        extra_ind.append(tmp_ind)
+    
+                full_ind = np.hstack((full_ind, np.hstack(extra_ind)))
 
         return full_ind
