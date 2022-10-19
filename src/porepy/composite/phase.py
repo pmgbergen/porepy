@@ -94,12 +94,14 @@ class Phase(abc.ABC):
         self._s: Optional[pp.ad.MergedVariable] = None
         self._fraction: Optional[pp.ad.MergedVariable] = None
         if ad_system:
-            self._s = ad_system.create_variable(self.saturation_var_name)
-            self._fraction = ad_system.create_variable(self.fraction_var_name)
+            self._s = ad_system.create_variable(self.saturation_name)
+            self._fraction = ad_system.create_variable(self.fraction_name)
             nc = ad_system.dof_manager.mdg.num_subdomain_cells()
-            ad_system.set_var_values(self.saturation_var_name, np.zeros(nc), True)
-            ad_system.set_var_values(self.fraction_var_name, np.zeros(nc), True)
-        # contains fractional values per present component name (key)
+            ad_system.set_var_values(self.saturation_name, np.zeros(nc), True)
+            ad_system.set_var_values(self.fraction_name, np.zeros(nc), True)
+        # contains extended fractional values per present component name (key)
+        self._ext_composition: Dict[str, VarLike] = dict()
+        # contains regular fractional values per present component name (key)
         self._composition: Dict[str, VarLike] = dict()
 
     def __iter__(self) -> Generator[pp.composite.Component, None, None]:
@@ -128,12 +130,12 @@ class Phase(abc.ABC):
         return len(self._present_components)
 
     @property
-    def saturation_var_name(self) -> str:
+    def saturation_name(self) -> str:
         """Name for the saturation variable, given by the general symbol and :meth:`name`."""
         return f"s_{self.name}"
 
     @property
-    def fraction_var_name(self) -> str:
+    def fraction_name(self) -> str:
         """Name for the molar fraction variable, given by the general symbol and :meth:`name`."""
         return f"y_{self.name}"
 
@@ -165,10 +167,18 @@ class Phase(abc.ABC):
         """
         return self._fraction
 
-    def component_fraction_of(self, component: pp.composite.Component) -> VarLike:
+    def ext_fraction_of_component(self, component: pp.composite.Component) -> VarLike:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
+
+        If a phase is present (phase fraction is strictly positive), the extended component
+        fraction (this one) coincides with the regular component fraction.
+        If a phase vanishes (phase fraction is zero), the extended fractions represent
+        non-physical values at equilibrium.
+        The extended phase composition does not fulfill unity.
+        In the case of a vanished phase, the regular phase composition is obtained by
+        re-normalizing the extended phase composition, such that unity is fulfilled.
 
         Notes:
             Currently there is no checking if the component was added to the phase.
@@ -178,7 +188,7 @@ class Phase(abc.ABC):
             component: a component present in this phase
 
         Returns:
-            molar fraction of a component in this phase,
+            extended molar fraction of a component in this phase,
             a secondary variable on the whole domain (cell-wise).
             Indicates how many of the moles in this phase belong to the component.
             It is supposed to represent the value at thermodynamic equilibrium.
@@ -193,9 +203,56 @@ class Phase(abc.ABC):
             raise RuntimeError(
                 f"Component '{component.name}' instantiated with a different AD system."
             )
-        return self._composition.get(self.component_fraction_var_name(component), 0.0)
+        return self._ext_composition.get(self.ext_component_fraction_name(component), 0.0)
 
-    def component_fraction_var_name(self, component: pp.composite.Component) -> str:
+    def ext_component_fraction_name(self, component: pp.composite.Component) -> str:
+        """
+        Parameters:
+            component: component for which the respective name is requested.
+
+        Returns:
+            name of the respective variable, given by the general symbol, the
+            component name and the phase name.
+
+        """
+        return f"xi_{component.name}_{self.name}"
+
+    def fraction_of_component(self, component: pp.composite.Component) -> VarLike:
+        """
+        | Math. Dimension:        scalar
+        | Phys. Dimension:        [-] fractional
+
+        If a phase is present (phase fraction is strictly positive), the regular component
+        fraction coincides with the extended component fraction.
+        If a phase vanishes (phase fraction is zero), the regular component fraction (this one)
+        is obtained by re-normalizing the extended component fraction.
+
+        Notes:
+            Currently there is no checking if the component was added to the phase.
+            If it was not added, zero is simply returned.
+
+        Parameters:
+            component: a component present in this phase
+
+        Returns:
+            extended molar fraction of a component in this phase,
+            a secondary variable on the whole domain (cell-wise).
+            Indicates how many of the moles in this phase belong to the component.
+            It is supposed to represent the value at thermodynamic equilibrium.
+            Returns always zero if a component is not modelled (added) to this phase.
+
+        Raises:
+            RuntimeError: if the AD framework is used and the component was instantiated using
+                a different AD system than the one used for this composition.
+
+        """
+        if component.ad_system != self.ad_system:
+            raise RuntimeError(
+                f"Component '{component.name}' instantiated with a different AD system."
+            )
+        return self._composition.get(self.ext_component_fraction_name(component), 0.0)
+
+    def component_fraction_name(self, component: pp.composite.Component) -> str:
         """
         Parameters:
             component: component for which the respective name is requested.
@@ -215,9 +272,9 @@ class Phase(abc.ABC):
 
         If a component was already added, nothing happens.
 
-        If the AD framework is used (AD System is not None), creates the fractional variable
-        for the component in this phase.
-        If not, instantiates the respective fractional as zero (float).
+        If the AD framework is used (AD System is not None), the fractional variables
+        for the component in this phase are created (regular and extended).
+        If not, instantiates the respective fractions as zero (float).
 
         Parameters: a component, or list of components, which are expected in this phase.
 
@@ -242,20 +299,27 @@ class Phase(abc.ABC):
             # skip already present components:
             if comp.name in present_components:
                 continue
-            # create the name for the variable 'component fraction in this phase'
-            fraction_name = self.component_fraction_var_name(comp)
-            # create the fraction of the component in this phase
-            comp_fraction: VarLike
+            # create the name for the variables representing the extended and regular fraction
+            # in this phase
+            ext_fraction_name = self.ext_component_fraction_name(comp)
+            fraction_name = self.component_fraction_name(comp)
+            # create the fractions of the component in this phase
+            ext_comp_fraction: VarLike
+            com_fraction: VarLike
             if self.ad_system:
-                comp_fraction = self.ad_system.create_variable(fraction_name)
+                ext_comp_fraction = self.ad_system.create_variable(ext_fraction_name)
+                com_fraction = self.ad_system.create_variable(fraction_name)
                 nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
+                self.ad_system.set_var_values(ext_fraction_name, np.zeros(nc), True)
                 self.ad_system.set_var_values(fraction_name, np.zeros(nc), True)
             else:
-                comp_fraction = 0.0
+                ext_comp_fraction = 0.
+                com_fraction = 0.
             # store reference to present substance
             self._present_components.append(comp)
             # store the compositional variable
-            self._composition.update({fraction_name: comp_fraction})
+            self._ext_composition.update({ext_fraction_name: ext_comp_fraction})
+            self._composition.update({fraction_name: com_fraction})
 
     ### Physical properties -------------------------------------------------------------------
 

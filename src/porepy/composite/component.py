@@ -84,7 +84,7 @@ class Component(abc.ABC):
         # creating the overall molar fraction variable
         self._fraction: VarLike
         if ad_system:
-            self._fraction = ad_system.create_variable(self.fraction_var_name)
+            self._fraction = ad_system.create_variable(self.fraction_name)
         else:
             self._fraction = 0.0
 
@@ -101,7 +101,7 @@ class Component(abc.ABC):
         return str(self.__class__.__name__)
 
     @property
-    def fraction_var_name(self) -> str:
+    def fraction_name(self) -> str:
         """Name of the feed fraction variable, given by the general symbol and :meth:`name`."""
         return "z" + "_" + self.name
 

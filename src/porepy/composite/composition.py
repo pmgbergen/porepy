@@ -165,6 +165,7 @@ class Composition:
         self._saturation_vals: Dict[str, float] = dict()  # val per phase name
         self._phase_fraction_vals: Dict[str, float] = dict()  # val per phase name
         # dict per phase name, which in return contains vals per component name in that phase
+        self._ext_phase_composition_vals: Dict[str, Dict[str, float]] = dict()
         self._phase_composition_vals: Dict[str, Dict[str, float]] = dict()
 
     ### Thermodynamic State -------------------------------------------------------------------
@@ -475,6 +476,7 @@ class Composition:
             else:
                 self._saturation_vals.update({phase.name: 0.0})
                 self._phase_fraction_vals.update({phase.name: 0.0})
+                self._ext_phase_composition_vals.update({phase.name: dict()})
                 self._phase_composition_vals.update({phase.name: dict()})
 
             # check if the components are known
@@ -485,6 +487,9 @@ class Composition:
                     )
                 # initiate zero fractions for standalone applications
                 if not self.ad_system:
+                    self._ext_phase_composition_vals[phase.name].update(
+                        {component.name: 0.0}
+                    )
                     self._phase_composition_vals[phase.name].update(
                         {component.name: 0.0}
                     )
@@ -651,7 +656,7 @@ class Composition:
             self._complementary_eq.update({name: condition})
             # we store the complementary conditions separately, but also instantiate the
             # AD version of the semi-smooth min function, such that the AD system can take care
-            # of everythin
+            # of everything
             equation = self._ss_min(condition[0], condition[1])
             equations.update({name: equation})
             pT_subsystem["equations"].append(name)
@@ -663,7 +668,6 @@ class Composition:
             image_info.update({sd: {"cells": 1}})
         if self.ad_system:
             for name, equ in equations.items():
-
                 self.ad_system.set_equation(name, equ, num_equ_per_dof=image_info)
         # storing references to the subsystems
         self.pT_subsystem = pT_subsystem
@@ -729,22 +733,22 @@ class Composition:
         pT_subsystem["secondary_vars"].append(self._T_var)
         # feed fractions are always secondary vars
         for component in self.components:
-            pT_subsystem["secondary_vars"].append(component.fraction_var_name)
-            ph_subsystem["secondary_vars"].append(component.fraction_var_name)
+            pT_subsystem["secondary_vars"].append(component.fraction_name)
+            ph_subsystem["secondary_vars"].append(component.fraction_name)
         # saturations are always secondary vars
         for phase in self.phases:
-            pT_subsystem["secondary_vars"].append(phase.saturation_var_name)
-            ph_subsystem["secondary_vars"].append(phase.saturation_var_name)
+            pT_subsystem["secondary_vars"].append(phase.saturation_name)
+            ph_subsystem["secondary_vars"].append(phase.saturation_name)
 
         ### PRIMARY VARIABLES
         # primary vars which are same for both subsystems
         # phase fractions
         for phase in self.phases:
-            pT_subsystem["primary_vars"].append(phase.fraction_var_name)
-            ph_subsystem["primary_vars"].append(phase.fraction_var_name)
+            pT_subsystem["primary_vars"].append(phase.fraction_name)
+            ph_subsystem["primary_vars"].append(phase.fraction_name)
             # phase composition
             for component in phase:
-                var_name = phase.component_fraction_var_name(component)
+                var_name = phase.ext_component_fraction_name(component)
                 pT_subsystem["primary_vars"].append(var_name)
                 ph_subsystem["primary_vars"].append(var_name)
         # for the p-h flash, T is an additional var
@@ -898,7 +902,7 @@ class Composition:
 
             for phase in self._phases_of_component[component.name]:
                 # - xi_e * chi_ce
-                equation -= phase.fraction * phase.component_fraction_of(component)
+                equation -= phase.fraction * phase.ext_fraction_of_component(component)
         else:
             pass  # TODO
 
@@ -957,7 +961,7 @@ class Composition:
             equation = pp.ad.Scalar(1.0)
 
             for component in phase:
-                equation -= phase.component_fraction_of(component)
+                equation -= phase.ext_fraction_of_component(component)
         else:
             pass  # TODO
 
@@ -986,9 +990,14 @@ class Composition:
         """Performs a semi-smooth newton (Newton-min), where the complementary conditions are
         the semi-smooth part.
 
+        Notes:
+            This looks exactly like a regular Newton since the semi-smooth part, especially the
+            assembly of the sub-gradient, are wrapped in a special AD operator.
+
         Parameters:
             subsystem: specially structured dict containing information about vars and equs.
             copy_to_state: flag to save the result as STATE, additionally to ITERATE.
+            initial_guess ({'iterate', 'feed', 'uniform'}): initial guess strategy
 
         Returns: a bool indicating the success of the method.
 
@@ -1016,7 +1025,7 @@ class Composition:
             success = True
             iter_final = 0
         else:
-            # this changes dependent on flash type but also if other models accessed it
+            # this changes dependent on flash type but also if other models accessed the system
             prolongation = self.ad_system.dof_manager.projection_to(
                 var_names
             ).transpose()
@@ -1155,7 +1164,7 @@ class Composition:
                 for phase in self.phases:
                     # feed fractions from components present in this phase
                     feed = [
-                        self.ad_system.get_var_values(comp.fraction_var_name, False)
+                        self.ad_system.get_var_values(comp.fraction_name, False)
                         for comp in phase
                     ]
 
@@ -1172,7 +1181,7 @@ class Composition:
                         fraction_in_phase = fraction_in_phase / phase_feed
                         # write
                         self.ad_system.set_var_values(
-                            phase.component_fraction_var_name(component),
+                            phase.ext_component_fraction_name(component),
                             fraction_in_phase,
                         )
 
@@ -1184,7 +1193,7 @@ class Composition:
                     phase_feed = all_phase_feeds[e]
                     phase_fraction = phase_feed / phase_feed_sum
                     self.ad_system.set_var_values(
-                        phase.fraction_var_name, phase_fraction
+                        phase.fraction_name, phase_fraction
                     )
 
             elif initial_guess == "uniform":
@@ -1192,13 +1201,13 @@ class Composition:
                 val_phases = 1.0 / self.num_phases
                 for phase in self.phases:
                     self.ad_system.set_var_values(
-                        phase.fraction_var_name, val_phases * np.ones(nc)
+                        phase.fraction_name, val_phases * np.ones(nc)
                     )
                     # uniform values for composition of this phase
                     val = 1.0 / phase.num_components
                     for component in phase:
                         self.ad_system.set_var_values(
-                            phase.component_fraction_var_name(component),
+                            phase.ext_component_fraction_name(component),
                             val * np.ones(nc),
                         )
         # standalone
@@ -1214,7 +1223,7 @@ class Composition:
                 for phase in self.phases:
                     # feed fractions from components present in this phase
                     feed = [
-                        self._phase_composition_vals[phase][component]
+                        self._ext_phase_composition_vals[phase][component]
                         for component in phase
                     ]
 
@@ -1229,7 +1238,7 @@ class Composition:
                         # dependent on number of components in this phase.
                         # component fractions have to sum up to 1.
                         fraction_in_phase = fraction_in_phase / phase_feed
-                        self._phase_composition_vals[phase][
+                        self._ext_phase_composition_vals[phase][
                             component
                         ] = fraction_in_phase
 
@@ -1251,7 +1260,7 @@ class Composition:
                     # uniform values for composition of this phase
                     val = 1.0 / phase.num_components
                     for component in phase:
-                        self._phase_composition_vals[phase.name][component.name] = val
+                        self._ext_phase_composition_vals[phase.name][component.name] = val
             else:
                 raise ValueError(f"Unknown initial guess strategy '{initial_guess}'")
 
@@ -1260,13 +1269,13 @@ class Composition:
             pass
 
     def _post_process_fractions(self, copy_to_state: bool) -> None:
-        """Re-normalizes phase compositions (restores unity) and removes numerical artifacts
+        """Re-normalizes phase compositions and removes numerical artifacts
         (values bound between 0 and 1).
 
         Phase compositions (fractions of components in that phase) are nonphysical if a
         phase is not present. The unified flash procedure yields nevertheless values, possibly
         violating the unity constraint. Respective fractions have to be re-normalized in a
-        post-processing step.
+        post-processing step and set as regular phase composition.
 
         Also, removes artifacts outside the bound 0 and 1 for all molar fractions
         except feed fraction, which is **not** changed by the flash at all
@@ -1281,31 +1290,38 @@ class Composition:
         if self.ad_system:
             for phase in self.phases:
                 # remove numerical artifacts
-                phase_frac = self.ad_system.get_var_values(phase.fraction_var_name)
+                phase_frac = self.ad_system.get_var_values(phase.fraction_name)
                 phase_frac[phase_frac < 0.0] = 0.0
                 phase_frac[phase_frac > 1.0] = 1.0
                 self.ad_system.set_var_values(
-                    phase.fraction_var_name, phase_frac, copy_to_state
+                    phase.fraction_name, phase_frac, copy_to_state
                 )
                 # extracting phase composition
-                phase_composition = list()
+                ext_phase_composition = list()
                 for comp in phase:
-                    comp_frac = self.ad_system.get_var_values(
-                        phase.component_fraction_var_name(comp)
+                    ext_comp_frac = self.ad_system.get_var_values(
+                        phase.ext_component_fraction_name(comp)
                     )
-                    phase_composition.append(comp_frac)
-                comp_sum = sum(phase_composition)
+                    ext_phase_composition.append(ext_comp_frac)
+                ext_comp_sum = sum(ext_phase_composition)
 
                 # re-normalize phase composition.
                 # DOFS where unity is already fulfilled remain unchanged.
                 for c, comp in enumerate(phase):
-                    comp_frac = phase_composition[c]
-                    comp_frac = comp_frac / comp_sum
+                    ext_comp_frac = ext_phase_composition[c]
+                    comp_frac = ext_comp_frac / ext_comp_sum
                     # remove numerical artifacts
+                    ext_comp_frac[ext_comp_frac < 0.0] = 0.0
+                    ext_comp_frac[ext_comp_frac > 1.0] = 1.0
                     comp_frac[comp_frac < 0.0] = 0.0
                     comp_frac[comp_frac > 1.0] = 1.0
                     self.ad_system.set_var_values(
-                        phase.component_fraction_var_name(comp),
+                        phase.ext_component_fraction_name(comp),
+                        ext_comp_frac,
+                        copy_to_state,
+                    )
+                    self.ad_system.set_var_values(
+                        phase.component_fraction_name(comp),
                         comp_frac,
                         copy_to_state,
                     )
@@ -1320,22 +1336,27 @@ class Composition:
                     phase_frac = 1.0
                 self._phase_fraction_vals[phase.name] = phase_frac
 
-                phase_composition = list()
+                ext_phase_composition = list()
                 for comp in phase:
-                    phase_composition.append(
-                        self._phase_composition_vals[phase.name][comp.name]
+                    ext_phase_composition.append(
+                        self._ext_phase_composition_vals[phase.name][comp.name]
                     )
-                comp_sum = sum(phase_composition)
+                ext_comp_sum = sum(ext_phase_composition)
 
                 # re-normalize phase composition.
                 for c, comp in enumerate(phase):
-                    comp_frac = phase_composition[c]
-                    comp_frac = comp_frac / comp_sum
+                    ext_comp_frac = ext_phase_composition[c]
+                    comp_frac = ext_comp_frac / ext_comp_sum
                     # remove numerical artifacts
+                    if ext_comp_frac < 0.0:
+                        ext_comp_frac = 0.0
+                    elif ext_comp_frac > 1.0:
+                        ext_comp_frac = 1
                     if comp_frac < 0.0:
                         comp_frac = 0.0
                     elif comp_frac > 1.0:
                         comp_frac = 1
+                    self._ext_phase_composition_vals[phase.name][comp.name] = ext_comp_frac
                     self._phase_composition_vals[phase.name][comp.name] = comp_frac
 
     def _single_phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
@@ -1344,7 +1365,7 @@ class Composition:
         if self.ad_system:
             values = np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells())
             self.ad_system.set_var_values(
-                phase.saturation_var_name, values, copy_to_state
+                phase.saturation_name, values, copy_to_state
             )
         else:
             self._saturation_vals[phase.name] = 0.0
@@ -1366,8 +1387,8 @@ class Composition:
             # shortening the name space
             dm = self.ad_system.dof_manager
             # get phase molar fraction values
-            y1 = self.ad_system.get_var_values(phase1.fraction_var_name)
-            y2 = self.ad_system.get_var_values(phase2.fraction_var_name)
+            y1 = self.ad_system.get_var_values(phase1.fraction_name)
+            y2 = self.ad_system.get_var_values(phase2.fraction_name)
 
             # get density values for given pressure and enthalpy
             rho1 = phase1.density(self.p, self.T).evaluate(dm)
@@ -1404,8 +1425,8 @@ class Composition:
             s2[phase2_saturated] = 1.0
 
             # write values to AD system
-            self.ad_system.set_var_values(phase1.saturation_var_name, s1, copy_to_state)
-            self.ad_system.set_var_values(phase2.saturation_var_name, s2, copy_to_state)
+            self.ad_system.set_var_values(phase1.saturation_name, s1, copy_to_state)
+            self.ad_system.set_var_values(phase2.saturation_name, s2, copy_to_state)
         # standalone mode
         else:
             # get values for molar fractions and densities
@@ -1443,7 +1464,7 @@ class Composition:
             nc = dm.mdg.num_subdomain_cells()
             # molar fractions per phase
             y = [
-                self.ad_system.get_var_values(phase.saturation_var_name)
+                self.ad_system.get_var_values(phase.saturation_name)
                 for phase in self.phases
             ]
             # densities per phase
@@ -1538,7 +1559,7 @@ class Composition:
             for i, phase in enumerate(self._phases):
                 vals = saturations[i * nc : (i + 1) * nc]
                 self.ad_system.set_var_values(
-                    phase.saturation_var_name, vals, copy_to_state
+                    phase.saturation_name, vals, copy_to_state
                 )
         # standalone mode
         else:
