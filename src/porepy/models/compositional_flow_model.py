@@ -139,9 +139,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
     def create_grid(self) -> None:
         """Assigns a cartesian grid as computational domain.
-        Overwrites the instance variables 'gb'.
+        Overwrites/sets the instance variables 'mdg'.
         """
-        cells_per_dim = 7
+        cells_per_dim = 3
         phys_dims = [3, 1]
         n_cells = [i * cells_per_dim for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
@@ -181,8 +181,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # k_value = self._P_vap(self.composition.T)
         name = "k_value_" + self.water.name
         equilibrium = (
-            self.vapor.component_fraction_of(self.water)
-            - k_value * self.brine.component_fraction_of(self.water)
+            self.vapor.ext_fraction_of_component(self.water)
+            - k_value * self.brine.ext_fraction_of_component(self.water)
         )
 
         self.composition.add_equilibrium_equation(self.water, equilibrium, name)
@@ -191,10 +191,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         nc = self.mdg.num_subdomain_cells()
         # setting water feed fraction
         water_frac = (1. - self.initial_salt_concentration) * np.ones(nc)
-        self.ad_sys.set_var_values(self.water.fraction_var_name, water_frac, True)
+        self.ad_sys.set_var_values(self.water.fraction_name, water_frac, True)
         # setting salt feed fraction
         salt_frac = self.initial_salt_concentration * np.ones(nc)
-        self.ad_sys.set_var_values(self.salt.fraction_var_name, salt_frac, True)
+        self.ad_sys.set_var_values(self.salt.fraction_name, salt_frac, True)
         # setting initial pressure
         p_vals = self.initial_pressure * np.ones(nc)
         self.ad_sys.set_var_values(self.composition._p_var, p_vals, True)
@@ -262,8 +262,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self._satur_vars = list()
         # remove the saturations, which are actually secondary in both systems... tertiary?TODO
         for phase in self.composition.phases:
-            primary_vars.remove(phase.saturation_var_name)
-            self._satur_vars.append(phase.saturation_var_name)
+            primary_vars.remove(phase.saturation_name)
+            self._satur_vars.append(phase.saturation_name)
         self.flow_subsystem.update({"primary_vars": primary_vars})
         self.flow_subsystem.update({"secondary_vars": secondary_vars})
 
@@ -785,7 +785,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
                 scalar_part = (
                     phase.density(cp.p, cp.T)
-                    * phase.component_fraction_of(component)
+                    * phase.ext_fraction_of_component(component)
                     * self.rel_perm(phase.saturation)  # TODO change rel perm access
                     / phase.dynamic_viscosity(cp.p, cp.T)
                 )
