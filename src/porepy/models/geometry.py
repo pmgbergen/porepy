@@ -28,20 +28,20 @@ class Geometry:
     nd: int
     """Ambient dimension."""
 
-    def set_geometry(self):
+    def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid."""
         # Create fracture network and mixed-dimensional grid
-        self.create_fracture_network()
-        self.create_md_grid()
+        self.set_fracture_network()
+        self.set_md_grid()
         self.nd: int = self.mdg.dim_max()
         # If fractures are present, it is advised to call
         pp.contact_conditions.set_projections(self.mdg)
 
-    def create_fracture_network(self):
+    def set_fracture_network(self) -> None:
         """Assign fracture network class."""
         self.fracture_network = pp.FractureNetwork2d()
 
-    def mesh_arguments(self):
+    def mesh_arguments(self) -> dict:
         """Mesh arguments for md-grid creation.
 
         Returns:
@@ -52,26 +52,35 @@ class Geometry:
         mesh_args = dict()
         return mesh_args
 
-    def create_md_grid(self) -> None:
+    def set_md_grid(self) -> None:
         """Create the mixed-dimensional grid.
 
-        A unit square grid with no fractures is assigned by default.
+        A unit square grid with no fractures is assigned by default if self.fracture_network
+        contains no fractures. Otherwise, the network's mesh method is used.
 
         The method assigns the following attributes to self:
             mdg (pp.MixedDimensionalGrid): The produced grid bucket.
             box (dict): The bounding box of the domain, defined through minimum and
                 maximum values in each dimension.
         """
-        phys_dims = np.array([1, 1])
-        n_cells = np.array([1, 1])
-        self.box = pp.geometry.bounding_box.from_points(np.array([[0, 0], phys_dims]).T)
-        g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
-        g.compute_geometry()
-        self.mdg = pp.meshing.subdomains_to_mdg([[g]])
+
+        if self.fracture_network.num_frac() == 0:
+            # Mono-dimensional grid by default
+            phys_dims = np.array([1, 1])
+            n_cells = np.array([1, 1])
+            self.box = pp.geometry.bounding_box.from_points(
+                np.array([[0, 0], phys_dims]).T
+            )
+            g: pp.Grid = pp.CartGrid(n_cells, phys_dims)
+            g.compute_geometry()
+            self.mdg = pp.meshing.subdomains_to_mdg([[g]])
+        else:
+            self.mdg = self.fracture_network.mesh(self.mesh_arguments())
+            self.box = self.fracture_network.domain
 
     ## Utility methods
     def subdomains_to_interfaces(
-        self, subdomains: list[pp.Grid], codim=1
+        self, subdomains: list[pp.Grid], codims=[1]
     ) -> list[pp.MortarGrid]:
         """Unique list of all interfaces neighbouring any of the subdomains.
         FIXME: Sort
@@ -80,7 +89,7 @@ class Geometry:
         interfaces = list()
         for sd in subdomains:
             for intf in self.mdg.subdomain_to_interfaces(sd):
-                if intf not in interfaces:  # could filter on codim.
+                if intf not in interfaces and intf.codim in codims:  # could filter on codimension.
                     interfaces.append(intf)
         return interfaces
 
@@ -95,6 +104,7 @@ class Geometry:
             for sd in self.mdg.interface_to_subdomain_pair(interface):
                 if sd not in subdomains:
                     subdomains.append(sd)
+        return subdomains
 
     def _nd_subdomain(self) -> pp.Grid:
         """Get the grid of the highest dimension. Assumes self.mdg is set.

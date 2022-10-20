@@ -192,7 +192,7 @@ class FractureNetwork2d(object):
         finalize_gmsh: bool = True,
         clear_gmsh: bool = False,
         **kwargs,
-    ):
+    ) -> pp.MixedDimensionalGrid:
         """Create MixedDimensionalGrid (mixed-dimensional grid) for this fracture network.
 
         Parameters:
