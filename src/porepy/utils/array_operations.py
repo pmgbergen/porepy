@@ -236,10 +236,16 @@ def intersect_sets(
     intersection = a_tree.query_ball_tree(b_tree, tol)
 
     # Get the indices.
-    ib = np.hstack([np.asarray(i) for i in intersection]).astype(int)
-    ia = np.array(
-        [i for i in range(len(intersection)) if len(intersection[i]) > 0]
-    ).astype(int)
+    if len(intersection) > 0:
+        ib = np.hstack([np.asarray(i) for i in intersection]).astype(int)
+        ia = np.array(
+            [i for i in range(len(intersection)) if len(intersection[i]) > 0]
+        ).astype(int)
+    else:
+        # Special treatment if no intersections are found (the above hstack raised an
+        # error without this handling).
+        ia = np.array([], dtype=int)
+        ib = np.array([], dtype=int)
 
     # Uniquify ia and ib - this will also sort them.
     ia_unique = np.unique(ia)
