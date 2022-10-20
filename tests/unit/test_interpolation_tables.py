@@ -1,4 +1,4 @@
-""" Test of interpolation functions
+""" Test of interpolation functions.
 """
 import numpy as np
 import pytest
@@ -117,11 +117,11 @@ def test_value_assigment_and_interpolation(dim, factory):
     # First check that the interpolation is exact in the nodes of the underlying grids.
     # In this case, the interpolation weights in the tables should be calculated to be
     # 1 in the relevant node, and 0 in adjacent nodes.
-    coord = np.vstack(table._coord)
+    coords = np.vstack(table._coords)
 
-    adaptive_vals = adaptive_table.interpolate(coord)
-    table_vals = table.interpolate(coord)
-    known_vals = function.truth(coord)
+    adaptive_vals = adaptive_table.interpolate(coords)
+    table_vals = table.interpolate(coords)
+    known_vals = function.truth(coords)
 
     # An error message from here likely indicates that either something is wrong with
     # the function evaluation itself, or that the weights in the interpolation are
@@ -132,7 +132,7 @@ def test_value_assigment_and_interpolation(dim, factory):
     # Second test (only relevant for the adaptive table): Assign data to the table,
     # instead of passing a function and letting the table compute the values. The two
     # should be equivalent. We evaluate the table in the nodes in parameter space
-    # (e.g. variable coord), since the test is on assignment and not interpolation
+    # (e.g. variable coords), since the test is on assignment and not interpolation
     # which is tested below.
 
     # Assign all values at once.
@@ -140,21 +140,24 @@ def test_value_assigment_and_interpolation(dim, factory):
         dx=(high - low) / (num_pt - 1), base_point=low, dim=1
     )
 
-    extended_coord, _ = adaptive_table_2.interpolation_nodes_from_coordinates(coord)
-    extended_vals = function.truth(np.vstack(extended_coord).T)
+    extended_coords, extended_inds = adaptive_table_2.interpolation_nodes_from_coordsinates(coords)
+    extended_vals = function.truth(extended_coords)
 
-    adaptive_table_2.assign_values(extended_coord, extended_vals)
-    adaptive_vals_2 = adaptive_table_2.interpolate(coord)
+    # It is critical that we pass the indices in addition to the coordinates here.
+    # See comments in the method assign_values() for details.
+    adaptive_table_2.assign_values(extended_vals, extended_coords, extended_inds)
+    adaptive_vals_2 = adaptive_table_2.interpolate(coords)
     assert np.allclose(known_vals, adaptive_vals_2, atol=1e-10)
 
     # Also try to add one data point at a time, to check that we don't overwrite anything.
     adaptive_table_gradual = pp.AdaptiveInterpolationTable(
-        dx=(high - low) / (num_pt - 1), base_point=low, function=function.func(), dim=1
+        dx=(high - low) / (num_pt - 1), base_point=low, dim=1
     )
-    for ci in range(coord.shape[1]):
-        adaptive_table_gradual.assign_values([coord[:, ci]], known_vals[ci])
+    for ci in range(extended_coords.shape[-1]):
+        # Again, it is critical to pass the indices as well as coordinates.
+        adaptive_table_gradual.assign_values(extended_vals[ci], extended_coords[:, ci].reshape((-1, 1)), indices = extended_inds[:, ci].reshape((-1, 1)))
 
-    adaptive_vals_gradual = adaptive_table_gradual.interpolate(coord)
+    adaptive_vals_gradual = adaptive_table_gradual.interpolate(coords)
     assert np.allclose(known_vals, adaptive_vals_gradual, atol=1e-10)
 
     # Final test: Evaluate on random points, make sure that 1) The interpolated and
@@ -204,6 +207,3 @@ def test_value_assigment_and_interpolation(dim, factory):
         # Quadractic function (due to diff_tol)
         assert np.max(np.abs(diff - known_diff)) < function.diff_tol
         assert np.allclose(diff, adaptive_diff, atol=1e-10)
-
-
-test_value_assigment_and_interpolation(3, _LinearFunc)
