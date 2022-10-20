@@ -307,6 +307,11 @@ class AbstractModel:
         """Specifies whether the Model problem is nonlinear."""
         pass
 
+    @abc.abstractmethod
+    def _is_time_dependent(self) -> bool:
+        """Specifies whether the Model problem is time-dependent."""
+        pass
+
     ## Utility methods
     def _l2_norm_cell(self, g: pp.Grid, val: np.ndarray) -> float:
         """

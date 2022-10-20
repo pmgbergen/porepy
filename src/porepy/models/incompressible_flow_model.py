@@ -437,7 +437,10 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         if hasattr(self, "exporter"):
             self.exporter.write_vtu([self.variable])
 
-    def _is_nonlinear_problem(self):
+    def _is_nonlinear_problem(self) -> bool:
+        return False
+
+    def _is_time_dependent(self) -> bool:
         return False
 
     ## Methods required by AbstractModel but irrelevant for static problems:

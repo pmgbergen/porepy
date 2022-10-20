@@ -105,3 +105,6 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
     def after_simulation(self):
         self.exporter.write_pvd()
+
+    def _is_time_dependent(self):
+        return True

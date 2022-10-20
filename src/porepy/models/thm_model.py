@@ -1226,3 +1226,6 @@ class THM(pp.ContactMechanicsBiot):
                 assert np.all(np.isclose(new.data, old.data))
 
             matrices_mt.update({key: new})
+
+    def _is_time_dependent(self) -> bool:
+        return True

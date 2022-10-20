@@ -1342,3 +1342,6 @@ class ContactMechanics(AbstractModel):
         Overwrite this function if e.g. parameter nonlinearities are included.
         """
         return self.mdg.dim_min() < self.nd
+
+    def _is_time_dependent(self) -> bool:
+        return False

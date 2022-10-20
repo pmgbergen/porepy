@@ -1384,3 +1384,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
 
         """
         self._ad = ContactMechanicsBiotAdObjects()
+
+    def _is_time_dependent(self) -> bool:
+        return True
