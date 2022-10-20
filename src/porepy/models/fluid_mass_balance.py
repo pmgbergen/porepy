@@ -376,7 +376,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         self.geometry = geometry
 
     def prepare_simulation(self) -> None:
-        self.geometry.create_md_grid()
+        self.geometry.set_geometry()
         # Exporter initialization must be done after grid creation.
         self.exporter = pp.Exporter(
             self.mdg,
