@@ -20,7 +20,6 @@ Both classes use piecewise linear interpolation of functions, and piecewise
 constant approximations of derivatives.
 
 """
-import warnings
 import itertools
 from typing import Callable, Iterator, Optional
 
@@ -333,10 +332,10 @@ class AdaptiveInterpolationTable(InterpolationTable):
         self._table = pp.array_operations.SparseNdArray(self._param_dim)
         self._pt = np.zeros((self._param_dim, 0))
 
-        self._h = dx
+        self._h = dx.reshape((-1, 1))
         if base_point is None:
             base_point = np.zeros(dim)
-        self._base_point = base_point
+        self._base_point = base_point.reshape((-1, 1))
 
         # Store function
         self._function = function
@@ -366,6 +365,19 @@ class AdaptiveInterpolationTable(InterpolationTable):
             self._fill_values(x)
 
         # Use parent method for interpolation.
+        # NOTE: If the table values were set using assign_values(), without feeding the
+        # indices of the quadrature points (argument indices), this sometimes lead to
+        # strange errors: If the points to be evaluated are at or very close to
+        # quadrature points (in the underlying Cartesian grids), rounding errors
+        # in the method _find_base_vertex() sometimes lead the points to be associated
+        # with the wrong Cartesian indices. This may lead to the interpolation (which
+        # partly works on indices, not coordinates) requesting values at indices that
+        # are not known to the table, leading to an error, typically from the method
+        # _right_left_weights() that negative weights were computed, or alternatively
+        # that the table does not contain the necessary information.
+        # The solution to such problems is to use the method
+        # interpolation_nodes_from_coordinates() to get quadrature point coordinates and
+        # indices, and feed both these to assign_indices().
         return super().interpolate(x)
 
     def diff(self, x: np.ndarray, axis: int) -> np.ndarray:
@@ -388,10 +400,16 @@ class AdaptiveInterpolationTable(InterpolationTable):
             self._fill_values(x)
 
         # Use standard method for differentiation.
+        # NOTE: See comments in self.interpolation() regarding possible sources of
+        # unexpected errors from this function, and how to circumwent it.
         return super().diff(x, axis)
 
-    def assign_values(self, val: np.ndarray, coord: list[np.ndarray],
-                      indices: Optional[list[np.ndarray]]=None) -> None:
+    def assign_values(
+        self,
+        val: np.ndarray,
+        coord: np.ndarray,
+        indices: Optional[list[np.ndarray]] = None,
+    ) -> None:
         """Assign externally computed values to the table.
 
         The user is responsible that the coordinates are nodes in the Cartesian grid
@@ -404,36 +422,57 @@ class AdaptiveInterpolationTable(InterpolationTable):
         case it is better to collect all properties externally and pass it to the
         respective interpolation tables for the individual properties.
 
+        If the indices in the underlying Cartesian grid corresponding to the coordinate
+        points are known (e.g., the points were found by the method
+        interpolation_nodes_from_coordinates), it is strongly recommended that these are
+        also provided in assignment.
+
         Args:
-            val (np.ndarray): Values to assign.
-            coord (list[np.ndarray]): Coordinates of points to assign values to.
-            indices: Indices where 
+            val: Values to assign.
+            coord: Coordinates of points to assign values to.
+            indices: Indices of the coordinates in the underlying Grid.
+
         """
-        
-        # Convert the coordinates to a single numpy array.
-        coord_array = np.vstack(coord).T
-    
+
+
         if indices is None:
             # Get the corresponding indices in the underlying Cartesian grids.
-            indices = self._find_base_vertex(coord_array)
-    
+            indices = self._find_base_vertex(coord)
+
         ind_list = [i for i in indices.T]
-        # Add values and indices to the table
+
+        # Add values and indices to the table.
         column_permutation = self._table.add(ind_list, val, additive=False)
-        # Add the coordinates to the table.
-        self._pt = np.hstack((self._pt, coord_array[:, column_permutation]))
+
+        # Add the coordinates to the table. The table may have permuted the node
+        # coordinates during unification of the indices, the coordinates should be
+        # likewise permuted.
+        self._pt = np.hstack((self._pt, coord[:, column_permutation]))
 
     def interpolation_nodes_from_coordinates(
-        self, x: np.ndarray
-    ) -> tuple[list, np.ndarray]:
-        """
+        self, x: np.ndarray, remove_known_points: bool = True
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Obtain the coordinates of quadrature points that are necessary to evalute
+        the table in specified points.
 
+        If the table values are calculated by an external computation (i.e., not through
+        self._function), this method can be used to determine which evaluations are
+        needed before interpolation is invoked.
+
+        The method also returns indices of the quadrature points in the Cartesian grid
+        underlying the interpolation table. If the quadrature points are used to compute
+        function values which later are fed to this interpolation table using the
+        method 'assign_values()', it is strongly recommended that the indices are also
+        passed to the assignment function.
 
         Args:
-            x: DESCRIPTION.
+            x: Coordinates of evaluation points.
+            remove_known_points: If True, only quadrature points that have not
+                previously been assigned values in this table are returned.
 
         Returns:
-            None.
+            Coordinates of the quadrature points.
+            Indices of the quadrature points in the underlying Cartesian grid.
 
         """
         # The lower-left corner of each hypercube.
@@ -449,18 +488,36 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # Uniquify indices to avoid computing values for the same vertex twice.
         unique_ind = np.unique(np.hstack(ind), axis=1)
 
-        coord = [self._base_point + self._h * v for v in unique_ind.T]
+        coord = self._base_point + self._h * unique_ind
+
+        # Remove points where function values already exists if requested.
+        # This avoids recomputation of known values.
+        if remove_known_points:
+            _, _, exists, _ = pp.array_operations.intersect_sets(
+                coord, self._pt
+            )
+
+            coord = coord[:, np.logical_not(exists)]
+            unique_ind = unique_ind[:, np.logical_not(exists)]
+
         return coord, unique_ind
 
     def _fill_values(self, x: np.ndarray) -> None:
-        # Find points in the interpolation grid that will be used for function
-        # evaluation. Compute function values as needed.
+        """Find points in the interpolation grid that will be used for function
+        evaluation. Compute function values as needed.
+
+        Args:
+            x: Array of coordinates to be evaluated.
+
+        """
 
         if self._function is None:
             raise ValueError(
                 "No function to evaluate - should values be added instead?"
             )
 
+        # Get hold of the quadrature points needed to interpolate in the given
+        # coordinates.
         coord, unique_ind = self.interpolation_nodes_from_coordinates(x)
 
         # Find which values have been computed before.
@@ -474,14 +531,13 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # Compute and store values
         if indices_to_compute.size > 0:
 
-            new_values = np.vstack(
-                np.array([self._function(*coord[i]) for i in indices_to_compute])
-            ).T
-            # In the spares array we use the integer indices, referring to the
+            new_values = np.array([self._function(*coord[:, i]) for i in indices_to_compute]).T
+            
+            # In the sparse array we use the integer indices, referring to the
             # underlying Cartesian grid of this table.
             self._table.add([unique_ind[:, i] for i in indices_to_compute], new_values)
             # In this table, we need to store the actual coordinates.
-            self._pt = np.hstack((self._pt, np.vstack(coord).T))
+            self._pt = np.hstack((self._pt, coord))
 
     def _index_from_base_and_increment(
         self, base_ind: np.ndarray, incr: np.ndarray, linear: bool
@@ -491,6 +547,16 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         For adaptive interpolation tables, with unstructured storage of data, we
         sometimes need the linear index, sometimes the multi-dimensional one.
+
+        Args:
+            base_ind: Indices of the lower-left corners of the hypercubes on which
+                the interpolation is based.
+            incr: Increment to be added from the base index.
+            linear: If True, the returned index is linear; if False, a multiindex is
+                returned.
+
+        Returns:
+            np.ndarray: Array of indices on the specified format.
 
         """
         if linear:
@@ -544,50 +610,113 @@ class AdaptiveInterpolationTable(InterpolationTable):
         """Helper function to get the base (generalized lower-left) vertex of a
         hypercube.
 
+        Upon request, the method will also identify cases where the choice of lower-left
+        vertex (thus which hypercube to use in interpolation) may be unclear due to
+        rounding errors, as may happen if a quadrature point is very close to a node
+        in the underlying Cartesian grid. For such cases, additional points will be
+        added. This makes subsequent interpolation more robust, to the price of
+        requesting more data points, and also removing the one-to-one relation between
+        coordinate and index. This functionality, triggered by the parameter
+        safeguarding should only be invoked from the method
+        interpolation_nodes_from_coordinates() (but there it can be critical to use it).
+
+        Args:
+            coord: Coordinates for which the base vertex is sought.
+            safeguarding: If True, additional vertexes may be added to avoid
+                vulnerabilities with respect to rounding errors.
+
+
         """
+        # The below safeguarding is motivated by the following potential behavior:
+        # For a given point to be interpolated, the lower left coordinate is found by
+        # floor division after adjusting for the origin and resolution of the Cartesian
+        # grid. If the point to be interpolated is at a grid line in the Cartesian grid
+        # used in the interpolation table, rounding errors may lead to the wrong index
+        # being identified (say, the number 5 is calculated as 4.9999999, and the index
+        # 4 is identified). Safeguarding will add both 4 and 5 to the list.
+        #
+        # For a 2d parameter space, (5, 5) may be rounded to (4, 4) - in which case all
+        # points (4, 4), (4, 5), (5, 4), (5, 5) are added - this is necessary to ensure
+        # that when we interpolate, the necessary quadrature points are available in
+        # the table.
+        #
+        # If instead (5, 5) is rounded to (5, 4), both (5, 4) and (5, 5) will be added
+        # (but not (4, 4) and (4, 5)).
+
         ind = list()
 
-        significant_rounding = np.zeros(coord.shape, dtype=bool)
+        # Keep track of indices that may be impacted by rounding errors.
+        rounding_error_danger = np.zeros(coord.shape, dtype=bool)
 
-        # performing Cartesian search per axis of the interpolation grid.
+        # Perform Cartesian search per dimension of the interpolation grid.
+        # IMPLEMENTATION NOTE: If we want non-uniform grids in parameter space, here is
+        # the place to modify the code.
         for i, (x_i, h_i, base_i) in enumerate(zip(coord, self._h, self._base_point)):
-            # cartesian search for uniform grid, floor division by mesh size
+            # Cartesian search for uniform grid, floor division by mesh size
+            # Subtract the base to find the origin in the underlying Cartesian grid.
             floored_ind = ((x_i - base_i) // h_i).astype(int)
 
             if safeguarding:
+                # Find the actual coordinate in the Cartesian grid
                 exact = (x_i - base_i) / h_i
+                # Since the index was identified by floor division, the danger is that
+                # rounding errors caused identification of an index one too low.
+                # Find points that almost was on the next grid line.
+                # The threshold is set arbitrary here, the current value should be
+                # much looser than what is necessary to identify rounding errors, but we
+                # are safeguarding, so better safe than sorry.
+                rounding_error_danger[i, exact - floored_ind > 0.999] = True
 
-                significant_rounding[i, exact - floored_ind > 0.999] = True
-
+            # Store data for this dimension.
             ind.append(floored_ind)
 
+        # Merge hte arrays
         full_ind = np.array(ind)
 
         if safeguarding:
-            # This may render the same indices twice, so they should be uniquified.
-            columns = np.any(significant_rounding, axis=0)
+            # Add additional points for safeguarding purposes.
 
+            # Identify columns (indices) that were impacted by rounding errors.
+            columns = np.any(rounding_error_danger, axis=0)
+
+            # Find which rows (dimensions) were impacted by rounding errors
             rows_with_repeats = np.where(
-                np.any(significant_rounding[:, columns], axis=1)
+                np.any(rounding_error_danger[:, columns], axis=1)
             )[0]
 
-            import itertools
-
+            # Only add indices if there were points that could have been rounded
+            # wrongly.
             if np.any(rows_with_repeats):
+                # Storage of extra indices.
                 extra_ind = []
-    
+
+                # Loop over all combinations of dimensions that could have been
+                # afflicted by rounding errors.
+                # Referring to the example at the begining of this method, if (5, 5) was
+                # rounded to (4, 4), we need to add 1 to (4, 4) on both the first and
+                # second axis, as well as their combination. If instead (5, 5) became
+                # (5, 4), we only add on the second axis.
+                # We achieve this by invoking itertools.combinations on correctly
+                # sized arrays.
                 for combination_length in range(1, rows_with_repeats.size + 1):
                     for active_rows in itertools.combinations(
                         rows_with_repeats, combination_length
                     ):
+                        # Find which columns should be fixed for this combination of
+                        # rows.
+                        # The list is needed since itertools.combinations returns a
+                        # tuple that is not fit for array indexing.
                         active_columns = np.all(
-                            np.atleast_2d(significant_rounding[list(active_rows)]), axis=0
+                            np.atleast_2d(rounding_error_danger[list(active_rows)]),
+                            axis=0,
                         )
-    
+
+                        # Do a copy (!) and increase the index.
                         tmp_ind = full_ind[:, active_columns].copy()
                         tmp_ind[list(active_rows)] += 1
                         extra_ind.append(tmp_ind)
-    
+
+                # Collect data, prepare for return.
                 full_ind = np.hstack((full_ind, np.hstack(extra_ind)))
 
         return full_ind
