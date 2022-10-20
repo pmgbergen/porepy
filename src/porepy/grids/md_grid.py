@@ -1,9 +1,6 @@
 """
 Module to store the grid hierarchy formed by a set of fractures and their
-intersections  along with a surrounding matrix in the form of a MixedDimensionalGrid.
-
-
-
+intersections along with a surrounding matrix in the form of a MixedDimensionalGrid.
 
 """
 from __future__ import annotations

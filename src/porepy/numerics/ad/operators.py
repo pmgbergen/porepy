@@ -34,7 +34,7 @@ def _get_shape(mat):
 class Operator:
     """Superclass for all Ad operators.
 
-    Objects of this class are not meant to be initiated directly; rather the various
+    Objects of this class are not meant to be initiated directly, rather the various
     subclasses should be used. Instances of this class will still be created when
     subclasses are combined by operations.
 
@@ -59,14 +59,14 @@ class Operator:
 
         ### PUBLIC
 
-        self.subdomains: Sequence[pp.Grid] = [] if subdomains is None else subdomains
-        """sequence of subdomains on which the operator is defined.
+        self.subdomains: list[pp.Grid] = [] if subdomains is None else subdomains
+        """List of subdomains on which the operator is defined.
         Will be empty for operators not associated with specific subdomains.
 
         """
 
-        self.interfaces: Sequence[pp.MortarGrid] = [] if interfaces is None else interfaces
-        """sequence of interfaces on which the operator is defined.
+        self.interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
+        """List of interfaces on which the operator is defined.
         Will be empty for operators not associated with specific interfaces.
 
         """
@@ -919,20 +919,17 @@ class Scalar(Operator):
 class Variable(Operator):
     """Ad representation of a variable defined **either** on a single Grid **or** MortarGrid.
 
-    For combinations of variables on different subdomains, see MergedVariable.
-
     Conversion of the variables into numerical value should be done with respect to the
     state of an array; see :meth:`Operator.evaluate`.
-    Therefore, the class does not implement :meth:`Operator.parse`
+    Therefore, the class does not implement :meth:`Operator.parse`.
+
+    Variables should not be created directly in a model. Use an AD System class instead.
 
     Parameters:
         name : given name. Used to together with the domain to identify the variable
         ndof: number of dofs per dof type (cells, faces, nodes).
-        domain (optional): domain of definition. Can be optional for variables defined on
-            subdomains with codimension >= 1, but "inactive". E.g. variables on fractures
-            which have not appeared yet.
-        subdomains (optional): list with length one containing a grid.
-        interfaces (optional): list with length one containing a mortar grid.
+        domain: domain of definition, i.e. either a grid or mortar grid representing a
+            subdomain or interface.
         previous_timestep: flag indicating that the variable represents the state at the
             previous time step.
         previous_iteration: flag indicating that the variable represents the state at the
@@ -948,11 +945,12 @@ class Variable(Operator):
     def __init__(
         self,
         name: str,
-        ndof: Dict[str, int],
-        domain: Optional[GridLike] = None,
+        ndof: dict[str, int],
+        domain: GridLike,
         previous_timestep: bool = False,
         previous_iteration: bool = False,
-    ):
+    ) -> None:
+        super().__init__(name=name)
 
         ### PUBLIC
 
@@ -964,26 +962,22 @@ class Variable(Operator):
 
         self.id = next(Variable._ids)
         """ID counter. Used to identify variables during operator parsing."""
-        super().__init__(name=name)
+
+        # overwrite properties set by the parent constructor
+        if isinstance(domain, pp.MortarGrid):
+            self.interfaces = [domain]
+        elif isinstance(domain, pp.Grid):
+            self.subdomains = [domain]
+        else:
+            raise ValueError("Variable domain must be either a grid or mortar grid.")
 
         ### PRIVATE
+        # domain
+        self._g: GridLike = domain
         # dofs per
         self._cells: int = ndof.get("cells", 0)
         self._faces: int = ndof.get("faces", 0)
         self._nodes: int = ndof.get("nodes", 0)
-
-        self._g: Optional[GridLike] = domain
-        self._is_intf_var: bool
-        if isinstance(domain, pp.MortarGrid):
-            self._is_intf_var = True
-            self.subdomains = []
-            self.interfaces = [domain]
-        elif isinstance(domain, pp.Grid):
-            self._is_intf_var = False
-            self.subdomains = [domain]
-            self.interfaces = []
-        else:
-            raise ValueError("Variable must be associated either with a grid or a mortar grid")
 
     @property
     def domain(self) -> GridLike:
@@ -992,12 +986,13 @@ class Variable(Operator):
 
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
-        if self._is_intf_var:
-            # This is a mortar grid. Assume that there are only cell unknowns
+        # TODO access to num_cells etc will throw an error if compute_geometry was not called
+        if isinstance(self.domain, pp.MortarGrid):
+            # This is a mortar grid. Assume that there are only cell dofs
             return self._g.num_cells * self._cells
         else:
-            # We now know _g is a grid by logic, make an assertion to appease mypy
-            assert isinstance(self._g, pp.Grid)
+            # We now know the domain is a grid by logic, make an assertion to appease mypy
+            assert isinstance(self.domain, pp.Grid)
             return (
                 self._g.num_cells * self._cells
                 + self._g.num_faces * self._faces
@@ -1005,8 +1000,10 @@ class Variable(Operator):
             )
 
     def set_name(self, name: str) -> None:
-        """Variables must not be re-named once defined, since the name is used as a key for
-        indexing.
+        """
+        Raises:
+            RuntimeError: Variables must not be re-named once defined,
+                since the name is used as an identifier.
 
         """
         raise RuntimeError("Cannot rename operators representing a variable.")
@@ -1019,14 +1016,7 @@ class Variable(Operator):
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
-        if self._is_intf_var:
-            return Variable(
-                self._name, ndof, interfaces=self.interfaces, previous_timestep=True
-            )
-        else:
-            return Variable(
-                self._name, ndof, subdomains=self.subdomains, previous_timestep=True
-            )
+        return Variable(self.name, ndof, self.domain, previous_timestep=True)
 
     def previous_iteration(self) -> "Variable":
         """Return a representation of this variable on the previous time iteration.
@@ -1036,18 +1026,11 @@ class Variable(Operator):
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
-        if self._is_intf_var:
-            return Variable(
-                self._name, ndof, interfaces=self.interfaces, previous_iteration=True
-            )
-        else:
-            return Variable(
-                self._name, ndof, subdomains=self.subdomains, previous_iteration=True
-            )
+        return Variable(self.name, ndof, self.domain, previous_iteration=True) 
 
     def __repr__(self) -> str:
         s = (
-            f"Variable {self._name}, id: {self.id}\n"
+            f"Variable {self.name}, id: {self.id}\n"
             f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
             f"nodes ({self._nodes})\n"
         )
@@ -1060,14 +1043,14 @@ class MixedDimensionalVariable(Variable):
 
     Conversion of the variables into numerical value should be done with respect to the
     state of an array; see :meth:`Operator.evaluate`.
-    Therefore, the class does not implement :meth:`Operator.parse`
+    Therefore, the class does not implement :meth:`Operator.parse`.
 
     Parameters:
         variables: Variables to be merged. Must all have the same name.
 
     """
 
-    def __init__(self, variables: Sequence[Variable]) -> None:
+    def __init__(self, variables: list[Variable]) -> None:
 
         ### PUBLIC
 
@@ -1099,48 +1082,34 @@ class MixedDimensionalVariable(Variable):
         if self._no_variables:
             self._name = "no_sub_variables"
         else:
-            self._name = variables[0]._name
+            self._name = variables[0].name
             # Check that all variables have the same name.
             # We may release this in the future, but for now, we make it a requirement
-            all_names = set(var._name for var in variables)
+            all_names = set(var.name for var in variables)
             assert len(all_names) <= 1
 
         # must be done since super not called here in init
         self._set_tree()
 
     @property
-    def domain(self) -> tuple[GridLike]:
+    def domain(self) -> list[GridLike]:
         """A tuple of all domains on which the atomic sub-variables are defined."""
-        return tuple([var.domain for var in self.sub_vars])
+        return [var.domain for var in self.sub_vars]
 
     def size(self) -> int:
-        """Get total size of the merged variable.
-
-        Returns:
-            int: Total size of this merged variable.
-
+        """Returns the total size of the merged variable by summing the sizes of sub-variables.
         """
         return sum([v.size() for v in self.sub_vars])
 
     def previous_timestep(self) -> "MixedDimensionalVariable":
-        """Return a representation of this merged variable on the previous time step.
-
-        Returns:
-            Variable: A representation of this variable, with self.prev_time=True.
-
-        """
+        """Return a representation of this merged variable on the previous time step."""
         new_subs = [var.previous_timestep() for var in self.sub_vars]
         new_var = MixedDimensionalVariable(new_subs)
         new_var.prev_time = True
         return new_var
 
     def previous_iteration(self) -> "MixedDimensionalVariable":
-        """Return a representation of this merged variable on the previous iteration.
-
-        Returns:
-            Variable: A representation of this variable, with self.prev_iter=True.
-
-        """
+        """Return a representation of this merged variable on the previous iteration."""
         new_subs = [var.previous_iteration() for var in self.sub_vars]
         new_var = MixedDimensionalVariable(new_subs)
         new_var.prev_iter = True
@@ -1154,17 +1123,16 @@ class MixedDimensionalVariable(Variable):
     def __repr__(self) -> str:
         if self._no_variables:
             return (
-                "Merged variable defined on an empty list of subdomains or interfaces"
+                "Mixed-dimensional variable defined on an empty list of "
+                "subdomains or interfaces."
             )
 
-        s = "Merged"
-
+        s = "Mixed-dimensional"
         s += (
-            f" variable with name {self._name}, id {self.id}\n"
+            f" variable with name {self.name}, id {self.id}\n"
             f"Composed of {len(self.sub_vars)} variables\n"
             f"Total size: {self.size()}\n"
         )
-
         return s
 
 
