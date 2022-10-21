@@ -52,9 +52,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     adjustment needed is to specify the method create_grid().
 
     Attributes:
-        time (float): Current time.
-        time_step (float): Size of an individual time step
-        end_time (float): Time at which the simulation should stop.
+        time_manager: Time-stepping control manager.
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
             including in ParaView export.
@@ -97,10 +95,11 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
 
-        # Time
-        self.time: float = 0
-        self.time_step: float = self.params.get("time_step", 1.0)
-        self.end_time: float = self.params.get("end_time", 1.0)
+        # Time manager
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True)
+        self.time_manager: pp.TimeManager = self.params.get(
+            "time_manager", time_manager
+        )
 
         # Temperature
         self.scalar_variable: str = "p"
@@ -131,6 +130,10 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     ) -> None:
         super().after_newton_convergence(solution, errors, iteration_counter)
         self._save_mechanical_bc_values()
+
+    def after_simulation(self) -> None:
+        if hasattr(self, "exporter"):
+            self.exporter.write_pvd()
 
     def reconstruct_stress(self, previous_iterate: bool = False) -> None:
         """
@@ -189,7 +192,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     {
                         "bc": self._bc_type_mechanics(sd),
                         "bc_values": self._bc_values_mechanics(sd),
-                        "time_step": self.time_step,
+                        "time_step": self.time_manager.dt,
                         "biot_alpha": self._biot_alpha(sd),
                         "p_reference": self._reference_scalar(sd),
                     },
@@ -201,7 +204,6 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     data,
                     self.mechanics_parameter_key,
                     {
-                        "time_step": self.time_step,
                         "mass_weight": np.ones(sd.num_cells),
                     },
                 )
@@ -232,7 +234,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     "biot_alpha": alpha,
                     "source": self._source_scalar(sd),
                     "second_order_tensor": diffusivity,
-                    "time_step": self.time_step,
+                    "time_step": self.time_manager.dt,
                     "vector_source": self._vector_source(sd),
                     "ambient_dimension": self.mdg.dim_max(),
                 },
@@ -694,7 +696,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         ad.all_subdomains = subdomains
         ad.codim_one_interfaces = interfaces
         ad.mortar_projections_scalar = pp.ad.MortarProjections(
-            subdomains=subdomains, interfaces=interfaces, mdg=mdg, nd=1
+            subdomains=subdomains, interfaces=interfaces, mdg=mdg, dim=1
         )
 
         normal_proj_list = []
@@ -710,7 +712,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         ad.local_fracture_coord_transformation_normal = normal_proj
         # Facilitate updates of dt. self.time_step_ad.time_step._value must be updated
         # if time steps are changed.
-        ad.time_step = pp.ad.Scalar(self.time_step, "time step")
+        ad.time_step = pp.ad.Scalar(self.time_manager.dt, "time step")
 
     def _force_balance_equation(
         self,
@@ -1171,7 +1173,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
                     {self.mortar_scalar_variable: {"cells": 1}}
                 )
 
-    def _assign_ad_variables(self) -> None:
+    def _create_ad_variables(self) -> None:
         """Assign variables to self._ad
 
 
@@ -1186,7 +1188,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         None
 
         """
-        super()._assign_ad_variables()
+        super()._create_ad_variables()
 
         interfaces = self._ad.codim_one_interfaces
         # Primary variables on Ad form

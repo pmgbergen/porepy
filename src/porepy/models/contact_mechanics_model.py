@@ -141,6 +141,7 @@ class ContactMechanics(AbstractModel):
         else:
             self.assembler.distribute_variable(solution)
         self.convergence_status = True
+        self._export()
 
     def check_convergence(
         self,
@@ -379,9 +380,13 @@ class ContactMechanics(AbstractModel):
         # Geometry
         self.create_grid()
         self.nd = self.mdg.dim_max()
+        # If no fractures are present, the following call is harmless
+        pp.contact_conditions.set_projections(self.mdg)
+
+        # Variables and parameters
         self._assign_variables()
         if self._use_ad:
-            self._assign_ad_variables()
+            self._create_ad_variables()
         if not hasattr(self, "dof_manager"):
             self.dof_manager = pp.DofManager(self.mdg)
         self._initial_condition()
@@ -659,7 +664,7 @@ class ContactMechanics(AbstractModel):
             else:
                 data[pp.PRIMARY_VARIABLES] = {}
 
-    def _assign_ad_variables(self) -> None:
+    def _create_ad_variables(self) -> None:
         """Assign variables to self._ad
 
         Raises
@@ -785,7 +790,7 @@ class ContactMechanics(AbstractModel):
     def _assign_equations(self):
         """Assign equations to self._eq_manager.
 
-        The ad variables are set by a previous call to _assign_ad_variables and
+        The ad variables are set by a previous call to _create_ad_variables and
         accessed through self._ad.*variable_name*
 
         The following equations are assigned to the equation manager:
@@ -972,12 +977,12 @@ class ContactMechanics(AbstractModel):
             subdomains=subdomains,
             interfaces=fracture_matrix_interfaces,
             mdg=self.mdg,
-            nd=self.nd,
+            dim=self.nd,
         )
 
         # Prolongation and restriction between subdomain subsets and full subdomain list
         ad.subdomain_projections_vector = pp.ad.SubdomainProjections(
-            subdomains=subdomains, nd=self.nd
+            subdomains=subdomains, dim=self.nd
         )
 
     def _displacement_jump(

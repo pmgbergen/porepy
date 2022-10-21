@@ -207,7 +207,7 @@ class RobinCoupling(AbstractInterfaceLaw):
         intf_data,
         matrix,
     ):
-        """Assemble the dicretization of the interface law, and its impact on
+        """Assemble the discretization of the interface law, and its impact on
         the neighboring domains. Assemble only matrix, not rhs terms.
 
         Parameters:
@@ -1052,7 +1052,7 @@ class WellCoupling(AbstractInterfaceLaw):
         # IMPLEMENTATION NOTE: The default value is needed to avoid that
         # ambient_dimension becomes a required parameter. If neither ambient dimension,
         # nor the actual vector_source is specified, there will be no problems (in the
-        # assembly, a zero vector soucre of a size that fits with the discretization is
+        # assembly, a zero vector source of a size that fits with the discretization is
         # created). If a vector_source is specified, but the ambient dimension is not,
         # a dimension mismatch will result unless the ambient dimension implied by
         # the size of the vector source matches sd_primary.dim. This is okay for domains with
