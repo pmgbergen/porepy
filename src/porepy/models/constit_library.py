@@ -9,7 +9,6 @@ Consists of three types of classes
 
 See usage_example.py
 """
-
 from typing import Optional, Union
 
 import numpy as np
@@ -25,6 +24,7 @@ class SIUnits:
     Pa: float = 1.0 * pp.PASCAL
     kg: float = 1.0 * pp.KILOGRAM
     m: float = 1.0 * pp.METER
+    s: float = 1.0 * pp.SECOND
 
     pass
 
@@ -64,6 +64,9 @@ def ad_wrapper(
 class Material:
     """Sketch of abstract Material class. Functionality for now related to units"""
 
+    def __init__(self, units) -> None:
+        self._units = units
+
     @property
     def units(self):
         return self._units
@@ -96,6 +99,9 @@ class UnitFluid(Material):
 
     THERMAL_EXPANSION: float = 1.0 / pp.KELVIN
     DENSITY: float = 1.0 * pp.KILOGRAM / pp.METER**3
+
+    def __init__(self, units):
+        super().__init__(units)
 
     def density(self, subdomains: list[pp.Grid]) -> Union[float, np.ndarray]:
         """Vi prøver først np.ndarray.
@@ -135,12 +141,11 @@ class UnitFluid(Material):
         return ad_wrapper(val, num_cells, False, "fluid_thermal_expansion")
 
     # The below method needs rewriting after choosing between the above shown alternatives.
-
-    def viscosity(self, geometry):
+    def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         # Se kommentar rett over.
-        return self.constit.ad_wrapper(
-            self.fluid.VISCOSITY, geometry.num_cells, False, "viscosity"
-        )
+        val = self.convert_units(1, self.units.m**2 / self.units.s)
+        num_cells = sum([sd.num_cells for sd in subdomains])
+        return ad_wrapper(val, num_cells, False, "viscosity")
 
 
 class UnitRock(Material):
@@ -150,6 +155,7 @@ class UnitRock(Material):
 
     THERMAL_EXPANSION: float = 1.0 / pp.KELVIN
     DENSITY: float = 1.0 * pp.KILOGRAM / pp.METER**3
+    POROSITY: float = 0.2
 
     def rock_density(self, subdomains: list[pp.Grid]):
         return self.convert_units(self.DENSITY, self.units.kg / self.units.m**3)
@@ -164,8 +170,14 @@ class UnitRock(Material):
             self.rock.NORMAL_PERMEABILITY, num_cells, False, "normal_permeability"
         )
 
-    def porosity(self, geometry):
-        return ad_wrapper(self.POROSITY, geometry.num_cells, False, "porosity")
+    def porosity(self, subdomains: list[pp.Grid]):
+
+        num_cells = sum([sd.num_cells for sd in subdomains])
+
+        return ad_wrapper(self.POROSITY, num_cells, False, "porosity")
+
+    def permeability(self, g: pp.Grid) -> float:
+        return self.convert_units(1, self.units.m**2)
 
 
 """
@@ -221,11 +233,21 @@ class DensityFromPressureAndTemperature(DensityFromPressure):
         return rho
 
 
-class ConstantIsotropicPermeability:
+class ConstantViscosity:
+    def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        return self.fluid.viscosity(subdomains)
+
+
+class ConstantRock:
     def permeability(self, subdomain: pp.Grid) -> pp.SecondOrderTensor:
         # This will be set as before (pp.PARAMETERS) since it is a discretization parameter
         # Hence not list[subdomains]
-        perm = pp.SecondOrderTensor(
-            self.rock.permeability(subdomain) * np.ones(subdomain.num_cells)
-        )
-        return perm
+        # perm = pp.SecondOrderTensor(
+        #    self.rock.permeability(subdomain) * np.ones(subdomain.num_cells)
+        # )
+        return self.rock.permeability(subdomain)
+
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        poro = self.rock.porosity(subdomains)
+
+        return poro
