@@ -21,6 +21,7 @@ constant approximations of derivatives.
 
 """
 from __future__ import annotations
+
 import itertools
 from typing import Callable, Iterator, Optional
 
