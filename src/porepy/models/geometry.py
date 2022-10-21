@@ -13,7 +13,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class Geometry:
+class ModelGeometry:
     """This class provides geometry related methods and information for a simulation model."""
 
     # Define attributes to be assigned later
