@@ -69,9 +69,7 @@ class InterpolationTable:
     def _set_sizes(
         self, low: np.ndarray, high: np.ndarray, npt: np.ndarray, dim: int
     ) -> None:
-        """Helper method to set the size of the interpolation grid. Separated
-        from __init__ to be used with inheritance.
-        """
+        """Helper method to set the size of the interpolation grid."""
         self.dim = dim
         self._param_dim = low.size
 
@@ -293,6 +291,18 @@ class InterpolationTable:
 
         return right_weight, left_weight
 
+    def __repr__(self) -> str:
+        """String representation"""
+        s = f"Interpolation table in {self._param_dim} dimensions. \n"
+        s += f"Lower bounds: {self._low}.\n"
+        s += f"Upper bounds: {self._high}.\n"
+        s += f"Number of quadrature points in each dimension: {self._npt}.\n"
+
+        s += f"Minimum function value: {np.min(self._values)}.\n"
+        s += f"Maximum function value: {np.max(self._values)}."
+
+        return s
+
 
 class AdaptiveInterpolationTable(InterpolationTable):
     """Interpolation table based on adaptive computation of function values.
@@ -328,11 +338,28 @@ class AdaptiveInterpolationTable(InterpolationTable):
     ) -> None:
         self.dim: int = dim
         self._param_dim = dx.size
+
+        # IMPLEMENTATION NOTE: The sparse array which stores the actual data represents
+        # coordinates by (possibly negative) integer indices, while the parameter space
+        # for interpolation is defined on real numbers. This requires mappings points in
+        # parameter space to quadrature points in an underlying Cartesian grid, and
+        # further identifying these points with indices in the data table.
+
         # Construct grid for interpolation
         self._table = pp.array_operations.SparseNdArray(self._param_dim)
-        self._pt = np.zeros((self._param_dim, 0))
 
-        self._h = dx.reshape((-1, 1))
+        # self._pt store coordinates of quadrature points in parameter space.
+        # Note that this is different from super()._pt, which gives the 1d-coordinates
+        # of the quadrature points along each coordinate axis.
+        # It is also different from super()._coord, which gives Nd-coordinates, but as
+        # structured and dense data.
+        self._pt: np.ndarray = np.zeros((self._param_dim, 0))
+
+        # Set resolution of the Cartesian grid in parameter space.
+        self._h: np.ndarray = dx.reshape((-1, 1))
+
+        # The base point is the point in parameter space which corresponds to the index
+        # (0, 0, ..., 0) in the sparse array.
         if base_point is None:
             base_point = np.zeros(dim)
         self._base_point = base_point.reshape((-1, 1))
@@ -348,7 +375,12 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
     def interpolate(self, x: np.ndarray) -> np.ndarray:
         """Perform interpolation on a Cartesian grid by a piecewise linear
-        approximation. Compute and store the necessary function values.
+        approximation.
+
+        If the table has a function, function values in the quadrature points will be
+        computed as needed. If the values are computed externally and fed through the
+        method assign_values(), the user is responsible that all relevant quadrature
+        points have been assigned values.
 
         Args:
             x (np.ndarray): Points to evaluate the function. Size dimension of
@@ -434,7 +466,6 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         """
 
-
         if indices is None:
             # Get the corresponding indices in the underlying Cartesian grids.
             indices = self._find_base_vertex(coord)
@@ -493,9 +524,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # Remove points where function values already exists if requested.
         # This avoids recomputation of known values.
         if remove_known_points:
-            _, _, exists, _ = pp.array_operations.intersect_sets(
-                coord, self._pt
-            )
+            _, _, exists, _ = pp.array_operations.intersect_sets(coord, self._pt)
 
             coord = coord[:, np.logical_not(exists)]
             unique_ind = unique_ind[:, np.logical_not(exists)]
@@ -531,8 +560,10 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # Compute and store values
         if indices_to_compute.size > 0:
 
-            new_values = np.array([self._function(*coord[:, i]) for i in indices_to_compute]).T
-            
+            new_values = np.array(
+                [self._function(*coord[:, i]) for i in indices_to_compute]
+            ).T
+
             # In the sparse array we use the integer indices, referring to the
             # underlying Cartesian grid of this table.
             self._table.add([unique_ind[:, i] for i in indices_to_compute], new_values)
@@ -720,3 +751,23 @@ class AdaptiveInterpolationTable(InterpolationTable):
                 full_ind = np.hstack((full_ind, np.hstack(extra_ind)))
 
         return full_ind
+
+    def __repr__(self) -> str:
+        """String representation"""
+        s = f"Adaptive interpolation table in {self._param_dim} dimensions.\n"
+        s += f"The table stores function values in {self._pt.shape[1]} points.\n"
+        s += "The minimum coordinates in each dimension (possibly combining multiple "
+        s += "coordinates) are: \n \n \t"
+        for dim in range(self._param_dim):
+            s += f"{dim}: {self._pt[dim].min()}, "
+        s = s[:-2] + "\n \n"
+        s += "The maximum coordinates in each dimension (possibly combining multiple "
+        s += "coordinates) are: \n \n \t"
+        for dim in range(self._param_dim):
+            s += f"{dim}: {self._pt[dim].max()}, "
+        s = s[:-2] + "\n \n"
+
+        s += f"Minimum function value: {np.min(self._values)}\n"
+        s += f"Maximum function value: {np.max(self._values)}"
+
+        return s
