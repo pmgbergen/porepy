@@ -2,8 +2,8 @@
 ndarrays.
 
 """
-from scipy.spatial import KDTree
 import numpy as np
+from scipy.spatial import KDTree
 
 
 class SparseNdArray:
@@ -46,7 +46,7 @@ class SparseNdArray:
 
     def add(
         self, coords: list[np.ndarray], values: np.ndarray, additive: bool = False
-    ) -> None:
+    ) -> np.ndarray:
         """Add one or several new data points to the interpolation table.
 
         Values of new coordinates are added to the array. Coordinates that were already
@@ -74,7 +74,7 @@ class SparseNdArray:
 
         # Shortcut for empty coordinate array.
         if len(coords) == 0:
-            return
+            return np.array([], dtype=int)
 
         values = np.atleast_2d(values)
 
@@ -113,7 +113,9 @@ class SparseNdArray:
             else:
                 # We have duplicates. Find the last occurrence of each coordinate,
                 # assign this to the new values.
-                unique_values = np.zeros((self._values.shape[0], counts.size))
+                unique_values = np.zeros(
+                    (self._values.shape[0], counts.size), dtype=float
+                )
                 for i in range(unique_coords.shape[1]):
                     unique_values[:, i] = values[:, np.where(all_2_unique == i)[0][-1]]
 
@@ -132,7 +134,7 @@ class SparseNdArray:
         new_coord = unique_coords[:, np.logical_not(is_mem)]
         if new_coord.ndim == 1:
             # Some formatting may be necessary here.
-            new_coord = np.reshape((-1, 1))
+            new_coord = new_coord.reshape((-1, 1))
 
         self._coords = np.hstack((self._coords, new_coord))
         self._values = np.hstack(

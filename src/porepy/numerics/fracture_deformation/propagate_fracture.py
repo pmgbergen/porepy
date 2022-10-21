@@ -600,7 +600,7 @@ def _update_connectivity_fracture_grid(
         sd_secondary.tags["tip_faces"][existing_faces_l] = False
 
         # Number of genuinely new local faces in sd_secondary created for this cell
-        n_new_local_faces_l = np.sum(~exist)
+        n_new_local_faces_l = np.sum(~exist).astype(int)
 
         # Index of the new faces, they will be appended to the face array
         new_face_indices_l = np.arange(
