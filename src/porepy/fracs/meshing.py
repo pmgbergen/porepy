@@ -85,8 +85,6 @@ def subdomains_to_mdg(
     # will be added to the mixed-dimensional grid.
     create_interfaces(mdg, node_pairs)
 
-    mdg.assign_subdomain_ordering()
-
     if time_tot is not None:
         logger.info(
             "Mesh construction completed. Total time " + str(time.time() - time_tot)
@@ -412,7 +410,7 @@ def _assemble_mdg(
 
     sd_pair_to_face_cell_map: dict[tuple[pp.Grid, pp.Grid], sps.spmatrix] = {}
 
-    # We now find the face_cell mapings.
+    # We now find the face_cell mappings.
     for dim in range(len(subdomains) - 1):
         # If there are no grids of dimension one less, continue.
         if len(subdomains[dim + 1]) == 0:

@@ -8,12 +8,10 @@ intersections  along with a surrounding matrix in the form of a MixedDimensional
 """
 from __future__ import annotations
 
-import warnings
 from typing import (
     Any,
     Callable,
     Dict,
-    Generator,
     Iterable,
     List,
     Literal,
@@ -38,10 +36,66 @@ class MixedDimensionalGrid:
     """
 
     def __init__(self) -> None:
-        self._subdomain_data: Dict[pp.Grid, Dict] = {}
-        self._interface_data: Dict[pp.MortarGrid, Dict] = {}
+        self._subdomain_data: Dict[pp.Grid, tuple[Dict, int]] = {}
+        self._interface_data: Dict[pp.MortarGrid, tuple[Dict, int]] = {}
         self._interface_to_subdomains: Dict[pp.MortarGrid, Tuple[pp.Grid, pp.Grid]] = {}
-        self.name = "Mixed-dimensional Grid"
+        self.name = "Mixed-dimensional grid"
+        self.__node_id_counter = 0
+        self.__edge_id_counter = 0
+
+    @property
+    def node_id_counter(self) -> int:
+        """Getter for the counter of node IDs.
+
+        Returns:
+            Integer counter corresponding to the ID of the most recently added node/subdomain.
+        """
+        return self.__node_id_counter
+
+    def increase_node_id_counter(self) -> None:
+        """Increase node ID counter by one."""
+        self.__node_id_counter += 1
+
+    @property
+    def edge_id_counter(self) -> int:
+        """Getter for the counter of edge IDs.
+
+        Returns:
+            Integer counter corresponding to the ID of the most recently added edge/interface.
+        """
+        return self.__edge_id_counter
+
+    def increase_edge_id_counter(self) -> None:
+        """Increase edge ID counter by one."""
+        self.__edge_id_counter += 1
+
+    def node_id(self, subdomain: pp.Grid) -> int:
+        """Get node id.
+
+        Args:
+            subdomain: Subdomain grid.
+
+        Returns:
+            Integer ID.
+
+        The id uniquely identifies the subdomain within this md grid.
+
+        """
+        return self._subdomain_data[subdomain][1]
+
+    def edge_id(self, interface: pp.MortarGrid) -> int:
+        """Get edge id.
+
+        Args:
+            interface: Interface grid.
+
+        Returns:
+            Integer ID.
+
+        The id uniquely identifies the interface within this md grid.
+
+        """
+        return self._interface_data[interface][1]
 
     def __contains__(self, key: Any) -> bool:
         """Overload __contains__.
@@ -89,10 +143,12 @@ class MixedDimensionalGrid:
     def subdomains(
         self, return_data: bool = False, dim: Optional[int] = None
     ) -> Union[list[pp.Grid], list[Tuple[pp.Grid, Dict]]]:
-        """Get a list of all subdomains in the mixed-dimensional grid.
+        """Get a sorted list of subdomains in the mixed-dimensional grid.
 
         Optionally, the subdomains can be filtered on dimension. Also, the data
         dictionary belonging to the subdomain can be returned.
+
+        Sorting by descending subdomain dimension and increasing node ID, see argsort_grids.
 
         Args:
             return_data (boolean, optional): If True, the data dictionary of the
@@ -107,18 +163,18 @@ class MixedDimensionalGrid:
                 subdomain grid, the second is the associated data dictionary.
 
         """
+        subdomains: list[pp.Grid] = list()
+        data: list[dict] = list()
+        for sd, data_and_id in self._subdomain_data.items():
+            if dim is None or dim == sd.dim:
+                subdomains.append(sd)
+                data.append(data_and_id[0])
+        sort_ind = self.argsort_grids(subdomains, "node")
         if return_data:
-            subdomains_and_data: list[tuple[pp.Grid, dict]] = []
-            for sd, data in self._subdomain_data.items():
-                if dim is None or dim == sd.dim:
-                    subdomains_and_data.append((sd, data))
-            return subdomains_and_data
+            # subdomains_and_data: list[Tuple[pp.Grid, dict]] =
+            return [(subdomains[i], data[i]) for i in sort_ind]
         else:
-            subdomains: list[pp.Grid] = []
-            for sd in self._subdomain_data:
-                if dim is None or dim == sd.dim:
-                    subdomains.append(sd)
-            return subdomains
+            return [subdomains[i] for i in sort_ind]
 
     @overload
     def interfaces(
@@ -139,10 +195,12 @@ class MixedDimensionalGrid:
     def interfaces(
         self, return_data: bool = False, dim: Optional[int] = None
     ) -> Union[list[pp.MortarGrid], list[Tuple[pp.MortarGrid, Dict]]]:
-        """Get a list of all interfaces in the mixed-dimensional grid.
+        """Get a sorted list of interfaces in the mixed-dimensional grid.
 
         Optionally, the interfaces can be filtered on dimension. Also, the data
         dictionary belonging to the interfaces can be returned.
+
+        Sorting by descending interface dimension and increasing edge ID, see argsort_grids.
 
         Args:
             return_data (boolean, optional): If True, the data dictionary of the
@@ -157,18 +215,17 @@ class MixedDimensionalGrid:
                 interface mortar grid, the second is the associated data dictionary.
 
         """
+        interfaces: list[pp.MortarGrid] = list()
+        data: list[dict] = list()
+        for intf, data_and_id in self._interface_data.items():
+            if dim is None or dim == intf.dim:
+                interfaces.append(intf)
+                data.append(data_and_id[0])
+        sort_ind = self.argsort_grids(interfaces, "edge")
         if return_data:
-            interfaces_and_data: list[tuple[pp.MortarGrid, dict]] = []
-            for intf, data in self._interface_data.items():
-                if dim is None or dim == intf.dim:
-                    interfaces_and_data.append((intf, data))
-            return interfaces_and_data
+            return [(interfaces[i], data[i]) for i in sort_ind]
         else:
-            interfaces: list[pp.MortarGrid] = []
-            for intf in self._interface_data:
-                if dim is None or dim == intf.dim:
-                    interfaces.append(intf)
-            return interfaces
+            return [interfaces[i] for i in sort_ind]
 
     # ---------- Navigate within the graph --------
 
@@ -193,23 +250,7 @@ class MixedDimensionalGrid:
 
         """
         subdomains = self._interface_to_subdomains[intf]
-        if subdomains[0].dim == subdomains[1].dim:
-            if not (
-                "node_number" in self._subdomain_data[subdomains[0]]
-                and "node_number" in self._subdomain_data[subdomains[1]]
-            ):
-                self.assign_subdomain_ordering()
-
-            subdomain_indexes = [self.node_number(sd) for sd in subdomains]
-            if subdomain_indexes[0] < subdomain_indexes[1]:
-                return subdomains[0], subdomains[1]
-            else:
-                return subdomains[1], subdomains[0]
-
-        elif subdomains[0].dim > subdomains[1].dim:
-            return subdomains[0], subdomains[1]
-        else:
-            return subdomains[1], subdomains[0]
+        return self.sort_subdomains(subdomains)
 
     def subdomain_pair_to_interface(
         self, sd_pair: Tuple[pp.Grid, pp.Grid]
@@ -237,22 +278,22 @@ class MixedDimensionalGrid:
         else:
             raise KeyError("Unknown subdomain pair")
 
-    def subdomain_to_interfaces(
-        self, sd: pp.Grid
-    ) -> Generator[pp.MortarGrid, None, None]:
+    def subdomain_to_interfaces(self, sd: pp.Grid) -> List[pp.MortarGrid]:
         """Iterator over the interfaces of a specific subdomain.
 
         Args:
             sd (pp.Grid): A subdomain in the mixed-dimensional grid.
 
-        Yields:
-            pp.MortarGrid: Interfaces associated with the subdomain.
+        Returns:
+            Sorted list of interfaces associated with the subdomain.
 
         """
+        interfaces: list[pp.MortarGrid] = list()
         for intf in self._interface_data:
             sd_pair = self._interface_to_subdomains[intf]
             if sd_pair[0] == sd or sd_pair[1] == sd:
-                yield intf
+                interfaces.append(intf)
+        return self.sort_interfaces(interfaces)
 
     def neighboring_subdomains(
         self, sd: pp.Grid, only_higher: bool = False, only_lower: bool = False
@@ -284,16 +325,15 @@ class MixedDimensionalGrid:
             elif sd_pair[1] == sd:
                 neigh.append(sd_pair[0])
 
-        if not only_higher and not only_lower:
-            return neigh
-        elif only_higher and only_lower:
+        if only_higher and only_lower:
             raise ValueError("Cannot return both only higher and only lower")
         elif only_higher:
             # Find the neighbours that are higher dimensional
-            return [g for g in neigh if g.dim > sd.dim]
-        else:
+            neigh = [sd_n for sd_n in neigh if sd_n.dim > sd.dim]
+        elif only_lower:
             # Find the neighbours that are higher dimensional
-            return [g for g in neigh if g.dim < sd.dim]
+            neigh = [sd_n for sd_n in neigh if sd_n.dim < sd.dim]
+        return self.sort_subdomains(neigh)
 
     # ------------ Getters for subdomain and interface properties
 
@@ -307,7 +347,7 @@ class MixedDimensionalGrid:
             The data dictionary associated with the subdomain.
 
         """
-        return self._subdomain_data[sd]
+        return self._subdomain_data[sd][0]
 
     def interface_data(self, intf: pp.MortarGrid) -> Dict:
         """Getter for the interface data dictionary.
@@ -319,7 +359,7 @@ class MixedDimensionalGrid:
             The data dictionary associated with the interface.
 
         """
-        return self._interface_data[intf]
+        return self._interface_data[intf][0]
 
     # ------------ Add new subdomains and interfaces ----------
 
@@ -343,8 +383,11 @@ class MixedDimensionalGrid:
             raise ValueError("Grid already defined in MixedDimensionalGrid")
 
         for sd in ng:
-            # Add the grid to the list of subdomains with an empty data dictionary.
-            self._subdomain_data[sd] = {}
+            # Add the grid to the dictionary of subdomains with an empty data dictionary and
+            # node_id.
+            self._subdomain_data[sd] = ({}, self.node_id_counter)
+            # Update node counter.
+            self.increase_node_id_counter()
 
     def add_interface(
         self,
@@ -388,26 +431,16 @@ class MixedDimensionalGrid:
         # higher-dimensional grid and cells in the lower-dimensional grid).
         data = {"face_cells": primary_secondary_map}
 
-        # Add the interface to the list, with
-        self._interface_data[intf] = data
+        # Add the interface to the dictionary, with empty data dictionary and edge counter
+        self._interface_data[intf] = (data, self.edge_id_counter)
+        # Update edge counter.
+        self.increase_edge_id_counter()
 
         # The higher-dimensional grid is the first subdomain of the subdomain pair.
 
-        # Couplings of co-dimension one()
-        if sd_pair[0].dim - 1 == sd_pair[1].dim:
-            sd_pair = (sd_pair[0], sd_pair[1])
-        elif sd_pair[0].dim == sd_pair[1].dim - 1:
-            sd_pair = (sd_pair[1], sd_pair[0])
-
-        # Coupling of co-dimension 2
-        elif sd_pair[0].dim - 2 == sd_pair[1].dim:
-            sd_pair = (sd_pair[0], sd_pair[1])
-        elif sd_pair[0].dim == sd_pair[1].dim - 2:
-            sd_pair = (sd_pair[1], sd_pair[0])
-
-        # Equi-dimensional coupling
-        elif sd_pair[0].dim == sd_pair[1].dim:
-            sd_pair = (sd_pair[0], sd_pair[1])
+        # Couplings of co-dimension zero to two are allowed. Sort the pair.
+        if np.abs(sd_pair[0].dim - sd_pair[1].dim) < 3:
+            sd_pair = self.sort_subdomains(sd_pair)
         else:
             raise ValueError("Can only handle subdomain coupling of co-dimension <= 2")
 
@@ -439,120 +472,97 @@ class MixedDimensionalGrid:
 
     # ---------- Functionality related to ordering of subdomains
 
-    def node_number(self, sd: pp.Grid) -> int:
-        """Return node number of a subdomain.
+    def sort_subdomains(self, subdomains: Iterable[pp.Grid]) -> Union[List[pp.Grid], Tuple[pp.Grid]]:
+        """Sort subdomains.
 
-        If no node ordering exists, the method calls assign_subdomain_ordering
-        to create one.
+        Sorting by descending subdomain dimension and increasing node ID, see argsort_grids.
 
         Args:
-            sd:
-                Subdomain to be identified.
+            subdomains: Iterable of subdomains.
 
         Returns:
-            Integer node number identifying the subdomain.
+            List containing the same subdomains, sorted.
 
         """
-        data = self.subdomain_data(sd)
-        if "node_number" not in data:
-            self.assign_subdomain_ordering()
-        return data["node_number"]
+        inds = self.argsort_grids(subdomains, "node")
 
-    def assign_subdomain_ordering(self, overwrite_existing: bool = True) -> None:
-        """
-        Assign an ordering of the subdomains in the mixed-dimensional, stored as the
-        attribute 'node_number' in the data dictionary.
+        sorted_subdomains = [subdomains[i] for i in inds]
 
-        The ordering starts with grids of the highest dimension. The ordering
-        within each dimension is determined by an iterator over the graph, and
-        can in principle change between two calls to this function.
+        if isinstance(subdomains, tuple):
+            sorted_subdomains = tuple(sorted_subdomains)
+        return sorted_subdomains
 
-        If an ordering covering all subdomains in the mixed-dimensional grid already
-        exists, but does not coincide with the new ordering, a warning is issued. If the
-        optional parameter overwrite_existing is set to False, no update is performed if
-        a subdomain ordering already exists.
+    def argsort_grids(
+        self, grids: Iterable[Union[pp.Grid, pp.MortarGrid]], grid_type: str
+    ) -> np.ndarray:
+        """Return indices that would sort the subdomains or interfaces.
 
-        Note:
-            The concept of subdomain ordering is at the moment not much used, however,
-            it will be brought (back) into use at a later point.
-
+        Sorting is done according to two criteria:
+            Descending dimension
+            Ascending node ID (for each dimension). The node ID is assigned by add_subdomain
+            and add_interface, respectively. The codimension is NOT considered for interfaces.
         Args:
-            overwrite_existing (bool, optional): If True (default), any existing
-                subdomain ordering will be overwritten.
-
-        """
-
-        # Check whether 'node_number' is defined for the grids already.
-        ordering_exists = True
-        for data in self._subdomain_data.values():
-            if "node_number" not in data:
-                ordering_exists = False
-        if ordering_exists and not overwrite_existing:
-            return
-
-        counter = 0
-        # Loop over grids in decreasing dimensions
-        for dim in range(self.dim_max(), self.dim_min() - 1, -1):
-            for sd, data in self.subdomains(return_data=True, dim=dim):
-                # Get old value, issue warning if not equal to the new one.
-                num = data.get("node_number", -1)
-                if ordering_exists and num != counter:
-                    warnings.warn("Order of subdomains has changed")
-                # Assign new value
-                data["node_number"] = counter
-                counter += 1
-
-        counter = 0
-        for _, data in self.interfaces(return_data=True):
-            data["edge_number"] = counter
-            counter += 1
-
-    def update_subdomain_ordering(self, removed_number: int) -> None:
-        """Update an existing ordering of the subdomains, stored as the attribute
-        'node_number' in the data dictionaries.
-
-        Intended for keeping the subdomain ordering after removing a subdomain from the
-        mixed-dimensional grid. In this way, the interface sorting will not be disturbed
-        by the removal, but no gaps in are created.
-
-        Args:
-            removed_number (int): node_number of the removed grid.
-
-        """
-
-        # Loop over grids in decreasing dimensions
-        for dim in range(self.dim_max(), self.dim_min() - 1, -1):
-            for sd, data in self.subdomains(return_data=True, dim=dim):
-                if "node_number" not in self._subdomain_data[sd]:
-                    # It is not clear how severe this case is. For the moment,
-                    # we give a warning, and hope the user knows what to do
-                    warnings.warn(
-                        "Tried to update subdomain ordering where none exists"
-                    )
-                    # No point in continuing with this subdomain.
-                    continue
-
-                # Obtain the old node number
-                data = self._subdomain_data[sd]
-                old_number = data.get("node_number", -1)
-                # And replace it if it is higher than the removed one
-                if old_number > removed_number:
-                    data["node_number"] = old_number - 1
-
-    def sort_subdomains(self, subdomains: List[pp.Grid]) -> List[pp.Grid]:
-        """Sort subdomains according to the subdomain ordering (attribute 'node_number'
-        in the data dictionary associated with the subdomain).
-
-        Args:
-            subdomains: List of subdomains.
+            grids: List of subdomain grids.
+            grid_type: String specifying type of grids. Valid values are TODO: complete
 
         Returns:
-            sorted_subdomain_data: The same subdomains, sorted.
+            np.ndarray that sorts the grids, e.g.
+                inds = mdg.argsort_subdomains(subdomain_list)
+                sorted_subdomains = [subdomain_list[i] for i in inds]
+        """
+        sort_inds_all: np.ndarray[int] = np.array([], dtype=int)
+        # Traverse dimensions in descending order. Progress to 0 in case dim_min is greater
+        # than minimum dimension of interface grids.
+        for dim in np.arange(self.dim_max(), -1, -1):
+            # Map from this dimension to all dimensions
+            inds_in_all_dims: list[int] = list()
+            # Node ids of this dimension
+            ids_dim: list[int] = list()
+            ind: int
+            grid: Union[pp.Grid, pp.MortarGrid]
+            for ind, grid in enumerate(grids):
+                if grid.dim == dim:
+                    inds_in_all_dims.append(ind)
+                    # TODO: Decide whether to allow "subdomain" and "interface"
+                    # if grid_type in ["node", "subdomain"]:
+                    if grid_type == "node":
+                        # Append node ID
+                        ids_dim.append(self._subdomain_data[grid][1])
+                    elif grid_type in ["edge", "interface"]:
+                        # Append edge ID
+                        ids_dim.append(self._interface_data[grid][1])
+                    else:
+                        raise ValueError("grid_type must be 'node' or 'edge'.")
+            # Ascending sorting of subdomains of this dimension according node ID
+            sort_inds_dim: np.ndarray = np.argsort(ids_dim)
+            # Sort the map to all grids
+            sorted_inds_dim: np.ndarray = np.array(inds_in_all_dims, dtype=int)[
+                sort_inds_dim
+            ]
+            # Append to global array
+            sort_inds_all = np.append(sort_inds_all, sorted_inds_dim)
+        return sort_inds_all
+
+    def sort_interfaces(
+        self, interfaces: Iterable[pp.MortarGrid]
+    ) -> List[pp.MortarGrid]:
+        """Sort interfaces.
+
+        Sorting by descending interface dimension and increasing edge ID, see argsort_grids.
+
+        Args:
+            interfaces: Iterable of interfaces.
+
+        Returns:
+            List containing the same subdomains, sorted.
 
         """
-        assert all(["node_number" in self._subdomain_data[sd] for sd in subdomains])
+        inds = self.argsort_grids(interfaces, "edge")
 
-        return sorted(subdomains, key=lambda n: self.node_number(n))
+        sorted_interfaces = [interfaces[i] for i in inds]
+        if isinstance(interfaces, tuple):
+            sorted_interfaces = tuple(sorted_interfaces)
+        return sorted_interfaces
 
     # ------------- Miscellaneous functions ---------
 
@@ -589,7 +599,7 @@ class MixedDimensionalGrid:
         ] = None,
         tol: float = 1e-6,
     ) -> None:
-        """Replace grids and / or mortar grids in the mixed-dimensional grid.
+        """Replace grids and/or mortar grids in the mixed-dimensional grid.
 
         Args:
             sd_map (dict): Mapping between the old and new grids. Keys are
@@ -603,8 +613,6 @@ class MixedDimensionalGrid:
             tol (float): Geometric tolerance used when updating mortar projections.
 
         """
-        # Ensure sorting of equi-dimensional subdomain pairs is possible:
-        self.assign_subdomain_ordering(overwrite_existing=False)
         # The operation is carried out in three steps:
         # 1) Update the mortar grid. This will also update projections to and from the
         #    mortar grids so that they are valid for the new mortar grid, but not with
@@ -659,68 +667,6 @@ class MixedDimensionalGrid:
                 # subdomains by node number
                 del self._subdomain_data[sd_old]
 
-    # ----------- Apply functions to subdomains and interfaces
-
-    def apply_function_to_subdomains(
-        self, fct: Callable[[pp.Grid, Dict], Any]
-    ) -> np.ndarray:
-        """Loop on all subdomains and evaluate a function on each of them.
-
-        Parameter:
-            fct: function to evaluate. It takes a grid and the related data and
-                returns a scalar.
-
-        Returns:
-            values: vector containing the function evaluated on each subdomain,
-                ordered by 'node_number'.
-
-        """
-        values = np.empty(self.num_subdomains())
-        for sd, data in self.subdomains(return_data=True):
-            values[data["node_number"]] = fct(sd, data)
-        return values
-
-    def apply_function_to_interfaces(
-        self, fct: Callable[[pp.Grid, pp.Grid, Dict, Dict, Dict], Any]
-    ) -> sps.spmatrix:
-        """Loop on all the interfaces and evaluate a function on each of them.
-
-        Args:
-            fct: function to evaluate. It returns a scalar and takes the following
-                arguments (the order is strict): the primary and secondary subdomain
-                grids, the primary and secondary data, the interface data.
-
-        Returns:
-            matrix: sparse strict upper triangular matrix containing the function
-                evaluated on each mortar grid, ordered by their
-                relative 'node_number'.
-
-        """
-        i = np.zeros(self.num_interfaces(), dtype=int)
-        j = np.zeros_like(i)
-        values = np.zeros(i.size)
-
-        # Loop over the interfaces
-        idx = 0
-        for intf, data in self.interfaces(return_data=True):
-
-            sd_primary, sd_secondary = self.interface_to_subdomain_pair(intf)
-            data_primary = self.subdomain_data(sd_primary)
-            data_secondary = self.subdomain_data(sd_secondary)
-
-            i[idx] = data_primary["node_number"]
-            j[idx] = data_secondary["node_number"]
-            values[idx] = fct(
-                sd_primary, sd_secondary, data_primary, data_secondary, data
-            )
-            idx += 1
-
-        # Upper triangular matrix
-        return sps.coo_matrix(
-            (values, (i, j)),
-            (self.num_interfaces(), self.num_interfaces()),
-        )
-
     # ---- Methods for getting information on the bucket, or its components ----
 
     def diameter(
@@ -745,14 +691,6 @@ class MixedDimensionalGrid:
 
         return np.amax(np.hstack((diam_g, diam_mg)))
 
-    #    def size(self) -> int:
-    #        """
-    #        Returns:
-    #            int: Number of mono-dimensional grids and interfaces in the bucket.
-    #
-    #        """
-    #        return self.num_subdomains() + self.num_interfaces()
-
     def dim_min(self) -> int:
         """Get minimal dimension represented in the mixed-dimensional grid.
 
@@ -760,7 +698,9 @@ class MixedDimensionalGrid:
             int: Minimum dimension of the grids present in the hierarchy.
 
         """
-        return np.min([sd.dim for sd in self.subdomains()])
+        # Access protected attribute instead of subdomains() to avoid sorting, which can
+        # lead to a recursion error.
+        return np.min([sd.dim for sd in self._subdomain_data.keys()])
 
     def dim_max(self) -> int:
         """Get maximal dimension represented in the grid.
@@ -769,17 +709,9 @@ class MixedDimensionalGrid:
             int: Maximum dimension of the grids present in the hierarchy.
 
         """
-        return np.max([sd.dim for sd in self.subdomains()])
-
-    """
-    def all_dims(self) -> np.ndarray:
-        ""
-        Returns:
-            np.array: Active dimensions of the grids present in the hierarchy.
-
-        ""
-        return np.unique([grid.dim for grid in self.subdomains()])
-    """
+        # Access protected attribute instead of subdomains() to avoid sorting, which can
+        # lead to a recursion error.
+        return np.max([sd.dim for sd in self._subdomain_data.keys()])
 
     def num_subdomain_cells(self, cond: Callable[[pp.Grid], bool] = None) -> int:
         """Compute the total number of cells of the mixed-dimensional grid.

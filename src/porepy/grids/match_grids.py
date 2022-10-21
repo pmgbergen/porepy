@@ -529,8 +529,8 @@ def mdg_refinement(
         sd, sd_ref = subdomains[i], subdomains_ref[i]
 
         node_num, node_num_ref = (
-            mdg.node_number(sd),
-            mdg_ref.node_number(sd_ref),
+            mdg.node_id(sd),
+            mdg_ref.node_id(sd_ref),
         )
         assert node_num == node_num_ref, "Weakly check that grids refer to same domain."
 
