@@ -1180,20 +1180,6 @@ class MergedVariable(Variable):
         return s
 
 
-class SecondOrderTensorAd(SecondOrderTensor, Operator):
-    def __init__(self, kxx, kyy=None, kzz=None, kxy=None, kxz=None, kyz=None):
-        super().__init__(kxx, kyy, kzz, kxy, kxz, kyz)
-        self._set_tree()
-
-    def __repr__(self) -> str:
-        s = "AD second order tensor"
-
-        return s
-
-    def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
-        return self.values
-
-
 class Tree:
     """Simple implementation of a Tree class. Used to represent combinations of
     Ad operators.
