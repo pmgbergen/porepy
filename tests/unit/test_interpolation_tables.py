@@ -117,7 +117,7 @@ def test_value_assigment_and_interpolation(dim, factory):
     # First check that the interpolation is exact in the nodes of the underlying grids.
     # In this case, the interpolation weights in the tables should be calculated to be
     # 1 in the relevant node, and 0 in adjacent nodes.
-    coords = np.vstack(table._coords)
+    coords = np.vstack(table._coord)
 
     adaptive_vals = adaptive_table.interpolate(coords)
     table_vals = table.interpolate(coords)
@@ -140,7 +140,10 @@ def test_value_assigment_and_interpolation(dim, factory):
         dx=(high - low) / (num_pt - 1), base_point=low, dim=1
     )
 
-    extended_coords, extended_inds = adaptive_table_2.interpolation_nodes_from_coordsinates(coords)
+    (
+        extended_coords,
+        extended_inds,
+    ) = adaptive_table_2.interpolation_nodes_from_coordinates(coords)
     extended_vals = function.truth(extended_coords)
 
     # It is critical that we pass the indices in addition to the coordinates here.
@@ -155,7 +158,11 @@ def test_value_assigment_and_interpolation(dim, factory):
     )
     for ci in range(extended_coords.shape[-1]):
         # Again, it is critical to pass the indices as well as coordinates.
-        adaptive_table_gradual.assign_values(extended_vals[ci], extended_coords[:, ci].reshape((-1, 1)), indices = extended_inds[:, ci].reshape((-1, 1)))
+        adaptive_table_gradual.assign_values(
+            extended_vals[ci],
+            extended_coords[:, ci].reshape((-1, 1)),
+            indices=extended_inds[:, ci].reshape((-1, 1)),
+        )
 
     adaptive_vals_gradual = adaptive_table_gradual.interpolate(coords)
     assert np.allclose(known_vals, adaptive_vals_gradual, atol=1e-10)
