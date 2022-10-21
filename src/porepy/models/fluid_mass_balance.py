@@ -215,6 +215,8 @@ class ConstitutiveEquationsIncompressibleFlow:
 
     def interface_fluid_flux_equation(self, interfaces: list[pp.MortarGrid]):
         subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
         p_trace = self.pressure_trace(self, subdomains)
         p = self.pressure(subdomains)
         interface_geometry = pp.ad.Geometry(interfaces, matrices=["cell_volumes"])
@@ -222,8 +224,8 @@ class ConstitutiveEquationsIncompressibleFlow:
         eq = self.interface_fluid_flux(
             interfaces
         ) - interface_geometry.cell_volumes * self.normal_diffusivity(interfaces) * (
-            self.mortar_projection_scalar.primary_to_mortar_avg * p_trace
-            - self.mortar_projection_scalar.secondary_to_mortar_avg * p
+            projection.primary_to_mortar_avg * p_trace
+            - projection.mortar_projection_scalar.secondary_to_mortar_avg * p
             # FIXME: The plan is to remove RoubinCoupling. That requires alternative
             #  implementation of the below
             # + robin_ad.mortar_vector_source * vector_source_interfaces
