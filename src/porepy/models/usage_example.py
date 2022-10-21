@@ -1,24 +1,28 @@
 import porepy as pp
 
-from .constit_library import (
-    ConstantIsotropicPermeability,
+#from . import constit_library, fluid_mass_balance
+
+from constit_library import (
+    ConstantRock,
     DensityFromPressure,
+    ConstantDensity,
+    ConstantViscosity,
     UnitFluid,
     UnitRock,
 )
-from .fluid_mass_balance import (
+from fluid_mass_balance import (
     ConstitutiveEquationsCompressibleFlow,
     MassBalanceEquations,
     SolutionStrategyCompressibleFlow,
     VariablesSinglePhaseFlow,
 )
-from .geometry import Geometry
+from geometry import ModelGeometry
 
 # Example 1
 
 
 class CompressibleCombined(
-    Geometry,
+    ModelGeometry,
     MassBalanceEquations,
     ConstitutiveEquationsCompressibleFlow,
     VariablesSinglePhaseFlow,
@@ -33,12 +37,12 @@ usage is:
 """
 
 m = CompressibleCombined()
-pp.run_time_dependent_model(m)
+#pp.run_time_dependent_model(m)
 
 # Define your favourite CO_2 combination to be plugged in in multiple run scripts.
 
 
-class cooConstit(ConstantIsotropicPermeability, DensityFromPressure):
+class cooConstit(ConstantRock, DensityFromPressure):
     pass
 
 
@@ -55,12 +59,18 @@ EiriksWeirdRock for the rock:
 
 
 class EiriksCombinedMassBalance(
-    pp.Geometry,
+    ModelGeometry,
+    ConstantRock,
+    ConstantViscosity,
+    ConstantDensity,
     VariablesSinglePhaseFlow,
     MassBalanceEquations,
+    ConstitutiveEquationsCompressibleFlow,
     SolutionStrategyCompressibleFlow,
 ):
     pass
+
+
 
 
 params = {
