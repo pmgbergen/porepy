@@ -1,13 +1,14 @@
-meshio>=5.0
-networkx
-numpy
-scipy
-sympy
-matplotlib
 future
-six
+gmsh
+matplotlib
+meshio >= 5.0
+networkx
+numba >= 0.56.3
+numpy
+requests
+scipy
 shapely
 shapely[vectorized]
-numba>=0.53.0
-gmsh
-requests
+six
+sympy
+typing_extensions
