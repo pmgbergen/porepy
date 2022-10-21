@@ -1,6 +1,7 @@
 """
 
 """
+from __future__ import annotations
 import pytest
 import numpy as np
 
@@ -228,17 +229,24 @@ data_intersect_test = [
 
 @pytest.mark.parametrize("data", data_intersect_test)
 def test_intersect_sets(data):
+    """Test intersection of sets.
 
+    The setup assumes the provided data contains both sets to be
+    intersected and the known values that should result.
+
+    """
     a, b, tol, ia_known, ib_known, a_2_b_known = data
 
     ia, ib, a_in_b, a_2_b = pp.array_operations.intersect_sets(a, b, tol)
 
     assert np.allclose(ia, np.sort(ia_known))
     assert np.allclose(ib, np.sort(ib_known))
+
+    # The known values from a_in_b must be inferred from the known values.
     a_in_b_known = np.zeros(a.shape[-1])
     a_in_b_known[ia_known] = True
-
     assert np.allclose(a_in_b, a_in_b_known)
 
+    # a_2_b is a list of list, check one by one.
     for (e1, e2) in zip(a_2_b, a_2_b_known):
         assert np.allclose(e1, e2)
