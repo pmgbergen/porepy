@@ -922,10 +922,9 @@ class Exporter:
                 sd.num_cells, dtype=int
             )
             self._constant_subdomain_data[(sd, "grid_dim")] = sd.dim * ones
-            if "node_number" in sd_data:
-                self._constant_subdomain_data[(sd, "grid_node_number")] = (
-                    sd_data["node_number"] * ones
-                )
+            self._constant_subdomain_data[(sd, "grid_node_number")] = (
+                self._mdg.node_id(sd) * ones
+            )
             self._constant_subdomain_data[(sd, "is_mortar")] = 0 * ones
             self._constant_subdomain_data[(sd, "mortar_side")] = (
                 pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
@@ -975,7 +974,7 @@ class Exporter:
                 self._constant_interface_data[(intf, "grid_edge_number")] = np.hstack(
                     (
                         self._constant_interface_data[(intf, "grid_edge_number")],
-                        intf_data["edge_number"] * ones,
+                        self._mdg.edge_id(intf) * ones,
                     )
                 )
 
