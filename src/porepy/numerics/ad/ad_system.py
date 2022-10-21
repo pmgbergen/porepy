@@ -196,9 +196,9 @@ class ADSystem:
         """
         # sanity check for admissible DOF types
         requested_type = set(dof_info.keys())
-        if not requested_type.issubset(set(self.dof_manager.admissible_dof_types)):
+        if not requested_type.issubset(set(self.admissible_dof_types)):
             non_admissible = requested_type.difference(
-                self.dof_manager.admissible_dof_types
+                self.admissible_dof_types
             )
             raise ValueError(f"Non-admissible DOF types {non_admissible} requested.")
         # sanity check if variable is defined anywhere
@@ -293,7 +293,7 @@ class ADSystem:
 
         return merged_var
 
-    def set_var_values(
+    def set_variable_vector(
         self, var_name: str, values: np.ndarray, copy_to_state: bool = False
     ) -> None:
         """Sets values for a given variable name in the grid data dictionaries.
@@ -327,7 +327,7 @@ class ADSystem:
         if copy_to_state:
             self.dof_manager.distribute_variable(X, variables=variable)
 
-    def get_var_values(self, var_name: str, from_iterate: bool = True) -> np.ndarray:
+    def get_variable_vector(self, var_name: str, from_iterate: bool = True) -> np.ndarray:
         """Gets all values of variable ``var_name`` in a local vector by slicing respective
         indices out of the global vector.
 
@@ -355,6 +355,18 @@ class ADSystem:
             variables=[var_name], from_iterate=from_iterate
         )
         return X[dof]
+    
+    def set_sub_vector(self) -> None:
+        pass
+
+    def get_sub_vector(self) -> np.ndarray:
+        pass
+
+    def set_global_vector(self) -> None:
+        pass
+
+    def get_global_vector(self) -> np.ndarray:
+        pass
 
     def get_var_names(
         self,
@@ -398,6 +410,12 @@ class ADSystem:
             For each variable
                 append dofs on subdomains where variable is defined (order given by mdg)
                 append dofs on interfaces where variable is defined (order given by mdg)
+
+        Notes: TODO
+            This order increases the band with of the matrix drastically.
+            An order, which clusters per grid ( old DofManager order) would create proper
+            diagonal blocks at least in the column sense
+            (but that one is not index-conservative when new vars are introduced)
 
         Parameters:
             var_name: name of the newly created variable
@@ -539,14 +557,14 @@ class ADSystem:
             var_names += list(self.variables.keys())
         
         ## NAME FILTER
-        if variables:
+        if variables: # None AND empty lists are ignored, is that a good thing? TODO
             # reformat non-sequential arguments
             if isinstance(variables, str):
                 variables = [variables]  # type: ignore
             var_names = list(set(var_names).intersection(set(variables)))
 
         # Loop over variables, find dofs
-        for var in variables:
+        for var in var_names:
             # get all grids this variable is defined on
             var_grids = [block[0] for block in self._block_numbers if block[1] == var]
             ## GRID FILTER
