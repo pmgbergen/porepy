@@ -24,9 +24,10 @@ from typing import Dict, Optional, Union
 import constit_library
 import numpy as np
 import scipy.sparse as sps
-from geometry import Geometry
+from geometry import ModelGeometry
 
 import porepy as pp
+from constit_library import SIUnits, ad_wrapper
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
     def set_equations(self):
         subdomains = self.mdg.subdomains()
         interfaces = self.mdg.interfaces()
-        sd_eq = self.subdomain_mass_balance_equation()
+        sd_eq = self.subdomain_mass_balance_equation(subdomains)
         intf_eq = self.interface_fluid_flux_equation(interfaces)
         self.system_manager.set_equation(sd_eq, (subdomains, "cells", 1))
         self.system_manager.set_equation(intf_eq, (interfaces, "cells", 1))
@@ -93,11 +94,11 @@ class MassBalanceEquations(ScalarBalanceEquation):
         accumulation = self.fluid_mass(subdomains)
         flux = self.fluid_flux(subdomains)
         source = self.fluid_source(subdomains)
-        return self.balance_equation(accumulation, flux, source)
+        return self.balance_equation(subdomains, accumulation, flux, source)
 
     def fluid_mass(self, subdomains: list[pp.Grid]):
 
-        density = self.density(subdomains) * self.porosity(subdomains)
+        density = self.fluid_density(subdomains) * self.porosity(subdomains)
         mass = self.volume_integral(density, subdomains)
         mass.set_name("fluid_mass")
         return mass
@@ -133,7 +134,7 @@ class ConstitutiveEquationsIncompressibleFlow:
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 
         interfaces = self.subdomains_to_interfaces(subdomains)
-        projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
         discr = self.darcy_flux_discretization(subdomains)
         p = self.pressure(subdomains)
         pressure_trace = (
@@ -148,8 +149,8 @@ class ConstitutiveEquationsIncompressibleFlow:
 
     def darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         interfaces = self.subdomains_to_interfaces(subdomains)
-        projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
-        discr = self.fluid_flux_discretization(subdomains)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr = self.darcy_flux_discretization(subdomains)
         flux: pp.ad.Operator = (
             discr.flux * self.pressure(subdomains)
             + discr.bound_flux
@@ -168,7 +169,7 @@ class ConstitutiveEquationsIncompressibleFlow:
         # projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
 
         discr = self.mobility_discretization(subdomains)
-        cell_mobility = self.density(subdomains) / self.viscosity(subdomains)
+        cell_mobility = self.fluid_density(subdomains) / self.viscosity(subdomains)
         # FIXME: complete with BCs etc. Nontrivial!
         flux: pp.ad.Operator = discr.upwind * cell_mobility
         flux.set_name("face_mobility")
@@ -221,8 +222,8 @@ class ConstitutiveEquationsIncompressibleFlow:
         eq = self.interface_fluid_flux(
             interfaces
         ) - interface_geometry.cell_volumes * self.normal_diffusivity(interfaces) * (
-            self.geometry.mortar_projection_scalar.primary_to_mortar_avg * p_trace
-            - self.geometry.mortar_projection_scalar.secondary_to_mortar_avg * p
+            self.mortar_projection_scalar.primary_to_mortar_avg * p_trace
+            - self.mortar_projection_scalar.secondary_to_mortar_avg * p
             # FIXME: The plan is to remove RoubinCoupling. That requires alternative
             #  implementation of the below
             # + robin_ad.mortar_vector_source * vector_source_interfaces
@@ -236,8 +237,10 @@ class ConstitutiveEquationsIncompressibleFlow:
         # Expand to nd
         rows = np.arange(self.nd - 1, num_cells * self.nd, self.nd)
         cols = np.arange(num_cells)
-        mat = sps.coo_matrix((vals, rows, cols), shape=(self.nd * num_cells, num_cells))
-        source = pp.ad.Matrix(mat, "gravity_acceleration") * self.density(grids)
+        mat = sps.coo_matrix(
+            (vals, (rows, cols)), shape=(self.nd * num_cells, num_cells)
+        )
+        source = pp.ad.Matrix(mat, "gravity_acceleration") * self.fluid_density(grids)
         source.set_name("vector_source")
         return source
 
@@ -254,7 +257,7 @@ class ConstitutiveEquationsIncompressibleFlow:
 
         """
         num_faces = sum([sd.num_faces for sd in subdomains])
-        return self.constit.ad_wrapper(0, num_faces, True, "bc_vals_flow")
+        return ad_wrapper(0, num_faces, True, "bc_vals_flow")
 
     """FIXME: Incorporate aperture and specific volumes. 
     Current version is a mess.
@@ -268,7 +271,7 @@ class ConstitutiveEquationsIncompressibleFlow:
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
             aperture *= 0.1
-        aperture
+        return aperture
 
     def aperture(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """
@@ -290,7 +293,7 @@ class ConstitutiveEquationsIncompressibleFlow:
         area/volume (or "specific volume") for intersections of dimension 1 and 0.
         See also specific_volume.
         """
-        volumes = np.empty((1, 0))
+        volumes = np.array([])
         for sd in subdomains:
             v_loc = self.grid_specific_volume(sd)
 
@@ -369,9 +372,7 @@ class VariablesSinglePhaseFlow:
 
     def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         num_cells = sum([sd.num_cells for sd in subdomains])
-        return self.ad_wrapper(
-            self.fluid.PRESSURE, num_cells, True, "reference_pressure"
-        )
+        return ad_wrapper(self.fluid.PRESSURE, num_cells, True, "reference_pressure")
 
 
 class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel):
@@ -386,17 +387,18 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
 
     """
 
-    def __init__(self, geometry, params: Optional[Dict] = None) -> None:
+    def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
         # Variables
         self.variable: str = "p"
         self.mortar_variable: str = "mortar_" + self.variable
         self.flow_discretization_parameter_key: str = "flow"
         self.exporter: pp.Exporter
-        self.geometry = geometry
+
+        self._units = SIUnits()
 
     def prepare_simulation(self) -> None:
-        self.geometry.set_geometry()
+        self.set_geometry()
         # Exporter initialization must be done after grid creation.
         self.exporter = pp.Exporter(
             self.mdg,
@@ -409,14 +411,13 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
 
         self._assign_variables()
         self._create_dof_and_eq_manager()
-        self._create_ad_variables()
         self._initial_condition()
         # New: Set material components. Could be moved to init:
         self.set_materials()
         # New: renamed from _set_parameters
         self.set_discretization_parameters()
 
-        self._assign_equations()
+        self.set_equations()
 
         self._export()
         self._discretize()
@@ -429,8 +430,11 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         May want to use more refined approach (setter method, protect attribute names...)
         """
         for name, material in self.params["materials"].items():
-            assert isinstance(material, constit_library.Material)
-            setattr(self, material, name)
+            # EK: isinstance does not work here, likely because material has not been
+            # initiated (it is a class, not an object).
+            #           breakpoint()
+            #            assert isinstance(material, constit_library.Material)
+            setattr(self, name, material(self._units))
 
     def initial_condition(self) -> None:
         """New formulation requires darcy flux (the flux is "advective" with mobilities
@@ -439,14 +443,14 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         Returns:
 
         """
-        for sd, data in self.geometry.mdg.subdomains(return_data=True):
+        for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
                 sd,
                 data,
                 self.flow_parameter_keyword,
                 {"darcy_flux": np.zeros(sd.num_faces)},
             )
-        for intf, data in self.geometry.mdg.interfaces(return_data=True):
+        for intf, data in self.mdg.interfaces(return_data=True):
             pp.initialize_data(
                 intf,
                 data,
@@ -479,7 +483,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
                 {
                     "bc": bc,
                     "second_order_tensor": diffusivity,
-                    "darcy_flux": self.darcy_flux(sd),
+                    #                    "darcy_flux": self.darcy_flux(sd),
                     "ambient_dimension": self.nd,
                 },
             )
@@ -538,7 +542,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
 
     def before_newton_iteration(self):
         pp.fvutils.compute_darcy_flux(
-            self.geometry.mdg,
+            self.mdg,
             self.flow_discretization_parameter_key,
             self.flow_discretization_parameter_key,
             lam_name=self.mortar_variable,
@@ -583,7 +587,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
 
 
 class IncompressibleCombined(
-    Geometry,
+    ModelGeometry,
     MassBalanceEquations,
     ConstitutiveEquationsIncompressibleFlow,
     VariablesSinglePhaseFlow,
