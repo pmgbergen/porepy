@@ -24,6 +24,7 @@ import itertools
 from typing import Callable, Iterator, Optional
 
 import numpy as np
+
 import porepy as pp
 
 
@@ -54,7 +55,7 @@ class InterpolationTable:
         low: np.ndarray,
         high: np.ndarray,
         npt: np.ndarray,
-        function: Callable[[np.ndarray], np.ndarray] = None,
+        function: Callable[[np.ndarray], np.ndarray],
         dim: int = 1,
     ) -> None:
         # Data processing is left to a separate function.
@@ -81,7 +82,7 @@ class InterpolationTable:
         self._base_point = self._low
 
         # Define the interpolation points along each coordinate access.
-        self._pt: list[np.ndarray] = [
+        self._pt_on_axes: list[np.ndarray] = [
             np.linspace(low[i], high[i], npt[i]) for i in range(self._param_dim)
         ]
 
@@ -98,7 +99,7 @@ class InterpolationTable:
         # Create interpolation grid.
         # The indexing, together with the Fortran-style raveling is necessary
         # to get a reasonable ordering of the expanded coefficients.
-        coord_table = np.meshgrid(*self._pt, indexing="ij")
+        coord_table = np.meshgrid(*self._pt_on_axes, indexing="ij")
         # Ravel into an array
         self._coord: list[np.ndarray] = [c.ravel("F") for c in coord_table]
 
@@ -280,7 +281,7 @@ class InterpolationTable:
         """
         right_weight = np.array(
             [
-                (x[i] - (self._pt[i][base_ind[i]])) / self._h[i]
+                (x[i] - (self._pt_on_axes[i][base_ind[i]])) / self._h[i]
                 for i in range(self._param_dim)
             ]
         )
@@ -349,8 +350,8 @@ class AdaptiveInterpolationTable(InterpolationTable):
         self._table = pp.array_operations.SparseNdArray(self._param_dim)
 
         # self._pt store coordinates of quadrature points in parameter space.
-        # Note that this is different from super()._pt, which gives the 1d-coordinates
-        # of the quadrature points along each coordinate axis.
+        # Note that this is different from super()._pt_on_axes, which gives the
+        # 1d-coordinates of the quadrature points along each coordinate axis.
         # It is also different from super()._coord, which gives Nd-coordinates, but as
         # structured and dense data.
         self._pt: np.ndarray = np.zeros((self._param_dim, 0))
@@ -440,7 +441,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         self,
         val: np.ndarray,
         coord: np.ndarray,
-        indices: Optional[list[np.ndarray]] = None,
+        indices: Optional[np.ndarray] = None,
     ) -> None:
         """Assign externally computed values to the table.
 
@@ -468,9 +469,11 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         if indices is None:
             # Get the corresponding indices in the underlying Cartesian grids.
-            indices = self._find_base_vertex(coord)
+            inds = self._find_base_vertex(coord)
+        else:
+            inds = indices
 
-        ind_list = [i for i in indices.T]
+        ind_list = [i for i in inds.T]
 
         # Add values and indices to the table.
         column_permutation = self._table.add(ind_list, val, additive=False)
