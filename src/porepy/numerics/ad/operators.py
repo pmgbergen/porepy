@@ -1,11 +1,11 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
-
+from __future__ import annotations
 import copy
 import numbers
 from enum import Enum
 from itertools import count
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -13,7 +13,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.params.tensor import SecondOrderTensor
 
 from . import _ad_utils
 from .forward_mode import Ad_array, initAdArrays
@@ -53,15 +52,15 @@ class Operator:
     def __init__(
         self,
         name: Optional[str] = None,
-        subdomains: Optional[List[pp.Grid]] = None,
-        interfaces: Optional[List[pp.MortarGrid]] = None,
+        subdomains: Optional[list[pp.Grid]] = None,
+        interfaces: Optional[list[pp.MortarGrid]] = None,
         tree: Optional["Tree"] = None,
     ) -> None:
         if name is None:
             name = ""
         self._name = name
-        self.subdomains: List[pp.Grid] = [] if subdomains is None else subdomains
-        self.interfaces: List[pp.MortarGrid] = [] if interfaces is None else interfaces
+        self.subdomains: list[pp.Grid] = [] if subdomains is None else subdomains
+        self.interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
         self._set_tree(tree)
 
     def _set_tree(self, tree=None):
@@ -72,8 +71,8 @@ class Operator:
 
     def _set_subdomains_or_interfaces(
         self,
-        subdomains: Union[List[pp.Grid], None],
-        interfaces: Union[List[pp.MortarGrid], None],
+        subdomains: Union[list[pp.Grid], None],
+        interfaces: Union[list[pp.MortarGrid], None],
     ) -> None:
         """For operators which are defined for either subdomains or interfaces but not both.
 
@@ -97,7 +96,7 @@ class Operator:
             self.subdomains = subdomains
             self.interfaces = []
 
-    def _find_subtree_variables(self) -> List["pp.ad.Variable"]:
+    def _find_subtree_variables(self) -> list["pp.ad.Variable"]:
         """Method to recursively look for Variables (or MergedVariables) in an
         operator tree.
         """
@@ -119,7 +118,7 @@ class Operator:
                     sub_variables += child._find_subtree_variables()
 
             # Some work is needed to parse the information
-            var_list: List[Variable] = []
+            var_list: list[Variable] = []
             for var in sub_variables:
                 if isinstance(var, Variable) or isinstance(var, pp.ad.Variable):
                     # Effectively, this node is one step from the leaf
@@ -193,7 +192,7 @@ class Operator:
 
         return inds, variable_ids, prev_time, prev_iter
 
-    def _identify_subtree_discretizations(self, discr: List) -> List:
+    def _identify_subtree_discretizations(self, discr: list) -> list:
         """Recursive search in the tree of this operator to identify all discretizations
         represented in the operator.
         """
@@ -210,7 +209,7 @@ class Operator:
 
     def _identify_discretizations(
         self,
-    ) -> Dict["_ad_utils.MergedOperator", GridLike]:
+    ) -> dict["_ad_utils.MergedOperator", GridLike]:
         """Perform a recursive search to find all discretizations present in the
         operator tree. Uniquify the list to avoid double computations.
 
@@ -226,7 +225,7 @@ class Operator:
         Expression - it is now done here to accommodate updates (?) and
 
         """
-        unique_discretizations: Dict[
+        unique_discretizations: dict[
             _ad_utils.MergedOperator, GridLike
         ] = self._identify_discretizations()
         _ad_utils.discretize_from_list(unique_discretizations, mdg)
@@ -725,7 +724,7 @@ class Operator:
         # in the derivatives).
 
         # Dictionary which maps from Ad variable ids to Ad_array.
-        self._ad: Dict[int, pp.ad.Ad_array] = {}
+        self._ad: dict[int, pp.ad.Ad_array] = {}
 
         # Loop over all variables, restrict to an Ad array corresponding to
         # this variable.
@@ -838,7 +837,7 @@ class Array(Operator):
 
     """
 
-    def __init__(self, values, name: Optional[str] = None) -> None:
+    def __init__(self, values: np.ndarray, name: Optional[str] = None) -> None:
         """Construct an Ad representation of a numpy array.
 
         Parameters:
@@ -877,7 +876,11 @@ class Scalar(Operator):
 
     This is a shallow wrapper around the real scalar; it may be useful to combine
     the scalar with other types of Ad objects.
-
+    
+    NOTE: Since this is a wrapper around a Python immutable, certain operations, like copy,
+    may not behave as expected.
+    TODO: Should we implement a wrapper around the scalar to facilitate real copying?
+    
     """
 
     def __init__(self, value: float, name: Optional[str] = None) -> None:
@@ -899,7 +902,7 @@ class Scalar(Operator):
         if self._name is not None:
             s += f"({self._name})"
         return s
-
+    
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
         """Convert the Ad Scalar into an actual number.
 
@@ -946,9 +949,9 @@ class Variable(Operator):
     def __init__(
         self,
         name: str,
-        ndof: Dict[str, int],
-        subdomains: Optional[List[pp.Grid]] = None,
-        interfaces: Optional[List[pp.MortarGrid]] = None,
+        ndof: dict[str, int],
+        subdomains: Optional[list[pp.Grid]] = None,
+        interfaces: Optional[list[pp.MortarGrid]] = None,
         num_cells: int = 0,
         previous_timestep: bool = False,
         previous_iteration: bool = False,
@@ -1080,7 +1083,7 @@ class MergedVariable(Variable):
 
     """
 
-    def __init__(self, variables: List[Variable]) -> None:
+    def __init__(self, variables: list[Variable]) -> None:
         """Create a merged representation of variables.
 
         Parameters:
@@ -1189,12 +1192,12 @@ class Tree:
     def __init__(
         self,
         operation: Operation,
-        children: Optional[List[Union[Operator, Ad_array]]] = None,
+        children: Optional[list[Union[Operator, Ad_array]]] = None,
     ):
 
         self.op = operation
 
-        self.children: List[Union[Operator, Ad_array]] = []
+        self.children: list[Union[Operator, Ad_array]] = []
         if children is not None:
             for child in children:
                 self.add_child(child)
