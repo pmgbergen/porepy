@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from enum import Enum, EnumMeta
 from typing import Any, Callable, Literal, Optional, Sequence, Union
+from dbus import Interface
 
 import numpy as np
 import scipy.sparse as sps
@@ -206,7 +207,7 @@ class ADSystem:
             raise ValueError(
                 "Cannot create variable not defined on any subdomain or interface."
             )
-        # check if variable was already defined
+        # check if a md variable was already defined under that name
         if name in self.variables.keys():
             raise KeyError(f"Variable with name '{name}' already defined.")
 
@@ -226,11 +227,11 @@ class ADSystem:
                 raise ValueError(f"Unknown variable category {category}.")
             else:
                 var_cat = category
-        # if no categories given, we use porepy's default.
+        # if no categories given, we use PorePy's default.
         else:
             var_cat = pp.PRIMARY_VARIABLES
 
-        if isinstance(subdomains, list):
+        if subdomains:
             for sd in subdomains:
                 data = self.mdg.subdomain_data(sd)
 
@@ -252,7 +253,7 @@ class ADSystem:
                     self.grid_variables[sd].update({name: new_var})
                 variables.append(new_var)
 
-        if isinstance(interfaces, list):
+        if interfaces:
             for intf in interfaces:
                 data = self.mdg.interface_data(intf)
 
@@ -405,17 +406,11 @@ class ADSystem:
 
         Must only be called by :meth:`create_variable`.
 
-        This method defines the actual global order of dofs:
+        This method defines a preliminary global order of dofs:
         
             For each variable
                 append dofs on subdomains where variable is defined (order given by mdg)
                 append dofs on interfaces where variable is defined (order given by mdg)
-
-        Notes: TODO
-            This order increases the band with of the matrix drastically.
-            An order, which clusters per grid ( old DofManager order) would create proper
-            diagonal blocks at least in the column sense
-            (but that one is not index-conservative when new vars are introduced)
 
         Parameters:
             var_name: name of the newly created variable
@@ -423,7 +418,7 @@ class ADSystem:
 
         """
         # number of totally created dof blocks so far
-        last_block_number = len(self._block_numbers)
+        last_block_number: int = len(self._block_numbers)
         # new blocks
         new_block_numbers: dict[tuple[GridLike, str], int] = dict()
         # new dofs per block
@@ -473,6 +468,63 @@ class ADSystem:
         # update the global dofs so far with the new blocks
         self._block_numbers.update(new_block_numbers)
         self._block_dofs = np.concatenate([self._block_dofs, new_block_dofs])
+
+        # first optimization of Jacobian structure
+        self._cluster_dofs_gridwise()
+
+    def _cluster_dofs_gridwise(self) -> None:
+        """Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense and
+        reduce the matrix bandwidth.
+
+        The aim is to impose a more block-diagonal-like structure on the Jacobian where blocks
+        in the column sense represent single grids in the following order:
+
+        Notes:
+            Off-diagonal blocks will still be present if subdomain-interface fluxes are present
+            in the md-sense.
+
+        1. For each grid in ``mdg.subdomains``
+            1. For each var defined on that grid
+        2. For each grid in ``mdg.interfaces``
+            1. For each var defined on that mortar grid
+
+        The order of variables per grid is given by the order of variable creation
+        (stored as order of keys in ``self.variables``).
+
+        This method is called after each creation of variables and respective DOFs.
+
+        """
+        new_block_counter: int = 0
+        new_block_numbers: dict[tuple[GridLike, str], int] = dict()
+        new_block_dofs: list[int] = list()
+
+        # first set of diagonal blocks, per subdomain
+        for sd in self.mdg.subdomains():
+            # sub-loop of variables per subdomain
+            for var_name in self.variables:
+                block_pair = (sd, var_name)
+                if block_pair in self._block_numbers.keys():
+                    # extract created number of dofs
+                    local_dofs = self._block_dofs[self._block_numbers[block_pair]]
+                    # store new block number and dofs in new order
+                    new_block_dofs.append(local_dofs)
+                    new_block_numbers.update({block_pair: new_block_counter})
+                    new_block_counter += 1
+        # second set of diagonal blocks, per interface
+        for intf in self.mdg.interfaces():
+            # sub-loop of variables per interface
+            for var_name in self.variables:
+                block_pair = (intf, var_name)
+                if block_pair in self._block_numbers.keys():
+                    # extract created number of dofs
+                    local_dofs = self._block_dofs[self._block_numbers[block_pair]]
+                    # store new block number and dofs in new order
+                    new_block_dofs.append(local_dofs)
+                    new_block_numbers.update({block_pair: new_block_counter})
+                    new_block_counter += 1
+        # replace old block order
+        self._block_dofs = np.array(new_block_dofs, dtype=int)
+        self._block_numbers = new_block_numbers
 
     def num_dofs(self) -> int:
         """Returns the total number of dofs managed by this system."""
