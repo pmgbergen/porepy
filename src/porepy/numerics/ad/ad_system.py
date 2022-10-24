@@ -5,8 +5,9 @@ using the AD framework.
 
 from __future__ import annotations
 
+import itertools
 from enum import Enum, EnumMeta
-from typing import Any, Callable, Literal, Optional, Sequence, Union
+from typing import Any, Callable, Literal, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -140,6 +141,39 @@ class ADSystem:
         to this array's indexation.
 
         """
+
+    def _filter(
+        self,
+        category: Optional[Union[Enum, list[Enum]]] = None,
+        variable: Optional[Union[str, list[str]]] = None,
+        grids: Optional[Union[GridLike, list[GridLike]]] = None,
+    ) -> itertools.product:
+        """Helper method to filter grid-name pairs."""
+        # reformat non-sequential arguments
+        if grids is None:
+            grids = list(set([block_pair[0] for block_pair in self._block_numbers]))
+        elif isinstance(grids, (pp.Grid, pp.MortarGrid)):
+            grids = [grids]  # type: ignore
+
+        if variable is None:
+            variable = list(set([block_pair[1] for block_pair in self._block_numbers]))
+        elif isinstance(variable, str):
+            variable = [variable]  # type: ignore
+
+        if category:
+            assert self.var_categories is not None
+            if isinstance(category, Enum):
+                category = [category]  # type: ignore
+            cat_filter = list()
+            for cat in category:
+                if cat in self.var_categories:
+                    cat_filter += self._vars_per_category[cat]
+                else:
+                    raise ValueError(f"Unknown category {cat}.")
+            # filter variables by category
+            variable = [var for var in variable if var in cat_filter]
+
+        return itertools.product(grids, variable)
 
     ### Variable management -------------------------------------------------------------------
 
@@ -290,83 +324,6 @@ class ADSystem:
 
         return merged_var
 
-    def set_variable_vector(
-        self, var_name: str, values: np.ndarray, copy_to_state: bool = False
-    ) -> None:
-        """Sets values for a given variable name in the grid data dictionaries.
-
-        It is assumed the variable (name) is known to this instance.
-        This is a shallow wrapper for respective functionalities of the DOF manager.
-        The values are set for the ITERATE, additionally to the STATE if flagged.
-
-        Parameters:
-            var_name: name of the :class:`~porepy.ad.MergedVariable` for which the STATE should
-                be set.
-            values: respective values. It is assumed the exactly as many values are provided
-                as can fit in the global DOF vector with the variable's respective DOF indexes.
-            copy_to_state: copies the values additionally to the STATE.
-
-        Raises:
-            KeyError: If the variable name is not known to this instance.
-
-        """
-        if var_name not in self.variables.keys():
-            raise KeyError(f"Unknown variable '{var_name}'.")
-
-        variable = [var_name]
-
-        # inserting the values in a global-sized zero vector.
-        X = np.zeros(self.dof_manager.num_dofs())
-        dof = self.dof_manager.dof_var(variable)
-        X[dof] = values
-        # setting ITERATE and optionally STATE
-        self.dof_manager.distribute_variable(X, variables=variable, to_iterate=True)
-        if copy_to_state:
-            self.dof_manager.distribute_variable(X, variables=variable)
-
-    def get_variable_vector(
-        self, var_name: str, from_iterate: bool = True
-    ) -> np.ndarray:
-        """Gets all values of variable ``var_name`` in a local vector by slicing respective
-        indices out of the global vector.
-
-        Preserves the order induced by the global DOF vector.
-        This is a shallow wrapper for respective functionalities of the DOF manager.
-
-        Parameters:
-            var_name: name of the variable for which the value vector is requested.
-            from_iterate: flag to get values from the ITERATE instead of STATE.
-                Defaults to True.
-
-        Returns:
-            value vector. It's size depends on the number of local DOFs of this variable and on
-            how many grids it is defined.
-
-        Raises:
-            KeyError: If the variable name is not known to this instance.
-
-        """
-        if var_name not in self.variables.keys():
-            raise KeyError(f"Unknown variable '{var_name}'.")
-        # extrating the values from the global vector
-        dof = self.dof_manager.dof_var([var_name])
-        X = self.dof_manager.assemble_variable(
-            variables=[var_name], from_iterate=from_iterate
-        )
-        return X[dof]
-
-    def set_sub_vector(self) -> None:
-        pass
-
-    def get_sub_vector(self) -> np.ndarray:
-        pass
-
-    def set_global_vector(self) -> None:
-        pass
-
-    def get_global_vector(self) -> np.ndarray:
-        pass
-
     def get_var_names(
         self,
         category: Optional[Union[Enum, list[Enum]]] = None,
@@ -382,10 +339,6 @@ class ADSystem:
         Returns: a tuple of names, optionally corresponding to the passed category.
 
         """
-
-        if isinstance(category, Enum):
-            category = [category]  # type: ignore
-
         # if no categories were assigned, we use PorePy's default storage key
         # and ignore any category argument
         if self.var_categories is None:
@@ -400,9 +353,235 @@ class ADSystem:
                 # assert uniqueness of names
                 var_names = list(set(var_names))
             else:
+                if isinstance(category, Enum):
+                    category = [category]  # type: ignore
                 for cat in category:
                     var_names += self._vars_per_category.get(cat, list())
             return tuple(var_names)
+
+    def get_variable_vector(
+        self,
+        variable: str,
+        from_iterate: bool = True
+    ) -> np.ndarray:
+        """A wrapper to return the sub vector belonging to a specified variable on all grids.
+
+        For more details see :meth:`get_sub_vector`.
+
+        Parameters:
+            variable: name of the variable for which the values are requested.
+            from_iterate: flag to return values stored as ITERATE, instead of STATE (default).
+
+        Returns: the sub vector belonging to the specified variable in numerical format.
+
+        """
+        return self.get_sub_vector(variable=variable, from_iterate=from_iterate)
+
+    def set_variable_vector(
+        self,
+        values: np.ndarray,
+        variable: str,
+        to_iterate: bool = False,
+        additive: bool = False,
+    ) -> None:
+        """A wrapper to set the values for the specified variable on all grids.
+
+        For more details see :meth:`set_sub_vector`.
+
+        Parameters:
+            values: vector of corresponding size.
+            variable: name of the variable for which the values should be stored.
+            to_iterate (optional): flag to write values to ITERATE, instead of STATE (default).
+            additive (optional): flag to write values *additively* to ITERATE or STATE.
+                To be used in iterative procedures.
+
+        """
+        self.set_sub_vector(
+            values, variable=variable, to_iterate=to_iterate, additive=additive
+        )
+
+    def get_sub_vector(
+        self,
+        category: Optional[Union[Enum, list[Enum]]] = None,
+        variable: Optional[Union[str, list[str]]] = None,
+        grids: Optional[Union[GridLike, list[GridLike]]] = None,
+        from_iterate: bool = False,
+    ) -> np.ndarray:
+        """Assembles a sub vector of the global vector of unknowns containing values for passed
+        categories, variables names and grids.
+
+        The user can rely on the order corresponding to the global order as used for the
+        respective subsystem.
+
+        The filter hierarchy corresponds to the hierarchy defined in :meth:`project_to`.
+
+        Notes:
+            An undefined combination will return an empty vector e.g., a variable which is not
+            in any given category and not defined on any given grid.
+
+        Parameters:
+            category (optional): one or multiple categories of variables.
+                Defaults to all categories
+            variable (optional): names of variables to be contained in the sub vector.
+                Defaults to all variables.
+            grids (optional): grids to which the sub vector should be restricted.
+                Defaults to all grids.
+            from_iterate: flag to return values stored as ITERATE, instead of STATE (default).
+
+        Returns: the respective sub vector in numerical format.
+
+        Raises:
+            AssertionError: if a category is passed despite the the system not having
+                categories.
+            ValueError: if an unknown category is passed.
+            ValueError: if no values are stored for a grid-name combination
+
+        """
+        # storage for atomic blocks of the sub vector (identified by grid-name pairs)
+        values = list()
+        # assemble requested grid-variable pairs
+        requested_blocks = self._filter(category, variable, grids)
+
+        # loop over all atomic blocks and process those passing the filter
+        for grid, var in self._block_numbers.keys():
+            if (grid, var) in requested_blocks:
+                if isinstance(grid, pp.Grid):
+                    data = self.mdg.subdomain_data(grid)
+                elif isinstance(grid, pp.MortarGrid):
+                    data = self.mdg.interface_data(grid)
+                # extract a copy of requested values
+                try:
+                    if from_iterate:
+                        values.append(data[pp.STATE][pp.ITERATE][var].copy())
+                    else:
+                        values.append(data[pp.STATE][var].copy())
+                except KeyError:
+                    raise ValueError(
+                        f"No values stored for variable {var}, from_iterate={from_iterate}"
+                        f"\non grid {grid}."
+                    )
+
+        # if there are atomic blocks, concatenate and return
+        if values:
+            return np.concatenate(values)
+        # else return an empty vector
+        else:
+            return np.array([])
+
+    def set_sub_vector(
+        self,
+        values: np.ndarray,
+        category: Optional[Union[Enum, list[Enum]]] = None,
+        variable: Optional[Union[str, list[str]]] = None,
+        grids: Optional[Union[GridLike, list[GridLike]]] = None,
+        to_iterate: bool = False,
+        additive: bool = False,
+    ) -> None:
+        """Sets values for a sub vector of the global vector of unknowns specified by
+        categories, variable names and grids.
+
+        The order of values is assumed to fit the respective subsystem. The size as well.
+
+        The filter hierarchy corresponds to the hierarchy defined in :meth:`project_to`.
+
+        Notes:
+            The vector is assumed to be of proper size and will be dissected according to the
+            global order, starting with the index 0.
+            Mismatches of is-size and should-be-size according to specified categories, names
+            and grids will raise a value error.
+
+        Parameters:
+            values: vector of corresponding size.
+            category (optional): categories of variables to which the values should be
+                distributed
+            variable (optional): names of variables to which the values should be distributed.
+            grids (optional): grids for which the values are assigned.
+            to_iterate (optional): flag to write values to ITERATE, instead of STATE (default).
+            additive (optional): flag to write values *additively* to ITERATE or STATE.
+                To be used in iterative procedures.
+
+        """
+        # assemble requested grid-variable pairs
+        requested_blocks = self._filter(category, variable, grids)
+        # start of dissection
+        block_start = 0
+        block_end = 0
+
+        for block, block_number in self._block_numbers.items():
+            if block in requested_blocks:
+                grid, var = block
+                block_length = int(self._block_dofs[block_number])
+                block_end = block_start + block_length
+                # extract local vector
+                # this will raise errors if indexation out of range
+                local_vec = values[block_start:block_end]
+                # get storage
+                if isinstance(grid, pp.Grid):
+                    data = self.mdg.subdomain_data(grid)
+                elif isinstance(grid, pp.MortarGrid):
+                    data = self.mdg.interface_data(grid)
+                # data dict should have pp.STATE and pp.ITERATE entries already created during
+                # create_variable
+
+                # store new values as requested
+                if additive:
+                    if to_iterate:
+                        data[pp.STATE][pp.ITERATE][var] = (
+                            data[pp.STATE][pp.ITERATE][var] + local_vec
+                        )
+                    else:
+                        data[pp.STATE][var] = data[pp.STATE][var] + local_vec
+                else:
+                    if to_iterate:
+                        data[pp.STATE][pp.ITERATE][var] = local_vec.copy()
+                    else:
+                        data[pp.STATE][var] = local_vec.copy()
+
+                # move dissection forward
+                block_start = block_end
+
+        # last sanity check if the vector was properly sized, or if it was too large.
+        # This imposes a theoretically unnecessary restriction on the input argument
+        # since we only require a vector of at least this size.
+        # Do we care if there are more values than necessary? TODO
+        assert block_end == values.size
+
+    def get_global_vector(self, from_iterate: bool = False) -> np.ndarray:
+        """A wrapper to return the vector of unknowns containing all variables on all grids.
+
+        For more details see :meth:`get_sub_vector`.
+
+        Parameters:
+            from_iterate: flag to return values stored as ITERATE, instead of STATE (default).
+
+        Returns: the global vector of unknowns in numerical format.
+
+        """
+        variables = list(self.variables.keys())
+        return self.get_sub_vector(variable=variables, from_iterate=from_iterate)
+
+    def set_global_vector(
+        self,
+        values: np.ndarray,
+        to_iterate: bool = False,
+        additive: bool = False
+    ) -> None:
+        """A wrapper to set the global vector of unknowns containing all variables on all
+        grids.
+
+        For more details see :meth:`set_sub_vector`.
+
+        Parameters:
+            values: vector of size ``num_dofs``.
+            to_iterate (optional): flag to write values to ITERATE, instead of STATE (default).
+            additive (optional): flag to write values *additively* to ITERATE or STATE.
+                To be used in iterative procedures.
+
+        """
+        variables = list(self.variables.keys())
+        self.set_sub_vector(
+            values, variable=variables, to_iterate=to_iterate, additive=additive
+        )
 
     ### DOF management ------------------------------------------------------------------------
 
@@ -538,8 +717,8 @@ class ADSystem:
 
     def projection_to(
         self,
-        categories: Optional[Union[Enum, list[Enum]]] = None,
-        variables: Optional[Union[str, list[str]]] = None,
+        category: Optional[Union[Enum, list[Enum]]] = None,
+        variable: Optional[Union[str, list[str]]] = None,
         grids: Optional[Union[GridLike, list[GridLike]]] = None,
     ) -> sps.csr_matrix:
         """Create a projection matrix from the global vector of unknowns to a specified
@@ -571,66 +750,32 @@ class ADSystem:
             where ``num_dofs`` is given by :meth:`num_dofs`.
 
         Parameters:
-            categories (optional): one or multiple categories defined during instantiation.
-            variables (optional): names of variables to be projected on.
+            category (optional): one or multiple categories defined during instantiation.
+            variable (optional): names of variables to be projected on.
             grids (optional): grids or mortar grids to which the projection should be
                 restricted.
 
         Returns:
             a sparse projection matrix of shape ``(M,num_dofs)``, where ``0<=M<=num_dofs``.
 
-        """
+        Raises:
+            AssertionError: if a category is passed despite the the system not having
+                categories.
+            ValueError: if an unknown category is passed.
 
-        if isinstance(grids, (pp.Grid, pp.MortarGrid)):
-            grids = [grids]  # type: ignore
-        # use all grids if no grid filter applied
-        elif grids is None:
-            grids = list(set([key[0] for key in self._block_numbers]))  # type: ignore
+        """
 
         # current number of total dofs
         num_dofs = self.num_dofs()
         # Array for the dofs associated with each argument combination
         inds = []
-        # containes for variable names passing the category and name filters
-        var_names = list()
+        # assemble requested grid-variable pairs
+        requested_blocks = self._filter(category, variable, grids)
 
-        ## CATEGORY FILTER
-        # sanity check if category filter can be applied
-        if self.var_categories is None and categories is not None:
-            raise ValueError(
-                f"Error using cateogires={categories}. "
-                "This AD system has no variable categories."
-            )
-        # add variable names passing the filter
-        if categories:
-            # reformat non-sequential argument
-            if isinstance(categories, Enum):
-                categories = [categories]  # type: ignore
-            assert self.var_categories is not None  # appeasing mypy
-            for cat in categories:
-                if cat in self.var_categories:
-                    var_names += self._vars_per_category[cat]
-                else:
-                    raise ValueError(f"Unknown category {cat}.")
-        # if no category filter, we use all variable names
-        else:
-            var_names += list(self.variables.keys())
-
-        ## NAME FILTER
-        if variables:  # None AND empty lists are ignored, is that a good thing? TODO
-            # reformat non-sequential arguments
-            if isinstance(variables, str):
-                variables = [variables]  # type: ignore
-            var_names = list(set(var_names).intersection(set(variables)))
-
-        # Loop over variables, find dofs
-        for var in var_names:
-            # get all grids this variable is defined on
-            var_grids = [block[0] for block in self._block_numbers if block[1] == var]
-            ## GRID FILTER
-            for grid in var_grids:
-                if grid in grids:
-                    inds.append(self.dofs_of(var, grid))
+        # loop over all blocks and process those passing the filter
+        for grid, var in self._block_numbers.keys():
+            if (grid, var) in requested_blocks:
+                inds.append(self.dofs_of(var, grid))
 
         if len(inds) == 0:
             # Special case if no indices were returned
@@ -692,6 +837,7 @@ class ADSystem:
             if grids is None:
                 # append indices per grid
                 for grid in var_grids:
+                    # this will raise a key error if the combination is unknown
                     block_number = self._block_numbers[(grid, variable)]
                     grid_indices.append(
                         np.arange(
@@ -707,6 +853,7 @@ class ADSystem:
                 for grid in var_grids:
                     if grid not in grids:
                         continue
+                    # this will raise a key error if the combination is unknown
                     block_number = self._block_numbers[(grid, variable)]
                     grid_indices.append(
                         np.arange(
@@ -754,7 +901,7 @@ class ADSystem:
     def set_equation(
         self,
         name: str,
-        equation_operator: pp.ad.Operator,
+        equation: pp.ad.Operator,
         num_equ_per_dof: dict[GridLike, dict[str, int]],
     ) -> None:
         """Sets an equation and assigns the given name.
@@ -766,19 +913,14 @@ class ADSystem:
 
         Parameters:
             name: given name for this equation. Used as identifier and key.
-            equation_operator: An equation in AD operator form, assuming the right-hand side is
+            equation: An equation in AD operator form, assuming the right-hand side is
                 zero and this instance represents the left-hand side.
                 The equation mus be ready for evaluation! i.e. all involved variables must have
                 values set.
             num_equ_per_dof: a dictionary describing how many equations ``equation_operator``
                 provides. This is a temporary work-around until operators are able to provide
                 information on their image space.
-                The dictionary must contain the number of equations per
-
-                - ``'cells'``
-                - ``'nodes'``
-                - ``'faces'``
-
+                The dictionary must contain the number of equations per admissible dof type,
                 (see :data:`porepy.DofManager.admissible_dof_types`),
                 for each grid the operator was defined on.
 
@@ -786,13 +928,21 @@ class ADSystem:
                 general order of grids, as used by the dof manager and implemented in various
                 discretizations used inside ``equation_operator``.
 
+        Raises:
+            AssertionError: if the equation is defined on an unknown grid.
+            ValueError: if indicated number of equations does not match the actual number as
+                per evaluation of operator.
+
         """
         image_info: dict[GridLike, np.ndarray] = dict()
         total_num_equ = 0
+        valid_grids = [sd for sd in self.mdg.subdomains()]
+        valid_intf = [intf for intf in self.mdg.interfaces()]
 
         for grid, dof_info in num_equ_per_dof.items():
             # calculate number of equations per grid
             if isinstance(grid, pp.Grid):
+                assert grid in valid_grids
                 num_equ_per_grid = (
                     grid.num_cells * dof_info.get("cells", 0)
                     + grid.num_nodes * dof_info.get("nodes", 0)
@@ -800,11 +950,11 @@ class ADSystem:
                 )
             # mortar grids have only cell-wise dofs
             elif isinstance(grid, pp.MortarGrid):
+                assert grid in valid_intf
                 num_equ_per_grid = grid.num_cells * dof_info.get("cells", 0)
+            # should not happen, alert anyways
             else:
-                raise ValueError(
-                    f"Unknown grid type '{type(grid)}'. Use Grid or MortarGrid"
-                )
+                raise RuntimeError("Grid checking failed for some reason...")
             # create operator-specific block indices with shift regarding previous blocks
             block_idx = np.arange(num_equ_per_grid) + total_num_equ
             # cumulate total number of equations
@@ -813,7 +963,7 @@ class ADSystem:
             image_info.update({grid: block_idx})
 
         # perform a validity check of the input
-        equ_ad = equation_operator.evaluate(self.dof_manager)
+        equ_ad = equation.evaluate(self.dof_manager)
         is_num_equ = len(equ_ad.val)
         if total_num_equ != is_num_equ:
             raise ValueError(
@@ -823,7 +973,7 @@ class ADSystem:
 
         # if all good, we assume we can proceed
         self._equ_image_space_composition.update({name: image_info})
-        self._equations.update({name: equation_operator})
+        self._equations.update({name: equation})
 
     def get_equation(self, name: str) -> pp.ad.Operator:
         """
@@ -851,7 +1001,7 @@ class ADSystem:
 
     ### System assembly and discretization ----------------------------------------------------
 
-    def discretize(self, equations: Optional[Sequence[str]] = None) -> None:
+    def discretize(self, equations: Optional[list[str]] = None) -> None:
         """Find and loop over all discretizations in the equation operators, extract unique
         references and discretize.
 
@@ -861,7 +1011,10 @@ class ADSystem:
 
         Parameters:
             equations (optional): name of equations to be discretized.
-                If not given, all known equations will be discretized.
+                If not given, all known equations will be searched and discretized.
+
+        Raises:
+            KeyError: if a given equation name is not known.
 
         """
         # TODO the search can be done once (in some kind of initialization) and must not be
@@ -872,6 +1025,7 @@ class ADSystem:
         # List containing all discretizations
         discr: list = []
         for eqn_name in equations:
+            # this raises a key error if a given equation name is unknown
             eqn = self._equations[eqn_name]
             # This will expand the list discr with new discretizations.
             # The list may contain duplicates.
@@ -926,10 +1080,10 @@ class ADSystem:
 
     def assemble_subsystem(
         self,
-        equations: Optional[Union[str, Sequence[str]]] = None,
-        variables: Optional[Union[str, Sequence[str]]] = None,
-        grid_rows: Optional[Union[GridLike, Sequence[GridLike]]] = None,
-        grid_columns: Optional[Union[GridLike, Sequence[GridLike]]] = None,
+        equations: Optional[Union[str, list[str]]] = None,
+        variables: Optional[Union[str, list[str]]] = None,
+        grid_rows: Optional[Union[GridLike, list[GridLike]]] = None,
+        grid_columns: Optional[Union[GridLike, list[GridLike]]] = None,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
@@ -1063,8 +1217,8 @@ class ADSystem:
 
     def assemble_schur_complement_system(
         self,
-        primary_equations: Union[str, Sequence[str]],
-        primary_variables: Union[str, Sequence[str]],
+        primary_equations: Union[str, list[str]],
+        primary_variables: Union[str, list[str]],
         inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
@@ -1085,11 +1239,11 @@ class ADSystem:
         The Schur complement is well-defined only if the inverse of A_ss exists,
         and the efficiency of the approach assumes that an efficient inverter for
         A_ss can be found. The user must ensure both requirements are fulfilled.
-        The simplest option is a lambda function on the form:
+        The simplest option (default) is a lambda function of the form:
 
         .. code:: Python
 
-            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
+            inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
 
         (used by default) but depending on A (size and sparsity pattern),
         this can be costly in terms of computational time and memory.
@@ -1227,11 +1381,13 @@ class ADSystem:
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
 
-    def create_subsystem_manager(self, eq_names: Union[str, Sequence[str]]) -> ADSystem:
+    def create_subsystem_manager(
+        self, equations: Union[str, list[str]]
+    ) -> ADSystem:
         """Creates an ``ADSystemManager`` for a given subset of equations.
 
         Parameters:
-            eq_names: equations to be assigned to the new manager.
+            equations: equations to be assigned to the new manager.
                 Must be known to this manager.
 
         Returns:
@@ -1242,10 +1398,10 @@ class ADSystem:
         # creating a new manager and adding the requested equations
         new_manger = ADSystem(self.dof_manager)
 
-        if isinstance(eq_names, str):
-            eq_names = [eq_names]  # type: ignore
+        if isinstance(equations, str):
+            equations = [equations]  # type: ignore
 
-        for name in eq_names:
+        for name in equations:
             image_info = self._equ_image_space_composition[
                 name
             ]  # TODO fix this, incorrect
@@ -1265,7 +1421,7 @@ class ADSystem:
             " interfaces.\n"
         )
         # Sort variables alphabetically, not case-sensitive
-        all_vars = self.dof_manager.get_variables()
+        all_vars = self.get_var_names()
         s += "Variables present on at least one grid or interface:\n\t"
         s += ", ".join(all_vars) + "\n"
 
@@ -1284,7 +1440,7 @@ class ADSystem:
             " interfaces.\n"
         )
 
-        all_vars = self.dof_manager.get_variables()
+        all_vars = self.get_var_names()
         var_grid = [
             (sub_var.name, sub_var.domain)
             for var in self.variables.values()
