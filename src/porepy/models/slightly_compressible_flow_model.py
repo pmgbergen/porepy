@@ -120,6 +120,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         if not self.time_manager.is_constant:
             if not self._is_non_linear_problem():
+                # TODO: This might change in the future when inexact solvers are available
                 msg = "Currently, time step cannot be adapted when the problem is linear."
                 raise NotImplementedError(msg)
             else:
@@ -129,7 +130,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
                 else:
                     raise NotImplementedError("Adaptive time step only available for AD.")
         else:
-            # Nothing to here since the time step is constant
+            # Nothing to do here since the time step is constant
             pass
 
     def _is_time_dependent(self):
