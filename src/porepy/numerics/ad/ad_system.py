@@ -144,8 +144,8 @@ class ADSystem:
 
     def _filter(
         self,
-        category: Optional[Union[Enum, list[Enum]]] = None,
-        variable: Optional[Union[str, list[str]]] = None,
+        categories: Optional[Union[Enum, list[Enum]]] = None,
+        variables: Optional[Union[str, list[str]]] = None,
         grids: Optional[Union[GridLike, list[GridLike]]] = None,
     ) -> itertools.product:
         """Helper method to filter grid-name pairs."""
@@ -155,25 +155,25 @@ class ADSystem:
         elif isinstance(grids, (pp.Grid, pp.MortarGrid)):
             grids = [grids]  # type: ignore
 
-        if variable is None:
-            variable = list(set([block_pair[1] for block_pair in self._block_numbers]))
-        elif isinstance(variable, str):
-            variable = [variable]  # type: ignore
+        if variables is None:
+            variables = list(set([block_pair[1] for block_pair in self._block_numbers]))
+        elif isinstance(variables, str):
+            variables = [variables]  # type: ignore
 
-        if category:
+        if categories:
             assert self.var_categories is not None
-            if isinstance(category, Enum):
-                category = [category]  # type: ignore
+            if isinstance(categories, Enum):
+                categories = [categories]  # type: ignore
             cat_filter = list()
-            for cat in category:
+            for cat in categories:
                 if cat in self.var_categories:
                     cat_filter += self._vars_per_category[cat]
                 else:
                     raise ValueError(f"Unknown category {cat}.")
             # filter variables by category
-            variable = [var for var in variable if var in cat_filter]
+            variables = [var for var in variables if var in cat_filter]
 
-        return itertools.product(grids, variable)
+        return itertools.product(grids, variables)
 
     ### Variable management -------------------------------------------------------------------
 
@@ -326,7 +326,7 @@ class ADSystem:
 
     def get_var_names(
         self,
-        category: Optional[Union[Enum, list[Enum]]] = None,
+        categories: Optional[Union[Enum, list[Enum]]] = None,
     ) -> tuple[str, ...]:
         """Get all (unique) variable names defined so far.
 
@@ -347,15 +347,15 @@ class ADSystem:
         # unknown categories return an empty list
         else:
             var_names = list()
-            if category is None:
+            if categories is None:
                 for vars in self._vars_per_category.values():
                     var_names += vars
                 # assert uniqueness of names
                 var_names = list(set(var_names))
             else:
-                if isinstance(category, Enum):
-                    category = [category]  # type: ignore
-                for cat in category:
+                if isinstance(categories, Enum):
+                    categories = [categories]  # type: ignore
+                for cat in categories:
                     var_names += self._vars_per_category.get(cat, list())
             return tuple(var_names)
 
@@ -375,7 +375,7 @@ class ADSystem:
         Returns: the sub vector belonging to the specified variable in numerical format.
 
         """
-        return self.get_sub_vector(variable=variable, from_iterate=from_iterate)
+        return self.get_sub_vector(variables=variable, from_iterate=from_iterate)
 
     def set_variable_vector(
         self,
@@ -397,13 +397,13 @@ class ADSystem:
 
         """
         self.set_sub_vector(
-            values, variable=variable, to_iterate=to_iterate, additive=additive
+            values, variables=variable, to_iterate=to_iterate, additive=additive
         )
 
     def get_sub_vector(
         self,
-        category: Optional[Union[Enum, list[Enum]]] = None,
-        variable: Optional[Union[str, list[str]]] = None,
+        variables: Optional[Union[str, list[str]]] = None,
+        categories: Optional[Union[Enum, list[Enum]]] = None,
         grids: Optional[Union[GridLike, list[GridLike]]] = None,
         from_iterate: bool = False,
     ) -> np.ndarray:
@@ -420,10 +420,10 @@ class ADSystem:
             in any given category and not defined on any given grid.
 
         Parameters:
-            category (optional): one or multiple categories of variables.
-                Defaults to all categories
-            variable (optional): names of variables to be contained in the sub vector.
+            variables (optional): names of variables to be contained in the sub vector.
                 Defaults to all variables.
+            categories (optional): one or multiple categories of variables.
+                Defaults to all categories
             grids (optional): grids to which the sub vector should be restricted.
                 Defaults to all grids.
             from_iterate: flag to return values stored as ITERATE, instead of STATE (default).
@@ -440,7 +440,7 @@ class ADSystem:
         # storage for atomic blocks of the sub vector (identified by grid-name pairs)
         values = list()
         # assemble requested grid-variable pairs
-        requested_blocks = self._filter(category, variable, grids)
+        requested_blocks = self._filter(categories, variables, grids)
 
         # loop over all atomic blocks and process those passing the filter
         for grid, var in self._block_numbers.keys():
@@ -471,8 +471,8 @@ class ADSystem:
     def set_sub_vector(
         self,
         values: np.ndarray,
-        category: Optional[Union[Enum, list[Enum]]] = None,
-        variable: Optional[Union[str, list[str]]] = None,
+        variables: Optional[Union[str, list[str]]] = None,
+        categories: Optional[Union[Enum, list[Enum]]] = None,
         grids: Optional[Union[GridLike, list[GridLike]]] = None,
         to_iterate: bool = False,
         additive: bool = False,
@@ -492,9 +492,9 @@ class ADSystem:
 
         Parameters:
             values: vector of corresponding size.
-            category (optional): categories of variables to which the values should be
+            variables (optional): names of variables to which the values should be distributed.
+            categories (optional): categories of variables to which the values should be
                 distributed
-            variable (optional): names of variables to which the values should be distributed.
             grids (optional): grids for which the values are assigned.
             to_iterate (optional): flag to write values to ITERATE, instead of STATE (default).
             additive (optional): flag to write values *additively* to ITERATE or STATE.
@@ -502,7 +502,7 @@ class ADSystem:
 
         """
         # assemble requested grid-variable pairs
-        requested_blocks = self._filter(category, variable, grids)
+        requested_blocks = self._filter(categories, variables, grids)
         # start of dissection
         block_start = 0
         block_end = 0
@@ -546,7 +546,7 @@ class ADSystem:
         # Do we care if there are more values than necessary? TODO
         assert block_end == values.size
 
-    def get_global_vector(self, from_iterate: bool = False) -> np.ndarray:
+    def get_vector(self, from_iterate: bool = False) -> np.ndarray:
         """A wrapper to return the vector of unknowns containing all variables on all grids.
 
         For more details see :meth:`get_sub_vector`.
@@ -557,10 +557,9 @@ class ADSystem:
         Returns: the global vector of unknowns in numerical format.
 
         """
-        variables = list(self.variables.keys())
-        return self.get_sub_vector(variable=variables, from_iterate=from_iterate)
+        return self.get_sub_vector(from_iterate=from_iterate)
 
-    def set_global_vector(
+    def set_vector(
         self,
         values: np.ndarray,
         to_iterate: bool = False,
@@ -578,9 +577,8 @@ class ADSystem:
                 To be used in iterative procedures.
 
         """
-        variables = list(self.variables.keys())
         self.set_sub_vector(
-            values, variable=variables, to_iterate=to_iterate, additive=additive
+            values, to_iterate=to_iterate, additive=additive
         )
 
     ### DOF management ------------------------------------------------------------------------
@@ -717,8 +715,8 @@ class ADSystem:
 
     def projection_to(
         self,
-        category: Optional[Union[Enum, list[Enum]]] = None,
-        variable: Optional[Union[str, list[str]]] = None,
+        variables: Optional[Union[str, list[str]]] = None,
+        categories: Optional[Union[Enum, list[Enum]]] = None,
         grids: Optional[Union[GridLike, list[GridLike]]] = None,
     ) -> sps.csr_matrix:
         """Create a projection matrix from the global vector of unknowns to a specified
@@ -750,8 +748,8 @@ class ADSystem:
             where ``num_dofs`` is given by :meth:`num_dofs`.
 
         Parameters:
-            category (optional): one or multiple categories defined during instantiation.
-            variable (optional): names of variables to be projected on.
+            variables (optional): names of variables to be projected on.
+            categories (optional): one or multiple categories defined during instantiation.
             grids (optional): grids or mortar grids to which the projection should be
                 restricted.
 
@@ -770,7 +768,7 @@ class ADSystem:
         # Array for the dofs associated with each argument combination
         inds = []
         # assemble requested grid-variable pairs
-        requested_blocks = self._filter(category, variable, grids)
+        requested_blocks = self._filter(categories, variables, grids)
 
         # loop over all blocks and process those passing the filter
         for grid, var in self._block_numbers.keys():
@@ -1063,7 +1061,7 @@ class ADSystem:
         """Assemble Jacobian matrix and residual vector of the whole system.
 
         This is a shallow wrapper of :meth:`assemble_subsystem`, where the subsystem is the
-        complete set of equations, primary and secondary variables, and grids.
+        complete set of equations, variables and grids.
 
         Parameters:
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
@@ -1071,7 +1069,7 @@ class ADSystem:
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the targeted state.
                 The ordering of the equations (rows) is determined by the order the equations
-                were added. The DOFs (columns) are ordered as imposed by the DofManager.
+                were added. The DOFs (columns) are ordered according the global order.
             np.ndarray: Residual vector corresponding to the targeted state,
                 scaled with -1 (moved to rhs).
 
@@ -1082,31 +1080,29 @@ class ADSystem:
         self,
         equations: Optional[Union[str, list[str]]] = None,
         variables: Optional[Union[str, list[str]]] = None,
+        categories: Optional[Union[Enum, list[Enum]]] = None,
+        grids: Optional[Union[GridLike, list[GridLike]]] = None,
         grid_rows: Optional[Union[GridLike, list[GridLike]]] = None,
-        grid_columns: Optional[Union[GridLike, list[GridLike]]] = None,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
-        equations and variables.
+        equations, variables and grids.
 
         The method is intended for use in splitting algorithms. Matrix blocks not
         included will simply be sliced out.
 
         Notes:
-            The ordering of columns in the returned system are defined by the global DOF order
-            provided by the DofManager. The rows are of the same order as equations were added
-            to this system.
+            The ordering of columns in the returned system are defined by the global DOF.
+            The rows are of the same order as equations were added to this system.
 
             If a combination of variables and grids is chosen, s.t. the variables were **not**
-            defined on those grids, the resulting matrix is a zero matrix which **does not**
+            defined on those grids, the resulting matrix is an empty matrix which **does not**
             appear as a block in the complete assembly using :meth:`assemble`,
             because the methods assemble by default only columns belonging to well-defined dofs
             , i.e. dofs for which the the grid-var combo was properly defined.
-            The matrix is of shape ``num_equations x 0``. (see project_to of DofManager)
-            This means that this method can create (possibly empty ) blocks which are **not**
+            The matrix in this case is of shape ``(num_equations,)``.
+            This means that this method can create (possibly empty) blocks which are **not**
             in the global system. TODO ask IS and EK if an error should be raised instead.
-            This is connected with the TODO in project_to of the DofManager
-            (0 projection or error or projection with adequate size but still 0)
 
         Parameters:
             equations (optional): a subset of equation names to which the subsystem should be
@@ -1114,13 +1110,15 @@ class ADSystem:
                 If not provided (None), all equations known to this manager will be included.
             variables (optional): names of variables to which the subsystem should be
                 restricted. If not provided (None), all variables will be included.
-            grid_rows (optional): grids or mortar grids which should be kept in the row-wise
-                sense, i.e. subsystems on specified domains.
-                If not provided (None), all involved grids and mortar grids will be included.
-            grid_columns (optional): grids or mortar grids for which the column-wise
+            categories (optional): one or multiple variable categories to which the subsystem
+                should be restricted. If not provided (None), all categories will be included.
+            grids (optional): grids or mortar grids for which the column-wise
                 contribution to each equation should be kept. This is a narrowing down of the
                 restriction imposed by ``variables``.
                 If not provided (None), all grids and mortar grids will be included.
+            grid_rows (optional): grids or mortar grids which should be kept in the row-wise
+                sense, i.e. subsystems on specified domains.
+                If not provided (None), all involved grids and mortar grids will be included.
             state (optional): State vector to assemble from. By default the stored ITERATE or
                 STATE are used, in that order.
 
@@ -1132,28 +1130,12 @@ class ADSystem:
 
         """
         # reformat non-sequential arguments
-        # if no restriction, use all variables and grids
-        if variables is None:
-            variables = list(self.variables.keys())  # type: ignore
-        elif isinstance(variables, str):
-            variables = [variables]  # type: ignore
         if equations is None:
             equations = list(self._equations.keys())  # type: ignore
         elif isinstance(equations, str):
             equations = [equations]  # type: ignore
         if isinstance(grid_rows, (pp.Grid, pp.MortarGrid)):
             grid_rows = [grid_rows]  # type: ignore
-        if grid_columns is None:
-            grid_columns = list(
-                set([key[0] for key in self.dof_manager.block_dof])
-            )  # type: ignore
-        elif isinstance(grid_columns, (pp.Grid, pp.MortarGrid)):
-            grid_columns = [grid_columns]  # type: ignore
-
-        # TODO think about argument validation, i.e. are the variables, equations and grids
-        # known to this system and dof manager.
-        # This will help users during debugging, otherwise just some key errors will be raised
-        # at some points.
 
         # Data structures for building matrix and residual vector
         mat: list[sps.spmatrix] = []
@@ -1165,8 +1147,10 @@ class ADSystem:
 
         # Iterate over equations, assemble.
         for equ_name in equations:
+            # this will raise a key error if the equation name is unknown
             eq = self._equations[equ_name]
             ad = eq.evaluate(self.dof_manager, state)
+
             # if restriction to grid-related row blocks was made,
             # perform row slicing based on information we have on the image
             if grid_rows:
@@ -1210,9 +1194,7 @@ class ADSystem:
         # slice out the columns belonging to the requested subsets of variables and
         # grid-related column blocks by using transposed projection for the global dof vector
         # Multiply rhs by -1 to move to the rhs
-        column_projection = self.dof_manager.projection_to(
-            variables, grid_columns
-        ).transpose()
+        column_projection = self.projection_to(variables, categories, grids).transpose()
         return A * column_projection, -rhs_cat
 
     def assemble_schur_complement_system(
