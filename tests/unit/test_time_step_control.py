@@ -29,11 +29,11 @@ class TestParameterInputs:
         assert time_manager.time_final == 1
         assert time_manager.dt_init == 0.1
         assert time_manager.dt_min_max == (0.001, 0.1)
-        assert time_manager.iter_max == 15
+        assert time_manager.iter_max == 10
         assert time_manager.iter_optimal_range == (4, 7)
         assert time_manager.iter_relax_factors == (0.7, 1.3)
         assert time_manager.recomp_factor == 0.5
-        assert time_manager.recomp_max == 10
+        assert time_manager.recomp_max == 5
         assert time_manager.time == 0
         assert time_manager.dt == 0.1
 
@@ -446,7 +446,7 @@ class TestTimeControl:
         time_manager.time = 5
         time_manager.time_index = 13
         time_manager.dt = 1
-        time_manager._recomp_num = 6
+        time_manager._recomp_num = 3
         time_manager.compute_time_step(iterations=1000, recompute_solution=True)
         # We expect the following actions to occur:
         #     time to be reduced by old dt (time = 5 - 1 = 4)

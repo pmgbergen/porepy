@@ -197,11 +197,11 @@ class TimeManager:
         dt_init: Union[int, float],
         constant_dt: bool = False,
         dt_min_max: Optional[tuple[Union[int, float], Union[int, float]]] = None,
-        iter_max: int = 15,
+        iter_max: int = 10,
         iter_optimal_range: tuple[int, int] = (4, 7),
         iter_relax_factors: tuple[float, float] = (0.7, 1.3),
         recomp_factor: float = 0.5,
-        recomp_max: int = 10,
+        recomp_max: int = 5,
         print_info: bool = False,
     ) -> None:
 
