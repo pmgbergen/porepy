@@ -547,10 +547,10 @@ def create_interfaces(
     # loop on all the subdomain pairs and create the mortar grids
     for sd_pair, face_cells in sd_pair_to_face_cell_map.items():
 
-        hsd, lsd = sd_pair
+        sd_h, sd_l = sd_pair
 
         # face_cells.indices gives mappings into the lower dimensional
-        # cells. Count the number of occurences for each cell.
+        # cells. Count the number of occurrences for each cell.
         num_sides = np.bincount(face_cells.indices)
 
         if np.max(num_sides) > 2:
@@ -566,12 +566,12 @@ def create_interfaces(
         if np.all(num_sides > 1):
             # we are in a two sides situation
             side_g = {
-                mortar_sides.LEFT_SIDE: lsd.copy(),
-                mortar_sides.RIGHT_SIDE: lsd.copy(),
+                mortar_sides.LEFT_SIDE: sd_l.copy(),
+                mortar_sides.RIGHT_SIDE: sd_l.copy(),
             }
         else:
             # the tag name is just a place-holder we assume left side
-            side_g = {mortar_sides.LEFT_SIDE: lsd.copy()}
-        mg = mortar_grid.MortarGrid(lsd.dim, side_g, face_cells)
+            side_g = {mortar_sides.LEFT_SIDE: sd_l.copy()}
+        mg = mortar_grid.MortarGrid(sd_l.dim, side_g, face_cells)
 
         mdg.add_interface(mg, sd_pair, face_cells)

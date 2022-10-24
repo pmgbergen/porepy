@@ -204,7 +204,7 @@ class MixedDimensionalGrid:
 
         Args:
             return_data (boolean, optional): If True, the data dictionary of the
-                interface will be returned together with the inerface mortar grids.
+                interface will be returned together with the interface mortar grids.
                 Defaults to False.
             dim (int, optional): If provided, only interfaces of the specified dimension
                 will be returned.
@@ -472,7 +472,9 @@ class MixedDimensionalGrid:
 
     # ---------- Functionality related to ordering of subdomains
 
-    def sort_subdomains(self, subdomains: Iterable[pp.Grid]) -> Union[List[pp.Grid], Tuple[pp.Grid]]:
+    def sort_subdomains(
+        self, subdomains: Iterable[pp.Grid]
+    ) -> Union[List[pp.Grid], Tuple[pp.Grid]]:
         """Sort subdomains.
 
         Sorting by descending subdomain dimension and increasing node ID, see argsort_grids.
@@ -525,14 +527,15 @@ class MixedDimensionalGrid:
                     inds_in_all_dims.append(ind)
                     # TODO: Decide whether to allow "subdomain" and "interface"
                     # if grid_type in ["node", "subdomain"]:
-                    if grid_type == "node":
-                        # Append node ID
-                        ids_dim.append(self._subdomain_data[grid][1])
-                    elif grid_type in ["edge", "interface"]:
-                        # Append edge ID
-                        ids_dim.append(self._interface_data[grid][1])
-                    else:
-                        raise ValueError("grid_type must be 'node' or 'edge'.")
+                    # if grid_type == "node":
+                    #     # Append node ID
+                    #     ids_dim.append(self._subdomain_data[grid][1])
+                    # elif grid_type in ["edge", "interface"]:
+                    #     # Append edge ID
+                    #     ids_dim.append(self._interface_data[grid][1])
+                    # else:
+                    #     raise ValueError("grid_type must be 'node' or 'edge'.")
+                    ids_dim.append(grid.id)
             # Ascending sorting of subdomains of this dimension according node ID
             sort_inds_dim: np.ndarray = np.argsort(ids_dim)
             # Sort the map to all grids
