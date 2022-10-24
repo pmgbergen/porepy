@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from enum import Enum, EnumMeta
 from typing import Any, Callable, Literal, Optional, Sequence, Union
-from dbus import Interface
 
 import numpy as np
 import scipy.sparse as sps
@@ -32,17 +31,18 @@ class ADSystem:
 
     Notes:
         As of now, the system matrix (Jacobian) is assembled with respect to ALL variables
-        and then the columns belonging to the requested subset of variables are
+        and then the columns belonging to the requested subset of variables and grids are
         sliced out and returned. This will be optimized with minor changes to the AD operator
-        class and its recursive forward AD mode.
+        class and its recursive forward AD mode in the future.
 
-        Currently, this class also lacks optimization methods reducing the band width of the
-        resulting Jacobian.
+        Currently, this class optimizes the block structure of the Jacobian only regarding the
+        subdomains and interfaces. A more localized optimization
+        (e.g. cell-wise for equations without spatial differential operators) is not performed.
 
     Examples:
         An example of how to instantiate an AD system with *primary* and *secondary* variables
         would be
- 
+
         >>> from enum import Enum
         >>> import porepy as pp
         >>> var_categories = Enum('var_categories, ['primary', 'secondary'])
@@ -59,9 +59,9 @@ class ADSystem:
 
     """
 
-    admissible_dof_types: tuple[Literal["cells"], Literal["faces"], Literal["nodes"]] = (
-        "cells", "faces", "nodes"
-    )
+    admissible_dof_types: tuple[
+        Literal["cells"], Literal["faces"], Literal["nodes"]
+    ] = ("cells", "faces", "nodes")
     """A set denoting admissible types of local DOFs for variables.
 
     - nodes: DOFs per node, which constitute the grid
@@ -71,9 +71,7 @@ class ADSystem:
     """
 
     def __init__(
-        self,
-        mdg: pp.MixedDimensionalGrid,
-        var_categories: Optional[EnumMeta] = None
+        self, mdg: pp.MixedDimensionalGrid, var_categories: Optional[EnumMeta] = None
     ) -> None:
 
         ### PUBLIC
@@ -112,7 +110,9 @@ class ADSystem:
 
         """
 
-        self._equ_image_space_composition: dict[str, dict[GridLike, np.ndarray]] = dict()
+        self._equ_image_space_composition: dict[
+            str, dict[GridLike, np.ndarray]
+        ] = dict()
         """Contains for every equation name (key) a dictionary, which provides again for every
         involved grid (key) the indices of equations expressed through the equation operator.
         The ordering of the items in the grid-array dictionaries is consistent with the
@@ -120,13 +120,13 @@ class ADSystem:
 
         """
 
-        self._for_Schur_expansion: Optional[tuple] = None
+        self._Schur_complement: Optional[tuple] = None
         """Contains block matrices and the split rhs of the last assembled Schur complement,
         such that the expansion can be made.
 
         """
 
-        self._vars_per_category: dict[Enum, list[str]] = dict()
+        self._vars_per_category: dict[Union[str, Enum], list[str]] = dict()
         """Contains the names of variables assigned to a specific category (key)."""
 
         self._block_numbers: dict[tuple[GridLike, str], int] = dict()
@@ -146,9 +146,7 @@ class ADSystem:
     def create_variable(
         self,
         name: str,
-        dof_info: dict[Union[Literal["cells"], Literal["faces"], Literal["nodes"]], int] = {
-            "cells": 1
-        },
+        dof_info: dict[str, int] = {"cells": 1},
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
         category: Optional[Enum] = None,
@@ -165,7 +163,7 @@ class ADSystem:
             subdomains found in the mixed-dimensional grid.
             If the argument ``interfaces`` is an empty list, the method will use all
             interfaces found in the mixed-dimensional list.
-        
+
         Examples:
             An example on how to define a pressure variable with cell-wise one DOF (default)on
             **all** subdomains and **no** interfaces would be
@@ -198,9 +196,7 @@ class ADSystem:
         # sanity check for admissible DOF types
         requested_type = set(dof_info.keys())
         if not requested_type.issubset(set(self.admissible_dof_types)):
-            non_admissible = requested_type.difference(
-                self.admissible_dof_types
-            )
+            non_admissible = requested_type.difference(self.admissible_dof_types)
             raise ValueError(f"Non-admissible DOF types {non_admissible} requested.")
         # sanity check if variable is defined anywhere
         if subdomains is None and interfaces is None:
@@ -220,7 +216,7 @@ class ADSystem:
 
         # container for all grid variables
         variables = list()
-        
+        var_cat: Any
         # sanity check for passed category, allow only pre-defined categories
         if self.var_categories:
             if category not in self.var_categories:
@@ -328,7 +324,9 @@ class ADSystem:
         if copy_to_state:
             self.dof_manager.distribute_variable(X, variables=variable)
 
-    def get_variable_vector(self, var_name: str, from_iterate: bool = True) -> np.ndarray:
+    def get_variable_vector(
+        self, var_name: str, from_iterate: bool = True
+    ) -> np.ndarray:
         """Gets all values of variable ``var_name`` in a local vector by slicing respective
         indices out of the global vector.
 
@@ -356,7 +354,7 @@ class ADSystem:
             variables=[var_name], from_iterate=from_iterate
         )
         return X[dof]
-    
+
     def set_sub_vector(self) -> None:
         pass
 
@@ -372,7 +370,7 @@ class ADSystem:
     def get_var_names(
         self,
         category: Optional[Union[Enum, list[Enum]]] = None,
-    ) -> list[str]:
+    ) -> tuple[str, ...]:
         """Get all (unique) variable names defined so far.
 
         If specific categories are requested and the categories do not correspond to the ones
@@ -387,17 +385,24 @@ class ADSystem:
 
         if isinstance(category, Enum):
             category = [category]  # type: ignore
-        
+
         # if no categories were assigned, we use PorePy's default storage key
+        # and ignore any category argument
         if self.var_categories is None:
             return tuple(self._vars_per_category[pp.PRIMARY_VARIABLES])
         # if categories where assigned, we try to get the respective ones
         # unknown categories return an empty list
         else:
             var_names = list()
-            for cat in category:
-                var_names += self._vars_per_category.get(cat, list())
-            return var_names
+            if category is None:
+                for vars in self._vars_per_category.values():
+                    var_names += vars
+                # assert uniqueness of names
+                var_names = list(set(var_names))
+            else:
+                for cat in category:
+                    var_names += self._vars_per_category.get(cat, list())
+            return tuple(var_names)
 
     ### DOF management ------------------------------------------------------------------------
 
@@ -407,7 +412,7 @@ class ADSystem:
         Must only be called by :meth:`create_variable`.
 
         This method defines a preliminary global order of dofs:
-        
+
             For each variable
                 append dofs on subdomains where variable is defined (order given by mdg)
                 append dofs on interfaces where variable is defined (order given by mdg)
@@ -497,6 +502,7 @@ class ADSystem:
         new_block_counter: int = 0
         new_block_numbers: dict[tuple[GridLike, str], int] = dict()
         new_block_dofs: list[int] = list()
+        block_pair: tuple[GridLike, str]  # appeasing mypy
 
         # first set of diagonal blocks, per subdomain
         for sd in self.mdg.subdomains():
@@ -534,19 +540,19 @@ class ADSystem:
         self,
         categories: Optional[Union[Enum, list[Enum]]] = None,
         variables: Optional[Union[str, list[str]]] = None,
-        grids: Optional[Union[GridLike, list[GridLike]]] = None
+        grids: Optional[Union[GridLike, list[GridLike]]] = None,
     ) -> sps.csr_matrix:
         """Create a projection matrix from the global vector of unknowns to a specified
         subspace.
 
         The subspace can be specified by variable categories, variable names and grids.
-        
-        The filtering is applied in that order:
-        
+
+        The filtering hierarchy is:
+
         1. If no category is passed, all known variable names are used.
            Otherwise only names associated with passed categories are used.
         2. If no variable names are passed, all names passing the category filter are used.
-           Otherwise only names from the categories matching the passed names are used.
+           Otherwise only names inside categories matching the passed names are used.
            If a name is not associated with any passed category, it is ignored.
         3. The grid filter is applied to all variables passing the category and name filter,
            narrowing the subspace further down to specific domains (grids or mortar grids).
@@ -554,7 +560,8 @@ class ADSystem:
         The transpose of the returned matrix can be used to slice respective columns out of the
         global Jacobian.
 
-        The projection preserves the global order defined by the system.
+        The projection preserves the global order defined by the system, i.e. it includes no
+        permutation.
 
         Notes:
             If any combination of category, name and grid does not match any variable in this
@@ -598,7 +605,8 @@ class ADSystem:
         if categories:
             # reformat non-sequential argument
             if isinstance(categories, Enum):
-                categories = [categories]:  # type: ignore
+                categories = [categories]  # type: ignore
+            assert self.var_categories is not None  # appeasing mypy
             for cat in categories:
                 if cat in self.var_categories:
                     var_names += self._vars_per_category[cat]
@@ -607,9 +615,9 @@ class ADSystem:
         # if no category filter, we use all variable names
         else:
             var_names += list(self.variables.keys())
-        
+
         ## NAME FILTER
-        if variables: # None AND empty lists are ignored, is that a good thing? TODO
+        if variables:  # None AND empty lists are ignored, is that a good thing? TODO
             # reformat non-sequential arguments
             if isinstance(variables, str):
                 variables = [variables]  # type: ignore
@@ -648,7 +656,7 @@ class ADSystem:
 
         For variables defined on multiple grids in the mixed-dimensional sense, an additional
         grid filter can be passed to return indices belonging only to the respective grids.
-        
+
         The global order of indices is preserved.
 
         Parameters:
@@ -670,11 +678,15 @@ class ADSystem:
             # this will raise a key error if the combination is unknown
             block_number = self._block_numbers[(grids, variable)]
             return np.arange(
-                global_block_dofs[block_number], global_block_dofs[block_number + 1]
+                global_block_dofs[block_number],
+                global_block_dofs[block_number + 1],
+                dtype=int,
             )
         else:
             # all grids the variable is defined, preserving the global order
-            var_grids = [block[0] for block in self._block_numbers if block[1] == variable]
+            var_grids = [
+                block[0] for block in self._block_numbers if block[1] == variable
+            ]
             grid_indices = list()
             ## second case, indices for all grids the variable is defined on (no grid filter)
             if grids is None:
@@ -684,7 +696,8 @@ class ADSystem:
                     grid_indices.append(
                         np.arange(
                             global_block_dofs[block_number],
-                            global_block_dofs[block_number + 1]
+                            global_block_dofs[block_number + 1],
+                            dtype=int,
                         )
                     )
             ## third case, indices for requested grids
@@ -698,11 +711,12 @@ class ADSystem:
                     grid_indices.append(
                         np.arange(
                             global_block_dofs[block_number],
-                            global_block_dofs[block_number + 1]
+                            global_block_dofs[block_number + 1],
+                            dtype=int,
                         )
                     )
             # concatenate the indices on multiple grids
-            return np.concatenate(grid_indices)
+            return np.concatenate(grid_indices, dtype=int)
 
     def block_of_dof(self, dof: int) -> tuple[GridLike, str]:
         """Identifies the grid and variable to which a specific DOF index belongs.
@@ -720,7 +734,7 @@ class ADSystem:
 
         """
         num_dofs = self.num_dofs()
-        if not (0 <= dof < num_dofs):  # indices goe from 0 to num_dofs - 1
+        if not (0 <= dof < num_dofs):  # indices go from 0 to num_dofs - 1
             raise KeyError("Dof index out of range.")
 
         # global block indices
@@ -728,9 +742,9 @@ class ADSystem:
         # Find the block number belonging to this index
         target_block_number = np.argmax(global_block_dofs > dof) - 1
         # find block belonging to the number, first and logically only occurrence
-        for grid_var, block_number in self._block_numbers.items():
+        for block_pair, block_number in self._block_numbers.items():
             if block_number == target_block_number:
-                return grid_var
+                return block_pair
         # if search was not successful, something went terribly wrong
         # should never happen, but if it does, notify the user
         raise RuntimeError("Someone messed with the global block indexation...")
@@ -738,8 +752,8 @@ class ADSystem:
     ### Equation management -------------------------------------------------------------------
 
     def set_equation(
-        self, 
-        name: str, 
+        self,
+        name: str,
         equation_operator: pp.ad.Operator,
         num_equ_per_dof: dict[GridLike, dict[str, int]],
     ) -> None:
@@ -756,7 +770,7 @@ class ADSystem:
                 zero and this instance represents the left-hand side.
                 The equation mus be ready for evaluation! i.e. all involved variables must have
                 values set.
-            num_equ_per_dof: a dictionary describing how many equations ``equation_operator`` 
+            num_equ_per_dof: a dictionary describing how many equations ``equation_operator``
                 provides. This is a temporary work-around until operators are able to provide
                 information on their image space.
                 The dictionary must contain the number of equations per
@@ -768,7 +782,7 @@ class ADSystem:
                 (see :data:`porepy.DofManager.admissible_dof_types`),
                 for each grid the operator was defined on.
 
-                The order of the items in ``num_equ_per_dof`` must be consistent with the 
+                The order of the items in ``num_equ_per_dof`` must be consistent with the
                 general order of grids, as used by the dof manager and implemented in various
                 discretizations used inside ``equation_operator``.
 
@@ -780,15 +794,13 @@ class ADSystem:
             # calculate number of equations per grid
             if isinstance(grid, pp.Grid):
                 num_equ_per_grid = (
-                    grid.num_cells * dof_info.get('cells', 0)
-                    + grid.num_nodes * dof_info.get('nodes', 0)
-                    + grid.num_faces * dof_info.get('faces', 0)
+                    grid.num_cells * dof_info.get("cells", 0)
+                    + grid.num_nodes * dof_info.get("nodes", 0)
+                    + grid.num_faces * dof_info.get("faces", 0)
                 )
             # mortar grids have only cell-wise dofs
             elif isinstance(grid, pp.MortarGrid):
-                num_equ_per_grid = (
-                    grid.num_cells * dof_info.get('cells', 0)
-                )
+                num_equ_per_grid = grid.num_cells * dof_info.get("cells", 0)
             else:
                 raise ValueError(
                     f"Unknown grid type '{type(grid)}'. Use Grid or MortarGrid"
@@ -808,7 +820,7 @@ class ADSystem:
                 f"Passed 'equation_operator' has {is_num_equ} equations,"
                 f" opposing indicated number of {total_num_equ}."
             )
-        
+
         # if all good, we assume we can proceed
         self._equ_image_space_composition.update({name: image_info})
         self._equations.update({name: equation_operator})
@@ -822,10 +834,10 @@ class ADSystem:
 
         """
         return self._equations[name]
-    
+
     def remove_equation(self, name: str) -> pp.ad.Operator | None:
         """Removes a previously set equation and all related information.
-        
+
         Returns:
             a reference to the equation in operator form or None, if the equation is unknown.
 
@@ -834,6 +846,8 @@ class ADSystem:
             equ = self._equations.pop(name)
             del self._equ_image_space_composition[name]
             return equ
+        else:
+            return None  # appeasing mypy
 
     ### System assembly and discretization ----------------------------------------------------
 
@@ -963,29 +977,25 @@ class ADSystem:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
-        # indicator to perform grid-related row slicing on the system
-        # grid-related column slicing is handled by the projection
-        slice_rows = True
         # reformat non-sequential arguments
         # if no restriction, use all variables and grids
         if variables is None:
-            variables = list(set([key[1] for key in self.dof_manager.block_dof]))  # type: ignore
+            variables = list(self.variables.keys())  # type: ignore
         elif isinstance(variables, str):
             variables = [variables]  # type: ignore
         if equations is None:
             equations = list(self._equations.keys())  # type: ignore
         elif isinstance(equations, str):
             equations = [equations]  # type: ignore
-        if grid_rows is None:
-            # if all row blocks related to grids are included, we do not slice
-            slice_rows = False
-        elif isinstance(grid_rows, (pp.Grid, pp.MortarGrid)):
+        if isinstance(grid_rows, (pp.Grid, pp.MortarGrid)):
             grid_rows = [grid_rows]  # type: ignore
         if grid_columns is None:
-            grid_columns = list(set([key[0] for key in self.dof_manager.block_dof]))  # type: ignore
+            grid_columns = list(
+                set([key[0] for key in self.dof_manager.block_dof])
+            )  # type: ignore
         elif isinstance(grid_columns, (pp.Grid, pp.MortarGrid)):
             grid_columns = [grid_columns]  # type: ignore
-        
+
         # TODO think about argument validation, i.e. are the variables, equations and grids
         # known to this system and dof manager.
         # This will help users during debugging, otherwise just some key errors will be raised
@@ -1005,14 +1015,15 @@ class ADSystem:
             ad = eq.evaluate(self.dof_manager, state)
             # if restriction to grid-related row blocks was made,
             # perform row slicing based on information we have on the image
-            if slice_rows:
+            if grid_rows:
                 # store row blocks for an equation related to a specific grid
                 equ_mat = list()
                 equ_rhs = list()
                 # if this equation is defined on one of the restricted grids,
                 # slice out respective rows in an order-preserving way
                 # the order is stored in the image space composition
-                for grid, block_idx in self._equ_image_space_composition[equ_name].items():
+                img_info = self._equ_image_space_composition[equ_name]
+                for grid, block_idx in img_info.items():
                     if grid in grid_rows:
                         equ_mat.append(ad.jac[block_idx])
                         equ_rhs.append(ad.val[block_idx])
@@ -1045,8 +1056,10 @@ class ADSystem:
         # slice out the columns belonging to the requested subsets of variables and
         # grid-related column blocks by using transposed projection for the global dof vector
         # Multiply rhs by -1 to move to the rhs
-        column_projection = self.dof_manager.projection_to(variables, grid_columns).transpose()
-        return A * column_projection, - rhs_cat
+        column_projection = self.dof_manager.projection_to(
+            variables, grid_columns
+        ).transpose()
+        return A * column_projection, -rhs_cat
 
     def assemble_schur_complement_system(
         self,
@@ -1118,7 +1131,9 @@ class ADSystem:
         all_variables = self.dof_manager.get_variables()
         all_eq_names = list(self._equations.keys())
         secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
-        secondary_variables = list(set(all_variables).difference(set(primary_variables)))
+        secondary_variables = list(
+            set(all_variables).difference(set(primary_variables))
+        )
 
         # First assemble the primary and secondary equations for all variables and all grids
         # save the indices and shift the indices for the second assembly accordingly
@@ -1144,7 +1159,7 @@ class ADSystem:
             # blocks before
             block_indices = self.assembled_equation_indices[equ] + ind_start
             assembled_equation_indices.update({equ: block_indices})
-        
+
         # store the indices for the Schur complement assembly
         self.assembled_equation_indices = assembled_equation_indices
 
@@ -1168,11 +1183,13 @@ class ADSystem:
         rhs_S = b_p - A_ps * inv_A_ss * b_s
 
         # storing necessary information for Schur complement expansion
-        self._for_Schur_expansion = (inv_A_ss, b_s, A_sp, proj_primary, proj_secondary)
+        self._Schur_complement = (inv_A_ss, b_s, A_sp, proj_primary, proj_secondary)
 
         return S, rhs_S
 
-    def expand_schur_complement_solution(self, reduced_solution: np.ndarray) -> np.ndarray:
+    def expand_schur_complement_solution(
+        self, reduced_solution: np.ndarray
+    ) -> np.ndarray:
         """Expands the solution of the **last assembled** Schur complement system to the
         global solution.
 
@@ -1197,20 +1214,18 @@ class ADSystem:
             vector.
 
         Raises:
-            RuntimeError: if the Schur complement system was not assembled before.
+            AssertionError: if the Schur complement system was not assembled before.
 
         """
-        if self._for_Schur_expansion:
-            # get data stored from last complement
-            inv_A_ss, b_s, A_sp, prolong_p, prolong_s = self._for_Schur_expansion
-            # calculate the complement solution
-            x_s = inv_A_ss * (b_s - A_sp * reduced_solution)
-            # prolong primary and secondary block to global-sized arrays using the transpose
-            # of the projection
-            X = prolong_p * reduced_solution + prolong_s * x_s
-            return X
-        else:
-            RuntimeError("Schur complement was not assembled beforehand.")
+        assert self._Schur_complement is not None
+        # get data stored from last complement
+        inv_A_ss, b_s, A_sp, prolong_p, prolong_s = self._Schur_complement
+        # calculate the complement solution
+        x_s = inv_A_ss * (b_s - A_sp * reduced_solution)
+        # prolong primary and secondary block to global-sized arrays using the transpose
+        # of the projection
+        X = prolong_p * reduced_solution + prolong_s * x_s
+        return X
 
     def create_subsystem_manager(self, eq_names: Union[str, Sequence[str]]) -> ADSystem:
         """Creates an ``ADSystemManager`` for a given subset of equations.
@@ -1231,8 +1246,12 @@ class ADSystem:
             eq_names = [eq_names]  # type: ignore
 
         for name in eq_names:
-            image_info = self._equ_image_space_composition[name]  # TODO fix this, incorrect
-            new_manger.set_equation(name, self._equations[name], num_equ_per_dof=image_info)
+            image_info = self._equ_image_space_composition[
+                name
+            ]  # TODO fix this, incorrect
+            new_manger.set_equation(
+                name, self._equations[name], num_equ_per_dof=image_info
+            )
 
         return new_manger
 
@@ -1272,7 +1291,7 @@ class ADSystem:
             for sub_var in var.sub_vars
         ]
         # make combinations unique
-        var_grid = set(var_grid)
+        var_grid = list(set(var_grid))
 
         s += f"There are in total {len(all_vars)} variables, distributed as follows:\n"
 
