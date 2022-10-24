@@ -24,19 +24,56 @@ class NewtonSolver:
         default_options.update(params)
         self.params = default_options
 
-    def solve(self, model):
+    def solve(self, model) -> tuple[float, bool, int]:
+        """
+        Solve non-linear problem using standard Newton.
+
+        Args:
+            model: Properly initialized mixed-dimensional model.
+
+        Returns:
+            L2-norm of the difference between the current and previous solutions.
+            True if the solution converged. False otherwise.
+            Number of non-linear iterations.
+        """
+
+        def repeat_loop(iters: int, has_converged: bool, has_diverged: bool) -> bool:
+            """Whether the Newton loop has to be repeated.
+
+            The loop is repeated if ALL three criteria are met:
+                (C1) Number of iterations is equal or less than maximum number of iterations.
+                (C2) The solution did not converge, e.g., tol still larger than target tol.
+                (C3) The solution did not diverge, e.g., solution is not Nan.
+
+            Args:
+                iters: number of non-linear iterations.
+                has_converged: whether the solution has converged.
+                has_diverged: whether the solution has diverged.
+
+            Returns:
+                True if the while loop has to be repeated. False otherwise.
+
+            """
+            repeat = (
+                    iters <= self.params["max_iterations"]  # (C1)
+                    and not has_converged  # (C2)
+                    and not has_diverged  # (C3)
+                )
+            return repeat
+
         model.before_newton_loop()
 
-        iteration_counter = 0
-
+        iteration_counter = 1
         is_converged = False
+        is_diverged = False
 
         prev_sol = model.dof_manager.assemble_variable(from_iterate=False)
         init_sol = prev_sol
         errors = []
-        error_norm = 1
+        error_norm = 1.0
 
-        while iteration_counter <= self.params["max_iterations"] and not is_converged:
+        while repeat_loop(iteration_counter, is_converged, is_diverged):
+
             logger.info(
                 "Newton iteration number {} of {}".format(
                     iteration_counter, self.params["max_iterations"]
@@ -46,33 +83,37 @@ class NewtonSolver:
             # Re-discretize the nonlinear term
             model.before_newton_iteration()
 
-            sol = self.iteration(model)
+            sol = self.newton_iteration(model)
 
             model.after_newton_iteration(sol)
 
+            # Convergence check
             error_norm, is_converged, is_diverged = model.check_convergence(
                 sol, prev_sol, init_sol, self.params
             )
             prev_sol = sol
             errors.append(error_norm)
 
-            if is_diverged:
-                model.after_newton_failure(sol, errors, iteration_counter)
-            elif is_converged:
-                model.after_newton_convergence(sol, errors, iteration_counter)
-
             iteration_counter += 1
 
-        if not is_converged:
+        iteration_counter -= 1  # fix off-set
+
+        # Post-Newton steps
+        if is_diverged or not is_converged:
             model.after_newton_failure(sol, errors, iteration_counter)
+        else:
+            model.after_newton_convergence(sol, errors, iteration_counter)
 
         return error_norm, is_converged, iteration_counter
 
-    def iteration(self, model) -> np.ndarray:
+    def newton_iteration(self, model) -> np.ndarray:
         """A single Newton iteration.
 
         Right now, this is a single line, however, we keep it as a separate function
         to prepare for possible future introduction of more advanced schemes.
+
+        Returns:
+            Solution array for the iteration step.
         """
 
         # Assemble and solve
