@@ -106,5 +106,27 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
     def after_simulation(self):
         self.exporter.write_pvd()
 
+    def after_newton_convergence(
+            self, solution: np.ndarray, errors: float, iteration_counter: int
+    ) -> None:
+        """Method to be called after every non-linear iteration.
+
+        Possible usage is to distribute information on the solution, visualization, etc.
+
+        Parameters:
+            np.array: The new solution state, as computed by the non-linear solver.
+
+        """
+
+        if self.is_problem_nonlinear():
+            self.time_manager._adaptation_based_on_iterations(iterations=iteration_counter)
+        else:
+            self.time_manager._correction_based_on_schedule()
+            self.time_manager._correction_based_on_dt_min()
+            self.time_manager._correction_based_on_dt_max()
+
+        if self.params["use_ad"]:
+            # Recompute ad
+
     def _is_time_dependent(self):
         return True
