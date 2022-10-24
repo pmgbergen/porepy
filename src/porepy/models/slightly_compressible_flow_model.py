@@ -5,7 +5,7 @@ including a time derivative of the pressure and constant compressibility.
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -38,7 +38,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
     """
 
-    def __init__(self, params: Optional[Dict] = None) -> None:
+    def __init__(self, params: Optional[dict] = None) -> None:
         """
         Parameters:
             params (dict): Dictionary of parameters used to control the solution procedure.
@@ -107,7 +107,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         self.exporter.write_pvd()
 
     def after_newton_convergence(
-            self, solution: np.ndarray, errors: float, iteration_counter: int
+        self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         """Method to be called after the non-linear solver has converged.
 
@@ -119,22 +119,26 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         """
 
         if not self.time_manager.is_constant:
-            if not self._is_non_linear_problem():
+            if not self._is_nonlinear_problem():
                 # TODO: This might change in the future when inexact solvers are available
-                msg = "Currently, time step cannot be adapted when the problem is linear."
+                msg = (
+                    "Currently, time step cannot be adapted when the problem is linear."
+                )
                 raise NotImplementedError(msg)
             else:
                 self.time_manager.compute_time_step(iterations=iteration_counter)
                 if hasattr(self, "_ad"):
                     self._ad.time_step._value = self.time_manager.dt
                 else:
-                    raise NotImplementedError("Adaptive time step only available for AD.")
+                    raise NotImplementedError(
+                        "Adaptive time step only available for AD."
+                    )
         else:
             # Nothing to do here since the time step is constant
             pass
 
     def after_newton_failure(
-            self, solution: np.ndarray, errors: float, iteration_counter: int
+        self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
         """Method to be called after the non-linear solver has not converged.
 
@@ -146,23 +150,27 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         """
 
         if not self.time_manager.is_constant:
-            if not self._is_non_linear_problem():
-                msg = "Currently, time step cannot be adapted when the problem is linear."
+            if not self._is_nonlinear_problem():
+                msg = (
+                    "Currently, time step cannot be adapted when the problem is linear."
+                )
                 raise NotImplementedError(msg)
             else:
                 self.time_manager.compute_time_step(recompute_solution=True)
                 if hasattr(self, "_ad"):
                     self._ad.time_step._value = self.time_manager.dt
                 else:
-                    raise NotImplementedError("Adaptive time step only available for AD.")
+                    raise NotImplementedError(
+                        "Adaptive time step only available for AD."
+                    )
         else:
             # If dt is constant, we raise an error since there is nothing left to do
             if self._is_nonlinear_problem():
                 raise ValueError("Newton iterations did not converge.")
             else:
-                raise ValueError("Tried solving singular matrix for the linear problem.")
-
+                raise ValueError(
+                    "Tried solving singular matrix for the linear problem."
+                )
 
     def _is_time_dependent(self):
         return True
-

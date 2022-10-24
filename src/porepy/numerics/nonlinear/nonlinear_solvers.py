@@ -55,10 +55,10 @@ class NewtonSolver:
 
             """
             repeat = (
-                    iters <= self.params["max_iterations"]  # (C1)
-                    and not has_converged  # (C2)
-                    and not has_diverged  # (C3)
-                )
+                iters <= self.params["max_iterations"]  # (C1)
+                and not has_converged  # (C2)
+                and not has_diverged  # (C3)
+            )
             return repeat
 
         model.before_newton_loop()
@@ -73,7 +73,6 @@ class NewtonSolver:
         error_norm = 1.0
 
         while repeat_loop(iteration_counter, is_converged, is_diverged):
-
             logger.info(
                 "Newton iteration number {} of {}".format(
                     iteration_counter, self.params["max_iterations"]
