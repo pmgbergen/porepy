@@ -109,24 +109,29 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
     def after_newton_convergence(
             self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
-        """Method to be called after every non-linear iteration.
+        """ Method to be called after the non-linear solver has converged.
 
-        Possible usage is to distribute information on the solution, visualization, etc.
-
-        Parameters:
-            np.array: The new solution state, as computed by the non-linear solver.
+        Args:
+            solution: solution to the non-linear problem.
+            errors: L2-norm of the absolute error.
+            iteration_counter: number of non-linear iterations.
 
         """
 
-        if self.is_problem_nonlinear():
-            self.time_manager._adaptation_based_on_iterations(iterations=iteration_counter)
+        if not self.time_manager.is_constant:
+            if not self._is_non_linear_problem():
+                msg = "Currently, time step cannot be adapted when the problem is linear."
+                raise NotImplementedError(msg)
+            else:
+                self.time_manager.compute_time_step(iterations=iteration_counter)
+                if hasattr(self, "_ad"):
+                    self._ad.time_step._value = self.time_manager.dt
+                else:
+                    raise NotImplementedError("Adaptive time step only available for AD.")
         else:
-            self.time_manager._correction_based_on_schedule()
-            self.time_manager._correction_based_on_dt_min()
-            self.time_manager._correction_based_on_dt_max()
-
-        if self.params["use_ad"]:
-            # Recompute ad
+            # Nothing to here since the time step is constant
+            pass
 
     def _is_time_dependent(self):
         return True
+
