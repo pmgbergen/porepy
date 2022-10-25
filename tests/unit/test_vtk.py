@@ -36,7 +36,7 @@ class ExporterTestSetup:
     def __init__(self):
 
         # Define ingredients of where to store vtu files for exporting during testing.
-        self.folder = "./test_vtk/"
+        self.folder = "./test_vtk"
         self.file_name = "grid"
         self.folder_reference = folder_reference
 
@@ -349,7 +349,7 @@ def test_fracture_network_2d(setup):
 
     # Export data
     network_2d.to_file(
-        setup.folder + setup.file_name + ".vtu",
+        setup.folder + "/" + setup.file_name + ".vtu",
         data=data,
     )
 
@@ -383,7 +383,7 @@ def test_fracture_network_3d(setup):
 
     # Export data
     network_3d.to_file(
-        setup.folder + setup.file_name + ".vtu",
+        setup.folder + "/" + setup.file_name + ".vtu",
         data=data,
     )
 
