@@ -79,8 +79,8 @@ class Operator:
 
     def _set_subdomains_or_interfaces(
         self,
-        subdomains: Union[list[pp.Grid], None],
-        interfaces: Union[list[pp.MortarGrid], None],
+        subdomains: Optional[list[pp.Grid]] = None,
+        interfaces: Optional[list[pp.MortarGrid]] = None,
     ) -> None:
         """For operators which are defined for either subdomains or interfaces but not
         both.
@@ -96,14 +96,12 @@ class Operator:
 
         """
         if subdomains is None:
-            assert isinstance(interfaces, list)
-            self.subdomains = []
-            self.interfaces = interfaces
-        else:
-            assert isinstance(subdomains, list)
-            assert interfaces is None
-            self.subdomains = subdomains
-            self.interfaces = []
+            subdomains = []
+        if interfaces is None:
+            interfaces = []
+
+        self._subdomains = subdomains
+        self._interfaces = interfaces
 
     def _find_subtree_variables(self) -> list["pp.ad.Variable"]:
         """Method to recursively look for Variables (or MergedVariables) in an
