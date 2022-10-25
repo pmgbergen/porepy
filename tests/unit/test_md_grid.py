@@ -193,6 +193,92 @@ class TestMixedDimensionalGrid(unittest.TestCase):
 
         self.assertRaises(ValueError, mdg.neighboring_subdomains, sd_1, True, True)
 
+    def test_sorting(self):
+        intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4 = self.mdg_dims_3211()
+
+        # Test sorting of subdomains.
+        # The sorting should be based on the dimension of the subdomains and then the subdomain
+        # id, which corresponds to the order of initiation.
+        sd_list = mdg.subdomains()
+        self.assertTrue(sd_list[0] == sd_4)
+        self.assertTrue(sd_list[1] == sd_3)
+        self.assertTrue(sd_list[2] == sd_1)
+        self.assertTrue(sd_list[3] == sd_2)
+
+        # Test sorting of interfaces. Same sorting criteria as for subdomains.
+        intf_list = mdg.interfaces()
+        self.assertTrue(intf_list[0] == intf_43)  # First because of dimension
+        self.assertTrue(intf_list[1] == intf_21)  # Precedes 13 because of interface id
+        self.assertTrue(intf_list[2] == intf_31)
+
+    def test_sort_lists(self):
+        """ Test sorting of lists of subdomains and interfaces.
+        Includes random lists, noncomplete lists, and lists with duplicates.
+        """
+        intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4 = self.mdg_dims_3211()
+        sd_list = mdg.subdomains()
+        intf_list = mdg.interfaces()
+
+        sd_list_random = [sd_1, sd_4, sd_2, sd_3]
+        sorted_sds = mdg.sort_subdomains(sd_list_random)
+        for sd_0, sd_1 in zip(sd_list, sorted_sds):
+            self.assertTrue(sd_0 == sd_1)
+        # same for interfaces
+        intf_list_random = [intf_21, intf_43, intf_31]
+        sorted_intfs = mdg.sort_interfaces(intf_list_random)
+        for intf_0, intf_1 in zip(intf_list, sorted_intfs):
+            self.assertTrue(intf_0 == intf_1)
+
+        subdomains_132 = [sd_1, sd_3, sd_2]
+        sorted_13 = mdg.sort_subdomains(subdomains_132)
+        self.assertTrue(sorted_13[0] == sd_3)
+        self.assertTrue(sorted_13[1] == sd_1)
+        self.assertTrue(sorted_13[2] == sd_2)
+
+        # Test sorting of lists with duplicates. The duplicates are not removed and should
+        # both appear in the sorted list.
+        duplicates = [sd_1, sd_2, sd_1, sd_3]
+        sorted_duplicates = mdg.sort_subdomains(duplicates)
+        self.assertTrue(sorted_duplicates[2] == sd_1)
+        self.assertTrue(sorted_duplicates[3] == sd_1)
+
+    def mdg_dims_3211(self):
+        """ Create a mixed dimensional grid with 4 subdomains and 3 interfaces."""
+        mdg = pp.MixedDimensionalGrid()
+        sd_1 = MockGrid(1)
+        sd_2 = MockGrid(1)
+        sd_3 = MockGrid(2)
+        sd_4 = MockGrid(3)
+        # Assign subdomains to mdg. Do it in order different from the expected sorting for
+        # good measure.
+        mdg.add_subdomains(sd_1)
+        mdg.add_subdomains(sd_3)
+        mdg.add_subdomains(sd_2)
+        mdg.add_subdomains(sd_4)
+        # Interface dimension is inherited from the secondary subdomain
+        intf_21 = mock_mortar_grid(sd_2, sd_1)  # dim=1
+        intf_31 = mock_mortar_grid(sd_3, sd_1)  # dim=1
+        intf_43 = mock_mortar_grid(sd_4, sd_3)  # dim=2
+        mdg.add_interface(intf_21, [sd_2, sd_1], None)
+        mdg.add_interface(intf_31, [sd_1, sd_3], None)
+        mdg.add_interface(intf_43, [sd_4, sd_3], None)
+        return intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4
+
+    def test_interface_to_subdomain_pair(self):
+        """ Test the method interface_to_subdomain_pair.
+        Check that the returned subdomain pair is sorted according to grid dimension and id.
+        """
+        intf_21, intf_31, intf_43, mdg, sd_1, sd_2, sd_3, sd_4 = self.mdg_dims_3211()
+        sd_pair_21 = mdg.interface_to_subdomain_pair(intf_21)
+        self.assertTrue(sd_pair_21[0] == sd_1)  # First because of id
+        self.assertTrue(sd_pair_21[1] == sd_2)
+        sd_pair_31 = mdg.interface_to_subdomain_pair(intf_31)
+        self.assertTrue(sd_pair_31[0] == sd_3)  # First because of dimension
+        self.assertTrue(sd_pair_31[1] == sd_1)
+        sd_pair_43 = mdg.interface_to_subdomain_pair(intf_43)
+        self.assertTrue(sd_pair_43[0] == sd_4)  # First because of dimension
+        self.assertTrue(sd_pair_43[1] == sd_3)
+
     # ------ Test of iterators ------*
     def test_subdomain_and_interface_iterators(self):
         mdg = pp.MixedDimensionalGrid()
