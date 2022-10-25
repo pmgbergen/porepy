@@ -101,6 +101,7 @@ def _compare_vtu_files(
     )
 
     # If the difference is empty, the meshio objects are identified as identical.
+    print(diff)
     return diff == {}
 
 
