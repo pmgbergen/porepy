@@ -17,7 +17,15 @@ import porepy as pp
 from . import _ad_utils
 from .forward_mode import Ad_array, initAdArrays
 
-__all__ = ["Operator", "Matrix", "Array", "Scalar", "Variable", "MergedVariable"]
+__all__ = [
+    "Operator",
+    "Matrix",
+    "Array",
+    "TimeDependentArray",
+    "Scalar",
+    "Variable",
+    "MergedVariable",
+]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
 
@@ -836,6 +844,8 @@ class Array(Operator):
     This is a shallow wrapper around the real array; it is needed to combine the array
     with other types of Ad objects.
 
+    See also TimeDependentArray.
+
     """
 
     def __init__(self, values: np.ndarray, name: Optional[str] = None) -> None:
@@ -872,16 +882,139 @@ class Array(Operator):
         return self._values
 
 
+class TimeDependentArray(Array):
+    """An Ad-wrapper around a time-dependent numpy array.
+
+    The array is tied to a MixedDimensionalGrid, and is distributed among the data
+    dictionaries associated with subdomains and interfaces. The array values are stored
+    in data[pp.STATE][pp.ITERATE][self._name] for the current time and
+    data[pp.STATE][self._name] for the previous time.
+
+    The array can be differentiated in time using pp.ad.dt().
+
+    The intended use is to represent time-varying quantities in equations, e.g., source
+    terms. Future use will also include numerical values of boundary conditions,
+    however, this is pending an update to the model classes.
+
+    Attributes:
+        prev_time (boolean): If True, the the array will be evaluated using in
+            data[pp.STATE] (data being the data dictionaries for subdomains and
+            interfaces), if False, data[pp.STATE][pp.ITERATE] is used.
+
+    """
+
+    def __init__(
+        self,
+        name: str,
+        subdomains: Optional[list[pp.Grid]] = None,
+        interfaces: Optional[list[pp.MortarGrid]] = None,
+        previous_timestep: bool = False,
+    ):
+        """Initialize a TimeDependentArray.
+
+        Args:
+            name: Name of the variable. Should correspond to items in data[pp.STATE].
+            subdomains: Subdomains on which the array is defined. Defaults to None.
+            interfaces: Interfaces on which the array is defined. Defaults to None.
+
+            Exactly one of subdomains and interfaces must be non-empty.
+
+            previous_timestep: Flag indicating if the array should be evaluated at the
+                previous time step.
+
+        Raises:
+            ValueError: If either none of, or both of, subdomains and interfaces are
+                empty.
+
+        """
+
+        self._name: str = name
+
+        if subdomains is None:
+            subdomains = []
+        if interfaces is None:
+            interfaces = []
+
+        if len(interfaces) == 0 and len(subdomains) == 0:
+            raise ValueError(
+                "A time dependent array must be associated with an"
+                " interface or a subdomain."
+            )
+        if len(interfaces) > 0 and len(subdomains) > 0:
+            raise ValueError(
+                "A time dependent array must be associated with either an"
+                " interface or a subdomain."
+            )
+        self._g: GridLike
+
+        # Shorthand access to grid or edge:
+        if len(interfaces) == 0:
+            self._g = subdomains
+            self._is_interface_arary = False
+        else:
+            self._g = interfaces
+            self._is_interface_arary = True
+
+        self.prev_time: bool = previous_timestep
+
+        self._set_tree()
+
+    def previous_timestep(self) -> TimeDependentArray:
+        """Return a representation of this variable on the previous time step.
+
+        Returns:
+            This array represented at the previous time step.
+
+        """
+        if self._is_interface_arary:
+            return TimeDependentArray(
+                self._name, interfaces=self._g, previous_timestep=True
+            )
+        else:
+            return TimeDependentArray(
+                self._name, subdomains=self._g, previous_timestep=True
+            )
+
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
+        """Convert this array into numerical values.
+
+        The numerical values will be picked from the representation of the array in
+        data[pp.STATE][pp.ITERATE] (where data is the data dictionary of the subdomains
+        or interfaces of this Array), or if self.prev_time = True, from data[pp.STATE].
+
+        Args:
+            mdg: Mixed-dimensional grid.
+
+        Returns:
+            A numpy ndarray containing the numerical values of this array.
+
+        """
+        vals = []
+        for g in self._g:
+            if self._is_interface_arary:
+                data = mdg.interface_data(g)
+            else:
+                data = mdg.subdomain_data(g)
+
+            if self.prev_time == True:
+                vals.append(data[pp.STATE][self._name])
+            else:
+                vals.append(data[pp.STATE][pp.ITERATE][self._name])
+
+        # TODO: Make a sort on the grid ids here?
+        return np.hstack((vals))
+
+
 class Scalar(Operator):
     """Ad representation of a scalar.
 
     This is a shallow wrapper around the real scalar; it may be useful to combine
     the scalar with other types of Ad objects.
-    
+
     NOTE: Since this is a wrapper around a Python immutable, certain operations, like copy,
     may not behave as expected.
     TODO: Should we implement a wrapper around the scalar to facilitate real copying?
-    
+
     """
 
     def __init__(self, value: float, name: Optional[str] = None) -> None:
