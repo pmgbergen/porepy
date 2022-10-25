@@ -74,3 +74,18 @@ def test_constant_time_step(request, model_class, time_manager):
         assert model.time_manager.time_final == 10 * pp.HOUR
         assert model.time_manager.dt == pp.HOUR
         assert model.time_manager.time == 10 * pp.HOUR
+
+
+# -----> Testing linear models
+# TODO: Replace [pp.SlightlyCompressibleFlow] by time_dependent_models
+@pytest.mark.parametrize("model_class", [pp.SlightlyCompressibleFlow])
+def test_linear_non_constant_dt(model_class):
+    """Test linear models when non-constant time steps are used"""
+    time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.01)
+    model = model_class(params={"use_ad": True, "time_manager": time_manager})
+    with pytest.raises(NotImplementedError) as excinfo:
+        msg = "Currently, time step cannot be adapted when the problem is linear."
+        pp.run_time_dependent_model(model, model.params)
+    assert msg in str(excinfo.value)
+
+# -----> Testing non-linear models
