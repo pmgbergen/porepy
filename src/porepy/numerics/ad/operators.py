@@ -944,6 +944,7 @@ class TimeDependentArray(Array):
                 " interface or a subdomain."
             )
         self._g: GridLike
+        self._is_interface_arary: bool
 
         # Shorthand access to grid or edge:
         if len(interfaces) == 0:
@@ -1001,6 +1002,18 @@ class TimeDependentArray(Array):
 
         # TODO: Make a sort on the grid ids here?
         return np.hstack((vals))
+
+    def __repr__(self) -> str:
+        s = f"Wrapped time-dependent array with name {self._name}.\n"
+
+        if self._is_interface_arary:
+            s += f"Defined on {len(self._g)} interfaces.\n"
+        else:
+            s += f"Defined on {len(self._g)} subdomains.\n"
+
+        if self.prev_time:
+            s += "Evaluated at the previous time step."
+        return s
 
 
 class Scalar(Operator):
@@ -1191,6 +1204,11 @@ class Variable(Operator):
             f"Degrees of freedom in cells: {self._cells}, faces: {self._faces}, "
             f"nodes: {self._nodes}\n"
         )
+        if self.prev_iter:
+            s += "Evaluated at the previous iteration.\n"
+        elif self.prev_time:
+            s += "Evaluated at the previous time step.\n"
+
         return s
 
 
@@ -1311,6 +1329,10 @@ class MergedVariable(Variable):
             f", faces: {self.sub_vars[0]._faces}, nodes: {self.sub_vars[0]._nodes}\n"
             f"Total size: {sz}\n"
         )
+        if self.prev_iter:
+            s += "Evaluated at the previous iteration.\n"
+        elif self.prev_time:
+            s += "Evaluated at the previous time step.\n"
 
         return s
 
