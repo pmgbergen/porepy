@@ -61,14 +61,14 @@ class BasicsTest(unittest.TestCase):
         assembler.discretize()
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
-        grids = np.empty(mdg.num_subdomains() + mdg.num_interfaces(), dtype=np.object)
-        variables = np.empty_like(grids)
+        grids = list()
+        variables = list()
         for sd, data in mdg.subdomains(return_data=True):
-            grids[mdg.node_id(sd)] = sd
-            variables[mdg.node_id(sd)] = variable
+            grids.append(sd)
+            variables.append(variable)
         for intf in mdg.interfaces():
-            grids[mdg.edge_id(intf) + mdg.num_subdomains()] = intf
-            variables[mdg.edge_id(intf) + mdg.num_subdomains()] = "lambda_u"
+            grids.append(intf)
+            variables.append("lambda_u")
 
         U, rhs = permute_matrix_vector(
             U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
@@ -144,14 +144,14 @@ class BasicsTest(unittest.TestCase):
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
-        grids = np.empty(mdg.num_subdomains() + mdg.num_interfaces(), dtype=np.object)
-        variables = np.empty_like(grids)
+        grids = list()
+        variables = list()
         for sd in mdg.subdomains():
-            grids[mdg.node_id(sd)] = sd
-            variables[mdg.node_id(sd)] = variable
+            grids.append(sd)
+            variables.append(variable)
         for intf, data in mdg.interfaces(return_data=True):
-            grids[mdg.edge_id(intf) + mdg.num_subdomains()] = intf
-            variables[mdg.edge_id(intf) + mdg.num_subdomains()] = "lambda_u"
+            grids.append(intf)
+            variables.append("lambda_u")
 
         U, rhs = permute_matrix_vector(
             U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
@@ -275,14 +275,14 @@ class BasicsTest(unittest.TestCase):
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
-        grids = np.empty(mdg.num_subdomains() + mdg.num_interfaces(), dtype=np.object)
-        variables = np.empty_like(grids)
+        grids = list()
+        variables = list()
         for sd in mdg.subdomains():
-            grids[mdg.node_id(sd)] = sd
-            variables[mdg.node_id(sd)] = variable
+            grids.append(sd)
+            variables.append(variable)
         for intf in mdg.interfaces():
-            grids[mdg.edge_id(intf) + mdg.num_subdomains()] = intf
-            variables[mdg.edge_id(intf) + mdg.num_subdomains()] = "lambda_u"
+            grids.append(intf)
+            variables.append("lambda_u")
         U, rhs = permute_matrix_vector(
             U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
@@ -888,14 +888,14 @@ class BasicsTest(unittest.TestCase):
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
-        grids = np.empty(mdg.num_subdomains() + mdg.num_interfaces(), dtype=np.object)
-        variables = np.empty_like(grids)
+        grids = list()
+        variables = list()
         for sd in mdg.subdomains():
-            grids[mdg.node_id(sd)] = sd
-            variables[mdg.node_id(sd)] = variable
+            grids.append(sd)
+            variables.append(variable)
         for intf in mdg.interfaces():
-            grids[mdg.edge_id(intf) + mdg.num_subdomains()] = e
-            variables[mdg.edge_id(intf) + mdg.num_subdomains()] = "lambda_u"
+            grids.append(intf)
+            variables.append("lambda_u")
 
         U, rhs = permute_matrix_vector(
             U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
@@ -972,14 +972,14 @@ class BasicsTest(unittest.TestCase):
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
-        grids = np.empty(mdg.num_subdomains() + mdg.num_interfaces(), dtype=np.object)
-        variables = np.empty_like(grids)
+        grids = list()
+        variables = list()
         for sd in mdg.subdomains():
-            grids[mdg.node_id(sd)] = sd
-            variables[mdg.node_id(sd)] = variable
+            grids.append(sd)
+            variables.append(variable)
         for intf in mdg.interfaces():
-            grids[mdg.edge_id(intf) + mdg.num_subdomains()] = intf
-            variables[mdg.edge_id(intf) + mdg.num_subdomains()] = "lambda_u"
+            grids.append(intf)
+            variables.append("lambda_u")
 
         U, rhs = permute_matrix_vector(
             U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
@@ -1101,14 +1101,14 @@ class BasicsTest(unittest.TestCase):
         assembler.discretize()
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
-        grids = np.empty(mdg.num_subdomains() + mdg.num_interfaces(), dtype=np.object)
-        variables = np.empty_like(grids)
+        grids = list()
+        variables = list()
         for sd in mdg.subdomains():
-            grids[mdg.node_id(sd)] = sd
-            variables[mdg.node_id(sd)] = variable
+            grids.append(sd)
+            variables.append(variable)
         for intf in mdg.interfaces():
-            grids[mdg.edge_id(intf) + mdg.num_subdomains()] = intf
-            variables[mdg.edge_id(intf) + mdg.num_subdomains()] = "lambda_u"
+            grids.append(intf)
+            variables.append("lambda_u")
         U, rhs = permute_matrix_vector(
             U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
         )
@@ -1183,14 +1183,14 @@ class BasicsTest(unittest.TestCase):
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
-        grids = np.empty(mdg.num_subdomains() + mdg.num_interfaces(), dtype=np.object)
-        variables = np.empty_like(grids)
+        grids = list()
+        variables = list()
         for sd in mdg.subdomains():
-            grids[mdg.node_id(sd)] = sd
-            variables[mdg.node_id(sd)] = variable
+            grids.append(sd)
+            variables.append(variable)
         for intf in mdg.interfaces():
-            grids[mdg.edge_id(intf) + mdg.num_subdomains()] = intf
-            variables[mdg.edge_id(intf) + mdg.num_subdomains()] = "lambda_u"
+            grids.append(intf)
+            variables.append("lambda_u")
 
         M, rhs = permute_matrix_vector(
             U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
@@ -1346,14 +1346,14 @@ class BasicsTest(unittest.TestCase):
 
         U_tmp, rhs = assembler.assemble_matrix_rhs()
 
-        grids = np.empty(mdg.num_subdomains() + mdg.num_interfaces(), dtype=np.object)
-        variables = np.empty_like(grids)
+        grids = list()
+        variables = list()
         for sd in mdg.subdomains():
-            grids[mdg.node_id(sd)] = sd
-            variables[mdg.node_id(sd)] = variable
+            grids.append(sd)
+            variables.append(variable)
         for intf in mdg.interfaces():
-            grids[mdg.edge_id(intf) + mdg.num_subdomains()] = intf
-            variables[mdg.edge_id(intf) + mdg.num_subdomains()] = "lambda_u"
+            grids.append(intf)
+            variables.append("lambda_u")
 
         M, rhs = permute_matrix_vector(
             U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables

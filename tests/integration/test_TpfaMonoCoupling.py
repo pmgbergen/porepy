@@ -370,11 +370,8 @@ class TestTpfaCouplingPeriodicBc(unittest.TestCase):
                     if np.sum(face_faces) == 0:
                         continue
 
-                    di = mdg.subdomain_data(gi)
-                    dj = mdg.subdomain_data(gj)
 
-                    # if mdg.node_id(gi) < dj["node_number"]:
-                    if mdg.node_id(gi) < mdg.node_id(gj):
+                    if gi.id < gj.id:
                         # gj is left
                         g_m, _, _ = pp.partition.extract_subgrid(
                             gj, gj.right, faces=True
