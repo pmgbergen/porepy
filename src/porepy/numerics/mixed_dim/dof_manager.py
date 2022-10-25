@@ -12,7 +12,6 @@ import porepy as pp
 
 csc_or_csr_matrix = Union[sps.csc_matrix, sps.csr_matrix]
 
-
 __all__ = ["DofManager"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
@@ -85,7 +84,6 @@ class DofManager:
                 continue
 
             for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
-
                 # First count the number of dofs per variable. Note that the
                 # identifier here is a tuple of the edge and a variable str.
                 block_dof[(intf, local_var)] = block_dof_counter
@@ -493,6 +491,78 @@ class DofManager:
                 values[dof_ind] = data[pp.STATE][var].copy()
 
         return values
+
+    def transfer_variable(
+        self,
+        grids: Optional[List[GridLike]] = None,
+        variables: Optional[List[str]] = None,
+        from_iterate_to_state: Optional[bool] = None,
+        from_state_to_iterate: Optional[bool] = None,
+    ) -> None:
+        """Facilitates transfering of variables from pp.ITERATE to pp.STATE and vice-versa.
+
+        Args:
+            grids: The subdomains and interfaces to be considered. If not provided,
+                all grids and edges found in self.block_dof will be considered.
+            variables: Names of the variables to be distributed. If not provided,
+                all variables found in self.block_dof will be considered.
+            from_iterate_to_state: Set to True if the variable has to be transferred from
+                data[pp.STATE][pp.ITERATE] to data[pp.STATE].
+            from_state_to_iterate: Set to True if the variable has to be transferred from
+                data[pp.STATE] to data[pp.STATE][pp.ITERATE].
+
+        Raises:
+            ValueError is `from_iterate_to_state` and `from_state_to_iterate` are set True.
+            ValueError is `from_iterate_to_state` and `from_state_to_iterate` are set False.
+
+        """
+
+        # Set None parameters to False
+        if from_iterate_to_state is None:
+            from_iterate_to_state = False
+
+        if from_state_to_iterate is None:
+            from_state_to_iterate = False
+
+        # Sanity checks
+        if from_iterate_to_state and from_state_to_iterate:
+            raise ValueError("Only one transfer at a time can be performed.")
+
+        if not from_iterate_to_state and not from_state_to_iterate:
+            raise ValueError("No transfer has been selected.")
+
+        # Collect all grids and all variables if not specified
+        if grids is None:
+            grids = list(set([key[0] for key in self.block_dof]))
+
+        if variables is None:
+            variables = list(set([key[1] for key in self.block_dof]))
+
+        # Loop over grid-variable combinations and update data in pp.STATE or pp.ITERATE
+        for g, var in itertools.product(grids, variables):
+            if (g, var) not in self.block_dof:
+                continue
+
+            # Retrieve data dictionary
+            if isinstance(g, pp.MortarGrid):
+                data = self.mdg.interface_data(g)
+            else:
+                data = self.mdg.subdomain_data(g)
+
+            # Initialize (empty) dictionaries if not present in the data dict
+            if pp.STATE not in data:
+                data[pp.STATE] = {}
+
+            if pp.ITERATE not in data[pp.STATE]:
+                data[pp.STATE][pp.ITERATE] = {}
+
+            # Transfer variables accordingly
+            # Make copies of the arrays to avoid unwanted bugs
+            if from_state_to_iterate:
+                data[pp.STATE][pp.ITERATE][var] = data[pp.STATE][var].copy()
+
+            if from_iterate_to_state:
+                data[pp.STATE][var] = data[pp.STATE][pp.ITERATE][var].copy()
 
     def __str__(self) -> str:
         grid_likes = [key[0] for key in self.block_dof]
