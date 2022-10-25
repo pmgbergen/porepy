@@ -28,9 +28,6 @@ folder_reference = (
     os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"
 )
 
-# Force grid counter to start at 0 for comparison purposes in this test. Not recommended
-# in general!
-pp.Grid._counter = count(0)
 
 class ExporterTestSetup:
     """Class to define where to store vtu files, and test the export functionality
@@ -97,8 +94,8 @@ def _compare_vtu_files(
     # number of significant digits and base the comparison in
     # exponential form.
     diff = DeepDiff(
-        test_data.__dict__,
         reference_data.__dict__,
+        test_data.__dict__,
         significant_digits=8,
         number_format_notation="e",
         ignore_numeric_type_changes=True,
@@ -166,7 +163,10 @@ single_subdomains = [
         f"{folder_reference}/single_subdomain_3d_polytop_grid.vtu",
     ),
 ]
-
+def setup_module():
+    # Reset the counter is reset to 0 + 7 (the number of single subdomains)
+    pp.Grid._counter = count(7)
+    pp.MortarGrid._counter = count(0)
 
 @pytest.mark.parametrize("subdomain", single_subdomains)
 def test_single_subdomains(setup, subdomain):
@@ -195,7 +195,6 @@ def test_single_subdomains(setup, subdomain):
         f"{setup.folder}/{setup.file_name}_{sd.dim}.vtu",
         f"{subdomain.ref_vtu_file}",
     )
-
 
 def test_mdg(setup):
     # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
@@ -241,7 +240,6 @@ def test_mdg(setup):
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
             f"{setup.folder_reference}/mdg_grid_{appendix}.vtu",
         )
-
 
 def test_mdg_data_selection(setup):
     # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
