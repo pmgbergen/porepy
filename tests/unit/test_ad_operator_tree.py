@@ -304,3 +304,87 @@ def test_ad_variable_creation():
     mvar_1_prev_time = mvar_1.previous_timestep()
     assert mvar_1_prev_iter.id != mvar_1.id
     assert mvar_1_prev_time.id != mvar_1.id
+
+
+def test_time_differentiation():
+    """Test the dt operator in AD.
+
+    For the moment, this is simply a test that backward Euler is correctly implemented.
+    """
+
+    # Create a MixedDimensionalGrid with two subdomains, one interface.
+    # The highest-dimensional subdomain has both a variable and a time-dependent array,
+    # while the lower-dimensional
+    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
+    for sd, sd_data in mdg.subdomains(return_data=True):
+        sd_data[pp.PRIMARY_VARIABLES] = {"foo": {"cells": 1}}
+
+        if sd.dim == mdg.dim_max():
+            sd_data[pp.STATE] = {
+                "foo": -np.ones(sd.num_cells),
+                "bar": 2 * np.ones(sd.num_cells),
+                pp.ITERATE: {
+                    "foo": 3 * np.ones(sd.num_cells),
+                    "bar": np.ones(sd.num_cells),
+                },
+            }
+        else:
+            sd_data[pp.STATE] = {
+                "foo": np.zeros(sd.num_cells),
+                pp.ITERATE: {"foo": np.ones(sd.num_cells)},
+            }
+
+    for intf, intf_data in mdg.interfaces(return_data=True):
+        # Create an empty primary variable list
+        intf_data[pp.PRIMARY_VARIABLES] = {}
+        # Set a numpy array in state, to be represented as a time-dependent array.
+        intf_data[pp.STATE] = {
+            "foobar": np.ones(intf.num_cells),
+            pp.ITERATE: {"foobar": 2 * np.ones(intf.num_cells)},
+        }
+
+    dof_manager = pp.DofManager(mdg)
+    eq_manager = pp.ad.EquationManager(mdg, dof_manager)
+
+    # The time step, represented as a scalar.
+    time_step = pp.ad.Scalar(2)
+
+    # Differentiate the variable on the highest-dimensional subdomain
+    sd = mdg.subdomains(dim=mdg.dim_max())[0]
+    var_1 = eq_manager.variable(sd, "foo")
+    dt_var_1 = pp.ad.dt(var_1, time_step)
+    assert np.allclose(dt_var_1.evaluate(dof_manager).val, 2)
+
+    # Differentiate the time dependent array residing on the subdomain
+    array = pp.ad.TimeDependentArray(name="bar", subdomains=[sd])
+    dt_array = pp.ad.dt(array, time_step)
+    assert np.allclose(dt_array.evaluate(dof_manager), -0.5)
+
+    # Combine the parameter array and the variable. This is a test that operators that
+    # are not leaves are differentiated correctly.
+    var_array = var_1 * array
+    dt_var_array = pp.ad.dt(var_array, time_step)
+    assert np.allclose(dt_var_array.evaluate(dof_manager).val, 2.5)
+
+    # For good measure, add one more level of combination.
+    var_array_2 = var_array + var_array
+    dt_var_array = pp.ad.dt(var_array_2, time_step)
+    assert np.allclose(dt_var_array.evaluate(dof_manager).val, 5)
+
+    # Also do a test of the merged variable.
+    mvar = eq_manager.merge_variables([(sd, "foo")])
+
+    dt_mvar = pp.ad.dt(mvar, time_step)
+    assert np.allclose(dt_mvar.evaluate(dof_manager).val[: sd.num_cells], 2)
+    assert np.allclose(dt_mvar.evaluate(dof_manager).val[sd.num_cells :], 0.5)
+
+    # Make a combined operator with the merged variable, test this.
+    dt_mvar = pp.ad.dt(mvar * mvar, time_step)
+    assert np.allclose(dt_mvar.evaluate(dof_manager).val[: sd.num_cells], 4)
+    assert np.allclose(dt_mvar.evaluate(dof_manager).val[sd.num_cells :], 0.5)
+
+    # Finally create a variable at the previous time step. Its derivative should be
+    # zero.
+    var_2 = var_1.previous_timestep()
+    dt_var_2 = pp.ad.dt(var_2, time_step)
+    assert np.allclose(dt_var_2.evaluate(dof_manager), 0)
