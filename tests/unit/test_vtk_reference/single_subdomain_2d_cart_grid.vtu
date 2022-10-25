@@ -32,14 +32,14 @@ AQAAAACAAACAAQAAEQAAAA==eJxjYAADB4ZRekBoAN34DAE=
 <DataArray type="Int32" Name="grid_dim" format="binary">
 AQAAAACAAABAAAAADwAAAA==eJxjYmBgYKIAAwAEgAAh
 </DataArray>
-<DataArray type="Int32" Name="grid_node_number" format="binary">
-AQAAAACAAABAAAAADAAAAA==eJxjYKAMAAAAQAAB
-</DataArray>
 <DataArray type="Int32" Name="is_mortar" format="binary">
 AQAAAACAAABAAAAADAAAAA==eJxjYKAMAAAAQAAB
 </DataArray>
 <DataArray type="Int32" Name="mortar_side" format="binary">
 AQAAAACAAABAAAAADAAAAA==eJxjYKAMAAAAQAAB
+</DataArray>
+<DataArray type="Int32" Name="subdomain_id" format="binary">
+AQAAAACAAABAAAAADwAAAA==eJxjYWBgYKEAAwAIwABB
 </DataArray>
 </CellData>
 </Piece>

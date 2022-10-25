@@ -1,13 +1,12 @@
 from __future__ import division
 
 import unittest
-from tests.integration import _helper_test_upwind_coupling
-from tests.test_utils import permute_matrix_vector
 
 import numpy as np
 from scipy.sparse.linalg import spsolve as sparse_solver
 
 import porepy as pp
+from tests.integration import _helper_test_upwind_coupling
 
 # ------------------------------------------------------------------------------#
 
@@ -59,20 +58,7 @@ class BasicsTest(unittest.TestCase):
         dof_manager = pp.DofManager(mdg)
         assembler = pp.Assembler(mdg, dof_manager)
         assembler.discretize()
-        U_tmp, rhs = assembler.assemble_matrix_rhs()
-
-        grids = list()
-        variables = list()
-        for sd, data in mdg.subdomains(return_data=True):
-            grids.append(sd)
-            variables.append(variable)
-        for intf in mdg.interfaces():
-            grids.append(intf)
-            variables.append("lambda_u")
-
-        U, rhs = permute_matrix_vector(
-            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
-        )
+        U, rhs = assembler.assemble_matrix_rhs()
 
         theta = sparse_solver(U, rhs)
         U_known = np.array(
@@ -142,20 +128,8 @@ class BasicsTest(unittest.TestCase):
         assembler = pp.Assembler(mdg, dof_manager)
         assembler.discretize()
 
-        U_tmp, rhs = assembler.assemble_matrix_rhs()
+        U, rhs = assembler.assemble_matrix_rhs()
 
-        grids = list()
-        variables = list()
-        for sd in mdg.subdomains():
-            grids.append(sd)
-            variables.append(variable)
-        for intf, data in mdg.interfaces(return_data=True):
-            grids.append(intf)
-            variables.append("lambda_u")
-
-        U, rhs = permute_matrix_vector(
-            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
-        )
         theta = sparse_solver(U, rhs)
 
         U_known = np.array(
@@ -181,53 +155,6 @@ class BasicsTest(unittest.TestCase):
 
     def test_upwind_coupling_2d_1d_left_right_cross(self):
         mdg, _ = pp.md_grids_2d.two_intersecting([2, 2], simplex=False)
-
-        # Enforce node ordering because of Python 3.5 and 2.7.
-        # Don't do it in general.
-        cell_centers_1 = np.array(
-            [
-                [7.50000000e-01, 2.5000000e-01],
-                [0.50000000e00, 0.50000000e00],
-                [-5.55111512e-17, 5.55111512e-17],
-            ]
-        )
-        cell_centers_2 = np.array(
-            [
-                [0.50000000e00, 0.50000000e00],
-                [7.50000000e-01, 2.5000000e-01],
-                [-5.55111512e-17, 5.55111512e-17],
-            ]
-        )
-
-        # for sd, data in mdg.subdomains(return_data=True):
-        #     if sd.dim == 2:
-        #         data["node_number"] = 0
-        #     elif sd.dim == 1:
-        #         if np.allclose(sd.cell_centers, cell_centers_1):
-        #             data["node_number"] = 1
-        #         elif np.allclose(sd.cell_centers, cell_centers_2):
-        #             data["node_number"] = 2
-        #         else:
-        #             raise ValueError("Grid not found")
-        #     elif sd.dim == 0:
-        #         data["node_number"] = 3
-        #     else:
-        #         raise ValueError
-        # #
-        # for intf, data in mdg.interfaces(return_data=True):
-        #     sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
-        #     n1 = mdg.subdomain_data(sd_secondary)["node_number"]
-        #     n2 = mdg.subdomain_data(sd_primary)["node_number"]
-        #     if n1 == 1 and n2 == 0:
-        #         data["edge_number"] = 0
-        #     elif n1 == 2 and n2 == 0:
-        #         data["edge_number"] = 1
-        #     elif n1 == 3 and n2 == 1:
-        #         data["edge_number"] = 2
-        #     elif n1 == 3 and n2 == 2:
-        #         data["edge_number"] = 3
-        #     else:
-        #         raise ValueError
 
         # define discretization
         key = "transport"
@@ -273,19 +200,8 @@ class BasicsTest(unittest.TestCase):
         assembler = pp.Assembler(mdg, dof_manager)
         assembler.discretize()
 
-        U_tmp, rhs = assembler.assemble_matrix_rhs()
+        U, rhs = assembler.assemble_matrix_rhs()
 
-        grids = list()
-        variables = list()
-        for sd in mdg.subdomains():
-            grids.append(sd)
-            variables.append(variable)
-        for intf in mdg.interfaces():
-            grids.append(intf)
-            variables.append("lambda_u")
-        U, rhs = permute_matrix_vector(
-            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
-        )
         theta = sparse_solver(U, rhs)
         #        deltaT = solver.cfl(gb)
         U_known = np.array(
@@ -844,7 +760,6 @@ class BasicsTest(unittest.TestCase):
         mdg = pp.meshing.cart_grid([f], [1, 1, 2], **{"physdims": [1, 1, 1]})
         mdg.compute_geometry()
 
-
         # define discretization
         key = "transport"
         upwind = pp.Upwind(key)
@@ -886,20 +801,8 @@ class BasicsTest(unittest.TestCase):
         assembler = pp.Assembler(mdg, dof_manager)
         assembler.discretize()
 
-        U_tmp, rhs = assembler.assemble_matrix_rhs()
+        U, rhs = assembler.assemble_matrix_rhs()
 
-        grids = list()
-        variables = list()
-        for sd in mdg.subdomains():
-            grids.append(sd)
-            variables.append(variable)
-        for intf in mdg.interfaces():
-            grids.append(intf)
-            variables.append("lambda_u")
-
-        U, rhs = permute_matrix_vector(
-            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
-        )
         theta = sparse_solver(U, rhs)
 
         U_known = np.array(
@@ -927,7 +830,6 @@ class BasicsTest(unittest.TestCase):
         f = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0.5, 0.5, 0.5, 0.5]])
         mdg = pp.meshing.cart_grid([f], [1, 1, 2], **{"physdims": [1, 1, 1]})
         mdg.compute_geometry()
-
 
         # define discretization
         key = "transport"
@@ -970,20 +872,7 @@ class BasicsTest(unittest.TestCase):
         assembler = pp.Assembler(mdg, dof_manager)
         assembler.discretize()
 
-        U_tmp, rhs = assembler.assemble_matrix_rhs()
-
-        grids = list()
-        variables = list()
-        for sd in mdg.subdomains():
-            grids.append(sd)
-            variables.append(variable)
-        for intf in mdg.interfaces():
-            grids.append(intf)
-            variables.append("lambda_u")
-
-        U, rhs = permute_matrix_vector(
-            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
-        )
+        U, rhs = assembler.assemble_matrix_rhs()
 
         theta = sparse_solver(U, rhs)
         U_known = np.array(
@@ -1014,48 +903,6 @@ class BasicsTest(unittest.TestCase):
 
         mdg = pp.meshing.cart_grid([f1, f2, f3], [2, 2, 2], **{"physdims": [1, 1, 1]})
         mdg.compute_geometry()
-
-
-        cell_centers1 = np.array(
-            [[0.25, 0.75, 0.25, 0.75], [0.25, 0.25, 0.75, 0.75], [0.5, 0.5, 0.5, 0.5]]
-        )
-        cell_centers2 = np.array(
-            [[0.5, 0.5, 0.5, 0.5], [0.25, 0.25, 0.75, 0.75], [0.75, 0.25, 0.75, 0.25]]
-        )
-        cell_centers3 = np.array(
-            [[0.25, 0.75, 0.25, 0.75], [0.5, 0.5, 0.5, 0.5], [0.25, 0.25, 0.75, 0.75]]
-        )
-        cell_centers4 = np.array([[0.5], [0.25], [0.5]])
-        cell_centers5 = np.array([[0.5], [0.75], [0.5]])
-        cell_centers6 = np.array([[0.75], [0.5], [0.5]])
-        cell_centers7 = np.array([[0.25], [0.5], [0.5]])
-        cell_centers8 = np.array([[0.5], [0.5], [0.25]])
-        cell_centers9 = np.array([[0.5], [0.5], [0.75]])
-
-        # for sd, data in mdg.subdomains(return_data=True):
-            # if sd.dim == mdg.dim_max():
-            #     data["node_number"] = 0
-            # if np.allclose(sd.cell_centers[:, 0], cell_centers1[:, 0]):
-            #     data["node_number"] = 1
-            # elif np.allclose(sd.cell_centers[:, 0], cell_centers2[:, 0]):
-            #     data["node_number"] = 2
-            # elif np.allclose(sd.cell_centers[:, 0], cell_centers3[:, 0]):
-            #     data["node_number"] = 3
-            # elif np.allclose(sd.cell_centers[:, 0], cell_centers4[:, 0]):
-            #     data["node_number"] = 4
-            # elif np.allclose(sd.cell_centers[:, 0], cell_centers5[:, 0]):
-            #     data["node_number"] = 5
-            # elif np.allclose(sd.cell_centers[:, 0], cell_centers6[:, 0]):
-            #     data["node_number"] = 6
-            # elif np.allclose(sd.cell_centers[:, 0], cell_centers7[:, 0]):
-            #     data["node_number"] = 7
-            # elif np.allclose(sd.cell_centers[:, 0], cell_centers8[:, 0]):
-            #     data["node_number"] = 8
-            # elif np.allclose(sd.cell_centers[:, 0], cell_centers9[:, 0]):
-            #     data["node_number"] = 9
-            # else:
-            #     data["node_number"] = -42
-
 
         # define discretization
         key = "transport"
@@ -1099,19 +946,7 @@ class BasicsTest(unittest.TestCase):
         assembler = pp.Assembler(mdg, dof_manager)
 
         assembler.discretize()
-        U_tmp, rhs = assembler.assemble_matrix_rhs()
-
-        grids = list()
-        variables = list()
-        for sd in mdg.subdomains():
-            grids.append(sd)
-            variables.append(variable)
-        for intf in mdg.interfaces():
-            grids.append(intf)
-            variables.append("lambda_u")
-        U, rhs = permute_matrix_vector(
-            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
-        )
+        U, rhs = assembler.assemble_matrix_rhs()
 
         theta = sparse_solver(U, rhs)
         #        deltaT = solver.cfl(gb)
@@ -1122,27 +957,91 @@ class BasicsTest(unittest.TestCase):
             _helper_test_upwind_coupling.matrix_rhs_for_test_upwind_coupling_3d_2d_1d_0d()
         )
 
-        theta_known = np.array([1.00000000e+00, 1.00000000e+00, 1.00000000e+00, 1.00000000e+00,
-                   1.00000000e+00, 1.00000000e+00, 1.00000000e+00, 1.00000000e+00,
-                   1.00000000e+00, 1.00000000e+00, 1.00000000e+00, 1.00000000e+00,
-                   1.00000000e+00, 1.00000000e+00, 1.00000000e+00, 1.00000000e+00,
-                   1.00000000e+00, 1.00000000e+00, 1.00000000e+00, 1.00000000e+00,
-                   1.00000000e+00, 1.00000000e+00, 1.00000000e+00, 1.00000000e+00,
-                   1.00000000e+00, 1.00000000e+00, 1.00000000e+00, 0.00000000e+00,
-                   0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-                   0.00000000e+00, 0.00000000e+00, 0.00000000e+00, -2.50000000e-01,
-                   -2.50000000e-01, -2.50000000e-01, -2.50000000e-01, 2.50000000e-01,
-                   2.50000000e-01, 2.50000000e-01, 2.50000000e-01, 0.00000000e+00,
-                   0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-                   0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00,
-                   0.00000000e+00, -5.00000000e-03, 5.00000000e-03, 0.00000000e+00,
-                   0.00000000e+00, -5.00000000e-03, 5.00000000e-03, -5.55111512e-19,
-                   5.55111512e-19, -5.55111512e-19, 5.55111512e-19, -5.55111512e-19,
-                   5.55111512e-19, -5.55111512e-19, 5.55111512e-19, 0.00000000e+00,
-                   0.00000000e+00, -5.00000000e-03, 5.00000000e-03, 0.00000000e+00,
-                   0.00000000e+00, -5.00000000e-03, 5.00000000e-03, 1.00000000e-04,
-                   -0.00000000e+00, -0.00000000e+00, -1.00000000e-04, 0.00000000e+00,
-                   0.00000000e+00])
+        theta_known = np.array(
+            [
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                1.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                -2.50000000e-01,
+                -2.50000000e-01,
+                -2.50000000e-01,
+                -2.50000000e-01,
+                2.50000000e-01,
+                2.50000000e-01,
+                2.50000000e-01,
+                2.50000000e-01,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                0.00000000e00,
+                -5.00000000e-03,
+                5.00000000e-03,
+                0.00000000e00,
+                0.00000000e00,
+                -5.00000000e-03,
+                5.00000000e-03,
+                -5.55111512e-19,
+                5.55111512e-19,
+                -5.55111512e-19,
+                5.55111512e-19,
+                -5.55111512e-19,
+                5.55111512e-19,
+                -5.55111512e-19,
+                5.55111512e-19,
+                0.00000000e00,
+                0.00000000e00,
+                -5.00000000e-03,
+                5.00000000e-03,
+                0.00000000e00,
+                0.00000000e00,
+                -5.00000000e-03,
+                5.00000000e-03,
+                1.00000000e-04,
+                -0.00000000e00,
+                -0.00000000e00,
+                -1.00000000e-04,
+                0.00000000e00,
+                0.00000000e00,
+            ]
+        )
         rtol = 1e-15
         atol = rtol
         self.assertTrue(np.allclose(U.todense(), U_known, rtol, atol))
@@ -1181,26 +1080,13 @@ class BasicsTest(unittest.TestCase):
         assembler = pp.Assembler(mdg, dof_manager)
         assembler.discretize()
 
-        U_tmp, rhs = assembler.assemble_matrix_rhs()
-
-        grids = list()
-        variables = list()
-        for sd in mdg.subdomains():
-            grids.append(sd)
-            variables.append(variable)
-        for intf in mdg.interfaces():
-            grids.append(intf)
-            variables.append("lambda_u")
-
-        M, rhs = permute_matrix_vector(
-            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
-        )
+        M, rhs = assembler.assemble_matrix_rhs()
 
         # add generic mass matrix to solve system
         I_diag = np.zeros(M.shape[0])
         I_diag[: mdg.num_subdomain_cells()] = 1
-        I = np.diag(I_diag)
-        theta = np.linalg.solve(M + I, I_diag + rhs)
+        Id = np.diag(I_diag)
+        theta = np.linalg.solve(M + Id, I_diag + rhs)
         M_known = np.array(
             [
                 [2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -1344,20 +1230,8 @@ class BasicsTest(unittest.TestCase):
         assembler = pp.Assembler(mdg, dof_manager)
         assembler.discretize()
 
-        U_tmp, rhs = assembler.assemble_matrix_rhs()
+        M, rhs = assembler.assemble_matrix_rhs()
 
-        grids = list()
-        variables = list()
-        for sd in mdg.subdomains():
-            grids.append(sd)
-            variables.append(variable)
-        for intf in mdg.interfaces():
-            grids.append(intf)
-            variables.append("lambda_u")
-
-        M, rhs = permute_matrix_vector(
-            U_tmp, rhs, dof_manager.block_dof, dof_manager.full_dof, grids, variables
-        )
         theta = np.linalg.solve(M.A, rhs)
         M_known = np.array(
             [
