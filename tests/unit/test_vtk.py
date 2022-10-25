@@ -21,12 +21,16 @@ import pytest
 from deepdiff import DeepDiff
 
 import porepy as pp
+from itertools import count
 
 # Globally store location of reference files
 folder_reference = (
     os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"
 )
 
+# Force grid counter to start at 0 for comparison purposes in this test. Not recommended
+# in general!
+pp.Grid._counter = count(0)
 
 class ExporterTestSetup:
     """Class to define where to store vtu files, and test the export functionality
