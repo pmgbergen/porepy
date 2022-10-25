@@ -12,8 +12,9 @@ necessarily mean that something is wrong.
 """
 import os
 import shutil
-from pathlib import Path
 from collections import namedtuple
+from pathlib import Path
+
 import meshio
 import numpy as np
 import pytest
@@ -53,17 +54,34 @@ def setup():
     shutil.rmtree(full_path)
 
 
-def _compare_vtu_files(test_file: str, reference_file: str) -> bool:
-    # Helper method to determine whether two vtu files, accessed by their
-    # paths, are identical. Returns True if both files are identified as the
-    # same, False otherwise. This is the main auxiliary routine used to compare
-    # down below whether the Exporter produces identical outputs as stored
-    # reference files.
+def _compare_vtu_files(
+    test_file: str, reference_file: str, overwrite: bool = False
+) -> bool:
+    """Determine whether the contents of two vtu files are identical.
 
-    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
-    # for the reference grid; thus, if this test fails, it should be
-    # rerun with an older version of Gmsh to test for failure due to
-    # external reasons.
+    Helper method to determine whether two vtu files, accessed by their
+    paths, are identical. Returns True if both files are identified as the
+    same, False otherwise. This is the main auxiliary routine used to compare
+    down below whether the Exporter produces identical outputs as stored
+    reference files.
+
+    NOTE: It is implicitly assumed that Gmsh returns the same grid as
+    for the reference grid; thus, if this test fails, it should be
+    rerun with an older version of Gmsh to test for failure due to
+    external reasons.
+
+    Args:
+        test_file: Name of the test file.
+        reference_file: Name of the reference file
+        overwrite: Whether to overwrite the reference file with the test file. This should
+            ONLY ever be done if you are changing the "truth" of the test.
+
+    Returns:
+        Boolean. True iff files are identical.
+    """
+    if overwrite:
+        shutil.copy(test_file, reference_file)
+        return True
 
     # Trust meshio to read the vtu files
     test_data = meshio.read(test_file)

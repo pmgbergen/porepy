@@ -63,8 +63,8 @@ class Exporter:
 
     NOTE: the following names are reserved for constant data exporting
     and should not be used otherwise (otherwise data is overwritten):
-    grid_dim, is_mortar, mortar_side, cell_id, grid_node_number,
-    grid_edge_number.
+    grid_dim, is_mortar, mortar_side, cell_id, subdomain_id,
+    interface_id.
 
     Examples:
         # Here, merely a brief demonstration of the use of Exporter is presented.
@@ -922,7 +922,7 @@ class Exporter:
                 sd.num_cells, dtype=int
             )
             self._constant_subdomain_data[(sd, "grid_dim")] = sd.dim * ones
-            self._constant_subdomain_data[(sd, "grid_node_number")] = sd.id * ones
+            self._constant_subdomain_data[(sd, "subdomain_id")] = sd.id * ones
             self._constant_subdomain_data[(sd, "is_mortar")] = 0 * ones
             self._constant_subdomain_data[(sd, "mortar_side")] = (
                 pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
@@ -940,7 +940,7 @@ class Exporter:
             # Construct empty arrays for all extra interface data
             self._constant_interface_data[(intf, "grid_dim")] = np.empty(0, dtype=int)
             self._constant_interface_data[(intf, "cell_id")] = np.empty(0, dtype=int)
-            self._constant_interface_data[(intf, "grid_edge_number")] = np.empty(
+            self._constant_interface_data[(intf, "interface_id")] = np.empty(
                 0, dtype=int
             )
             self._constant_interface_data[(intf, "is_mortar")] = np.empty(0, dtype=int)
@@ -969,9 +969,9 @@ class Exporter:
                 )
 
                 # Grid edge number of each interface
-                self._constant_interface_data[(intf, "grid_edge_number")] = np.hstack(
+                self._constant_interface_data[(intf, "interface_id")] = np.hstack(
                     (
-                        self._constant_interface_data[(intf, "grid_edge_number")],
+                        self._constant_interface_data[(intf, "interface_id")],
                         intf.id * ones,
                     )
                 )
