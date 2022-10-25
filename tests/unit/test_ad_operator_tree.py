@@ -1,11 +1,13 @@
 """Test creation and composition of Ad operators and their trees.
 
 The main checks performed are:
-    test_elementary_operations: Checks of basic aritmetic operations are correctly implemented.
+    test_elementary_operations: Checks of basic aritmetic operations are correctly
+        implemented.
     test_copy_operator_tree: Test of functionality under copy.copy and deepcopy.
     test_elementary_wrappers: Test wrapping of scalars, arrays and matrices.
-    test_ad_variable_creation: Generate variables, check that copies and new variables are
-        returned as expected.
+    test_ad_variable_creation: Generate variables, check that copies and new variables 
+        are returned as expected.
+    test_time_differentiation: Covers the pp.ad.dt operator.
 
 """
 import copy
@@ -26,8 +28,8 @@ operators = [
 
 @pytest.mark.parametrize("operator", operators)
 def test_elementary_operations(operator):
-    """Test that performing elementary aritmetic operations on operators return operator trees
-    with the expected structure.
+    """Test that performing elementary aritmetic operations on operators return operator
+    trees with the expected structure.
 
     The test does not consider evaluation of the numerical values of the operators.
     """
@@ -164,16 +166,16 @@ def test_elementary_wrappers(field):
     assert compare(obj, wrapped_deep_copy.parse(None))
 
     # Next modify the value of the underlying object.
-    # This must be done in slightly different ways, depending on the implementation of the
-    # underlying data structures.
+    # This must be done in slightly different ways, depending on the implementation of
+    # the underlying data structures.
     if isinstance(obj, sps.spmatrix):
         obj[0, 0] += 1
     else:
         obj += 1.0
 
     # The shallow copy of the Ad quantity should also pick up the modification.
-    # The exception is the scalar, which is a wrapper of a Python immutable, and thus will return
-    # a pointer to the underlying immutable.
+    # The exception is the scalar, which is a wrapper of a Python immutable, and thus
+    # will return a pointer to the underlying immutable.
     if isinstance(wrapped_obj, pp.ad.Scalar):
         assert not compare(obj, wrapped_copy.parse(None))
     else:
@@ -238,8 +240,8 @@ def test_time_dependent_array():
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationManager.
     1) Fetching the same variable twice should get the same variable (same attribute id).
-    2) Fetching the same merged variable twice should result in objects with different id
-       attributes, but point to the same underlying variable.
+    2) Fetching the same merged variable twice should result in objects with different
+       id attributes, but point to the same underlying variable.
     """
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
 
@@ -256,7 +258,8 @@ def test_ad_variable_creation():
     var_2 = eq_manager.variable(mdg.subdomains(dim=mdg.dim_max())[0], "foo")
     var_3 = eq_manager.variable(mdg.subdomains(dim=mdg.dim_min())[0], "foo")
 
-    # Fetching the same variable twice should give the same variable (idetified by the variable id)
+    # Fetching the same variable twice should give the same variable (idetified by the
+    # variable id)
     assert var_1.id == var_2.id
     # A variable with the same name, but on a different grid should have a different id
     assert var_1.id != var_3.id
