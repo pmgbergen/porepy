@@ -610,7 +610,7 @@ class Geometry(Operator):
 
                     force = (scalar_to_nd_face * face_areas) * traction
 
-            FIXME: Refactor?
+            FIXME: Refactor? We might also want a general kron wrapper.
             """
             rows: np.ndarray = np.arange(size * self.nd)
             cols: np.ndarray = np.kron(np.arange(size), np.ones(self.nd))
