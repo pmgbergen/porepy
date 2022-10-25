@@ -181,10 +181,58 @@ def test_elementary_wrappers(field):
     
     # The deep copy should differ independent of which type of Ad quantity this is
     assert not compare(obj, wrapped_deep_copy.parse(None))
-    
-for field in fields:
-    test_elementary_wrappers(field)
-    
+
+
+def test_time_dependent_array():
+    """Test of time-dependent arrays (wrappers around numpy arrays)."""
+
+    # Time-dependent arrays are defined on grids.
+    # Some boilerplate is needed to define these.
+    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
+    for sd, sd_data in mdg.subdomains(return_data=True):
+        sd_data[pp.STATE] = {
+            "foo": np.zeros(sd.num_cells),
+            pp.ITERATE: {"foo": sd.dim * np.ones(sd.num_cells)},
+        }
+    for intf, intf_data in mdg.interfaces(return_data=True):
+        # Create an empty primary variable list
+        intf_data[pp.STATE] = {
+            "bar": np.arange(intf.num_cells),
+            pp.ITERATE: {"bar": np.ones(intf.num_cells)},
+        }
+
+    # We make three arrays: One defined on a single subdomain, one on a single subdomain
+    # and one on an interface.
+    sd_array_top = pp.ad.TimeDependentArray(
+        "foo", subdomains=mdg.subdomains(dim=mdg.dim_max())
+    )
+    sd_array = pp.ad.TimeDependentArray("foo", subdomains=mdg.subdomains())
+    intf_array = pp.ad.TimeDependentArray("bar", interfaces=mdg.interfaces())
+
+    # Evaluate each of the Ad objects, verify that they have the expected values.
+    sd_array_top_eval = sd_array_top.parse(mdg)
+    assert np.allclose(sd_array_top_eval, 2)
+
+    sd_array_eval = sd_array.parse(mdg)
+    # Check the values at the different subdomains separately. This assumes that the
+    # subdomains are ordered with the higher dimension first.
+    assert np.allclose(sd_array_eval[: sd_array_top_eval.size], 2)
+    assert np.allclose(sd_array_eval[sd_array_top_eval.size :], 1)
+    # The interface.
+    intf_val = intf_array.parse(mdg)
+    assert np.allclose(intf_val, 1)
+
+    # Evaluate at previous time steps
+
+    # The value is the same on both subdomains, so we can check them together.
+    sd_prev_timestep = sd_array.previous_timestep()
+    assert np.allclose(sd_prev_timestep.parse(mdg), 0)
+
+    sd_top_prev_timestep = sd_array_top.previous_timestep()
+    assert np.allclose(sd_prev_timestep.parse(sd_top_prev_timestep), 0)
+
+    intf_prev_timestep = intf_array.previous_timestep()
+    assert np.allclose(intf_prev_timestep.parse(mdg), np.arange(intf_val.size))
 
 
 def test_ad_variable_creation():
