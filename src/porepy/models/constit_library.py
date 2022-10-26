@@ -192,35 +192,28 @@ class UnitRock(Material):
     DENSITY: float = 1.0 * pp.KILOGRAM / pp.METER**3
     POROSITY: float = 0.2
     PERMEABILITY: float = 1.0 * pp.METER**2
-    YOUNGS_MODULUS: float = 1.0 * pp.PASCAL
-    POISSONS_RATIO: float = 0.2
+    LAME_LAMBDA: float = 1.0 * pp.PASCAL
+    SHEAR_MODULUS: float = 1.0 * pp.PASCAL
 
     def __init__(self, units):
         super().__init__(units)
 
-    def compute_stiffness_attributes(self):
-        """Compute stiffness attributes from Young's modulus and Poisson's ratio.
 
-        If a user prefers to specify a different set of attributes, this method should be
-        overridden e.g. as:
-            def compute_stiffness_attributes(self):
-                mu = 42
-                self.POISSIONS_RATIO =
+    def density(self, subdomains: list[pp.Grid]):
+        """Density [kg/m^3]."""
+        units = self.units.kg / self.units.m**3
+        return self.convert_and_expand(self.DENSITY, units, subdomains)
+
+    def thermal_expansion(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Thermal expansion coefficient [1/K].
+
+        Args:
+            subdomains: List of grids where the expansion coefficient is defined.
+
+        Returns:
+            Cell-wise thermal expansion coefficient.
         """
-        assert hasattr(self, "YOUNGS_MODULUS")
-        assert hasattr(self, "POISSONS_RATIO")
-
-        E = self.YOUNGS_MODULUS
-        nu = self.POISSONS_RATIO
-        self.LAME_LAMBDA = E * nu / ((1 + nu) * (1 - 2 * nu))  # Lame parameter lambda
-        self.SHEAR_MODULUS = E / (2 * (1 + nu))  # mu
-        self.BULK_MODULUS = E / (3 * (1 - 2 * nu))
-
-    def rock_density(self, subdomains: list[pp.Grid]):
-        return self.convert_units(self.DENSITY, self.units.kg / self.units.m**3)
-
-    def rock_thermal_expansion(self, subdomains):
-        return self.convert_units(self.THERMAL_EXPANSION, 1 / self.units.K)
+        return self.convert_and_expand(self.THERMAL_EXPANSION, 1 / self.units.K, subdomains)
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]):
         num_cells = sum([sd.num_cells for sd in interfaces])
@@ -235,30 +228,30 @@ class UnitRock(Material):
 
         return ad_wrapper(self.POROSITY, False, num_cells, "porosity")
 
-    def permeability(self, g: pp.Grid) -> float:
-        return self.convert_units(1, self.units.m**2)
+    def permeability(self, g: pp.Grid) -> np.ndarray:
+        return self.convert_and_expand(self.PERMEABILITY, self.units.m**2, [g])
 
-    def youngs_modulus(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def shear_modulus(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Young's modulus [Pa].
 
         Args:
-            subdomains: List of subdomains where the Young's modulus is defined.
+            subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
-            Cell-wise Young's modulus in SI units.
+            Cell-wise shear modulus in Pascal.
         """
-        return self.convert_and_expand(self.YOUNGS_MODULUS, self.units.Pa, subdomains)
+        return self.convert_and_expand(self.SHEAR_MODULUS, self.units.Pa, subdomains)
 
-    def poisson_ratio(self, subdomains: list[pp.Grid]) -> np.ndarray:
-        """Poisson's ratio [-].
+    def lame_lambda(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Lame's first parameter [Pa].
 
         Args:
-            subdomains: List of subdomains where the Poisson's ratio is defined.
+            subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
-            Cell-wise Poisson's ratio.
+            Cell-wise Lame's first parameter in Pascal.
         """
-        return self.convert_and_expand(self.POISSONS_RATIO, 1, subdomains)
+        return self.convert_and_expand(self.LAME_LAMBDA, self.units.Pa, subdomains)
 
 
 """
@@ -320,24 +313,47 @@ class ConstantViscosity:
 
 
 class LinearElasticRock:
-    def youngs_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        return ad_wrapper(
-            self.rock.youngs_modulus(subdomains), False, name="youngs_modulus"
-        )
+    """Linear elastic properties of rock.
 
-    def shear_modulus(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
+    parameters (bulk_modulus, lame_mu, poisson_ratio). The latter are computed from the former.
+    Also provides a method for computing the stiffness matrix as a FourthOrderTensor.
+    """
+    def shear_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Shear modulus [Pa].
 
         Args:
             subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
-            Cell-wise shear modulus in SI units.
+            Cell-wise shear modulus operator [Pa].
         """
-        val = self.youngs_modulus(subdomains) / (
-            2 * (1 + self.poisson_ratio(subdomains))
-        )
-        return ad_wrapper(val, False, name="shear_modulus")
+        return ad_wrapper(self.rock.shear_modulus(subdomains), False, name="shear_modulus")
+
+    def lame_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Lame's first parameter [Pa].
+
+        Args:
+            subdomains: List of subdomains where the shear modulus is defined.
+
+        Returns:
+            Cell-wise Lame's first parameter operator [Pa].
+        """
+        return ad_wrapper(self.rock.lame_lambda(subdomains), False, name="lame_lambda")
+
+    def youngs_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Young's modulus [Pa].
+
+        Args:
+            subdomains: List of subdomains where the Young's modulus is defined.
+
+        Returns:
+            Cell-wise Young's modulus in Pascal.
+        """
+        val = self.rock.shear_modulus(subdomains) * (
+            3 * self.rock.lame_lambda(subdomains) + 2 * self.rock.shear_modulus(subdomains)
+        ) / (self.rock.lame_lambda(subdomains) + self.rock.shear_modulus(subdomains))
+        return ad_wrapper(val, False, name="youngs_modulus")
 
     def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:
         """Stiffness tensor [Pa].
@@ -348,8 +364,8 @@ class LinearElasticRock:
         Returns:
             Cell-wise stiffness tensor in SI units.
         """
-        lmbda = self.lame_lambda(subdomain)
-        mu = self.shear_modulus(subdomain)
+        lmbda = self.rock.lame_lambda([subdomain])
+        mu = self.rock.shear_modulus([subdomain])
         return pp.FourthOrderTensor(mu, lmbda)
 
 
