@@ -5,10 +5,10 @@ using the AD framework.
 
 from __future__ import annotations
 
+import itertools
 from enum import Enum, EnumMeta
 from typing import Any, Callable, Literal, Optional, Union, overload
 
-import itertools
 import numpy as np
 import scipy.sparse as sps
 
@@ -177,13 +177,14 @@ class ADSystem:
         >>> mdg = ...  # some mixed-dim grid
         >>> ad_sys = pp.ad.ADSystem(mdg, var_categories)
         >>> p = ad_sys.create_variable('pressure', category=var_categories.primary)
-        >>> primary_projection = ad_sys.projection_to(categories=[var_category.primary])
+        >>> rho = ad_sys.create_variable('density', category=var_categories.secondary)
+        >>> primary_projection = ad_sys.projection_to(var_category.primary)
 
     Parameters:
         mdg: mixed-dimensional grid representing the whole computational domain.
-        var_categories (optional): an :class:`Enum` object containing categories for variables,
-            defined by the user/modeler. They can later be used to assign categories to created
-            variables and assemble respective subsystems using the enumerated object.
+        var_categories (optional): an :class:`~enum.EnumMeta` object containing categories for
+            variables, defined by the user. They can later be used to assign categories to
+            created variables and assemble respective subsystems using the enumerated object.
 
     """
 
@@ -210,7 +211,7 @@ class ADSystem:
         self.var_categories: Optional[EnumMeta] = var_categories
         """Enumeration object containing the variable categories passed at instantiation."""
 
-        self.variables: dict[str, pp.ad.MixedDimensionalVariable] = dict()
+        self.variables: dict[str, MixedDimensionalVariable] = dict()
         """Contains references to (global) MergedVariables for a given name (key)."""
 
         self.assembled_equation_indices: dict[str, np.ndarray] = dict()
@@ -221,7 +222,7 @@ class ADSystem:
 
         ### PRIVATE
 
-        self._equations: dict[str, pp.ad.Operator] = dict()
+        self._equations: dict[str, Operator] = dict()
         """Contains references to equations in AD operator form for a given name (key).
         Private to avoid having people setting equations directly and circumventing the current
         set-method which included information about the image space.
@@ -238,7 +239,7 @@ class ADSystem:
 
         """
 
-        self._grid_variables: dict[GridLike, dict[str, pp.ad.Variable]] = dict()
+        self._grid_variables: dict[GridLike, dict[str, Variable]] = dict()
         """Contains references to grid Variables and their names for a given grid (key).
         The reference is stored as another dict, which returns the variable for a given name
         (key).
@@ -275,7 +276,7 @@ class ADSystem:
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
         category: Optional[Enum] = None,
-    ) -> pp.ad.MixedDimensionalVariable:
+    ) -> MixedDimensionalVariable:
         """Creates a new variable according to specifications.
 
         This method does now assign any values to the variable. This has to be done in a
@@ -375,7 +376,7 @@ class ADSystem:
                 data[var_cat].update({name: dof_info})
 
                 # create grid variable
-                new_var = pp.ad.Variable(name, dof_info, domain=sd)
+                new_var = Variable(name, dof_info, domain=sd)
                 if sd not in self._grid_variables.keys():
                     self._grid_variables.update({sd: dict()})
                 if name not in self._grid_variables[sd]:
@@ -403,7 +404,7 @@ class ADSystem:
                     data[var_cat].update({name: dof_info})
 
                     # create mortar grid variable
-                    new_var = pp.ad.Variable(name, dof_info, domain=intf)
+                    new_var = Variable(name, dof_info, domain=intf)
                     if intf not in self._grid_variables.keys():
                         self._grid_variables.update({intf: dict()})
                     if name not in self._grid_variables[intf]:
@@ -411,7 +412,7 @@ class ADSystem:
                     variables.append(new_var)
 
         # create and store the md variable
-        merged_var = pp.ad.MixedDimensionalVariable(variables)
+        merged_var = MixedDimensionalVariable(variables)
         self.variables.update({name: merged_var})
         # store categorization
         if var_cat not in self._vars_of_category:
@@ -800,6 +801,33 @@ class ADSystem:
         else:
             raise TypeError(f"Type {type(variable)} not parsable as variable-like.")
 
+    def _gridbased_var_complement(self, variables: VarLike) -> list[Variable]:
+        """Finds the grid-based complement of a variable-like structure.
+
+        The grid-based complement consists of all those grid variables, which are not
+        inside ``variables``, but their respective variable names appear in the structure.
+        """
+        # strings, md variables and categories represent always a whole in the variable sense
+        # and the complement is empty
+        if isinstance(variables, (str, MixedDimensionalVariable, Enum)):
+            return list()
+        # grid variables are part of a md variable, the complement are the remaining grid vars
+        elif isinstance(variables, Variable):
+            md_v = self.variables[variables.name]
+            return [var for var in md_v.sub_vars if var.domain != variables.domain]
+        # non sequential var-like structure
+        else:
+            grid_vars = list()
+            for variable in variables:
+                # same processing as above, only grid variables are of interest
+                if isinstance(variable, Variable):
+                    md_v = self.variables[variable.name]
+                    grid_vars += [
+                        v for v in md_v.sub_vars if v.domain != variable.domain
+                    ]
+            # return a unique collection
+            return list(set(grid_vars))
+
     def num_dofs(self) -> int:
         """Returns the total number of dofs managed by this system."""
         return int(sum(self._block_dofs))  # cast numpy.int64 into Python int
@@ -887,12 +915,12 @@ class ADSystem:
         ...
 
     @overload
-    def identify_dof(self, dof: int, return_var: Literal[True]) -> "pp.ad.Variable":
+    def identify_dof(self, dof: int, return_var: Literal[True]) -> Variable:
         ...
 
     def identify_dof(
         self, dof: int, return_var: bool = False
-    ) -> tuple[str, GridLike] | "pp.ad.Variable":
+    ) -> tuple[str, GridLike] | Variable:
         """Identifies the block to which a specific DOF index belongs.
 
         The block is represented either by a name-grid pair or the respective variable.
@@ -936,7 +964,7 @@ class ADSystem:
 
     def set_equation(
         self,
-        equation: pp.ad.Operator,
+        equation: Operator,
         num_equ_per_dof: dict[GridLike, dict[str, int]],
     ) -> None:
         """Sets an equation using the passed operator **and uses its name as an identifier**.
@@ -944,7 +972,7 @@ class ADSystem:
         If an equation already exists under that name, it is overwritten.
 
         Information about the image space must be provided for now, such that grid-wise row
-        slicing is possible. This will hopefully be provided automatically in the future. TODO
+        slicing is possible. This will hopefully be provided automatically in the future.
 
         Notes:
             Regarding the number of equations, this method assumes that the AD framework
@@ -1035,7 +1063,7 @@ class ADSystem:
         self._equ_image_space_composition.update({name: image_info})
         self._equations.update({name: equation})
 
-    def get_equation(self, name: str) -> pp.ad.Operator:
+    def get_equation(self, name: str) -> Operator:
         """
         Returns: a reference to a previously passed equation in operator form.
 
@@ -1045,7 +1073,7 @@ class ADSystem:
         """
         return self._equations[name]
 
-    def remove_equation(self, name: str) -> pp.ad.Operator | None:
+    def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
 
         Returns:
@@ -1061,44 +1089,8 @@ class ADSystem:
 
     ### System assembly and discretization ----------------------------------------------------
 
-    def discretize(self, equations: Optional[str | list[str]] = None) -> None:
-        """Find and loop over all discretizations in the equation operators, extract unique
-        references and discretize.
-
-        This is more efficient than discretizing on the Operator level, since
-        discretizations which occur more than once in a set of equations will be
-        identified and only discretized once.
-
-        Parameters:
-            equations (optional): name(s) of equation(s) to be discretized.
-                If not given, all known equations will be searched and discretized.
-
-        Raises:
-            KeyError: if a given equation name is not known.
-
-        """
-        # TODO the search can be done once (in some kind of initialization) and must not be
-        # done always (performance)
-        if equations is None:
-            equations = list(self._equations.keys())  # type: ignore
-        elif isinstance(equations, str):
-            equations = [equations]  # type: ignore
-
-        # List containing all discretizations
-        discr: list = []
-        for eqn_name in equations:
-            # this raises a key error if a given equation name is unknown
-            eqn = self._equations[eqn_name]
-            # This will expand the list discr with new discretizations.
-            # The list may contain duplicates.
-            discr += self._recursive_discretization_search(eqn, list())
-
-        # Uniquify to save computational time, then discretize.
-        unique_discr = _ad_utils.uniquify_discretization_list(discr)
-        _ad_utils.discretize_from_list(unique_discr, self.mdg)
-
     @staticmethod
-    def _recursive_discretization_search(operator: pp.ad.Operator, discr: list) -> list:
+    def _recursive_discretization_search(operator: Operator, discr: list) -> list:
         """Recursive search in the tree of this operator to identify all discretizations
         represented in the operator.
 
@@ -1149,18 +1141,18 @@ class ADSystem:
                     if isinstance(equation, dict):
                         restricted_equations.update(block)
                     else:
-                        requested_row_blocks.update(self._parse_single_equation_like(equation))
+                        requested_row_blocks.update(block)
                 # update the requested blocks with the restricted to overwrite the indices if
                 # an equation was passed in both restricted and unrestricted structure
                 requested_row_blocks.update(restricted_equations)
                 # ensure order
-                ordered_blocks = list()
+                ordered_blocks = dict()
                 for equation in self._equations:
                     if equation in requested_row_blocks:
-                        ordered_blocks.append(
-                            (equation, requested_row_blocks[equation])
+                        ordered_blocks.update(
+                            {equation: requested_row_blocks[equation]}
                         )
-                return dict(block for block in ordered_blocks)
+                return ordered_blocks
 
     def _parse_single_equation_like(
         self, equation: str | Operator | dict[str | Operator, list[GridLike]]
@@ -1217,6 +1209,62 @@ class ADSystem:
             return block
         else:
             raise TypeError(f"Type {type(equation)} not parsable as equation-like.")
+
+    def _gridbased_equation_complement(
+        self, equations: dict[str, None | np.ndarray]
+    ) -> dict[str, None | np.ndarray]:
+        """Takes the information from equation parsing and finds for each equation the indices
+        which were excluded in the grid-sense.
+        """
+        complement = dict()
+        for name, idx in equations.items():
+            # if indices where filtered based on grids, we find the complementing indices
+            if idx:
+                img_info = self._equ_image_space_composition[name]
+                # assure ordering and uniqueness whole equation indexation
+                all_idx = np.unique(np.hstack(img_info.values()))
+                # complementing indices are found by deleting the filtered indices
+                complement_idx = np.delete(all_idx, idx)
+                complement.update({name: complement_idx})
+            # if there was no grid-based row filtering, the complement is empty
+            else:
+                complement.update({name: None})
+
+    def discretize(self, equations: Optional[str | list[str]] = None) -> None:
+        """Find and loop over all discretizations in the equation operators, extract unique
+        references and discretize.
+
+        This is more efficient than discretizing on the Operator level, since
+        discretizations which occur more than once in a set of equations will be
+        identified and only discretized once.
+
+        Parameters:
+            equations (optional): name(s) of equation(s) to be discretized.
+                If not given, all known equations will be searched and discretized.
+
+        Raises:
+            KeyError: if a given equation name is not known.
+
+        """
+        # TODO the search can be done once (in some kind of initialization) and must not be
+        # done always (performance)
+        if equations is None:
+            equations = list(self._equations.keys())  # type: ignore
+        elif isinstance(equations, str):
+            equations = [equations]  # type: ignore
+
+        # List containing all discretizations
+        discr: list = []
+        for eqn_name in equations:
+            # this raises a key error if a given equation name is unknown
+            eqn = self._equations[eqn_name]
+            # This will expand the list discr with new discretizations.
+            # The list may contain duplicates.
+            discr += self._recursive_discretization_search(eqn, list())
+
+        # Uniquify to save computational time, then discretize.
+        unique_discr = _ad_utils.uniquify_discretization_list(discr)
+        _ad_utils.discretize_from_list(unique_discr, self.mdg)
 
     def assemble(
         self,
@@ -1338,6 +1386,7 @@ class ADSystem:
         primary_variables: VarLike,
         secondary_equations: Optional[EquationLike] = None,
         secondary_variables: Optional[VarLike] = None,
+        excl_loc_prim_to_sec: bool = False,
         inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
@@ -1347,20 +1396,28 @@ class ADSystem:
         The specified equations and variables will define blocks of the linearized
         system as
 
-            [A_pp, A_ps  [x_p   = [b_p
-             A_sp, A_ss]  x_s]     b_s]
+            ``[A_pp, A_ps  [x_p   = [b_p``
+            `` A_sp, A_ss]  x_s]     b_s]``
 
-        Where subscripts p and s define primary and secondary blocks. The Schur
-        complement system is then given by
+        where subscripts p and s define primary and secondary blocks.
+        The Schur complement system is then given by
 
-            (A_pp - A_ps * inv(A_ss) * A_sp) * x_p = b_p - A_ps * inv(A_ss) * b_s.
+            ``(A_pp - A_ps * inv(A_ss) * A_sp) * x_p = b_p - A_ps * inv(A_ss) * b_s``
 
         The Schur complement is well-defined only if the inverse of A_ss exists,
         and the efficiency of the approach assumes that an efficient inverter for
-        A_ss can be found. **The user must ensure both requirements are fulfilled.**
+        A_ss can be found.
+        **The user must ensure both requirements are fulfilled.**
+
+        Notes:
+            The optional arguments defining the secondary block, and the flag
+            ``excl_loc_prim_to_sec`` are meant for nested Schur-complements and splitting
+            solvers. This is an advanced usage and requires the user to be sensitive about what
+            he is doing, since the resulting blocks ``A_pp`` and ``A_ss`` might end up
+            to be not square. This will result in errors.
 
         Examples:
-            The default inverter is defined as
+            The default inverter can be defined by
 
             >>> import scipy.sparse as sps
             >>> inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
@@ -1368,10 +1425,30 @@ class ADSystem:
             It is costly in terms of computational time and memory though.
 
         Parameters:
-            primary_equations: a subset of equations specifying the subspace in row-sense.
-            primary_variables: variable-like input specifying the subspace in column-sense.
+            primary_equations: a subset of equations specifying the primary subspace in
+                row-sense.
+            primary_variables: variable-like input specifying the primary subspace in
+                column-sense.
+            secondary_equations: a subset of equations specifying the secondary subspace in
+                row-sense.
+                By default, the complement of the primary rows is used.
+            secondary_variables: variable-like input specifying the secondary subspace in
+                column-sense.
+                By default, the complement of the primary columns is used.
+            excl_loc_prim_to_sec (optional): If True, primary local blocks which are excluded
+                by the variable- and equation-like structure, are added to the secondary block.
+
+                I.e. if a variable ``p`` is defined on two grids ``sd1, sd2``, ad the user
+                defines the primary (column) block to be only given by ``p`` on ``sd1``,
+                then the (column) block corresponding to ``p`` on ``sd2`` will be added to the
+                secondary block.
+                Analogously for equations (row blocks), which are defined on multiple grids.
+                The flag acts in both column and row sense.
+
+                If False (default), they will not be included and the union of primary and
+                secondary blocks will **not** constitute the whole system.
             inverter (optional): callable object to compute the inverse of the matrix A_ss.
-                If not given (None), the scipy sparse inverter is used.
+                By default, the scipy direct sparse inverter is used.
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
 
         Returns:
@@ -1380,110 +1457,197 @@ class ADSystem:
             np.ndarray: Residual vector for the Schur complement with respect to the targeted
                 state. Scaled with -1 (moved to rhs).
 
+        Raises:
+            AssertionError:
+                - if the primary block would have 0 rows or columns
+                - if the secondary block would have 0 rows or columns
+                - if the secondary block is not square
+            ValueError: if primary and secondary columns overlap
         """
-        ## pre-processing the category filters to ease the rest of the algorithm
-        # primary variables
-        # assert the user defined primary variables
-        assert not (primary_variables is None and primary_categories is None)
-        if isinstance(primary_variables, str):
-            primary_variables = [primary_variables]  # type: ignore
-        if primary_categories:
-            # assert we actually have categories
-            assert self.var_categories is not None
-            if isinstance(primary_categories, Enum):
-                primary_categories = [primary_categories]  # type: ignore
-            cat_filter = list()
-            for cat in primary_categories:
-                if cat in self.var_categories:
-                    cat_filter += self._vars_of_category[cat]
-                else:
-                    raise ValueError(f"Unknown category {cat}.")
-            # filter variables by category
-            primary_variables = [var for var in primary_variables if var in cat_filter]
-        # secondary variables
-        # if the secondary columns are not specified,
-        # we use the complement of the primary columns
-        if secondary_variables is None and secondary_categories is None:
-            pass
-        # if secondary columns are specified, we use the specification
+
+        primary_rows = self._parse_equation_like(primary_equations)
+        excl_prim_rows = self._gridbased_equation_complement(primary_rows)
+        prim_equ_names = list(primary_rows.keys())
+        primary_projection = self.projection_to(primary_variables)
+        num_dofs = primary_projection.shape[1]
+
+        # assert non-emptiness of primary block
+        assert len(primary_rows) > 0
+        assert primary_projection.shape[0] > 0
+
+        # finding secondary column indices and respective projection
+        if secondary_variables:
+            # default projection to secondaries
+            secondary_projection = self.projection_to(secondary_variables)
+            # assert primary and secondary columns do not overlap
+            common_column_indices = np.intersect1d(
+                primary_projection.indices, secondary_projection.indices
+            )
+            if common_column_indices.size > 0:
+                raise ValueError("Primary and secondary columns overlap.")
+
+            # find indices of excluded primary columns and change the secondary projection
+            if excl_loc_prim_to_sec:
+                # finding grid vars, who are primary in terms of name, but excluded by the
+                # filter the varlike structure imposes
+                excluded_grid_vars = self._gridbased_var_complement(primary_variables)
+                excl_projection = self.projection_to(excluded_grid_vars)
+                # take the indices of the excluded local prims and all secs
+                idx_s = np.unique(
+                    np.hstack([excl_projection.indices, secondary_projection.indices])
+                )
+                shape = (idx_s.size, num_dofs)
+                # re-compute the secondary projection including new indices
+                secondary_projection = sps.coo_matrix(
+                    (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
+                    shape=shape,
+                ).tocsr()
         else:
-            pass
-        ## pre-processing input and defining rows and columns belonging to primary and
-        ## secondary block
-        if isinstance(primary_equations, str):
-            primary_equations = [primary_equations]  # type: ignore
+            # we use the complement of the indices in the primary projection
+            if excl_loc_prim_to_sec:
+                shape = (
+                    primary_projection.shape[1] - primary_projection.shape[0],
+                    num_dofs,
+                )
+                # remove indices found in primary projection
+                # csr sparse projections have only one entry per column
+                idx_s = np.delete(
+                    np.arange(shape[1], dtype=int), primary_projection.indices
+                )
+                assert len(idx_s) == shape[0]
+                secondary_projection = sps.coo_matrix(
+                    (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
+                    shape=shape,
+                ).tocsr()
+            else:
+                # finding grid vars, who are primary in terms of name, but excluded by the
+                # filter the varlike structure imposes
+                excluded_grid_vars = self._gridbased_var_complement(primary_variables)
+                excl_projection = self.projection_to(excluded_grid_vars)
+                # take the indices of the excluded local prims and included prims
+                idx_excl = np.unique(
+                    np.hstack([excl_projection.indices, primary_projection.indices])
+                )
+                # the secondary indices are computed by the complement of above
+                idx_s = np.delete(np.arange(shape[1], dtype=int), idx_excl)
+                shape = (idx_s.size, num_dofs)
+                secondary_projection = sps.coo_matrix(
+                    (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
+                    shape=shape,
+                ).tocsr()
 
-        # gives us the primary columns
-        projection_p = self.projection_to(
-            primary_variables, primary_categories, primary_grids
-        )
-        # asserting the primary row block is not empty
-        assert len(primary_equations) != 0
-        # asserts primary subdomain not empty
-        assert len(projection_p.shape) == 2
-        # assert primary subdomain not whole space
-        assert projection_p.shape[0] < projection_p.shape[1]
+        # finding secondary row indices
+        secondary_rows: dict[str, None | np.ndarray] | None
+        sec_equ_names: list[str]
+        if secondary_equations:
+            secondary_rows = self._parse_equation_like(secondary_equations)
+            sec_equ_names = list(secondary_rows.keys())
+        else:
+            secondary_rows = None
+            sec_equ_names = list(
+                set(self._equations.keys).difference(set(primary_rows.keys()))
+            )
 
-        # processing of the secondary block
+        # check the primary and secondary system are not overlapping in terms of equations
+        if len(set(prim_equ_names).intersection(set(sec_equ_names))) > 0:
+            raise ValueError("Primary and secondary rows overlap.")
+        # assert non-emptiness of secondary block
+        assert secondary_projection.shape[0] > 0
+        assert len(sec_equ_names) > 0
 
-        # Get lists of all variables and equations, and find the secondary items
-        # by a set difference
-        all_variables = self.dof_manager.get_variables()
-        all_eq_names = list(self._equations.keys())
-        secondary_equations = list(set(all_eq_names).difference(set(primary_equations)))
-        secondary_variables = list(
-            set(all_variables).difference(set(primary_variables))
-        )
-
-        # First assemble the primary and secondary equations for all variables and all grids
-        # save the indices and shift the indices for the second assembly accordingly
-        # Keep track of DOFs for each equation/block
+        # storage of primary and secondary row blocks
+        A_sec: list[sps.csr_matrix] = list()
+        b_sec: list[np.ndarray] = list()
+        A_prim: list[sps.csr_matrix] = list()
+        b_prim: list[np.ndarray] = list()
+        # keep track of indices or primary block
         ind_start = 0
         assembled_equation_indices = dict()
-        A_p, b_p = self.assemble_subsystem(
-            equations=primary_equations, variables=all_variables, state=state
-        )
-        for equ in primary_equations:
-            # get assembled subsystem indexing, accumulate length of the primary block
-            block_indices = self.assembled_equation_indices[equ]
-            ind_start += len(block_indices)
-            # store the primary block indices as given
-            assembled_equation_indices.update({equ: block_indices})
 
-        A_s, b_s = self.assemble_subsystem(
-            equations=secondary_equations, variables=all_variables, state=state
-        )
-        # shift the secondary equation blocks
-        for equ in secondary_equations:
-            # get the indexing of the secondary subsystem and shift them by the length of the
-            # blocks before
-            block_indices = self.assembled_equation_indices[equ] + ind_start
-            assembled_equation_indices.update({equ: block_indices})
+        # we loop over stored equations to ensure the correct order
+        # but process only primary equations
+        # excluded local primary blocks are stored as top rows in the secondary block
+        for name in self._equations.keys():
+            if name in prim_equ_names:
+                A_temp, b_temp = self.assemble_subsystem(name, state=state)
+                idx_p = primary_rows[name]
+                # check if a grid filter was applied for that equation
+                if idx_p:
+                    # append the respective rows
+                    A_prim.append(A_temp[idx_p])
+                    b_prim.append(b_temp[idx_p])
+                    # if requested, the excluded primary rows are appended as secondary
+                    if excl_loc_prim_to_sec:
+                        idx_excl_p = excl_prim_rows[name]
+                        A_sec.append(A_temp[idx_excl_p])
+                        b_sec.append(b_temp[idx_excl_p])
+                # if no filter was applied, the whole row block is appended
+                else:
+                    A_prim.append(A_temp)
+                    b_prim.append(b_temp)
 
-        # store the indices for the Schur complement assembly
+                # track indices of block rows
+                row_idx = np.arange(b_prim[-1].size, dtype=int)
+                indices = row_idx + ind_start
+                ind_start += row_idx.size
+                assembled_equation_indices.update({name: indices})
+
+        # store the assembled row indices for the primary block only (Schur)
         self.assembled_equation_indices = assembled_equation_indices
 
-        # Projection matrices to reduce matrices to the relevant columns
-        # case where no further restriction on grids is made, projection is simple to compute
-        proj_primary = self.dof_manager.projection_to(primary_variables).transpose()
-        proj_secondary = self.dof_manager.projection_to(secondary_variables).transpose()
+        # we loop again over stored equation to ensure a correct order
+        # but process only secondary equations
+        for name in self._equations.keys():
+            if name in sec_equ_names:
+                A_temp, b_temp = self.assemble_subsystem(name, state=state)
+                # if secondary equations were defined, we check if we have to restrict them
+                if secondary_rows:
+                    idx_s = secondary_rows[name]
+                    # slice or no slice
+                    if idx_s:
+                        A_sec.append(A_temp[idx_s])
+                        b_sec.append(b_temp[idx_s])
+                    else:
+                        A_sec.append(A_temp)
+                        b_sec.append(b_temp)
+                # no slicing of secondary equations at all
+                else:
+                    A_sec.append(A_temp)
+                    b_sec.append(b_temp)
+
+        # stack the results
+        A_p = sps.vstack(A_prim, format="csr")
+        b_p = np.concatenate(b_prim)
+        A_s = sps.vstack(A_sec, format="csr")
+        b_s = np.concatenate(b_sec)
+
+        # turn the projections into prolongations
+        primary_projection = primary_projection.transpose()
+        secondary_projection = secondary_projection.transpose()
 
         # Matrices involved in the Schur complements
-        A_pp = A_p * proj_primary
-        A_ps = A_p * proj_secondary
-        A_sp = A_s * proj_primary
-        A_ss = A_s * proj_secondary
+        A_pp = A_p * primary_projection
+        A_ps = A_p * secondary_projection
+        A_sp = A_s * primary_projection
+        A_ss = A_s * secondary_projection
 
-        # Explicitly compute the inverse of the secondary block.
-        # Depending on the matrix, and the inverter, this can take a long time.
-        # this should raise an error if the secondary block is not invertible
+        # last sanity check, if A_ss is square
+        assert A_ss.shape[0] == A_ss.shape[1]
+
+        # compute the inverse of A_ss using the passed inverter
         inv_A_ss = inverter(A_ss)
 
         S = A_pp - A_ps * inv_A_ss * A_sp
         rhs_S = b_p - A_ps * inv_A_ss * b_s
 
         # storing necessary information for Schur complement expansion
-        self._Schur_complement = (inv_A_ss, b_s, A_sp, proj_primary, proj_secondary)
+        self._Schur_complement = (
+            inv_A_ss,
+            b_s,
+            A_sp,
+            primary_projection,
+            secondary_projection,
+        )
 
         return S, rhs_S
 
@@ -1491,7 +1655,7 @@ class ADSystem:
         self, reduced_solution: np.ndarray
     ) -> np.ndarray:
         """Expands the solution of the **last assembled** Schur complement system to the
-        global solution.
+        whole solution.
 
         I.e it takes x_p from
 
@@ -1503,15 +1667,17 @@ class ADSystem:
             x_s = inv(A_ss) * (b_s - A_sp * x_p)
 
         Notes:
-            This method works with any vector of fitting size, i.e. be aware of what you do.
+            Independent of how the primary and secondary blocks were chosen, this method always
+            returns a vector of size ``num_dofs``.
+            Especially when the primary and secondary variables did not constitute the whole
+            vector of unknowns, the result is still of size ``num_dofs``.
+            The entries corresponding to the excluded grid variables are zero.
 
         Parameters:
             reduced_solution: Solution to the linear system returned by
                 :meth:`assemble_schur_complement_system`
 
-        Returns:
-            the complete solution, where ``reduced_solution`` constitutes the first part of the
-            vector.
+        Returns: the expanded Schur solution in global size.
 
         Raises:
             AssertionError: if the Schur complement system was not assembled before.
@@ -1540,7 +1706,7 @@ class ADSystem:
 
         """
         # creating a new manager and adding the requested equations
-        new_manger = ADSystem(self.dof_manager)
+        new_manger = ADSystem(self.mdg)
 
         if isinstance(equations, str):
             equations = [equations]  # type: ignore
