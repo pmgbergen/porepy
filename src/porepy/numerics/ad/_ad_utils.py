@@ -15,7 +15,9 @@ Classes:
         discretization or a set of AD discretizations.
 
 """
-from typing import Dict, Optional, Sequence, Union
+from __future__ import annotations
+
+from typing import Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -26,7 +28,7 @@ from . import operators
 from .forward_mode import Ad_array
 
 
-def concatenate_ad_arrays(ad_arrays: Sequence[Ad_array], axis=0):
+def concatenate_ad_arrays(ad_arrays: list[Ad_array], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified axis."""
     vals = [var.val for var in ad_arrays]
     jacs = np.array([var.jac for var in ad_arrays])
@@ -40,17 +42,17 @@ def concatenate_ad_arrays(ad_arrays: Sequence[Ad_array], axis=0):
 def wrap_discretization(
     obj,
     discr,
-    subdomains: Optional[Sequence[pp.Grid]] = None,
-    interfaces: Optional[Sequence[pp.MortarGrid]] = None,
+    subdomains: Optional[list[pp.Grid]] = None,
+    interfaces: Optional[list[pp.MortarGrid]] = None,
     mat_dict_key: Optional[str] = None,
     mat_dict_grids=None,
 ):
-    """Convert a discretization to its ad equivalent.
+    """Convert a discretization to its AD equivalent.
     """
     if subdomains is None:
-        assert isinstance(interfaces, Sequence)
+        assert isinstance(interfaces, list)
     else:
-        assert isinstance(subdomains, Sequence)
+        assert isinstance(subdomains, list)
         assert interfaces is None
 
     key_set = []
@@ -99,8 +101,7 @@ def uniquify_discretization_list(all_discr):
 
     """
     discr_type = Union["pp.Discretization", "pp.AbstractInterfaceLaw"]
-    unique_discr_grids: Dict[discr_type, Union[Sequence[pp.Grid], Sequence[pp.MortarGrid]]] = {
-    }
+    unique_discr_grids: dict[discr_type, list[pp.Grid] | list[pp.MortarGrid]] = dict()
 
     # Mapping from discretization classes to the discretization.
     # We needed this for some reason.
@@ -145,7 +146,7 @@ def uniquify_discretization_list(all_discr):
 
 
 def discretize_from_list(
-    discretizations: Dict,
+    discretizations: dict,
     mdg: pp.MixedDimensionalGrid,
 ) -> None:
     """For a list of (ideally uniquified) discretizations, perform the actual
@@ -190,8 +191,8 @@ class MergedOperator(operators.Operator):
         key: str,
         mat_dict_key: str,
         mat_dict_grids,
-        subdomains: Optional[Sequence[pp.Grid]] = None,
-        interfaces: Optional[Sequence[pp.MortarGrid]] = None,
+        subdomains: Optional[list[pp.Grid]] = None,
+        interfaces: Optional[list[pp.MortarGrid]] = None,
     ) -> None:
         """Initiate a merged discretization.
 
@@ -212,11 +213,11 @@ class MergedOperator(operators.Operator):
         self.key = key
         self.discr = discr
         if subdomains is None:
-            assert isinstance(interfaces, Sequence)
+            assert isinstance(interfaces, list)
             self.subdomains = []
             self.interfaces = list(interfaces)
         else:
-            assert isinstance(subdomains, Sequence)
+            assert isinstance(subdomains, list)
             assert interfaces is None
             self.subdomains = list(subdomains)
             self.interfaces = []
@@ -266,7 +267,7 @@ class MergedOperator(operators.Operator):
             else:
                 data = mdg.subdomain_data(g)
 
-            mat_dict: Dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
+            mat_dict: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
                 self.mat_dict_key
             ]
 
