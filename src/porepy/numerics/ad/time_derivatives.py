@@ -1,9 +1,13 @@
-"""
+"""The module contains functionality for time-differentiation of operator trees.
+
+For the moment, only a first-order approximation is implemented. More schemes may
+be added in the future.
 """
 from __future__ import annotations
-import copy
-import porepy as pp
 
+import copy
+
+import porepy as pp
 
 __all__ = ["dt"]
 
@@ -54,7 +58,7 @@ def dt(op: pp.ad.Operator, time_step: pp.ad.Scalar) -> pp.ad.Operator:
         else:
             # Recursively iterate over the subtree, get the children, evaluated at the
             # previous time when relevant, and add it to the new list.
-            new_children = []
+            new_children: list[pp.ad.Operator] = list()
             for ci, child in enumerate(children):
                 # Recursive call to fix the subtree.
                 new_children.append(_traverse_tree(child))
