@@ -419,11 +419,11 @@ class MixedDimensionalGrid:
         sorted_subdomains = [subdomains[i] for i in inds]
         return sorted_subdomains
 
-    def sort_subdomain_tuple(self, subdomains: tuple[pp.Grid, pp.Grid]) -> tuple[pp.Grid, pp.Grid]:
+    def sort_subdomain_tuple(
+        self, subdomains: tuple[pp.Grid, pp.Grid]
+    ) -> tuple[pp.Grid, pp.Grid]:
         inds = self.argsort_grids(subdomains)
-
-        sorted_subdomains = [subdomains[i] for i in inds]
-        return tuple(sorted_subdomains)
+        return (subdomains[inds[0]], subdomains[inds[1]])
 
     def sort_interfaces(self, interfaces: list[pp.MortarGrid]) -> list[pp.MortarGrid]:
         """Sort interfaces.
