@@ -272,7 +272,6 @@ def plot_mdg(
         kwargs["color_map"] = _color_map(extr_value)
 
     # Plot each subdomain separately
-    mdg.assign_subdomain_ordering()
     for sd, sd_data in mdg.subdomains(return_data=True):
         # Adjust rgb colors depending on the subdomain ordering
         kwargs["rgb"] = np.divide(
