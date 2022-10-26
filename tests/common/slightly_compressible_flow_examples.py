@@ -1,5 +1,10 @@
 """
 This module contains examples of slightly compressible flow setups.
+
+Implemented classes:
+    NonLinearSCF: Two-dimensional non-fractured slightly compressible flow with
+        pressure-dependent porosity.
+
 """
 import porepy as pp
 import numpy as np
@@ -17,14 +22,14 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         equations read:
 
         \frac{\partial \phi(p)}{\partial t} + div(q) = f,     in \Omega \times (0, T),
-        q = - \frac{K}{mu} grad(p),                           in \Omega \times (0, T).
+        q = - \frac{k}{mu} grad(p),                           in \Omega \times (0, T).
 
-        The non-linearity is introduced through the porosity [1] such that:
+        The non-linearity is introduced through the porosity [1]. To be precise, we let
 
         \phi(p) = \phi_0 \exp[c_0 (p - p_0)],
 
         where $\phi_0$ is the porosity at the reference pressure $p_0$, and $c_0$ is the
-        porous medium compressibility.
+        porous medium compressibility (also referred to as the specific storativity).
 
         [1] Barry, D. A., Lockington, D. A., Jeng, D. S., Parlange, J. Y., Li, L.,
         & Stagnitti, F. (2007). Analytical approximations for flow in compressible, saturated,
@@ -35,6 +40,8 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
     def __init__(self, params: dict) -> None:
         super().__init__(params)
 
+        self.out = {"iterations": [], "time_step": []}
+
     def create_grid(self):
         phys_dims = np.array([1, 1])
         n: int = self.params.get("num_cells", 4)
@@ -43,7 +50,6 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         sd: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         sd.compute_geometry()
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
-
 
     def _reference_porosity(self):
         return self.params.get("reference_porosity", 0.5)
@@ -112,6 +118,13 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
+
+        # Store number of iterations and time step
+        self.out["iterations"].append(iteration_counter)
+        self.out["time_step"].append(self.time_manager.dt)
+        print(self.time_manager)
+        print()
+
         super().after_newton_convergence(solution, errors, iteration_counter)
 
         # Distribute variables to state
@@ -155,6 +168,18 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         return True
 
     def exact_source(self) -> Callable:
+        """Determine the exact source term for a given manufactured solution.
+
+        We consider two types of manufactured solutions, i.e., parabolic and trigonometric.
+
+        The specification is done through the model params via the "solution_type" key.
+        Admissible values for the "solution_type" key are "parabolic" and "trigonometric".
+        "parabolic" is set if the key does not exist.
+
+        Returns:
+            Exact source lambda function of `x`, `y`, and `t`.
+
+        """
 
         # Declare symbolic variables
         x, y, t = sym.symbols("x y t")
@@ -165,7 +190,14 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         c0 = self._specific_storativity()
 
         # Determine exact source
-        p_sym = t * x * (1 - x) * y * (1 - y)
+        solution_type = self.params.get("solution_type", "parabolic")
+        if solution_type == "parabolic":
+            p_sym = t * x * (1 - x) * y * (1 - y)
+        elif solution_type == "trigonometric":
+            p_sym = t * sym.sin(2 * sym.pi * x) * sym.cos(2 * sym.pi * y)
+        else:
+            raise ValueError("Solution type must be either 'parabolic' or 'trigonometric'.")
+
         q_sym = [-sym.diff(p_sym, x), -sym.diff(p_sym, y)]
         divq_sym = sym.diff(q_sym[0], x) + sym.diff(q_sym[1], y)
         phi_sym = phi0 * sym.exp(c0 * (p_sym - p0))
@@ -178,12 +210,18 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
 
 #%% Runner
 time_manager = pp.TimeManager(
-    schedule=[0, 10],
-    dt_init=0.1,
-    dt_min_max=(0.1, 6),
+    schedule=[0, 1],
+    dt_init=0.3,
+    dt_min_max=(0.3, 0.6),
     print_info=True
 )
-params = {"use_ad": True, "num_cells": 20, "time_manager": time_manager, "plot_sol": True}
+params = {
+    "use_ad": True,
+    "num_cells": 5,
+    "time_manager": time_manager,
+    "solution_type": "trigonometric",
+    "plot_sol": True
+}
 model = NonLinearSCF(params=params)
 pp.run_time_dependent_model(model, params)
 
