@@ -190,7 +190,7 @@ class Grid:
             self._check_tags()
 
     @property
-    def id(self):
+    def id(self) -> int:
         """Grid ID.
 
         Returns:
