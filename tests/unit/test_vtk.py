@@ -35,16 +35,22 @@ class ExporterTestSetup:
     """
 
     def __init__(self):
-
         # Define ingredients of where to store vtu files for exporting during testing.
         self.folder = "./test_vtk"
         self.file_name = "grid"
         self.folder_reference = folder_reference
 
+
 def setup_module():
-    # Reset the counter is reset to 0 + 7 (the number of single subdomains)
+    """Run before any tests in this file.
+
+    Reset the counter to 0 to ensure that "subdomain/interface_id" is the same every
+    time the tests in the module are run. Changing the counter is strongly discouraged in
+    general.
+    """
     pp.Grid._counter = count(0)
     pp.MortarGrid._counter = count(0)
+
 
 @pytest.fixture
 def setup():
@@ -106,8 +112,8 @@ def _compare_vtu_files(
     )
 
     # If the difference is empty, the meshio objects are identified as identical.
-    print(diff)
     return diff == {}
+
 
 @pytest.fixture(scope="function")
 def subdomain(request):
@@ -173,7 +179,7 @@ def subdomain(request):
 
 @pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
 def test_single_subdomains(setup, subdomain):
-    # Test of the Exporter for single subdomains of different dimensionality,
+    # Test of the Exporter for single subdomains of different dimensionality
     # and different grid type. Exporting of scalar and vectorial data is tested.
 
     # Define grid
@@ -198,6 +204,7 @@ def test_single_subdomains(setup, subdomain):
         f"{setup.folder}/{setup.file_name}_{sd.dim}.vtu",
         f"{subdomain.ref_vtu_file}",
     )
+
 
 def test_mdg(setup):
     # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
@@ -243,6 +250,7 @@ def test_mdg(setup):
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
             f"{setup.folder_reference}/mdg_grid_{appendix}.vtu",
         )
+
 
 def test_mdg_data_selection(setup):
     # Test of the Exporter for 2d mixed-dimensional grids, here based on a doubly
