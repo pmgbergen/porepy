@@ -427,7 +427,7 @@ class MixedDimensionalGrid:
         sorted_subdomains = [subdomains[i] for i in inds]
         return sorted_subdomains
 
-    def sort_subdomain_tuple(self, subdomains: tuple[pp.Grid, pp.Grid]):
+    def sort_subdomain_tuple(self, subdomains: tuple[pp.Grid, pp.Grid]) -> tuple[pp.Grid, pp.Grid]:
         inds = self.argsort_grids(subdomains)
 
         sorted_subdomains = [subdomains[i] for i in inds]
