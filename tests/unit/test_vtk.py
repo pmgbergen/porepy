@@ -12,14 +12,16 @@ necessarily mean that something is wrong.
 """
 import os
 import shutil
-from pathlib import Path
 from collections import namedtuple
+from pathlib import Path
+
 import meshio
 import numpy as np
 import pytest
 from deepdiff import DeepDiff
 
 import porepy as pp
+from itertools import count
 
 # Globally store location of reference files
 folder_reference = (
@@ -33,11 +35,21 @@ class ExporterTestSetup:
     """
 
     def __init__(self):
-
         # Define ingredients of where to store vtu files for exporting during testing.
-        self.folder = "./test_vtk/"
+        self.folder = "./test_vtk"
         self.file_name = "grid"
         self.folder_reference = folder_reference
+
+
+def setup_module():
+    """Run before any tests in this file.
+
+    Reset the counter to 0 to ensure that "subdomain/interface_id" is the same every
+    time the tests in the module are run. Changing the counter is strongly discouraged in
+    general.
+    """
+    pp.Grid._counter = count(0)
+    pp.MortarGrid._counter = count(0)
 
 
 @pytest.fixture
@@ -53,17 +65,34 @@ def setup():
     shutil.rmtree(full_path)
 
 
-def _compare_vtu_files(test_file: str, reference_file: str) -> bool:
-    # Helper method to determine whether two vtu files, accessed by their
-    # paths, are identical. Returns True if both files are identified as the
-    # same, False otherwise. This is the main auxiliary routine used to compare
-    # down below whether the Exporter produces identical outputs as stored
-    # reference files.
+def _compare_vtu_files(
+    test_file: str, reference_file: str, overwrite: bool = False
+) -> bool:
+    """Determine whether the contents of two vtu files are identical.
 
-    # NOTE: It is implicitly assumed that Gmsh returns the same grid as
-    # for the reference grid; thus, if this test fails, it should be
-    # rerun with an older version of Gmsh to test for failure due to
-    # external reasons.
+    Helper method to determine whether two vtu files, accessed by their
+    paths, are identical. Returns True if both files are identified as the
+    same, False otherwise. This is the main auxiliary routine used to compare
+    down below whether the Exporter produces identical outputs as stored
+    reference files.
+
+    NOTE: It is implicitly assumed that Gmsh returns the same grid as
+    for the reference grid; thus, if this test fails, it should be
+    rerun with an older version of Gmsh to test for failure due to
+    external reasons.
+
+    Args:
+        test_file: Name of the test file.
+        reference_file: Name of the reference file
+        overwrite: Whether to overwrite the reference file with the test file. This should
+            ONLY ever be done if you are changing the "truth" of the test.
+
+    Returns:
+        Boolean. True iff files are identical.
+    """
+    if overwrite:
+        shutil.copy(test_file, reference_file)
+        return True
 
     # Trust meshio to read the vtu files
     test_data = meshio.read(test_file)
@@ -75,8 +104,8 @@ def _compare_vtu_files(test_file: str, reference_file: str) -> bool:
     # number of significant digits and base the comparison in
     # exponential form.
     diff = DeepDiff(
-        test_data.__dict__,
         reference_data.__dict__,
+        test_data.__dict__,
         significant_digits=8,
         number_format_notation="e",
         ignore_numeric_type_changes=True,
@@ -86,68 +115,71 @@ def _compare_vtu_files(test_file: str, reference_file: str) -> bool:
     return diff == {}
 
 
-# Helper for parametrization of test_single_subdomains. Define collection of
-# single subdomains incl. 1d, 2d, 3d grids, of simplicial, Cartesian and
-# polytopal element type.
+@pytest.fixture(scope="function")
+def subdomain(request):
+    # Helper for parametrization of test_single_subdomains. Define collection of
+    # single subdomains incl. 1d, 2d, 3d grids, of simplicial, Cartesian and
+    # polytopal element type.
 
-# Construct 2d polytopal grid
-sd_polytop_2d = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
-sd_polytop_2d.compute_geometry()
-pp.coarsening.generate_coarse_grid(sd_polytop_2d, [0, 1, 3, 3, 1, 1, 2, 2])
+    # Construct 2d polytopal grid
+    sd_polytop_2d = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
+    sd_polytop_2d.compute_geometry()
+    pp.coarsening.generate_coarse_grid(sd_polytop_2d, [0, 1, 3, 3, 1, 1, 2, 2])
 
-# Construct 3d polytopal grid
-sd_polytop_3d = pp.CartGrid([3, 2, 3], [1] * 3)
-sd_polytop_3d.compute_geometry()
-pp.coarsening.generate_coarse_grid(
-    sd_polytop_3d, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
-)
+    # Construct 3d polytopal grid
+    sd_polytop_3d = pp.CartGrid([3, 2, 3], [1] * 3)
+    sd_polytop_3d.compute_geometry()
+    pp.coarsening.generate_coarse_grid(
+        sd_polytop_3d, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
+    )
 
-# Define data type for a single subdomain
-SingleSubdomain = namedtuple("SingleSubdomain", ["grid", "ref_vtu_file"])
+    # Define data type for a single subdomain
+    SingleSubdomain = namedtuple("SingleSubdomain", ["grid", "ref_vtu_file"])
 
-# Define the collection of subdomains
-single_subdomains = [
-    # 1d grid
-    SingleSubdomain(
-        pp.CartGrid(3, 1),
-        f"{folder_reference}/single_subdomain_1d.vtu",
-    ),
-    # 2d simplex grid
-    SingleSubdomain(
-        pp.StructuredTriangleGrid([3] * 2, [1] * 2),
-        f"{folder_reference}/single_subdomain_2d_simplex_grid.vtu",
-    ),
-    # 2d Cartesian grid
-    SingleSubdomain(
-        pp.CartGrid([4] * 2, [1] * 2),
-        f"{folder_reference}/single_subdomain_2d_cart_grid.vtu",
-    ),
-    # 2d polytopal grid
-    SingleSubdomain(
-        sd_polytop_2d,
-        f"{folder_reference}/single_subdomain_2d_polytop_grid.vtu",
-    ),
-    # 3d simplex grid
-    SingleSubdomain(
-        pp.StructuredTetrahedralGrid([3] * 3, [1] * 3),
-        f"{folder_reference}/single_subdomain_3d_simplex_grid.vtu",
-    ),
-    # 3d Cartesian grid
-    SingleSubdomain(
-        pp.CartGrid([4] * 3, [1] * 3),
-        f"{folder_reference}/single_subdomain_3d_cart_grid.vtu",
-    ),
-    # 3d polytopal grid
-    SingleSubdomain(
-        sd_polytop_3d,
-        f"{folder_reference}/single_subdomain_3d_polytop_grid.vtu",
-    ),
-]
+    # Define the collection of subdomains
+    subdomains = [
+        # 1d grid
+        SingleSubdomain(
+            pp.CartGrid(3, 1),
+            f"{folder_reference}/single_subdomain_1d.vtu",
+        ),
+        # 2d simplex grid
+        SingleSubdomain(
+            pp.StructuredTriangleGrid([3] * 2, [1] * 2),
+            f"{folder_reference}/single_subdomain_2d_simplex_grid.vtu",
+        ),
+        # 2d Cartesian grid
+        SingleSubdomain(
+            pp.CartGrid([4] * 2, [1] * 2),
+            f"{folder_reference}/single_subdomain_2d_cart_grid.vtu",
+        ),
+        # 2d polytopal grid
+        SingleSubdomain(
+            sd_polytop_2d,
+            f"{folder_reference}/single_subdomain_2d_polytop_grid.vtu",
+        ),
+        # 3d simplex grid
+        SingleSubdomain(
+            pp.StructuredTetrahedralGrid([3] * 3, [1] * 3),
+            f"{folder_reference}/single_subdomain_3d_simplex_grid.vtu",
+        ),
+        # 3d Cartesian grid
+        SingleSubdomain(
+            pp.CartGrid([4] * 3, [1] * 3),
+            f"{folder_reference}/single_subdomain_3d_cart_grid.vtu",
+        ),
+        # 3d polytopal grid
+        SingleSubdomain(
+            sd_polytop_3d,
+            f"{folder_reference}/single_subdomain_3d_polytop_grid.vtu",
+        ),
+    ]
+    return subdomains[request.param]
 
 
-@pytest.mark.parametrize("subdomain", single_subdomains)
+@pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
 def test_single_subdomains(setup, subdomain):
-    # Test of the Exporter for single subdomains of different dimensionality,
+    # Test of the Exporter for single subdomains of different dimensionality
     # and different grid type. Exporting of scalar and vectorial data is tested.
 
     # Define grid
@@ -331,7 +363,7 @@ def test_fracture_network_2d(setup):
 
     # Export data
     network_2d.to_file(
-        setup.folder + setup.file_name + ".vtu",
+        setup.folder + "/" + setup.file_name + ".vtu",
         data=data,
     )
 
@@ -365,7 +397,7 @@ def test_fracture_network_3d(setup):
 
     # Export data
     network_3d.to_file(
-        setup.folder + setup.file_name + ".vtu",
+        setup.folder + "/" + setup.file_name + ".vtu",
         data=data,
     )
 
