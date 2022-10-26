@@ -16,6 +16,7 @@ from . import (
     grid_operators,
     operator_functions,
     operators,
+    time_derivatives,
 )
 from .discretizations import *
 from .equation_manager import *
