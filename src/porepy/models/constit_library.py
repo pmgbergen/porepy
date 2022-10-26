@@ -31,8 +31,8 @@ class SIUnits:
 
 def ad_wrapper(
     vals: Union[float, np.ndarray],
-    size: int,
     array: bool,
+    size: Optional[int] = None,
     name: Optional[str] = None,
 ) -> Union[pp.ad.Array, pp.ad.Matrix]:
     """Create ad array or diagonal matrix.
@@ -44,19 +44,22 @@ def ad_wrapper(
 
     Args:
         vals: Values to be wrapped. Floats are broadcast to an np array.
-        size: Size of the array or matrix.
         array: Whether to return a matrix or vector.
+        size: Size of the array or matrix. If not set, the size is inferred from vals.
         name: Name of ad object.
 
     Returns:
 
     """
     if type(vals) is not np.ndarray:
+        assert size is not None, "Size must be set if vals is not an array"
         vals: np.ndarray = vals * np.ones(size)
 
     if array:
         return pp.ad.Array(vals, name)
     else:
+        if size is None:
+            size = vals.size
         matrix = sps.diags(vals, shape=(size, size))
         return pp.ad.Matrix(matrix, name)
 
@@ -75,8 +78,39 @@ class Material:
     def units(self, units: SIUnits):
         self._units = units
 
-    def convert_units(self, value, units):
+    @staticmethod
+    def convert_units(value, units):
+        """Convert value to SI units.
+
+        The method divides the value by the units as defined by the user. As an example, if
+        the user has defined the unit for pressure to be 1 MPa, then a value of 1e6 will be
+        converted to 1e6 / 1e6 = 1 and a value of 1e8 will be converted to 1e8 / 1e6 = 1e2.
+
+        Args:
+            value: Value to be converted.
+            units: Units of value.
+
+        Returns:
+            Value in SI units.
+
+        """
         return value / units
+
+    def convert_and_expand(self, value, units, grids, grid_field="num_cells"):
+        """Convert value to SI units, and expand to all grids.
+
+        Args:
+            value: Value to be converted and expanded
+            units: Units of value.
+            grids: List of grids (subdomains or interfaces) where the property is defined.
+            grid_field: Name of field in grid defining how to expand. Default is num_cells,
+                other obvious choice is num_faces.
+
+        Returns:
+            Array of values, one for each cell or face in all grids.
+        """
+        size = sum([getattr(g, grid_field) for g in grids])
+        return self.convert_units(value, units) * np.ones(size)
 
 
 class UnitFluid(Material):
@@ -115,7 +149,8 @@ class UnitFluid(Material):
             However, if we wrap it in an ad array, this will serve directly as the default
             constant fluid density constitutive equation. See fluid_thermal_expansion
         """
-        return self.convert_units(self.DENSITY, self.units.kg / self.units.m**3)
+        units = self.units.kg / self.units.m**3
+        return self.convert_and_expand(self.DENSITY, units, subdomains)
 
     def thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
         """Trolig ikke ad-matrix pga komposisjon, ikke mixin.
@@ -138,14 +173,14 @@ class UnitFluid(Material):
         """
         val = self.convert_units(self.THERMAL_EXPANSION, 1 / self.units.K)
         num_cells = sum([sd.num_cells for sd in subdomains])
-        return ad_wrapper(val, num_cells, False, "fluid_thermal_expansion")
+        return ad_wrapper(val, False, num_cells, "fluid_thermal_expansion")
 
     # The below method needs rewriting after choosing between the above shown alternatives.
     def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         # Se kommentar rett over.
         val = self.convert_units(1, self.units.m**2 / self.units.s)
         num_cells = sum([sd.num_cells for sd in subdomains])
-        return ad_wrapper(val, num_cells, False, "viscosity")
+        return ad_wrapper(val, False, num_cells, "viscosity")
 
 
 class UnitRock(Material):
@@ -156,6 +191,30 @@ class UnitRock(Material):
     THERMAL_EXPANSION: float = 1.0 / pp.KELVIN
     DENSITY: float = 1.0 * pp.KILOGRAM / pp.METER**3
     POROSITY: float = 0.2
+    PERMEABILITY: float = 1.0 * pp.METER**2
+    YOUNGS_MODULUS: float = 1.0 * pp.PASCAL
+    POISSONS_RATIO: float = 0.2
+
+    def __init__(self, units):
+        super().__init__(units)
+
+    def compute_stiffness_attributes(self):
+        """Compute stiffness attributes from Young's modulus and Poisson's ratio.
+
+        If a user prefers to specify a different set of attributes, this method should be
+        overridden e.g. as:
+            def compute_stiffness_attributes(self):
+                mu = 42
+                self.POISSIONS_RATIO =
+        """
+        assert hasattr(self, "YOUNGS_MODULUS")
+        assert hasattr(self, "POISSONS_RATIO")
+
+        E = self.YOUNGS_MODULUS
+        nu = self.POISSONS_RATIO
+        self.LAME_LAMBDA = E * nu / ((1 + nu) * (1 - 2 * nu))  # Lame parameter lambda
+        self.SHEAR_MODULUS = E / (2 * (1 + nu))  # mu
+        self.BULK_MODULUS = E / (3 * (1 - 2 * nu))
 
     def rock_density(self, subdomains: list[pp.Grid]):
         return self.convert_units(self.DENSITY, self.units.kg / self.units.m**3)
@@ -167,17 +226,39 @@ class UnitRock(Material):
         num_cells = sum([sd.num_cells for sd in interfaces])
 
         return self.constit.ad_wrapper(
-            self.rock.NORMAL_PERMEABILITY, num_cells, False, "normal_permeability"
+            self.NORMAL_PERMEABILITY, False, num_cells, "normal_permeability"
         )
 
     def porosity(self, subdomains: list[pp.Grid]):
 
         num_cells = sum([sd.num_cells for sd in subdomains])
 
-        return ad_wrapper(self.POROSITY, num_cells, False, "porosity")
+        return ad_wrapper(self.POROSITY, False, num_cells, "porosity")
 
     def permeability(self, g: pp.Grid) -> float:
         return self.convert_units(1, self.units.m**2)
+
+    def youngs_modulus(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Young's modulus [Pa].
+
+        Args:
+            subdomains: List of subdomains where the Young's modulus is defined.
+
+        Returns:
+            Cell-wise Young's modulus in SI units.
+        """
+        return self.convert_and_expand(self.YOUNGS_MODULUS, self.units.Pa, subdomains)
+
+    def poisson_ratio(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Poisson's ratio [-].
+
+        Args:
+            subdomains: List of subdomains where the Poisson's ratio is defined.
+
+        Returns:
+            Cell-wise Poisson's ratio.
+        """
+        return self.convert_and_expand(self.POISSONS_RATIO, 1, subdomains)
 
 
 """
@@ -190,7 +271,7 @@ ambiguity.
 """
 
 
-class ConstantDensity:
+class ConstantFluidDensity:
 
     """Underforstått:
 
@@ -203,10 +284,10 @@ class ConstantDensity:
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
         val = self.fluid.density(subdomains)
         num_cells = sum([sd.num_cells for sd in subdomains])
-        return ad_wrapper(val, num_cells, False, "fluid_thermal_expansion")
+        return ad_wrapper(val, False, num_cells, "fluid_density")
 
 
-class DensityFromPressure:
+class FluidDensityFromPressure:
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
         # Reference variables are defined in Variables class.
@@ -220,7 +301,7 @@ class DensityFromPressure:
         return rho
 
 
-class DensityFromPressureAndTemperature(DensityFromPressure):
+class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
     """Extend previous case"""
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -236,6 +317,40 @@ class DensityFromPressureAndTemperature(DensityFromPressure):
 class ConstantViscosity:
     def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return self.fluid.viscosity(subdomains)
+
+
+class LinearElasticRock:
+    def youngs_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        return ad_wrapper(
+            self.rock.youngs_modulus(subdomains), False, name="youngs_modulus"
+        )
+
+    def shear_modulus(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Shear modulus [Pa].
+
+        Args:
+            subdomains: List of subdomains where the shear modulus is defined.
+
+        Returns:
+            Cell-wise shear modulus in SI units.
+        """
+        val = self.youngs_modulus(subdomains) / (
+            2 * (1 + self.poisson_ratio(subdomains))
+        )
+        return ad_wrapper(val, False, name="shear_modulus")
+
+    def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:
+        """Stiffness tensor [Pa].
+
+        Args:
+            subdomain: Subdomain where the stiffness tensor is defined.
+
+        Returns:
+            Cell-wise stiffness tensor in SI units.
+        """
+        lmbda = self.lame_lambda(subdomain)
+        mu = self.shear_modulus(subdomain)
+        return pp.FourthOrderTensor(mu, lmbda)
 
 
 class ConstantRock:

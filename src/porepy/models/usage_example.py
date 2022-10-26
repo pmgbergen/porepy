@@ -1,12 +1,8 @@
-import porepy as pp
-
-#from . import constit_library, fluid_mass_balance
-
 from constit_library import (
+    ConstantFluidDensity,
     ConstantRock,
-    DensityFromPressure,
-    ConstantDensity,
     ConstantViscosity,
+    FluidDensityFromPressure,
     UnitFluid,
     UnitRock,
 )
@@ -17,6 +13,11 @@ from fluid_mass_balance import (
     VariablesSinglePhaseFlow,
 )
 from geometry import ModelGeometry
+
+import porepy as pp
+
+# from . import constit_library, fluid_mass_balance
+
 
 # Example 1
 
@@ -37,12 +38,12 @@ usage is:
 """
 
 m = CompressibleCombined()
-#pp.run_time_dependent_model(m)
+# pp.run_time_dependent_model(m)
 
 # Define your favourite CO_2 combination to be plugged in in multiple run scripts.
 
 
-class cooConstit(ConstantRock, DensityFromPressure):
+class cooConstit(ConstantRock, FluidDensityFromPressure):
     pass
 
 
@@ -62,15 +63,13 @@ class EiriksCombinedMassBalance(
     ModelGeometry,
     ConstantRock,
     ConstantViscosity,
-    ConstantDensity,
+    ConstantFluidDensity,
     VariablesSinglePhaseFlow,
     MassBalanceEquations,
     ConstitutiveEquationsCompressibleFlow,
     SolutionStrategyCompressibleFlow,
 ):
     pass
-
-
 
 
 params = {

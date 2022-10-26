@@ -89,7 +89,9 @@ class ModelGeometry:
         interfaces = list()
         for sd in subdomains:
             for intf in self.mdg.subdomain_to_interfaces(sd):
-                if intf not in interfaces and intf.codim in codims:  # could filter on codimension.
+                if (
+                    intf not in interfaces and intf.codim in codims
+                ):  # could filter on codimension.
                     interfaces.append(intf)
         return interfaces
 
