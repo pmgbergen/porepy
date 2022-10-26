@@ -267,6 +267,34 @@ class ADSystem:
 
         """
 
+    def create_subsystem(self, equations: Union[str, list[str]]) -> ADSystem:
+        """Creates an ``ADSystemManager`` for a given subset of equations.
+
+        Parameters:
+            equations: equations to be assigned to the new manager.
+                Must be known to this manager.
+
+        Returns:
+            a new instance of ``ADSystemManager``. The subsystem equations are ordered as
+            imposed by this manager's order.
+
+        """
+        # creating a new manager and adding the requested equations
+        new_manger = ADSystem(self.mdg)
+
+        if isinstance(equations, str):
+            equations = [equations]  # type: ignore
+
+        for name in equations:
+            image_info = self._equ_image_space_composition[
+                name
+            ]  # TODO fix this, incorrect
+            new_manger.set_equation(
+                name, self._equations[name], num_equ_per_dof=image_info
+            )
+
+        return new_manger
+
     ### Variable management -------------------------------------------------------------------
 
     def create_variable(
@@ -1230,7 +1258,7 @@ class ADSystem:
             else:
                 complement.update({name: None})
 
-    def discretize(self, equations: Optional[str | list[str]] = None) -> None:
+    def discretize(self, equations: Optional[EquationLike] = None) -> None:
         """Find and loop over all discretizations in the equation operators, extract unique
         references and discretize.
 
@@ -1239,25 +1267,18 @@ class ADSystem:
         identified and only discretized once.
 
         Parameters:
-            equations (optional): name(s) of equation(s) to be discretized.
-                If not given, all known equations will be searched and discretized.
-
-        Raises:
-            KeyError: if a given equation name is not known.
+            equations (optional): a subset of equation..
+                If not provided (None), all known equations will be discretized.
 
         """
-        # TODO the search can be done once (in some kind of initialization) and must not be
-        # done always (performance)
-        if equations is None:
-            equations = list(self._equations.keys())  # type: ignore
-        elif isinstance(equations, str):
-            equations = [equations]  # type: ignore
+        equation_names = list(self._parse_equation_like(equations).keys())
 
         # List containing all discretizations
         discr: list = []
-        for eqn_name in equations:
+        # TODO the search can be done once (in some kind of initialization)
+        for name in equation_names:
             # this raises a key error if a given equation name is unknown
-            eqn = self._equations[eqn_name]
+            eqn = self._equations[name]
             # This will expand the list discr with new discretizations.
             # The list may contain duplicates.
             discr += self._recursive_discretization_search(eqn, list())
@@ -1691,34 +1712,6 @@ class ADSystem:
         # prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
-
-    def create_subsystem_manager(self, equations: Union[str, list[str]]) -> ADSystem:
-        """Creates an ``ADSystemManager`` for a given subset of equations.
-
-        Parameters:
-            equations: equations to be assigned to the new manager.
-                Must be known to this manager.
-
-        Returns:
-            a new instance of ``ADSystemManager``. The subsystem equations are ordered as
-            imposed by this manager's order.
-
-        """
-        # creating a new manager and adding the requested equations
-        new_manger = ADSystem(self.mdg)
-
-        if isinstance(equations, str):
-            equations = [equations]  # type: ignore
-
-        for name in equations:
-            image_info = self._equ_image_space_composition[
-                name
-            ]  # TODO fix this, incorrect
-            new_manger.set_equation(
-                name, self._equations[name], num_equ_per_dof=image_info
-            )
-
-        return new_manger
 
     ### special methods -----------------------------------------------------------------------
 
