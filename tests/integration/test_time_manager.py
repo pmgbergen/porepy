@@ -7,6 +7,8 @@ import porepy as pp
 import numpy as np
 import pytest
 
+from tests.common.slightly_compressible_flow_examples import NonLinearSCF
+
 # Model classes to be tested
 all_models = [
     pp.IncompressibleFlow,
@@ -22,6 +24,9 @@ time_dependent_models = [
     pp.THM
 ]
 
+non_linear_models = [
+    NonLinearSCF
+]
 
 # -----> Testing defaults
 @pytest.mark.parametrize("model_class", all_models)
@@ -46,7 +51,7 @@ def test_default_behaviour(model_class):
 # -----> Testing constant time step
 tm0 = pp.TimeManager([0, 1, 2], 1, constant_dt=True)
 tm1 = pp.TimeManager([0, 0.01, 0.02, 0.05], 0.01, constant_dt=True)
-tm2 = pp.TimeManager([0, pp.HOUR, 2*pp.HOUR, 10*pp.HOUR], pp.HOUR, constant_dt=True)
+tm2 = pp.TimeManager([0, pp.HOUR, 2 * pp.HOUR, 10 * pp.HOUR], pp.HOUR, constant_dt=True)
 
 
 @pytest.mark.parametrize("model_class", time_dependent_models)
@@ -88,4 +93,31 @@ def test_linear_non_constant_dt(model_class):
         pp.run_time_dependent_model(model, model.params)
     assert msg in str(excinfo.value)
 
+
 # -----> Testing non-linear models
+@pytest.mark.parametrize("model_class", non_linear_models)
+@pytest.mark.parametrize("solution_type", ["parabolic", "trigonometric"])
+def tests_time_step_adaptation(model_class, solution_type):
+    """Test iteration-based adaptation for non-linear models"""
+    time_manager = pp.TimeManager(
+        schedule=[0, 1],
+        dt_init=0.3,
+        dt_min_max=(0.1, 0.6),
+        iter_max=10,
+        iter_optimal_range=(4, 7),
+        iter_relax_factors=(0.7, 1.3),
+        recomp_factor=0.5,
+        recomp_max=5,
+        print_info=False
+    )
+    params = {
+        "use_ad": True,
+        "time_manager": time_manager,
+        "solution_type": solution_type,
+        "num_cells": 5
+    }
+    model = model_class(params=params)
+    pp.run_time_dependent_model(model, model.params)
+    np.testing.assert_equal(model.out["iterations"], [3, 3, 3])
+    np.testing.assert_almost_equal(model.out["time_step"], [0.3, 0.39, 0.31], 6)
+
