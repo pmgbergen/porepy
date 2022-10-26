@@ -41,6 +41,10 @@ class ExporterTestSetup:
         self.file_name = "grid"
         self.folder_reference = folder_reference
 
+def setup_module():
+    # Reset the counter is reset to 0 + 7 (the number of single subdomains)
+    pp.Grid._counter = count(0)
+    pp.MortarGrid._counter = count(0)
 
 @pytest.fixture
 def setup():
@@ -105,70 +109,69 @@ def _compare_vtu_files(
     print(diff)
     return diff == {}
 
+@pytest.fixture(scope="function")
+def subdomain(request):
+    # Helper for parametrization of test_single_subdomains. Define collection of
+    # single subdomains incl. 1d, 2d, 3d grids, of simplicial, Cartesian and
+    # polytopal element type.
 
-# Helper for parametrization of test_single_subdomains. Define collection of
-# single subdomains incl. 1d, 2d, 3d grids, of simplicial, Cartesian and
-# polytopal element type.
+    # Construct 2d polytopal grid
+    sd_polytop_2d = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
+    sd_polytop_2d.compute_geometry()
+    pp.coarsening.generate_coarse_grid(sd_polytop_2d, [0, 1, 3, 3, 1, 1, 2, 2])
 
-# Construct 2d polytopal grid
-sd_polytop_2d = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
-sd_polytop_2d.compute_geometry()
-pp.coarsening.generate_coarse_grid(sd_polytop_2d, [0, 1, 3, 3, 1, 1, 2, 2])
+    # Construct 3d polytopal grid
+    sd_polytop_3d = pp.CartGrid([3, 2, 3], [1] * 3)
+    sd_polytop_3d.compute_geometry()
+    pp.coarsening.generate_coarse_grid(
+        sd_polytop_3d, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
+    )
 
-# Construct 3d polytopal grid
-sd_polytop_3d = pp.CartGrid([3, 2, 3], [1] * 3)
-sd_polytop_3d.compute_geometry()
-pp.coarsening.generate_coarse_grid(
-    sd_polytop_3d, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
-)
+    # Define data type for a single subdomain
+    SingleSubdomain = namedtuple("SingleSubdomain", ["grid", "ref_vtu_file"])
 
-# Define data type for a single subdomain
-SingleSubdomain = namedtuple("SingleSubdomain", ["grid", "ref_vtu_file"])
+    # Define the collection of subdomains
+    subdomains = [
+        # 1d grid
+        SingleSubdomain(
+            pp.CartGrid(3, 1),
+            f"{folder_reference}/single_subdomain_1d.vtu",
+        ),
+        # 2d simplex grid
+        SingleSubdomain(
+            pp.StructuredTriangleGrid([3] * 2, [1] * 2),
+            f"{folder_reference}/single_subdomain_2d_simplex_grid.vtu",
+        ),
+        # 2d Cartesian grid
+        SingleSubdomain(
+            pp.CartGrid([4] * 2, [1] * 2),
+            f"{folder_reference}/single_subdomain_2d_cart_grid.vtu",
+        ),
+        # 2d polytopal grid
+        SingleSubdomain(
+            sd_polytop_2d,
+            f"{folder_reference}/single_subdomain_2d_polytop_grid.vtu",
+        ),
+        # 3d simplex grid
+        SingleSubdomain(
+            pp.StructuredTetrahedralGrid([3] * 3, [1] * 3),
+            f"{folder_reference}/single_subdomain_3d_simplex_grid.vtu",
+        ),
+        # 3d Cartesian grid
+        SingleSubdomain(
+            pp.CartGrid([4] * 3, [1] * 3),
+            f"{folder_reference}/single_subdomain_3d_cart_grid.vtu",
+        ),
+        # 3d polytopal grid
+        SingleSubdomain(
+            sd_polytop_3d,
+            f"{folder_reference}/single_subdomain_3d_polytop_grid.vtu",
+        ),
+    ]
+    return subdomains[request.param]
 
-# Define the collection of subdomains
-single_subdomains = [
-    # 1d grid
-    SingleSubdomain(
-        pp.CartGrid(3, 1),
-        f"{folder_reference}/single_subdomain_1d.vtu",
-    ),
-    # 2d simplex grid
-    SingleSubdomain(
-        pp.StructuredTriangleGrid([3] * 2, [1] * 2),
-        f"{folder_reference}/single_subdomain_2d_simplex_grid.vtu",
-    ),
-    # 2d Cartesian grid
-    SingleSubdomain(
-        pp.CartGrid([4] * 2, [1] * 2),
-        f"{folder_reference}/single_subdomain_2d_cart_grid.vtu",
-    ),
-    # 2d polytopal grid
-    SingleSubdomain(
-        sd_polytop_2d,
-        f"{folder_reference}/single_subdomain_2d_polytop_grid.vtu",
-    ),
-    # 3d simplex grid
-    SingleSubdomain(
-        pp.StructuredTetrahedralGrid([3] * 3, [1] * 3),
-        f"{folder_reference}/single_subdomain_3d_simplex_grid.vtu",
-    ),
-    # 3d Cartesian grid
-    SingleSubdomain(
-        pp.CartGrid([4] * 3, [1] * 3),
-        f"{folder_reference}/single_subdomain_3d_cart_grid.vtu",
-    ),
-    # 3d polytopal grid
-    SingleSubdomain(
-        sd_polytop_3d,
-        f"{folder_reference}/single_subdomain_3d_polytop_grid.vtu",
-    ),
-]
-def setup_module():
-    # Reset the counter is reset to 0 + 7 (the number of single subdomains)
-    pp.Grid._counter = count(7)
-    pp.MortarGrid._counter = count(0)
 
-@pytest.mark.parametrize("subdomain", single_subdomains)
+@pytest.mark.parametrize("subdomain", np.arange(7), indirect=True)
 def test_single_subdomains(setup, subdomain):
     # Test of the Exporter for single subdomains of different dimensionality,
     # and different grid type. Exporting of scalar and vectorial data is tested.
