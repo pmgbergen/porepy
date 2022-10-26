@@ -142,8 +142,6 @@ class Grid:
         if not (dim >= 0 and dim <= 3):
             raise ValueError("A grid has to be 0, 1, 2, or 3.")
 
-        # Set global counter for all grids:
-
         self.dim: int = dim
         self.nodes: np.ndarray = nodes
         self.cell_faces: sps.csc_matrix = cell_faces
