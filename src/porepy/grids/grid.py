@@ -103,6 +103,7 @@ class Grid:
 
     _counter = count(0)
     """Counter of instantiated grids. See __new__ and id."""
+    __id: int
 
     def __new__(cls, *args, **kwargs):
         """Make object and set id according to class counter.

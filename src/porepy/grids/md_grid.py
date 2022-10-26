@@ -8,15 +8,7 @@ intersections  along with a surrounding matrix in the form of a MixedDimensional
 """
 from __future__ import annotations
 
-from typing import (
-    Any,
-    Callable,
-    Iterable,
-    Literal,
-    Optional,
-    Union,
-    overload,
-)
+from typing import Any, Callable, Iterable, Literal, Optional, Union, overload
 
 import numpy as np
 from scipy import sparse as sps
