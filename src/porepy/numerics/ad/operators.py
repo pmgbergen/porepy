@@ -1,11 +1,12 @@
 """ Implementation of wrappers for Ad representations of several operators.
 """
 from __future__ import annotations
+
 import copy
 import numbers
 from enum import Enum
 from itertools import count
-from typing import Any, Optional, Union
+from typing import Any, Optional, Sequence, Union
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -62,7 +63,7 @@ class Operator:
         name: Optional[str] = None,
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
-        tree: Optional["Tree"] = None,
+        tree: Optional[Tree] = None,
     ) -> None:
         if name is None:
             name = ""
@@ -102,7 +103,7 @@ class Operator:
         self.subdomains = subdomains
         self.interfaces = interfaces
 
-    def _find_subtree_variables(self) -> list["pp.ad.Variable"]:
+    def _find_subtree_variables(self) -> list[pp.ad.Variable]:
         """Method to recursively look for Variables (or MergedVariables) in an
         operator tree.
         """
@@ -138,7 +139,9 @@ class Operator:
                             var_list.append(sub_var)
             return var_list
 
-    def _identify_variables(self, dof_manager, var: Optional[list] = None):
+    def _identify_variables(
+        self, dof_manager: pp.DofManager, var: Optional[list] = None
+    ):
         """Identify all variables in this operator."""
         # 1. Get all variables present in this operator.
         # The variable finder is implemented in a special function, aimed at recursion
@@ -215,7 +218,7 @@ class Operator:
 
     def _identify_discretizations(
         self,
-    ) -> dict["_ad_utils.MergedOperator", GridLike]:
+    ) -> dict[_ad_utils.MergedOperator, GridLike]:
         """Perform a recursive search to find all discretizations present in the
         operator tree. Uniquify the list to avoid double computations.
 
@@ -258,7 +261,7 @@ class Operator:
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
-    def _parse_operator(self, op: "Operator", mdg: pp.MixedDimensionalGrid):
+    def _parse_operator(self, op: Operator, mdg: pp.MixedDimensionalGrid):
         """TODO: Currently, there is no prioritization between the operations; for
         some reason, things just work. We may need to make an ordering in which the
         operations should be carried out. It seems that the strategy of putting on
@@ -618,7 +621,7 @@ class Operator:
 
     def evaluate(
         self,
-        dof_manager: "pp.DofManager",
+        dof_manager: pp.DofManager,
         state: Optional[np.ndarray] = None,
     ):
         """Evaluate the residual and Jacobian matrix for a given state.
@@ -942,14 +945,17 @@ class TimeDependentArray(Array):
                 "A time dependent array must be associated with either an"
                 " interface or a subdomain."
             )
-        self._g: GridLike
+        self._g: Sequence[GridLike]
         self._is_interface_arary: bool
 
         # Shorthand access to grid or edge:
         if len(interfaces) == 0:
+            # Appease mypy
+            assert all([isinstance(sd, pp.Grid) for sd in subdomains])
             self._g = subdomains
             self._is_interface_arary = False
         else:
+            assert all([isinstance(intf, pp.Grid) for intf in interfaces])
             self._g = interfaces
             self._is_interface_arary = True
 
@@ -966,11 +972,11 @@ class TimeDependentArray(Array):
         """
         if self._is_interface_arary:
             return TimeDependentArray(
-                self._name, interfaces=self._g, previous_timestep=True
+                self._name, interfaces=self.interfaces, previous_timestep=True
             )
         else:
             return TimeDependentArray(
-                self._name, subdomains=self._g, previous_timestep=True
+                self._name, subdomains=self.subdomains, previous_timestep=True
             )
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
@@ -990,11 +996,14 @@ class TimeDependentArray(Array):
         vals = []
         for g in self._g:
             if self._is_interface_arary:
+                # Appease mypy
+                assert isinstance(g, pp.MortarGrid)
                 data = mdg.interface_data(g)
             else:
+                assert isinstance(g, pp.Grid)
                 data = mdg.subdomain_data(g)
 
-            if self.prev_time == True:
+            if self.prev_time:
                 vals.append(data[pp.STATE][self._name])
             else:
                 vals.append(data[pp.STATE][pp.ITERATE][self._name])
@@ -1046,7 +1055,7 @@ class Scalar(Operator):
         if self._name is not None:
             s += f"({self._name})"
         return s
-    
+
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
         """Convert the Ad Scalar into an actual number.
 
@@ -1163,7 +1172,7 @@ class Variable(Operator):
                 + self._g.num_nodes * self._nodes
             )
 
-    def previous_timestep(self) -> "Variable":
+    def previous_timestep(self) -> Variable:
         """Return a representation of this variable on the previous time step.
 
         Returns:
@@ -1180,7 +1189,7 @@ class Variable(Operator):
                 self._name, ndof, subdomains=self.subdomains, previous_timestep=True
             )
 
-    def previous_iteration(self) -> "Variable":
+    def previous_iteration(self) -> Variable:
         """Return a representation of this variable on the previous time iteration.
 
         Returns:
@@ -1279,7 +1288,7 @@ class MergedVariable(Variable):
         """
         return sum([v.size() for v in self.sub_vars])
 
-    def previous_timestep(self) -> "MergedVariable":
+    def previous_timestep(self) -> MergedVariable:
         """Return a representation of this merged variable on the previous time step.
 
         Returns:
@@ -1291,7 +1300,7 @@ class MergedVariable(Variable):
         new_var.prev_time = True
         return new_var
 
-    def previous_iteration(self) -> "MergedVariable":
+    def previous_iteration(self) -> MergedVariable:
         """Return a representation of this merged variable on the previous iteration.
 
         Returns:
@@ -1345,7 +1354,7 @@ class Tree:
     def __init__(
         self,
         operation: Operation,
-        children: Optional[list[Union[Operator, Ad_array]]] = None,
+        children: Optional[Sequence[Union[Operator, Ad_array]]] = None,
     ):
 
         self.op = operation
