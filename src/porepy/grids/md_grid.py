@@ -459,7 +459,7 @@ class MixedDimensionalGrid:
                 inds = mdg.argsort_subdomains(subdomain_list)
                 sorted_subdomains = [subdomain_list[i] for i in inds]
         """
-        sort_inds_all: np.ndarray = np.array([], dtype=int)
+        sort_inds_all: list[np.ndarray] = list()
         # Traverse dimensions in descending order. Progress to 0 in case dim_min is greater
         # than minimum dimension of interface grids.
         for dim in np.arange(self.dim_max(), -1, -1):
@@ -479,9 +479,9 @@ class MixedDimensionalGrid:
             sorted_inds_dim: np.ndarray = np.array(inds_in_all_dims, dtype=int)[
                 sort_inds_dim
             ]
-            # Append to global array
-            sort_inds_all = np.append(sort_inds_all, sorted_inds_dim)
-        return sort_inds_all
+            # Append to global list
+            sort_inds_all.append(sorted_inds_dim)
+        return np.hstack(sort_inds_all)
 
     # ------------- Miscellaneous functions ---------
 
