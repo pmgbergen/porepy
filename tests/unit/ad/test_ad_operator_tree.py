@@ -7,6 +7,7 @@ The main checks performed are:
     test_elementary_wrappers: Test wrapping of scalars, arrays and matrices.
     test_ad_variable_creation: Generate variables, check that copies and new variables 
         are returned as expected.
+    test_ad_variable_wrappers: Test of the wrappers for variables.
     test_time_differentiation: Covers the pp.ad.dt operator.
 
 """
@@ -308,6 +309,164 @@ def test_ad_variable_creation():
     assert mvar_1_prev_iter.id != mvar_1.id
     assert mvar_1_prev_time.id != mvar_1.id
 
+def test_ad_variable_wrappers():
+    # Tests that the wrapping of Ad variables, including previous iterates
+    # and time steps, are carried out correctly.
+    # See also test_variable_combinations, which specifically tests evaluation of
+    # variables in a setting of multiple variables, including merged variables.
+
+    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    mdg = pp.meshing.cart_grid(fracs, np.array([2, 2]))
+
+    state_map = {}
+    iterate_map = {}
+
+    state_map_2, iterate_map_2 = {}, {}
+
+    var = "foo"
+    var2 = "bar"
+
+    mortar_var = "mv"
+
+    def _compare_ad_objects(a, b):
+        va, ja = a.val, a.jac
+        vb, jb = b.val, b.jac
+
+        assert np.allclose(va, vb)
+        assert ja.shape == jb.shape
+        d = ja - jb
+        if d.data.size > 0:
+            assert np.max(np.abs(d.data)) < 1e-10
+
+    for sd, data in mdg.subdomains(return_data=True):
+        if sd.dim == 1:
+            num_dofs = 2
+        else:
+            num_dofs = 1
+
+        data[pp.PRIMARY_VARIABLES] = {var: {"cells": num_dofs}}
+
+        val_state = np.random.rand(sd.num_cells * num_dofs)
+        val_iterate = np.random.rand(sd.num_cells * num_dofs)
+
+        data[pp.STATE] = {var: val_state, pp.ITERATE: {var: val_iterate}}
+        state_map[sd] = val_state
+        iterate_map[sd] = val_iterate
+
+        # Add a second variable to the 2d grid, just for the fun of it
+        if sd.dim == 2:
+            data[pp.PRIMARY_VARIABLES][var2] = {"cells": 1}
+            val_state = np.random.rand(sd.num_cells)
+            val_iterate = np.random.rand(sd.num_cells)
+            data[pp.STATE][var2] = val_state
+            data[pp.STATE][pp.ITERATE][var2] = val_iterate
+            state_map_2[sd] = val_state
+            iterate_map_2[sd] = val_iterate
+
+    for intf, data in mdg.interfaces(return_data=True):
+        if intf.dim == 1:
+            num_dofs = 2
+        else:
+            num_dofs = 1
+
+        data[pp.PRIMARY_VARIABLES] = {mortar_var: {"cells": num_dofs}}
+
+        val_state = np.random.rand(intf.num_cells * num_dofs)
+        val_iterate = np.random.rand(intf.num_cells * num_dofs)
+
+        data[pp.STATE] = {mortar_var: val_state, pp.ITERATE: {mortar_var: val_iterate}}
+        state_map[intf] = val_state
+        iterate_map[intf] = val_iterate
+
+    dof_manager = pp.DofManager(mdg)
+    eq_manager = pp.ad.EquationManager(mdg, dof_manager)
+
+    # Manually assemble state and iterate
+    true_state = np.zeros(dof_manager.num_dofs())
+    true_iterate = np.zeros(dof_manager.num_dofs())
+
+    # Also a state array that differs from the stored iterates
+    double_iterate = np.zeros(dof_manager.num_dofs())
+
+    for (g, v) in dof_manager.block_dof:
+        inds = dof_manager.grid_and_variable_to_dofs(g, v)
+        if v == var2:
+            true_state[inds] = state_map_2[g]
+            true_iterate[inds] = iterate_map_2[g]
+            double_iterate[inds] = 2 * iterate_map_2[g]
+        else:
+            true_state[inds] = state_map[g]
+            true_iterate[inds] = iterate_map[g]
+            double_iterate[inds] = 2 * iterate_map[g]
+
+    subdomains = [
+        mdg.subdomains(dim=2)[0],
+        *mdg.subdomains(dim=1),
+        mdg.subdomains(dim=0)[0],
+    ]
+
+    # Generate merged variables via the EquationManager.
+    var_ad = eq_manager.merge_variables([(g, var) for g in subdomains])
+
+    # Check equivalence between the two approaches to generation.
+
+    # Check that the state is correctly evaluated.
+    inds_var = np.hstack(
+        [dof_manager.grid_and_variable_to_dofs(g, var) for g in subdomains]
+    )
+    assert np.allclose(
+        true_iterate[inds_var], var_ad.evaluate(dof_manager, true_iterate).val
+    )
+
+    # Check evaluation when no state is passed to the parser, and information must
+    # instead be glued together from the MixedDimensionalGrid
+    assert np.allclose(true_iterate[inds_var], var_ad.evaluate(dof_manager).val)
+
+    # Evaluate the equation using the double iterate
+    assert np.allclose(
+        2 * true_iterate[inds_var], var_ad.evaluate(dof_manager, double_iterate).val
+    )
+
+    # Represent the variable on the previous time step. This should be a numpy array
+    prev_var_ad = var_ad.previous_timestep()
+    prev_evaluated = prev_var_ad.evaluate(dof_manager)
+    assert isinstance(prev_evaluated, np.ndarray)
+    assert np.allclose(true_state[inds_var], prev_evaluated)
+
+    # Also check that state values given to the ad parser are ignored for previous
+    # values
+    assert np.allclose(
+        prev_evaluated, prev_var_ad.evaluate(dof_manager, double_iterate)
+    )
+
+    ## Next, test edge variables. This should be much the same as the grid variables,
+    # so the testing is less thorough.
+    # Form an edge variable, evaluate this
+    edge_list = [intf for intf in mdg.interfaces()]
+    var_edge = eq_manager.merge_variables([(e, mortar_var) for e in edge_list])
+
+    edge_inds = np.hstack(
+        [dof_manager.grid_and_variable_to_dofs(e, mortar_var) for e in edge_list]
+    )
+    assert np.allclose(
+        true_iterate[edge_inds], var_edge.evaluate(dof_manager, true_iterate).val
+    )
+
+    # Finally, test a single variable; everything should work then as well
+    g = mdg.subdomains(dim=2)[0]
+    v1 = eq_manager.variable(g, var)
+    v2 = eq_manager.variable(g, var2)
+
+    ind1 = dof_manager.grid_and_variable_to_dofs(g, var)
+    ind2 = dof_manager.grid_and_variable_to_dofs(g, var2)
+
+    assert np.allclose(true_iterate[ind1], v1.evaluate(dof_manager, true_iterate).val)
+    assert np.allclose(true_iterate[ind2], v2.evaluate(dof_manager, true_iterate).val)
+
+    v1_prev = v1.previous_timestep()
+    assert np.allclose(true_state[ind1], v1_prev.evaluate(dof_manager, true_iterate))
+
+
 
 def test_time_differentiation():
     """Test the dt operator in AD.
@@ -391,3 +550,4 @@ def test_time_differentiation():
     var_2 = var_1.previous_timestep()
     dt_var_2 = pp.ad.dt(var_2, time_step)
     assert np.allclose(dt_var_2.evaluate(dof_manager), 0)
+
