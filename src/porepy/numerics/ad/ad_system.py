@@ -1688,8 +1688,7 @@ class ADSystem:
         inv_A_ss, b_s, A_sp, prolong_p, prolong_s = self._Schur_complement
         # calculate the complement solution
         x_s = inv_A_ss * (b_s - A_sp * reduced_solution)
-        # prolong primary and secondary block to global-sized arrays using the transpose
-        # of the projection
+        # prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
 

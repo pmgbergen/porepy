@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 from enum import Enum
 from functools import partial
-from typing import Callable, Type, Union, Sequence
+from typing import Callable, Optional, Type
 
 import numpy as np
 import scipy.sparse as sps
@@ -68,7 +68,7 @@ class AbstractFunction(Operator):
         ### PRIVATE
         self._operation: Enum = Operator.Operations.approximate
 
-    def __call__(self, *args: Union[pp.ad.Operator, Ad_array]):
+    def __call__(self, *args: pp.ad.Operator | Ad_array):
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
         Parameters:
@@ -293,7 +293,7 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
         self,
         func: Callable,
         name: str,
-        multipliers: Union[float, Sequence[float]],
+        multipliers: float | list[float],
         array_compatible: bool = False,
     ):
         """
@@ -472,13 +472,13 @@ class ADmethod:
         self._explicit_init = func is None
         # reference to instance, to which the decorated bound method belongs, if any
         # if this remains None, then an unbound method was decorated
-        self._bound_to: Union[None, object] = None
+        self._bound_to: Optional[object] = None
         # reference to operator type which should wrap the decorated method
         self._ad_func_type = ad_function_type
         # keyword arguments for call to constructor of operator type
         self._op_kwargs = operator_kwargs
 
-    def __call__(self, *args, **kwargs) -> Union[ADmethod, pp.ad.Operator]:
+    def __call__(self, *args, **kwargs) -> ADmethod | pp.ad.Operator:
         """
         Wrapper factory.
         The decorated object is wrapped and/or evaluated here.
