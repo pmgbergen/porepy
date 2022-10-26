@@ -8,13 +8,14 @@ from __future__ import annotations
 from enum import Enum, EnumMeta
 from typing import Any, Callable, Literal, Optional, Union, overload
 
+import itertools
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
 from . import _ad_utils
-from .operators import Operator, Variable, MixedDimensionalVariable
+from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["ADSystem"]
 
@@ -30,12 +31,52 @@ VarLike = Union[
     list[MixedDimensionalVariable],
     Enum,
     list[Enum],
-    list[Union[str, Variable, MixedDimensionalVariable, Enum]]
+    list[Union[str, Variable, MixedDimensionalVariable, Enum]],
 ]
 """A union type representing variables either by one or multiple names (:class:`str`),
 one or multiple :class:`~porepy.numerics.ad.operators.Variable`
 one or multiple :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`
 or one or multiple categories of variables (:class:`~enum.Enum`).
+
+During parsing, grid variables are prioritized, i.e. a grid variable restricts its respective
+mixed-dimensional variable, as well as categories.
+
+Examples:
+    If ``T`` and ``T_g`` are a mixed-dimensional variable and a grid variable respectively,
+    representing the temperature, the variable-like structure
+
+    >>> [T, T_g]
+
+    Represents the temperature variable on a single grid.
+
+    If additionally ``h`` and ``T`` are categorized as ``energy``, the structure
+
+    >>> [energy, T_g]
+
+    will represent the mixed-dimensional variable ``h`` and the grid variable ``T_g``.
+
+    Additionally, note that if ``T`` is named ``'temperature'``
+    (consequently ``T_g`` will have the same name), then the following variable-like structures
+    are equivalent
+
+    >>> [T, T_g]
+    >>> ['temperature', T_g]
+
+    Also equivalent are
+
+    >>> [T]
+    >>> ['temperature']
+
+    In this case, the user can omit the list and pass only
+
+    >>> T
+    >>> 'temperature'
+
+    For consistency reasons, the order within sequential variable-like structures does not
+    influence the result when assembling subsystems or requesting variable values,
+    since the AD framework always imposes its internally defined order of dofs and columns,
+    which by logic of linear algebra must be the same.
+    No restrictions are imposed on the user on how to assemble variable-like structure.
 
 """
 
@@ -46,7 +87,7 @@ EquationLike = Union[
     list[Operator],
     dict[str, list[GridLike]],
     dict[Operator, list[GridLike]],
-    list[Union[str, dict[str, list[GridLike]], dict[Operator, list[GridLike]]]]
+    list[Union[str, dict[str, list[GridLike]], dict[Operator, list[GridLike]]]],
 ]
 """A union type representing equations either by one or multiple names (:class:`str`),
 one or multiple :class:`~porepy.numerics.ad.operators.Operator`,
@@ -55,8 +96,56 @@ or a dictionary containing equation domains (:data:`GridLike`) per equation (nam
 If an equation is defined on multiple grids, the dictionary can be used to represent a
 restriction of that equation on respective grids.
 
-"""
+During parsing, restrictions to grids defined by dictionaries will be prioritized.
 
+Examples:
+    An equation given by the operator ``e1``, defined on subdomains ``sd1, f1``, representing
+    matrix and fracture respectively, has two row blocks. The equation-like structure
+
+    >>> [e1, {e1: sd1}]
+
+    will result only in the row block belonging to ``sd1``.
+
+    Similar to variable-like structures, note that if the operator ``e1`` is named
+    ``'mass_balance'`` for example, the following is equivalent
+
+    >>> [e1, {e1: sd1}]
+    >>> ['mass_balance', {e1: sd1}]
+    >>> ['mass_balance', {'mass_balance': sd1}]
+    >>> [e1, {'mass_balance': sd1}]
+    >>> {e1: sd1}
+    >>> {'mass_balance': sd1}
+
+    Additionally, if only the assembly of one equation is requested by the user, the list can
+    be omitted, i.e. the following equation-like structures are equivalent
+
+    >>> e1
+    >>> 'mass_balance'
+    >>> [e1]
+    >>> ['mass_balance']
+
+    If the equation is defined on an additional fracture ``f2``, the following structure
+    represents the equation only on the fractures
+
+    >>> {e1: [f1, f2]}
+
+    i.e. it will consist of two row blocks belonging to respective fractures.
+
+    If multiple restrictions are passed for a single equation, the last one will be used,
+    i.e.
+
+    >>> [{e1: [f1, f2]}, {e1: [sd1]}]
+
+    will result in
+
+    >>> {e1: [sd1]}
+
+    For consistency reasons, the ordering inside dictionary values, or general sequential
+    equation-like structures with multiple equations, does not influence the resulting order of
+    blocks since the AD framework always imposes its internally defined order of rows.
+    No restrictions are imposed on the user on how to assemble the equation-like structure.
+
+"""
 
 
 class ADSystem:
@@ -149,8 +238,8 @@ class ADSystem:
 
         """
 
-        self._local_variables: dict[GridLike, dict[str, pp.ad.Variable]] = dict()
-        """Contains references to local Variables and their names for a given grid (key).
+        self._grid_variables: dict[GridLike, dict[str, pp.ad.Variable]] = dict()
+        """Contains references to grid Variables and their names for a given grid (key).
         The reference is stored as another dict, which returns the variable for a given name
         (key).
 
@@ -287,10 +376,10 @@ class ADSystem:
 
                 # create grid variable
                 new_var = pp.ad.Variable(name, dof_info, domain=sd)
-                if sd not in self._local_variables.keys():
-                    self._local_variables.update({sd: dict()})
-                if name not in self._local_variables[sd]:
-                    self._local_variables[sd].update({name: new_var})
+                if sd not in self._grid_variables.keys():
+                    self._grid_variables.update({sd: dict()})
+                if name not in self._grid_variables[sd]:
+                    self._grid_variables[sd].update({name: new_var})
                 variables.append(new_var)
 
         if interfaces:
@@ -315,10 +404,10 @@ class ADSystem:
 
                     # create mortar grid variable
                     new_var = pp.ad.Variable(name, dof_info, domain=intf)
-                    if intf not in self._local_variables.keys():
-                        self._local_variables.update({intf: dict()})
-                    if name not in self._local_variables[intf]:
-                        self._local_variables[intf].update({name: new_var})
+                    if intf not in self._grid_variables.keys():
+                        self._grid_variables.update({intf: dict()})
+                    if name not in self._grid_variables[intf]:
+                        self._grid_variables[intf].update({name: new_var})
                     variables.append(new_var)
 
         # create and store the md variable
@@ -393,7 +482,7 @@ class ADSystem:
         # storage for atomic blocks of the sub vector (identified by name-grid pairs)
         values = list()
         # assemble requested name-grid pairs
-        requested_blocks = self._parse_to_blocks(variables)
+        requested_blocks = self._parse_varlike(variables)
 
         # loop over all blocks and process those requested
         # this ensures uniqueness and correct order
@@ -438,7 +527,7 @@ class ADSystem:
         Notes:
             The vector is assumed to be of proper size and will be dissected according to the
             global order, starting with the index 0.
-            Mismatches of is-size and should-be-size according to the subspace specified by 
+            Mismatches of is-size and should-be-size according to the subspace specified by
             ``variables`` will raise respective errors by numpy.
 
         Parameters:
@@ -454,7 +543,7 @@ class ADSystem:
 
         """
         # assemble requested name-grid pairs
-        requested_blocks = self._parse_to_blocks(variables)
+        requested_blocks = self._parse_varlike(variables)
         # start of dissection
         block_start = 0
         block_end = 0
@@ -626,18 +715,18 @@ class ADSystem:
         self._block_dofs = np.array(new_block_dofs, dtype=int)
         self._block_numbers = new_block_numbers
 
-    def _parse_to_blocks(
+    def _parse_varlike(
         self,
         variables: Optional[VarLike] = None,
     ) -> list[tuple[str, GridLike]]:
         """Helper method to create name-grid pairs for VarLike input.
-        
+
         Raises a type error if the input or part of the input is not VarLike.
 
         Notes:
-            This method, and the sub-routine _parse_atomic_varlike, are crucial in terms of
+            This method, and the sub-routine _parse_single_varlike, are crucial in terms of
             performance.
-        
+
         """
         # the default return value is all blocks
         if variables is None:
@@ -649,15 +738,37 @@ class ADSystem:
                 return self._parse_single_varlike(variables)
             # try to iterate over sequential VarLike
             else:
-                # storage for all requested blocks, possible not unique
+                # storage for all requested blocks, possible not unique and un-restricted in
+                # terms of grids
                 requested_blocks = list()
+                # storage for all grid-restricted vars to eliminate the rest
+                grid_restricted_vars = set()
+                restricted_grids: dict[str, set] = dict()
 
                 for variable in variables:
                     # same parsing as for non_sequentials
                     requested_blocks += self._parse_single_varlike(variable)
+                    # filtering grid restrictions
+                    if isinstance(variable, Variable):
+                        grid_restricted_vars.add(variable.name)
+                        if variable.name in restricted_grids:
+                            restricted_grids[variable.name].add(variable.domain)
+                        else:
+                            restricted_grids[variable.name] = set([variable.domain])
+                # make results unique
+                requested_blocks = set(requested_blocks)
+                # processing grid restrictions
+                for name in grid_restricted_vars:
+                    all_grids = set(self.variables[name].domain)
+                    filtered_grids = all_grids.difference(restricted_grids[name])
+                    for f_name, f_grid in itertools.product([name], filtered_grids):
+                        if (f_name, f_grid) in requested_blocks:
+                            requested_blocks.remove((f_name, f_grid))
                 # iterate over available blocks and check if they are requested
-                # this ensures uniqueness and correct order
-                return [block for block in self._block_numbers if block in requested_blocks]
+                # this ensures uniqueness again and correct order
+                return [
+                    block for block in self._block_numbers if block in requested_blocks
+                ]
 
     def _parse_single_varlike(
         self, variable: str | Variable | MixedDimensionalVariable | Enum
@@ -665,15 +776,15 @@ class ADSystem:
         """Helper of helper :) Parses non-sequential VarLikes."""
         # variable represented as a string: include all associated grids
         if isinstance(variable, str):
-                if variable not in self.variables.keys():
-                    raise ValueError(f"Unknown variable name {variable}.")
-                return [block for block in self._block_numbers if block[0] == variable]
-        # variable represented as local variable: return local block
+            if variable not in self.variables.keys():
+                raise ValueError(f"Unknown variable name {variable}.")
+            return [block for block in self._block_numbers if block[0] == variable]
+        # variable represented as grid variable: return local block
         elif isinstance(variable, Variable):
             if (variable.name, variable.domain) in self._block_numbers:
                 return [(variable.name, variable.domain)]
             else:
-                raise ValueError(f"Unknown local variable {variable}.")
+                raise ValueError(f"Unknown grid variable {variable}.")
         # variable represented as md-var: include all associated grids
         elif isinstance(variable, MixedDimensionalVariable):
             if variable not in self.variables.values():
@@ -752,7 +863,7 @@ class ADSystem:
         # global block indices
         global_block_dofs = np.hstack((0, np.cumsum(self._block_dofs)))
         # parsing of requested blocks
-        requested_blocks = self._parse_to_blocks(variables)
+        requested_blocks = self._parse_varlike(variables)
         # storage of indices per requested block
         indices = list()
         for block in requested_blocks:
@@ -766,8 +877,6 @@ class ADSystem:
         # concatenate indices, if any
         if indices:
             return np.concatenate(indices, dtype=int)
-        # the input resulted in no known blocks, return an empty array
-        # TODO check with EK and IS if a key error should be raised instead
         else:
             return np.array([], dtype=int)
 
@@ -776,16 +885,14 @@ class ADSystem:
         self, dof: int, return_var: Literal[False] = False
     ) -> tuple[str, GridLike]:
         ...
-    
+
     @overload
-    def identify_dof(
-        self, dof: int, return_var: Literal[True]
-    ) -> 'pp.ad.Variable':
+    def identify_dof(self, dof: int, return_var: Literal[True]) -> "pp.ad.Variable":
         ...
 
     def identify_dof(
         self, dof: int, return_var: bool = False
-    ) -> tuple[str, GridLike] | 'pp.ad.Variable':
+    ) -> tuple[str, GridLike] | "pp.ad.Variable":
         """Identifies the block to which a specific DOF index belongs.
 
         The block is represented either by a name-grid pair or the respective variable.
@@ -798,7 +905,7 @@ class ADSystem:
             return_var (optional): if True, returns the variable object instead of the
                 name-grid combination representing the dof.
 
-        Returns: a 2-tuple containing variable name and a grid, or the respective variable 
+        Returns: a 2-tuple containing variable name and a grid, or the respective variable
             itself.
 
         Raises:
@@ -817,8 +924,8 @@ class ADSystem:
         for block_pair, block_number in self._block_numbers.items():
             if block_number == target_block_number:
                 if return_var:
-                    # note the local variables are stored per grid-name not name-grid
-                    return self._local_variables[block_pair[1]][block_pair[0]]
+                    # note the grid variables are stored per grid-name not name-grid
+                    return self._grid_variables[block_pair[1]][block_pair[0]]
                 else:
                     return block_pair
         # if search was not successful, something went terribly wrong
@@ -829,7 +936,6 @@ class ADSystem:
 
     def set_equation(
         self,
-        name: str,
         equation: pp.ad.Operator,
         num_equ_per_dof: dict[GridLike, dict[str, int]],
     ) -> None:
@@ -1012,15 +1118,15 @@ class ADSystem:
 
         return discr
 
-    def _parse_to_row_blocks(
+    def _parse_equation_like(
         self, equations: Optional[EquationLike] = None
     ) -> dict[str, None | np.ndarray]:
         """Helper method to parse equation-like inputs into a properly ordered structure.
-        
+
         Raises a type error if the input or part of the input is not equation-like.
         If an equation is requested for a grid on which it is not defined, a value error will
         be raised.
-        
+
         """
         # the default return value is all equations with no grid restrictions
         if equations is None:
@@ -1029,22 +1135,34 @@ class ADSystem:
         else:
             # parsing non-sequential arguments
             if isinstance(equations, (str, Operator, dict)):
-                return self._parse_single_row_block(equations)
+                return self._parse_single_equation_like(equations)
             # try to iterate over sequential equation-likes
             else:
                 # storage for requested blocks, unique information per equation name
                 requested_row_blocks = dict()
+                # storage for restricted equations
+                restricted_equations = dict()
 
                 for equation in equations:
-                    requested_row_blocks.update(self._parse_single_row_block(equation))
+                    block = self._parse_single_equation_like(equation)
+                    # store restrictions
+                    if isinstance(equation, dict):
+                        restricted_equations.update(block)
+                    else:
+                        requested_row_blocks.update(self._parse_single_equation_like(equation))
+                # update the requested blocks with the restricted to overwrite the indices if
+                # an equation was passed in both restricted and unrestricted structure
+                requested_row_blocks.update(restricted_equations)
                 # ensure order
                 ordered_blocks = list()
                 for equation in self._equations:
                     if equation in requested_row_blocks:
-                        ordered_blocks.append((equation, requested_row_blocks[equation]))
+                        ordered_blocks.append(
+                            (equation, requested_row_blocks[equation])
+                        )
                 return dict(block for block in ordered_blocks)
 
-    def _parse_single_row_block(
+    def _parse_single_equation_like(
         self, equation: str | Operator | dict[str | Operator, list[GridLike]]
     ) -> dict[str, None | list[GridLike]]:
         """Another helper's helper, this time for row blocks.
@@ -1073,13 +1191,16 @@ class ADSystem:
                         raise ValueError(f"Unkown equation operator {equation}.")
                 else:
                     raise TypeError(
-                        f"Item ({type(equ)}, {type(grids)}) not parsable as equation-like.")
-                
+                        f"Item ({type(equ)}, {type(grids)}) not parsable as equation-like."
+                    )
+
                 img_info = self._equ_image_space_composition[name]
                 # check if the user requests a properly defined subsystem
                 unknown_grids = set(grids).difference(set(img_info.keys()))
                 if len(unknown_grids) > 0:
-                    raise ValueError(f"Equation {name} not defined on grids {unknown_grids}")
+                    raise ValueError(
+                        f"Equation {name} not defined on grids {unknown_grids}"
+                    )
                 block_idx = list()
                 # loop over image space information to ensure correct order
                 for grid in img_info:
@@ -1091,7 +1212,8 @@ class ADSystem:
                 # indices should by logic always be found, if not alert the user.
                 else:
                     raise TypeError(
-                        f"Equation-like item ({type(equ)}, {type(grids)}) yielded no rows.")
+                        f"Equation-like item ({type(equ)}, {type(grids)}) yielded no rows."
+                    )
             return block
         else:
             raise TypeError(f"Type {type(equation)} not parsable as equation-like.")
@@ -1138,7 +1260,7 @@ class ADSystem:
             (for sd in subdomains, for intf in interfaces).
 
             The columns of the subsystem are assumed to be properly defined by ``variables``,
-            otherwise a matrix of shape ``(M,)`` is returned. This happens if local variables
+            otherwise a matrix of shape ``(M,)`` is returned. This happens if grid variables
             are passed which are unknown to this AD system.
 
         Parameters:
@@ -1161,7 +1283,7 @@ class ADSystem:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
-        equ_blocks = self._parse_to_row_blocks(equations)
+        equ_blocks = self._parse_equation_like(equations)
 
         # Data structures for building matrix and residual vector
         mat: list[sps.spmatrix] = []
@@ -1279,7 +1401,8 @@ class ADSystem:
             # filter variables by category
             primary_variables = [var for var in primary_variables if var in cat_filter]
         # secondary variables
-        # if the secondary columns are not specified, we use the complement of the primary columns
+        # if the secondary columns are not specified,
+        # we use the complement of the primary columns
         if secondary_variables is None and secondary_categories is None:
             pass
         # if secondary columns are specified, we use the specification
@@ -1289,9 +1412,11 @@ class ADSystem:
         ## secondary block
         if isinstance(primary_equations, str):
             primary_equations = [primary_equations]  # type: ignore
-        
+
         # gives us the primary columns
-        projection_p = self.projection_to(primary_variables, primary_categories, primary_grids)
+        projection_p = self.projection_to(
+            primary_variables, primary_categories, primary_grids
+        )
         # asserting the primary row block is not empty
         assert len(primary_equations) != 0
         # asserts primary subdomain not empty
@@ -1300,7 +1425,6 @@ class ADSystem:
         assert projection_p.shape[0] < projection_p.shape[1]
 
         # processing of the secondary block
-        
 
         # Get lists of all variables and equations, and find the secondary items
         # by a set difference
@@ -1403,9 +1527,7 @@ class ADSystem:
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
 
-    def create_subsystem_manager(
-        self, equations: Union[str, list[str]]
-    ) -> ADSystem:
+    def create_subsystem_manager(self, equations: Union[str, list[str]]) -> ADSystem:
         """Creates an ``ADSystemManager`` for a given subset of equations.
 
         Parameters:
