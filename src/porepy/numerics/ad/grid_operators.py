@@ -583,7 +583,7 @@ class Geometry(Operator):
         """
         super().__init__(name=name)
 
-        self._subdomains = subdomains
+        self.subdomains = subdomains
         for sd in subdomains:
             assert sd.dim <= nd
 
@@ -664,7 +664,7 @@ class Divergence(Operator):
 
         """
         super().__init__(name=name)
-        self._subdomains = subdomains
+        self.subdomains = subdomains
 
         self.dim: int = dim
         self._set_tree(None)
@@ -672,12 +672,12 @@ class Divergence(Operator):
     def __repr__(self) -> str:
         s = (
             f"divergence for vector field of size {self.dim}"
-            f" defined on {len(self._subdomains)} subdomains\n"
+            f" defined on {len(self.subdomains)} subdomains\n"
         )
 
         nf = 0
         nc = 0
-        for g in self._subdomains:
+        for g in self.subdomains:
             nf += g.num_faces * self.dim
             nc += g.num_cells * self.dim
         s += f"The total size of the matrix is ({nc}, {nf})\n"
@@ -704,11 +704,11 @@ class Divergence(Operator):
 
         """
         if self.dim == 1:
-            mat = [pp.fvutils.scalar_divergence(sd) for sd in self._subdomains]
+            mat = [pp.fvutils.scalar_divergence(sd) for sd in self.subdomains]
         else:
             mat = [
                 sps.kron(pp.fvutils.scalar_divergence(sd), sps.eye(self.dim))
-                for sd in self._subdomains
+                for sd in self.subdomains
             ]
         matrix = sps.block_diag(mat)
         return matrix
@@ -744,7 +744,7 @@ class BoundaryCondition(Operator):
         """
         super().__init__(name=name)
         self.keyword = keyword
-        self._subdomains: List[pp.Grid] = subdomains
+        self.subdomains: List[pp.Grid] = subdomains
         # FIXME: Super sets tree. Purge?
         self._set_tree()
 
@@ -752,7 +752,7 @@ class BoundaryCondition(Operator):
         s = f"Boundary Condition operator with keyword {self.keyword}\n"
 
         dims = np.zeros(4, dtype=int)
-        for sd in self._subdomains:
+        for sd in self.subdomains:
             dims[sd.dim] += 1
         for d in range(3, -1, -1):
             if dims[d] > 0:
@@ -775,7 +775,7 @@ class BoundaryCondition(Operator):
 
         """
         val = []
-        for sd in self._subdomains:
+        for sd in self.subdomains:
             data = mdg.subdomain_data(sd)
             val.append(data[pp.PARAMETERS][self.keyword]["bc_values"])
         return np.hstack([v for v in val])
@@ -835,8 +835,8 @@ class ParameterArray(Operator):
             interfaces = []
         self.param_keyword = param_keyword
         self.array_keyword = array_keyword
-        self._subdomains: List[pp.Grid] = subdomains
-        self._interfaces: List[pp.MortarGrid] = interfaces
+        self.subdomains: List[pp.Grid] = subdomains
+        self.interfaces: List[pp.MortarGrid] = interfaces
         self._set_tree()
 
     def __repr__(self) -> str:
@@ -846,13 +846,13 @@ class ParameterArray(Operator):
         )
 
         dims = np.zeros(4, dtype=int)
-        for sd in self._subdomains:
+        for sd in self.subdomains:
             dims[sd.dim] += 1
         for d in range(3, -1, -1):
             if dims[d] > 0:
                 s += f"{dims[d]} subdomains of dimension {d}\n"
         dims = np.zeros(4, dtype=int)
-        for intf in self._interfaces:
+        for intf in self.interfaces:
             dims[intf.dim] += 1
         for d in range(3, -1, -1):
             if dims[d] > 0:
@@ -875,10 +875,10 @@ class ParameterArray(Operator):
 
         """
         val = []
-        for sd in self._subdomains:
+        for sd in self.subdomains:
             data = mdg.subdomain_data(sd)
             val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
-        for intf in self._interfaces:
+        for intf in self.interfaces:
             data = mdg.interface_data(intf)
             val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
         if len(val) > 0:
@@ -911,10 +911,10 @@ class ParameterMatrix(ParameterArray):
 
         """
         val = []
-        for sd in self._subdomains:
+        for sd in self.subdomains:
             data = mdg.subdomain_data(sd)
             val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
-        for intf in self._interfaces:
+        for intf in self.interfaces:
             data = mdg.interface_data(intf)
             val.append(data[pp.PARAMETERS][self.param_keyword][self.array_keyword])
         if len(val) > 0:
