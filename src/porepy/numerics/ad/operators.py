@@ -67,8 +67,8 @@ class Operator:
         if name is None:
             name = ""
         self._name = name
-        self._subdomains: list[pp.Grid] = [] if subdomains is None else subdomains
-        self._interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
+        self.subdomains: list[pp.Grid] = [] if subdomains is None else subdomains
+        self.interfaces: list[pp.MortarGrid] = [] if interfaces is None else interfaces
         self._set_tree(tree)
 
     def _set_tree(self, tree=None):
@@ -82,8 +82,7 @@ class Operator:
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
     ) -> None:
-        """For operators which are defined for either subdomains or interfaces but not
-        both.
+        """For operators which are defined for either subdomains or interfaces but not both.
 
         Check that exactly one of subdomains and interfaces is given and assign to the
         operator. The unspecified grid-like type will also be set as an attribute, i.e.
@@ -1047,7 +1046,7 @@ class Scalar(Operator):
         if self._name is not None:
             s += f"({self._name})"
         return s
-
+    
     def parse(self, mdg: pp.MixedDimensionalGrid) -> float:
         """Convert the Ad Scalar into an actual number.
 
@@ -1124,15 +1123,15 @@ class Variable(Operator):
         self._g: Union[pp.Grid, pp.MortarGrid]
 
         # Shorthand access to grid or edge:
-        if len(self._interfaces) == 0:
-            if len(self._subdomains) != 1:
+        if len(self.interfaces) == 0:
+            if len(self.subdomains) != 1:
                 raise ValueError("Variable must be associated with exactly one grid.")
-            self._g = self._subdomains[0]
+            self._g = self.subdomains[0]
             self._is_edge_var = False
         else:
-            if len(self._interfaces) != 1:
+            if len(self.interfaces) != 1:
                 raise ValueError("Variable must be associated with exactly one edge.")
-            self._g = self._interfaces[0]
+            self._g = self.interfaces[0]
             self._is_edge_var = True
 
         self.prev_time: bool = previous_timestep
@@ -1174,11 +1173,11 @@ class Variable(Operator):
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         if self._is_edge_var:
             return Variable(
-                self._name, ndof, interfaces=self._interfaces, previous_timestep=True
+                self._name, ndof, interfaces=self.interfaces, previous_timestep=True
             )
         else:
             return Variable(
-                self._name, ndof, subdomains=self._subdomains, previous_timestep=True
+                self._name, ndof, subdomains=self.subdomains, previous_timestep=True
             )
 
     def previous_iteration(self) -> "Variable":
@@ -1191,11 +1190,11 @@ class Variable(Operator):
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
         if self._is_edge_var:
             return Variable(
-                self._name, ndof, interfaces=self._interfaces, previous_iteration=True
+                self._name, ndof, interfaces=self.interfaces, previous_iteration=True
             )
         else:
             return Variable(
-                self._name, ndof, subdomains=self._subdomains, previous_iteration=True
+                self._name, ndof, subdomains=self.subdomains, previous_iteration=True
             )
 
     def __repr__(self) -> str:
