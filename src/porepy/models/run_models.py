@@ -70,7 +70,6 @@ def run_time_dependent_model(model, params) -> None:
             )
         )
         solver.solve(model)
-        #model.time_manager.compute_time_step()
 
     model.after_simulation()
 
