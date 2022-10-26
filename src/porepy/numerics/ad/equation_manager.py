@@ -65,7 +65,7 @@ class EquationManager:
                 to be considered secondary for this EquationManager.
 
         """
-        DeprecationWarning("The EquationManager will be deprecated. Use new ADSystem.")
+        DeprecationWarning("The EquationManager will be replaced by ADSystem.")
         self.mdg = mdg
 
         # Inform mypy about variables, and then set them by a dedicated method.
@@ -594,7 +594,7 @@ class EquationManager:
         # Loop over all variables, add the variable itself, or its subvariables
         # (if it is Merged)
         for v in tmp_vars:
-            if isinstance(v, (pp.ad.MixedDimensionalVariable, operators.MixedDimensionalVariable)):
+            if isinstance(v, pp.ad.MixedDimensionalVariable):
                 for sv in v.sub_vars:
                     var.append(sv)
             elif isinstance(v, (pp.ad.Variable, operators.Variable)):
