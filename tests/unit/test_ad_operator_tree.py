@@ -231,7 +231,7 @@ def test_time_dependent_array():
     assert np.allclose(sd_prev_timestep.parse(mdg), 0)
 
     sd_top_prev_timestep = sd_array_top.previous_timestep()
-    assert np.allclose(sd_prev_timestep.parse(sd_top_prev_timestep), 0)
+    assert np.allclose(sd_prev_timestep.parse(mdg), 0)
 
     intf_prev_timestep = intf_array.previous_timestep()
     assert np.allclose(intf_prev_timestep.parse(mdg), np.arange(intf_val.size))

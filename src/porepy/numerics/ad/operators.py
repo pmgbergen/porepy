@@ -99,8 +99,8 @@ class Operator:
         if interfaces is None:
             interfaces = []
 
-        self._subdomains = subdomains
-        self._interfaces = interfaces
+        self.subdomains = subdomains
+        self.interfaces = interfaces
 
     def _find_subtree_variables(self) -> list["pp.ad.Variable"]:
         """Method to recursively look for Variables (or MergedVariables) in an
