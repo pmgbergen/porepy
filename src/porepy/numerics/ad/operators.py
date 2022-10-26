@@ -945,6 +945,10 @@ class TimeDependentArray(Array):
                 "A time dependent array must be associated with either an"
                 " interface or a subdomain."
             )
+
+        # Store subdomains and interfaces.
+        self.subdomains = subdomains
+        self.interfaces = interfaces
         self._g: Sequence[GridLike]
         self._is_interface_arary: bool
 
@@ -955,7 +959,7 @@ class TimeDependentArray(Array):
             self._g = subdomains
             self._is_interface_arary = False
         else:
-            assert all([isinstance(intf, pp.Grid) for intf in interfaces])
+            assert all([isinstance(intf, pp.MortarGrid) for intf in interfaces])
             self._g = interfaces
             self._is_interface_arary = True
 
