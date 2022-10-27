@@ -1,12 +1,26 @@
 """
-This module contains tests that are devised to guarantee a correct integration between the
-TimeManager class and the PorePy models.
+This module contains tests that are devised to guarantee a correct integration between of the
+TimeManager class into the PorePy models.
+
+Brief summary of tests:
+    * test_default_behaviour: Tests default behaviour of the TimeManager in all models. This
+        also includes static models.
+    * test_constant_dt: Tests time management when constant time step is used on all
+        time-dependent models.
+    * test_linear_non_constant_dt: Tests time management on time-dependent linear models when
+        non-constant time step is used.
+    * test_time_step_adaptation_after_convergence: Tests time adaptation on non-linear
+        time-dependent models where convergence is achieved in all time steps.
+    * test_time_step_adapation_after_failure: Tests time adaptation on non-linear
+        time-dependent models where recomputation-after-failed-to-converge is necessary in at
+        least one time level.
+
 """
 
-import porepy as pp
 import numpy as np
 import pytest
 
+import porepy as pp
 from tests.common.slightly_compressible_flow_examples import NonLinearSCF
 
 # Model classes to be tested
@@ -15,20 +29,15 @@ all_models = [
     pp.SlightlyCompressibleFlow,
     pp.ContactMechanics,
     pp.ContactMechanicsBiot,
-    pp.THM
+    pp.THM,
 ]
 
-time_dependent_models = [
-    pp.SlightlyCompressibleFlow,
-    pp.ContactMechanicsBiot,
-    pp.THM
-]
+time_dependent_models = [pp.SlightlyCompressibleFlow, pp.ContactMechanicsBiot, pp.THM]
 
-non_linear_models = [
-    NonLinearSCF
-]
+non_linear_models = [NonLinearSCF]
 
-# -----> Testing defaults
+
+# -----> Testing default behaviour
 @pytest.mark.parametrize("model_class", all_models)
 def test_default_behaviour(model_class):
     """Test the default behaviour of the models"""
@@ -56,7 +65,7 @@ tm2 = pp.TimeManager([0, pp.HOUR, 2 * pp.HOUR, 10 * pp.HOUR], pp.HOUR, constant_
 
 @pytest.mark.parametrize("model_class", time_dependent_models)
 @pytest.mark.parametrize("time_manager", [tm0, tm1, tm2])
-def test_constant_time_step(request, model_class, time_manager):
+def test_constant_dt(request, model_class, time_manager):
     """Test models when constant time step is used"""
 
     model = model_class(params={"use_ad": True, "time_manager": time_manager})
@@ -89,12 +98,12 @@ def test_linear_non_constant_dt(model_class):
     time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.01)
     model = model_class(params={"use_ad": True, "time_manager": time_manager})
     with pytest.raises(NotImplementedError) as excinfo:
-        msg = "Currently, time step cannot be adapted when the problem is linear."
+        msg = "Time step cannot be adapted when the problem is linear."
         pp.run_time_dependent_model(model, model.params)
     assert msg in str(excinfo.value)
 
 
-# -----> Testing non-linear models
+# -----> Testing adaptation after convergence for non-linear models
 @pytest.mark.parametrize("model_class", non_linear_models)
 @pytest.mark.parametrize("solution_type", ["parabolic", "trigonometric"])
 def test_time_step_adaptation_after_convergence(model_class, solution_type):
@@ -108,13 +117,13 @@ def test_time_step_adaptation_after_convergence(model_class, solution_type):
         iter_relax_factors=(0.7, 1.3),
         recomp_factor=0.5,
         recomp_max=5,
-        print_info=False
+        print_info=False,
     )
     params = {
         "use_ad": True,
         "time_manager": time_manager,
         "solution_type": solution_type,
-        "num_cells": 5
+        "num_cells": 5,
     }
     model = model_class(params=params)
     pp.run_time_dependent_model(model, model.params)
@@ -122,57 +131,56 @@ def test_time_step_adaptation_after_convergence(model_class, solution_type):
     np.testing.assert_almost_equal(model.out["time_step"], [0.3, 0.39, 0.31], 6)
 
 
-@pytest.mark.parametrize("model_class", non_linear_models)
-@pytest.mark.parametrize("solution_type", ["parabolic"])
-def test_time_step_adapation_after_failure(model_class, solution_type):
-    """Test failed-to-convergence time step adaptation for non-linear models"""
-    assert 1 == 1
-
-"""
-Time manager and params for recomputing with parabolic:
-
-time_manager = pp.TimeManager(
+# -----> Testing adaptation after recomputation for non-linear models
+tm_parabolic = pp.TimeManager(
     schedule=[0, 0.2],
     dt_init=0.18,
     dt_min_max=(0.05, 0.19),
     iter_optimal_range=(1, 2),
-    print_info=True,
     iter_max=2,
-    recomp_factor=0.5,
-    recomp_max=5
 )
-params = {
+params_parabolic = {
     "use_ad": True,
     "num_cells": 5,
-    "time_manager": time_manager,
+    "time_manager": tm_parabolic,
     "solution_type": "parabolic",
-    "plot_sol": True,
     "max_iterations": 2,
-    "nl_convergence_tol": 1E-8,
+    "nl_convergence_tol": 1e-8,
 }
 
-Time manager and params for recomputing with trigonometric:
-
-
-time_manager = pp.TimeManager(
+tm_trigonometric = pp.TimeManager(
     schedule=[0, 0.2],
     dt_init=0.18,
-    dt_min_max=(0.05, 0.19),
+    dt_min_max=(0.04, 0.19),
     iter_optimal_range=(1, 2),
-    print_info=True,
     iter_max=2,
-    recomp_factor=0.5,
-    recomp_max=5
 )
 params = {
     "use_ad": True,
     "num_cells": 5,
-    "time_manager": time_manager,
+    "time_manager": tm_trigonometric,
     "solution_type": "trigonometric",
-    "plot_sol": True,
     "max_iterations": 2,
-    "nl_convergence_tol": 1E-6,
+    "nl_convergence_tol": 1.5e-6,
 }
 
 
-"""
+@pytest.mark.parametrize("parameters", [params_parabolic])
+def test_time_step_adapation_after_failure(request, parameters):
+    """Test failed-to-convergence time step adaptation for non-linear models"""
+    model = NonLinearSCF(params=parameters)
+    pp.run_time_dependent_model(model, params=model.params)
+    if "parabolic" in request.node.callspec.id:
+        np.testing.assert_equal(model.out["iterations"], [2, 2, 2, 2])
+        np.testing.assert_equal(model.out["recomputations"], [1, 1, 0, 0])
+        np.testing.assert_almost_equal(sum(model.out["time_step"]), 0.2, 6)
+        np.testing.assert_almost_equal(
+            model.out["time_step"], [0.09, 0.05, 0.05, 0.01], 6
+        )
+    elif "trigonometric" in request.node.callspec.id:
+        np.testing.assert_equal(model.out["iterations"], [2, 2, 2, 2, 2])
+        np.testing.assert_equal(model.out["recomputations"], [2, 0, 0, 0, 0])
+        np.testing.assert_almost_equal(sum(model.out["time_step"]), 0.2, 6)
+        np.testing.assert_almost_equal(
+            model.out["time_step"], [0.045, 0.04, 0.04, 0.04, 0.035], 6
+        )
