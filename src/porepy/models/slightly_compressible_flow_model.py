@@ -106,6 +106,20 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
     def after_simulation(self):
         self.exporter.write_pvd()
 
+    def before_newton_iteration(self) -> None:
+        """Method to be called before each Newton iteration."""
+        pass
+
+    def after_newton_iteration(self, sol: np.ndarray) -> None:
+        """Method to be called after each Newton iteration."""
+
+        # Distribute solution to pp.ITERATE
+        self.dof_manager.distribute_variable(
+            values=sol,
+            additive=True,
+            to_iterate=True
+        )
+
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
@@ -118,24 +132,24 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         """
 
+        # Transfer solution from pp.ITERATE to pp.STATE
+        self.dof_manager.transfer_variable(from_iterate_to_state=True)
+
+        # Determine next time step
         if not self.time_manager.is_constant:
             if not self._is_nonlinear_problem():
                 # TODO: This might change in the future when inexact solvers are available
-                msg = (
-                    "Currently, time step cannot be adapted when the problem is linear."
-                )
+                msg = "Time step cannot be adapted when the problem is linear."
                 raise NotImplementedError(msg)
             else:
                 self.time_manager.compute_time_step(iterations=iteration_counter)
                 if hasattr(self, "_ad"):
                     self._ad.time_step._value = self.time_manager.dt
                 else:
-                    raise NotImplementedError(
-                        "Adaptive time step only available for AD."
-                    )
+                    msg = "Adaptive time step only available for AD."
+                    raise NotImplementedError(msg)
         else:
-            # Nothing to do here since the time step is constant
-            pass
+            pass  # nothing to do here since time step is constant
 
     def after_newton_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -149,28 +163,30 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
 
         """
 
+        # Since solution will be recomputed, we have to transfer back the solution from
+        # pp.STATE to pp.ITERATE
+        self.dof_manager.transfer_variable(from_state_to_iterate=True)
+
+        # Determine next time step
         if not self.time_manager.is_constant:
             if not self._is_nonlinear_problem():
-                msg = (
-                    "Currently, time step cannot be adapted when the problem is linear."
-                )
+                msg = "Time step cannot be adapted when the problem is linear."
                 raise NotImplementedError(msg)
             else:
                 self.time_manager.compute_time_step(recompute_solution=True)
                 if hasattr(self, "_ad"):
                     self._ad.time_step._value = self.time_manager.dt
                 else:
-                    raise NotImplementedError(
-                        "Adaptive time step only available for AD."
-                    )
+                    msg = "Adaptive time step only available for AD."
+                    raise NotImplementedError(msg)
         else:
             # If dt is constant, we raise an error since there is nothing left to do
             if self._is_nonlinear_problem():
-                raise ValueError("Newton iterations did not converge.")
+                msg = "Newton solver did not converge."
+                raise ValueError(msg)
             else:
-                raise ValueError(
-                    "Tried solving singular matrix for the linear problem."
-                )
+                msg = "Tried solving singular matrix for the linear problem."
+                raise ValueError(msg)
 
     def _is_time_dependent(self):
         return True
