@@ -1,9 +1,9 @@
 """
 This module contains examples of slightly compressible flow setups.
 
-Implemented classes:
-    NonLinearSCF: Two-dimensional non-fractured slightly compressible flow with
-        pressure-dependent porosity.
+Implemented model setups:
+    NonLinearSCF: A two-dimensional, Cartesian, non-fractured slightly compressible flow model
+        with pressure-dependent porosity.
 
 """
 import porepy as pp
@@ -40,9 +40,11 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
     def __init__(self, params: dict) -> None:
         super().__init__(params)
 
-        self.out = {"iterations": [], "time_step": []}
+        # Dictionary to store information relevant for testing
+        self.out = {"iterations": [], "time_step": [], "recomputations": []}
 
-    def create_grid(self):
+    def create_grid(self) -> None:
+        """Create an `n` x `n` Cartesian grid without fractures."""
         phys_dims = np.array([1, 1])
         n: int = self.params.get("num_cells", 4)
         n_cells = np.array([n, n])
@@ -51,18 +53,23 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         sd.compute_geometry()
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
 
-    def _reference_porosity(self):
+    def _reference_porosity(self) -> float:
+        """Porosity corresponding to the reference pressure."""
         return self.params.get("reference_porosity", 0.5)
 
-    def _reference_pressure(self):
+    def _reference_pressure(self) -> Union[float, int]:
+        """Reference pressure."""
         return self.params.get("reference_pressure", 0.0)
 
     def _specific_storativity(self):
+        """Specific storativity.
+
+        Note:
+            Note that this is not the compressibility of the fluid, but rather the
+            compressibility of the porous medium.
+
+        """
         return self.params.get("specific_storativity", 1E-1)
-
-    def _permeability(self, sd: pp.Grid) -> np.ndarray:
-        return self.params.get("permeability", 1.0) * np.ones(sd.num_cells)
-
 
     def _porosity(
             self, p: Union[pp.ad.Ad_array, np.ndarray]
@@ -74,7 +81,8 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
             p: pressure
 
         Returns:
-            porosity for the given pressure `p`.
+            porosity for the given pressure `p`. Depending on the input, it will return
+                either an np.ndarray or an Ad_array.
 
         """
 
@@ -92,6 +100,7 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         return phi
 
     def before_newton_loop(self) -> None:
+        """Method to be called before entering a Newton loop."""
 
         super().before_newton_loop()
 
@@ -106,44 +115,20 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         data[pp.PARAMETERS][self.parameter_key]["source"] = source
 
     def before_newton_iteration(self) -> None:
+        """Method to be called before each Newton iteration."""
         pass
-
-    def after_newton_iteration(self, sol) -> None:
-
-        # Distribute solution to iterate
-        self.dof_manager.distribute_variable(
-            values=sol,
-            grids=self.mdg.subdomains(),
-            variables=self.variable,
-            additive=True,
-            to_iterate=True
-        )
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
 
-        # Store number of iterations and time step for testing purposes
+        # Store number of iterations, time step, and number of recomputations for testing
+        # purposes
         self.out["iterations"].append(iteration_counter)
         self.out["time_step"].append(self.time_manager.dt)
-        print(self.time_manager)
-        print()
+        self.out["recomputations"].append(self.time_manager._recomp_num)
 
         super().after_newton_convergence(solution, errors, iteration_counter)
-
-        # Distribute variables to state
-        # TODO: We might want to implement this in the parent class already, since it is
-        #  quite easily overlooked
-        self.dof_manager.transfer_variable(from_iterate_to_state=True)
-
-    def after_newton_failure(
-            self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-
-        super().after_newton_failure(solution, errors, iteration_counter)
-
-        # Since solution will be recomputed, transfer from state to iterate
-        self.dof_manager.transfer_variable(from_state_to_iterate=True)
 
     def _assign_equations(self) -> None:
         """Upgrade incompressible flow equations to non-linear slightly compressible
@@ -164,14 +149,18 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         # Retrieve porosity
         poro = pp.ad.Function(self._porosity, name="porosity", array_compatible=True)
 
+        # Note that this require the fluid compressiblity = 1 to work properly
         accumulation_term = (
                 accumulation_term.mass * (poro(p) - poro(p.previous_timestep()))
         ) / self._ad.time_step
 
-        #  Adding accumulation term to incompressible flow equations
+        # Add accumulation term to incompressible flow equations
         self._eq_manager.equations["subdomain_flow"] += accumulation_term
 
     def after_simulation(self):
+        """Method to be called after the simulation finished"""
+
+        # Plot solution
         if self.params.get("plot_sol", False):
             sd = self.mdg.subdomains()[0]
             data = self.mdg.subdomain_data(sd)
@@ -187,9 +176,9 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
 
         We consider two types of manufactured solutions, i.e., parabolic and trigonometric.
 
-        The specification is done through the model params via the "solution_type" key.
-        Admissible values for the "solution_type" key are "parabolic" and "trigonometric".
-        "parabolic" is set if the key does not exist.
+        The specification is done via the model params through the "solution_type" key.
+        Admissible values for "solution_type" are: "parabolic" and "trigonometric".
+        By default, "parabolic" is set if the key does not exist.
 
         Returns:
             Exact source lambda function of `x`, `y`, and `t`.
@@ -221,31 +210,3 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         f_fun = sym.lambdify((x, y, t), f_sym, "numpy")
 
         return f_fun
-
-
-#%% Runner
-time_manager = pp.TimeManager(
-    schedule=[0, 0.2],
-    dt_init=0.19,
-    dt_min_max=(0.09, 0.19),
-    iter_optimal_range=(1, 2),
-    print_info=True,
-    iter_max=2,
-    recomp_factor=0.5,
-    recomp_max=5
-)
-params = {
-    "use_ad": True,
-    "num_cells": 5,
-    "time_manager": time_manager,
-    "solution_type": "trigonometric",
-    "plot_sol": True,
-    "max_iterations": 2,
-    "nl_convergence_tol": 1E-6,
-}
-model = NonLinearSCF(params=params)
-pp.run_time_dependent_model(model, params)
-
-sd = model.mdg.subdomains()[0]
-data = model.mdg.subdomain_data(sd)
-p = data[pp.STATE][model.variable]
