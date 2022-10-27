@@ -34,7 +34,7 @@ copyright = ("2022 UiB Center for Modeling of Coupled Subsurface Dynamics, "
 # -- General configuration --------------------------------------------------------------------
 
 # Name of the root document or "homepage"
-root_doc = "home"
+root_doc = "index"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
