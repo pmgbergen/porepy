@@ -100,6 +100,9 @@ class Operator:
         if interfaces is None:
             interfaces = []
 
+        if len(subdomains) > 0 and len(interfaces) > 0:
+            raise ValueError("Operator defined on both subdomains and interfaces.")
+
         self.subdomains = subdomains
         self.interfaces = interfaces
 
@@ -949,19 +952,20 @@ class TimeDependentArray(Array):
         # Store subdomains and interfaces.
         self.subdomains = subdomains
         self.interfaces = interfaces
-        self._g: Sequence[GridLike]
-        self._is_interface_arary: bool
+
+        self._grids: Sequence[GridLike]
+        self._is_interface_array: bool
 
         # Shorthand access to subdomain or interface grids:
         if len(interfaces) == 0:
             # Appease mypy
             assert all([isinstance(sd, pp.Grid) for sd in subdomains])
-            self._g = subdomains
-            self._is_interface_arary = False
+            self._grids = subdomains
+            self._is_interface_array = False
         else:
             assert all([isinstance(intf, pp.MortarGrid) for intf in interfaces])
-            self._g = interfaces
-            self._is_interface_arary = True
+            self._grids = interfaces
+            self._is_interface_array = True
 
         self.prev_time: bool = previous_timestep
 
@@ -974,7 +978,7 @@ class TimeDependentArray(Array):
             This array represented at the previous time step.
 
         """
-        if self._is_interface_arary:
+        if self._is_interface_array:
             return TimeDependentArray(
                 self._name, interfaces=self.interfaces, previous_timestep=True
             )
@@ -998,8 +1002,8 @@ class TimeDependentArray(Array):
 
         """
         vals = []
-        for g in self._g:
-            if self._is_interface_arary:
+        for g in self._grids:
+            if self._is_interface_array:
                 # Appease mypy
                 assert isinstance(g, pp.MortarGrid)
                 data = mdg.interface_data(g)
@@ -1012,16 +1016,15 @@ class TimeDependentArray(Array):
             else:
                 vals.append(data[pp.STATE][pp.ITERATE][self._name])
 
-        # TODO: Make a sort on the grid ids here?
         return np.hstack((vals))
 
     def __repr__(self) -> str:
         s = f"Wrapped time-dependent array with name {self._name}.\n"
 
-        if self._is_interface_arary:
-            s += f"Defined on {len(self._g)} interfaces.\n"
+        if self._is_interface_array:
+            s += f"Defined on {len(self._grids)} interfaces.\n"
         else:
-            s += f"Defined on {len(self._g)} subdomains.\n"
+            s += f"Defined on {len(self._grids)} subdomains.\n"
 
         if self.prev_time:
             s += "Evaluated at the previous time step."
@@ -1034,9 +1037,10 @@ class Scalar(Operator):
     This is a shallow wrapper around the real scalar; it may be useful to combine
     the scalar with other types of Ad objects.
 
-    NOTE: Since this is a wrapper around a Python immutable, certain operations, like copy,
-    may not behave as expected.
-    TODO: Should we implement a wrapper around the scalar to facilitate real copying?
+    NOTE: Since this is a wrapper around a Python immutable, copying a Scalar will
+    effectively create a deep copy, i.e., changes in the value of one Scalar will not
+    be reflected in the other. This is in contrast to the behavior of the other
+    Ad objects.
 
     """
 

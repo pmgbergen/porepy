@@ -54,7 +54,8 @@ def dt(op: pp.ad.Operator, time_step: pp.ad.Scalar) -> pp.ad.Operator:
                 return copy.copy(op).previous_timestep()
 
             else:
-                return copy.copy(op)
+                # No need to use a copy here.
+                return op
         else:
             # Recursively iterate over the subtree, get the children, evaluated at the
             # previous time when relevant, and add it to the new list.
