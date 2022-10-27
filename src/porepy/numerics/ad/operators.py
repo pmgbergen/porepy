@@ -897,7 +897,7 @@ class TimeDependentArray(Array):
     however, this is pending an update to the model classes.
 
     Attributes:
-        prev_time (boolean): If True, the the array will be evaluated using in
+        prev_time (boolean): If True, the array will be evaluated using in
             data[pp.STATE] (data being the data dictionaries for subdomains and
             interfaces), if False, data[pp.STATE][pp.ITERATE] is used.
 
@@ -937,13 +937,13 @@ class TimeDependentArray(Array):
 
         if len(interfaces) == 0 and len(subdomains) == 0:
             raise ValueError(
-                "A time dependent array must be associated with an"
-                " interface or a subdomain."
+                "A time dependent array must be associated with"
+                " interfaces or subdomains."
             )
         if len(interfaces) > 0 and len(subdomains) > 0:
             raise ValueError(
-                "A time dependent array must be associated with either an"
-                " interface or a subdomain."
+                "A time dependent array must be associated with either"
+                " interfaces or subdomains, not both."
             )
 
         # Store subdomains and interfaces.
@@ -952,7 +952,7 @@ class TimeDependentArray(Array):
         self._g: Sequence[GridLike]
         self._is_interface_arary: bool
 
-        # Shorthand access to grid or edge:
+        # Shorthand access to subdomain or interface grids:
         if len(interfaces) == 0:
             # Appease mypy
             assert all([isinstance(sd, pp.Grid) for sd in subdomains])
@@ -988,7 +988,7 @@ class TimeDependentArray(Array):
 
         The numerical values will be picked from the representation of the array in
         data[pp.STATE][pp.ITERATE] (where data is the data dictionary of the subdomains
-        or interfaces of this Array), or if self.prev_time = True, from data[pp.STATE].
+        or interfaces of this Array), or, if self.prev_time = True, from data[pp.STATE].
 
         Args:
             mdg: Mixed-dimensional grid.
