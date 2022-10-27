@@ -7,7 +7,7 @@ The main checks performed are:
     test_elementary_wrappers: Test wrapping of scalars, arrays and matrices.
     test_ad_variable_creation: Generate variables, check that copies and new variables 
         are returned as expected.
-    test_ad_variable_wrappers: Test of the wrappers for variables.
+    test_ad_variable_evaluation: Test of the wrappers for variables.
     test_time_differentiation: Covers the pp.ad.dt operator.
 
 """
@@ -104,11 +104,18 @@ def test_copy_operator_tree():
     # In their initial state, all operators should have the same values
     assert np.allclose(c.evaluate(dof_manager), c_copy.evaluate(dof_manager))
     assert np.allclose(c.evaluate(dof_manager), c_deepcopy.evaluate(dof_manager))
+
     # Increase the value of the scalar. This should have no effect, since the scalar
     # wrapps an immutable, see comment in pp.ad.Scalar
     a_val += 1
     assert np.allclose(c.evaluate(dof_manager), c_copy.evaluate(dof_manager))
     assert np.allclose(c.evaluate(dof_manager), c_deepcopy.evaluate(dof_manager))
+
+    # Increase the value of the Scalar. This will be seen by the copy, but not the
+    # deepcopy.
+    a._value += 1
+    assert np.allclose(c.evaluate(dof_manager), c_copy.evaluate(dof_manager))
+    assert not np.allclose(c.evaluate(dof_manager), c_deepcopy.evaluate(dof_manager))
 
     # Next increase the values in the array. This changes the shallow copy, but not the
     # deep one.
@@ -175,7 +182,7 @@ def test_elementary_wrappers(field):
 
     # The shallow copy of the Ad quantity should also pick up the modification.
     # The exception is the scalar, which is a wrapper of a Python immutable, and thus
-    # will return a pointer to the underlying immutable.
+    # does not copy by reference.
     if isinstance(wrapped_obj, pp.ad.Scalar):
         assert not compare(obj, wrapped_copy.parse(None))
     else:
@@ -231,7 +238,7 @@ def test_time_dependent_array():
     assert np.allclose(sd_prev_timestep.parse(mdg), 0)
 
     sd_top_prev_timestep = sd_array_top.previous_timestep()
-    assert np.allclose(sd_prev_timestep.parse(mdg), 0)
+    assert np.allclose(sd_top_prev_timestep.parse(mdg), 0)
 
     intf_prev_timestep = intf_array.previous_timestep()
     assert np.allclose(intf_prev_timestep.parse(mdg), np.arange(intf_val.size))
@@ -242,6 +249,10 @@ def test_ad_variable_creation():
     1) Fetching the same variable twice should get the same variable (same attribute id).
     2) Fetching the same merged variable twice should result in objects with different
        id attributes, but point to the same underlying variable.
+
+    No tests are made of the actual values of the variables, as this is tested in
+    test_ad_variable_evaluation() (below).
+
     """
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
 
@@ -308,12 +319,19 @@ def test_ad_variable_creation():
     assert mvar_1_prev_iter.id != mvar_1.id
     assert mvar_1_prev_time.id != mvar_1.id
 
-def test_ad_variable_wrappers():
-    # Tests that the wrapping of Ad variables, including previous iterates
-    # and time steps, are carried out correctly.
-    # See also test_variable_combinations, which specifically tests evaluation of
-    # variables in a setting of multiple variables, including merged variables.
+def test_ad_variable_evaluation():
+    """Test that the values of Ad variables are as expected under evalutation
+    (translation from the abstract Ad framework to forward mode).
 
+    Boththe atomic and merged variables are tested. The tests cover both the
+    current values of the variables (pp.ITERATE), and their values at previous
+    iterations and time steps.
+
+    See also test_variable_combinations, which specifically tests evaluation of
+    variables in a setting of multiple variables, including merged variables.
+
+    """
+    # Create a MixedDimensionalGrid with two fractures.
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
     mdg = pp.meshing.cart_grid(fracs, np.array([2, 2]))
 
@@ -328,6 +346,9 @@ def test_ad_variable_wrappers():
     mortar_var = "mv"
 
     def _compare_ad_objects(a, b):
+        # Helper function to compare two Ad objects. The comparison is done by
+        # comparing the values of the underlying variables, and the values of the
+        # derivatives.
         va, ja = a.val, a.jac
         vb, jb = b.val, b.jac
 
@@ -465,6 +486,89 @@ def test_ad_variable_wrappers():
     v1_prev = v1.previous_timestep()
     assert np.allclose(true_state[ind1], v1_prev.evaluate(dof_manager, true_iterate))
 
+@pytest.mark.parametrize(
+    "grids",
+    [
+        [pp.CartGrid(np.array([4, 1]))],
+        [pp.CartGrid(np.array([4, 1])), pp.CartGrid(np.array([2, 2]))],
+    ],
+)
+@pytest.mark.parametrize(
+    "variables",
+    [["foo"], ["foo", "bar"]],
+)
+def test_variable_combinations(grids, variables):
+    """ Test combinations of variables, and merged variables, on different grids.
+    The main check is if Jacobian matrices are of the right size.
+    """
+    # Make MixedDimensionalGrid, populate with necessary information
+    mdg = pp.MixedDimensionalGrid()
+    mdg.add_subdomains(grids)
+    for sd, data in mdg.subdomains(return_data=True):
+        data[pp.STATE] = {}
+        data[pp.PRIMARY_VARIABLES] = {}
+        for var in variables:
+            data[pp.PRIMARY_VARIABLES].update({var: {"cells": 1}})
+            data[pp.STATE][var] = np.random.rand(sd.num_cells)
+
+    # Ad boilerplate
+    dof_manager = pp.DofManager(mdg)
+    eq_manager = pp.ad.EquationManager(mdg, dof_manager)
+
+    # Standard Ad variables
+    ad_vars = [eq_manager.variable(g, var) for g in grids for var in variables]
+    # Merge variables over all grids
+    merged_vars = []
+    for var in variables:
+        gv = [(g, var) for g in grids]
+        merged_vars.append(eq_manager.merge_variables(gv))
+
+    # First check of standard variables. If this fails, something is really wrong
+    for sd in grids:
+        data = mdg.subdomain_data(sd)
+        for var in ad_vars:
+            if sd == var._g:
+                expr = var.evaluate(dof_manager)
+                # Check that the size of the variable is correct
+                assert np.allclose(expr.val, data[pp.STATE][var._name])
+                # Check that the Jacobian matrix has the right number of columns
+                assert expr.jac.shape[1] == dof_manager.num_dofs()
+
+    # Next, check that merged variables are handled correctly.
+    for var in merged_vars:
+        expr = var.evaluate(dof_manager)
+        vals = []
+        for sub_var in var.sub_vars:
+            vals.append(mdg.subdomain_data(sub_var._g)[pp.STATE][sub_var._name])
+
+        assert np.allclose(expr.val, np.hstack([v for v in vals]))
+        assert expr.jac.shape[1] == dof_manager.num_dofs()
+
+    # Finally, check that the size of the Jacobian matrix is correct when combining
+    # variables (this will cover both variables and merged variable with the same name,
+    # and with different name).
+    for sd in grids:
+        for var in ad_vars:
+            nc = var.size()
+            cols = np.arange(nc)
+            data = np.ones(nc)
+            for mv in merged_vars:
+                nr = mv.size()
+
+                # The variable must be projected to the full set of grid for addition
+                # to be meaningful. This requires a bit of work.
+                sv_size = np.array([sv.size() for sv in mv.sub_vars])
+                mv_grids = [sv._g for sv in mv.sub_vars]
+                ind = mv_grids.index(var._g)
+                offset = np.hstack((0, np.cumsum(sv_size)))[ind]
+                rows = offset + np.arange(nc)
+                P = pp.ad.Matrix(sps.coo_matrix((data, (rows, cols)), shape=(nr, nc)))
+
+                eq = eq = mv + P * var
+                expr = eq.evaluate(dof_manager)
+                # Jacobian matrix size is set according to the dof manager,
+                assert expr.jac.shape[1] == dof_manager.num_dofs()
+
 
 
 def test_time_differentiation():
@@ -475,7 +579,7 @@ def test_time_differentiation():
 
     # Create a MixedDimensionalGrid with two subdomains, one interface.
     # The highest-dimensional subdomain has both a variable and a time-dependent array,
-    # while the lower-dimensional
+    # while the lower-dimensional subdomain has only a variable.
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal()
     for sd, sd_data in mdg.subdomains(return_data=True):
         sd_data[pp.PRIMARY_VARIABLES] = {"foo": {"cells": 1}}
