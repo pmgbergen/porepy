@@ -23,7 +23,7 @@ def dt(op: pp.ad.Operator, time_step: pp.ad.Scalar) -> pp.ad.Operator:
     derivative will be defined as (q(time=n-1) - q(time=n-1)) / dt = 0.
 
     Args:
-        op: Operator tree to be time-differentiated.
+        op: Operator tree to be differentiated.
         dt: Size of time step.
 
     Returns:
