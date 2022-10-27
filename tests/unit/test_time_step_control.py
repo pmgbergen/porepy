@@ -453,12 +453,12 @@ class TestTimeControl:
         #     time index to be reduced by one (time_index = 13 - 1 = 12)
         #     new dt to be half of the old one (dt = 1 * 0.5 = 0.5)
         #     recomputation flag set to True (_recomp_flag = True)
-        #     recomputation counter to increase by 1 (_recomp_num = 6 + 1 = 7)
+        #     recomputation counter to increase by 1 (_recomp_num = 3 + 1 = 4)
         assert time_manager.time == 4.0
         assert time_manager.time_index == 12
         assert time_manager.dt == 0.5
         assert time_manager._recomp_sol
-        assert time_manager._recomp_num == 7
+        assert time_manager._recomp_num == 4
 
     def test_recomputed_solution_with_calculated_dt_less_than_dt_min(self):
         """Test when a solution is recomputed and the calculated time step is less than
@@ -486,11 +486,13 @@ class TestTimeControl:
         """An error should be raised when adaption based on recomputation is attempted with
         dt = dt_min"""
         time_manager = pp.TimeManager(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
-        # For these parameters, we have time_manager.dt = time_manager.dt_init = time_manager.dt_min_max[0]
+        # For these parameters, we have dt = dt_init = dt_min_max[0]
+        # Assume that we already recomputed the solution once
+        time_manager._recomp_num = 1
         # Attempting a recomputation should raise an error
         with pytest.raises(ValueError) as excinfo:
             msg = (
-                "Recomputation will not have any effect since the time step achieved its"
+                "Recomputation will not have any effect since the time step achieved its "
                 f"minimum admissible value -> dt = dt_min = {time_manager.dt}."
             )
             time_manager.compute_time_step(iterations=5, recompute_solution=True)
