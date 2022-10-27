@@ -4,7 +4,7 @@ Here we explain shortly how the documentation works and give examples for how to
 docstrings.
 
 The PorePy documentation is created using *Sphinx*, an engine effectively importing the Python
-package and extracting its docstrings. The docstrings are then used to fill a pre-defined
+package and extracting docstrings. The docstrings are then used to fill a pre-defined
 structure and create a HTML-based documentation.
 
 Docstrings are written using a markup language called *reStructuredText* (short *rst*).
@@ -16,9 +16,11 @@ PorePy follows closely the
 `Google Python Style <https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google>`_
 for its docstrings. The Sphinx-extension *napoleon* ensures a proper interpretation.
 
-While the general layout follows Google's recommendations, PorePy introduces minor adaptions
-for readability and functionality reasons. After familiarizing yourself with rst and the
-Google style, you can read through the rest of this How-To to get to know the PorePy specifics.
+Though PorePy closely the
+`Google Python Style <https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google>`_,
+it introduces minor adaptions for readability and functionality reasons.
+After familiarizing yourself with rst and the Google style,
+you can read through the rest of this How-To to get to know the PorePy specifics.
 
 Once you have programmed, tested, documented and *merged* your contribution into the PorePy 
 source, contact one of the core developers to ensure a proper integration of your documentation
@@ -28,6 +30,7 @@ into the whole structure.
 
 In the following we demonstrate how to document various aspects of your code in
 `PorePy style`_.
+
 While we aim for providing complete instructions, we cannot guarantee the coverage of every 
 possible case of the vast Python world. If you are unsure about an issue, don't hesitate to
 contact one of the core developers.
@@ -115,7 +118,7 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
             You can even use multiple paragraphs for describing a parameter. There 
             are no restrictions in this regard.
         arg3 (bool): **DO NOT** include type hints in the *Parameters* directive.
-            For this the annotations in the signature are utilized.
+            utilize annotations in the signature instead.
 
     Returns:
         Describe the return value here. Multiple lines can be used and you have
@@ -180,7 +183,7 @@ def module_level_function_3(
             The required length is ``nc``, the number of cells (obviously in ``mdg``).
         matrix (shape=(3,nc)): This argument is a sparse matrix with 3 rows and ``nc``
             columns. 
-        option ({'A', 'B', 'C'}): This argument has admissible values, namely it can only be 
+        option ('A', 'B', 'C'): This argument has admissible values, namely it can only be 
             a string ``'A'``, ``'B'`` or ``'C'``.
  
     Returns: 
@@ -199,19 +202,19 @@ def example_generator(n: int) -> Generator[int, None, None]:
     """When documenting a generator, use the *Yields:* directive instead of *Returns:*.
     Their usage is equivalent, indicating only that this is a generator object, not a regular
     function.
- 
-    Args: 
-        n: Some upper integer limit. 
- 
-    Yields: 
-        numbers until ``n`` is reached. 
- 
+
     Examples: 
         The Google Style offers an *Examples:* directives where you can write text but also
         include inline examples of code usage, without the special code directive from Sphinx.
  
         >>> print([i for i in example_generator(4)]) 
         [0, 1, 2, 3] 
+ 
+    Args: 
+        n: Some upper integer limit. 
+ 
+    Yields: 
+        numbers until ``n`` is reached. 
 
     """ 
     for i in range(n): 
@@ -223,6 +226,10 @@ class ExampleClass:
     
     After the first line, a broader, multi-line description of the class can follow. It can
     contain multiple paragraphs as well as elements like code snippets.
+
+    *Example:* directives are encouraged to demonstrate the usage of a class.
+
+    *Notes:* directives can be used the same way as for functions.
 
     At the end follows the *Parameters:* directive and an eventual *Raises:* directive.
 
@@ -256,7 +263,7 @@ class ExampleClass:
         self.attribute_2: str = arg2
         """str: This is an instance-level attribute with a redundant field 'Type:' caused by
         type hints in the docstring. The type should only be given by its annotation.
-        **DO NOT** use type hints in docstrings.
+        **DO NOT** use type hints in docstrings (cannot repeat often enough).
 
         """
      
@@ -303,8 +310,7 @@ class ExampleClass:
         Args: 
             arg: The first argument (even though ``self`` is technically the first one).
  
-        Returns: 
-            the argument itself. 
+        Returns: single-line return statements are supported. A blank line must still follow.
  
         """ 
         return True 
