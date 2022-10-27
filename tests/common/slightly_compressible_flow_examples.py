@@ -60,6 +60,10 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
     def _specific_storativity(self):
         return self.params.get("specific_storativity", 1E-1)
 
+    def _permeability(self, sd: pp.Grid) -> np.ndarray:
+        return self.params.get("permeability", 1.0) * np.ones(sd.num_cells)
+
+
     def _porosity(
             self, p: Union[pp.ad.Ad_array, np.ndarray]
         ) -> Union[pp.ad.Ad_array, np.ndarray]:
@@ -106,7 +110,7 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
 
     def after_newton_iteration(self, sol) -> None:
 
-        # Distribute variables to iterate
+        # Distribute solution to iterate
         self.dof_manager.distribute_variable(
             values=sol,
             grids=self.mdg.subdomains(),
@@ -119,7 +123,7 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
 
-        # Store number of iterations and time step
+        # Store number of iterations and time step for testing purposes
         self.out["iterations"].append(iteration_counter)
         self.out["time_step"].append(self.time_manager.dt)
         print(self.time_manager)
@@ -128,7 +132,18 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         super().after_newton_convergence(solution, errors, iteration_counter)
 
         # Distribute variables to state
+        # TODO: We might want to implement this in the parent class already, since it is
+        #  quite easily overlooked
         self.dof_manager.transfer_variable(from_iterate_to_state=True)
+
+    def after_newton_failure(
+            self, solution: np.ndarray, errors: float, iteration_counter: int
+    ) -> None:
+
+        super().after_newton_failure(solution, errors, iteration_counter)
+
+        # Since solution will be recomputed, transfer from state to iterate
+        self.dof_manager.transfer_variable(from_state_to_iterate=True)
 
     def _assign_equations(self) -> None:
         """Upgrade incompressible flow equations to non-linear slightly compressible
@@ -210,17 +225,23 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
 
 #%% Runner
 time_manager = pp.TimeManager(
-    schedule=[0, 1],
-    dt_init=0.3,
-    dt_min_max=(0.3, 0.6),
-    print_info=True
+    schedule=[0, 0.2],
+    dt_init=0.19,
+    dt_min_max=(0.09, 0.19),
+    iter_optimal_range=(1, 2),
+    print_info=True,
+    iter_max=2,
+    recomp_factor=0.5,
+    recomp_max=5
 )
 params = {
     "use_ad": True,
     "num_cells": 5,
     "time_manager": time_manager,
     "solution_type": "trigonometric",
-    "plot_sol": True
+    "plot_sol": True,
+    "max_iterations": 2,
+    "nl_convergence_tol": 1E-6,
 }
 model = NonLinearSCF(params=params)
 pp.run_time_dependent_model(model, params)
