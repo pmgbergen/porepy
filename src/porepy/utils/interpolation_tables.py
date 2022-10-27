@@ -40,7 +40,7 @@ class InterpolationTable:
     The implementation may not be efficient, consider using functions from
     scipy.interpolate instead.
 
-    Args:
+    Parameters:
         low: Minimum values of the domain boundary per dimension.
         high: Maximum values of the domain boundary per dimension.
         npt: Number of quadrature points (including endpoints of intervals) per
@@ -60,11 +60,17 @@ class InterpolationTable:
         function: Callable[[np.ndarray], np.ndarray],
         dim: int = 1,
     ) -> None:
-        # Data processing is left to a separate function.
+
+        self.dim = dim
+        # Dimension of the function to interpolate
+
+        self._param_dim = low.size
+        # Dimension of the parameter space
+
         self._set_sizes(low, high, npt, dim)
+        # Data processing is left to a separate function.
 
         # Evaluate the function values in all coordinate points.
-
         self._table_values = np.zeros((self.dim, self._coord[0].size))
         for i, c in enumerate(zip(*self._coord)):
             self._table_values[:, i] = function(*c)
@@ -73,8 +79,6 @@ class InterpolationTable:
         self, low: np.ndarray, high: np.ndarray, npt: np.ndarray, dim: int
     ) -> None:
         """Helper method to set the size of the interpolation grid."""
-        self.dim = dim
-        self._param_dim = low.size
 
         self._low = low
         self._high = high
@@ -287,11 +291,11 @@ class InterpolationTable:
                 for i in range(self._param_dim)
             ]
         )
-        
-        # Check that we have found the right interval. Accept a small error to 
+
+        # Check that we have found the right interval. Accept a small error to
         # account for floating point errors.
         tol = 1e-13
-        assert np.all(right_weight >= -tol) and np.all(right_weight <= 1+ tol)
+        assert np.all(right_weight >= -tol) and np.all(right_weight <= 1 + tol)
 
         left_weight = 1 - right_weight
 
@@ -322,7 +326,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
     parameter space is accessed, and the computation of function values
     is costly.
 
-    Args:
+    Parameters:
         dx: Grid resolution in each direction.
         base_point: A point in the underlying grid. Used to fix the location of the
             grid lines.
@@ -342,8 +346,12 @@ class AdaptiveInterpolationTable(InterpolationTable):
         function: Optional[Callable[[np.ndarray], np.ndarray]] = None,
         dim: int = 1,
     ) -> None:
+
         self.dim: int = dim
+        # Dimension of the field to interpolate
+
         self._param_dim = dx.size
+        # Dimension of the parameter space
 
         # IMPLEMENTATION NOTE: The sparse array which stores the actual data represents
         # coordinates by (possibly negative) integer indices, while the parameter space
@@ -351,27 +359,27 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # parameter space to quadrature points in an underlying Cartesian grid, and
         # further identifying these points with indices in the data table.
 
-        # Construct grid for interpolation
         self._table = pp.array_operations.SparseNdArray(self._param_dim)
+        # Construct grid for interpolation
 
+        self._pt: np.ndarray = np.zeros((self._param_dim, 0))
         # self._pt store coordinates of quadrature points in parameter space.
         # Note that this is different from super()._pt_on_axes, which gives the
         # 1d-coordinates of the quadrature points along each coordinate axis.
         # It is also different from super()._coord, which gives Nd-coordinates, but as
         # structured and dense data.
-        self._pt: np.ndarray = np.zeros((self._param_dim, 0))
 
-        # Set resolution of the Cartesian grid in parameter space.
         self._h: np.ndarray = dx.reshape((-1, 1))
+        # Set resolution of the Cartesian grid in parameter space.
 
-        # The base point is the point in parameter space which corresponds to the index
-        # (0, 0, ..., 0) in the sparse array.
         if base_point is None:
             base_point = np.zeros(dim)
         self._base_point = base_point.reshape((-1, 1))
+        # The base point is the point in parameter space which corresponds to the index
+        # (0, 0, ..., 0) in the sparse array.
 
-        # Store function
         self._function = function
+        # The function to interpolate
 
     @property
     def _values(self):
@@ -637,11 +645,11 @@ class AdaptiveInterpolationTable(InterpolationTable):
                 for i in range(self._param_dim)
             ]
         )
-        # Check that we have found the right interval. Accept a small error to 
+        # Check that we have found the right interval. Accept a small error to
         # account for floating point errors.
         tol = 1e-13
-        assert np.all(right_weight >= -tol) and np.all(right_weight <= 1+ tol)
- 
+        assert np.all(right_weight >= -tol) and np.all(right_weight <= 1 + tol)
+
         left_weight = 1 - right_weight
 
         return right_weight, left_weight
@@ -778,5 +786,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
             s = s[:-2] + "\n \n"
             s += f"Minimum function value: {np.min(self._values)}\n"
             s += f"Maximum function value: {np.max(self._values)}"
+        else:
+            s += "The table is currently empty."
 
         return s

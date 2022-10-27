@@ -420,7 +420,7 @@ class InterpolatedFunction(AbstractFunction):
             partial_jac = arg.jac
             # replace the ones with actual values
             # Since csr, we can simply replace the data array with the values of the derivative
-            partial_jac.data = self._table.diff(X, axis)[0]
+            partial_jac.data = self._table.gradient(X, axis)[0]
 
             # add blocks to complete Jacobian
             jac += partial_jac
