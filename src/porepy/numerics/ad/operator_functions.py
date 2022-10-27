@@ -570,7 +570,7 @@ class ADmethod:
         methods)
 
         Args:
-            binding_instance: instance, whose method/attribute has been decorated by this class.
+            binding_instance: instance, whose method has been decorated by this class.
             binding_type: type instance of the decorated method's class/owner.
 
         """
