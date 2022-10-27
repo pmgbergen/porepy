@@ -131,6 +131,38 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         # Transfer solution from pp.ITERATE to pp.STATE
         self.dof_manager.transfer_variable(from_iterate_to_state=True)
 
+        # Compute next time step based on the number of non-linear iterations
+        self._adapt_time_step_after_newton_convergence(iteration_counter=iteration_counter)
+
+    def after_newton_failure(
+        self, solution: np.ndarray, errors: float, iteration_counter: int
+    ) -> None:
+        """Method to be called after the non-linear solver has not converged.
+
+        Args:
+            solution: solution to the non-linear problem.
+            errors: L2-norm of the absolute error.
+            iteration_counter: number of non-linear iterations.
+
+        """
+
+        # Adapt time step and prepare for recomputing the solution
+        self._adapt_time_step_after_newton_failure()
+
+    # Methods related to time-stepping control
+
+    def _is_time_dependent(self):
+        """Wheter the model is time-dependent."""
+        return True
+
+    def _adapt_time_step_after_newton_convergence(self, iteration_counter: int) -> None:
+        """Adapt time step based on the number of non-linear iterations
+
+        Args:
+            iteration_counter: number of non-linear iterations
+
+        """
+
         # Determine next time step
         if not self.time_manager.is_constant:
             if not self._is_nonlinear_problem():
@@ -147,20 +179,11 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         else:
             pass  # nothing to do here since time step is constant
 
-    def after_newton_failure(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        """Method to be called after the non-linear solver has not converged.
+    def _adapt_time_step_after_newton_failure(self):
+        """ Adapt time step based on failed-to-converge criteria."""
 
-        Args:
-            solution: solution to the non-linear problem.
-            errors: L2-norm of the absolute error.
-            iteration_counter: number of non-linear iterations.
-
-        """
-
-        # Since solution will be recomputed, we have to transfer back the solution from
-        # pp.STATE to pp.ITERATE
+        # Transfer back solution from pp.STATE to pp.ITERATE
+        # This step is key to a succesfull recomputation, but it is often overlooked
         self.dof_manager.transfer_variable(from_state_to_iterate=True)
 
         # Determine next time step
@@ -183,6 +206,3 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
             else:
                 msg = "Tried solving singular matrix for the linear problem."
                 raise ValueError(msg)
-
-    def _is_time_dependent(self):
-        return True
