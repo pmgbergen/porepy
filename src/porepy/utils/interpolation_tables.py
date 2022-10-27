@@ -43,7 +43,7 @@ class InterpolationTable:
     Args:
         low: Minimum values of the domain boundary per dimension.
         high: Maximum values of the domain boundary per dimension.
-        npt: Number of interpolation points (including endpoints of intervals) per
+        npt: Number of quadrature points (including endpoints of intervals) per
             dimension.
         function: Function to represent in the table. Should be vectorized (if necessary
             with a for-loop wrapper) so that multiple coordinates can be evaluated at
@@ -83,7 +83,7 @@ class InterpolationTable:
         # The base point for a standard table is in the same as the low coordinate.
         self._base_point = self._low
 
-        # Define the interpolation points along each coordinate access.
+        # Define the quadrature points along each coordinate access.
         self._pt_on_axes: list[np.ndarray] = [
             np.linspace(low[i], high[i], npt[i]) for i in range(self._param_dim)
         ]
@@ -93,7 +93,7 @@ class InterpolationTable:
 
         # Set the strides necessary to advance to the next point in each dimension.
         # Refers to indices in self._coord. Is unity for first dimension, then
-        # number of interpolation points in the first dimension etc.
+        # number of quadrature points in the first dimension etc.
         tmp = np.hstack((1, self._npt))
         self._strides = np.cumprod(tmp)[: self._param_dim].reshape((-1, 1))
 
@@ -165,7 +165,7 @@ class InterpolationTable:
 
         return values
 
-    def diff(self, x: np.ndarray, axis: int) -> np.ndarray:
+    def gradient(self, x: np.ndarray, axis: int) -> np.ndarray:
         """Perform differentiation on a Cartesian grid by a piecewise constant
         approximation.
 
@@ -414,11 +414,11 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # _right_left_weights() that negative weights were computed, or alternatively
         # that the table does not contain the necessary information.
         # The solution to such problems is to use the method
-        # interpolation_nodes_from_coordinates() to get quadrature point coordinates and
+        # quadrature_points_from_coordinates() to get quadrature point coordinates and
         # indices, and feed both these to assign_indices().
         return super().interpolate(x)
 
-    def diff(self, x: np.ndarray, axis: int) -> np.ndarray:
+    def gradient(self, x: np.ndarray, axis: int) -> np.ndarray:
         """Perform differentiation on a Cartesian grid by a piecewise constant
         approximation.
 
@@ -440,7 +440,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # Use standard method for differentiation.
         # NOTE: See comments in self.interpolation() regarding possible sources of
         # unexpected errors from this function, and how to circumwent it.
-        return super().diff(x, axis)
+        return super().gradient(x, axis)
 
     def assign_values(
         self,
@@ -462,7 +462,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         If the indices in the underlying Cartesian grid corresponding to the coordinate
         points are known (e.g., the points were found by the method
-        interpolation_nodes_from_coordinates), it is strongly recommended that these are
+        quadrature_points_from_coordinates), it is strongly recommended that these are
         also provided in assignment.
 
         Args:
@@ -488,7 +488,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         # likewise permuted.
         self._pt = np.hstack((self._pt, coord[:, column_permutation]))
 
-    def interpolation_nodes_from_coordinates(
+    def quadrature_points_from_coordinates(
         self, x: np.ndarray, remove_known_points: bool = True
     ) -> tuple[np.ndarray, np.ndarray]:
         """Obtain the coordinates of quadrature points that are necessary to evalute
@@ -555,7 +555,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
 
         # Get hold of the quadrature points needed to interpolate in the given
         # coordinates.
-        coord, unique_ind = self.interpolation_nodes_from_coordinates(x)
+        coord, unique_ind = self.quadrature_points_from_coordinates(x)
 
         # Find which values have been computed before.
         _, _, precomputed, _ = pp.array_operations.intersect_sets(
@@ -658,7 +658,7 @@ class AdaptiveInterpolationTable(InterpolationTable):
         requesting more data points, and also removing the one-to-one relation between
         coordinate and index. This functionality, triggered by the parameter
         safeguarding should only be invoked from the method
-        interpolation_nodes_from_coordinates() (but there it can be critical to use it).
+        quadrature_points_from_coordinates() (but there it can be critical to use it).
 
         Args:
             coord: Coordinates for which the base vertex is sought.
