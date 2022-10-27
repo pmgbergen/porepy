@@ -114,11 +114,7 @@ class SlightlyCompressibleFlow(pp.models.incompressible_flow_model.Incompressibl
         """Method to be called after each Newton iteration."""
 
         # Distribute solution to pp.ITERATE
-        self.dof_manager.distribute_variable(
-            values=sol,
-            additive=True,
-            to_iterate=True
-        )
+        self.dof_manager.distribute_variable(values=sol, additive=True, to_iterate=True)
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int

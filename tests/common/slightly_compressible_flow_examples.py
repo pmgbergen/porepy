@@ -69,11 +69,11 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
             compressibility of the porous medium.
 
         """
-        return self.params.get("specific_storativity", 1E-1)
+        return self.params.get("specific_storativity", 1e-1)
 
     def _porosity(
-            self, p: Union[pp.ad.Ad_array, np.ndarray]
-        ) -> Union[pp.ad.Ad_array, np.ndarray]:
+        self, p: Union[pp.ad.Ad_array, np.ndarray]
+    ) -> Union[pp.ad.Ad_array, np.ndarray]:
         """
         Porosity as a function of pressure.
 
@@ -151,7 +151,7 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
 
         # Note that this require the fluid compressiblity = 1 to work properly
         accumulation_term = (
-                accumulation_term.mass * (poro(p) - poro(p.previous_timestep()))
+            accumulation_term.mass * (poro(p) - poro(p.previous_timestep()))
         ) / self._ad.time_step
 
         # Add accumulation term to incompressible flow equations
@@ -200,7 +200,9 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         elif solution_type == "trigonometric":
             p_sym = t * sym.sin(2 * sym.pi * x) * sym.cos(2 * sym.pi * y)
         else:
-            raise ValueError("Solution type must be either 'parabolic' or 'trigonometric'.")
+            raise ValueError(
+                "Solution type must be either 'parabolic' or 'trigonometric'."
+            )
 
         q_sym = [-sym.diff(p_sym, x), -sym.diff(p_sym, y)]
         divq_sym = sym.diff(q_sym[0], x) + sym.diff(q_sym[1], y)
