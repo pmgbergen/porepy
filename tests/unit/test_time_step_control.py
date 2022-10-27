@@ -488,7 +488,7 @@ class TestTimeControl:
         time_manager = pp.TimeManager(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
         # For these parameters, we have dt = dt_init = dt_min_max[0]
         # Assume that we already recomputed the solution once
-        time_manager._recomp_num = 1
+        time_manager._solve_with_dt_min = 2
         # Attempting a recomputation should raise an error
         with pytest.raises(ValueError) as excinfo:
             msg = (

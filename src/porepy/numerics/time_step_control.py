@@ -373,6 +373,9 @@ class TimeManager:
         # Number of times the solution has been recomputed
         self._recomp_num: int = 0
 
+        # Number of times the solution has been solved using dt_min
+        self._solve_with_dt_min: int = 0
+
         # Index of the next scheduled time
         self._scheduled_idx: int = 1
 
@@ -488,8 +491,9 @@ class TimeManager:
             )
             warnings.warn(msg)
 
-        # Make sure to reset the recomputation counter
+        # Make sure to reset the recomputation counters
         self._recomp_num = 0
+        self._solve_with_dt_min = 0
 
         # Proceed to determine the next time step using the following criteria:
         #     (C1) If the number of iterations is less than the lower endpoint of the optimal
@@ -527,7 +531,7 @@ class TimeManager:
             # in the next iteration (any decrease in time step will be corrected to dt_min
             # by self.correction_based_on_dt_min() in a subsequent correction step). Thus,
             # to avoid pointless iterations, we raise an error.
-            if self.dt == self.dt_min_max[0] and self._recomp_num > 0:
+            if self.dt == self.dt_min_max[0] and self._solve_with_dt_min > 1:
                 msg = (
                     "Recomputation will not have any effect since the time step achieved its "
                     f"minimum admissible value -> dt = dt_min = {self.dt}."
@@ -574,6 +578,9 @@ class TimeManager:
         """Correct time step if dt < dt_min."""
         if self.dt < self.dt_min_max[0]:
             self.dt = self.dt_min_max[0]
+            # We increase the counter that keeps track of the number of times the solution
+            # is solved with dt_min
+            self._solve_with_dt_min += 1
             if self._print_info:
                 print(
                     f"Calculated dt < dt_min. Using dt_min = {self.dt_min_max[0]} instead."
