@@ -572,9 +572,13 @@ def test_variable_combinations(grids, variables):
 
 
 def test_time_differentiation():
-    """Test the dt operator in AD.
+    """Test the dt and time_difference functions in AD.
 
     For the moment, this is simply a test that backward Euler is correctly implemented.
+
+    All checks are run on the time differentiation. Some checks are also run on the
+    time_difference method, however, since the dt-function is a simple extension, full
+    testing (which would have required a lot of code duplication) is not done.
     """
 
     # Create a MixedDimensionalGrid with two subdomains, one interface.
@@ -612,13 +616,18 @@ def test_time_differentiation():
     eq_manager = pp.ad.EquationManager(mdg, dof_manager)
 
     # The time step, represented as a scalar.
-    time_step = pp.ad.Scalar(2)
+    ts = 2
+    time_step = pp.ad.Scalar(ts)
 
     # Differentiate the variable on the highest-dimensional subdomain
     sd = mdg.subdomains(dim=mdg.dim_max())[0]
     var_1 = eq_manager.variable(sd, "foo")
     dt_var_1 = pp.ad.dt(var_1, time_step)
     assert np.allclose(dt_var_1.evaluate(dof_manager).val, 2)
+
+    # Also test the time difference function
+    diff_var_1 = pp.ad.time_increment(var_1)
+    assert np.allclose(diff_var_1.evaluate(dof_manager).val, 2 * ts)
 
     # Differentiate the time dependent array residing on the subdomain
     array = pp.ad.TimeDependentArray(name="bar", subdomains=[sd])
@@ -630,6 +639,9 @@ def test_time_differentiation():
     var_array = var_1 * array
     dt_var_array = pp.ad.dt(var_array, time_step)
     assert np.allclose(dt_var_array.evaluate(dof_manager).val, 2.5)
+    # Also test the time increment function
+    diff_var_array = pp.ad.time_increment(var_array)
+    assert np.allclose(diff_var_array.evaluate(dof_manager).val, 2.5 * ts)
 
     # For good measure, add one more level of combination.
     var_array_2 = var_array + var_array
@@ -643,6 +655,11 @@ def test_time_differentiation():
     assert np.allclose(dt_mvar.evaluate(dof_manager).val[: sd.num_cells], 2)
     assert np.allclose(dt_mvar.evaluate(dof_manager).val[sd.num_cells :], 0.5)
 
+    # Test the time increment function
+    diff_mvar = pp.ad.time_increment(mvar)
+    assert np.allclose(diff_mvar.evaluate(dof_manager).val[: sd.num_cells], 2 * ts)
+    assert np.allclose(diff_mvar.evaluate(dof_manager).val[sd.num_cells :], ts)
+
     # Make a combined operator with the merged variable, test this.
     dt_mvar = pp.ad.dt(mvar * mvar, time_step)
     assert np.allclose(dt_mvar.evaluate(dof_manager).val[: sd.num_cells], 4)
@@ -653,4 +670,6 @@ def test_time_differentiation():
     var_2 = var_1.previous_timestep()
     dt_var_2 = pp.ad.dt(var_2, time_step)
     assert np.allclose(dt_var_2.evaluate(dof_manager), 0)
-
+    # Also test the time increment method
+    diff_var_2 = pp.ad.time_increment(var_2)
+    assert np.allclose(diff_var_2.evaluate(dof_manager), 0)
