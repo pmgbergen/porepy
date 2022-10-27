@@ -761,18 +761,18 @@ class AdaptiveInterpolationTable(InterpolationTable):
         """String representation"""
         s = f"Adaptive interpolation table in {self._param_dim} dimensions.\n"
         s += f"The table stores function values in {self._pt.shape[1]} points.\n"
-        s += "The minimum coordinates in each dimension (possibly combining multiple "
-        s += "coordinates) are: \n \n \t"
-        for dim in range(self._param_dim):
-            s += f"{dim}: {self._pt[dim].min()}, "
-        s = s[:-2] + "\n \n"
-        s += "The maximum coordinates in each dimension (possibly combining multiple "
-        s += "coordinates) are: \n \n \t"
-        for dim in range(self._param_dim):
-            s += f"{dim}: {self._pt[dim].max()}, "
-        s = s[:-2] + "\n \n"
-
-        s += f"Minimum function value: {np.min(self._values)}\n"
-        s += f"Maximum function value: {np.max(self._values)}"
+        if self._pt.size != 0 and self._values.size != 0:
+            s += "The minimum coordinates in each dimension (possibly combining multiple "
+            s += "coordinates) are: \n \n \t"
+            for dim in range(self._param_dim):
+                s += f"{dim}: {self._pt[dim].min()}, "
+            s = s[:-2] + "\n \n"
+            s += "The maximum coordinates in each dimension (possibly combining multiple "
+            s += "coordinates) are: \n \n \t"
+            for dim in range(self._param_dim):
+                s += f"{dim}: {self._pt[dim].max()}, "
+            s = s[:-2] + "\n \n"
+            s += f"Minimum function value: {np.min(self._values)}\n"
+            s += f"Maximum function value: {np.max(self._values)}"
 
         return s
