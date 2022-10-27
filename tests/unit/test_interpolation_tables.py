@@ -48,8 +48,10 @@ class _QuadraticFunc:
         self.coeff = np.random.rand(nd, 1)
 
         # Error estimate for a quadratic function
-        self.tol = 2 * np.max(self.coeff) * np.max(h) / 4
-        self.diff_tol = 1
+        self.tol = 2 * np.max(self.coeff * h) / 4
+        # The error in a finite difference approximation of the derivative of a
+        # quadratic function is bounded by self.coeff * h
+        self.diff_tol = np.max(self.coeff * h)
 
     def truth(self, x):
         return np.sum(self.coeff * np.power(x, 2), axis=0)
@@ -264,7 +266,8 @@ def test_interpolation_tables_random_points(dim, factory):
         assert adaptive_table._values.size == num_quad_pts
 
         known_diff = function.diff(pts, d)
-        # Note that for the time being, this test is not active for the
-        # Quadractic function (due to diff_tol)
+        # Compare with the known derivative, with a tolerance that is known by the
+        # function itself.
         assert np.max(np.abs(diff - known_diff)) < function.diff_tol
+        # The adaptive and the full table should be equivalent.
         assert np.allclose(diff, adaptive_diff, atol=1e-10)
