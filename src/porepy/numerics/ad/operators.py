@@ -258,7 +258,7 @@ class Operator:
         """Return an operator that represents the value of this operator at the previous
         timestep.
 
-        The operator tree at the previous time step is created as a shalllow copy, and will
+        The operator tree at the previous time step is created as a shallow copy, and will
         thus be identical to the original operator, except that all time dependent operators
         are evaluated at the previous time step.
 
@@ -979,7 +979,7 @@ class TimeDependentArray(Array):
     however, this is pending an update to the model classes.
 
     Attributes:
-        prev_time (boolean): If True, the array will be evaluated using in
+        prev_time (boolean): If True, the array will be evaluated using
             data[pp.STATE] (data being the data dictionaries for subdomains and
             interfaces), if False, data[pp.STATE][pp.ITERATE] is used.
 
