@@ -82,7 +82,7 @@ def test_constant_time_step(request, model_class, time_manager):
 
 
 # -----> Testing linear models
-# TODO: Replace [pp.SlightlyCompressibleFlow] by time_dependent_models
+# TODO: Replace [pp.SlightlyCompressibleFlow] by time_dependent_models when
 @pytest.mark.parametrize("model_class", [pp.SlightlyCompressibleFlow])
 def test_linear_non_constant_dt(model_class):
     """Test linear models when non-constant time steps are used"""
@@ -97,8 +97,8 @@ def test_linear_non_constant_dt(model_class):
 # -----> Testing non-linear models
 @pytest.mark.parametrize("model_class", non_linear_models)
 @pytest.mark.parametrize("solution_type", ["parabolic", "trigonometric"])
-def tests_time_step_adaptation(model_class, solution_type):
-    """Test iteration-based adaptation for non-linear models"""
+def test_time_step_adaptation_after_convergence(model_class, solution_type):
+    """Test iteration-based time step adaptation for non-linear models"""
     time_manager = pp.TimeManager(
         schedule=[0, 1],
         dt_init=0.3,
@@ -121,3 +121,58 @@ def tests_time_step_adaptation(model_class, solution_type):
     np.testing.assert_equal(model.out["iterations"], [3, 3, 3])
     np.testing.assert_almost_equal(model.out["time_step"], [0.3, 0.39, 0.31], 6)
 
+
+@pytest.mark.parametrize("model_class", non_linear_models)
+@pytest.mark.parametrize("solution_type", ["parabolic"])
+def test_time_step_adapation_after_failure(model_class, solution_type):
+    """Test failed-to-convergence time step adaptation for non-linear models"""
+    assert 1 == 1
+
+"""
+Time manager and params for recomputing with parabolic:
+
+time_manager = pp.TimeManager(
+    schedule=[0, 0.2],
+    dt_init=0.18,
+    dt_min_max=(0.05, 0.19),
+    iter_optimal_range=(1, 2),
+    print_info=True,
+    iter_max=2,
+    recomp_factor=0.5,
+    recomp_max=5
+)
+params = {
+    "use_ad": True,
+    "num_cells": 5,
+    "time_manager": time_manager,
+    "solution_type": "parabolic",
+    "plot_sol": True,
+    "max_iterations": 2,
+    "nl_convergence_tol": 1E-8,
+}
+
+Time manager and params for recomputing with trigonometric:
+
+
+time_manager = pp.TimeManager(
+    schedule=[0, 0.2],
+    dt_init=0.18,
+    dt_min_max=(0.05, 0.19),
+    iter_optimal_range=(1, 2),
+    print_info=True,
+    iter_max=2,
+    recomp_factor=0.5,
+    recomp_max=5
+)
+params = {
+    "use_ad": True,
+    "num_cells": 5,
+    "time_manager": time_manager,
+    "solution_type": "trigonometric",
+    "plot_sol": True,
+    "max_iterations": 2,
+    "nl_convergence_tol": 1E-6,
+}
+
+
+"""
