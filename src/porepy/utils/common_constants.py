@@ -84,6 +84,9 @@ KELVIN = 1.0
 # Energy
 JOULE = 1.0
 
+# Substance amount
+MOLE = 1.0
+
 
 def CELSIUS_to_KELVIN(celsius: float) -> float:
     return celsius + 273.15

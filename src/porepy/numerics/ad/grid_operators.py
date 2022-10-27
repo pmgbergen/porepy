@@ -92,10 +92,7 @@ class SubdomainProjections(Operator):
             # If the grid list is empty, we project from the full set of cells to
             # nothing.
             mat = sps.csr_matrix((0, self._tot_num_cells * self.dim))
-        return pp.ad.Matrix(
-            mat,
-            name="CellRestriction",
-        )
+        return pp.ad.Matrix(mat, name="CellRestriction")
 
     def cell_prolongation(self, subdomains: List[pp.Grid]) -> Matrix:
         """Construct prolongation from subdomain to global cell quantities.
@@ -124,10 +121,7 @@ class SubdomainProjections(Operator):
                 # If the grid list is empty, we project from nothing to the full set of
                 # cells
                 mat = sps.csc_matrix((self._tot_num_cells * self.dim, 0))
-            return pp.ad.Matrix(
-                mat,
-                name="CellProlongation",
-            )
+            return pp.ad.Matrix(mat, name="CellProlongation")
         else:
             raise ValueError(self._error_message())
 
@@ -162,10 +156,7 @@ class SubdomainProjections(Operator):
                 # If the grid list is empty, we project from the full set of faces to
                 # nothing.
                 mat = sps.csr_matrix((0, self._tot_num_faces * self.dim))
-            return pp.ad.Matrix(
-                mat,
-                name="FaceRestriction",
-            )
+            return pp.ad.Matrix(mat, name="FaceRestriction")
         else:
             raise ValueError(self._error_message())
 
@@ -196,10 +187,7 @@ class SubdomainProjections(Operator):
                 # If the grid list is empty, we project from nothing to the full set of
                 # faces
                 mat = sps.csc_matrix((self._tot_num_faces * self.dim, 0))
-            return pp.ad.Matrix(
-                mat,
-                name="FaceProlongation",
-            )
+            return pp.ad.Matrix(mat, name="FaceProlongation")
         else:
             raise ValueError(self._error_message())
 

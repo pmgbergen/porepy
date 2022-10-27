@@ -108,6 +108,30 @@ class ModelGeometry:
                     subdomains.append(sd)
         return subdomains
 
+    def subdomain_projections(self, dim: int):
+        """Return the projection operators for all subdomains in md-grid.
+
+        The projection operators restrict or prolong a dim-dimensional quantity from the full
+        set of subdomains to any subset.
+        Projection operators are constructed once and then stored. If you need to use
+        projection operators based on a different set of subdomains, please construct
+        them yourself. Alternatively, compose a projection from subset A to subset B as
+            P_A_to_B = P_full_to_B * P_A_to_full.
+
+        Parameters:
+            dim: Dimension of the quantities to be projected.
+
+        Returns:
+            proj: Projection operator.
+        """
+        name = f"_subdomain_proj_{dim}"
+        if hasattr(self, name):
+            proj = getattr(self, name)
+        else:
+            proj = pp.ad.SubdomainProjections(self.mdg.subdomains(), dim)
+            setattr(self, name, proj)
+        return proj
+
     def _nd_subdomain(self) -> pp.Grid:
         """Get the grid of the highest dimension. Assumes self.mdg is set.
 
