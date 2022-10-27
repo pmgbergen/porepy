@@ -92,8 +92,6 @@ class Operator:
         list with len>0.
 
         Parameters:
-            op (operator): The operator to which subdomains OR interfaces will be set as
-                an attribute.
             subdomains (optional list of subdomains): The subdomain list.
             interfaces (optional list of tuples of subdomains): The interface list.
 
@@ -321,7 +319,6 @@ class Operator:
 
         elif op.is_leaf():
             # Case 2
-            # EK: Is this correct after moving from Expression?
             return op.parse(mdg)  # type:ignore
 
         # This is not an atomic operator. First parse its children, then combine them
@@ -403,7 +400,7 @@ class Operator:
                         + nl
                         + f"Size of arrays: {results[0].val.size} and {results[1].size}"
                         + nl
-                        + "Did you forget some parantheses?"
+                        + "Did you forget some parentheses?"
                     )
 
                 else:
@@ -424,7 +421,7 @@ class Operator:
                     # Both items are numpy arrays or scalars, everything is fine.
                     return results[0] / results[1]
                 elif isinstance(results[1], pp.ad.Ad_array):
-                    # Numpy cannot deal with division with an Ad_array. Instead multiply
+                    # Numpy cannot deal with division with an Ad_array. Instead, multiply
                     # with the inverse of results[1] (this is equivalent, and makes
                     # numpy happy). The return from numpy will be a new array (data type
                     # object) with the actual Ad_array as the first item. Exactly why
@@ -1077,8 +1074,6 @@ class MergedVariable(Variable):
             previous iteration.
         prev_time (boolean): Indicates whether the variable represents the state at the
             previous time step.
-        subdomains: List of subdomains on which the operator is defined.
-        interfaces: List of interfaces on which the operator is defined.
 
         It is assumed that exactly one of subdomains and interfaces is defined.
 

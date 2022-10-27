@@ -553,10 +553,7 @@ def create_dfn(mdg, dim):
     ]
 
     for sd in subdomains:
-        node_number = mdg.node_number(sd)
         mdg.remove_subdomain(sd)
-        mdg.update_subdomain_ordering(node_number)
-
 
 if __name__ == "__main__":
     unittest.main()
