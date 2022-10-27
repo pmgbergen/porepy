@@ -287,8 +287,11 @@ class InterpolationTable:
                 for i in range(self._param_dim)
             ]
         )
-        # Check that we have found the right interval
-        assert np.all(right_weight >= 0) and np.all(right_weight <= 1)
+        
+        # Check that we have found the right interval. Accept a small error to 
+        # account for floating point errors.
+        tol = 1e-13
+        assert np.all(right_weight >= -tol) and np.all(right_weight <= 1+ tol)
 
         left_weight = 1 - right_weight
 
@@ -634,10 +637,11 @@ class AdaptiveInterpolationTable(InterpolationTable):
                 for i in range(self._param_dim)
             ]
         )
-
-        # Check that we have found the right interval
-        assert np.all(right_weight >= 0) and np.all(right_weight <= 1)
-
+        # Check that we have found the right interval. Accept a small error to 
+        # account for floating point errors.
+        tol = 1e-13
+        assert np.all(right_weight >= -tol) and np.all(right_weight <= 1+ tol)
+ 
         left_weight = 1 - right_weight
 
         return right_weight, left_weight
