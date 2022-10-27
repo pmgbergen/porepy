@@ -9,28 +9,102 @@ Consists of three types of classes
 
 See usage_example.py
 """
-from typing import Optional, Union
+import warnings
+from typing import Callable, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 
+number = Union[float, int]
 
-class SIUnits:
-    """Sketch of unit class. Far from sure about format"""
 
-    K: float = 1.0 * pp.KELVIN  # or temperature
-    Pa: float = 1.0 * pp.PASCAL
-    kg: float = 1.0 * pp.KILOGRAM
-    m: float = 1.0 * pp.METER
-    s: float = 1.0 * pp.SECOND
+class Units:
+    """Units for material properties.
 
-    pass
+    This is a sketch of a class for scaling material properties. The idea is that the
+    material properties should be stored in SI units, but that the user may want to
+    specify them in other units. These are defined in init.
+    Example:
+        Running a simulation in km, days and  MPa is achieved by setting
+        my_material = Units(m=1e3, s=86400, Pa=1e6)
+
+    Base units are attributes of the class, and can be accessed as e.g. my_material.length
+    Derived units are properties computed from the base units, and can be accessed as e.g.
+    my_material.Pa. This ensures consistency between the base and derived units while allowing
+    reference to derived units in usage of the class.
+
+    TODO: Consider whether this needs to be incorporated in TimeStepManager.
+
+    """
+
+    m: number = 1 * pp.METER
+    """Length unit, defaults to 1 m."""
+    s: number = 1 * pp.SECOND
+    """Time unit, defaults to 1 s."""
+    kg: number = 1 * pp.KILOGRAM
+    """Mass unit, defaults to 1 kg."""
+    K: number = 1 * pp.KELVIN
+    """Temperature unit, defaults to 1 K."""
+    mol: number = 1
+    """Mole unit, defaults to 1 mol."""
+
+    def __init__(
+        self,
+        m: number = 1,
+        s: number = 1,
+        kg: number = 1,
+        K: number = 1,
+        mol: number = 1,
+    ):
+        """Initialize the units.
+
+        Parameters:
+            kwargs (dict): Dictionary of units. The keys are the name of the unit, and the
+                values are the scaling factor. For example, if the user wants to specify
+                length in kilometers, time in hours and substance amount in millimolar, the
+                dictionary should be
+                    dict(m=1e3, s=3600, mol=1e-3)
+                or, equivalently,
+                    dict(m=pp.KILO * pp.METER, s=pp.HOUR, mol=pp.MILLI * pp.MOLE)
+        """
+        # Check that all units are numbers and assign them as attributes
+        for unit in ["m", "s", "kg", "K", "mol"]:
+            val = locals()[unit]
+            if not isinstance(val, number):
+                raise ValueError(
+                    f"All units must be numbers. Parameter {unit} is {type(val)}"
+                )
+            if val <= 0:
+                warnings.warn(
+                    "Expected positive value for " + unit + ", got " + str(val)
+                )
+            setattr(self, unit, val)
+
+    @property
+    def Pa(self):
+        """Pressure (or stress) unit, derived from kg, m and s."""
+        return self.kg / (self.m * self.s**2)
+
+    @property
+    def J(self):
+        """Energy unit, derived from m, kg and s."""
+        return self.kg * self.m**2 / self.s**2
+
+    @property
+    def N(self):
+        """Force unit, derived from m, kg and s."""
+        return self.kg * self.m / self.s**2
+
+    @property
+    def W(self):
+        """Power unit, derived from m, kg and s."""
+        return self.kg * self.m**2 / self.s**3
 
 
 def ad_wrapper(
-    vals: Union[float, np.ndarray],
+    vals: Union[number, np.ndarray],
     array: bool,
     size: Optional[int] = None,
     name: Optional[str] = None,
@@ -38,9 +112,6 @@ def ad_wrapper(
     """Create ad array or diagonal matrix.
 
     Utility method.
-    Kommentar: Denne kan droppes. Nyttig hvis man ikke vet om en funksjon bør gi array eller
-    matrix. Også praktisk å slippe å skrive ut (for matriser). Hvis den skal leve bør den
-    flyttes og få nytt navn.
 
     Args:
         vals: Values to be wrapped. Floats are broadcast to an np array.
@@ -65,21 +136,38 @@ def ad_wrapper(
 
 
 class Material:
-    """Sketch of abstract Material class. Functionality for now related to units"""
+    """Sketch of abstract Material class. Functionality for now related to units.
+
+    Modifications to parameter values should be done by subclassing. To set a different
+    constant value, simply define a new class attribute with the same name. If a different
+    value is needed for a specific subdomain or there is spatial heterogeneity internal to a
+    subdomain, the method should be overridden. The latter is assumed to be most relevant for
+    rocks.
+    """
 
     def __init__(self, units) -> None:
         self._units = units
+        """Units of the material."""
 
     @property
     def units(self):
+        """Units of the material.
+
+        Returns:
+            Units object.
+        """
         return self._units
 
     @units.setter
-    def units(self, units: SIUnits):
+    def units(self, units: Units) -> None:
+        """Set units of the material.
+
+        Args:
+            units: Units object.
+        """
         self._units = units
 
-    @staticmethod
-    def convert_units(value, units):
+    def convert_units(self, value: number, units: str) -> number:
         """Convert value to SI units.
 
         The method divides the value by the units as defined by the user. As an example, if
@@ -88,15 +176,33 @@ class Material:
 
         Args:
             value: Value to be converted.
-            units: Units of value.
-
+            units: Units of value defined as a string in the form of "unit1*unit2/unit3",
+                e.g., "Pa*m^3/kg". Valid units are the attributes and properties of the Units
+                class. Valid operators are * and ^, including negative powers (e.g. m^-2).
+                A dimensionless value can be specified by setting units to "", "1" or "-".
         Returns:
             Value in SI units.
 
         """
-        return value / units
+        # Trim any spaces
+        units = units.replace(" ", "")
+        if units in ["", "1", "-"]:
+            return value
+        # Traverse string specifying units, and convert to SI units
+        # The string is traversed by first splitting at *.
+        # If the substring contains a ^, the substring is split again, and the first
+        # element is raised to the power of the second.
+        for sub_unit in units.split("*"):
+            if "^" in sub_unit:
+                sub_unit, power = sub_unit.split("^")
+                value /= getattr(self._units, sub_unit) ** float(power)
+            else:
+                value /= getattr(self._units, sub_unit)
+        return value
 
-    def convert_and_expand(self, value, units, grids, grid_field="num_cells"):
+    def convert_and_expand(
+        self, value: number, units: number, grids, grid_field="num_cells"
+    ):
         """Convert value to SI units, and expand to all grids.
 
         Args:
@@ -117,12 +223,9 @@ class UnitFluid(Material):
     """
     Class giving scaled values of fluid parameters.
     Each constant (class attribute) typically corresponds to exactly one method which scales
-    (and possibly ad wraps) the value.
+    the value and broadcasts to relevant size, typically number of cells in the specified
+    subdomains or interfaces.
 
-    For now, I have assumed materials will be components of the model.
-    FIXME: Assign them somewhere
-    The parameter consistently corresponding to this is (fluid) density.
-    IMPLEMENTATION FOR OTHER PARAMETERS SHOULD NOT BE TRUSTED!
 
     .. note::
         Return types are discussed in fluid_density and fluid_thermal_expansion.
@@ -131,29 +234,26 @@ class UnitFluid(Material):
         the material classes.
     """
 
-    THERMAL_EXPANSION: float = 1.0 / pp.KELVIN
-    DENSITY: float = 1.0 * pp.KILOGRAM / pp.METER**3
+    THERMAL_EXPANSION: number = 1.0 / pp.KELVIN
+    DENSITY: number = 1.0 * pp.KILOGRAM / pp.METER**3
+    VISCOSITY: number = 1.0 * pp.PASCAL * pp.SECOND
 
     def __init__(self, units):
         super().__init__(units)
 
-    def density(self, subdomains: list[pp.Grid]) -> Union[float, np.ndarray]:
-        """Vi prøver først np.ndarray.
+    def density(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Density [kg/m^3].
 
         Args:
-            subdomains:
+            subdomains: List of subdomains.
 
         Returns:
-            Idea of np.ndarray (cell-wise in this case) is to allow for heterogeneity.
-            Enforcing float may be safer.
-            However, if we wrap it in an ad array, this will serve directly as the default
-            constant fluid density constitutive equation. See fluid_thermal_expansion
+            Cell-wise density array.
         """
-        units = self.units.kg / self.units.m**3
-        return self.convert_and_expand(self.DENSITY, units, subdomains)
+        return self.convert_and_expand(self.DENSITY, "kg * m^-3", subdomains)
 
-    def thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
-        """Trolig ikke ad-matrix pga komposisjon, ikke mixin.
+    def thermal_expansion(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Thermal expansion coefficient [1/K].
 
         Args:
             subdomains:
@@ -171,16 +271,19 @@ class UnitFluid(Material):
 
 
         """
-        val = self.convert_units(self.THERMAL_EXPANSION, 1 / self.units.K)
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        return ad_wrapper(val, False, num_cells, "fluid_thermal_expansion")
+        return self.convert_and_expand(self.THERMAL_EXPANSION, "K^-1", subdomains)
 
     # The below method needs rewriting after choosing between the above shown alternatives.
     def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        # Se kommentar rett over.
-        val = self.convert_units(1, self.units.m**2 / self.units.s)
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        return ad_wrapper(val, False, num_cells, "viscosity")
+        """Viscosity [Pa s].
+
+        Args:
+            subdomains:
+
+        Returns:
+            Cell-wise viscosity array.
+        """
+        return self.convert_and_expand(self.VISCOSITY, "Pa*s", subdomains)
 
 
 class UnitRock(Material):
@@ -188,21 +291,19 @@ class UnitRock(Material):
     WIP. See UnitFluid.
     """
 
-    THERMAL_EXPANSION: float = 1.0 / pp.KELVIN
-    DENSITY: float = 1.0 * pp.KILOGRAM / pp.METER**3
-    POROSITY: float = 0.2
-    PERMEABILITY: float = 1.0 * pp.METER**2
-    LAME_LAMBDA: float = 1.0 * pp.PASCAL
-    SHEAR_MODULUS: float = 1.0 * pp.PASCAL
+    THERMAL_EXPANSION: number = 1.0 / pp.KELVIN
+    DENSITY: number = 1.0 * pp.KILOGRAM / pp.METER**3
+    POROSITY: number = 0.2
+    PERMEABILITY: number = 1.0 * pp.METER**2
+    LAME_LAMBDA: number = 1.0 * pp.PASCAL
+    SHEAR_MODULUS: number = 1.0 * pp.PASCAL
 
     def __init__(self, units):
         super().__init__(units)
 
-
     def density(self, subdomains: list[pp.Grid]):
         """Density [kg/m^3]."""
-        units = self.units.kg / self.units.m**3
-        return self.convert_and_expand(self.DENSITY, units, subdomains)
+        return self.convert_and_expand(self.DENSITY, "kg * m^-3", subdomains)
 
     def thermal_expansion(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Thermal expansion coefficient [1/K].
@@ -213,23 +314,16 @@ class UnitRock(Material):
         Returns:
             Cell-wise thermal expansion coefficient.
         """
-        return self.convert_and_expand(self.THERMAL_EXPANSION, 1 / self.units.K, subdomains)
+        return self.convert_and_expand(self.THERMAL_EXPANSION, "K^-1", subdomains)
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]):
-        num_cells = sum([sd.num_cells for sd in interfaces])
-
-        return self.constit.ad_wrapper(
-            self.NORMAL_PERMEABILITY, False, num_cells, "normal_permeability"
-        )
+        return self.convert_and_expand(self.NORMAL_PERMEABILITY, "m^2", interfaces)
 
     def porosity(self, subdomains: list[pp.Grid]):
-
-        num_cells = sum([sd.num_cells for sd in subdomains])
-
-        return ad_wrapper(self.POROSITY, False, num_cells, "porosity")
+        return self.convert_and_expand(self.POROSITY, "-", subdomains)
 
     def permeability(self, g: pp.Grid) -> np.ndarray:
-        return self.convert_and_expand(self.PERMEABILITY, self.units.m**2, [g])
+        return self.convert_and_expand(self.PERMEABILITY, "m^2", [g])
 
     def shear_modulus(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Young's modulus [Pa].
@@ -240,7 +334,7 @@ class UnitRock(Material):
         Returns:
             Cell-wise shear modulus in Pascal.
         """
-        return self.convert_and_expand(self.SHEAR_MODULUS, self.units.Pa, subdomains)
+        return self.convert_and_expand(self.SHEAR_MODULUS, "Pa", subdomains)
 
     def lame_lambda(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Lame's first parameter [Pa].
@@ -251,7 +345,7 @@ class UnitRock(Material):
         Returns:
             Cell-wise Lame's first parameter in Pascal.
         """
-        return self.convert_and_expand(self.LAME_LAMBDA, self.units.Pa, subdomains)
+        return self.convert_and_expand(self.LAME_LAMBDA, "Pa", subdomains)
 
 
 """
@@ -312,13 +406,79 @@ class ConstantViscosity:
         return self.fluid.viscosity(subdomains)
 
 
-class LinearElasticRock:
+class LinearElasticMechanicalStress:
+    """Linear elastic stress tensor.
+
+    To be used in mechanical problems, e.g. force balance.
+
+    """
+
+    def mechanical_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Linear elastic mechanical stress."""
+        for sd in subdomains:
+            assert sd.dim == self.nd
+        discr = pp.ad.MpsaAd(subdomains, nd=self.nd)
+        interfaces = self.subdomains_to_interfaces(subdomains)
+        bc = self.bc_values_mechanics(subdomains)
+        proj = pp.ad.MortarProjections(subdomains, interfaces, nd=self.nd)
+        stress = (
+            discr.stress * self.displacement(subdomains)
+            + discr.bound_stress * bc
+            + discr.bound_stress
+            * self.subdomain_projections(self.nd).face_restriction(subdomains)
+            * proj.mortar_to_primary_avg
+            * self.displacement(interfaces)
+        )
+        stress.set_name("mechanical_stress")
+        return stress
+
+
+# Foregriper litt her for å illustrere utvidelse til poromekanikk.
+# Det blir
+# PoroConstit(LinearElasticRock, PressureStress):
+#    def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+#        return self.pressure_stress(subdomains) + self.mechanical_stress(subdomains)
+class PressureStress:
+    """Stress tensor from pressure.
+
+    To be used in poromechanical problems.
+    """
+
+    pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Pressure variable. Should be defined in the class inheriting from this mixin."""
+    reference_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Reference pressure. Should be defined in the class inheriting from this mixin."""
+
+    def pressure_stress(self, subdomains):
+        """Pressure contribution to stress tensor.
+
+        Args:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Pressure stress operator.
+        """
+        for sd in subdomains:
+            assert sd.dim == self.nd
+        discr = pp.ad.BiotAd(self.mechanics_parameter_key, subdomains)
+        stress: pp.ad.Operator = (
+            discr.grad_p * self.pressure(subdomains)
+            # The reference pressure is only defined on sd_primary, thus there is no need
+            # for a subdomain projection.
+            - discr.grad_p * self.reference_pressure(subdomains)
+        )
+        stress.set_name("pressure_stress")
+        return stress
+
+
+class LinearElasticRock(LinearElasticMechanicalStress):
     """Linear elastic properties of rock.
 
     Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
     parameters (bulk_modulus, lame_mu, poisson_ratio). The latter are computed from the former.
     Also provides a method for computing the stiffness matrix as a FourthOrderTensor.
     """
+
     def shear_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Shear modulus [Pa].
 
@@ -328,7 +488,9 @@ class LinearElasticRock:
         Returns:
             Cell-wise shear modulus operator [Pa].
         """
-        return ad_wrapper(self.rock.shear_modulus(subdomains), False, name="shear_modulus")
+        return ad_wrapper(
+            self.rock.shear_modulus(subdomains), False, name="shear_modulus"
+        )
 
     def lame_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Lame's first parameter [Pa].
@@ -350,9 +512,14 @@ class LinearElasticRock:
         Returns:
             Cell-wise Young's modulus in Pascal.
         """
-        val = self.rock.shear_modulus(subdomains) * (
-            3 * self.rock.lame_lambda(subdomains) + 2 * self.rock.shear_modulus(subdomains)
-        ) / (self.rock.lame_lambda(subdomains) + self.rock.shear_modulus(subdomains))
+        val = (
+            self.rock.shear_modulus(subdomains)
+            * (
+                3 * self.rock.lame_lambda(subdomains)
+                + 2 * self.rock.shear_modulus(subdomains)
+            )
+            / (self.rock.lame_lambda(subdomains) + self.rock.shear_modulus(subdomains))
+        )
         return ad_wrapper(val, False, name="youngs_modulus")
 
     def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:

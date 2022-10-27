@@ -186,8 +186,9 @@ from porepy.models.thm_model import THM
 from porepy.models.incompressible_flow_model import IncompressibleFlow
 from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
 
-from porepy.models.geometry import ModelGeometry
 from porepy.numerics import ad
+from porepy.models.geometry import ModelGeometry
+from porepy.models.constit_library import UnitFluid, UnitRock, Units, Material
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager
