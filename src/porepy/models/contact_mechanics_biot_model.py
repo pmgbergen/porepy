@@ -132,7 +132,9 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         self._save_mechanical_bc_values()
 
         # Compute next time step based on the number of non-linear iterations
-        self._adapt_time_step_after_newton_convergence(iteration_counter=iteration_counter)
+        self._adapt_time_step_after_newton_convergence(
+            iteration_counter=iteration_counter
+        )
 
     def after_newton_failure(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -1427,7 +1429,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
             pass  # nothing to do here since time step is constant
 
     def _adapt_time_step_after_newton_failure(self):
-        """ Adapt time step based on failed-to-converge criteria."""
+        """Adapt time step based on failed-to-converge criteria."""
 
         # Transfer back solution from pp.STATE to pp.ITERATE
         # This step is key to a succesfull recomputation, but it is often overlooked
