@@ -527,9 +527,9 @@ class TimeManager:
             # in the next iteration (any decrease in time step will be corrected to dt_min
             # by self.correction_based_on_dt_min() in a subsequent correction step). Thus,
             # to avoid pointless iterations, we raise an error.
-            if self.dt == self.dt_min_max[0]:
+            if self.dt == self.dt_min_max[0] and self._recomp_num > 0:
                 msg = (
-                    "Recomputation will not have any effect since the time step achieved its"
+                    "Recomputation will not have any effect since the time step achieved its "
                     f"minimum admissible value -> dt = dt_min = {self.dt}."
                 )
                 raise ValueError(msg)
