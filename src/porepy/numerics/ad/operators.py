@@ -254,6 +254,85 @@ class Operator:
     def set_name(self, name: str) -> None:
         self._name = name
 
+    def previous_timestep(self) -> pp.ad.Operator:
+        """Return an operator that represents the value of this operator at the previous
+        timestep.
+
+        The operator tree at the previous time step is created as a shalllow copy, and will
+        thus be identical to the original operator, except that all time dependent operators
+        are evaluated at the previous time step.
+
+        Returns:
+            A copy of self, with all time dependent operators evaluated at the previous
+                time step.
+
+        """
+        # Create a copy of the operator tree evaluated at a previous time step. This is done
+        # by traversing the underlying graph, and set all time-dependent objects to be
+        # evaluated at the previous time step.
+
+        def _traverse_tree(op: Operator) -> Operator:
+            """Helper function which traverses an operator tree by recursion."""
+
+            children = op.tree.children
+
+            if len(children) == 0:
+                # We are on an atomic operator. If this is a time-dependent operator,
+                # set it to be evaluated at the previous time step. If not, leave the
+                # operator as it is.
+                if isinstance(op, (Variable, MergedVariable, TimeDependentArray)):
+                    # IMPLEMENTATION NOTE: We need to use a copy, not a deep copy here. A
+                    # deep copy would change the underlying grids and mortar grids. For
+                    # variables (atomic and merged) this would render a KeyValue if the
+                    # grid is used to fetch the relevant degree of freedom in the global
+                    # ordering, as is done by the DofManager.
+                    # If other time-dependent other operators are added, they will have to
+                    # override this previous_timestep method.
+                    return copy.copy(op).previous_timestep()
+
+                else:
+                    # No need to use a copy here.
+                    # This also means that operators that are not time dependent need not
+                    # override this previous_timestep method.
+                    return op
+            else:
+                # Recursively iterate over the subtree, get the children, evaluated at the
+                # previous time when relevant, and add it to the new list.
+                new_children: list[Operator] = list()
+                for ci, child in enumerate(children):
+                    # Recursive call to fix the subtree.
+                    new_children.append(_traverse_tree(child))
+
+                # We would like to return a new operator which represents the same
+                # calculation as op, though with a different set of children. We cannot use
+                # copy.copy (shallow copy), since this will identify the lists of children
+                # in the old and new operator. Also, we cannot do a deep copy, since this
+                # will copy grids in individual subdomains - see implementation not in the
+                # above treatment of Variables.
+                # The solution is to make a new Tree with the same operation as the old
+                # operator, but with the new list of children.
+                new_tree = Tree(op.tree.op, children=new_children)
+
+                # Use the same lists of subdomains and interfaces as in the old operator,
+                # with empty lists if these are not present.
+                subdomains = getattr(op, "subdomains", [])
+                interfaces = getattr(op, "interfaces", [])
+
+                # Create new operator from the tree.
+                new_op = Operator(
+                    name=op._name,
+                    subdomains=subdomains,
+                    interfaces=interfaces,
+                    tree=new_tree,
+                )
+                return new_op
+
+        # Get a copy of the operator with all time-dependent quantities evaluated at the
+        # previous time step.
+        prev_time = _traverse_tree(self)
+
+        return prev_time
+
     def parse(self, mdg: pp.MixedDimensionalGrid) -> Any:
         """Translate the operator into a numerical expression.
         Subclasses that represent atomic operators (leaves in a tree-representation of
