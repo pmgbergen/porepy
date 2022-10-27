@@ -8,7 +8,7 @@
     ParameterVector
     ParameterMatrix
 
-Tests of the basic Discretization class are also placed here.
+Tests of the base Discretization class are also placed here.
 """
 from __future__ import annotations
 
@@ -580,7 +580,7 @@ def test_ad_discretization_class():
     sub_discr = _MockDiscretization(sub_key)
 
     # Ad wrappers
-    # This is mimics the old init of Discretization, before it was decided to
+    # This mimics the old init of Discretization, before it was decided to
     # make that class semi-ABC. Still checks the wrap method
     discr_ad = pp.ad.Discretization()
     discr_ad.subdomains = subdomains
@@ -608,7 +608,7 @@ def test_ad_discretization_class():
         )
 
     # Compare values under parsing. Note we need to pick out the diagonal, due to the
-    # way parsing make block matrices.
+    # way parsing makes block matrices.
     assert np.allclose(known_val, discr_ad.foobar.parse(mdg).diagonal())
     assert np.allclose(known_sub_val, sub_discr_ad.foobar.parse(mdg).diagonal())
 

@@ -1,7 +1,7 @@
 """Test creation and composition of Ad operators and their trees.
 
 The main checks performed are:
-    test_elementary_operations: Checks of basic aritmetic operations are correctly
+    test_elementary_operations: Checks of basic arithmetic operations are correctly
         implemented.
     test_copy_operator_tree: Test of functionality under copy.copy and deepcopy.
     test_elementary_wrappers: Test wrapping of scalars, arrays and matrices.
@@ -29,7 +29,7 @@ operators = [
 
 @pytest.mark.parametrize("operator", operators)
 def test_elementary_operations(operator):
-    """Test that performing elementary aritmetic operations on operators return operator
+    """Test that performing elementary arithmetic operations on operators return operator
     trees with the expected structure.
 
     The test does not consider evaluation of the numerical values of the operators.
@@ -59,7 +59,6 @@ def test_copy_operator_tree():
     """
     # To verify the difference between copy and deepcopy, keep pointers to the data
     # structures to be wrapped
-
     a_val = 42
     a = pp.ad.Scalar(a_val)
 
@@ -81,7 +80,7 @@ def test_copy_operator_tree():
     assert c.tree.children == c_copy.tree.children
     assert not c.tree.children == c_deepcopy.tree.children
 
-    # Check that the shallow copy also have the same children, while
+    # Check that the shallow copy also has the same children, while
     # the deep copy has copied these as well.
     for c1, c2 in zip(c.tree.children, c_copy.tree.children):
         assert c1 == c2
@@ -131,7 +130,7 @@ def test_elementary_wrappers(field):
     """Test the creation and parsing of the Ad wrappers of standard numerical
     objects (scalars, numpy arrays, sparse matrices).
 
-    The test takes a standard object, wrap in in the given Ad class, and verifies
+    The test takes a standard object, wraps it in the given Ad class, and verifies
     that parsing returns the expected object.
 
     Also test the behavior of the classes under copying.
@@ -144,7 +143,7 @@ def test_elementary_wrappers(field):
     # (as oposed to evaluate, which will invoke the full evaluation machinery of the
     # ad operator tree)
 
-    # We can use None her, since the MixedDimensionalGrid is not used for parsing of
+    # We can use None here, since the MixedDimensionalGrid is not used for parsing of
     # these wrappers.
     stored_obj = wrapped_obj.parse(None)
 
@@ -204,7 +203,7 @@ def test_time_dependent_array():
             pp.ITERATE: {"bar": np.ones(intf.num_cells)},
         }
 
-    # We make three arrays: One defined on a single subdomain, one on a single subdomain
+    # We make three arrays: One defined on a single subdomain, one on all subdomains of mdg
     # and one on an interface.
     sd_array_top = pp.ad.TimeDependentArray(
         "foo", subdomains=mdg.subdomains(dim=mdg.dim_max())
