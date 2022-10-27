@@ -17,8 +17,9 @@ Docstring-Basics
         """This is a docstring for ``var_1``."""
 
 2. Inline literals are rendered using \`\`: \`\`literal\`\` becomes ``literal``.
-3. Every public object must have a docstring. It's good practice (not to say demanded) to
-   document private objects as well, but they will not be included in the docs by default.
+3. Every public member (variable, function, class or method) must have a docstring.
+   It's **good practice** (not to say demanded) to document private objects as well,
+   but they will not be included in the docs by default.
 4. From the docstring it should be clear what an object does or is, what it takes as arguments
    and what it returns. Avoid overly scientific or complicated language. 
 5. Sphinx provides extensive linking and cross-referencing features.
@@ -47,7 +48,7 @@ will compile into
     This is a note about the way something is implemented.
 
 Directive breaks are created by resuming non-indented text. They are also indirectly
-created anytime a new section starts.
+created anytime a new section or directive starts.
 
 Other useful directives are::
 
@@ -117,6 +118,7 @@ These include:
 - ``sd`` : single SubDomain
 - ``mdg`` : MixedDimensionalGrid
 - ``p``, ``T``, ``u``,... : names of common physical variables
+- ``num_dofs`` : number of degrees of freedom
 - ``nd`` : ambient dimension of a ``mdg``, corresponding to the highest dimension of subdomains
 - ``np`` : number of points
 - ``nc`` : number of cells
@@ -134,9 +136,6 @@ As a consequence, **we abstain from including type hints in docstrings** and kee
 
 This rule does not exclude custom linking and referencing in-text, where a developer feels the
 necessity to do so.
-
-The only exemption to this rule is when providing types of *Attributes* in class-docstrings.
-See `Documenting classes`_ for more.
 
 
 Documenting variables
@@ -159,21 +158,22 @@ Documenting functions
 
 .. autofunction:: example_docstrings.example_generator
 
+.. rubric:: Directives inside docstrings
 
-.. note::
-    1. When using Google Style directives do not type text between two directive blocks
-    2. Write the directives blocks in the following order
-        1. Examples
-        2. Parameters
-        3. Returns/ Yields
-        4. Raises
-    3. Do not write any more text after the directive *Raises*. End every docsting with a blank
-       line before \"\"\".
+* Write the directive blocks in the following order
+    1. Examples, Notes
+    2. Parameters
+    3. Returns/ Yields
+    4. Raises
+* When using Google Style directives do not type additional text **between** and **after** the
+  directives Parameters, Returns/Yields and Raises.
+* End every docstring with a blank line before \"\"\". This is especially important after
+  the *Returns:* directive and its indented block.
 
 Documenting classes
 -------------------
 
-When documenting classes, three aspects have to be considered:
+When documenting classes, three aspects have to be considered.
 
 .. rubric:: Documenting Constructor Arguments
 
@@ -193,17 +193,14 @@ the class
 
 whereas the ``__init__``-docstring is found below the constructor declaration.
 
-At the very end of the class-docstring, use the Google Style directives
-*Examples:*, *Parameters:* and *Raises:*,
-in the same order as for functions, to document how to instantiate a class and if errors might
-be raised.
+Inside class docstrings, you can sue the same directives as for functions. The same rules apply.
 
 .. rubric:: Documentation of attributes
 
-Public attributes must be documented using docstrings below their declaration.
+Public attributes must be documented using docstrings.
 This holds for instance-level attributes set in the constructor,
 as well as for class-level attributes.
-Sphinx is configured such that it will render those docstrings the same way as method
+PorePy's sphinx build is configured such that it will render those docstrings the same way as method
 docstrings.
 
 In any case, use type annotations in the Python code and **do not** use type hints in the
@@ -216,13 +213,15 @@ Though attributes can be documented in the class docstring using the directive
 *Attributes:*, abstain from doing so. Here the type annotation cannot be exploited in all 
 cases and additional type hints would be necessary in the docstrings.
 
+The following example shows why we do not use *Attributes:*
+
 .. code:: Python
     
     """
     Attributes:
         class_attribute_1: This is a class-level attribute documented in the
             class docstring.
-            The annotation is exploited in this case.
+            The annotation would be exploited in this case.
         attribute_1 (int): This is an instance-level attribute documented in the
             class docstring.
             Here we would have to use additional type hints because the annotation inside 
@@ -232,28 +231,23 @@ cases and additional type hints would be necessary in the docstrings.
             error.
     """
 
-Attributes are grouped by Sphinx into the two groups, instance- and class-level,
-and rendered the same way as methods.
-
 .. rubric:: Documenting methods
 
-Note:
-    All rules introduced in section `Documenting functions`_ for regular functions,
-    hold for methods, class methods and static methods as well,
-    independent of whether they are public, private or special.
 
-Note:
-    Never document the ``self`` argument of a method, or the ``cls`` argument of a 
-    class method.
-
-By default, only public methods are included in the documentation.
-Nevertheless, private methods and special methods need to be documented
-properly as well. If the developer wants them included in the compiled documentation, he
-must provide respective options to the audodoc directives, later when integrating his
-documentation.
+* All rules introduced in section `Documenting functions`_ for regular functions,
+  hold for methods, class methods and static methods as well,
+  independent of whether they are public, private or special.
+* Never document the ``self`` argument of a method, or the ``cls`` argument of a class method.
+* By default, only public methods are included in the documentation.
+  Nevertheless, private methods and special methods need to be documented
+  properly as well. If the developer wants them included in the compiled documentation, he
+  must provide respective options to the audodoc directives, later when integrating his
+  documentation.
 
 Sphinx groups the documentation of attributes, properties, methods, class methods
 and static methods and sorts them alphabetically inside each group.
+
+.. rubric:: Example class documentation
 
 .. autoclass:: example_docstrings.ExampleClass
 
