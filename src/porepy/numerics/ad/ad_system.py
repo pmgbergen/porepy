@@ -211,9 +211,6 @@ class ADSystem:
         self.var_categories: Optional[EnumMeta] = var_categories
         """Enumeration object containing the variable categories passed at instantiation."""
 
-        self.variables: dict[str, MixedDimensionalVariable] = dict()
-        """Contains references to (global) MergedVariables for a given name (key)."""
-
         self.assembled_equation_indices: dict[str, np.ndarray] = dict()
         """Contains the row indices in the last assembled (sub-) system for a given equation
         name (key). This dictionary changes with every call to any assemble-method.
@@ -229,6 +226,9 @@ class ADSystem:
 
         """
 
+        self._variables: dict[str, MixedDimensionalVariable] = dict()
+        """Contains references to (global) MergedVariables for a given name (key)."""
+
         self._equ_image_space_composition: dict[
             str, dict[GridLike, np.ndarray]
         ] = dict()
@@ -236,6 +236,12 @@ class ADSystem:
         involved grid (key) the indices of equations expressed through the equation operator.
         The ordering of the items in the grid-array dictionaries is consistent with the
         remaining PorePy framework.
+
+        """
+
+        self._equ_image_dof_info: dict[str, dict[GridLike, dict[str, int]]] = dict()
+        """Contains for every equation name (key) the argument ``num_equ_per_dof`` which
+        was passed when the equation was set.
 
         """
 
@@ -267,33 +273,129 @@ class ADSystem:
 
         """
 
-    def create_subsystem(self, equations: Union[str, list[str]]) -> ADSystem:
-        """Creates an ``ADSystemManager`` for a given subset of equations.
+    def ADSubSystem(
+        self,
+        equation_names: Optional[str | list[str]] = None,
+        variable_names: Optional[str | list[str]] = None,
+    ) -> ADSystem:
+        """Creates an ``ADSystem`` for a given subset of equations and variables.
+
+        Currently only subsystems containing *whole* equations and variables in the
+        mixed-dimensional sense can be created. Chopping into grid variables and restricting
+        equations to certain grids is as of now not supported (hence the signature). 
+
+        Notes:
+            Subsystems have the same categories
+            (same ``EnumMeta`` object is passed as argument). But only requested variables are
+            added.
+            If the new subsystem has no variables in a specific category, methods accepting
+            categories as arguments will work but result in null:
+
+            - dofs are empty
+            - projections are null space projections
+            - assembled sub-matrices are empty
 
         Parameters:
-            equations: equations to be assigned to the new manager.
-                Must be known to this manager.
+            equation_names (optional): names of known equation for the new subsystem.
+                If None (default), the whole set of known equations is used.
+            variable_names (optional): names of known mixed-dimensional variables for the new
+                subsystem. If None (default), the whole set of known md variables is used.
 
         Returns:
-            a new instance of ``ADSystemManager``. The subsystem equations are ordered as
-            imposed by this manager's order.
+            a new instance of ``ADSystemManager``. The subsystem equations and variables
+            are ordered as imposed by this systems's order.
+        
+        Raises:
+            ValueError: if passed names are not among created variables and set equations.
 
         """
-        # creating a new manager and adding the requested equations
-        new_manger = ADSystem(self.mdg)
+        # parsing input arguments
+        if isinstance(equation_names, str):
+            equation_names = [equation_names]
+        elif equation_names is None:
+            equation_names = list(self._equations.keys())
+        if isinstance(variable_names, str):
+            variable_names = [variable_names]
+        elif variable_names is None:
+            variable_names = list(self._variables.keys())
 
-        if isinstance(equations, str):
-            equations = [equations]  # type: ignore
+        # checking input, if subsystem is well-defined
+        known_equations = set(self._equations.keys())
+        known_variables = set(self._variables.keys())
+        unknown_variables = set(variable_names).difference(known_variables)
+        if len(unknown_variables) > 0:
+            raise ValueError(f"Unknown variable(s) {unknown_variables}.")
+        unknown_equations = set(equation_names).difference(known_equations)
+        if len(unknown_equations) > 0:
+            raise ValueError(f"Unknown variable(s) {unknown_equations}.")
 
-        for name in equations:
-            image_info = self._equ_image_space_composition[
-                name
-            ]  # TODO fix this, incorrect
-            new_manger.set_equation(
-                name, self._equations[name], num_equ_per_dof=image_info
-            )
+        # creating a new manager
+        new_manger = ADSystem(self.mdg, var_categories=self.var_categories)
+
+        # this method imitates the variable creation and equation setting procedures by
+        # calling private methods and accessing private attributes.
+        # This should be acceptable since this is a factory method.
+
+        # loop over known variables to preserve DOF order
+        for name in known_variables:
+            if name in variable_names:
+                # updating md variables in subsystem
+                md_var = self._variables[name]
+                new_manger._variables.update({name: md_var})
+
+                # updating grid variables in subsystem
+                for var in md_var.sub_vars:
+                    if var.domain in new_manger._grid_variables:
+                        new_manger._grid_variables[var.domain].update({name: var})
+                    else:
+                        new_manger._grid_variables[var.domain] = {name: var}
+
+                # find category
+                if self.var_categories:
+                    for cat in self.var_categories:
+                        if name in self._vars_of_category[cat]:
+                            var_cat = cat
+                            break
+                else:
+                    var_cat = pp.PRIMARY_VARIABLES
+
+                # updating category information in subsystem
+                if var_cat in new_manger._vars_of_category:
+                    new_manger._vars_of_category[var_cat].append(name)
+                else:
+                    new_manger._vars_of_category[var_cat] = [name]
+
+                # creating dofs in subsystem
+                new_manger._append_dofs(name, var_cat)
+
+        # loop over known equations to preserve row order
+        for name in known_equations:
+            if name in equation_names:
+                equation = self._equations[name]
+                image_info = self._equ_image_dof_info[name]
+                image_composition = self._equ_image_space_composition[name]
+                # set the information produced in set_equations directly
+                new_manger._equ_image_space_composition.update({name: image_composition})
+                new_manger._equ_image_dof_info.update({name: image_info})
+                new_manger._equations.update({name: equation})
 
         return new_manger
+
+    @property
+    def equations(self) -> dict[str, Operator]:
+        """Dictionary containing names of operators (keys) and operators (values), which have
+        been set as equations in this system.
+
+        """
+        return self._equations
+
+    @property
+    def variables(self) -> dict[str, MixedDimensionalVariable]:
+        """Dictionary containing names (keys) and mixed-dimensional variables (values), which
+        have been created in this system.
+
+        """
+        return self._variables
 
     ### Variable management -------------------------------------------------------------------
 
@@ -361,7 +463,7 @@ class ADSystem:
                 "Cannot create variable not defined on any subdomain or interface."
             )
         # check if a md variable was already defined under that name
-        if name in self.variables.keys():
+        if name in self._variables:
             raise KeyError(f"Variable with name '{name}' already defined.")
 
         # if an empty list was received, we use ALL subdomains
@@ -405,8 +507,8 @@ class ADSystem:
 
                 # create grid variable
                 new_var = Variable(name, dof_info, domain=sd)
-                if sd not in self._grid_variables.keys():
-                    self._grid_variables.update({sd: dict()})
+                if sd not in self._grid_variables:
+                    self._grid_variables[sd] = dict()
                 if name not in self._grid_variables[sd]:
                     self._grid_variables[sd].update({name: new_var})
                 variables.append(new_var)
@@ -433,15 +535,15 @@ class ADSystem:
 
                     # create mortar grid variable
                     new_var = Variable(name, dof_info, domain=intf)
-                    if intf not in self._grid_variables.keys():
-                        self._grid_variables.update({intf: dict()})
+                    if intf not in self._grid_variables:
+                        self._grid_variables[intf] = dict()
                     if name not in self._grid_variables[intf]:
                         self._grid_variables[intf].update({name: new_var})
                     variables.append(new_var)
 
         # create and store the md variable
         merged_var = MixedDimensionalVariable(variables)
-        self.variables.update({name: merged_var})
+        self._variables.update({name: merged_var})
         # store categorization
         if var_cat not in self._vars_of_category:
             self._vars_of_category.update({var_cat: list()})
@@ -515,7 +617,7 @@ class ADSystem:
 
         # loop over all blocks and process those requested
         # this ensures uniqueness and correct order
-        for block in self._block_numbers.keys():
+        for block in self._block_numbers:
             if block in requested_blocks:
                 name, grid = block
                 if isinstance(grid, pp.Grid):
@@ -647,7 +749,7 @@ class ADSystem:
                 if var_name in data[var_cat]:
                     # last sanity check that no previous data is overwritten
                     # should not happen if class not used in hacky way
-                    assert (var_name, sd) not in self._block_numbers.keys()
+                    assert (var_name, sd) not in self._block_numbers
 
                     # assign a new block number and increase the counter
                     new_block_numbers[(var_name, sd)] = last_block_number
@@ -668,7 +770,7 @@ class ADSystem:
                 if var_name in data[var_cat]:
                     # last sanity check that no previous data is overwritten
                     # should not happen if class not used in hacky way
-                    assert (var_name, intf) not in self._block_numbers.keys()
+                    assert (var_name, intf) not in self._block_numbers
 
                     # assign a new block number and increase the counter
                     new_block_numbers[(var_name, intf)] = last_block_number
@@ -719,9 +821,9 @@ class ADSystem:
         # first set of diagonal blocks, per subdomain
         for sd in self.mdg.subdomains():
             # sub-loop of variables per subdomain
-            for var_name in self.variables:
+            for var_name in self._variables:
                 block_pair = (var_name, sd)
-                if block_pair in self._block_numbers.keys():
+                if block_pair in self._block_numbers:
                     # extract created number of dofs
                     local_dofs = self._block_dofs[self._block_numbers[block_pair]]
                     # store new block number and dofs in new order
@@ -731,9 +833,9 @@ class ADSystem:
         # second set of diagonal blocks, per interface
         for intf in self.mdg.interfaces():
             # sub-loop of variables per interface
-            for var_name in self.variables:
+            for var_name in self._variables:
                 block_pair = (var_name, intf)
-                if block_pair in self._block_numbers.keys():
+                if block_pair in self._block_numbers:
                     # extract created number of dofs
                     local_dofs = self._block_dofs[self._block_numbers[block_pair]]
                     # store new block number and dofs in new order
@@ -788,7 +890,7 @@ class ADSystem:
                 requested_blocks = set(requested_blocks)
                 # processing grid restrictions
                 for name in grid_restricted_vars:
-                    all_grids = set(self.variables[name].domain)
+                    all_grids = set(self._variables[name].domain)
                     filtered_grids = all_grids.difference(restricted_grids[name])
                     for f_name, f_grid in itertools.product([name], filtered_grids):
                         if (f_name, f_grid) in requested_blocks:
@@ -805,7 +907,7 @@ class ADSystem:
         """Helper of helper :) Parses non-sequential VarLikes."""
         # variable represented as a string: include all associated grids
         if isinstance(variable, str):
-            if variable not in self.variables.keys():
+            if variable not in self._variables:
                 raise ValueError(f"Unknown variable name {variable}.")
             return [block for block in self._block_numbers if block[0] == variable]
         # variable represented as grid variable: return local block
@@ -816,7 +918,7 @@ class ADSystem:
                 raise ValueError(f"Unknown grid variable {variable}.")
         # variable represented as md-var: include all associated grids
         elif isinstance(variable, MixedDimensionalVariable):
-            if variable not in self.variables.values():
+            if variable not in self._variables.values():
                 raise ValueError(f"Unknown mixed-dimensional variable {variable}.")
             return [block for block in self._block_numbers if block[0] == variable.name]
         # if a category is passed, with return all blocks associated with respective vars
@@ -841,7 +943,7 @@ class ADSystem:
             return list()
         # grid variables are part of a md variable, the complement are the remaining grid vars
         elif isinstance(variables, Variable):
-            md_v = self.variables[variables.name]
+            md_v = self._variables[variables.name]
             return [var for var in md_v.sub_vars if var.domain != variables.domain]
         # non sequential var-like structure
         else:
@@ -849,7 +951,7 @@ class ADSystem:
             for variable in variables:
                 # same processing as above, only grid variables are of interest
                 if isinstance(variable, Variable):
-                    md_v = self.variables[variable.name]
+                    md_v = self._variables[variable.name]
                     grid_vars += [
                         v for v in md_v.sub_vars if v.domain != variable.domain
                     ]
@@ -1033,7 +1135,7 @@ class ADSystem:
         valid_intf = [intf for intf in self.mdg.interfaces()]
         equation_domain = list(num_equ_per_dof.keys())
         name = equation.name
-        if name in self._equations.keys():
+        if name in self._equations:
             raise ValueError(
                 "The name of the equation operator is already used by another equation:\n"
                 f"{self._equations[name]}"
@@ -1089,6 +1191,7 @@ class ADSystem:
 
         # if all good, we assume we can proceed
         self._equ_image_space_composition.update({name: image_info})
+        self._equ_image_dof_info.update({name: num_equ_per_dof})
         self._equations.update({name: equation})
 
     def get_equation(self, name: str) -> Operator:
@@ -1108,7 +1211,7 @@ class ADSystem:
             a reference to the equation in operator form or None, if the equation is unknown.
 
         """
-        if name in self._equations.keys():
+        if name in self._equations:
             equ = self._equations.pop(name)
             del self._equ_image_space_composition[name]
             return equ
@@ -1588,7 +1691,7 @@ class ADSystem:
         # we loop over stored equations to ensure the correct order
         # but process only primary equations
         # excluded local primary blocks are stored as top rows in the secondary block
-        for name in self._equations.keys():
+        for name in self._equations:
             if name in prim_equ_names:
                 A_temp, b_temp = self.assemble_subsystem(name, state=state)
                 idx_p = primary_rows[name]
@@ -1618,7 +1721,7 @@ class ADSystem:
 
         # we loop again over stored equation to ensure a correct order
         # but process only secondary equations
-        for name in self._equations.keys():
+        for name in self._equations:
             if name in sec_equ_names:
                 A_temp, b_temp = self.assemble_subsystem(name, state=state)
                 # if secondary equations were defined, we check if we have to restrict them
@@ -1745,7 +1848,7 @@ class ADSystem:
         all_vars = self.get_var_names()
         var_grid = [
             (sub_var.name, sub_var.domain)
-            for var in self.variables.values()
+            for var in self._variables.values()
             for sub_var in var.sub_vars
         ]
         # make combinations unique
