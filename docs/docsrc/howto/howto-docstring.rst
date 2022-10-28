@@ -161,6 +161,8 @@ Documenting functions
 
 .. autofunction:: example_docstrings.module_level_function_3
 
+.. autofunction:: example_docstrings.module_level_function_4
+
 .. autofunction:: example_docstrings.example_generator
 
 .. rubric:: Directives inside docstrings
