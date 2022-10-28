@@ -26,7 +26,12 @@ Docstring-Basics
    See e.g., `Cross-referencing syntax <https://sphinx-experiment.readthedocs.io/en/latest/markup/inline.html#xref-syntax>`_
    and `Python object referencing <https://sphinx-experiment.readthedocs.io/en/latest/domains.html#python-roles>`_.
    The domain ``:py`` can be omitted in this project.
-6. End every multi-line docstring with a blank line before \"\"\", independent of what you are
+6. Limit the length of every line to 88 characters. PorePy's PR routines include checks using
+   ``black``, ``flake8`` and ``mypy``, which check exactly that.
+   
+   Tip: Most IDEs support a modification of the code editor such that a vertical line is displayed
+   after the 88th character column.
+7. End every multi-line docstring with a blank line before \"\"\", independent of what you are
    documenting.
 
 Directives

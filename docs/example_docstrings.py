@@ -46,12 +46,6 @@ into the global structure of the PorePy documentation.
 This will be done in a next step. Before that, familiarize yourself with the various directives
 and their options beforehand.
 
-EK: Comment on line length: For code, we're using 88 characters (black default).
-Docstrings are checked by flake8, which is currently set to 95 (I believe). I suggest we
-introduce 88 for docstrings as well, try to enforce it on updated documentation, but do
-not change it for flake8 yet, since this will lead to literally hundreds of errors.
-We should make sure to follow it here, though.
-
 """ 
 
 import porepy as pp 
@@ -71,9 +65,39 @@ module_level_var_2: int = 1
 You might want to use multiline docstrings when a more detailed description
 of the variable is required.
 
+In every case, the closing \"\"\" of a multiline docstring must be on a separate line after a
+blank line.
+
+**DO:**
+
+.. code:: Python
+
+    var: int = 1
+    \"\"\"Introduction line.
+
+    Line 2.
+    
+    \"\"\"
+
+**DO NOT:**
+
+.. code:: Python
+
+    var: int = 1
+    \"\"\"Introduction line.
+
+    Line 2.\"\"\"
+
+.. code:: Python
+
+    var: int = 1
+    \"\"\"Introduction line.
+
+    Line 2.
+    \"\"\"
+
 """
-# EK: In a multi-line docstring, should the closing """  be on a separate line?
-# If so, please state explicitly.
+
 
 module_level_var_3: int = 42
 """int: **DO NOT** start the docstring with ``int:``, i.e. with type hints.
@@ -107,9 +131,7 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
     When natural, the description can be break into several paragraphs that start 
     without indentation. 
 
-    The description of arguments is started using the Google Style directive *Parameters:*,
-    or equivalently *Args:*.
-    EK: Can we decide on one of these? Any is fine with me, as long as sphinx is happy.
+    The description of arguments is started using the Google Style directive *Parameters:*.
 
     .. note:: 
 
@@ -164,7 +186,7 @@ def module_level_function_2(optional_arg: Optional[int] = None, *args, **kwargs)
     If ``*args`` or ``**kwargs`` are accepted,
     they must be listed as ``*args`` and ``**kwargs`` in the *Parameters* directive. 
 
-    Args: 
+    Parameters: 
         optional_arg: Description of ``optional_arg``.
             The default value is described at the end.
             Use easily spottable wording like 'Defaults to None.'
@@ -202,7 +224,7 @@ def module_level_function_3(
     in the signature,
     as well as how to document special requirements for the arguments.
 
-    Args: 
+    Parameters: 
         mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``
         vector (len=nc): This vectors special requirement is a certain length.
             We use the type hint brackets to indicate its supposed length.
@@ -243,7 +265,7 @@ def example_generator(n: int) -> Generator[int, None, None]:
         >>> print([i for i in example_generator(4)]) 
         [0, 1, 2, 3] 
  
-    Args: 
+    Parameters: 
         n: Some upper integer limit. 
  
     Yields: 
@@ -355,7 +377,7 @@ class ExampleClass:
 
         A more elaborate description can follow afterwards.
  
-        Args: 
+        Parameters: 
             arg: The first argument (even though ``self`` is technically the first one).
  
         Returns: single-line return statements are supported. A blank line must still follow.
