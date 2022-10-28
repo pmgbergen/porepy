@@ -15,7 +15,7 @@ __all__ = ["dt", "time_increment"]
 def dt(op: pp.ad.Operator, time_step: pp.ad.Scalar) -> pp.ad.Operator:
     """Approximate the time-derivative of an operator tree.
 
-    This time derivative is obtained by taking the
+    This time derivative is obtained by taking a first-order finite difference.
 
     The operator tree at the previous time step is created as a shalllow copy, and will
     thus be identical to the original operator, except that all time dependent operators
