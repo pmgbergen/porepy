@@ -769,43 +769,6 @@ class BoundaryCondition(Operator):
         return np.hstack([v for v in val])
 
 
-class DirBC(Operator):
-    """Extract (scalar) Dirichlet BC from Boundary condition.
-    This can be e.g. useful when applying AD functions to boundary data.
-
-    FIXME: Purge if not used. Looks tailor made/like a hack to IS.
-    """
-
-    def __init__(
-        self,
-        bc,
-        subdomains: List[pp.Grid],
-        name: Optional[str] = None,
-    ):
-        super().__init__(name)
-        self._bc = bc
-        self.subdomains: List[pp.Grid] = subdomains
-        if not (len(self.subdomains) == 1):
-            raise RuntimeError("DirBc not implemented for more than one grid.")
-        self._set_tree()
-
-    def __repr__(self) -> str:
-        return f"Dirichlet boundary data of size {self._bc.val.size}"
-
-    def parse(self, mdg: pp.MixedDimensionalGrid):
-        bc_val = self._bc.parse(mdg)  # TODO Is this done anyhow already?
-        keyword = self._bc.keyword
-        g = self.subdomains[0]
-        data = mdg.subdomain_data(g)
-        bc = data[pp.PARAMETERS][keyword]["bc"]
-        is_dir = bc.is_dir
-        is_not_dir = np.logical_not(is_dir)
-        dir_bc_val = bc_val.copy()
-        dir_bc_val[is_not_dir] = float("NaN")
-
-        return dir_bc_val
-
-
 class ParameterArray(Operator):
     """Extract an array from the parameter dictionaries for a given set of subdomains.
 

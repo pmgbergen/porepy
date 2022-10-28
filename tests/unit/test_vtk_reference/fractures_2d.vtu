@@ -9,19 +9,19 @@ AQAAAACAAAB4AAAAGQAAAA==eJxjYMALHLALf7DHrx5dHs6HmwcAriUETg==
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int64" Name="connectivity" format="binary">
-AQAAAACAAAAwAAAAFgAAAA==eJxjYIAARijNBKWZ0WgWKA0AATAADg==
+<DataArray type="Int32" Name="connectivity" format="binary">
+AQAAAACAAAAYAAAAFgAAAA==eJxjYGBgYARiJiBmhmIWIAYAAJgADg==
 </DataArray>
-<DataArray type="Int64" Name="offsets" format="binary">
-AQAAAACAAAAYAAAAEAAAAA==eJxjYoAAFijNBqUBALgADQ==
+<DataArray type="Int32" Name="offsets" format="binary">
+AQAAAACAAAAMAAAAEQAAAA==eJxjYmBgYAFiNiAGAABcAA0=
 </DataArray>
-<DataArray type="Int64" Name="types" format="binary">
-AQAAAACAAAAYAAAADgAAAA==eJxjZoAAZjQaAACoAAo=
+<DataArray type="Int32" Name="types" format="binary">
+AQAAAACAAAAMAAAADgAAAA==eJxjZmBgYIZiAABUAAo=
 </DataArray>
 </Cells>
 <CellData>
-<DataArray type="Int64" Name="fracture_number" format="binary">
-AQAAAACAAAAYAAAAEAAAAA==eJxjZIAAJijNDKUBAGgABw==
+<DataArray type="Int32" Name="fracture_number" format="binary">
+AQAAAACAAAAMAAAAEQAAAA==eJxjZGBgYAJiZiAGAAA0AAc=
 </DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="binary">
 AQAAAACAAAAYAAAAEAAAAA==eJxjYACBD/YMaDQAIt0Djg==
