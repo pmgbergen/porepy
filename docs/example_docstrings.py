@@ -416,7 +416,8 @@ class ExampleClass:
         Parameters:
             arg: The first argument (even though ``self`` is technically the first one).
 
-        Returns: single-line return statements are supported. A blank line must still follow.
+        Returns:
+            True.
 
         """
         return True
