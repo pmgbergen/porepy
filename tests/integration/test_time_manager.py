@@ -24,7 +24,7 @@ import porepy as pp
 from tests.common.slightly_compressible_flow_examples import NonLinearSCF
 
 # Model classes to be tested
-all_models = [
+standard_models = [
     pp.IncompressibleFlow,
     pp.SlightlyCompressibleFlow,
     pp.ContactMechanics,
@@ -34,11 +34,17 @@ all_models = [
 
 time_dependent_models = [pp.SlightlyCompressibleFlow, pp.ContactMechanicsBiot, pp.THM]
 
-non_linear_models = [NonLinearSCF]
+linear_time_dependent_models = [
+    pp.SlightlyCompressibleFlow,
+    pp.ContactMechanicsBiot,
+    pp.THM,
+]
+
+nonlinear_time_dependent_models = [NonLinearSCF]
 
 
 # -----> Testing default behaviour
-@pytest.mark.parametrize("model_class", all_models)
+@pytest.mark.parametrize("model_class", standard_models)
 def test_default_behaviour(model_class):
     """Test the default behaviour of the models"""
 
@@ -91,8 +97,7 @@ def test_constant_dt(request, model_class, time_manager):
 
 
 # -----> Testing linear models
-# TODO: Replace [pp.SlightlyCompressibleFlow] by time_dependent_models when
-@pytest.mark.parametrize("model_class", [pp.SlightlyCompressibleFlow])
+@pytest.mark.parametrize("model_class", linear_time_dependent_models)
 def test_linear_non_constant_dt(model_class):
     """Test linear models when non-constant time steps are used"""
     time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.01)
@@ -104,7 +109,7 @@ def test_linear_non_constant_dt(model_class):
 
 
 # -----> Testing adaptation after convergence for non-linear models
-@pytest.mark.parametrize("model_class", non_linear_models)
+@pytest.mark.parametrize("model_class", nonlinear_time_dependent_models)
 @pytest.mark.parametrize("solution_type", ["parabolic", "trigonometric"])
 def test_time_step_adaptation_after_convergence(model_class, solution_type):
     """Test iteration-based time step adaptation for non-linear models"""
