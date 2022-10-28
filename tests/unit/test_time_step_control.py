@@ -480,22 +480,43 @@ class TestTimeControl:
             time_manager.compute_time_step(iterations=1, recompute_solution=True)
         assert str(record[0].message) == msg
 
-    def test_raise_error_when_adapting_based_on_recomputation_with_dt_equal_to_dt_min(
-        self,
-    ):
+    def test_raise_error_when_recomputing_with_dtmin(self):
         """An error should be raised when adaption based on recomputation is attempted with
-        dt = dt_min"""
-        time_manager = pp.TimeManager(schedule=[0, 100], dt_init=1, dt_min_max=(1, 10))
-        # For these parameters, we have dt = dt_init = dt_min_max[0]
-        # Assume that we already recomputed the solution once
-        time_manager._solve_with_dt_min = 2
-        # Attempting a recomputation should raise an error
+        dt = dt_min.
+
+        Two scenarios have to be taken into account:
+            (1) When the time_manager is initialized with dt_init = dt_min
+            (2) When the time_manager is initialized with dt_init > dt_min
+        """
+
+        # -----> Testing first scenario
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1, dt_min_max=(0.1, 0.5))
+        # Since dt = dt_min, attempting a recomputation should raise an error
         with pytest.raises(ValueError) as excinfo:
             msg = (
                 "Recomputation will not have any effect since the time step achieved its "
                 f"minimum admissible value -> dt = dt_min = {time_manager.dt}."
             )
-            time_manager.compute_time_step(iterations=5, recompute_solution=True)
+            time_manager.compute_time_step(recompute_solution=True)
+        assert time_manager._recomp_sol and (msg in str(excinfo.value))
+
+        # -----> Testing second scenario
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.101, dt_min_max=(0.1, 0.5))
+        # Say we enter a Netwon loop, and we converge with 8 iterations
+        time_manager.compute_time_step(iterations=8)
+        # This will restrict the time step such that the time is less than dt_min,
+        # so it will actuallt correct the time step and set it to dt_min while increasing
+        # the self._solve_with_dt_min by one
+
+        # Assume now that we enter another Newton loop, and we fail to converge,
+        # And thus we need to recompute the solution. Since dt = dt_min, this should result
+        # in an error being raised
+        with pytest.raises(ValueError) as excinfo:
+            msg = (
+                "Recomputation will not have any effect since the time step achieved its "
+                f"minimum admissible value -> dt = dt_min = {time_manager.dt}."
+            )
+            time_manager.compute_time_step(recompute_solution=True)
         assert time_manager._recomp_sol and (msg in str(excinfo.value))
 
     def test_raise_error_when_adapting_based_on_iterations_with_iterations_none(self):
