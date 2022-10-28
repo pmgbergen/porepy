@@ -1401,7 +1401,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
     # Methods related to time-stepping control
 
     def _is_time_dependent(self):
-        """Wheter the model is time-dependent."""
+        """Whether the model is time-dependent."""
         return True
 
     def _adapt_time_step_after_newton_convergence(self, iteration_counter: int) -> None:
@@ -1432,7 +1432,7 @@ class ContactMechanicsBiot(pp.ContactMechanics):
         """Adapt time step based on failed-to-converge criteria."""
 
         # Transfer back solution from pp.STATE to pp.ITERATE
-        # This step is key to a succesfull recomputation, but it is often overlooked
+        # This step is crucial to a successful recomputation but it might be easily overlooked
         self.dof_manager.transfer_variable(from_state_to_iterate=True)
 
         # Determine next time step
