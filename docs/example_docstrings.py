@@ -46,6 +46,12 @@ into the global structure of the PorePy documentation.
 This will be done in a next step. Before that, familiarize yourself with the various directives
 and their options beforehand.
 
+EK: Comment on line length: For code, we're using 88 characters (black default).
+Docstrings are checked by flake8, which is currently set to 95 (I believe). I suggest we
+introduce 88 for docstrings as well, try to enforce it on updated documentation, but do
+not change it for flake8 yet, since this will lead to literally hundreds of errors.
+We should make sure to follow it here, though.
+
 """ 
 
 import porepy as pp 
@@ -66,6 +72,8 @@ You might want to use multiline docstrings when a more detailed description
 of the variable is required.
 
 """
+# EK: In a multi-line docstring, should the closing """  be on a separate line?
+# If so, please state explicitly.
 
 module_level_var_3: int = 42
 """int: **DO NOT** start the docstring with ``int:``, i.e. with type hints.
@@ -101,6 +109,7 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
 
     The description of arguments is started using the Google Style directive *Parameters:*,
     or equivalently *Args:*.
+    EK: Can we decide on one of these? Any is fine with me, as long as sphinx is happy.
 
     .. note:: 
 
@@ -126,11 +135,27 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
         
         **DO NOT** use type hints here as they are present in the signature.
 
+        EK: If there are multiple return values, how do we mark the difference between them?
+        Do we ever give names of the return values? For instance:
+
+        Returns:
+            var_1: Something
+            var_2: Something else
+
+        Or do we
+            Something. This comment takes the full line, bla bla bla bla bla bla bla bla bla bla
+            Something else. Since the above line was very long, so it is not immediately clear
+            in the code that this is the description of the second argument (sphinx will take care
+            of this, I presume).
+
     """   
+    # I addition to docstrings, you should also add comments to the code. These should
+    # be sufficiently detailed that it is possible to understand the logic of the code
+    # without analyzing the code in detail.
     return (arg1 > len(arg2)) and arg3
 
  
-def module_level_function_2(optional_arg: Optional[int]=None, *args, **kwargs) -> None: 
+def module_level_function_2(optional_arg: Optional[int] = None, *args, **kwargs) -> None: 
     """Optional arguments must be type-hinted using :class:`typing.Optional`.
     
     As evident, you can link objects in-text. You can also link functions like
@@ -146,6 +171,7 @@ def module_level_function_2(optional_arg: Optional[int]=None, *args, **kwargs) -
         *args: Arbitrary arguments. Describe adequately how they are used. 
         **kwargs: Arbitrary keyword arguments. You can use rst-lists to describe admissible
             keywords:
+            EK: Does it have to be rst to be sphinx compatible?
 
             - ``kw_arg1``: Some admissible keyword argument
             - ``kw_arg2``: Some other admissible keyword argument
@@ -181,10 +207,17 @@ def module_level_function_3(
         vector (len=nc): This vectors special requirement is a certain length.
             We use the type hint brackets to indicate its supposed length.
             The required length is ``nc``, the number of cells (obviously in ``mdg``).
+            EK: Nothing is obvious in life. I suggest we use num_cells, and similarly
+            num_faces, num_nodes, num_points, num_edges, num_fractures etc. We should have a
+            list of this somewhere.
+
         matrix (shape=(3,nc)): This argument is a sparse matrix with 3 rows and ``nc``
             columns. 
+            EK: shape=(3,nc) or shape=(3, nc)? I'd like the latter.
         option ('A', 'B', 'C'): This argument has admissible values, namely it can only be 
             a string ``'A'``, ``'B'`` or ``'C'``.
+            EK: This sounds like typing.Literal["A", "B", "C"]. The intention was presumably
+                not to give instructions on type hints here.
  
     Returns: 
         Describe the return value here. You can also describe its dependence on the value of
@@ -218,7 +251,7 @@ def example_generator(n: int) -> Generator[int, None, None]:
 
     """ 
     for i in range(n): 
-        yield i 
+        yield i
  
  
 class ExampleClass: 
@@ -234,8 +267,10 @@ class ExampleClass:
     At the end follows the *Parameters:* directive and an eventual *Raises:* directive.
 
     Parameters:
-        arg1: first argument
-        arg2: second argument    
+        arg1: first argument.
+        arg2: second argument.
+        EK: I presume we have punctionation everywhere? No need to say so explicitly,
+            but we should be consistent.  
 
     """
 
@@ -266,7 +301,20 @@ class ExampleClass:
         **DO NOT** use type hints in docstrings (cannot repeat often enough).
 
         """
-     
+
+        self._private_field: str = "This is a private field."
+        """Private fields are prefixed with an underscore. These will be default not
+        appear in the generated documentation, but they should be documented anyway.
+        Place the documentation right after the field declaration.
+
+        """
+
+        # EK: Say I have one or more attributes that are set by a long calculation.
+        # Normally, I would outsource this to a method (e.g. self._calculate_attribute_3()).
+        # However, I guess sphinx will not discover this. What is the best practice here?
+        # I'm not sure we need to address this in the style guide, but it would be good to
+        # know what are the options.
+
     @property 
     def readonly_property(self) -> str: 
         """Document properties only in their getter-methods.""" 
@@ -318,13 +366,15 @@ class ExampleClass:
     def __special__(self) -> None: 
         """Special methods (starting and ending with two underscores) are by default not
         included. Their documentation needs to be assured by an *option* in the rst files.
+
+        EK: They should be documented properly anyhow?
  
         """ 
         pass 
  
     def _private(self) -> None: 
         """Private methods are by default not included in the compiled documentation.
-        They should be nevertheless documented properly
+        They should be nevertheless documented properly, including Args, Returns etc.
  
         """ 
         pass 
