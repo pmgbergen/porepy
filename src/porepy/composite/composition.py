@@ -1036,6 +1036,9 @@ class Composition:
         if np.linalg.norm(b) <= self.flash_tolerance:
             success = True
             iter_final = 0
+            # compute the inverse Jacobian, for Schur complement with flow
+            # TODO make inverter more efficient (block inverter?)
+            self._last_inverted = np.linalg.inv(A.A)
         else:
             # this changes dependent on flash type but also if other models accessed the system
             prolongation = self.ad_system.dof_manager.projection_to(
@@ -1055,11 +1058,6 @@ class Composition:
                 )
                 # counting necessary number of iterations
                 iter_final = i + 1  # shift since range() starts with zero
-
-                # assemble new matrix and residual
-                # A, b = self._assemble_semi_smooth_system(
-                #     equations, complementary_cond, var_names
-                # )
                 A, b = self.ad_system.assemble_subsystem(equations, var_names)
 
                 # in case of convergence
