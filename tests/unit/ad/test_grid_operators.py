@@ -20,7 +20,7 @@ import porepy as pp
 
 
 def set_parameters(
-    dim: int, subdomains: list[pp.Grid], key: str, mdg: pp.MixedDimensionalGrid
+    dim: int, subdomains: list[pp.Grid], key: str, mdg: pp.MixedDimensionalGrid, f_or_c="faces",
 ):
     """Set two parameters in the data dictionary.
 
@@ -40,13 +40,13 @@ def set_parameters(
     """
     np.random.seed(42)
     # Start of all faces. If vector problem, all faces have dim numbers
-    face_start = dim * np.cumsum(
-        np.hstack((0, np.array([sd.num_faces for sd in subdomains])))
+    start_inds = dim * np.cumsum(
+        np.hstack((0, np.array([getattr(sd, "num_"+f_or_c) for sd in subdomains])))
     )
 
     # Build values of known values (to be filled during assignment of bcs)
-    known_values = np.zeros(sum([sd.num_faces for sd in subdomains]) * dim)
-    face_indices = []
+    known_values = np.zeros(sum([getattr(sd, "num_"+f_or_c) for sd in subdomains]) * dim)
+    indices = []
     # Loop over grids, assign values, keep track of assigned values
     for sd in subdomains:
         data = mdg.subdomain_data(sd)
@@ -54,7 +54,7 @@ def set_parameters(
         # Repeat values along the vector dimension to enable comparison with
         # parameters expanded from face-wise scalar to face-wise vector using
         # the geometry operator.
-        values = np.random.rand(sd.num_faces)
+        values = np.random.rand(getattr(sd, "num_"+f_or_c))
         if sd.dim > 0:
             # The if is just to avoid problems with kron when values is empty.
             values = np.kron(values, np.ones(dim))
@@ -70,11 +70,11 @@ def set_parameters(
         )
 
         # Put face values in the right place in the vector of knowns
-        face_inds_loc = np.arange(face_start[grid_ind], face_start[grid_ind + 1])
-        known_values[face_inds_loc] = values
-        face_indices.append(face_inds_loc)
+        inds_loc = np.arange(start_inds[grid_ind], start_inds[grid_ind + 1])
+        known_values[inds_loc] = values
+        indices.append(inds_loc)
 
-    return known_values, face_indices
+    return known_values, indices
 
 
 def geometry_information(
@@ -447,6 +447,31 @@ def test_geometry(mdg: pp.MixedDimensionalGrid, sd_inds: slice, nd: int):
     # Trigger sanity check on dimension of subdomains exceeding ambient dimension
     with pytest.raises(AssertionError):
         pp.ad.Geometry(subdomains, nd=subdomains[0].dim - 1)
+
+    known_cell_vectors, cell_inds = set_parameters(nd, subdomains, key, mdg, "cells")
+    cell_array = pp.ad.ParameterArray(key, "parameter_key", subdomains)
+
+    # Test basis vectors
+    for i in range(nd):
+        e = op._e_i(i)
+        # Inner product with array
+        v = e.transpose().parse(mdg) * cell_array.parse(mdg)
+        assert np.all(np.isclose(v, known_cell_vectors[i::nd]))
+        # Test that the vectors are orthogonal
+        for j in range(nd):
+            # Inner product with e_j
+            d_ij = e.transpose().parse(mdg) * op._e_i(j).parse(mdg)
+            if i == j:
+                identity = np.eye(d_ij.shape[0])
+                assert np.all(np.isclose(d_ij.todense(), identity))
+            else:
+                assert np.all(np.isclose(d_ij.todense(), 0))
+
+    # Test that scalar to nd equals sum of basis vectors
+    basis_sum = sum(op._e_i(i).parse(mdg) for i in range(nd))
+    assert np.all(np.isclose(basis_sum.todense(), op.scalar_to_nd_cell.parse(mdg).todense()))
+    # The former will probably be deprecated.
+
 
 
 @pytest.mark.parametrize("dim", [1, 4])

@@ -598,19 +598,57 @@ class Geometry(Operator):
 
                     force = (scalar_to_nd_face * face_areas) * traction
 
-            FIXME: Refactor? We might also want a general kron wrapper.
             """
-            rows: np.ndarray = np.arange(size * self.nd)
-            cols: np.ndarray = np.kron(np.arange(size), np.ones(self.nd))
-            data: np.ndarray = np.ones(size * self.nd)
-            mat = sps.csc_matrix(
-                (data, (rows, cols)),
-                shape=(size * self.nd, size),
-            )
+            mat = sps.kron(sps.eye(size), np.ones(nd)).transpose()
             return pp.ad.Matrix(mat)
 
         self.scalar_to_nd_cell = scalar_to_nd(self.num_cells)
         self.scalar_to_nd_face = scalar_to_nd(self.num_faces)
+
+    def basis(self, dim: int = None) -> np.ndarray:
+        """Return a cell-wise basis for all subdomains.
+
+        Parameters:
+            dim (int, optional): Dimension of the base. Defaults to the dimension of
+                the Geometry.
+
+        Returns:
+            Array of dim pp.ad.Matrix, each of which is represents a basis function.
+
+        """
+        if dim is None:
+            dim = self.nd
+
+        assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
+        # Collect the basis functions for each dimension
+        basis = []
+        for i in range(dim):
+            basis.append(self._e_i(i, dim))
+        # Stack the basis functions horizontally
+        return np.hstack(basis)
+
+    def _e_i(self, i: int, dim: int = None) -> np.ndarray:
+        """Return a cell-wise basis function for all subdomains.
+
+        Parameters:
+            dim (int): Dimension of the functions.
+            i (int): Index of the basis function. Note: Counts from 0.
+
+        Returns:
+            pp.ad.Matrix: Ad representation of a matrix with the basis functions as
+                columns.
+
+        """
+        if dim is None:
+            dim = self.nd
+        assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
+        assert i < dim, "Basis function index out of range"
+        # Collect the basis functions for each dimension
+        e_i = np.zeros(dim)
+        e_i[i] = 1
+        # expand to cell-wise column vectors.
+        mat = sps.kron(sps.eye(self.num_cells), e_i).transpose()
+        return pp.ad.Matrix(mat)
 
     def __repr__(self) -> str:
         s = (
