@@ -47,12 +47,13 @@ This will be done in a next step. Before that, familiarize yourself with the var
 and their options beforehand.
 
 """ 
+from __future__ import annotations
 
 import porepy as pp 
 import numpy as np 
 import scipy.sparse as sps 
 
-from typing import Generator, Optional
+from typing import Generator, Literal, Optional
 
 
 module_level_var_1: str = "var" 
@@ -157,19 +158,6 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
         
         **DO NOT** use type hints here as they are present in the signature.
 
-        EK: If there are multiple return values, how do we mark the difference between them?
-        Do we ever give names of the return values? For instance:
-
-        Returns:
-            var_1: Something
-            var_2: Something else
-
-        Or do we
-            Something. This comment takes the full line, bla bla bla bla bla bla bla bla bla bla
-            Something else. Since the above line was very long, so it is not immediately clear
-            in the code that this is the description of the second argument (sphinx will take care
-            of this, I presume).
-
     """   
     # I addition to docstrings, you should also add comments to the code. These should
     # be sufficiently detailed that it is possible to understand the logic of the code
@@ -186,17 +174,24 @@ def module_level_function_2(optional_arg: Optional[int] = None, *args, **kwargs)
     If ``*args`` or ``**kwargs`` are accepted,
     they must be listed as ``*args`` and ``**kwargs`` in the *Parameters* directive. 
 
+    .. note::
+        We note that this function returns ``None`` as per signature.
+        This is the default return value of Python and as such does not need documentation.
+        I.e., we can omit the *Returns:* directive. 
+
     Parameters: 
-        optional_arg: Description of ``optional_arg``.
+        optional_arg (optional): Description of ``optional_arg``.
             The default value is described at the end.
-            Use easily spottable wording like 'Defaults to None.'
+            Use easily spottable wording like 'Defaults to None.' and mark the argument using
+            ``(optional)`` after the name.
         *args: Arbitrary arguments. Describe adequately how they are used. 
         **kwargs: Arbitrary keyword arguments. You can use rst-lists to describe admissible
             keywords:
-            EK: Does it have to be rst to be sphinx compatible?
 
             - ``kw_arg1``: Some admissible keyword argument
             - ``kw_arg2``: Some other admissible keyword argument
+
+            Note that Sphinx can only interpret the rst markdown language.
 
     Raises: 
         ValueError: You can use the the Google Style directive *Raises:* to describe error
@@ -204,11 +199,6 @@ def module_level_function_2(optional_arg: Optional[int] = None, *args, **kwargs)
             if an unexpected keyword argument was passed.
         TypeError: You can hint multiple errors. Be aware of necessary indentations when
             descriptions span multiple lines.
-
-    .. note::
-        We note that this function returns ``None`` as per signature.
-        This is the default return value of Python and as such does not need documentation.
-        I.e., we can omit the *Returns:* directive. 
 
     """   
     pass
@@ -218,7 +208,7 @@ def module_level_function_3(
     mdg: pp.MixedDimensionalGrid,
     vector: np.ndarray,
     matrix: sps.spmatrix,
-    option: str = "A"
+    option: Literal["A", "B", "C"] = "A"
     ) -> sps.spmatrix: 
     """We demonstrate here the intra- and inter-doc linking to non-base-type Python objects
     in the signature,
@@ -226,25 +216,60 @@ def module_level_function_3(
 
     Parameters: 
         mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``
-        vector (len=nc): This vectors special requirement is a certain length.
+        vector (len=num_cells): This vectors special requirement is a certain length.
             We use the type hint brackets to indicate its supposed length.
-            The required length is ``nc``, the number of cells (obviously in ``mdg``).
-            EK: Nothing is obvious in life. I suggest we use num_cells, and similarly
-            num_faces, num_nodes, num_points, num_edges, num_fractures etc. We should have a
-            list of this somewhere.
-
-        matrix (shape=(3,nc)): This argument is a sparse matrix with 3 rows and ``nc``
-            columns. 
-            EK: shape=(3,nc) or shape=(3, nc)? I'd like the latter.
-        option ('A', 'B', 'C'): This argument has admissible values, namely it can only be 
-            a string ``'A'``, ``'B'`` or ``'C'``.
-            EK: This sounds like typing.Literal["A", "B", "C"]. The intention was presumably
-                not to give instructions on type hints here.
+            The required length is ``num_cells``, the number of cells. If unclear to what the
+            number refers, explain.
+            
+            E.g. where ``num_cells`` denotes the number of cells in ``mdg``.
+        matrix (shape=(3, num_cells)): This argument is a sparse matrix with 3 rows and
+            ``num_cells`` columns. 
+        option (optional): This argument has admissible values and a default value. 
+            it can only be a string ``'A'``, ``'B'`` or ``'C'``.For such admissible values use
+            :class:`typing.literal` to denote them in the signature.
+            Since it has a default value, we mark it with ``(optional)``.
  
     Returns: 
         Describe the return value here. You can also describe its dependence on the value of
         ``option`` here, or alternatively in the extended description at the beginning of the
         docstring.
+        
+        Exemplarily we can write here:
+
+        - If ``option`` is ``'A'``, return ...
+        - If ``option`` is ``'B'``, return ...
+        - ...
+ 
+    Raises: 
+        ValueError: If ``option`` is not in ``{'A', 'B', 'C'}``. 
+
+    """ 
+    pass
+
+def module_level_function_4(
+    vector: np.ndarray,
+    matrix: sps.spmatrix,
+    ) -> tuple[sps.spmatrix, np.ndarray] | None: 
+    """Functions with multiple return values need better description in the *Returns:*
+    directive.
+
+    Parameters: 
+        vector: some vector
+        matrix: some matrix
+ 
+    Returns:
+        Every returned object needs a description. We can use the same structure as for
+        the parameters: indented block per returned object or value.
+
+        spmatrix:
+            Though technically the tuple is a single object, it often is of
+            importance what the tuple contains.
+        ndarray:
+            We therefore use again the definition list structure with indented blocks to
+            describe the content individually. This makes of course only sense if the tuple
+            is of fixed length and/or contains objects of various types.
+        None:
+            The same rules hold for union return types.
  
     Raises: 
         ValueError: If ``option`` is not in ``{'A', 'B', 'C'}``. 
@@ -286,13 +311,12 @@ class ExampleClass:
 
     *Notes:* directives can be used the same way as for functions.
 
-    At the end follows the *Parameters:* directive and an eventual *Raises:* directive.
+    At the end follows obligatory the *Parameters:* directive and an eventual *Raises:*
+    directive.
 
     Parameters:
         arg1: first argument.
-        arg2: second argument.
-        EK: I presume we have punctionation everywhere? No need to say so explicitly,
-            but we should be consistent.  
+        arg2: second argument. 
 
     """
 
@@ -308,14 +332,21 @@ class ExampleClass:
     in the docstring. The type should only be given by its annotation.
     **DO NOT** use type hints in docstrings.
 
-    """ 
+    """
+
+    _private_class_attribute: float = np.pi
+    """Document private class attributes as well.
+    
+    Like everything private, they are not included by default in the docs.
+    Mention their inclusion into the docs upon integration, if necessary.
+    
+    """
  
     def __init__(self, arg1: int, arg2: str) -> None:
         # !!! no docstring for __init__ !!!
 
         self.attribute_1: int = arg1 
-        """This is how to properly document a instance-level attribute inside the constructor.
-        """
+        """This is how to properly document a instance-level attribute in the constructor."""
 
         self.attribute_2: str = arg2
         """str: This is an instance-level attribute with a redundant field 'Type:' caused by
@@ -324,18 +355,20 @@ class ExampleClass:
 
         """
 
-        self._private_field: str = "This is a private field."
-        """Private fields are prefixed with an underscore. These will be default not
-        appear in the generated documentation, but they should be documented anyway.
-        Place the documentation right after the field declaration.
+        self.attribute_3: dict[str, int] = self._calculate_attribute_3()
+        """Some attributes are calculated during construction, possibly in a separate method.
+        
+        Document nevertheless what the attribute contains and what it is used for etc.,
+        but leave the documentation of how it is calculated to the separate method.
 
         """
 
-        # EK: Say I have one or more attributes that are set by a long calculation.
-        # Normally, I would outsource this to a method (e.g. self._calculate_attribute_3()).
-        # However, I guess sphinx will not discover this. What is the best practice here?
-        # I'm not sure we need to address this in the style guide, but it would be good to
-        # know what are the options.
+        self._private_attribute: str = "This is a private attribute."
+        """This is a private (instance) attribute and is not included by default.
+
+        Document them properly anyway.
+
+        """
 
     @property 
     def readonly_property(self) -> str: 
@@ -349,6 +382,7 @@ class ExampleClass:
  
         If the setter method contains notable behavior, it should be 
         mentioned here. 
+
         """ 
         return 'readwrite' 
  
@@ -363,6 +397,7 @@ class ExampleClass:
         Note the absence of ``self``.
 
         """
+        pass
     
     @classmethod
     def example_class_method(cls) -> None:
@@ -371,6 +406,7 @@ class ExampleClass:
         Note that the ``self`` argument is replaced by the ``cls`` argument.
 
         """
+        pass
  
     def example_method(self, arg: bool) -> bool: 
         """A short description of the method must fit in the first line.
@@ -383,20 +419,37 @@ class ExampleClass:
         Returns: single-line return statements are supported. A blank line must still follow.
  
         """ 
-        return True 
+        return True
+
+    def _calculate_attribute_3(self) -> dict[str, int]:
+        """The private attribute is calculated in this private method.
+        
+        Document here what is done, like for any other method, including parameters and return
+        values.
+
+        Private methods are not included by default in the compiled documentation.
+        If necessary, talk to the core developers upon integration of docs.
+        
+        """
+        pass
 
     def __special__(self) -> None: 
         """Special methods (starting and ending with two underscores) are by default not
-        included. Their documentation needs to be assured by an *option* in the rst files.
+        included.
 
-        EK: They should be documented properly anyhow?
+        Their inclusion needs to be assured by an *option* in the rst files.
+        Talk to the core developers upon integration of docs.
+
+        Nevertheless document them properly, including parameters and return values.
  
         """ 
         pass 
  
     def _private(self) -> None: 
-        """Private methods are by default not included in the compiled documentation.
-        They should be nevertheless documented properly, including Args, Returns etc.
+        """Another private method, by default not included.
+
+        They should be nevertheless documented properly, including parameters, returns values
+        etc.
  
         """ 
         pass 
