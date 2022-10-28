@@ -3,6 +3,8 @@ Nonlinear solvers to be used with model classes.
 Implemented classes
     NewtonSolver
 """
+from __future__ import annotations
+
 import logging
 
 import numpy as np
