@@ -167,6 +167,7 @@ class Composition:
         # dict per phase name, which in return contains vals per component name in that phase
         self._ext_phase_composition_vals: Dict[str, Dict[str, float]] = dict()
         self._phase_composition_vals: Dict[str, Dict[str, float]] = dict()
+        self._skew_cc: dict[pp.composite.Phase, float] = dict()
 
     ### Thermodynamic State -------------------------------------------------------------------
 
@@ -664,6 +665,7 @@ class Composition:
 
         ### Semi-smooth complementary conditions per phase
         self._complementary_eq = dict()
+        self._skew_complementary_condition()
         # the first complementary condition will be eliminated by the phase fraction unity
         for phase in self._phases[1:]:
             name = f"{self._complementary}_{phase.name}"
@@ -672,7 +674,8 @@ class Composition:
             # we store the complementary conditions separately, but also instantiate the
             # AD version of the semi-smooth min function, such that the AD system can take care
             # of everything
-            equation = self._ss_min(condition[0], condition[1])
+            skew_factor = self._skew_cc[phase]
+            equation = self._ss_min(condition[0], skew_factor * condition[1])
             equations.update({name: equation})
             pT_subsystem["equations"].append(name)
             ph_subsystem["equations"].append(name)
@@ -771,6 +774,13 @@ class Composition:
                 # ph_subsystem["secondary_vars"].append(var_name)
         # for the p-h flash, T is an additional var
         ph_subsystem["primary_vars"].append(self._T_var)
+
+    def _skew_complementary_condition(self) -> None:
+        """Sets skewing factors for the complementary conditions."""
+        num_phases = self.num_phases
+        x = 1. / num_phases
+        for e, phase in zip(range(num_phases), self._phases):
+            self._skew_cc.update({phase: e + x})
 
     ### Flash methods -------------------------------------------------------------------------
 
@@ -902,9 +912,10 @@ class Composition:
         """Returns an equation representing the definition of the overall component fraction
         (mass conservation) for a component component.
 
-        z_c - sum_phases y_e * x_ce = 0
+            ``z_c - sum_e y_e * x_ce = 0``
 
-        Returns: AD operator representing the left-hand side of the equation (rhs=0).
+        Returns:
+            AD operator representing the left-hand side of the equation (rhs=0).
 
         """
         equation = None
@@ -923,9 +934,10 @@ class Composition:
     def get_phase_fraction_unity(self) -> pp.ad.Operator:
         """Returns an equation representing the phase fraction unity
 
-        1 - sum_phases y_e = 0
+            ``1 - sum_e y_e = 0``
 
-        Returns: AD operator representing the left-hand side of the equation (rhs=0).
+        Returns:
+            AD operator representing the left-hand side of the equation (rhs=0).
 
         """
         equation = None
@@ -938,16 +950,68 @@ class Composition:
             pass  # TODO
 
         return equation
+    
+    def get_phase_saturation_unity(self) -> pp.ad.Operator:
+        """Returns an equation representing the phase fraction unity
+
+            ``1 - sum_e s_e = 0``
+
+        Returns:
+            AD operator representing the left-hand side of the equation (rhs=0).
+
+        """
+        equation = None
+        if self.ad_system:
+            equation = pp.ad.Scalar(1.0)
+
+            for phase in self.phases:
+                equation -= phase.saturation
+        else:
+            pass  # TODO
+
+        return equation
+
+    def get_phase_fraction_relation(self, phase: pp.composite.Phase) -> pp.ad.Operator:
+        """Returns a nonlinear equation representing the relation between the molar fraction
+        of a phase and its volumetric fraction (saturation).
+
+        The equation includes the unity of saturations, i.e.
+
+            ``y_e = (rho_e * s_e) / (sum_f rho_f s_f)``
+            ``sum_f s_f  = 1``
+            ``y_e * (sum_(f != e) rho_f * s_f) + (y_e - 1) * rho_e * s_e = 0``
+
+        Returns:
+            AD operator representing the left-hand side of the third equation (rhos=0).
+
+        """
+        equation = None
+        if self.ad_system:
+            # phase_part = (phase.fraction - 1) * phase.density(self.p, self.T) * phase.saturation
+            # other_phase_parts = list()
+            # for other_phase in self.phases:
+            #     if other_phase != phase:
+            #         other_phase_parts.append(
+            #             other_phase.density(self.p, self.T) * other_phase.saturation
+            #         )
+            
+            # equation = phase.fraction * sum(other_phase_parts) + phase_part
+            equation = self.density() * phase.fraction - phase.saturation
+        else:
+            pass  # TODO
+
+        return equation
 
     def get_enthalpy_constraint(self) -> pp.ad.Operator:
         """Returns an equation representing the specific molar enthalpy of the composition,
         based on it's definition:
 
-        h - sum_phases y_e * h_e(p,T) = 0
+            ``h - sum_e y_e * h_e(p,T) = 0``
 
         Can be used to for the p-h flash as enthalpy constraint (T is an additional variable).
 
-        Returns: AD operator representing the left-hand side of the equation (rhs=0).
+        Returns:
+            AD operator representing the left-hand side of the equation (rhs=0).
 
         """
         equation = None
@@ -963,9 +1027,10 @@ class Composition:
     def get_composition_unity_for(self, phase: pp.composite.Phase) -> pp.ad.Operator:
         """Returns an equation representing the unity if the composition for a given phase e:
 
-        1 - sum_components chi_ce = 0
+         ``1 - sum_c chi_ce = 0``
 
-        Returns: AD operator representing the left-hand side of the equation (rhs=0).
+        Returns:
+            AD operator representing the left-hand side of the equation (rhs=0).
 
         """
         equation = None
@@ -984,9 +1049,10 @@ class Composition:
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Returns the two complementary equations for a phase e:
 
-        min{y_e, 1 - sum_components chi_ce} = 0
+            ``min{y_e, 1 - sum_c chi_ce} = 0``
 
-        Returns: tuple of AD operators representing the left-hand side of the equation (rhs=0).
+        Returns:
+            tuple of AD operators representing the left-hand side of the equation (rhs=0).
 
         """
         if self.ad_system:
@@ -1036,9 +1102,6 @@ class Composition:
         if np.linalg.norm(b) <= self.flash_tolerance:
             success = True
             iter_final = 0
-            # compute the inverse Jacobian, for Schur complement with flow
-            # TODO make inverter more efficient (block inverter?)
-            self._last_inverted = np.linalg.inv(A.A)
         else:
             # this changes dependent on flash type but also if other models accessed the system
             prolongation = self.ad_system.dof_manager.projection_to(
@@ -1073,11 +1136,6 @@ class Composition:
                         )
 
                     success = True
-
-                    # compute the inverse Jacobian, for Schur complement with flow
-                    # TODO make inverter more efficient (block inverter?)
-                    self._last_inverted = np.linalg.inv(A.A)
-
                     break
 
         # append history entry

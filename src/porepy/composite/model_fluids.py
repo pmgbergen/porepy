@@ -6,10 +6,10 @@ from iapws import IAPWS95
 
 from .component import FluidComponent
 
-__all__ = ["IAPWS95_H2O"]
+__all__ = ["H2O"]
 
 
-class IAPWS95_H2O(FluidComponent):
+class H2O(FluidComponent):
     # TODO decorate methods and turn them into AD methods
 
     @staticmethod
