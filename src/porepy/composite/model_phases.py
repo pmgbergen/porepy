@@ -49,7 +49,7 @@ class IdealGas(Phase):
         # h = u + p / rho(p,T)
         # which due to the ideal gas law simplifies to
         # h = u + R * T
-        return U_REF + R_IDEAL * T_REF + CP_REF * (T - T_REF)
+        return H_REF + CP_REF * (T - T_REF)
 
     def dynamic_viscosity(self, p, T):
         return pp.ad.Scalar(1.)
