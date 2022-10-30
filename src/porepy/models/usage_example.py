@@ -4,7 +4,7 @@ from constit_library import (
     ConstantViscosity,
     FluidDensityFromPressure,
     UnitFluid,
-    UnitRock,
+    UnitSolid,
 )
 from fluid_mass_balance import (
     ConstitutiveEquationsCompressibleFlow,
@@ -73,7 +73,7 @@ class EiriksCombinedMassBalance(
 
 
 params = {
-    "materials": {"fluid": UnitFluid, "rock": UnitRock},
+    "materials": {"fluid": UnitFluid, "rock": UnitSolid},
     "linear_solver": "pypardiso",  # Example showing solution strategy params may go here.
 }
 m = EiriksCombinedMassBalance(params)

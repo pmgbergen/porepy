@@ -7,6 +7,7 @@ import logging
 from typing import Tuple, Union
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
@@ -78,35 +79,58 @@ class ModelGeometry:
             self.mdg = self.fracture_network.mesh(self.mesh_arguments())
             self.box = self.fracture_network.domain
 
-    ## Utility methods
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims=[1]
     ) -> list[pp.MortarGrid]:
-        """Unique list of all interfaces neighbouring any of the subdomains.
-        FIXME: Sort
-        """
+        """Interfaces neighbouring any of the subdomains.
 
+        Args:
+            subdomains (list[pp.Grid]): Subdomains for which to find interfaces.
+            codims (list, optional): Codimension of interfaces to return. Defaults to [1],
+            i.e. only interfaces between one dimension apart.
+
+        Returns:
+            list[pp.MortarGrid]: Unique, sorted list of interfaces.
+        """
         interfaces = list()
         for sd in subdomains:
             for intf in self.mdg.subdomain_to_interfaces(sd):
-                if (
-                    intf not in interfaces and intf.codim in codims
-                ):  # could filter on codimension.
+                if intf not in interfaces and intf.codim in codims:
                     interfaces.append(intf)
-        return interfaces
+        return self.mdg.sort_interfaces(interfaces)
 
     def interfaces_to_subdomains(
         self, interfaces: list[pp.MortarGrid]
     ) -> list[pp.Grid]:
-        """Unique list of all subdomains neighbouring any of the interfaces.
-        FIXME: Sort
-        """
+        """Unique sorted list of all subdomains neighbouring any of the interfaces."""
         subdomains = list()
         for interface in interfaces:
             for sd in self.mdg.interface_to_subdomain_pair(interface):
                 if sd not in subdomains:
                     subdomains.append(sd)
-        return subdomains
+        return self.mdg.sort_subdomains(subdomains)
+
+    def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+        """Ad wrapper around tangential_normal_projections for fractures.
+
+        TODO: Extend to all subdomains.
+
+        Parameters:
+            subdomains: List of subdomains for which to compute the local coordinates.
+
+        Returns:
+            Local coordinates as a pp.ad.Matrix.
+
+        """
+        # For now, assert all subdomains are fractures, i.e. dim == nd - 1
+        assert all([sd.dim == self.nd - 1 for sd in subdomains])
+        local_coord_proj_list = [
+            self.mdg.subdomain_data(sd)[
+                "tangential_normal_projection"
+            ].project_tangential_normal(sd.num_cells)
+            for sd in subdomains
+        ]
+        return pp.ad.Matrix(sps.block_diag(local_coord_proj_list))
 
     def subdomain_projections(self, dim: int):
         """Return the projection operators for all subdomains in md-grid.
@@ -171,3 +195,42 @@ class ModelGeometry:
             bottom = g.face_centers[2] < box["zmin"] + tol
         all_bf = g.get_boundary_faces()
         return all_bf, east, west, north, south, top, bottom
+
+    # Local basis related methods
+    def tangential_component(self, grids: list[pp.Grid]) -> pp.ad.Operator:
+        """Compute the tangential component of a vector field.
+
+        Parameters:
+            grids: List of grids on which the vector field is defined.
+
+        Returns:
+            tangential: Operator extracting tangential component of the vector field and
+            expressing it in tangential basis.
+        """
+        geom = pp.ad.Geometry(grids, self.nd)
+
+        # We first need an inner product (or dot product), i.e. extract the tangential
+        # component of the cell-wise vector v to be transformed. Then we want to express it in
+        # the tangential basis. The two operations are combined in a single operator composed
+        # right to left:
+        # v will be hit by first e_i.T (row vector) and secondly t_i (column vector).
+        op = sum(
+            [geom.e_i(i, self.nd - 1) * geom.e_i(i, self.nd).T for i in range(self.nd)]
+        )
+        return op
+
+    def normal_component(self, grids: list[pp.Grid]) -> pp.ad.Operator:
+        """Compute the normal component of a vector field.
+
+        Parameters:
+            grids: List of grids on which the vector field is defined.
+
+        Returns:
+            normal: Operator extracting normal component of the vector field and
+            expressing it in normal basis.
+        """
+        geometry = pp.ad.Geometry(grids, self.nd)
+        e_n = geometry.e_i(self.nd - 1, self.nd)
+        t_n = geometry.e_i(self.nd - 1, self.nd - 1)
+        op = t_n * e_n.T
+        return op

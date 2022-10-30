@@ -286,7 +286,7 @@ class UnitFluid(Material):
         return self.convert_and_expand(self.VISCOSITY, "Pa*s", subdomains)
 
 
-class UnitRock(Material):
+class UnitSolid(Material):
     """
     WIP. See UnitFluid.
     """
@@ -297,6 +297,8 @@ class UnitRock(Material):
     PERMEABILITY: number = 1.0 * pp.METER**2
     LAME_LAMBDA: number = 1.0 * pp.PASCAL
     SHEAR_MODULUS: number = 1.0 * pp.PASCAL
+    FRICTION_COEFFICIENT: number = 1.0
+    FRACTURE_GAP: number = 1.0 * pp.METER
 
     def __init__(self, units):
         super().__init__(units)
@@ -346,6 +348,28 @@ class UnitRock(Material):
             Cell-wise Lame's first parameter in Pascal.
         """
         return self.convert_and_expand(self.LAME_LAMBDA, "Pa", subdomains)
+
+    def fracture_gap(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Fracture gap [m].
+
+        Args:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise fracture gap in meters.
+        """
+        return self.convert_and_expand(self.FRACTURE_GAP, "m", subdomains)
+
+    def friction_coefficient(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Friction coefficient [-].
+
+        Args:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise friction coefficient.
+        """
+        return self.convert_and_expand(self.FRICTION_COEFFICIENT, "-", subdomains)
 
 
 """
@@ -404,6 +428,75 @@ class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
 class ConstantViscosity:
     def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return self.fluid.viscosity(subdomains)
+
+
+class DarcyFlux:
+    def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Pressure on the subdomain boundaries.
+
+        Args:
+            subdomains: List of subdomains where the pressure is defined.
+
+        Returns:
+            Pressure on the subdomain boundaries. Parsing the operator will return a
+            face-wise array
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr = self.darcy_flux_discretization(subdomains)
+        p: pp.ad.MergedVariable = self.pressure(subdomains)
+        pressure_trace = (
+            discr.bound_pressure_cell * p
+            + discr.bound_pressure_face
+            * projection.mortar_to_primary_int
+            * self.interface_fluid_flux(interfaces)
+            + discr.bound_pressure_face * self.bc_values_flow(subdomains)
+            + discr.vector_source * self.vector_source(subdomains)
+        )
+        return pressure_trace
+
+    def darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Darcy flux.
+
+        Args:
+            subdomains: List of subdomains where the Darcy flux is defined.
+
+        Returns:
+            Face-wise Darcy flux in cubic meters per second.
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr: pp.ad.Discretization = self.darcy_flux_discretization(subdomains)
+        flux: pp.ad.Operator = (
+            discr.flux * self.pressure(subdomains)
+            + discr.bound_flux
+            * (
+                self.bc_values_flow(subdomains)
+                + projection.mortar_to_primary_int
+                * self.interface_fluid_flux(interfaces)
+            )
+            + discr.vector_source * self.vector_source(subdomains)
+        )
+        flux.set_name("Fluid flux")
+        return flux
+
+    def darcy_flux_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Discretization:
+        """
+        .. note::
+            The ad.Discretizations may be purged altogether. Their current function is very
+            similar to the ad.Geometry in that both basically wrap numpy/scipy arrays in ad
+            arrays and collect them in a block matrix. This similarity could possibly be
+            exploited. Revisit at some point.
+
+        Args:
+            subdomains:
+
+        Returns:
+
+        """
+        return pp.ad.MpfaAd(self.flow_discretization_parameter_key, subdomains)
 
 
 class LinearElasticMechanicalStress:
@@ -536,7 +629,71 @@ class LinearElasticRock(LinearElasticMechanicalStress):
         return pp.FourthOrderTensor(mu, lmbda)
 
 
-class ConstantRock:
+class FracturedSolid:
+    """Fractured rock properties.
+
+    This class is intended for use with fracture deformation models.
+    """
+
+    def reference_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference gap [m].
+
+        Args:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise reference gap operator [m].
+        """
+        return ad_wrapper(self.rock.gap(subdomains), True, name="reference_gap")
+
+    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction coefficient.
+
+        Args:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise friction coefficient operator.
+        """
+        return ad_wrapper(
+            self.rock.friction_coefficient(subdomains),
+            False,
+            name="friction_coefficient",
+        )
+
+
+class FrictionBound:
+    """Friction bound for fracture deformation.
+
+    This class is intended for use with fracture deformation models.
+    """
+
+    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator extracting normal component of vector. Should be defined in class combined with  this mixin."""
+    traction: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Traction variable. Should be defined in class combined with from this mixin."""
+    friction_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Friction coefficient. Should be defined in class combined with this mixin."""
+
+    def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction bound [m].
+
+        Args:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise friction bound operator [Pa].
+
+        """
+        t_n: pp.ad.Operator = self.normal_component(subdomains) * self.traction(
+            subdomains
+        )
+        bound: pp.ad.Operator = (-1) * self.friction_coefficient(subdomains) * t_n
+        bound.set_name("friction_bound")
+        return bound
+
+
+class ConstantPorousMedium:
     def permeability(self, subdomain: pp.Grid) -> pp.SecondOrderTensor:
         # This will be set as before (pp.PARAMETERS) since it is a discretization parameter
         # Hence not list[subdomains]
