@@ -453,14 +453,14 @@ def test_geometry(mdg: pp.MixedDimensionalGrid, sd_inds: slice, nd: int):
 
     # Test basis vectors
     for i in range(nd):
-        e = op._e_i(i)
+        e = op.e_i(i)
         # Inner product with array
         v = e.transpose().parse(mdg) * cell_array.parse(mdg)
         assert np.all(np.isclose(v, known_cell_vectors[i::nd]))
         # Test that the vectors are orthogonal
         for j in range(nd):
             # Inner product with e_j
-            d_ij = e.transpose().parse(mdg) * op._e_i(j).parse(mdg)
+            d_ij = e.transpose().parse(mdg) * op.e_i(j).parse(mdg)
             if i == j:
                 identity = np.eye(d_ij.shape[0])
                 assert np.all(np.isclose(d_ij.todense(), identity))
@@ -468,7 +468,7 @@ def test_geometry(mdg: pp.MixedDimensionalGrid, sd_inds: slice, nd: int):
                 assert np.all(np.isclose(d_ij.todense(), 0))
 
     # Test that scalar to nd equals sum of basis vectors
-    basis_sum = sum(op._e_i(i).parse(mdg) for i in range(nd))
+    basis_sum = sum(op.e_i(i).parse(mdg) for i in range(nd))
     assert np.all(np.isclose(basis_sum.todense(), op.scalar_to_nd_cell.parse(mdg).todense()))
     # The former will probably be deprecated.
 
