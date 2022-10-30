@@ -623,11 +623,11 @@ class Geometry(Operator):
         # Collect the basis functions for each dimension
         basis = []
         for i in range(dim):
-            basis.append(self._e_i(i, dim))
+            basis.append(self.e_i(i, dim))
         # Stack the basis functions horizontally
         return np.hstack(basis)
 
-    def _e_i(self, i: int, dim: int = None) -> np.ndarray:
+    def e_i(self, i: int, dim: int = None) -> np.ndarray:
         """Return a cell-wise basis function for all subdomains.
 
         Parameters:
@@ -644,10 +644,10 @@ class Geometry(Operator):
         assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
         assert i < dim, "Basis function index out of range"
         # Collect the basis functions for each dimension
-        e_i = np.zeros(dim)
+        e_i = np.zeros(dim).reshape(-1, 1)
         e_i[i] = 1
         # expand to cell-wise column vectors.
-        mat = sps.kron(sps.eye(self.num_cells), e_i).transpose()
+        mat = sps.kron(sps.eye(self.num_cells), e_i)
         return pp.ad.Matrix(mat)
 
     def __repr__(self) -> str:
