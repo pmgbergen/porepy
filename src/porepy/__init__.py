@@ -189,7 +189,7 @@ from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleF
 
 from porepy.numerics import ad
 from porepy.models.geometry import ModelGeometry
-from porepy.models.constit_library import UnitFluid, UnitRock, Units, Material
+from porepy.models.constit_library import UnitFluid, UnitSolid, Units, Material
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager
