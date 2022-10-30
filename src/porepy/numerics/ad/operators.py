@@ -917,6 +917,9 @@ class Matrix(Operator):
     def transpose(self) -> "Matrix":
         return Matrix(self._mat.transpose())
 
+    # Alias
+    T = transpose
+
 
 class Array(Operator):
     """Ad representation of a numpy array.

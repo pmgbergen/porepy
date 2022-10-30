@@ -26,7 +26,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
     """Workflow for the tests:
     Each of the test_* methods first set up a rotation angle for the fracture
     and a previous state for the normal and tangential jumps and the contact
-    force. Also the direction of the tangential and normal vectors for the
+    force. Also, the direction of the tangential and normal vectors for the
     local (to the fracture) coordinate system are set. The coefficients in
     the discretization of contact condition and the map from contact forces to
     forces on the mortar grid are then computed in two ways:
@@ -722,7 +722,7 @@ class ContactConditionColoumb2d(unittest.TestCase):
 
 class ContactModel2d(ContactMechanics):
     def __init__(self, angle, u_mortar, contact_force, pos_tangent, pos_normal):
-        super().__init__({})
+        super().__init__({"use_ad": False})
 
         # override the super __init__, but that should be okay
         self.angle = angle
@@ -916,7 +916,7 @@ class ContactModel3d(ContactModel2d):
         pos_tangent_2,
         pos_normal,
     ):
-        super().__init__({})
+        super().__init__({"use_ad": False})
 
         # n_angle is specified rotation of the normal vector. Used both in grid
         # construction and construction of the projection operator for the grid
