@@ -234,7 +234,7 @@ class Grid:
 
     def __repr__(self) -> str:
         """Implementation of __repr__"""
-        s = f"Grid with name {self.name}" + "\n"
+        s = f"Grid with name {self.name} and id {self.id}" + "\n"
         s = "Grid history: " + ", ".join(self.history) + "\n"
         s += "Number of cells " + str(self.num_cells) + "\n"
         s += "Number of faces " + str(self.num_faces) + "\n"
