@@ -16,7 +16,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-class SingleFracture2d(pp.Geometry):
+class SingleFracture2d(pp.ModelGeometry):
     """Single fracture in 2d with unstructured simplex mesh."""
 
     num_fracs: int = 1
@@ -49,7 +49,7 @@ class ThreeFractures3d(SingleFracture2d):
         domain = pp.grids.standard_grids.utils.unit_domain(3)
         self.fracture_network = pp.FractureNetwork3d(fracs, domain)
 
-geometry_list = [pp.Geometry, SingleFracture2d, ThreeFractures3d]
+geometry_list = [pp.ModelGeometry, SingleFracture2d, ThreeFractures3d]
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 def test_set_fracture_network(geometry_class):
@@ -96,14 +96,12 @@ def test_boundary_sides(geometry_class):
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_subdomain_interface_methods(geometry_class: pp.Geometry) -> None:
+def test_subdomain_interface_methods(geometry_class: pp.ModelGeometry) -> None:
     """Test interfaces_to_subdomains and subdomains_to_interfaces.
 
     Args:
         geometry_class: 
 
-    FIXME: Some of the tests will fail until sorting of subdomains and interfaces has been
-        addressed.
     """
     geometry = geometry_class()
     geometry.set_geometry()
@@ -112,25 +110,27 @@ def test_subdomain_interface_methods(geometry_class: pp.Geometry) -> None:
 
     returned_subdomains = geometry.interfaces_to_subdomains(all_interfaces)
     returned_interfaces = geometry.subdomains_to_interfaces(all_subdomains)
-    assert all_subdomains == returned_subdomains
-    assert all_interfaces == returned_interfaces
+    if all_interfaces == []:
+        assert returned_subdomains == []
+        assert returned_interfaces == []
+    else:
+        assert all_subdomains == returned_subdomains
+        assert all_interfaces == returned_interfaces
 
     # Empty list passed should return empty list for both methods.
     no_subdomains = geometry.interfaces_to_subdomains([])
     no_interfaces = geometry.subdomains_to_interfaces([])
     assert no_subdomains == []
     assert no_interfaces == []
-    if geometry.num_fracs > 1:
+    if getattr(geometry, "num_fracs", 0) > 1:
         # Matrix and two fractures
         three_sds = all_subdomains[:2]
-        # This should result in all subdomains, since the method returns all interfaces
-        # neighboring any of the domains
-        assert all_interfaces == geometry.subdomains_to_interfaces(three_sds)
 
         two_fractures = all_subdomains[1:3]
-        sd_m = geometry.mdg.subdomains(dim=geometry.nd)[0]
         # Only those interfaces involving one of the two fractures are expected.
-        interfaces = [geometry.mdg.subdomain_pair_to_interface((sd_m, two_fractures[0])),
-                      geometry.mdg.subdomain_pair_to_interface((sd_m, two_fractures[1]))]
-        assert interfaces == geometry.subdomains_to_interfaces(two_fractures)
+        interfaces = []
+        for sd in two_fractures:
+            interfaces += geometry.mdg.subdomain_to_interfaces(sd)
+        sorted_interfaces = geometry.mdg.sort_interfaces(interfaces)
+        assert sorted_interfaces == geometry.subdomains_to_interfaces(two_fractures)
 
