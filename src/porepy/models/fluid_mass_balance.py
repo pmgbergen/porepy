@@ -181,20 +181,6 @@ class ConstitutiveEquationsIncompressibleFlow(constit_library.DarcyFlux):
         )
         return eq
 
-    def vector_source(self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]):
-        # FIXME: Interface vector source
-        num_cells = sum([sd.num_cells for sd in grids])
-        vals = pp.GRAVITY_ACCELERATION * np.ones(num_cells)
-        # Expand to nd
-        rows = np.arange(self.nd - 1, num_cells * self.nd, self.nd)
-        cols = np.arange(num_cells)
-        mat = sps.coo_matrix(
-            (vals, (rows, cols)), shape=(self.nd * num_cells, num_cells)
-        )
-        source = pp.ad.Matrix(mat, "gravity_acceleration") * self.fluid_density(grids)
-        source.set_name("vector_source")
-        return source
-
     def bc_values_flow(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
         Not sure where this one should reside.
@@ -242,6 +228,23 @@ class ConstitutiveEquationsIncompressibleFlow(constit_library.DarcyFlux):
         area/volume (or "specific volume") for intersections of dimension 1 and 0.
         See also specific_volume.
         """
+        # Get aperture
+        a: pp.ad.Operator = self.aperture(subdomains)
+        # Compute specific volume as the cross-sectional area/volume
+        # of the cell, i.e. raise to the power nd-dim
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        for dim in range(self.nd):
+            sd_dim = [sd for sd in subdomains if sd.dim == dim]
+            a_loc = projection.cell_restriction(sd_dim) * a
+            v_loc = a_loc ** (self.nd - dim)
+            if dim == 0:
+                v = projection.cell_prolongation(sd_dim) * v_loc
+            else:
+                v += projection.cell_prolongation(sd_dim) * v_loc
+        v.set_name("specific_volume")
+        return v
+
+
         volumes = np.array([])
         for sd in subdomains:
             v_loc = self.grid_specific_volume(sd)
