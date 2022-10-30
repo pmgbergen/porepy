@@ -201,7 +201,7 @@ class Material:
         return value
 
     def convert_and_expand(
-        self, value: number, units: number, grids, grid_field="num_cells"
+        self, value: number, units: str, grids, grid_field="num_cells"
     ):
         """Convert value to SI units, and expand to all grids.
 
@@ -497,6 +497,43 @@ class DarcyFlux:
 
         """
         return pp.ad.MpfaAd(self.flow_discretization_parameter_key, subdomains)
+
+class GravityForce:
+    """Gravity force.
+
+    The gravity force is defined as the product of the fluid density and the gravity vector:
+
+    .. math::
+        g = -\\rho \\mathbf{g}= -\\rho \\begin{bmatrix} 0 \\\\ 0 \\\\ G \\end{bmatrix}
+
+    where :math:`\\rho` is the fluid density, and :math:`G` is the magnitude of the gravity
+    acceleration.
+
+    To be used in fluid fluxes and as body force in the force/momentum balance equation.
+
+    TODO: Decide whether to use this or zero as default for Darcy fluxes.
+    """
+    def gravity_force(self, grids: Union[list[pp.Grid], list[pp.MortarGrid]], material: str) -> pp.ad.Operator:
+        """Vector source term.
+
+        Represents gravity effects. EK: Let's discuss how to name/think about this term. Note
+        that it appears slightly differently in a flux and a force/momentum balance.
+
+        Args:
+            grids: List of subdomain or interface grids where the vector source is defined.
+            material: Name of the material. Could be either "fluid" or "solid".
+
+        Returns:
+            Cell-wise nd-vector source term operator
+        """
+        # Geometry needed for basis vector.
+        geometry = pp.ad.Geometry(grids, nd=self.nd)
+        val: np.ndarray = self.fluid.convert_and_expand(pp.GRAVITY_ACCELERATION, "m/s^2", grids)
+        gravity: pp.ad.Matrix = ad_wrapper(val, array=False, name="gravity")
+        rho = getattr(self, material+"_density")(grids)
+        source = (-1) * geometry.e_i(i=self.nd-1) * gravity * rho
+        source.set_name("gravity_force")
+        return source
 
 
 class LinearElasticMechanicalStress:
