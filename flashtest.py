@@ -7,12 +7,15 @@ import porepy as pp
 from matplotlib import pyplot as plt
 from iapws import IAPWS95
 
-### grid creation
+### PARAMETRIZATION
 p = 101.000  # 101 kPa
 T = 373.15  # 100 deg C
 h = T + p
-salt_fraction = 0.04
+salt_fraction = 0.5
+k_salt = 0.2
+k_water = 1.
 
+### CALCULATION
 c = pp.composite.Composition()
 ad_system = c.ad_system
 dm = ad_system.dof_manager
@@ -21,12 +24,8 @@ nc = mdg.num_subdomain_cells()
 
 water = pp.composite.H2O(ad_system)
 salt = pp.composite.NaCl(ad_system)
-
-IW = IAPWS95(P=p/1000, T=T)
-
-c.add_component(salt)
 c.add_component(water)
-
+c.add_component(salt)
 
 ad_system.set_var_values(water.fraction_name, (1-salt_fraction) * np.ones(nc), True)
 ad_system.set_var_values(salt.fraction_name, salt_fraction * np.ones(nc), True)
@@ -35,13 +34,18 @@ ad_system.set_var_values(c._T_var, T * np.ones(nc), True)
 ad_system.set_var_values(c._h_var, h * np.ones(nc), True)
 
 c.k_values = {
-    water: 1.2,
-    salt: 0.2
+    water: k_water,
+    salt: k_salt
 }
 
 c.initialize()
 
-c.isothermal_flash(copy_to_state=True, initial_guess="feed")
+success = c.isothermal_flash(copy_to_state=True, initial_guess="feed")
+c.evaluate_saturations(success)
+c.print_last_flash()
+c._print_state()
+
+print("Done")
 
 # k_vals = [0.1, 0.5, 1., 1.001, 1.01, 1.1, 1.5, 2., 5., 10., 50., 100.,]
 # s_l = list()
@@ -84,8 +88,6 @@ c.isothermal_flash(copy_to_state=True, initial_guess="feed")
 
 #     i = c.flash_history[-1]['iterations']
 #     iter_nums.append(i)
-
-print("Done")
 
 # plt.figure()
 # plt.loglog(k_vals, y_l, color="green", marker="o", linestyle="solid", label="frac L")
