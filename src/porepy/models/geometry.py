@@ -156,13 +156,6 @@ class ModelGeometry:
             setattr(self, name, proj)
         return proj
 
-    def _nd_subdomain(self) -> pp.Grid:
-        """Get the grid of the highest dimension. Assumes self.mdg is set.
-
-        FIXME: Purge?
-        """
-        return self.mdg.subdomains(dim=self.nd)[0]
-
     def domain_boundary_sides(
         self, g: pp.Grid
     ) -> Tuple[

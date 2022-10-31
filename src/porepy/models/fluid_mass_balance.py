@@ -117,8 +117,35 @@ class MassBalanceEquations(ScalarBalanceEquation):
         return mass
 
     def fluid_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid flux.
+
+        The fluid flux is defined as the product of the fluid velocity and the fluid
+        density. Hence, the ideal implementation would be something like
         flux = self.face_mobility(subdomains) * self.darcy_flux(subdomains)
         flux.set_name("fluid_flux")
+        return flux
+        EK: Please confirm that there is no way to do it this elegantly and that we must do
+        something like suggested below.
+        """
+        discr = self.mobility_discretization(subdomains)
+
+        bc_values = self.bc_values_mobility(subdomains)
+        darcy_flux = self.darcy_flux(subdomains)
+        interfaces = self.subdomains_to_interfaces(subdomains)
+        mortar_projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
+        # FIXME: complete with BCs etc. Nontrivial!
+        flux: pp.ad.Operator = (
+            darcy_flux * discr.upwind * self.cell_mobility(subdomains)
+            - discr.bound_transport_dir * darcy_flux * bc_values
+            # Advective flux coming from lower-dimensional subdomains
+            - discr.bound_transport_neu
+            * (
+               mortar_projection.mortar_to_primary_int
+               * self.interface_mobility_flux(interfaces)
+               + bc_values
+            )
+        )
+        flux.set_name("face_mobility")
         return flux
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -137,29 +164,29 @@ class MassBalanceEquations(ScalarBalanceEquation):
 
 
 class ConstitutiveEquationsIncompressibleFlow(
-    constit_library.DarcyFlux, constit_library.DimensionReduction
+    constitutive_laws.DarcyFlux, constitutive_laws.DimensionReduction
 ):
     """Constitutive equations for incompressible flow.
-
-    .. note::
-        We should consider modularising and moving to constit_library.
     """
 
-    def face_mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        # interfaces = self.subdomains_to_interfaces(subdomains)
-        # projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
+    def cell_mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Mobility of the fluid flux.
 
-        discr = self.mobility_discretization(subdomains)
-        cell_mobility = self.fluid_density(subdomains) / self.viscosity(subdomains)
-        # FIXME: complete with BCs etc. Nontrivial!
-        flux: pp.ad.Operator = discr.upwind * cell_mobility
-        flux.set_name("face_mobility")
-        return flux
+        Args:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the mobility.
+        """
+        return self.fluid_density(subdomains) / self.viscosity(subdomains)
+
+
+
 
     def mobility_discretization(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Discretization:
-        return pp.ad.UpwindAd(self.flow_discretization_parameter_key, subdomains)
+        return pp.ad.UpwindAd(self.mobility_discretization_parameter_key, subdomains)
 
     def interface_mobility_discretization(
         self, interfaces: list[pp.MortarGrid]
@@ -167,16 +194,17 @@ class ConstitutiveEquationsIncompressibleFlow(
         """
 
         Args:
-            interfaces:
+            interfaces: List of interface grids.
 
         Returns:
+            Discretization for the interface mobility.
 
         """
         return pp.ad.UpwindCouplingAd(
-            self.flow_discretization_parameter_key, interfaces
+            self.mobility_discretization_parameter_key, interfaces
         )
 
-    def interface_fluid_flux_equation(self, interfaces: list[pp.MortarGrid]):
+    def interface_darcy_flux_equation(self, interfaces: list[pp.MortarGrid]):
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
@@ -195,7 +223,7 @@ class ConstitutiveEquationsIncompressibleFlow(
         )
         return eq
 
-    def bc_values_flow(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
         Not sure where this one should reside.
         Note that we could remove the grid_operator BC and DirBC, probably also
@@ -208,11 +236,41 @@ class ConstitutiveEquationsIncompressibleFlow(
 
         """
         num_faces = sum([sd.num_faces for sd in subdomains])
-        return ad_wrapper(0, True, num_faces, "bc_vals_flow")
+        return ad_wrapper(0, True, num_faces, "bc_values_darcy")
+
+    def bc_values_mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+        """
+
+        Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
+        ..note:
+            Value is tricky if
+            ..math:
+                mobility = \\rho / \\mu
+            with \rho and \mu being functions of p (or other variables), since variables are
+            not defined at the boundary. This may lead to inconsistency between boundary
+            conditions for Darcy flux and mobility.
+            For now, we assume that the mobility is constant.
+            TODO: Better solution. Could involve defining boundary grids.
+        Args:
+            subdomains: List of subdomains.
+
+        Returns:
+            Array with boundary values for the mobility.
+
+        """
+        bc_values = []
+        for sd in subdomains:
+            rho_by_mu = self.fluid.density([sd]) / self.fluid.viscosity([sd])
+            vals = np.zeros(sd.num_faces)
+            all_bf, *_ = self.domain_boundary_faces(sd)
+            vals[all_bf] = rho_by_mu
+            bc_values.append(vals)
+        bc_values = np.hstack(bc_values)
+        return ad_wrapper(bc_values, True, name="bc_values_mobility")
 
 
 class ConstitutiveEquationsCompressibleFlow(
-    constit_library.FluidDensityFromPressure, ConstitutiveEquationsIncompressibleFlow
+    constitutive_laws.FluidDensityFromPressure, ConstitutiveEquationsIncompressibleFlow
 ):
     """Resolution order is important:
     Left to right, i.e., DensityFromPressure mixin's method is used when calling
@@ -288,7 +346,8 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         # Variables
         self.variable: str = "p"
         self.mortar_variable: str = "mortar_" + self.variable
-        self.flow_discretization_parameter_key: str = "flow"
+        self.darcy_discretization_parameter_key: str = "flow"
+        self.mobility_discretization_parameter_key: str = "mobility"
         self.exporter: pp.Exporter
 
         # Place initialization stuff to be moved to abstract below.
@@ -360,7 +419,6 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         subdomains and interfaces (of codimension 1).
         """
         for sd, data in self.mdg.subdomains(return_data=True):
-            bc = self.bc_type_flow(sd)
 
             specific_volume = self.grid_specific_volume(sd)
 
@@ -372,11 +430,20 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
             pp.initialize_data(
                 sd,
                 data,
-                self.flow_discretization_parameter_key,
+                self.darcy_discretization_parameter_key,
                 {
-                    "bc": bc,
+                    "bc": self.bc_type_darcy(sd),
                     "second_order_tensor": diffusivity,
-                    #                    "darcy_flux": self.darcy_flux(sd),
+                    "ambient_dimension": self.nd,
+                },
+            )
+            pp.initialize_data(
+                sd,
+                data,
+                self.darcy_discretization_parameter_key,
+                {
+                    "bc": self.bc_type_mobility(sd),
+                    "second_order_tensor": diffusivity,
                     "ambient_dimension": self.nd,
                 },
             )
@@ -386,43 +453,39 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
             pp.initialize_data(
                 intf,
                 intf_data,
-                self.flow_discretization_parameter_key,
+                self.darcy_discretization_parameter_key,
                 {
                     "ambient_dimension": self.nd,
-                    "darcy_flux": self.darcy_flux(intf),
                 },
             )
 
-    def bc_type_flow(self, g: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
-        FIXME: Refactor?
+
+        Args:
+            sd: Subdomain grid on which to define boundary conditions.
+
+        Returns:
+            Boundary condition object.
         """
         # Define boundary regions
-        all_bf, *_ = self._domain_boundary_sides(g)
+        all_bf, *_ = self.domain_boundary_sides(sd)
         # Define boundary condition on faces
-        return pp.BoundaryCondition(g, all_bf, "dir")
+        return pp.BoundaryCondition(sd, all_bf, "dir")
 
-    def _aperture(self, g: pp.Grid) -> np.ndarray:
-        """
-        Aperture is a characteristic thickness of a cell, with units [m].
-        1 in matrix, thickness of fractures and "side length" of cross-sectional
-        area/volume (or "specific volume") for intersections of dimension 1 and 0.
-        See also specific_volume.
-        """
-        aperture = np.ones(g.num_cells)
-        if g.dim < self.mdg.dim_max():
-            aperture *= 0.1
-        return aperture
+    def bc_type_mobility(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Dirichlet conditions on all external boundaries.
 
-    def _specific_volume(self, g: pp.Grid) -> np.ndarray:
+        Args:
+            sd: Subdomain grid on which to define boundary conditions.
+
+        Returns:
+            Boundary condition object.
         """
-        The specific volume of a cell accounts for the dimension reduction and has
-        dimensions [m^(Nd - d)].
-        Typically, equals 1 in Nd, the aperture in codimension 1 and the square/cube
-        of aperture in dimension 1 and 0.
-        """
-        a = self._aperture(g)
-        return np.power(a, self._nd_subdomain().dim - g.dim)
+        # Define boundary regions
+        all_bf, *_ = self.domain_boundary_sides(sd)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(sd, all_bf, "dir")
 
     def _create_dof_and_eq_manager(self) -> None:
         """Create a dof_manager and eq_manager based on a mixed-dimensional grid"""
@@ -438,8 +501,8 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
     def before_newton_iteration(self):
         pp.fvutils.compute_darcy_flux(
             self.mdg,
-            self.flow_discretization_parameter_key,
-            self.flow_discretization_parameter_key,
+            self.darcy_discretization_parameter_key,
+            self.darcy_discretization_parameter_key,
             lam_name=self.mortar_variable,
         )
         # FIXME: Rediscretize upwind.
