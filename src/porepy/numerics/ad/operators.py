@@ -25,7 +25,7 @@ __all__ = [
     "TimeDependentArray",
     "Scalar",
     "Variable",
-    "MergedVariable",
+    "MixedDimensionalVariable",
 ]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
@@ -121,7 +121,7 @@ class Operator:
         self.interfaces = interfaces
 
     def _find_subtree_variables(self) -> list[pp.ad.Variable]:
-        """Method to recursively look for Variables (or MergedVariables) in an
+        """Method to recursively look for Variables (or MixedDimensionalVariables) in an
         operator tree.
         """
         # The variables should be located at leaves in the tree. Traverse the tree
@@ -169,7 +169,7 @@ class Operator:
             key=lambda var: var.id,
         )
 
-        # 2. Get a mapping between variables (*not* only MergedVariables) and their
+        # 2. Get a mapping between variables (*not* only MixedDimensionalVariables) and their
         # indices according to the DofManager. This is needed to access the state of
         # a variable when parsing the operator to numerical values using forward Ad.
 
@@ -180,13 +180,13 @@ class Operator:
         prev_iter = []
         for variable in variables:
             # Indices (in DofManager sense) of this variable. Will be built gradually
-            # for MergedVariables, in one go for plain Variables.
+            # for MixedDimensionalVariables, in one go for plain Variables.
             ind_var = []
             prev_time.append(variable.prev_time)
             prev_iter.append(variable.prev_iter)
 
             if isinstance(
-                variable, (pp.ad.MergedVariable, MergedVariable)
+                variable, (pp.ad.MixedDimensionalVariable, MixedDimensionalVariable)
             ):  # Is this equivalent to the test in previous function?
                 # Loop over all subvariables for the merged variable
                 for i, sub_var in enumerate(variable.sub_vars):
@@ -294,7 +294,7 @@ class Operator:
                 # We are on an atomic operator. If this is a time-dependent operator,
                 # set it to be evaluated at the previous time step. If not, leave the
                 # operator as it is.
-                if isinstance(op, (Variable, MergedVariable, TimeDependentArray)):
+                if isinstance(op, (Variable, MixedDimensionalVariable, TimeDependentArray)):
                     # IMPLEMENTATION NOTE: We need to use a copy, not a deep copy here. A
                     # deep copy would change the underlying grids and mortar grids. For
                     # variables (atomic and merged) this would render a KeyValue if the
@@ -382,7 +382,7 @@ class Operator:
             # this is a single or combined variable; see self.__init__, definition of
             # self._variable_ids.
             # TODO no different between merged or no merged variables!?
-            if isinstance(op, pp.ad.MergedVariable) or isinstance(op, MergedVariable):
+            if isinstance(op, pp.ad.MixedDimensionalVariable) or isinstance(op, MixedDimensionalVariable):
                 if op.prev_time:
                     return self._prev_vals[op.id]
                 elif op.prev_iter:
@@ -751,7 +751,7 @@ class Operator:
 
     def evaluate(
         self,
-        dof_manager: pp.DofManager,
+        system_manager: pp.ad.SystemManager,
         state: Optional[np.ndarray] = None,
     ):  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given state.
@@ -770,7 +770,7 @@ class Operator:
 
         """
         # Get the mixed-dimensional grid used for the dof-manager.
-        mdg = dof_manager.mdg
+        mdg = system_manager.mdg
 
         # Identify all variables in the Operator tree. This will include real variables,
         # and representation of previous time steps and iterations.
@@ -779,7 +779,7 @@ class Operator:
             variable_ids,
             is_prev_time,
             is_prev_iter,
-        ) = self._identify_variables(dof_manager)
+        ) = self._identify_variables(system_manager)
 
         # Split variable dof indices and ids into groups of current variables (those
         # of the current iteration step), and those from the previous time steps and
@@ -818,32 +818,12 @@ class Operator:
         # derivatives represented). Then parse the operator by traversing its
         # tree-representation, and parse and combine individual operators.
 
-        # Initialize variables
-        prev_vals = np.zeros(dof_manager.num_dofs())
-
         populate_state = state is None
+
+        prev_vals = system_manager.get_variable_values(from_iterate=False)
+
         if populate_state:
-            state = np.zeros(dof_manager.num_dofs())
-
-        assert state is not None
-        for (g, var) in dof_manager.block_dof:
-            ind = dof_manager.grid_and_variable_to_dofs(g, var)
-            if isinstance(g, pp.MortarGrid):
-                prev_vals[ind] = mdg.interface_data(g)[pp.STATE][var]
-            else:
-                prev_vals[ind] = mdg.subdomain_data(g)[pp.STATE][var]
-
-            if populate_state:
-                if isinstance(g, pp.MortarGrid):
-                    try:
-                        state[ind] = mdg.interface_data(g)[pp.STATE][pp.ITERATE][var]
-                    except KeyError:
-                        prev_vals[ind] = mdg.interface_data(g)[pp.STATE][var]
-                else:
-                    try:
-                        state[ind] = mdg.subdomain_data(g)[pp.STATE][pp.ITERATE][var]
-                    except KeyError:
-                        state[ind] = mdg.subdomain_data(g)[pp.STATE][var]
+            state = system_manager.get_variable_values(from_iterate=True)
 
         # Initialize Ad variables with the current iterates
 
@@ -911,7 +891,7 @@ class Operator:
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
-    def _identify_variables(self, dof_manager: pp.DofManager, var: Optional[list] = None):
+    def _identify_variables(self, system_manager: pp.ad.SystemManager, var: Optional[list] = None):
         """Identify all variables in this operator."""
         # 1. Get all variables present in this operator.
         # The variable finder is implemented in a special function, aimed at recursion
@@ -922,7 +902,7 @@ class Operator:
             key=lambda var: var.id,
         )
 
-        # 2. Get a mapping between variables (*not* only MergedVariables) and their
+        # 2. Get a mapping between variables (*not* only MixedDimensionalVariables) and their
         # indices according to the DofManager. This is needed to access the state of
         # a variable when parsing the operator to numerical values using forward Ad.
 
@@ -933,7 +913,7 @@ class Operator:
         prev_iter = []
         for variable in variables:
             # Indices (in DofManager sense) of this variable. Will be built gradually
-            # for MergedVariables, in one go for plain Variables.
+            # for MixedDimensionalVariables, in one go for plain Variables.
             ind_var = []
             prev_time.append(variable.prev_time)
             prev_iter.append(variable.prev_iter)
@@ -944,7 +924,7 @@ class Operator:
                 for i, sub_var in enumerate(variable.sub_vars):
                     # Store dofs
                     ind_var.append(
-                        dof_manager.grid_and_variable_to_dofs(sub_var._g, sub_var._name)
+                        system_manager.dofs_of(sub_var)
                     )
                     if i == 0:
                         # Store id of variable, but only for the first one; we will
@@ -958,7 +938,7 @@ class Operator:
             else:
                 # This is a variable that lives on a single grid
                 ind_var.append(
-                    dof_manager.grid_and_variable_to_dofs(variable._g, variable._name)
+                    system_manager.dofs_of(variable)
                 )
                 variable_ids.append(variable.id)
 
@@ -970,8 +950,8 @@ class Operator:
 
         return inds, variable_ids, prev_time, prev_iter
 
-    def _find_subtree_variables(self) -> Sequence['Variable']:
-        """Method to recursively look for Variables (or MergedVariables) in an
+    def _find_subtree_variables(self) -> Sequence[Variable]:
+        """Method to recursively look for Variables (or MixedDimensionalVariables) in an
         operator tree.
         """
         # The variables should be located at leaves in the tree. Traverse the tree
@@ -992,7 +972,7 @@ class Operator:
                     sub_variables += child._find_subtree_variables()
 
             # Some work is needed to parse the information
-            var_list: Sequence[Variable] = []
+            var_list: list[Variable] = []
             for var in sub_variables:
                 if isinstance(var, Variable):
                     # Effectively, this node is one step from the leaf
@@ -1005,7 +985,7 @@ class Operator:
             return var_list
 
     # TODO define clear return type
-    def _parse_operator(self, op: "Operator", mdg: pp.MixedDimensionalGrid):
+    def _parse_operator(self, op: Operator, mdg: pp.MixedDimensionalGrid):
         """Parses combined operators recursively into a numeric representation.
 
         Parses first recursively all children in the operator tree.
@@ -1716,7 +1696,7 @@ class Variable(Operator):
     @property
     def domain(self) -> GridLike:
         """The grid or mortar grid on which this variable is defined."""
-        self._g
+        return self._g
 
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
