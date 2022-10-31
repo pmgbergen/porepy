@@ -15,7 +15,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-class EquationManagerSetup:
+class SystemManagerSetup:
     """Class to set up an EquationManager with a combination of variables
     and equations, designed to make it convenient to test critical functionality
     of the EM.
@@ -32,10 +32,14 @@ class EquationManagerSetup:
             data[pp.PRIMARY_VARIABLES] = {
                 "x": {"cells": 1},
                 "y": {"cells": 1},
+                "x_merged": {"cells": 1},
+                "y_merged": {"cells": 1},
             }
             if sd == sd_2:
                 # Add a third variable on the second grid
                 data[pp.PRIMARY_VARIABLES].update({"z": {"cells": 1}})
+            else:
+                data[pp.PRIMARY_VARIABLES].update({"x2": {"cells": 1}})
 
             x = 2 * np.ones(sd.num_cells)
             y = 3 * np.ones(sd.num_cells)
@@ -45,19 +49,22 @@ class EquationManagerSetup:
                 "x": x,
                 "y": y,
                 "z": z,
-                pp.ITERATE: {"x": x.copy(), "y": y.copy(), "z": z.copy()},
+                "x_merged": x.copy(),
+                "y_merged": y.copy(),
+                "x2": x.copy(),
+                pp.ITERATE: {"x": x.copy(), "y": y.copy(), "z": z.copy(),
+                            "x_merged": x.copy(), "y_merged": y.copy(), 'x2': x.copy()},
             }
 
         # Ad representation of variables
-        dof_manager = pp.DofManager(mdg)
-        eq_manager = pp.ad.EquationManager(mdg, dof_manager)
+        eq_manager = pp.ad.SystemManager(mdg)
 
-        x_ad = eq_manager.variable(sd_2, "x")
-        y_ad = eq_manager.variable(sd_2, "y")
-        z_ad = eq_manager.variable(sd_2, "z")
+        x_ad = eq_manager.create_variable("x", subdomains=[sd_2])
+        y_ad = eq_manager.create_variable("y", subdomains=[sd_2])
+        z_ad = eq_manager.create_variable("z", subdomains=[sd_2])
 
-        x_merged = eq_manager.merge_variables([(sd_1, "x"), (sd_2, "x")])
-        y_merged = eq_manager.merge_variables([(sd_1, "y"), (sd_2, "y")])
+        x_merged = eq_manager.create_variable("x_merged", subdomains=[sd_1, sd_2])
+        y_merged = eq_manager.create_variable("y_merged", subdomains=[sd_1, sd_2])
 
         projections = pp.ad.SubdomainProjections(subdomains=[sd_1, sd_2])
         proj = projections.cell_restriction([sd_2])
@@ -73,13 +80,8 @@ class EquationManagerSetup:
             {"simple": eq_simple, "merged": eq_merged, "combined": eq_combined}
         )
 
-        A, b = eq_manager.assemble()
-        self.A = A
-        self.b = b
-        self.eq_manager = eq_manager
-
         self.x1 = x_ad
-        self.x2 = eq_manager.variable(sd_1, "x")
+        self.x2 = eq_manager.create_variable("x2", subdomains=[sd_1])
 
         self.z1 = z_ad
         self.x_merged = x_merged
@@ -87,6 +89,11 @@ class EquationManagerSetup:
 
         self.sd_1 = sd_1
         self.sd_2 = sd_2
+
+        A, b = eq_manager.assemble()
+        self.A = A
+        self.b = b
+        self.eq_manager = eq_manager
 
     ## Helper methods below.
 
@@ -110,20 +117,20 @@ class EquationManagerSetup:
         # defined in self.__init__
 
         def inds(g, n):
-            return dof_manager.grid_and_variable_to_dofs(g, n)
+            return self.eq_manager.dofs_of(g, n)
 
-        dof_manager = self.eq_manager.dof_manager
-        if var == self.x1:
-            return inds(self.x1._g, self.x1._name)
+        return self.eq_manager.dofs_of(var)
+        if var in (self.x1, self.x2, self.z1):
+            return self.eq_manager.dofs_of(var)# inds(self.x1.domain, self.x1.name)
 
-        elif var == self.x2:
-            return inds(self.x2._g, self.x1._name)
+#        elif var == self.x2:
+#            return inds(self.x2.domain, self.x1.name)
 
         elif var == self.x_merged:
             dofs = np.hstack(
                 [
-                    inds(self.sd_1, self.x_merged._name),
-                    inds(self.sd_2, self.x_merged._name),
+                    inds(self.sd_1, self.x_merged.name),
+                    inds(self.sd_2, self.x_merged.name),
                 ]
             )
             return dofs
@@ -131,14 +138,14 @@ class EquationManagerSetup:
         elif var == self.y_merged:
             dofs = np.hstack(
                 [
-                    inds(self.sd_1, self.y_merged._name),
-                    inds(self.sd_2, self.y_merged._name),
+                    inds(self.sd_1, self.y_merged.name),
+                    inds(self.sd_2, self.y_merged.name),
                 ]
             )
             return dofs
 
-        elif var == self.z1:
-            return inds(self.z1._g, self.z1._name)
+#        elif var == self.z1:
+#            return inds(self.z1.domain, self.z1.name)
         else:
             raise ValueError
 
@@ -178,7 +185,7 @@ def _eliminate_columns_from_matrix(A, indices, reverse):
 @pytest.fixture
 def setup():
     # Method to deliver a setup to all tests
-    return EquationManagerSetup()
+    return SystemManagerSetup()
 
 
 def _eliminate_rows_from_matrix(A, indices, reverse):
@@ -213,10 +220,10 @@ def _compare_matrices(m1, m2):
     "var_names",
     [
         [],  # No secondary variables
-        ["x1"],  # A simple variable which is also part of a merged one
+        ["x"],  # A simple variable which is also part of a merged one
         ["x_merged"],  # Merged variable
-        ["z1"],  # Simple variable not available as merged
-        ["z1", "y_merged"],  # Combination of simple and merged.
+        ["z"],  # Simple variable not available as merged
+        ["z", "y_merged"],  # Combination of simple and merged.
     ],
 )
 def test_secondary_variable_assembly(setup, var_names):
@@ -230,13 +237,15 @@ def test_secondary_variable_assembly(setup, var_names):
     # Jacobian matrix is altered only in columns that correspond to eliminated
     # variables.
 
-    variables = [getattr(setup, name) for name in var_names]
-    setup.eq_manager.secondary_variables = variables
-    A, b = setup.eq_manager.assemble()
+#    secondary_variables = [getattr(setup, name) for name in var_names]
+    variables = [var for var in setup.eq_manager.variables]
+    for var in var_names:
+        variables.remove(var)
+    A, b = setup.eq_manager.assemble_subsystem(variables=variables)
 
     # Get dof indices of the variables that have been eliminated
-    if len(variables) > 0:
-        dofs = np.sort(np.hstack([setup.dof_ind(var) for var in variables]))
+    if len(var_names) > 0:
+        dofs = np.sort(np.hstack([setup.eq_manager.dofs_of(var) for var in var_names]))
     else:
         dofs = []
 
@@ -248,9 +257,9 @@ def test_secondary_variable_assembly(setup, var_names):
         A, _eliminate_columns_from_matrix(setup.A, dofs, reverse=True)
     )
     # Check that the size of equation blocks (rows) were correctly recorded
-    assert np.allclose(
-        setup.eq_manager.row_block_indices_last_assembled, np.array([0, 4, 11, 15])
-    )
+    for name in setup.eq_manager.equations:
+        assert np.allclose(setup.eq_manager.assembled_equation_indices[name], setup.eq_ind(name))
+
 
 
 @pytest.mark.parametrize(
@@ -258,11 +267,11 @@ def test_secondary_variable_assembly(setup, var_names):
     [
         None,  # Should give all variables by default
         [],  # Empty list (as opposed to None) should give a system with zero columns
-        ["x1"],  # simple variable
+        ["x"],  # simple variable
         ["y_merged"],  # Merged variable
-        ["x1", "y_merged"],  # Combination of simple and merged
-        ["y_merged", "x1"],  # Combination reversed - check just to be sure
-        ["x_merged", "x1"],  # Merged and simple version of same variable
+        ["x2", "y_merged"],  # Combination of simple and merged
+        ["y_merged", "x"],  # Combination reversed - check just to be sure
+        ["x_merged", "x"],  # Merged and simple version of same variable
     ],
 )
 @pytest.mark.parametrize(
@@ -285,12 +294,13 @@ def test_assemble_subsystem(setup, var_names, eq_names):
     eq_manager = setup.eq_manager
 
     # Convert variable names into variables
-    if var_names is not None:
-        variables = [getattr(setup, var) for var in var_names]
-    else:
-        variables = None
+    if var_names is None:
+        var_names = []
+    variables = [var for var in setup.eq_manager.variables]
+    for var in var_names:
+        variables.remove(var)
 
-    A_sub, b_sub = eq_manager.assemble_subsystem(eq_names=eq_names, variables=variables)
+    A_sub, b_sub = eq_manager.assemble_subsystem(equations=eq_names, variables=variables)
 
     # Get active rows and columns. If eq_names is None, all rows should be included.
     # If equation list is set to empty list, no indices are included.
@@ -302,7 +312,7 @@ def test_assemble_subsystem(setup, var_names, eq_names):
         expected_blocks = np.array([0, 4, 11, 15])
     elif len(eq_names) > 0:
         # Do not sort row indices - these are allowed to change.
-        rows = np.hstack([setup.eq_ind(eq) for eq in eq_names])
+        rows = np.sort(np.hstack([setup.eq_ind(eq) for eq in eq_names]))
         expected_blocks = np.cumsum(
             np.hstack([0, [setup.block_size(eq) for eq in eq_names]])
         )
@@ -327,10 +337,14 @@ def test_assemble_subsystem(setup, var_names, eq_names):
     # Check matrix and vector items
     assert np.allclose(b_sub, setup.b[rows])
     assert _compare_matrices(A_sub, setup.A[rows][:, cols])
+
     # Also check that the equation row sizes were correctly recorded.
-    assert np.allclose(
-        expected_blocks, setup.eq_manager.row_block_indices_last_assembled
-    )
+    if eq_names is not None:
+        for name in eq_names:
+            assert np.allclose(setup.eq_manager.assembled_equation_indices[name].size, setup.block_size(name))
+    else:
+        for name in setup.eq_manager.equations:
+            assert np.allclose(setup.eq_manager.assembled_equation_indices[name].size, setup.block_size(name))
 
 
 @pytest.mark.parametrize(
@@ -371,7 +385,7 @@ def test_extract_subsystem(setup, eq_names, var_names):
     # The number of secondary variables is also known
     num_secondary = 5 - num_atomic_vars
 
-    new_manager = eq_manager.subsystem_equation_manager(eq_names, variables)
+    new_manager = eq_manager.SubSystem(eq_names, variables)
 
     # Check that the number of variables and equations are as expected
     assert len(new_manager.secondary_variables) == num_secondary
@@ -400,8 +414,8 @@ def test_extract_subsystem(setup, eq_names, var_names):
 
                 # Get the active variable
                 active_var = variables[vi]
-                assert active_var._g == setup.sd_2
-                assert active_var._name == "x"
+                assert active_var.domain == setup.sd_2
+                assert active_var.name == "x"
 
                 # Check the secondary variable
                 assert sec_var._g == setup.sd_1
