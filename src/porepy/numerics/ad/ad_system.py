@@ -459,11 +459,13 @@ class SystemManager:
         if not requested_type.issubset(set(self.admissible_dof_types)):
             non_admissible = requested_type.difference(self.admissible_dof_types)
             raise ValueError(f"Non-admissible DOF types {non_admissible} requested.")
+
         # sanity check if variable is defined anywhere
         if subdomains is None and interfaces is None:
             raise ValueError(
                 "Cannot create variable not defined on any subdomain or interface."
             )
+
         # check if a md variable was already defined under that name
         if name in self._variables:
             raise KeyError(f"Variable with name '{name}' already defined.")
@@ -478,6 +480,7 @@ class SystemManager:
         # container for all grid variables
         variables = list()
         var_cat: Any
+        
         # sanity check for passed category, allow only pre-defined categories
         if self.var_categories:
             if category is None:
@@ -595,8 +598,8 @@ class SystemManager:
             The resulting array is of any size between 0 and ``num_dofs``.
 
         Parameters:
-            variables (optional): variable-like input for which the values are requested.
-                If None (default), the global vector of unknowns is returned.
+            variables (optional): variable-like input for which the values are
+                requisted. If None (default), the global vector of unknowns is returned.
             from_iterate (optional): flag to return values stored as ITERATE,
                 instead of STATE (default).
 
@@ -912,24 +915,33 @@ class SystemManager:
         self, variable: str | Variable | MixedDimensionalVariable | Enum
     ) -> list[tuple[str, GridLike]]:
         """Helper of helper :) Parses non-sequential VarLikes."""
+
         # variable represented as a string: include all associated grids
         if isinstance(variable, str):
             if variable not in self._variables:
                 raise ValueError(f"Unknown variable name {variable}.")
             return [block for block in self._block_numbers if block[0] == variable]
+        
+        # variable represented as md-var: include all associated grids
+        # NOTE: check MixedDimensionalVariable first, since it is a subclass of Variable
+        elif isinstance(variable, MixedDimensionalVariable):
+            if variable not in self._variables.values():
+                raise ValueError(f"Unknown mixed-dimensional variable {variable}.")
+            return [block for block in self._block_numbers if block[0] == variable.name]
+
         # variable represented as grid variable: return local block
+        # We know this is not a MixedDimensionalVariable.
         elif isinstance(variable, Variable):
             if (variable.name, variable.domain) in self._block_numbers:
                 return [(variable.name, variable.domain)]
             else:
                 raise ValueError(f"Unknown grid variable {variable}.")
-        # variable represented as md-var: include all associated grids
-        elif isinstance(variable, MixedDimensionalVariable):
-            if variable not in self._variables.values():
-                raise ValueError(f"Unknown mixed-dimensional variable {variable}.")
-            return [block for block in self._block_numbers if block[0] == variable.name]
-        # if a category is passed, with return all blocks associated with respective vars
+        
+        
+        # if a category is passed, with return all blocks associated with respective
+        # variables
         elif isinstance(variable, Enum):
+            # EK: What if self.var_category is not defined?
             if variable not in self.var_categories:
                 raise ValueError(f"Unknown category {variable}.")
             else:
@@ -1483,6 +1495,9 @@ class SystemManager:
                 for the specified equations. Scaled with -1 (moved to rhs).
 
         """
+        if variables is None:
+            variables = self._variables
+
         equ_blocks = self._parse_equation_like(equations)
 
         # Data structures for building matrix and residual vector
@@ -1523,7 +1538,7 @@ class SystemManager:
             rhs_cat = np.concatenate(rhs)
         else:
             # Special case if the restriction produced an empty system.
-            A = sps.csr_matrix((0, 0))
+            A = sps.csr_matrix((0, self.num_dofs()))
             rhs_cat = np.empty(0)
 
         # slice out the columns belonging to the requested subsets of variables and
