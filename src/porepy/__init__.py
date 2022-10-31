@@ -37,11 +37,12 @@ except:
     config = {}
 
 # ------------------------------------
-# Simplified namespaces. The rue of thumb is that classes and modules that a
+# Simplified namespaces. The rule of thumb is that classes and modules that a
 # user can be exposed to should have a shortcut here. Borderline cases will be
 # decided as needed
 
 from porepy.utils.common_constants import *
+from porepy.utils.porepy_types import *
 
 
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
@@ -189,7 +190,8 @@ from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleF
 
 from porepy.numerics import ad
 from porepy.models.geometry import ModelGeometry
-from porepy.models.constit_library import UnitFluid, UnitSolid, Units, Material
+from porepy.models.units import Units
+from porepy.models.materials import UnitFluid, UnitSolid, Material
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager
