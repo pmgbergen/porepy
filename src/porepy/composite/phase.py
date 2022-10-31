@@ -7,7 +7,7 @@ since the user is not supposed to be able to create phase classes, only the comp
 from __future__ import annotations
 
 import abc
-from typing import Dict, Generator, List
+from typing import Generator
 
 import numpy as np
 import porepy as pp
@@ -28,19 +28,18 @@ class Phase(abc.ABC):
     This class is only meant to be instantiated by a Composition, since the number of phases
     is an unknown in the thermodynamic equilibrium problem.
 
-    Phases have abstract physical properties, dependent on the thermodynamic state and the
-    composition. The composition variables (molar fractions of present components)
+    Phases have physical properties, dependent on the thermodynamic state and the composition.
+    The composition variables (molar fractions of present components)
     can be accessed by internal reference.
 
     Parameters:
         name: given name for this phase. Used as an unique identifier for singletons.
-        ad_system (optional): If given, this class will use the AD framework and the respective
-            mixed-dimensional domain to represent fractions cell-wise in each subdomain.
+        ad_system: AD system in which this phase is present cell-wise in each subdomain.
 
     """
 
     # contains per mdg the singleton, using the given name as a unique identifier
-    __ad_singletons: Dict[pp.MixedDimensionalGrid, Dict[str, Phase]] = dict()
+    __ad_singletons: dict[pp.MixedDimensionalGrid, dict[str, Phase]] = dict()
     # flag if a singleton has recently been accessed, to skip re-instantiation
     __singleton_accessed: bool = False
 
@@ -72,12 +71,11 @@ class Phase(abc.ABC):
         ### PUBLIC
 
         self.ad_system: pp.ad.ADSystem = ad_system
-        """The AD system optionally passed at instantiation."""
+        """The AD system passed at instantiation."""
 
         #### PRIVATE
-
         self._name = name
-        self._present_components: List[pp.composite.Component] = list()
+        self._present_components: list[Component] = list()
 
         # Instantiate saturation and molar phase fraction (secondary variables)
         self._s: pp.ad.MergedVariable = ad_system.create_variable(self.saturation_name)
@@ -86,11 +84,11 @@ class Phase(abc.ABC):
         ad_system.set_var_values(self.saturation_name, np.zeros(nc), True)
         ad_system.set_var_values(self.fraction_name, np.zeros(nc), True)
         # contains extended fractional values per present component name (key)
-        self._ext_composition: Dict[str, pp.ad.MergedVariable] = dict()
+        self._ext_composition: dict[str, pp.ad.MergedVariable] = dict()
         # contains regular fractional values per present component name (key)
-        self._composition: Dict[str, pp.ad.MergedVariable] = dict()
+        self._composition: dict[str, pp.ad.MergedVariable] = dict()
 
-    def __iter__(self) -> Generator[pp.composite.Component, None, None]:
+    def __iter__(self) -> Generator[Component, None, None]:
         """Generator over components present in this phase.
 
         Notes:
@@ -122,7 +120,8 @@ class Phase(abc.ABC):
 
     @property
     def fraction_name(self) -> str:
-        """Name for the molar fraction variable, given by the general symbol and :meth:`name`."""
+        """Name for the molar fraction variable, given by the general symbol and :meth:`name`.
+        """
         return f"y_{self.name}"
 
     @property
@@ -154,7 +153,7 @@ class Phase(abc.ABC):
         return self._fraction
 
     def ext_fraction_of_component(
-        self, component: pp.composite.Component
+        self, component: Component
     ) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
@@ -185,7 +184,7 @@ class Phase(abc.ABC):
         """
         return self._ext_composition.get(self.ext_component_fraction_name(component), 0.0)
 
-    def ext_component_fraction_name(self, component: pp.composite.Component) -> str:
+    def ext_component_fraction_name(self, component: Component) -> str:
         """
         Parameters:
             component: component for which the respective name is requested.
@@ -197,7 +196,7 @@ class Phase(abc.ABC):
         """
         return f"xi_{component.name}_{self.name}"
 
-    def fraction_of_component(self, component: pp.composite.Component) -> pp.ad.MergedVariable:
+    def fraction_of_component(self, component: Component) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -224,7 +223,7 @@ class Phase(abc.ABC):
         """
         return self._composition.get(self.ext_component_fraction_name(component), 0.0)
 
-    def component_fraction_name(self, component: pp.composite.Component) -> str:
+    def component_fraction_name(self, component: Component) -> str:
         """
         Parameters:
             component: component for which the respective name is requested.
@@ -253,7 +252,7 @@ class Phase(abc.ABC):
             the one used for the phase.
 
         """
-        if isinstance(component, pp.composite.Component):
+        if isinstance(component, Component):
             component = [component]  # type: ignore
         present_components = [ps.name for ps in self._present_components]
 
@@ -286,7 +285,7 @@ class Phase(abc.ABC):
 
     ### Physical properties -------------------------------------------------------------------
 
-    def mass_density(self, p: VarLike, T: VarLike) -> pp.ad.MergedVariable:
+    def mass_density(self, p: VarLike, T: VarLike) -> VarLike:
         """Uses the  molar mass in combination with the molar masses and fractions
         of components in this phase, to compute the mass density of the phase.
 
@@ -370,9 +369,8 @@ class Phase(abc.ABC):
         pass
 
 
-# TODO ADify properly
 class IncompressibleFluid(Phase):
-    """Ideal, Incompressible fluid with constant density of 1 mole per V_REF.
+    """Ideal, Incompressible fluid with constant density of 1e6 mole per V_REF.
     
     The EOS is reduced to
     
@@ -380,19 +378,23 @@ class IncompressibleFluid(Phase):
     V = V_REF
     
     """
+    
+    num_moles: float = 1e6
 
     def density(self, p, T):
-          # TODO p / p is a hack to create cell-wise dofs
-        return pp.ad.Scalar(1000000. / V_REF) * p / p
+        return pp.ad.Array(
+            np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells())
+            * self.num_moles / V_REF
+        )
 
     def specific_enthalpy(self, p, T):
         return H_REF + CP_REF * (T - T_REF) + V_REF * (p - P_REF)
 
     def dynamic_viscosity(self, p, T):
-        return pp.ad.Scalar(1.) 
+        return pp.ad.Array(np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells())) 
 
     def thermal_conductivity(self, p, T):
-        return pp.ad.Scalar(1.)
+        return pp.ad.Array(np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells()))
 
 
 class IdealGas(Phase):
@@ -413,7 +415,7 @@ class IdealGas(Phase):
         return H_REF + CP_REF * (T - T_REF)
 
     def dynamic_viscosity(self, p, T):
-        return pp.ad.Scalar(1.)
+        return pp.ad.Array(np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells()))
 
     def thermal_conductivity(self, p, T):
-        return pp.ad.Scalar(1.)
+        return pp.ad.Array(np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells()))
