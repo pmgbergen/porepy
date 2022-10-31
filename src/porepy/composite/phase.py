@@ -1,37 +1,32 @@
-""" Contains the abstract base class for all phases."""
+""" Contains the private base class for all phases.
+
+This module is not imported by default into the composite subpackage,
+since the user is not supposed to be able to create phase classes, only the composition class.
+
+"""
 from __future__ import annotations
 
 import abc
-from typing import Dict, Generator, List, Union
+from typing import Dict, Generator, List
 
 import numpy as np
-
 import porepy as pp
 
-from .component import VarLike
+from .component import Component, VarLike
+from ._composite_utils import R_IDEAL, T_REF, P_REF, CP_REF, V_REF, H_REF
 
-__all__ = ["Phase"]
+__all__ = ["Phase", "IncompressibleFluid", "IdealGas"]
 
 
 class Phase(abc.ABC):
-    """Abstract base class for phases in a multiphase multicomponent mixture.
+    """Private base class for phases in a multiphase multicomponent mixture.
 
     The term 'phase' includes both, states of matter and general fields.
     A phase is identified by the (time-dependent) region/volume it occupies and a
     respective velocity field (or flux) in that region.
 
-    Similar to :class:`~porepy.composite.Component`, if a :class:`~porepy.ad.ADSystemManager`
-    is passed at instantiation, the AD framework is is used to represent the fractional
-    variables and the phase class becomes a singleton with respect to the mixed-dimensional
-    domain contained in the AD system.
-    Unique instantiation over a given domain is assured by using the given as an unique
-    identifier.
-    Ambiguities and uniqueness must be assured due to central storage of the fractional values
-    in the grid data dictionaries.
-
-    If the AD system is not passed, this class can be used in standalone mode.
-    Respective fractional variables are not existent in this case and the
-    :class:`~porepy.composite.Composition` takes over the computation and storage of values.
+    This class is only meant to be instantiated by a Composition, since the number of phases
+    is an unknown in the thermodynamic equilibrium problem.
 
     Phases have abstract physical properties, dependent on the thermodynamic state and the
     composition. The composition variables (molar fractions of present components)
@@ -200,7 +195,7 @@ class Phase(abc.ABC):
             component name and the phase name.
 
         """
-        return f"chi_{component.name}_{self.name}"
+        return f"xi_{component.name}_{self.name}"
 
     def fraction_of_component(self, component: pp.composite.Component) -> pp.ad.MergedVariable:
         """
@@ -239,31 +234,27 @@ class Phase(abc.ABC):
             component name and the phase name.
 
         """
-        return f"x_{component.name}_{self.name}"
+        return f"chi_{component.name}_{self.name}"
 
     def add_component(
         self,
-        component: Union[List[pp.composite.Component], pp.composite.Component],
+        component: Component | list[Component],
     ) -> None:
         """Adds components which are expected by the modeler in this phase.
 
-        If a component was already added, nothing happens.
+        If a component was already added, nothing happens. Components appear uniquely in a
+        phase.
 
-        If the AD framework is used (AD System is not None), the fractional variables
-        for the component in this phase are created (regular and extended).
-        If not, instantiates the respective fractions as zero (float).
-
-        Parameters: a component, or list of components, which are expected in this phase.
+        Parameters:
+            a component, or list of components, which are expected in this phase.
 
         Raises:
-            RuntimeError: if the AD framework is used and the component was instantiated using
-                a different AD system than the one used for the phase.
+            RuntimeError: if the component was instantiated using a different AD system than
+            the one used for the phase.
 
         """
-
         if isinstance(component, pp.composite.Component):
-            component = [component]
-
+            component = [component]  # type: ignore
         present_components = [ps.name for ps in self._present_components]
 
         for comp in component:
@@ -275,16 +266,18 @@ class Phase(abc.ABC):
             # skip already present components:
             if comp.name in present_components:
                 continue
-            # create the name for the variables representing the extended and regular fraction
-            # in this phase
+
+            # create compositional variables for the component in this phase
             ext_fraction_name = self.ext_component_fraction_name(comp)
             fraction_name = self.component_fraction_name(comp)
-            # create the fractions of the component in this phase
             ext_comp_fraction = self.ad_system.create_variable(ext_fraction_name)
             comp_fraction = self.ad_system.create_variable(fraction_name)
+
+            # set fractional values to zero
             nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
             self.ad_system.set_var_values(ext_fraction_name, np.zeros(nc), True)
             self.ad_system.set_var_values(fraction_name, np.zeros(nc), True)
+
             # store reference to present substance
             self._present_components.append(comp)
             # store the compositional variable
@@ -375,3 +368,52 @@ class Phase(abc.ABC):
 
         """
         pass
+
+
+# TODO ADify properly
+class IncompressibleFluid(Phase):
+    """Ideal, Incompressible fluid with constant density of 1 mole per V_REF.
+    
+    The EOS is reduced to
+    
+    const rho = 1 / V_REF ( = 1 / V )
+    V = V_REF
+    
+    """
+
+    def density(self, p, T):
+          # TODO p / p is a hack to create cell-wise dofs
+        return pp.ad.Scalar(1000000. / V_REF) * p / p
+
+    def specific_enthalpy(self, p, T):
+        return H_REF + CP_REF * (T - T_REF) + V_REF * (p - P_REF)
+
+    def dynamic_viscosity(self, p, T):
+        return pp.ad.Scalar(1.) 
+
+    def thermal_conductivity(self, p, T):
+        return pp.ad.Scalar(1.)
+
+
+class IdealGas(Phase):
+    """Ideal water vapor phase with EoS:
+    
+     rho = n / V  = p / (R * T)
+
+    """
+
+    def density(self, p, T):
+        return p / (T * R_IDEAL)
+
+    def specific_enthalpy(self, p, T):
+        # enthalpy at reference state is
+        # h = u + p / rho(p,T)
+        # which due to the ideal gas law simplifies to
+        # h = u + R * T
+        return H_REF + CP_REF * (T - T_REF)
+
+    def dynamic_viscosity(self, p, T):
+        return pp.ad.Scalar(1.)
+
+    def thermal_conductivity(self, p, T):
+        return pp.ad.Scalar(1.)

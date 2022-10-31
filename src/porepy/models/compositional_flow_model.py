@@ -161,41 +161,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         salt = pp.composite.NaCl(self.ad_system)
         # creating composition class
         self.composition = pp.composite.Composition(self.ad_system)
-        # creating expected phases
-        brine = pp.composite.IncompressibleFluid("L", self.ad_system)
-        vapor = pp.composite.IdealGas("V", self.ad_system)
-        # adding components to phases
-        brine.add_component([water, salt])
-        # vapor.add_component([water])
-        vapor.add_component([water, salt])
 
         # adding everything to the composition class
         self.composition.add_component(water)
         self.composition.add_component(salt)
-        self.composition.add_phase(brine)
-        self.composition.add_phase(vapor)
 
-        # defining an equilibrium equation for water
-        k_value = self._kval_water
-        # k_value = self._P_vap(self.composition.T)
-        name = "k_value_" + water.name
-        equilibrium = (
-            vapor.ext_fraction_of_component(water)
-            - k_value * brine.ext_fraction_of_component(water)
-        )
-
-        self.composition.add_equilibrium_equation(water, equilibrium, name)
-
-        # defining an equilibrium equation for water
-        k_value = self._kval_salt
-        # k_value = self._P_vap(self.composition.T)
-        name = "k_value_" + salt.name
-        equilibrium = (
-            vapor.ext_fraction_of_component(salt)
-            - k_value * brine.ext_fraction_of_component(salt)
-        )
-
-        self.composition.add_equilibrium_equation(salt, equilibrium, name)
+        self.composition.k_values = {
+            water: self._kval_water,
+            salt: self._kval_salt
+        }
 
         # setting of initial values
         nc = self.mdg.num_subdomain_cells()
@@ -753,12 +727,12 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
             # ADVECTION
             advection_scalar = list()
-            for phase in cp.phases_of(component):
+            for phase in cp.phases:
 
                 scalar_part = (
                     phase.density(cp.p, cp.T)
-                    * phase.ext_fraction_of_component(component)  # TODO use regular composition (debug factorization error when using this)
-                    * self.rel_perm(phase.saturation)  # TODO change rel perm access
+                    * phase.ext_fraction_of_component(component)
+                    * self.rel_perm(phase.saturation)
                     / phase.dynamic_viscosity(cp.p, cp.T)
                 )
                 advection_scalar.append(scalar_part)
@@ -807,7 +781,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             scalar_part = (
                 phase.density(cp.p, cp.T)
                 * phase.specific_enthalpy(cp.p, cp.T)
-                * self.rel_perm(phase.saturation)  # TODO change rel perm access
+                * self.rel_perm(phase.saturation)
                 / phase.dynamic_viscosity(cp.p, cp.T)
             )
             advective_scalar.append(scalar_part)

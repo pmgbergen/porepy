@@ -1,14 +1,16 @@
 """Contains a class representing a multiphase multicomponent mixture (composition)."""
 
 from __future__ import annotations
-from tkinter.tix import Y_REGION
 
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any, Generator, Literal, Optional
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+
+from .component import Component
+from .phase import Phase, IdealGas, IncompressibleFluid
 
 __all__ = ["Composition"]
 
@@ -17,44 +19,46 @@ class Composition:
     """Representation of a composition of multiple components (chemical substances).
     Performs thermodynamically consistent phase stability and equilibrium calculations.
 
-    If a :class:`~porepy.ad.ADSystemManager` is passed at instantiation, the AD framework is
-    is used to represent the physical state i.e., pressure, temperature/enthalpy.
-    It is assumed that added components and phases are instantiated using the same AD system.
+    Notes:
+        :caption: Implementation
 
-    If no AD system was passed, standalone functionality is guaranteed by creating a single
-    single-celled domain and applying the AD framework to it.
+        - Two flash procedures are implemented: p-T flash and p-h flash
+        - Equilibrium calculations can be done cell-wise.
+          I.e. the computations can be done smarter or parallelized. This is not yet exploited.
+        - There is a reference phase and a reference component, which influence the choice
+          of equations and variables, keep that in mind.
+          It might have numeric implications.
+        - As of now, the composition works with only two phases: liquid and vapor.
+          This will be changed in the future.
+        - Also, it supports currently only constant k-values, which need to be set in
+          ``k_values`` a priori for each component.
 
-    All components, phases and phase equilibrium equations must be added before
-    initializing the composition.
+    The secondary variables are:
 
-    The primary variables are
         - pressure,
-        - specific enthalpy of the mixture (depending on the flash procedure),
-        - temperature of the mixture (depending on the flash procedure),
+        - specific enthalpy of the mixture,
+        - temperature of the mixture (primary in the p-h flash),
         - feed fractions per component.
-    Whether temperature is temporarily a primary, depends on the chosen flash procedure.
-    Primary Variables are assumed to be given and the values set **externally**.
-    The equilibrium is performed for fixed p-T or fixed p-h,
-    and additionally a fixed feed composition.
 
-    Secondary variables are fractions, i.e.
+    Primary variables are fractions, i.e.
+
         - molar phase fractions
         - molar component fractions in a phase
         - volumetric phase fractions (saturations)
-    The values of these fractions are calculated by the composite framework, i.e. they do not
-    have to be set externally, but are instantiated with zero values in respective classes.
-    (this is especially important for the AD framework to be able to evaluate operators).
+
+    .. warning::
+        The phase fraction of the reference, as well as the regular phase composition variables
+        are neither primary nor secondary. They are evaluated once the procedure converges.
+        Keep this in mind when using the composition in other models, e.g. flow.
+
+    The values of these fractions are calculated by this class,
+    i.e. they do not have to be set externally.
 
     While the molar fractions are the actual unknowns in the flash procedure, the saturation
     values can be computed once the equilibrium converges using a relation between molar and
     volumetric fractions for phases based on an averaging process for porous media.
 
-    References to the secondary variables are stored in respective classes representing
-    components and phases.
-
-    The isenthalpic flash and isothermal flash procedure are implemented.
-    The persistent variable approach is utilized based on the work of [1,2], and the references
-    therein.
+    The specific enthalpy can be evaluated directly after a p-T flash.
 
     References:
         [1] Lauser, A. et. al.:
@@ -65,20 +69,13 @@ class Composition:
             compositional multiphase mixture
             DOI: 10.1051/m2an/2021075
 
-    Notes:
-        :caption: Implementation
-
-        - Equilibrium calculations can be done cell-wise.
-          I.e. the computations can be done smarter or parallelized. This is not yet exploited.
-        - Currently the first phase added will be used as the reference phase, keep this in
-          mind when assembling the composition. It might have numeric implications.
-
     Parameters:
         ad_system (optional): If given, this class will use this AD system and the respective
             mixed-dimensional domain to represent all involved variables cell-wise in each
             subdomain.
 
             If not given (None), a single-cell domain and respective AD system are created.
+
     """
 
     def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
@@ -90,7 +87,7 @@ class Composition:
             mdg.compute_geometry()
 
             ad_system = pp.ad.ADSystem(mdg)  # type: ignore
-        
+
         ### PUBLIC
 
         self.ad_system: pp.ad.ADSystem = ad_system
@@ -105,12 +102,6 @@ class Composition:
         self.max_iter_flash: int = 1000
         """Maximal number of iterations for the flash algorithms."""
 
-        self.equilibrium_equations: dict[str, dict[str, pp.ad.Operator]] = dict()
-        """Contains for each present component name (key) a sub-dictionary, which in return
-        contains equilibrium equations per given equation name (key).
-
-        """
-
         self.ph_subsystem: dict = dict()
         """A dictionary representing the subsystem for the p-h flash. Contains information on
         relevant variables and equations.
@@ -123,6 +114,9 @@ class Composition:
 
         """
 
+        self.k_values: dict[Component, float] = dict()
+        """Temporary work-around for constant k-values"""
+
         ### PRIVATE
         # primary variables
         self._p_var: str = "p"
@@ -133,54 +127,60 @@ class Composition:
         self._T: pp.ad.MergedVariable = ad_system.create_variable(self._T_var)
 
         # composition
-        self._components: List[pp.composite.Component] = list()
-        self._phases: List[pp.composite.Phase] = list()
-        # contains per component name (key) a list of phases in which this component is
-        # modelled
-        self._phases_of_component: Dict[str, List[pp.composite.Phase]] = dict()
+        self._components: list[Component] = list()
+        """A list containing all modelled components."""
 
-        # other
+        self._phases: list[Phase] = list()
+        """A list containing all modelled phases (currently only two with label L and V)."""
+
+        self._k_value_equations: dict[str, dict[str, pp.ad.Operator]] = dict()
+        """Contains for each present component name (key) a sub-dictionary, which in return
+        contains equilibrium equations per given equation name (key).
+
+        """
+
         # maximal number of flash history entries (FiFo)
         self._max_history: int = 100
         # names of equations
         self._mass_conservation: str = "flash_mass"
         self._phase_fraction_unity: str = "flash_phase_unity"
-        self._complementary: str = "flash_complementary"  # complementary conditions
+        self._complementary: str = "flash_KKT"  # complementary conditions
         self._enthalpy_constraint: str = "flash_h_constraint"  # for p-h flash
+
         # semi-smooth min operator for KKT condition and skewing factors
         self._ss_min: pp.ad.Operator = pp.ad.SemiSmoothMin()
-        self._skew_cc: dict[pp.composite.Phase, float] = dict()
+        self._skew_cc: dict[Phase, float] = dict()
         # phase fraction by unity, is set during initialization
         self._y_R: Optional[pp.ad.Operator] = None
+
+        # This composition currently supports only:
+        # - an ideal gas phase
+        # - an incompressible liquid phase
+        self._phases.append(IncompressibleFluid("L", self.ad_system))
+        self._phases.append(IdealGas("V", self.ad_system))
+        self._skew_cc.update({
+            self._phases[0] : 0.3,
+            self._phases[1] : 0.7
+        })
 
     ### Thermodynamic State -------------------------------------------------------------------
 
     @property
     def p(self) -> pp.ad.MergedVariable:
-        """Initialized with 1 atm (101.325 kPa).
-
+        """
         The values are assumed to represent values at equilibrium and are therefore constant
         during the flash.
-
-        If no AD system is present, the pressure value can be set directly.
-        If the AD framework is used, respective functionalities must be used to set values for
-        the pressure (merged) variable.
 
         | Math. Dimension:        scalar
         | Phys. Dimension:        [kPa] = [kN / m^2]
 
-        Parameters:
-            value: a value to set the pressure for standalone applications.
 
         Returns:
             the primary variable pressure on the whole domain (cell-wise).
-            Float if standalone.
-
-        Raises:
-            RuntimeError: if an attempt is made to set the value despite a present AD system.
 
         """
         return self._p
+
     @property
     def p_name(self) -> str:
         """Returns the name of the pressure variable."""
@@ -188,27 +188,15 @@ class Composition:
 
     @property
     def h(self) -> pp.ad.MergedVariable:
-        """Initialized with 0.
-
+        """
         For the isenthalpic flash, the values are assumed to represent values at equilibrium.
         For the isothermal flash, the enthalpy changes based on the results (composition).
-
-        If no AD system is present, the enthalpy value can be set directly.
-        If the AD framework is used, respective functionalities must be used to set values for
-        the enthalpy (merged) variable.
 
         | Math. Dimension:        scalar
         | Phys. Dimension:        [kJ / mol / K]
 
-        Parameters:
-            value: a value to set the enthalpy for standalone applications.
-
         Returns:
             the primary variable specific molar enthalpy on the whole domain (cell-wise).
-            Float if standalone.
-
-        Raises:
-            RuntimeError: if an attempt is made to set the value despite a present AD system.
 
         """
         return self._h
@@ -220,28 +208,17 @@ class Composition:
 
     @property
     def T(self) -> pp.ad.MergedVariable:
-        """Initialized with 0.
-
+        """
         For the isothermal flash, the values are assumed to represent values at equilibrium.
         For the isenthalpic flash, the temperature varies and depends on the enthalpy and the
         composition.
 
-        If no AD system is present, the temperature value can be set directly.
-        If the AD framework is used, respective functionalities must be used to set values for
-        the temperature (merged) variable.
-
         | Math. Dimension:        scalar
         | Phys. Dimension:        [K]
 
-        Parameters:
-            value: a value to set the temperature for standalone applications.
 
         Returns:
             the primary variable temperature on the whole domain (cell-wise).
-            Float if standalone.
-
-        Raises:
-            RuntimeError: if an attempt is made to set the value despite a present AD system.
 
         """
         return self._T
@@ -251,14 +228,13 @@ class Composition:
         """Returns the name of the temperature variable."""
         return self._T_var
 
-    def density(self, prev_time: bool = False) -> pp.ad.MergedVariable:
+    def density(self, prev_time: bool = False) -> pp.ad.Operator | Literal[0]:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [mol / REV]
 
         Parameters:
-            prev_time: indicator to use values from the previous time step, if the AD framework
-                is used.
+            prev_time: indicator to use values from the previous time step.
 
         Returns:
             Returns the overall molar density of the composition
@@ -296,32 +272,11 @@ class Composition:
 
     @property
     def num_phases(self) -> int:
-        """Number of modelled (added) phases in the composition."""
+        """Number of **modelled** phases in the composition. As of now always 2."""
         return len(self._phases)
 
     @property
-    def num_equilibrium_equations(self) -> Dict[str, int]:
-        """A dictionary containing the number of necessary phase equilibrium equations per
-        component name (key).
-
-        The equation has to be formulated with respect to the reference phase.
-
-        The number is based on the number of phases in which a substance is anticipated i.e.,
-        if substance c is present in ``n_p(c)`` phases, we need ``n_p(c) - 1``
-        equilibrium equations, since one phase is chosen as a reference phase.
-
-        """
-        equ_nums = dict()
-
-        for component in self._components:
-            equ_nums.update(
-                {component.name: len(self._phases_of_component[component.name]) - 1}
-            )
-
-        return equ_nums
-
-    @property
-    def components(self) -> Generator[pp.composite.Component, None, None]:
+    def components(self) -> Generator[Component, None, None]:
         """
         Yields:
             components added to the composition.
@@ -331,51 +286,45 @@ class Composition:
             yield C
 
     @property
-    def phases(self) -> Generator[pp.composite.Phase, None, None]:
+    def phases(self) -> Generator[Phase, None, None]:
         """
         Yields:
-            phases modelled (added) to the composition.
+            phases modelled by the composition class.
 
         """
         for P in self._phases:
             yield P
 
     @property
-    def reference_phase(self) -> pp.composite.Phase:
-        """Returns the selected reference phase, whose molar phase fraction is eliminated
-        by unity.
-
-        """
+    def reference_phase(self) -> Phase:
+        """Returns the reference phase, whose molar phase fraction is eliminated by unity."""
         return self._phases[0]
 
     @property
-    def reference_component(self) -> pp.composite.Component:
-        """Returns the selected reference component, whose mass balance equation is eliminated
+    def reference_component(self) -> Component | None:
+        """Returns the reference component, whose mass balance equation is eliminated
         by unity of feed fractions.
-        
+
         """
-        return self._components[0]
+        if self._components:
+            return self._components[0]
 
     def add_component(
-        self, component: Union[List[pp.composite.Component], pp.composite.Component]
+        self, component: list[Component] | Component
     ) -> None:
         """Adds one or multiple components to the composition.
 
-        All modelled components must be added before any phase is modelled/ added to this
-        composition.
-
-        All components, phases and phase equilibrium equations must be added before
-        initializing the composition.
+        All modelled components must be added before the composition is initialized.
 
         Parameters:
-            component: a component, or list of components, to be added to this mixture.
+            component: one or multiple components to be added to this mixture.
 
         Raises:
-            RuntimeError: if the component was instantiated using a different AD system than
+            ValueError: if the component was instantiated using a different AD system than
             the one used for this composition.
 
         """
-        if isinstance(component, pp.composite.Component):
+        if isinstance(component, Component):
             component = [component]
 
         added_components = [comp.name for comp in self._components]
@@ -387,196 +336,28 @@ class Composition:
 
             # sanity check when using the AD framework
             if self.ad_system != comp.ad_system:
-                raise RuntimeError(
+                raise ValueError(
                     f"Component '{comp.name}' instantiated with a different AD system."
                 )
 
             # add component and initiate dict for equilibrium equations
             self._components.append(comp)
-            self.equilibrium_equations.update({comp.name: dict()})
-
-    def add_phase(
-        self, phases: Union[List[pp.composite.Phase], pp.composite.Phase]
-    ) -> None:
-        """Adds one or multiple phases which are anticipated in the current model.
-
-        As of now, the modeler has to anticipate every phase which might appear or disappear.
-
-        A phase is only allowed to contain components, which are known to the composition i.e.,
-        have already been added using :meth:`add_component`.
-
-        All components, phases and phase equilibrium equations must be added before
-        initializing the composition.
-
-        Note:
-            The first phase added will be used as the reference phase (unitarity).
-            All equilibrium equations must be formulated with respect to the reference phase.
-
-        Parameters:
-            phases: a phase, or a list of phases, anticipated in this mixture model.
-
-        Raises:
-            RuntimeError: if the phase was instantiated using a different AD system than
-                the one used for this composition.
-            RuntimeError: if the phase is 'empty', i.e. contains no components.
-            ValueError: if the phase contains components unknown to this composition.
-                Use :meth:`add_component` to add all components before adding any phases.
-
-        """
-
-        if isinstance(phases, pp.composite.Phase):
-            phases = [phases]
-
-        added_phases = {phase.name for phase in self._phases}
-        # check if phase is instantiated on same domain or
-        # if its name is already among the present phases
-        for phase in phases:
-
-            if phase.name in added_phases:
-                # Already added phases are simply skipped
-                continue
-
-            # if 'empty' phases are passed, raise an error
-            if phase.num_components == 0:
-                raise RuntimeError("Phases without components are nonphysical.")
-
-            # sanity check when using the AD framework
-            if self.ad_system != phase.ad_system:
-                raise RuntimeError(
-                    f"phase '{phase.name}' instantiated with a different AD system."
-                )
-
-            # check if the components are known
-            for component in phase:
-                if component not in self._components:
-                    raise ValueError(
-                        f"Unknown component '{component.name}' in phase '{phase.name}'."
-                    )
-
-            # add to list of anticipated phases
-            self._phases.append(phase)
-
-        # resolving the composition to get a data structure yielding phases per component,
-        # if the component is modelled in that phase
-        phases_of_component: Dict[str, list] = dict()
-
-        for component in self._components:
-            # allocate the list of phases for this component
-            if component.name not in phases_of_component.keys():
-                phases_of_component.update({component.name: list()})
-
-            # check in each phase if this component is anticipated
-            for phase in self._phases:
-                if component in phase:
-                    phases_of_component[component.name].append(phase)
-
-        self._phases_of_component = phases_of_component
-
-    def add_equilibrium_equation(
-        self,
-        component: pp.composite.Component,
-        equation: pp.ad.Operator,
-        equ_name: str,
-    ) -> None:
-        """Adds a phase equilibrium equation to the flash for when the AD framework is used.
-
-        All components, phases and phase equilibrium equations must be added before
-        initializing the composition.
-
-        This is modularized and for now it is completely up to the modeler to assure
-        a non-singular system of equations.
-
-        For the number of necessary equations per component
-        see :method:`num_equilibrium_equations`.
-
-        Notes:
-            - Make sure the equation is such, that the right-hand-side is zero and the passed
-            operator represents the left-hand-side.
-            - Make sure the name is unique and does not match any other equation.
-              Unknown behavior else.
-            - Make sure the equilibrium is formulated with respect to the reference phase.
-
-        Parameters:
-            component: component for which the equilibrium equation is intended.
-                Must be a component already added to this composition.
-            equation: a general AD operator representing the left-hand side of the equation.
-            equ_name: a name for the equation, used as an unique identifier.
-
-        Raises:
-            ValueError: if the component is unknown to this composition.
-
-        """
-
-        if component in self._components:
-            raise_error = False
-            eq_num_max = self.num_equilibrium_equations[component.name]
-            eq_num_is = len(self.equilibrium_equations[component.name])
-            # if not enough equations available, add it
-            if eq_num_is < eq_num_max:
-                self.equilibrium_equations[component.name].update({equ_name: equation})
-            # if enough are available, check if one is replaceable (same name)
-            elif eq_num_is == eq_num_max:
-                if equ_name in self.equilibrium_equations[component.name].keys():
-                    self.equilibrium_equations[component.name].update(
-                        {equ_name: equation}
-                    )
-                else:
-                    raise_error = True
-            else:
-                raise_error = True
-            # if the supposed number of equation would be violated, raise an error
-            if raise_error:
-                raise RuntimeError(
-                    "Maximal number of phase equilibria equations "
-                    + "for component %s (%i) exceeded." % (component.name, eq_num_max)
-                )
-        else:
-            raise ValueError(
-                f"Component '{component.name}' not present in composition."
-            )
-
-    def phases_of(self, component: pp.composite.Component) -> list[pp.composite.Phase]:
-        """
-        Parameters:
-            component: component object for which the inquiry is made.
-
-        Returns:
-            a list containing all phase objects which contain the component.
-
-        """
-        return self._phases_of_component.get(component.name, list())
+            self._k_value_equations.update({comp.name: dict()})
+            # add component to supported phases
+            for phase in self.phases:
+                phase.add_component(comp)
 
     def initialize(self) -> None:
-        """Initializes the flash equations for this system, based on the added components,
-        phases and equilibrium equations.
+        """Initializes the flash equations for this system, based on the added components.
 
         This is the last step before a flash method should be called.
-        All components, phases and equilibrium equations must be added before calling this
-        method.
+        It creates the system of equations and the two subsystems for the p-T and p-h flash.
 
-        Raises:
-            RuntimeError: If the system is not closed with a sufficient number of
-                equilibrium equations
         """
-        # check the system closure, i.e. if enough equilibrium equations are provided
-        missing_num = 0
-        for component in self._components:
-            # should-be-number
-            equ_num = self.num_equilibrium_equations[component.name]
-            # summing discrepancy
-            missing_num += equ_num - len(self.equilibrium_equations[component.name])
-
-        if missing_num > 0:
-            raise RuntimeError(
-                "Missing %i phase equilibria equations to initialize the composition."
-                % (missing_num)
-                + "\nNeed: \n%s" % (str(self.num_equilibrium_equations))
-            )
-
         # allocating place for the subsystem
         equations = dict()
-        pT_subsystem: Dict[str, list] = self._get_subsystem_dict()
-        ph_subsystem: Dict[str, list] = self._get_subsystem_dict()
+        pT_subsystem: dict[str, list] = self._get_subsystem_dict()
+        ph_subsystem: dict[str, list] = self._get_subsystem_dict()
         self._set_subsystem_vars(ph_subsystem, pT_subsystem)
         self._y_R = self.get_reference_phase_fraction_by_unity()
 
@@ -592,12 +373,11 @@ class Composition:
                 ph_subsystem["equations"].append(name)
 
         ### equilibrium equations
-        for component in self.components:
-            for equ_name in self.equilibrium_equations[component.name]:
-                equ = self.equilibrium_equations[component.name][equ_name]
-                equations.update({equ_name: equ})
-                pT_subsystem["equations"].append(equ_name)
-                ph_subsystem["equations"].append(equ_name)
+        k_equ = self._get_k_value_equations()
+        for name, constraint in k_equ.items():
+            equations.update({name: constraint})
+            pT_subsystem["equations"].append(name)
+            ph_subsystem["equations"].append(name)
 
         ### enthalpy constraint for p-H flash
         equation = self.get_enthalpy_constraint()
@@ -612,19 +392,17 @@ class Composition:
         # ph_subsystem["equations"].append(self._phase_fraction_unity)
 
         ### Semi-smooth complementary conditions per phase
-        self._skew_complementary_condition()
-        # the first complementary condition will be eliminated by the phase fraction unity
         for phase in self._phases:
             name = f"{self._complementary}_{phase.name}"
-            equ, lagrange = self.get_complementary_condition_for(phase)
+            constraint, lagrange = self.get_complementary_condition_for(phase)
             skew_factor = self._skew_cc[phase]
 
             # replace the reference phase fraction by unity
             if phase == self.reference_phase:
-                equ = self._y_R
+                constraint = self._y_R
 
             # instantiate semi-smooth min in AD form with skewing factor
-            equation = self._ss_min(equ, skew_factor * lagrange)
+            equation = self._ss_min(constraint, skew_factor * lagrange)
             equations.update({name: equation})
             pT_subsystem["equations"].append(name)
             ph_subsystem["equations"].append(name)
@@ -657,8 +435,8 @@ class Composition:
         method: str = "standard",
         iterations: int = 0,
         success: bool = False,
-        variables: List[str] = list(),
-        equations: List[str] = list(),
+        variables: list[str] = list(),
+        equations: list[str] = list(),
         **kwargs,
     ) -> None:
         """Makes an entry in the flash history."""
@@ -677,7 +455,7 @@ class Composition:
         if len(self.flash_history) > self._max_history:
             self.flash_history.pop(0)
 
-    def _get_subsystem_dict(self) -> Dict[str, list]:
+    def _get_subsystem_dict(self) -> dict[str, list]:
         """Returns a template for subsystem dictionaries."""
         return {
             "equations": list(),
@@ -686,9 +464,10 @@ class Composition:
         }
 
     def _set_subsystem_vars(
-        self, ph_subsystem: Dict[str, list], pT_subsystem: Dict[str, list]
+        self, ph_subsystem: dict[str, list], pT_subsystem: dict[str, list]
     ) -> None:
         """Auxiliary function to set the variables in respective subsystems."""
+        ### FLASH SECONDARY VARIABLES
         # pressure is always a secondary var in the flash
         pT_subsystem["secondary_vars"].append(self._p_var)
         ph_subsystem["secondary_vars"].append(self._p_var)
@@ -707,7 +486,7 @@ class Composition:
             pT_subsystem["secondary_vars"].append(phase.saturation_name)
             ph_subsystem["secondary_vars"].append(phase.saturation_name)
 
-        # primary vars which are same for both subsystems
+        ### FLASH PRIMARY VARIABLES
         # phase fractions
         for phase in self.phases:
             if phase != self.reference_phase:
@@ -718,40 +497,44 @@ class Composition:
                 var_name = phase.ext_component_fraction_name(component)
                 pT_subsystem["primary_vars"].append(var_name)
                 ph_subsystem["primary_vars"].append(var_name)
-                # var_name = phase.component_fraction_name(component)
-                # pT_subsystem["secondary_vars"].append(var_name)
-                # ph_subsystem["secondary_vars"].append(var_name)
         # for the p-h flash, T is an additional var
         ph_subsystem["primary_vars"].append(self._T_var)
-        # TODO regular phase composition and reference phase fraction are in no category
 
-    def _skew_complementary_condition(self) -> None:
-        """Sets skewing factors for the complementary conditions."""
-        num_phases = self.num_phases
-        x = 1. / num_phases
-        for e, phase in zip(range(num_phases), self._phases):
-            self._skew_cc.update({phase: e + x})
+    def _get_k_value_equations(self) -> dict[str, pp.ad.Operator]:
+        """Temporary solution for constant k-value equations."""
+        equations = dict()
+        for component in self.components:
+            equ_name = f"k-val_{component.name}"
+            equ = (
+                self._phases[1].ext_fraction_of_component(component)
+                - self.k_values[component]
+                * self._phases[0].ext_fraction_of_component(component)
+            )
+            equations.update({equ_name: equ})
+        return equations
 
     ### Flash methods -------------------------------------------------------------------------
 
     def isothermal_flash(
-        self, copy_to_state: bool = True, initial_guess: str = "iterate"
+        self,
+        copy_to_state: bool = True,
+        initial_guess: Literal['iterate', 'feed', 'uniform'] = "iterate"
     ) -> bool:
         """Isothermal flash procedure to determine the composition based on given
         temperature of the mixture, pressure and feed fraction per component.
 
-        Args:
+        Parameters:
             copy_to_state (bool): Copies the values to the STATE of the AD variables,
                 additionally to ITERATE.
-            initial_guess ({'iterate', 'feed', 'uniform'}): strategy for choosing the initial
-                guess:
-                    - ``iterate``: values from ITERATE or STATE, if ITERATE not existent,
-                    - ``feed``: feed composition values are used as initial guesses
-                    - ``uniform``: uniform fractions adding up to 1 are used as initial guesses
+            initial_guess (optional): strategy for choosing the initial guess:
+                - ``iterate``: values from ITERATE or STATE, if ITERATE not existent,
+                - ``feed``: feed composition values are used as initial guesses
+                - ``uniform``: uniform fractions adding up to 1 are used as initial guesses
 
         Returns:
             indicator if flash was successful or not. If not successful, the ITERATE will
             **not** be copied to the STATE, even if flagged ``True`` by ``copy_to_state``.
+
         """
         success = self._Newton_min(self.pT_subsystem, copy_to_state, initial_guess)
 
@@ -763,23 +546,25 @@ class Composition:
         return success
 
     def isenthalpic_flash(
-        self, copy_to_state: bool = True, initial_guess: str = "iterate"
+        self,
+        copy_to_state: bool = True,
+        initial_guess: Literal['iterate', 'feed', 'uniform'] = "iterate"
     ) -> bool:
         """Isenthalpic flash procedure to determine the composition based on given
         specific enthalpy of the mixture, pressure and feed fractions per component.
 
-        Args:
+        Parameters:
             copy_to_state (bool): Copies the values to the STATE of the AD variable,
                 additionally to ITERATE.
-            initial_guess ({'iterate', 'feed', 'uniform'}): strategy for choosing the initial
-                guess:
-                    - ``iterate``: values from ITERATE or STATE, if ITERATE not existent,
-                    - ``feed``: feed composition values are used as initial guesses
-                    - ``uniform``: uniform fractions adding up to 1 are used as initial guesses
+            initial_guess (optional): strategy for choosing the initial guess:
+                - ``iterate``: values from ITERATE or STATE, if ITERATE not existent,
+                - ``feed``: feed composition values are used as initial guesses
+                - ``uniform``: uniform fractions adding up to 1 are used as initial guesses
 
         Returns:
             indicator if flash was successful or not. If not successful, the ITERATE will
             **not** be copied to the STATE, even if flagged ``True`` by ``copy_to_state``.
+
         """
         success = self._Newton_min(self.ph_subsystem, copy_to_state, initial_guess)
 
@@ -793,12 +578,13 @@ class Composition:
         """Assuming molar phase fractions, pressure and temperature are given (and correct),
         evaluates the volumetric phase fractions (saturations) based on the number of present
         phases.
+        
         If no phases are present (e.g. before any flash procedure), this method does nothing.
 
         Notes:
-            It is enough to call this method once after the (any) flash procedure converged.
+            It is enough to call this method once after any flash procedure converged.
 
-        Args:
+        Parameters:
             copy_to_state (bool): Copies the values to the STATE of the AD variable,
                 additionally to ITERATE.
 
@@ -841,7 +627,7 @@ class Composition:
 
     def get_mass_conservation_for(
         self,
-        component: pp.composite.Component,
+        component: Component,
         eliminate_reference_phase_fraction: bool = False,
     ) -> pp.ad.Operator:
         """Returns an equation representing the definition of the overall component fraction
@@ -863,8 +649,8 @@ class Composition:
         equation = component.fraction
         ref_phase = self.reference_phase
 
-        for phase in self._phases_of_component[component.name]:
-            
+        for phase in self.phases:
+
             if phase == ref_phase and eliminate_reference_phase_fraction:
                 if self._y_R is None:
                     self._y_R = self.get_reference_phase_fraction_by_unity()
@@ -879,13 +665,13 @@ class Composition:
     def get_reference_phase_fraction_by_unity(self) -> pp.ad.Operator:
         """Returns an equation which expresses the fraction of the reference phase through
         the fractions of other phases by unity.
-        
+
             ``y_R = 1 - sum_{e != R} y_e
 
         Returns:
             AD operator representing the right-hand side of the equation.
         """
-        equation = pp.ad.Scalar(1.)
+        equation = pp.ad.Scalar(1.0)
         for phase in self.phases:
             if phase != self.reference_phase:
                 # - y_e, where e != R
@@ -908,7 +694,7 @@ class Composition:
             equation -= phase.fraction
 
         return equation
-    
+
     def get_phase_saturation_unity(self) -> pp.ad.Operator:
         """Returns an equation representing the phase fraction unity
 
@@ -925,7 +711,7 @@ class Composition:
 
         return equation
 
-    def get_phase_fraction_relation(self, phase: pp.composite.Phase) -> pp.ad.Operator:
+    def get_phase_fraction_relation(self, phase: Phase) -> pp.ad.Operator:
         """Returns a nonlinear equation representing the relation between the molar fraction
         of a phase and its volumetric fraction (saturation).
 
@@ -949,7 +735,7 @@ class Composition:
         #         other_phase_parts.append(
         #             other_phase.density(self.p, self.T) * other_phase.saturation
         #         )
-        
+
         # equation = phase.fraction * sum(other_phase_parts) + phase_part
         equation = self.density() * phase.fraction - phase.saturation
 
@@ -973,7 +759,7 @@ class Composition:
 
         return equation
 
-    def get_composition_unity_for(self, phase: pp.composite.Phase) -> pp.ad.Operator:
+    def get_composition_unity_for(self, phase: Phase) -> pp.ad.Operator:
         """Returns an equation representing the unity if the composition for a given phase e:
 
          ``1 - sum_c chi_ce = 0``
@@ -993,7 +779,7 @@ class Composition:
         return equation
 
     def get_complementary_condition_for(
-        self, phase: pp.composite.Phase
+        self, phase: Phase
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Returns the two complementary equations for a phase e:
 
@@ -1011,7 +797,10 @@ class Composition:
     ### Flash methods -------------------------------------------------------------------------
 
     def _Newton_min(
-        self, subsystem: dict, copy_to_state: bool, initial_guess: str
+        self,
+        subsystem: dict,
+        copy_to_state: bool,
+        initial_guess: Literal['iterate', 'feed', 'uniform']
     ) -> bool:
         """Performs a semi-smooth newton (Newton-min), where the complementary conditions are
         the semi-smooth part.
@@ -1021,11 +810,12 @@ class Composition:
             assembly of the sub-gradient, are wrapped in a special AD operator.
 
         Parameters:
-            subsystem: specially structured dict containing information about vars and equs.
+            subsystem: specially structured dict containing equation and variable names.
             copy_to_state: flag to save the result as STATE, additionally to ITERATE.
-            initial_guess ({'iterate', 'feed', 'uniform'}): initial guess strategy
+            initial_guess (optional): initial guess strategy
 
-        Returns: a bool indicating the success of the method.
+        Returns:
+            a bool indicating the success of the method.
 
         """
         success = False
@@ -1104,14 +894,20 @@ class Composition:
 
     def _print_matrix(self, subsystem):
         all_vars = [block[1] for block in self.ad_system.dof_manager.block_dof]
-        print(list(sorted(set(subsystem["primary_vars"]), key=lambda x: all_vars.index(x))))
+        print(
+            list(
+                sorted(set(subsystem["primary_vars"]), key=lambda x: all_vars.index(x))
+            )
+        )
         for equ in subsystem["equations"]:
             A, b = self.ad_system.assemble_subsystem(equ, subsystem["primary_vars"])
             print(equ)
             print(A.todense())
 
     def _set_initial_guess(
-        self, initial_guess: str, guess_temperature: bool = False
+        self,
+        initial_guess: Literal['iterate', 'feed', 'uniform'],
+        guess_temperature: bool = False
     ) -> None:
         """Auxillary function to set the initial values for phase fractions, phase compositions
         and temperature, based on the chosen strategy.
@@ -1158,9 +954,7 @@ class Composition:
             for e, phase in enumerate(self.phases):
                 phase_feed = all_phase_feeds[e]
                 phase_fraction = phase_feed / phase_feed_sum
-                self.ad_system.set_var_values(
-                    phase.fraction_name, phase_fraction
-                )
+                self.ad_system.set_var_values(phase.fraction_name, phase_fraction)
 
         elif initial_guess == "uniform":
             # uniform values for phase fraction
@@ -1183,7 +977,7 @@ class Composition:
 
     def _post_process_fractions(self, copy_to_state: bool) -> None:
         """Re-normalizes phase compositions and removes numerical artifacts
-        (values bound between 0 and 1).
+        (values bound between 0 and 1), and evaluates the reference phase fraction.
 
         Phase compositions (fractions of components in that phase) are nonphysical if a
         phase is not present. The unified flash procedure yields nevertheless values, possibly
@@ -1199,6 +993,13 @@ class Composition:
                 AD variable, additionally to ITERATE.
 
         """
+
+        # evaluate reference phase fractions
+        vals = self._y_R.evaluate(self.ad_system.dof_manager).val
+        self.ad_system.set_var_values(
+                self.reference_phase.fraction_name, vals, copy_to_state
+            )
+
         for phase in self.phases:
             # remove numerical artifacts
             phase_frac = self.ad_system.get_var_values(phase.fraction_name)
@@ -1241,9 +1042,7 @@ class Composition:
         """If only one phase is present, we assume it occupies the whole pore space."""
         phase = self._phases[0]
         values = np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells())
-        self.ad_system.set_var_values(
-            phase.saturation_name, values, copy_to_state
-        )
+        self.ad_system.set_var_values(phase.saturation_name, values, copy_to_state)
 
     def _2phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
         """Calculates the saturation value assuming phase molar fractions are given.
@@ -1407,9 +1206,7 @@ class Composition:
         # distribute results to the saturation variables
         for i, phase in enumerate(self._phases):
             vals = saturations[i * nc : (i + 1) * nc]
-            self.ad_system.set_var_values(
-                phase.saturation_name, vals, copy_to_state
-            )
+            self.ad_system.set_var_values(phase.saturation_name, vals, copy_to_state)
 
     ### Special methods -----------------------------------------------------------------------
 

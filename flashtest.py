@@ -22,19 +22,11 @@ nc = mdg.num_subdomain_cells()
 water = pp.composite.H2O(ad_system)
 salt = pp.composite.NaCl(ad_system)
 
-brine = pp.composite.IncompressibleFluid("L", ad_system)
-vapor = pp.composite.IdealGas("V", ad_system)
-
-brine.add_component([water, salt])
-vapor.add_component([water, salt])
-
 IW = IAPWS95(P=p/1000, T=T)
 
 c.add_component(salt)
 c.add_component(water)
 
-c.add_phase(brine)
-c.add_phase(vapor)
 
 ad_system.set_var_values(water.fraction_name, (1-salt_fraction) * np.ones(nc), True)
 ad_system.set_var_values(salt.fraction_name, salt_fraction * np.ones(nc), True)
@@ -42,13 +34,11 @@ ad_system.set_var_values(c._p_var, p * np.ones(nc), True)
 ad_system.set_var_values(c._T_var, T * np.ones(nc), True)
 ad_system.set_var_values(c._h_var, h * np.ones(nc), True)
 
-k_water = 1.2
-k_salt = 0.5
+c.k_values = {
+    water: 1.2,
+    salt: 0.2
+}
 
-equilibrium_water = vapor.ext_fraction_of_component(water) - k_water * brine.ext_fraction_of_component(water)
-equilibrium_salt = vapor.ext_fraction_of_component(salt) - k_salt * brine.ext_fraction_of_component(salt)
-c.add_equilibrium_equation(water, equilibrium_water, "k_water")
-c.add_equilibrium_equation(salt, equilibrium_salt, "k_salt")
 c.initialize()
 
 c.isothermal_flash(copy_to_state=True, initial_guess="feed")
