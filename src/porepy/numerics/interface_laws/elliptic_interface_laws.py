@@ -99,7 +99,7 @@ class RobinCoupling(AbstractInterfaceLaw):
         edge data.
 
         Args:
-            sd_primary: Grid of the primary domanin.
+            sd_primary: Grid of the primary domain.
             sd_secondary: Grid of the secondary domain.
             intf (pp.MortarGrid): Mortar grid on the interface between the subdomains.
             sd_data_primary: Data dictionary for the primary domain.
@@ -676,7 +676,7 @@ class FluxPressureContinuity(RobinCoupling):
         rhs_secondary[2] = np.zeros_like(rhs_primary[2])
 
         # If primary and secondary is the same grid, they should contribute to the same
-        # row and coloumn. When the assembler assigns matrix[idx] it will only add
+        # row and column. When the assembler assigns matrix[idx] it will only add
         # the secondary information because of duplicate indices (primary and secondary
         # is the same). We therefore write the both primary and secondary info to the
         # secondary index.
@@ -768,7 +768,7 @@ class FluxPressureContinuity(RobinCoupling):
         Parameters:
             sd_primary: Grid on one neighboring subdomain.
             sd_secondary: Grid on the other neighboring subdomain.
-            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_primary: Data dictionary for the primary subdomain
             sd_data_secondary: Data dictionary for the secondary subdomain.
             intf_data: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
