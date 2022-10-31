@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Dict, Generator, List, Optional, Union
+from typing import Dict, Generator, List, Union
 
 import numpy as np
 
@@ -49,30 +49,24 @@ class Phase(abc.ABC):
     # flag if a singleton has recently been accessed, to skip re-instantiation
     __singleton_accessed: bool = False
 
-    def __new__(
-        cls, name: str, ad_system: Optional[pp.ad.ADSystem] = None
-    ) -> Phase:
+    def __new__(cls, name: str, ad_system: pp.ad.ADSystem) -> Phase:
         # check for AD singletons per grid
-        if ad_system:
-            mdg = ad_system.dof_manager.mdg
-            if mdg in Phase.__ad_singletons:
-                if name in Phase.__ad_singletons[mdg]:
-                    # flag that the singleton has been accessed and return it.
-                    Phase.__singleton_accessed = True
-                    return Phase.__ad_singletons[mdg][name]
-            else:
-                Phase.__ad_singletons.update({mdg: dict()})
+        mdg = ad_system.dof_manager.mdg
+        if mdg in Phase.__ad_singletons:
+            if name in Phase.__ad_singletons[mdg]:
+                # flag that the singleton has been accessed and return it.
+                Phase.__singleton_accessed = True
+                return Phase.__ad_singletons[mdg][name]
+        else:
+            Phase.__ad_singletons.update({mdg: dict()})
 
         # create a new instance and store it
         new_instance = super().__new__(cls)
-        if ad_system:
-            Phase.__ad_singletons[mdg].update({name: new_instance})
+        Phase.__ad_singletons[mdg].update({name: new_instance})
 
         return new_instance
 
-    def __init__(
-        self, name: str, ad_system: Optional[pp.ad.ADSystem] = None
-    ) -> None:
+    def __init__(self, name: str, ad_system: pp.ad.ADSystem) -> None:
         # skipping re-instantiation if class if __new__ returned the previous reference
         if Phase.__singleton_accessed:
             Phase.__singleton_accessed = False
@@ -82,7 +76,7 @@ class Phase(abc.ABC):
 
         ### PUBLIC
 
-        self.ad_system: Optional[pp.ad.ADSystem] = ad_system
+        self.ad_system: pp.ad.ADSystem = ad_system
         """The AD system optionally passed at instantiation."""
 
         #### PRIVATE
@@ -91,18 +85,15 @@ class Phase(abc.ABC):
         self._present_components: List[pp.composite.Component] = list()
 
         # Instantiate saturation and molar phase fraction (secondary variables)
-        self._s: Optional[pp.ad.MergedVariable] = None
-        self._fraction: Optional[pp.ad.MergedVariable] = None
-        if ad_system:
-            self._s = ad_system.create_variable(self.saturation_name)
-            self._fraction = ad_system.create_variable(self.fraction_name)
-            nc = ad_system.dof_manager.mdg.num_subdomain_cells()
-            ad_system.set_var_values(self.saturation_name, np.zeros(nc), True)
-            ad_system.set_var_values(self.fraction_name, np.zeros(nc), True)
+        self._s: pp.ad.MergedVariable = ad_system.create_variable(self.saturation_name)
+        self._fraction: pp.ad.MergedVariable = ad_system.create_variable(self.fraction_name)
+        nc = ad_system.dof_manager.mdg.num_subdomain_cells()
+        ad_system.set_var_values(self.saturation_name, np.zeros(nc), True)
+        ad_system.set_var_values(self.fraction_name, np.zeros(nc), True)
         # contains extended fractional values per present component name (key)
-        self._ext_composition: Dict[str, VarLike] = dict()
+        self._ext_composition: Dict[str, pp.ad.MergedVariable] = dict()
         # contains regular fractional values per present component name (key)
-        self._composition: Dict[str, VarLike] = dict()
+        self._composition: Dict[str, pp.ad.MergedVariable] = dict()
 
     def __iter__(self) -> Generator[pp.composite.Component, None, None]:
         """Generator over components present in this phase.
@@ -140,7 +131,7 @@ class Phase(abc.ABC):
         return f"y_{self.name}"
 
     @property
-    def saturation(self) -> Optional[pp.ad.MergedVariable]:
+    def saturation(self) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -154,7 +145,7 @@ class Phase(abc.ABC):
         return self._s
 
     @property
-    def fraction(self) -> Optional[pp.ad.MergedVariable]:
+    def fraction(self) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -167,7 +158,9 @@ class Phase(abc.ABC):
         """
         return self._fraction
 
-    def ext_fraction_of_component(self, component: pp.composite.Component) -> VarLike:
+    def ext_fraction_of_component(
+        self, component: pp.composite.Component
+    ) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -194,15 +187,7 @@ class Phase(abc.ABC):
             It is supposed to represent the value at thermodynamic equilibrium.
             Returns always zero if a component is not modelled (added) to this phase.
 
-        Raises:
-            RuntimeError: if the AD framework is used and the component was instantiated using
-                a different AD system than the one used for this composition.
-
         """
-        if component.ad_system != self.ad_system:
-            raise RuntimeError(
-                f"Component '{component.name}' instantiated with a different AD system."
-            )
         return self._ext_composition.get(self.ext_component_fraction_name(component), 0.0)
 
     def ext_component_fraction_name(self, component: pp.composite.Component) -> str:
@@ -215,9 +200,9 @@ class Phase(abc.ABC):
             component name and the phase name.
 
         """
-        return f"xi_{component.name}_{self.name}"
+        return f"chi_{component.name}_{self.name}"
 
-    def fraction_of_component(self, component: pp.composite.Component) -> VarLike:
+    def fraction_of_component(self, component: pp.composite.Component) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -241,15 +226,7 @@ class Phase(abc.ABC):
             It is supposed to represent the value at thermodynamic equilibrium.
             Returns always zero if a component is not modelled (added) to this phase.
 
-        Raises:
-            RuntimeError: if the AD framework is used and the component was instantiated using
-                a different AD system than the one used for this composition.
-
         """
-        if component.ad_system != self.ad_system:
-            raise RuntimeError(
-                f"Component '{component.name}' instantiated with a different AD system."
-            )
         return self._composition.get(self.ext_component_fraction_name(component), 0.0)
 
     def component_fraction_name(self, component: pp.composite.Component) -> str:
@@ -291,11 +268,10 @@ class Phase(abc.ABC):
 
         for comp in component:
             # sanity check when using the AD framework
-            if self.ad_system:
-                if self.ad_system != comp.ad_system:
-                    raise RuntimeError(
-                        f"Component '{comp.name}' instantiated with a different AD system."
-                    )
+            if self.ad_system != comp.ad_system:
+                raise RuntimeError(
+                    f"Component '{comp.name}' instantiated with a different AD system."
+                )
             # skip already present components:
             if comp.name in present_components:
                 continue
@@ -304,26 +280,20 @@ class Phase(abc.ABC):
             ext_fraction_name = self.ext_component_fraction_name(comp)
             fraction_name = self.component_fraction_name(comp)
             # create the fractions of the component in this phase
-            ext_comp_fraction: VarLike
-            com_fraction: VarLike
-            if self.ad_system:
-                ext_comp_fraction = self.ad_system.create_variable(ext_fraction_name)
-                com_fraction = self.ad_system.create_variable(fraction_name)
-                nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
-                self.ad_system.set_var_values(ext_fraction_name, np.zeros(nc), True)
-                self.ad_system.set_var_values(fraction_name, np.zeros(nc), True)
-            else:
-                ext_comp_fraction = 0.
-                com_fraction = 0.
+            ext_comp_fraction = self.ad_system.create_variable(ext_fraction_name)
+            comp_fraction = self.ad_system.create_variable(fraction_name)
+            nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
+            self.ad_system.set_var_values(ext_fraction_name, np.zeros(nc), True)
+            self.ad_system.set_var_values(fraction_name, np.zeros(nc), True)
             # store reference to present substance
             self._present_components.append(comp)
             # store the compositional variable
             self._ext_composition.update({ext_fraction_name: ext_comp_fraction})
-            self._composition.update({fraction_name: com_fraction})
+            self._composition.update({fraction_name: comp_fraction})
 
     ### Physical properties -------------------------------------------------------------------
 
-    def mass_density(self, p: VarLike, T: VarLike) -> VarLike:
+    def mass_density(self, p: VarLike, T: VarLike) -> pp.ad.MergedVariable:
         """Uses the  molar mass in combination with the molar masses and fractions
         of components in this phase, to compute the mass density of the phase.
 
