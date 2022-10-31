@@ -183,7 +183,7 @@ class DarcyFlux:
             + discr.bound_pressure_face
             * projection.mortar_to_primary_int
             * self.interface_fluid_flux(interfaces)
-            + discr.bound_pressure_face * self.bc_values_flow(subdomains)
+            + discr.bound_pressure_face * self.bc_values_darcy(subdomains)
             + discr.vector_source * self.vector_source(subdomains)
         )
         return pressure_trace
@@ -204,9 +204,9 @@ class DarcyFlux:
             discr.flux * self.pressure(subdomains)
             + discr.bound_flux
             * (
-                self.bc_values_flow(subdomains)
+                self.bc_values_darcy(subdomains)
                 + projection.mortar_to_primary_int
-                * self.interface_fluid_flux(interfaces)
+                * self.interface_darcy_flux(interfaces)
             )
             + discr.vector_source * self.vector_source(subdomains)
         )
@@ -229,7 +229,7 @@ class DarcyFlux:
         Returns:
 
         """
-        return pp.ad.MpfaAd(self.flow_discretization_parameter_key, subdomains)
+        return pp.ad.MpfaAd(self.darcy_discretization_parameter_key, subdomains)
 
 
 class GravityForce:
