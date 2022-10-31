@@ -427,7 +427,7 @@ class DifferentiableFVAd:
         subdomains: List[pp.Grid],
         mdg: pp.MixedDimensionalGrid,
         base_discr: Union[pp.ad.MpfaAd, pp.ad.TpfaAd],
-        dof_manager: pp.DofManager,
+        system_manager: pp.ad.SystemManager,
         permeability_function: Callable[[pp.ad.Variable], pp.ad.Ad_array],
         permeability_argument: pp.ad.Variable,
         potential: pp.ad.Variable,
@@ -440,7 +440,7 @@ class DifferentiableFVAd:
             mdg: Mixed-dimensional grid.
             base_discr: Tpfa or Mpfa discretization (Ad), gol which we want to
                 approximate the transmissibility matrix.
-            dof_manager (pp.DofManager): Needed to evaluate Ad operators.
+            system_manager (pp.ad.SystemManager): Needed to evaluate Ad operators.
             permeability_function: returning permeability as an Ad_array given the
                 perm_argument.
             permeability_argument: pp.ad.Variable representing the variable upon which
@@ -452,7 +452,7 @@ class DifferentiableFVAd:
         self.subdomains = subdomains
         self.mdg = mdg
         self._discretization = base_discr
-        self.dof_manager = dof_manager
+        self.system_manager = system_manager
         self.keyword = keyword
         self._subdomain_projections = pp.ad.SubdomainProjections(self.subdomains)
         self._perm_function = pp.ad.Function(
@@ -513,10 +513,10 @@ class DifferentiableFVAd:
         # The first part is rather involved and is handled inside self._transmissibility
 
         # Get hold of the underlying flux discretization.
-        base_flux = self._discretization.flux.evaluate(self.dof_manager)
+        base_flux = self._discretization.flux.evaluate(self.system_manager)
 
         # The Jacobian matrix should have the same size as the base.
-        flux_jac = sps.csr_matrix((base_flux.shape[0], self.dof_manager.num_dofs()))
+        flux_jac = sps.csr_matrix((base_flux.shape[0], self.system_manager.num_dofs()))
 
         # The differentiation of transmissibilities with respect to permeability is
         # implemented as a loop over all subdomains. It could be possible to gather all grid
@@ -524,7 +524,7 @@ class DifferentiableFVAd:
         # the effort. However, to avoid evaluating the permeability function multiple
         # times, we precompute it here
         global_permeability = self._perm_function(self._perm_argument).evaluate(
-            self.dof_manager
+            self.system_manager
         )
         sd: pp.Grid
         for sd in self.subdomains:
@@ -533,7 +533,7 @@ class DifferentiableFVAd:
             params = self.mdg.subdomain_data(sd)[pp.PARAMETERS][self.keyword]
             # Potential for this grid
             cells_of_grid = self._subdomain_projections.cell_restriction([sd]).evaluate(
-                self.dof_manager
+                self.system_manager
             )
             potential_value = cells_of_grid * potential.val
 
@@ -577,7 +577,7 @@ class DifferentiableFVAd:
             # Prolong this Jacobian to the full set of faces and add.
             face_prolongation = self._subdomain_projections.face_prolongation(
                 [sd]
-            ).evaluate(self.dof_manager)
+            ).evaluate(self.system_manager)
             flux_jac += face_prolongation * grad_p_jac
             flux_jac += face_prolongation * jac_bound
 
@@ -638,11 +638,11 @@ class DifferentiableFVAd:
 
         # Get hold of the underlying flux discretization.
         base_bound_pressure_face = self._discretization.bound_pressure_face.evaluate(
-            self.dof_manager
+            self.system_manager
         )
         # The Jacobian matrix should have the same size as the base.
         bound_pressure_face_jac = sps.csr_matrix(
-            (base_bound_pressure_face.shape[0], self.dof_manager.num_dofs())
+            (base_bound_pressure_face.shape[0], self.system_manager.num_dofs())
         )
 
         projections = pp.ad.SubdomainProjections(self.subdomains)
@@ -653,7 +653,7 @@ class DifferentiableFVAd:
         # the effort. However, to avoid evaluating the permeability function multiple
         # times, we precompute it here
         global_permeability = self._perm_function(perm_argument).evaluate(
-            self.dof_manager
+            self.system_manager
         )
 
         sd: pp.Grid
@@ -677,7 +677,7 @@ class DifferentiableFVAd:
 
             # Prolong this Jacobian to the full set of faces and add.
             face_prolongation = projections.face_prolongation([sd]).evaluate(
-                self.dof_manager
+                self.system_manager
             )
             bound_pressure_face_jac += face_prolongation * jac_bound_pressure_face
 
@@ -779,7 +779,7 @@ class DifferentiableFVAd:
         # Then, map the computed permeability to the faces (distinguishing between
         # the left and right sides of the face).
         cells_of_grid = self._subdomain_projections.cell_restriction([g]).evaluate(
-            self.dof_manager
+            self.system_manager
         )
         k_one_sided = cell_2_one_sided_face * cells_of_grid * global_permeability
 
