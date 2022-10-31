@@ -20,17 +20,13 @@ class Component(abc.ABC):
 
     Provides and manages component-related physical quantities and properties.
 
-    If a :class:`~porepy.ad.ADSystemManager` is passed at instantiation, the AD framework is
-    is used to represent the fractional variables and the component class becomes a singleton
-    with respect to the mixed-dimensional domain contained in the AD system.
+    The AD framework is is used to represent the fractional variables and the component class
+    becomes a singleton with respect to the mixed-dimensional domain contained in the
+    AD system.
     Unique instantiation over a given domain is assured by using this class's name as an unique
     identifier.
     Ambiguities and uniqueness must be assured due to central storage of the fractional values
     in the grid data dictionaries.
-
-    If the AD system is not passed, this class can be used in standalone mode.
-    Respective fractional variables are not existent in this case and the
-    :class:`~porepy.composite.Composition` takes over the computation and storage of values.
 
     Parameters:
         ad_system (optional): If given, this class will use the AD framework and the respective
@@ -43,29 +39,26 @@ class Component(abc.ABC):
     # flag if a singleton has recently been accessed, to skip re-instantiation
     __singleton_accessed: bool = False
 
-    def __new__(cls, ad_system: Optional[pp.ad.ADSystem] = None) -> Component:
+    def __new__(cls, ad_system: pp.ad.ADSystem) -> Component:
         # class name is used as unique identifier
         name = str(cls.__name__)
-
         # check for AD singletons per grid
-        if ad_system:
-            mdg = ad_system.dof_manager.mdg
-            if mdg in Component.__ad_singletons:
-                if name in Component.__ad_singletons[mdg]:
-                    # flag that the singleton has been accessed and return it.
-                    Component.__singleton_accessed = True
-                    return Component.__ad_singletons[mdg][name]
-            else:
-                Component.__ad_singletons.update({mdg: dict()})
+        mdg = ad_system.dof_manager.mdg
+        if mdg in Component.__ad_singletons:
+            if name in Component.__ad_singletons[mdg]:
+                # flag that the singleton has been accessed and return it.
+                Component.__singleton_accessed = True
+                return Component.__ad_singletons[mdg][name]
+        else:
+            Component.__ad_singletons.update({mdg: dict()})
 
         # create a new instance and store it, if no previous instantiations were found
         new_instance = super().__new__(cls)
-        if ad_system:
-            Component.__ad_singletons[mdg].update({name: new_instance})
+        Component.__ad_singletons[mdg].update({name: new_instance})
 
         return new_instance
 
-    def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
+    def __init__(self, ad_system: pp.ad.ADSystem) -> None:
 
         # skipping re-instantiation if class if __new__ returned the previous reference
         if Component.__singleton_accessed:
@@ -76,21 +69,13 @@ class Component(abc.ABC):
 
         ### PUBLIC
 
-        self.ad_system: Optional[pp.ad.ADSystem] = ad_system
+        self.ad_system: pp.ad.ADSystem = ad_system
         """The AD system optionally passed at instantiation."""
 
         #### PRIVATE
 
         # creating the overall molar fraction variable
-        self._fraction: VarLike
-        if ad_system:
-            self._fraction = ad_system.create_variable(self.fraction_name)
-        else:
-            self._fraction = 0.0
-
-        # for a phase name (key),
-        # provide the MergedVariable for the molar fraction in that phase (value)
-        self._fractions_in_phases: Dict[str, Optional[pp.ad.MergedVariable]] = dict()
+        self._fraction: pp.ad.MergedVariable = ad_system.create_variable(self.fraction_name)
 
     @property
     def name(self) -> str:
@@ -106,20 +91,10 @@ class Component(abc.ABC):
         return "z" + "_" + self.name
 
     @property
-    def fraction(self) -> VarLike:
-        """Initialized with 0.
-
+    def fraction(self) -> pp.ad.MergedVariable:
+        """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
-
-        If no AD system is present, the feed fraction value can be set directly.
-        If the AD framework is used, respective functionalities must be used to set values for
-        the feed fraction (merged) variable, or alternatively
-        :meth:`~porepy.composite.Composition.set_feed_composition`
-
-        Parameters:
-            value: a value to set the feed fraction of this component for standalone
-                applications.
 
         Returns:
             feed fraction, a primary variable on the whole domain (cell-wise).
@@ -127,16 +102,6 @@ class Component(abc.ABC):
 
         """
         return self._fraction
-
-    @fraction.setter
-    def fraction(self, value: float) -> None:
-        if self.ad_system:
-            raise RuntimeError(
-                f"Cannot set the component fraction when AD is used. "
-                "Use respective functionalities of the AD system or the Composition class."
-            )
-        else:
-            self._fraction = value
 
     ### PHYSICAL PROPERTIES -------------------------------------------------------------------
 
