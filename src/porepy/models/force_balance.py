@@ -17,12 +17,12 @@ Notes:
 from __future__ import annotations
 
 import logging
+import time
 from functools import partial
 from typing import Dict, Optional, Union
 
-import constit_library
+import constitutive_laws
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 from porepy import ModelGeometry
@@ -248,11 +248,9 @@ class ForceBalanceEquations(VectorBalanceEquation):
         # Basis vector combinations
         geometry = pp.ad.Geometry(subdomains, nd=self.nd)
         nd_vec_to_tangential = self.tangential_component(subdomains)
-        nd_vec_to_normal = self.normal_component(subdomains)
         scalar_to_tangential = sum([geometry.e_i(i) for i in range(self.nd - 1)])
         # Variables
         t_t: pp.ad.Operator = nd_vec_to_tangential * self.traction(subdomains)
-        t_n: pp.ad.Operator = nd_vec_to_normal * self.traction(subdomains)
         u_t: pp.ad.Operator = nd_vec_to_tangential * self.displacement_jump(subdomains)
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
@@ -263,7 +261,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         # EK: Should we try to agree on a name convention for ad functions?
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        tol = 1e-5  # Revisit this tolerance!
+        tol = 1e-5  # FIXME: Revisit this tolerance!
         f_characteristic = pp.ad.Function(
             partial(pp.ad.functions.characteristic_function, tol),
             "characteristic_function_for_zero_normal_traction",
@@ -432,8 +430,8 @@ class VariablesForceBalance:
         """Fracture contact traction.
 
         Args:
-            subdomains: List of subdomains where the contact traction is defined. Only known usage
-                is for the fracture subdomains.
+            subdomains: List of subdomains where the contact traction is defined. Only known
+            usage is for the fracture subdomains.
 
         Returns:
             Variable for fracture contact traction.

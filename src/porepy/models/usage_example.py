@@ -1,4 +1,4 @@
-from constit_library import (
+from constitutive_laws import (
     ConstantFluidDensity,
     ConstantRock,
     ConstantViscosity,

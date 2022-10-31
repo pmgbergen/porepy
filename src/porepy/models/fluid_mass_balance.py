@@ -19,12 +19,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 
-import constit_library
+import constitutive_laws
 import numpy as np
-import scipy.sparse as sps
-from constit_library import Units, ad_wrapper
+from constitutive_laws import ad_wrapper
 from geometry import ModelGeometry
 
 import porepy as pp
@@ -41,20 +40,32 @@ class ScalarBalanceEquation:
     """
 
     def balance_equation(
-        self, subdomains: list[pp.Grid], accumulation, flux, source
+        self,
+        subdomains: list[pp.Grid],
+        accumulation: pp.ad.Operator,
+        flux: pp.ad.Operator,
+        source: pp.ad.Operator,
     ) -> pp.ad.Operator:
-        """Denne er en halvveis balance_equation_discretization-metode. Gjenstår noe her!"""
+        """Define the balance equation.
 
-        # FIXME: Ikke implementert. Uklart skille. Bor denne i BalanceEquations eller kanskje
-        # heller SolutionStrategy?
-        dt = self.time_increment_method
+        Args:
+            subdomains: List of grids on which the equation is defined.
+            accumulation: Accumulation term.
+            flux: Flux term.
+            source: Source term.
+
+        Returns:
+            Operator representing the balance equation.
+        """
+
+        dt = pp.ad.time_derivatives.dt
         div = pp.ad.Divergence(subdomains)
         return dt(accumulation) + div * flux - source
 
     def volume_integral(
         self,
         integrand: pp.ad.Operator,
-        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        grids: list[pp.GridLike],
     ) -> pp.ad.Operator:
         """Numerical volume integral over subdomain or interface cells.
 
@@ -62,11 +73,11 @@ class ScalarBalanceEquation:
         FIXME: Decide whether to use this on source terms.
 
         Args:
-            integrand:
-            grids:
+            integrand: Operator to be integrated.
+            grids: List of subdomain or interface grids over which to integrate.
 
         Returns:
-
+            Operator representing the integral.
         """
         geometry = pp.ad.Geometry(grids, nd=self.nd)
         return geometry.cell_volumes * self.specific_volume(grids) * integrand
@@ -90,34 +101,34 @@ class MassBalanceEquations(ScalarBalanceEquation):
         self.system_manager.set_equation(sd_eq, (subdomains, "cells", 1))
         self.system_manager.set_equation(intf_eq, (interfaces, "cells", 1))
 
-    def subdomain_mass_balance_equation(self, subdomains: list[pp.Grid]):
+    def subdomain_mass_balance_equation(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         accumulation = self.fluid_mass(subdomains)
         flux = self.fluid_flux(subdomains)
         source = self.fluid_source(subdomains)
         return self.balance_equation(subdomains, accumulation, flux, source)
 
-    def fluid_mass(self, subdomains: list[pp.Grid]):
+    def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 
         density = self.fluid_density(subdomains) * self.porosity(subdomains)
         mass = self.volume_integral(density, subdomains)
         mass.set_name("fluid_mass")
         return mass
 
-    def fluid_flux(self, subdomains: list[pp.Grid]):
+    def fluid_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         flux = self.face_mobility(subdomains) * self.darcy_flux(subdomains)
         flux.set_name("fluid_flux")
         return flux
 
-    def fluid_source(self, subdomains: list[pp.Grid]):
-        """
-        FIXME: Dette er "data" i samme forstand som randkrav. Egentlig noe litt annet enn baade
-        konstit og balanseligninger
+    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid source term.
 
         Args:
-            subdomains:
+            subdomains: List of subdomains.
 
         Returns:
-
+            Operator representing the source term.
         """
         num_cells = sum([sd.num_cells for sd in subdomains])
         vals = np.zeros(num_cells)
@@ -125,8 +136,11 @@ class MassBalanceEquations(ScalarBalanceEquation):
         return source
 
 
-class ConstitutiveEquationsIncompressibleFlow(constit_library.DarcyFlux):
-    """
+class ConstitutiveEquationsIncompressibleFlow(
+    constit_library.DarcyFlux, constit_library.DimensionReduction
+):
+    """Constitutive equations for incompressible flow.
+
     .. note::
         We should consider modularising and moving to constit_library.
     """
@@ -195,76 +209,6 @@ class ConstitutiveEquationsIncompressibleFlow(constit_library.DarcyFlux):
         """
         num_faces = sum([sd.num_faces for sd in subdomains])
         return ad_wrapper(0, True, num_faces, "bc_vals_flow")
-
-    """FIXME: Incorporate aperture and specific volumes.
-    Current version is a mess.
-    FIXME: Revisit after the first attempt at restructuring mechanics models.
-    """
-
-    def grid_aperture(self, grid: pp.Grid):
-        """FIXME: Decide on how to treat interfaces."""
-        aperture = np.ones(grid.num_cells)
-        if grid.dim < self.nd:
-            aperture *= 0.1
-        return aperture
-
-    def aperture(self, subdomains: list[pp.Grid]) -> np.ndarray:
-        """
-        Aperture is a characteristic thickness of a cell, with units [m].
-        1 in matrix, thickness of fractures and "side length" of cross-sectional
-        area/volume (or "specific volume") for intersections of dimension 1 and 0.
-        See also specific_volume.
-        """
-        apertures = np.empty((1, 0))
-        for sd in subdomains:
-            a_loc = self.grid_aperture(sd)
-            apertures = np.concatenate((apertures, a_loc))
-        return apertures
-
-    def specific_volume(self, subdomains: list[pp.Grid]) -> np.ndarray:
-        """
-        Aperture is a characteristic thickness of a cell, with units [m].
-        1 in matrix, thickness of fractures and "side length" of cross-sectional
-        area/volume (or "specific volume") for intersections of dimension 1 and 0.
-        See also specific_volume.
-        """
-        # Get aperture
-        a: pp.ad.Operator = self.aperture(subdomains)
-        # Compute specific volume as the cross-sectional area/volume
-        # of the cell, i.e. raise to the power nd-dim
-        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-        for dim in range(self.nd):
-            sd_dim = [sd for sd in subdomains if sd.dim == dim]
-            a_loc = projection.cell_restriction(sd_dim) * a
-            v_loc = a_loc ** (self.nd - dim)
-            if dim == 0:
-                v = projection.cell_prolongation(sd_dim) * v_loc
-            else:
-                v += projection.cell_prolongation(sd_dim) * v_loc
-        v.set_name("specific_volume")
-        return v
-
-
-        volumes = np.array([])
-        for sd in subdomains:
-            v_loc = self.grid_specific_volume(sd)
-
-            volumes = np.concatenate((volumes, v_loc))
-        return volumes
-
-    def grid_specific_volume(self, g: pp.Grid) -> np.ndarray:
-        """FIXME exponent broadcasting. Special type of function?
-        The specific volume of a cell accounts for the dimension reduction and has
-        dimensions [m^(Nd - d)].
-        Typically, equals 1 in Nd, the aperture in codimension 1 and the square/cube
-        of aperture in dimension 1 and 0.
-
-        We may need to introduce methods in pp.ad.Matrix to do element (or row-wise)
-        exponents.
-
-        """
-        a = self.grid_aperture(g)
-        return np.power(a, self.nd - g.dim)
 
 
 class ConstitutiveEquationsCompressibleFlow(
@@ -348,7 +292,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         self.exporter: pp.Exporter
 
         # Place initialization stuff to be moved to abstract below.
-        self.units = params.get("units", Units())
+        self.units = params.get("units", pp.Units())
 
     def prepare_simulation(self) -> None:
         self.set_geometry()
@@ -420,9 +364,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
 
             specific_volume = self.grid_specific_volume(sd)
 
-            kappa = self.permeability(
-                sd
-            )  # / self._viscosity(sd) has been factored out in eq
+            kappa = self.permeability(sd)
             diffusivity = pp.SecondOrderTensor(
                 kappa * specific_volume * np.ones(sd.num_cells)
             )
