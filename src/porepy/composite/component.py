@@ -5,7 +5,7 @@ used in this framework.
 from __future__ import annotations
 
 import abc
-from typing import Dict, Optional, Union
+from typing import Union
 
 import porepy as pp
 
@@ -29,13 +29,12 @@ class Component(abc.ABC):
     in the grid data dictionaries.
 
     Parameters:
-        ad_system (optional): If given, this class will use the AD framework and the respective
-            mixed-dimensional domain to represent fractions cell-wise in each subdomain.
+        ad_system: AD system in which this component is present cell-wise in each subdomain.
 
     """
 
     # contains per mdg the singleton, using the class name as a unique identifier
-    __ad_singletons: Dict[pp.MixedDimensionalGrid, Dict[str, Component]] = dict()
+    __ad_singletons: dict[pp.MixedDimensionalGrid, dict[str, Component]] = dict()
     # flag if a singleton has recently been accessed, to skip re-instantiation
     __singleton_accessed: bool = False
 
@@ -70,7 +69,7 @@ class Component(abc.ABC):
         ### PUBLIC
 
         self.ad_system: pp.ad.ADSystem = ad_system
-        """The AD system optionally passed at instantiation."""
+        """The AD system passed at instantiation."""
 
         #### PRIVATE
 
