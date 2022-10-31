@@ -157,7 +157,7 @@ class Composition:
         # - an ideal gas phase
         # - an incompressible liquid phase
         self._phases.append(IncompressibleFluid("L", self.ad_system))
-        self._phases.append(IdealGas("V", self.ad_system))
+        self._phases.append(IdealGas("G", self.ad_system))
         self._skew_cc.update({
             self._phases[0] : 0.3,
             self._phases[1] : 0.7
@@ -834,10 +834,9 @@ class Composition:
 
         # assemble linear system of eq for semi-smooth subsystem
         A, b = self.ad_system.assemble_subsystem(equations, var_names)
-        self._print_matrix(subsystem)
-        print("Res: ", np.linalg.norm(b))
-        print("Kond: ", np.linalg.cond(A.todense()))
-        print("Eigvals: ", np.linalg.eigvals(A.todense()))
+        self._print_state(True)
+        self._print_system(A, b, subsystem)
+
         # if residual is already small enough
         if np.linalg.norm(b) <= self.flash_tolerance:
             success = True
@@ -862,9 +861,8 @@ class Composition:
                 # counting necessary number of iterations
                 iter_final = i + 1  # shift since range() starts with zero
                 A, b = self.ad_system.assemble_subsystem(equations, var_names)
-                self._print_matrix(subsystem)
-                print("Kond: ", np.linalg.cond(A.todense()))
-                print("Eigvals: ", np.linalg.eigvals(A.todense()))
+                self._print_system(A, b, subsystem)
+
                 # in case of convergence
                 if np.linalg.norm(b) <= self.flash_tolerance:
 
@@ -892,17 +890,57 @@ class Composition:
 
         return success
 
-    def _print_matrix(self, subsystem):
+    def _print_system(self, A, b, subsystem):
         all_vars = [block[1] for block in self.ad_system.dof_manager.block_dof]
+        print("Variables:")
         print(
             list(
                 sorted(set(subsystem["primary_vars"]), key=lambda x: all_vars.index(x))
             )
         )
-        for equ in subsystem["equations"]:
-            A, b = self.ad_system.assemble_subsystem(equ, subsystem["primary_vars"])
-            print(equ)
-            print(A.todense())
+        print("Equations:")
+        print(subsystem["equations"])
+        print("---")
+        print("||Res||: ", np.linalg.norm(b))
+        print("Cond: ", np.linalg.cond(A.todense()))
+        print("Eigvals: ", np.linalg.eigvals(A.todense()))
+        print("Residual:")
+        print(b)
+        print("Jacobian:")
+        print(A.todense())
+
+
+    def _print_state(self, from_iterate: bool = False) -> None:
+        L = self._phases[0]
+        G = self._phases[1]
+        if from_iterate:
+            print("ITERATE:")
+        else:
+            print("STATE:")
+        print("---")
+        for C in self.components:
+            print(f"k-value-{C.name}:", self.k_values[C])
+        print("---")
+        for C in self.components:
+            print(C.fraction_name, self.ad_system.get_var_values(C.fraction_name, from_iterate))
+        print("---")
+        print(L.fraction_name, self.ad_system.get_var_values(L.fraction_name, from_iterate))
+        print(G.fraction_name, self.ad_system.get_var_values(G.fraction_name, from_iterate))
+        print("---")
+        for C in self.components:
+            name = L.ext_component_fraction_name(C)
+            print(name, self.ad_system.get_var_values(name, from_iterate))
+            name = G.ext_component_fraction_name(C)
+            print(name, self.ad_system.get_var_values(name, from_iterate))
+        print("---")
+        for C in self.components:
+            name = L.component_fraction_name(C)
+            print(name, self.ad_system.get_var_values(name, from_iterate))
+            name = G.component_fraction_name(C)
+            print(name, self.ad_system.get_var_values(name, from_iterate))
+        print("---")
+        print(L.saturation_name, self.ad_system.get_var_values(L.saturation_name, from_iterate))
+        print(G.saturation_name, self.ad_system.get_var_values(G.saturation_name, from_iterate))
 
     def _set_initial_guess(
         self,
@@ -919,42 +957,38 @@ class Composition:
         if initial_guess == "iterate":
             pass  # DofManager does this by default
         elif initial_guess == "feed":
-            # 'phase feed' is a temporary value, sum of feeds of present components
-            # y_e = sum z_c if c in e
-            all_phase_feeds = list()
-            # setting the values for phase compositions per phase
-            for phase in self.phases:
-                # feed fractions from components present in this phase
-                feed = [
-                    self.ad_system.get_var_values(comp.fraction_name, False)
-                    for comp in phase
-                ]
+            # use feed fractions as basis for all initial guesses
+            feed: dict[Component, np.ndarray] = dict()
+            # setting the values for liquid and gas phase composition
+            liquid = self._phases[0]
+            gas = self._phases[1]
+            for component in self.components:
+                k_val = self.k_values[component]
+                z_c = self.ad_system.get_var_values(component.fraction_name, True)
+                feed.update({component: z_c})
+                # this initial guess fullfils the k-value equation for component c
+                xi_c_L = z_c
+                xi_c_V = k_val * xi_c_L
 
-                # this is not necessarily one if not all components are present in phase,
-                # but never zero because empty phases are not accepted
-                phase_feed = sum(feed)
-                all_phase_feeds.append(phase_feed)
-
-                for c, component in enumerate(phase):
-                    fraction_in_phase = feed[c]
-                    # re-normalize the fraction,
-                    # dependent on number of components in this phase.
-                    # component fractions have to sum up to 1.
-                    fraction_in_phase = fraction_in_phase / phase_feed
-                    # write
-                    self.ad_system.set_var_values(
-                        phase.ext_component_fraction_name(component),
-                        fraction_in_phase,
+                self.ad_system.set_var_values(
+                        liquid.ext_component_fraction_name(component),
+                        xi_c_L,
                     )
-
-            # by re-normalizing the phase feeds,
-            # we obtain an initial guess for the phase fraction.
-            # phase fractions have to sum up to 1.
-            phase_feed_sum = sum(all_phase_feeds)
-            for e, phase in enumerate(self.phases):
-                phase_feed = all_phase_feeds[e]
-                phase_fraction = phase_feed / phase_feed_sum
-                self.ad_system.set_var_values(phase.fraction_name, phase_fraction)
+                self.ad_system.set_var_values(
+                        gas.ext_component_fraction_name(component),
+                        xi_c_V,
+                    )
+            # for an initial guess for gas fraction we take the feed of the reference component
+            y_V = feed[self.reference_component]
+            y_L = 1 - y_V
+            self.ad_system.set_var_values(
+                liquid.fraction_name,
+                y_L,
+            )
+            self.ad_system.set_var_values(
+                gas.fraction_name,
+                y_V,
+            )
 
         elif initial_guess == "uniform":
             # uniform values for phase fraction
@@ -965,7 +999,7 @@ class Composition:
                 )
                 # uniform values for composition of this phase
                 val = 1.0 / phase.num_components
-                for component in phase:
+                for component in self.components:
                     self.ad_system.set_var_values(
                         phase.ext_component_fraction_name(component),
                         val * np.ones(nc),

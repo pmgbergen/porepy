@@ -370,7 +370,7 @@ class Phase(abc.ABC):
 
 
 class IncompressibleFluid(Phase):
-    """Ideal, Incompressible fluid with constant density of 1e6 mole per V_REF.
+    """Ideal, Incompressible fluid with constant density of 1e3 mole per V_REF.
     
     The EOS is reduced to
     
@@ -379,7 +379,7 @@ class IncompressibleFluid(Phase):
     
     """
     
-    num_moles: float = 1e6
+    num_moles: float = 1e3
 
     def density(self, p, T):
         return pp.ad.Array(
