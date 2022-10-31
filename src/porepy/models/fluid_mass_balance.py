@@ -119,34 +119,43 @@ class MassBalanceEquations(ScalarBalanceEquation):
     def fluid_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid flux.
 
-        The fluid flux is defined as the product of the fluid velocity and the fluid
-        density. Hence, the ideal implementation would be something like
-        flux = self.face_mobility(subdomains) * self.darcy_flux(subdomains)
-        flux.set_name("fluid_flux")
-        return flux
-        EK: Please confirm that there is no way to do it this elegantly and that we must do
-        something like suggested below.
+        Given a Darcy flux, this is an advective flux.
+
+        Args:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the fluid flux.
         """
         discr = self.mobility_discretization(subdomains)
+        mob_rho = self.cell_mobility(subdomains) * self.density(subdomains)
 
-        bc_values = self.bc_values_mobility(subdomains)
-        darcy_flux = self.darcy_flux(subdomains)
-        interfaces = self.subdomains_to_interfaces(subdomains)
-        mortar_projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
-        # FIXME: complete with BCs etc. Nontrivial!
-        flux: pp.ad.Operator = (
-            darcy_flux * discr.upwind * self.cell_mobility(subdomains)
-            - discr.bound_transport_dir * darcy_flux * bc_values
-            # Advective flux coming from lower-dimensional subdomains
-            - discr.bound_transport_neu
-            * (
-               mortar_projection.mortar_to_primary_int
-               * self.interface_mobility_flux(interfaces)
-               + bc_values
-            )
+        bc_values = self.bc_values_mobrho(subdomains)
+        # Signature of method should allow reuse for e.g. enthalpy flux
+        flux = self.advective_flux(
+            subdomains, mob_rho, discr, bc_values, self.interface_fluid_flux
         )
-        flux.set_name("face_mobility")
+        flux.set_name("fluid_flux")
         return flux
+
+    def interface_fluid_flux_equation(self, interfaces: list[pp.MortarGrid]):
+        """Fluid flux on interfaces.
+
+        Given a Darcy flux, this is an advective interface flux.
+        Args:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the fluid flux on the interfaces.
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        discr = self.interface_mobility_discretization(interfaces)
+        mob_rho = self.cell_mobility(subdomains) * self.density(subdomains)
+        var: pp.ad.Variable = self.interface_fluid_flux(interfaces)
+        eq: pp.ad.Operator = var - self.interface_advective_flux(
+            interfaces, mob_rho, discr
+        )
+        return eq
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid source term.
@@ -166,8 +175,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
 class ConstitutiveEquationsIncompressibleFlow(
     constitutive_laws.DarcyFlux, constitutive_laws.DimensionReduction
 ):
-    """Constitutive equations for incompressible flow.
-    """
+    """Constitutive equations for incompressible flow."""
 
     def cell_mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mobility of the fluid flux.
@@ -178,10 +186,7 @@ class ConstitutiveEquationsIncompressibleFlow(
         Returns:
             Operator representing the mobility.
         """
-        return self.fluid_density(subdomains) / self.viscosity(subdomains)
-
-
-
+        return 1 / self.viscosity(subdomains)
 
     def mobility_discretization(
         self, subdomains: list[pp.Grid]
@@ -211,17 +216,19 @@ class ConstitutiveEquationsIncompressibleFlow(
         p_trace = self.pressure_trace(self, subdomains)
         p = self.pressure(subdomains)
         interface_geometry = pp.ad.Geometry(interfaces, matrices=["cell_volumes"])
-        # Project the two pressures to the interface and equate with \lambda
-        eq = self.interface_fluid_flux(
-            interfaces
-        ) - interface_geometry.cell_volumes * self.normal_diffusivity(interfaces) * (
-            projection.primary_to_mortar_avg * p_trace
-            - projection.mortar_projection_scalar.secondary_to_mortar_avg * p
-            # FIXME: The plan is to remove RoubinCoupling. That requires alternative
-            #  implementation of the below
-            # + robin_ad.mortar_vector_source * vector_source_interfaces
+        # Project the two pressures to the interface and multiply with the normal diffusivity
+        flux = (
+            -interface_geometry.cell_volumes
+            * self.normal_diffusivity(interfaces)
+            * (
+                projection.primary_to_mortar_avg * p_trace
+                - projection.mortar_projection_scalar.secondary_to_mortar_avg * p
+                # FIXME: The plan is to remove RoubinCoupling. That requires alternative
+                #  implementation of the below
+                # + robin_ad.mortar_vector_source * vector_source_interfaces
+            )
         )
-        return eq
+        return flux
 
     def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
@@ -238,7 +245,7 @@ class ConstitutiveEquationsIncompressibleFlow(
         num_faces = sum([sd.num_faces for sd in subdomains])
         return ad_wrapper(0, True, num_faces, "bc_values_darcy")
 
-    def bc_values_mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
 
         Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
@@ -442,7 +449,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
                 data,
                 self.darcy_discretization_parameter_key,
                 {
-                    "bc": self.bc_type_mobility(sd),
+                    "bc": self.bc_type_mobrho(sd),
                     "second_order_tensor": diffusivity,
                     "ambient_dimension": self.nd,
                 },
@@ -473,7 +480,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, all_bf, "dir")
 
-    def bc_type_mobility(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
 
         Args:

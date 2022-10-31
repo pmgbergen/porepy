@@ -154,7 +154,7 @@ class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
         dtemp = self.temperature(subdomains) - self.reference_temperature(
             self, subdomains
         )
-        rho = rho * exp(-dtemp / self.fluid.THERMAL_EXPANSION)
+        rho = rho * exp(-dtemp / self.fluid.thermal_expansion(subdomains))
         return rho
 
 
@@ -230,6 +230,73 @@ class DarcyFlux:
 
         """
         return pp.ad.MpfaAd(self.darcy_discretization_parameter_key, subdomains)
+
+
+class AdvectiveFlux:
+    def fluid_flux(
+        self,
+        subdomains: list[pp.Grid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.Discretization,
+        bc_values: pp.ad.Operator,
+        interface_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator],
+    ) -> pp.ad.Operator:
+        """Advective flux.
+
+        Args:
+            subdomains: List of subdomains.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
+            bc_values: Boundary conditions for the advective flux.
+            interface_flux: Interface flux operator/variable.
+
+        Returns:
+            Operator representing the advective flux.
+        """
+        darcy_flux = self.darcy_flux(subdomains)
+        interfaces = self.subdomains_to_interfaces(subdomains)
+        mortar_projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
+        flux: pp.ad.Operator = (
+            darcy_flux * discr.upwind * advected_entity
+            - discr.bound_transport_dir * darcy_flux * bc_values
+            # Advective flux coming from lower-dimensional subdomains
+            - discr.bound_transport_neu
+            * (
+                mortar_projection.mortar_to_primary_int * interface_flux(interfaces)
+                + bc_values
+            )
+        )
+        return flux
+
+    def interface_advective_flux(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.Discretization,
+    ) -> pp.ad.Operator:
+        """Advective flux on interfaces.
+
+        Args:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the advective flux on the interfaces.
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
+        trace = pp.ad.Trace(subdomains)
+        # Project the two advected entity to the interface and multiply with upstream weights
+        # and the interface Darcy flux.
+        interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
+            discr.upwind_primary
+            * mortar_projection.primary_to_mortar_avg
+            * trace.trace
+            * advected_entity
+            + discr.upwind_secondary
+            * mortar_projection.secondary_to_mortar_avg
+            * advected_entity
+        )
+        return interface_flux
 
 
 class GravityForce:

@@ -345,7 +345,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         return outwards_mat
 
 
-class ConstitutiveEquationsForceBalance(constit_library.LinearElasticRock):
+class ConstitutiveEquationsForceBalance(constitutive_laws.LinearElasticRock):
     """Class for constitutive equations for force balance equations."""
 
     def stress(self, subdomains: list[pp.Grid]):
@@ -372,7 +372,7 @@ class ConstitutiveEquationsForceBalance(constit_library.LinearElasticRock):
 
         """
         num_faces = sum([sd.num_faces for sd in subdomains])
-        return constit_library.ad_wrapper(
+        return constitutive_laws.ad_wrapper(
             0, True, num_faces * self.nd, "bc_vals_mechanics"
         )
 
@@ -596,7 +596,7 @@ class SolutionStrategyForceBalance(pp.models.abstract_model.AbstractModel):
 
         """
         vals = self.rock.convert_and_expand(1, "-", subdomains)
-        c_num = constit_library.ad_wrapper(vals, False, name="c_num")
+        c_num = constitutive_laws.ad_wrapper(vals, False, name="c_num")
         return c_num
 
     def before_newton_loop(self) -> None:
