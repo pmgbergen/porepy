@@ -908,7 +908,7 @@ class Composition:
         print(b)
         print("Jacobian:")
         print(A.todense())
-
+        print("---")
 
     def _print_state(self, from_iterate: bool = False) -> None:
         L = self._phases[0]
@@ -941,6 +941,7 @@ class Composition:
         print("---")
         print(L.saturation_name, self.ad_system.get_var_values(L.saturation_name, from_iterate))
         print(G.saturation_name, self.ad_system.get_var_values(G.saturation_name, from_iterate))
+        print("---")
 
     def _set_initial_guess(
         self,
