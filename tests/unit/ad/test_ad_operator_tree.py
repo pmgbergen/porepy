@@ -17,7 +17,7 @@ import pytest
 import scipy.sparse as sps
 import numpy as np
 
-_operations = pp.ad.operators.Operation
+_operations = pp.ad.operators.Operator.Operations
 
 operators = [
     ("+", _operations.add),
