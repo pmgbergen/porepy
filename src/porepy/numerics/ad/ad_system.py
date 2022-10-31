@@ -17,7 +17,7 @@ import porepy as pp
 from . import _ad_utils
 from .operators import MixedDimensionalVariable, Operator, Variable
 
-__all__ = ["ADSystem"]
+__all__ = ["SystemManager"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
 """A union type representing a domain either by a grid or mortar grids."""
@@ -148,7 +148,7 @@ Examples:
 """
 
 
-class ADSystem:
+class SystemManager:
     """Represents a physical system, modelled by AD variables and equations in AD form.
 
     This class provides functionalities to create and manage variables,
@@ -175,7 +175,7 @@ class ADSystem:
         >>> import porepy as pp
         >>> var_categories = Enum('var_categories, ['primary', 'secondary'])
         >>> mdg = ...  # some mixed-dim grid
-        >>> ad_sys = pp.ad.ADSystem(mdg, var_categories)
+        >>> ad_sys = pp.ad.SystemManager(mdg, var_categories)
         >>> p = ad_sys.create_variable('pressure', category=var_categories.primary)
         >>> rho = ad_sys.create_variable('density', category=var_categories.secondary)
         >>> primary_projection = ad_sys.projection_to(var_category.primary)
@@ -273,12 +273,12 @@ class ADSystem:
 
         """
 
-    def ADSubSystem(
+    def SubSystem(
         self,
         equation_names: Optional[str | list[str]] = None,
         variable_names: Optional[str | list[str]] = None,
-    ) -> ADSystem:
-        """Creates an ``ADSystem`` for a given subset of equations and variables.
+    ) -> SystemManager:
+        """Creates an ``SystemManager`` for a given subset of equations and variables.
 
         Currently only subsystems containing *whole* equations and variables in the
         mixed-dimensional sense can be created. Chopping into grid variables and restricting
@@ -302,7 +302,7 @@ class ADSystem:
                 subsystem. If None (default), the whole set of known md variables is used.
 
         Returns:
-            a new instance of ``ADSystemManager``. The subsystem equations and variables
+            a new instance of ``SystemManagerManager``. The subsystem equations and variables
             are ordered as imposed by this systems's order.
         
         Raises:
@@ -330,7 +330,7 @@ class ADSystem:
             raise ValueError(f"Unknown variable(s) {unknown_equations}.")
 
         # creating a new manager
-        new_manger = ADSystem(self.mdg, var_categories=self.var_categories)
+        new_manger = SystemManager(self.mdg, var_categories=self.var_categories)
 
         # this method imitates the variable creation and equation setting procedures by
         # calling private methods and accessing private attributes.
@@ -1233,7 +1233,7 @@ class ADSystem:
         if len(operator.tree.children) > 0:
             # Go further in recursion
             for child in operator.tree.children:
-                discr += ADSystem._recursive_discretization_search(child, list())
+                discr += SystemManager._recursive_discretization_search(child, list())
 
         if isinstance(operator, _ad_utils.MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
@@ -1469,7 +1469,7 @@ class ADSystem:
         for equ_name, rows in equ_blocks.items():
             # this will raise a key error if the equation name is unknown
             eq = self._equations[equ_name]
-            ad = eq.evaluate(self.dof_manager, state)
+            ad = eq.evaluate(self, state)
 
             # if restriction to grid-related row blocks was made,
             # perform row slicing based on information we have obtained from parsing
