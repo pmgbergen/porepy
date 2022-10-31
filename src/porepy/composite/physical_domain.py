@@ -1,4 +1,8 @@
-"""Contains a class representing physical properties."""
+"""Contains a class representing domains with physical properties.
+
+WIP. not to be used.
+
+"""
 
 from __future__ import annotations
 
