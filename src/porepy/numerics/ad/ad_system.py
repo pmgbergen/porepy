@@ -227,7 +227,7 @@ class SystemManager:
         """
 
         self._variables: dict[str, MixedDimensionalVariable] = dict()
-        """Contains references to (global) MergedVariables for a given name (key)."""
+        """Contains references to (global) MixedDimensionalVariables for a given name (key)."""
 
         self._equ_image_space_composition: dict[
             str, dict[GridLike, np.ndarray]
@@ -282,7 +282,7 @@ class SystemManager:
 
         Currently only subsystems containing *whole* equations and variables in the
         mixed-dimensional sense can be created. Chopping into grid variables and restricting
-        equations to certain grids is as of now not supported (hence the signature). 
+        equations to certain grids is as of now not supported (hence the signature).
 
         Notes:
             Subsystems have the same categories
@@ -321,13 +321,14 @@ class SystemManager:
 
         # checking input, if subsystem is well-defined
         known_equations = set(self._equations.keys())
+        unknown_equations = set(equation_names).difference(known_equations)
+        if len(unknown_equations) > 0:
+            raise ValueError(f"Unknown variable(s) {unknown_equations}.")
+
         known_variables = set(self._variables.keys())
         unknown_variables = set(variable_names).difference(known_variables)
         if len(unknown_variables) > 0:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
-        unknown_equations = set(equation_names).difference(known_equations)
-        if len(unknown_equations) > 0:
-            raise ValueError(f"Unknown variable(s) {unknown_equations}.")
 
         # creating a new manager
         new_manger = SystemManager(self.mdg, var_categories=self.var_categories)
@@ -383,21 +384,21 @@ class SystemManager:
 
     @property
     def equations(self) -> dict[str, Operator]:
-        """Dictionary containing names of operators (keys) and operators (values), which have
-        been set as equations in this system.
+        """Dictionary containing names of operators (keys) and operators (values), which
+        have been set as equations in this system.
 
         """
         return self._equations
 
     @property
     def variables(self) -> dict[str, MixedDimensionalVariable]:
-        """Dictionary containing names (keys) and mixed-dimensional variables (values), which
-        have been created in this system.
+        """Dictionary containing names (keys) and mixed-dimensional variables (values),
+        which have been created in this system.
 
         """
         return self._variables
 
-    ### Variable management -------------------------------------------------------------------
+    ### Variable management ------------------------------------------------------------
 
     def create_variable(
         self,
@@ -412,34 +413,35 @@ class SystemManager:
         This method does now assign any values to the variable. This has to be done in a
         subsequent step (using e.g. :meth:`set_var_values`).
 
-        If variables are categorized using enums, each variable must be assigned to a category.
-        A variable cannot be in multiple categories, but only one.
+        If variables are categorized using enums, each variable must be assigned to a
+        category. A variable cannot be in multiple categories, but only one.
 
         Notes:
-            This methods provides support for creating variables on **all** subdomains or
-            interfaces, without having to pass them all as arguments.
+            This methods provides support for creating variables on **all** subdomains
+            or interfaces, without having to pass them all as arguments.
             If the argument ``subdomains`` is an empty list, the method will use all
             subdomains found in the mixed-dimensional grid.
             If the argument ``interfaces`` is an empty list, the method will use all
             interfaces found in the mixed-dimensional list.
 
         Examples:
-            An example on how to define a pressure variable with cell-wise one DOF (default)on
-            **all** subdomains and **no** interfaces would be
+            An example on how to define a pressure variable with cell-wise one DOF
+            (default) on **all** subdomains and **no** interfaces would be
 
             >>> p = ad_system.create_variable('pressure', subdomains=[])
 
         Parameters:
-            name: used here as an identifier. Can be used to associate the variable with some
-                physical quantity like ``'pressure'``.
-            dof_info: dictionary containing information about number of DOFs per admissible
-                type (see :data:`admissible_dof_types`). Defaults to ``{'cells':1}``.
+            name: used here as an identifier. Can be used to associate the variable wit
+                some physical quantity like ``'pressure'``.
+            dof_info: dictionary containing information about number of DOFs per 
+                admissible type (see :data:`admissible_dof_types`). Defaults to
+                ``{'cells':1}``.
             subdomains (optional): list of subdomains on which the variable is defined.
                 If None, then it will not be defined on any subdomain.
             interfaces (optional): list of interfaces on which the variable is defined.
                 If None, then it will not be defined on any interface.
-            category (optional): assigns a category to the variable. Must be an :class:`Enum`
-                contained in :class:`EnumMeta` passed at instantiation.
+            category (optional): assigns a category to the variable. Must be an
+               :class:`Enum` contained in :class:`EnumMeta` passed at instantiation.
 
         Returns:
             a mixed-dimensional variable with above specifications.
@@ -517,29 +519,24 @@ class SystemManager:
             for intf in interfaces:
                 data = self.mdg.interface_data(intf)
 
-                if (
-                    intf.codim == 2
-                ):  # no variables in points TODO check if this up-to-date
-                    continue
-                else:
-                    # prepare data dictionary if this was not done already
-                    if var_cat not in data:
-                        data[var_cat] = dict()
-                    if pp.STATE not in data:
-                        data[pp.STATE] = dict()
-                    if pp.ITERATE not in data[pp.STATE]:
-                        data[pp.STATE][pp.ITERATE] = dict()
+                # prepare data dictionary if this was not done already
+                if var_cat not in data:
+                    data[var_cat] = dict()
+                if pp.STATE not in data:
+                    data[pp.STATE] = dict()
+                if pp.ITERATE not in data[pp.STATE]:
+                    data[pp.STATE][pp.ITERATE] = dict()
 
-                    # store DOF information about variable
-                    data[var_cat].update({name: dof_info})
+                # store DOF information about variable
+                data[var_cat].update({name: dof_info})
 
-                    # create mortar grid variable
-                    new_var = Variable(name, dof_info, domain=intf)
-                    if intf not in self._grid_variables:
-                        self._grid_variables[intf] = dict()
-                    if name not in self._grid_variables[intf]:
-                        self._grid_variables[intf].update({name: new_var})
-                    variables.append(new_var)
+                # create mortar grid variable
+                new_var = Variable(name, dof_info, domain=intf)
+                if intf not in self._grid_variables:
+                    self._grid_variables[intf] = dict()
+                if name not in self._grid_variables[intf]:
+                    self._grid_variables[intf].update({name: new_var})
+                variables.append(new_var)
 
         # create and store the md variable
         merged_var = MixedDimensionalVariable(variables)
@@ -632,7 +629,8 @@ class SystemManager:
                         values.append(data[pp.STATE][name].copy())
                 except KeyError:
                     raise KeyError(
-                        f"No values stored for variable {name}, from_iterate={from_iterate}"
+                        f"No values stored for variable {name}, "
+                        f"from_iterate={from_iterate}"
                         f"\non grid {grid}."
                     )
 
@@ -656,16 +654,18 @@ class SystemManager:
         The order of values is assumed to fit the global order.
 
         Notes:
-            The vector is assumed to be of proper size and will be dissected according to the
-            global order, starting with the index 0.
-            Mismatches of is-size and should-be-size according to the subspace specified by
-            ``variables`` will raise respective errors by numpy.
+            The vector is assumed to be of proper size and will be dissected according
+            to the global order, starting with the index 0.
+            Mismatches of is-size and should-be-size according to the subspace specified
+            by ``variables`` will raise respective errors by numpy.
 
         Parameters:
             values: vector of corresponding size.
-            variables (optional): variable-like input for which the values are requested.
-                If None (default), the global vector of unknowns will be set.
-            to_iterate (optional): flag to write values to ITERATE, instead of STATE (default).
+            variables (optional): variable-like input for which the values are
+                 requested. If None (default), the global vector of unknowns will be
+                 set.
+            to_iterate (optional): flag to write values to ITERATE, instead of STATE
+                (default).
             additive (optional): flag to write values *additively* to ITERATE or STATE.
                 To be used in iterative procedures.
 
@@ -692,8 +692,8 @@ class SystemManager:
                     data = self.mdg.subdomain_data(grid)
                 elif isinstance(grid, pp.MortarGrid):
                     data = self.mdg.interface_data(grid)
-                # data dict should have pp.STATE and pp.ITERATE entries already created during
-                # create_variable
+                # data dict should have pp.STATE and pp.ITERATE entries already created
+                # during create_variable
 
                 # store new values as requested
                 if additive:
@@ -718,7 +718,7 @@ class SystemManager:
         # Do we care if there are more values than necessary? TODO
         assert block_end == values.size
 
-    ### DOF management ------------------------------------------------------------------------
+    ### DOF management -----------------------------------------------------------------
 
     def _append_dofs(self, var_name: str, var_cat: Any) -> None:
         """Appends DOFs for a newly created variable.
@@ -855,8 +855,8 @@ class SystemManager:
         Raises a type error if the input or part of the input is not VarLike.
 
         Notes:
-            This method, and the sub-routine _parse_single_varlike, are crucial in terms of
-            performance.
+            This method, and the sub-routine _parse_single_varlike, are crucial in terms
+            of performance.
 
         """
         # the default return value is all blocks
@@ -869,9 +869,10 @@ class SystemManager:
                 return self._parse_single_varlike(variables)
             # try to iterate over sequential VarLike
             else:
-                # storage for all requested blocks, possible not unique and un-restricted in
-                # terms of grids
+                # storage for all requested blocks, possible not unique and
+                # un-restricted in terms of grids
                 requested_blocks = list()
+
                 # storage for all grid-restricted vars to eliminate the rest
                 grid_restricted_vars = set()
                 restricted_grids: dict[str, set] = dict()
@@ -879,6 +880,7 @@ class SystemManager:
                 for variable in variables:
                     # same parsing as for non_sequentials
                     requested_blocks += self._parse_single_varlike(variable)
+
                     # filtering grid restrictions
                     if isinstance(variable, Variable):
                         grid_restricted_vars.add(variable.name)
@@ -886,15 +888,20 @@ class SystemManager:
                             restricted_grids[variable.name].add(variable.domain)
                         else:
                             restricted_grids[variable.name] = set([variable.domain])
-                # make results unique
-                requested_blocks = set(requested_blocks)
-                # processing grid restrictions
+
+                # Make results unique.
+                requested_blocks = list(set(requested_blocks))
+                # Processing grid restrictions.
                 for name in grid_restricted_vars:
+                    # All grids on which this variable is defined
                     all_grids = set(self._variables[name].domain)
+
+                    # Grids that should be filtered away
                     filtered_grids = all_grids.difference(restricted_grids[name])
                     for f_name, f_grid in itertools.product([name], filtered_grids):
                         if (f_name, f_grid) in requested_blocks:
                             requested_blocks.remove((f_name, f_grid))
+
                 # iterate over available blocks and check if they are requested
                 # this ensures uniqueness again and correct order
                 return [
@@ -937,14 +944,19 @@ class SystemManager:
         The grid-based complement consists of all those grid variables, which are not
         inside ``variables``, but their respective variable names appear in the structure.
         """
-        # strings, md variables and categories represent always a whole in the variable sense
-        # and the complement is empty
+        # strings, md variables and categories represent always a whole in the variable
+        # sense and the complement is empty
         if isinstance(variables, (str, MixedDimensionalVariable, Enum)):
             return list()
-        # grid variables are part of a md variable, the complement are the remaining grid vars
+        
+        # grid variables are part of a md variable, the complement are the remaining
+        # grid vars
         elif isinstance(variables, Variable):
+            # Get the MixedDimensionalVariable version of this variable
             md_v = self._variables[variables.name]
+            # Return all components of the md variable that are not the input variable
             return [var for var in md_v.sub_vars if var.domain != variables.domain]
+        
         # non sequential var-like structure
         else:
             grid_vars = list()
@@ -966,22 +978,25 @@ class SystemManager:
         """Create a projection matrix from the global vector of unknowns to a specified
         subspace.
 
-        The subspace can be specified by variable categories, variable names and variables
-        (see :data:`VarLike`).
+        The subspace can be specified by variable categories, variable names and
+        variables (see :data:`VarLike`).
 
-        The transpose of the returned matrix can be used to slice respective columns out of the
-        global Jacobian.
+        The transpose of the returned matrix can be used to slice respective columns out 
+        of the global Jacobian.
 
-        The projection preserves the global order defined by the system, i.e. it includes no
-        permutation.
+        The projection preserves the global order defined by the system, i.e. it
+        includes no permutation.
 
-        If no subspace is specified using ``variables``, a null-space projection is returned.
+        If no subspace is specified using ``variables``, a null-space projection is
+        returned.
 
         Parameters:
-            variables (optional): variable-like input for which the subspace is requested.
+            variables (optional): variable-like input for which the subspace is
+            requested.
 
         Returns:
-            a sparse projection matrix of shape ``(M,num_dofs)``, where ``0<=M<=num_dofs``.
+            a sparse projection matrix of shape ``(M, num_dofs)``, where 
+            ``0 <= M <= num_dofs``.
 
         """
 
@@ -1055,19 +1070,20 @@ class SystemManager:
 
         The block is represented either by a name-grid pair or the respective variable.
 
-        The intended use is to help identify entries in the global vector or the column of the
-        Jacobian, which do not behave as expected.
+        The intended use is to help identify entries in the global vector or the column
+        of the Jacobian, which do not behave as expected.
 
         Parameters:
             dof: a single index in the global vector.
             return_var (optional): if True, returns the variable object instead of the
                 name-grid combination representing the dof.
 
-        Returns: a 2-tuple containing variable name and a grid, or the respective variable
-            itself.
+        Returns: a 2-tuple containing variable name and a grid, or the respective
+            variable itself.
 
         Raises:
-            KeyError: if the dof is out of range (larger then ``num_dofs`` or smaller than 0).
+            KeyError: if the dof is out of range (larger then ``num_dofs`` or smaller
+                than 0).
 
         """
         num_dofs = self.num_dofs()
@@ -1101,38 +1117,40 @@ class SystemManager:
 
         If an equation already exists under that name, it is overwritten.
 
-        Information about the image space must be provided for now, such that grid-wise row
-        slicing is possible. This will hopefully be provided automatically in the future.
+        Information about the image space must be provided for now, such that grid-wise
+        row slicing is possible. This will hopefully be provided automatically in the
+        future.
 
         Notes:
             Regarding the number of equations, this method assumes that the AD framework
-            assembles row blocks per grid in subdomains, then per grid in interfaces, for each
-            operator representing an equation. This is assumed to be the way PorePy AD works.
+            assembles row blocks per grid in subdomains, then per grid in interfaces,
+            for each operator representing an equation. This is assumed to be the way
+            PorePy AD works.
 
         Parameters:
             equation: An equation in AD operator form, assuming the right-hand side is
                 zero and this instance represents the left-hand side.
                 **The equation must be ready for evaluation,
                 i.e. all involved variables must have values set.**
-            num_equ_per_dof: a dictionary describing how many equations ``equation_operator``
-                provides. This is a temporary work-around until operators are able to provide
-                information on their image space.
-                The dictionary must contain the number of equations per admissible dof type,
-                (see :data:`porepy.DofManager.admissible_dof_types`),
+            num_equ_per_dof: a dictionary describing how many equations
+                ``equation_operator`` provides. This is a temporary work-around until
+                operators are able to provide information on their image space.
+                The dictionary must contain the number of equations per admissible dof
+                type, (see :data:`porepy.DofManager.admissible_dof_types`),
                 for each grid the operator was defined on.
 
         Raises:
-            ValueError: if the equation operator has a name already assigned to a previously
-                set equation
+            ValueError: if the equation operator has a name already assigned to a
+                previously set equation
             AssertionError: if the equation is defined on an unknown grid.
-            ValueError: if indicated number of equations does not match the actual number as
-                per evaluation of operator.
+            ValueError: if indicated number of equations does not match the actual 
+                number as per evaluation of operator.
 
         """
         image_info: dict[GridLike, np.ndarray] = dict()
         total_num_equ = 0
-        valid_grids = [sd for sd in self.mdg.subdomains()]
-        valid_intf = [intf for intf in self.mdg.interfaces()]
+        valid_grids: list[pp.Grid] = [sd for sd in self.mdg.subdomains()]
+        valid_intf: list[pp.MortarGrid] = [intf for intf in self.mdg.interfaces()]
         equation_domain = list(num_equ_per_dof.keys())
         name = equation.name
         if name in self._equations:
@@ -1145,49 +1163,49 @@ class SystemManager:
         # we loop over the valid grids and interfaces in that order to assert a correct
         # indexation according to the global order (for grid in sds, for grid in intfs)
         # the user does not have to care about the order in num_equ_per_dof
-        for grid in valid_grids:
-            if grid in equation_domain:
-                dof_info = num_equ_per_dof[grid]
+        for sd in valid_grids:
+            if sd in equation_domain:
+                dof_info = num_equ_per_dof[sd]
                 # equations on subdomains can be defined on any dof type
                 num_equ_per_grid = int(
-                    grid.num_cells * dof_info.get("cells", 0)
-                    + grid.num_nodes * dof_info.get("nodes", 0)
-                    + grid.num_faces * dof_info.get("faces", 0)
+                    sd.num_cells * dof_info.get("cells", 0)
+                    + sd.num_nodes * dof_info.get("nodes", 0)
+                    + sd.num_faces * dof_info.get("faces", 0)
                 )
                 # row indices for this grid, cast to integers
                 block_idx = np.arange(num_equ_per_grid, dtype=int) + total_num_equ
                 # cumulate total number of equations
                 total_num_equ += num_equ_per_grid
                 # store block idx per grid
-                image_info.update({grid: block_idx})
-                # remove the grid from the domain list
-                equation_domain.remove(grid)
+                image_info.update({sd: block_idx})
+                # remove the subdomain from the domain list
+                equation_domain.remove(sd)
 
-        for grid in valid_intf:
-            if grid in equation_domain:
-                dof_info = num_equ_per_dof[grid]
+        for intf in valid_intf:
+            if intf in equation_domain:
+                dof_info = num_equ_per_dof[intf]
                 # equations on interfaces can only be defined on cells
-                num_equ_per_grid = int(grid.num_cells * dof_info.get("cells", 0))
+                num_equ_per_grid = int(intf.num_cells * dof_info.get("cells", 0))
                 # row indices for this grid, cast to integers
                 block_idx = np.arange(num_equ_per_grid, dtype=int) + total_num_equ
                 # cumulate total number of equations
                 total_num_equ += num_equ_per_grid
                 # store block idx per grid
-                image_info.update({grid: block_idx})
+                image_info.update({intf: block_idx})
                 # remove the grid from the domain list
-                equation_domain.remove(grid)
+                equation_domain.remove(intf)
 
         # assert the equation is not defined on an unknown domain
         assert len(equation_domain) == 0
 
         # perform a validity check of the input
-        equ_ad = equation.evaluate(self.dof_manager)
-        is_num_equ = len(equ_ad.val)
-        if total_num_equ != is_num_equ:
-            raise ValueError(
-                f"Passed 'equation_operator' has {is_num_equ} equations,"
-                f" opposing indicated number of {total_num_equ}."
-            )
+        #equ_ad = equation.evaluate(self.dof_manager)
+        #is_num_equ = len(equ_ad.val)
+        #if total_num_equ != is_num_equ:
+        #    raise ValueError(
+        #        f"Passed 'equation_operator' has {is_num_equ} equations,"
+        #        f" opposing indicated number of {total_num_equ}."
+        #    )
 
         # if all good, we assume we can proceed
         self._equ_image_space_composition.update({name: image_info})
@@ -1246,9 +1264,13 @@ class SystemManager:
     ) -> dict[str, None | np.ndarray]:
         """Helper method to parse equation-like inputs into a properly ordered structure.
 
+        The equations will be ordered according to the order in self._equations (which
+        is the order in which they were added to the system manager and which also is
+        fixed since iteration of dictionaries is so).
+
         Raises a type error if the input or part of the input is not equation-like.
-        If an equation is requested for a grid on which it is not defined, a value error will
-        be raised.
+        If an equation is requested for a grid on which it is not defined, a value error
+        will be raised.
 
         """
         # the default return value is all equations with no grid restrictions
@@ -1290,17 +1312,21 @@ class SystemManager:
     ) -> dict[str, None | list[GridLike]]:
         """Another helper's helper, this time for row blocks.
         Parses non-sequential equation-likes."""
+
         # equation represented by string: No row-slicing
         if isinstance(equation, str):
             if equation not in self._equations:
                 raise ValueError(f"Unkown equation name {equation}.")
             return {equation: None}
+
         # equation represented by Operator: No row-slicing
         elif isinstance(equation, Operator):
             if equation.name not in self._equations:
                 raise ValueError(f"Unkown equation operator {equation}.")
             return {equation.name: None}
-        # equations represented by dict with restriction to grids: get target row indices
+
+        # equations represented by dict with restriction to grids: get target row
+        # indices.
         elif isinstance(equation, dict):
             block = dict()
             for equ, grids in equation.items():
@@ -1344,8 +1370,8 @@ class SystemManager:
     def _gridbased_equation_complement(
         self, equations: dict[str, None | np.ndarray]
     ) -> dict[str, None | np.ndarray]:
-        """Takes the information from equation parsing and finds for each equation the indices
-        which were excluded in the grid-sense.
+        """Takes the information from equation parsing and finds for each equation the
+        indices which were excluded in the grid-sense.
         """
         complement = dict()
         for name, idx in equations.items():
@@ -1362,8 +1388,8 @@ class SystemManager:
                 complement.update({name: None})
 
     def discretize(self, equations: Optional[EquationLike] = None) -> None:
-        """Find and loop over all discretizations in the equation operators, extract unique
-        references and discretize.
+        """Find and loop over all discretizations in the equation operators, extract
+        unique references and discretize.
 
         This is more efficient than discretizing on the Operator level, since
         discretizations which occur more than once in a set of equations will be
@@ -1396,16 +1422,17 @@ class SystemManager:
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector of the whole system.
 
-        This is a shallow wrapper of :meth:`assemble_subsystem`, where the subsystem is the
-        complete set of equations, variables and grids.
+        This is a shallow wrapper of :meth:`assemble_subsystem`, where the subsystem is
+        the complete set of equations, variables and grids.
 
         Parameters:
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
 
         Returns:
             sps.spmatrix: Jacobian matrix corresponding to the targeted state.
-                The ordering of the equations (rows) is determined by the order the equations
-                were added. The DOFs (columns) are ordered according the global order.
+                The ordering of the equations (rows) is determined by the order the
+                equations were added. The DOFs (columns) are ordered according the
+                global order.
             np.ndarray: Residual vector corresponding to the targeted state,
                 scaled with -1 (moved to rhs).
 
@@ -1443,6 +1470,7 @@ class SystemManager:
                 The user can specify grids per equation (name) to which the subsystem should be
                 restricted in the row-sense. Grids not belonging to the domain of an equation
                 will raise an error.
+
             variables (optional): variable-like input specifying the subspace in column-sense.
                 If not provided (None), all variables will be included.
             state (optional): State vector to assemble from. By default the stored ITERATE or
@@ -1724,7 +1752,8 @@ class SystemManager:
         for name in self._equations:
             if name in sec_equ_names:
                 A_temp, b_temp = self.assemble_subsystem(name, state=state)
-                # if secondary equations were defined, we check if we have to restrict them
+                # if secondary equations were defined, we check if we have to restrict
+                # them
                 if secondary_rows:
                     idx_s = secondary_rows[name]
                     # slice or no slice
