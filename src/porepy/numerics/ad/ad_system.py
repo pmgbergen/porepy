@@ -200,7 +200,9 @@ class SystemManager:
     """
 
     def __init__(
-        self, mdg: pp.MixedDimensionalGrid, var_categories: Optional[EnumMeta] = None
+        self,
+        mdg: pp.MixedDimensionalGrid,
+        var_categories: Optional[EnumMeta] = None,
     ) -> None:
 
         ### PUBLIC
@@ -208,9 +210,21 @@ class SystemManager:
         self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional domain passed at instantiation."""
 
-        self.var_categories: Optional[EnumMeta] = var_categories
+        # self.var_categories: Optional[EnumMeta] = var_categories
         """Enumeration object containing the variable categories passed at instantiation."""
 
+        self._tags: dict[str, dict[str, Any]] = {}
+        """Tagging system for variables.
+        
+        The tags are stored in a dictionary, where the keys are the tag names, and the
+        values are inner dictionaries, where the keys are the variable names, and the
+        values are the tags.
+
+        Tags can be assigned to variables at creation, or later using the method
+        set_variable_tag.
+
+        New categories of tags can be added 
+        """
         self.assembled_equation_indices: dict[str, np.ndarray] = dict()
         """Contains the row indices in the last assembled (sub-) system for a given equation
         name (key). This dictionary changes with every call to any assemble-method.
@@ -273,6 +287,8 @@ class SystemManager:
 
         """
 
+        self._var_dofs: dict[str, tuple(dict[str, int], list[GridLike])] = dict()
+
     def SubSystem(
         self,
         equation_names: Optional[str | list[str]] = None,
@@ -304,7 +320,7 @@ class SystemManager:
         Returns:
             a new instance of ``SystemManagerManager``. The subsystem equations and variables
             are ordered as imposed by this systems's order.
-        
+
         Raises:
             ValueError: if passed names are not among created variables and set equations.
 
@@ -376,7 +392,9 @@ class SystemManager:
                 image_info = self._equ_image_dof_info[name]
                 image_composition = self._equ_image_space_composition[name]
                 # set the information produced in set_equations directly
-                new_manger._equ_image_space_composition.update({name: image_composition})
+                new_manger._equ_image_space_composition.update(
+                    {name: image_composition}
+                )
                 new_manger._equ_image_dof_info.update({name: image_info})
                 new_manger._equations.update({name: equation})
 
@@ -398,6 +416,10 @@ class SystemManager:
         """
         return self._variables
 
+    @property
+    def tags(self) -> dict[str, dict[str, Any]]:
+        return self._tags
+
     ### Variable management ------------------------------------------------------------
 
     def create_variable(
@@ -406,7 +428,8 @@ class SystemManager:
         dof_info: dict[str, int] = {"cells": 1},
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
-        category: Optional[Enum] = None,
+        # category: Optional[Enum] = None,
+        tags: Optional[dict[str, Any]] = None,
     ) -> MixedDimensionalVariable:
         """Creates a new variable according to specifications.
 
@@ -433,7 +456,7 @@ class SystemManager:
         Parameters:
             name: used here as an identifier. Can be used to associate the variable wit
                 some physical quantity like ``'pressure'``.
-            dof_info: dictionary containing information about number of DOFs per 
+            dof_info: dictionary containing information about number of DOFs per
                 admissible type (see :data:`admissible_dof_types`). Defaults to
                 ``{'cells':1}``.
             subdomains (optional): list of subdomains on which the variable is defined.
@@ -479,36 +502,17 @@ class SystemManager:
 
         # container for all grid variables
         variables = list()
-        var_cat: Any
-        
-        # sanity check for passed category, allow only pre-defined categories
-        if self.var_categories:
-            if category is None:
-                raise ValueError(
-                    "Category not assigned. "
-                    "Use one of the categories passed at instantiation."
-                )
-            elif category not in self.var_categories:
-                raise ValueError(f"Unknown variable category {category}.")
-            else:
-                var_cat = category
-        # if no categories given, we use PorePy's default.
-        else:
-            var_cat = pp.PRIMARY_VARIABLES
 
         if subdomains:
+            self._var_dofs[name] = (dof_info, subdomains)
             for sd in subdomains:
                 data = self.mdg.subdomain_data(sd)
 
                 # prepare data dictionary if this was not done already
-                if var_cat not in data:
-                    data[var_cat] = dict()
                 if pp.STATE not in data:
                     data[pp.STATE] = dict()
                 if pp.ITERATE not in data[pp.STATE]:
                     data[pp.STATE][pp.ITERATE] = dict()
-
-                data[var_cat].update({name: dof_info})
 
                 # create grid variable
                 new_var = Variable(name, dof_info, domain=sd)
@@ -519,19 +523,16 @@ class SystemManager:
                 variables.append(new_var)
 
         if interfaces:
+            self._var_dofs[name] = (dof_info, interfaces)
             for intf in interfaces:
                 data = self.mdg.interface_data(intf)
 
                 # prepare data dictionary if this was not done already
-                if var_cat not in data:
-                    data[var_cat] = dict()
+
                 if pp.STATE not in data:
                     data[pp.STATE] = dict()
                 if pp.ITERATE not in data[pp.STATE]:
                     data[pp.STATE][pp.ITERATE] = dict()
-
-                # store DOF information about variable
-                data[var_cat].update({name: dof_info})
 
                 # create mortar grid variable
                 new_var = Variable(name, dof_info, domain=intf)
@@ -544,15 +545,55 @@ class SystemManager:
         # create and store the md variable
         merged_var = MixedDimensionalVariable(variables)
         self._variables.update({name: merged_var})
-        # store categorization
-        if var_cat not in self._vars_of_category:
-            self._vars_of_category.update({var_cat: list()})
-        self._vars_of_category[var_cat].append(name)
 
         # append the new DOFs to the global system
-        self._append_dofs(name, var_cat)
+        self._append_dofs(name)
+
+        # Add tags
+        if tags is None:
+            tags = {}
+
+        self._tags[name] = tags
 
         return merged_var
+
+    def assign_tag(
+        self,
+        tag_name: str,
+        variable_tag: dict[str, Any],
+    ) -> None:
+        """Assigns a tag to all variables in the system.
+
+        Parameters:
+            tag_name: name of the tag.
+            variable_tag: dictionary mapping variable names to tags.
+
+        """
+        for var, value in self._tags.items():
+            if var in variable_tag:
+                value[tag_name] = variable_tag[var]
+
+    def get_variable_by_tag(
+        self, tag_name: str, tag_value: Optional[Any] = None
+    ) -> dict[str, Any]:
+        """Get the variable status for a given tag.
+
+        By request, the results can be filtered so that only variables with a given tag
+        value are returned.
+
+        Args:
+            tag_name: Name of the tag.
+            tag_value: Target tag value. If provided, only variables for which the tag
+                has this value is returned.
+
+        Returns:
+            dict: A mapping from variables (as strings) to tag values. If tag_value is
+                specified, only variables with the target value are returned; if not,
+                all variables that have this tag are returned.
+
+        """
+        pass
+        # TODO
 
     def get_var_names(
         self,
@@ -723,7 +764,7 @@ class SystemManager:
 
     ### DOF management -----------------------------------------------------------------
 
-    def _append_dofs(self, var_name: str, var_cat: Any) -> None:
+    def _append_dofs(self, var_name: str) -> None:
         """Appends DOFs for a newly created variable.
 
         Must only be called by :meth:`create_variable`.
@@ -748,42 +789,39 @@ class SystemManager:
 
         # add dofs found on subdomains for this variable name
         for sd, data in self.mdg.subdomains(return_data=True):
-            if var_cat in data:
-                if var_name in data[var_cat]:
-                    # last sanity check that no previous data is overwritten
-                    # should not happen if class not used in hacky way
-                    assert (var_name, sd) not in self._block_numbers
+            # last sanity check that no previous data is overwritten
+            # should not happen if class not used in hacky way
+            assert (var_name, sd) not in self._block_numbers
 
-                    # assign a new block number and increase the counter
-                    new_block_numbers[(var_name, sd)] = last_block_number
-                    last_block_number += 1
+            # assign a new block number and increase the counter
+            new_block_numbers[(var_name, sd)] = last_block_number
+            last_block_number += 1
 
-                    # count number of dofs for this variable on this grid and store it.
-                    # the number of dofs for each dof type defaults to zero.
-                    local_dofs = data[var_cat][var_name]
-                    num_local_dofs = (
-                        sd.num_cells * local_dofs.get("cells", 0)
-                        + sd.num_faces * local_dofs.get("faces", 0)
-                        + sd.num_nodes * local_dofs.get("nodes", 0)
-                    )
-                    new_block_dofs_.append(num_local_dofs)
+            # count number of dofs for this variable on this grid and store it.
+            # the number of dofs for each dof type defaults to zero.
+            local_dofs = self._var_dofs[var_name]
+            num_local_dofs = (
+                sd.num_cells * local_dofs.get("cells", 0)
+                + sd.num_faces * local_dofs.get("faces", 0)
+                + sd.num_nodes * local_dofs.get("nodes", 0)
+            )
+            new_block_dofs_.append(num_local_dofs)
         # add dofs found on interfaces for this variable
         for intf, data in self.mdg.interfaces(return_data=True):
-            if var_cat in data:
-                if var_name in data[var_cat]:
-                    # last sanity check that no previous data is overwritten
-                    # should not happen if class not used in hacky way
-                    assert (var_name, intf) not in self._block_numbers
 
-                    # assign a new block number and increase the counter
-                    new_block_numbers[(var_name, intf)] = last_block_number
-                    last_block_number += 1
+            # last sanity check that no previous data is overwritten
+            # should not happen if class not used in hacky way
+            assert (var_name, intf) not in self._block_numbers
 
-                    # count number of dofs for this variable on this grid and store it.
-                    # tonly cell-wise dofs are allowed on interfaces
-                    local_dofs = data[var_cat][var_name]
-                    total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
-                    new_block_dofs_.append(total_local_dofs)
+            # assign a new block number and increase the counter
+            new_block_numbers[(var_name, intf)] = last_block_number
+            last_block_number += 1
+
+            # count number of dofs for this variable on this grid and store it.
+            # tonly cell-wise dofs are allowed on interfaces
+            local_dofs = self._var_dofs[var_name]
+            total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
+            new_block_dofs_.append(total_local_dofs)
 
         # converting block dofs to array
         new_block_dofs = np.array(new_block_dofs_, dtype=int)
@@ -921,7 +959,7 @@ class SystemManager:
             if variable not in self._variables:
                 raise ValueError(f"Unknown variable name {variable}.")
             return [block for block in self._block_numbers if block[0] == variable]
-        
+
         # variable represented as md-var: include all associated grids
         # NOTE: Check MixedDimensionalVariable first, since it is a subclass of Variable
         elif isinstance(variable, MixedDimensionalVariable):
@@ -936,8 +974,7 @@ class SystemManager:
                 return [(variable.name, variable.domain)]
             else:
                 raise ValueError(f"Unknown grid variable {variable}.")
-        
-        
+
         # if a category is passed, with return all blocks associated with respective
         # variables
         elif isinstance(variable, Enum):
@@ -960,7 +997,7 @@ class SystemManager:
         # sense and the complement is empty
         if isinstance(variables, (str, MixedDimensionalVariable, Enum)):
             return list()
-        
+
         # grid variables are part of a md variable, the complement are the remaining
         # grid vars
         elif isinstance(variables, Variable):
@@ -968,7 +1005,7 @@ class SystemManager:
             md_v = self._variables[variables.name]
             # Return all components of the md variable that are not the input variable
             return [var for var in md_v.sub_vars if var.domain != variables.domain]
-        
+
         # non sequential var-like structure
         else:
             grid_vars = list()
@@ -993,7 +1030,7 @@ class SystemManager:
         The subspace can be specified by variable categories, variable names and
         variables (see :data:`VarLike`).
 
-        The transpose of the returned matrix can be used to slice respective columns out 
+        The transpose of the returned matrix can be used to slice respective columns out
         of the global Jacobian.
 
         The projection preserves the global order defined by the system, i.e. it
@@ -1007,7 +1044,7 @@ class SystemManager:
             requested.
 
         Returns:
-            a sparse projection matrix of shape ``(M, num_dofs)``, where 
+            a sparse projection matrix of shape ``(M, num_dofs)``, where
             ``0 <= M <= num_dofs``.
 
         """
@@ -1155,7 +1192,7 @@ class SystemManager:
             ValueError: if the equation operator has a name already assigned to a
                 previously set equation
             AssertionError: if the equation is defined on an unknown grid.
-            ValueError: if indicated number of equations does not match the actual 
+            ValueError: if indicated number of equations does not match the actual
                 number as per evaluation of operator.
 
         """
@@ -1330,7 +1367,7 @@ class SystemManager:
         Returns:
             A dictionary with the name of the equation as key and the corresponding
             restricted indices as values. If no restriction is given, the value is None.
-        
+
         """
 
         # equation represented by string: No row-slicing
@@ -1391,7 +1428,7 @@ class SystemManager:
     def _gridbased_equation_complement(
         self, equations: dict[str, None | np.ndarray]
     ) -> dict[str, None | np.ndarray]:
-        """Takes the information from equation parsing and finds for each equation 
+        """Takes the information from equation parsing and finds for each equation
         (identified by its name string) the indices which were excluded in the
         grid-sense.
 
