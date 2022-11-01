@@ -1,7 +1,8 @@
 import warnings
 
 import porepy as pp
-import porepy.number as number
+
+number = pp.number
 
 
 class Units:

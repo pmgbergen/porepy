@@ -164,6 +164,11 @@ class ConstantViscosity:
 
 
 class DarcyFlux:
+    """This class could be refactored to reuse for other diffusive fluxes, such as
+    heat conduction. It's somewhat cumbersome, though, since potential, discretization,
+    and boundary conditions all need to be passed around.
+    """
+
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
 
@@ -230,6 +235,63 @@ class DarcyFlux:
 
         """
         return pp.ad.MpfaAd(self.darcy_discretization_parameter_key, subdomains)
+
+
+class GradientInterfaceFlux:
+    def gradient_interface_flux(
+        self, interfaces: list[pp.MortarGrid], potential_name: str
+    ) -> pp.ad.Operator:
+        """Interface fluxes in the gradient.
+
+        Args:
+            interfaces: List of interfaces where the gradient interface flux is defined.
+
+        Returns:
+            Face-wise gradient interface flux in cubic meters per second.
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        potential_trace = getattr(self, potential_name + "_trace")(subdomains)
+        potential = getattr(self, potential_name)(subdomains)
+        interface_geometry = pp.ad.Geometry(interfaces, matrices=["cell_volumes"])
+        # Project the two pressures to the interface and multiply with the normal diffusivity
+        flux = (
+            -interface_geometry.cell_volumes
+            * self.normal_diffusivity(interfaces)
+            * (
+                projection.primary_to_mortar_avg * potential_trace
+                - projection.mortar_projection_scalar.secondary_to_mortar_avg
+                * potential
+                # FIXME: The plan is to remove RoubinCoupling. That requires alternative
+                #  implementation of the below
+                + self.interface_vector_source(interfaces)
+            )
+        )
+        return flux
+
+    def interface_vector_source(self, interfaces):
+        """Interface vector source term.
+
+        The term is the product of unit normals and vector source values. Normalization is
+        needed to balance the integration done in the interface flux law.
+
+        Args:
+            interfaces: List of interfaces where the vector source is defined.
+
+        Returns:
+            Face-wise vector source term.
+        """
+        geometry = pp.ad.Geometry(interfaces, dim=self.nd, wrap_fields=["cell_volumes"])
+        # Expand cell volumes to nd
+        # Fixme: Do we need right multiplication with transpose as well?
+        cell_volumes_inv = geometry.scalar_to_nd_cell * geometry.cell_volumes ** (-1)
+        # Account for sign of boundary face normals
+        flip = self.internal_boundary_normal_to_outwards(interfaces)
+        unit_outwards_normals = (
+            flip * cell_volumes_inv * geometry.wrap_grid_vector("face_normals")
+        )
+        return unit_outwards_normals * self.vector_source(interfaces)
 
 
 class AdvectiveFlux:

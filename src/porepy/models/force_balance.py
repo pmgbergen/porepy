@@ -170,7 +170,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         contact_from_primary_mortar = (
             mortar_projection.primary_to_mortar_int
             * self.subdomain_projections(self.nd).face_prolongation(matrix_subdomains)
-            * self._internal_boundary_normal_to_outwards(interfaces)
+            * self.internal_boundary_normal_to_outwards(interfaces)
             * self.stress(matrix_subdomains)
         )
         # Traction from the actual contact force.
@@ -310,39 +310,6 @@ class ForceBalanceEquations(VectorBalanceEquation):
         vals = np.zeros(num_cells * self.nd)
         source = pp.ad.Array(vals, "body_force")
         return source
-
-    def _internal_boundary_normal_to_outwards(
-        self, interfaces: list[pp.Grid]
-    ) -> pp.ad.Matrix:
-        """Flip sign if normal vector points inwards.
-
-        Args:
-            interfaces: List of interfaces.
-
-        Returns:
-            Matrix with flipped signs if normal vector points inwards.
-
-        EK: This seems a bit messy to me. Let's discuss.
-        """
-        if hasattr(self, "_internal_boundary_vector_to_outwards_operator"):
-            return self._internal_boundary_vector_to_outwards_operator
-        mat = None
-        for intf in interfaces:
-            # Extracting matrix for each interface should in theory allow for multiple
-            # matrix subdomains, but this is not tested.
-            matrix_subdomain = self.mdg.interface_to_subdomain(intf)[0]
-            faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
-            switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
-                matrix_subdomain, self.nd, faces_on_fracture_surface
-            )
-            if mat is None:
-                mat = switcher_int
-            else:
-                mat += switcher_int
-
-        outwards_mat = pp.ad.Matrix(mat)
-        self._internal_boundary_vector_to_outwards_operator = outwards_mat
-        return outwards_mat
 
 
 class ConstitutiveEquationsForceBalance(constitutive_laws.LinearElasticRock):

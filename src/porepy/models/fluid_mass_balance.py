@@ -210,25 +210,7 @@ class ConstitutiveEquationsIncompressibleFlow(
         )
 
     def interface_darcy_flux_equation(self, interfaces: list[pp.MortarGrid]):
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-
-        p_trace = self.pressure_trace(self, subdomains)
-        p = self.pressure(subdomains)
-        interface_geometry = pp.ad.Geometry(interfaces, matrices=["cell_volumes"])
-        # Project the two pressures to the interface and multiply with the normal diffusivity
-        flux = (
-            -interface_geometry.cell_volumes
-            * self.normal_diffusivity(interfaces)
-            * (
-                projection.primary_to_mortar_avg * p_trace
-                - projection.mortar_projection_scalar.secondary_to_mortar_avg * p
-                # FIXME: The plan is to remove RoubinCoupling. That requires alternative
-                #  implementation of the below
-                # + robin_ad.mortar_vector_source * vector_source_interfaces
-            )
-        )
-        return flux
+        return self.gradient_interface_flux(interfaces, "pressure")
 
     def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
@@ -418,6 +400,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
                 self.flow_parameter_keyword,
                 {"darcy_flux": np.zeros(intf.num_faces)},
             )
+        # FIXME: Rediscretize upstream.
 
     def set_discretization_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
@@ -506,12 +489,21 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
     def before_newton_iteration(self):
-        pp.fvutils.compute_darcy_flux(
-            self.mdg,
-            self.darcy_discretization_parameter_key,
-            self.darcy_discretization_parameter_key,
-            lam_name=self.mortar_variable,
-        )
+        # pp.fvutils.compute_darcy_flux(
+        #     self.mdg,
+        #     self.darcy_discretization_parameter_key,
+        #     self.darcy_discretization_parameter_key,
+        #     lam_name=self.mortar_variable,
+        # )
+        # Evaluate Darcy flux for each subdomain and interface and store in the
+        # data dictionary.
+        for sd, data in self.mdg.subdomains(return_data=True):
+            val = self.darcy_flux([sd]).evaluate(self.dof_manager).val
+            data[pp.PARAMETERS][self.mobility_discretization_parameter_key] = val
+
+        for intf, data in self.mdg.interfaces(return_data=True):
+            val = self.interface_darcy_flux([intf]).evaluate(self.dof_manager).val
+            data[pp.PARAMETERS][self.mobility_discretization_parameter_key] = val
         # FIXME: Rediscretize upwind.
 
     def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
