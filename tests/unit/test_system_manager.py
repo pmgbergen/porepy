@@ -7,6 +7,11 @@ The tests focus on various assembly methods:
     * test_extract_subsystem: Extract a new EquationManager for a subset of equations.
     * test_schur_complement: Assemble a subsystem, using a Schur complement reduction.
 
+To be tested:
+    Get and set methods for variables
+    IdentifyDof
+
+
 """
 import numpy as np
 import pytest
@@ -52,8 +57,14 @@ class SystemManagerSetup:
                 "x_merged": x.copy(),
                 "y_merged": y.copy(),
                 "x2": x.copy(),
-                pp.ITERATE: {"x": x.copy(), "y": y.copy(), "z": z.copy(),
-                            "x_merged": x.copy(), "y_merged": y.copy(), 'x2': x.copy()},
+                pp.ITERATE: {
+                    "x": x.copy(),
+                    "y": y.copy(),
+                    "z": z.copy(),
+                    "x_merged": x.copy(),
+                    "y_merged": y.copy(),
+                    "x2": x.copy(),
+                },
             }
 
         # Ad representation of variables
@@ -80,7 +91,7 @@ class SystemManagerSetup:
             {"simple": eq_simple, "merged": eq_merged, "combined": eq_combined}
         )
 
-        self.x1 = x_ad
+        self.x = x_ad
         self.x2 = eq_manager.create_variable("x2", subdomains=[sd_1])
 
         self.z1 = z_ad
@@ -121,10 +132,10 @@ class SystemManagerSetup:
 
         return self.eq_manager.dofs_of(var)
         if var in (self.x1, self.x2, self.z1):
-            return self.eq_manager.dofs_of(var)# inds(self.x1.domain, self.x1.name)
+            return self.eq_manager.dofs_of(var)  # inds(self.x1.domain, self.x1.name)
 
-#        elif var == self.x2:
-#            return inds(self.x2.domain, self.x1.name)
+        #        elif var == self.x2:
+        #            return inds(self.x2.domain, self.x1.name)
 
         elif var == self.x_merged:
             dofs = np.hstack(
@@ -144,8 +155,8 @@ class SystemManagerSetup:
             )
             return dofs
 
-#        elif var == self.z1:
-#            return inds(self.z1.domain, self.z1.name)
+        #        elif var == self.z1:
+        #            return inds(self.z1.domain, self.z1.name)
         else:
             raise ValueError
 
@@ -339,7 +350,7 @@ def test_secondary_variable_assembly(setup, var_names):
     # Jacobian matrix is altered only in columns that correspond to eliminated
     # variables.
 
-#    secondary_variables = [getattr(setup, name) for name in var_names]
+    #    secondary_variables = [getattr(setup, name) for name in var_names]
     variables = [var for var in setup.eq_manager.variables]
     for var in var_names:
         variables.remove(var)
@@ -360,8 +371,9 @@ def test_secondary_variable_assembly(setup, var_names):
     )
     # Check that the size of equation blocks (rows) were correctly recorded
     for name in setup.eq_manager.equations:
-        assert np.allclose(setup.eq_manager.assembled_equation_indices[name], setup.eq_ind(name))
-
+        assert np.allclose(
+            setup.eq_manager.assembled_equation_indices[name], setup.eq_ind(name)
+        )
 
 
 @pytest.mark.parametrize(
@@ -402,7 +414,9 @@ def test_assemble_subsystem(setup, var_names, eq_names):
     for var in var_names:
         variables.remove(var)
 
-    A_sub, b_sub = eq_manager.assemble_subsystem(equations=eq_names, variables=variables)
+    A_sub, b_sub = eq_manager.assemble_subsystem(
+        equations=eq_names, variables=variables
+    )
 
     # Get active rows and columns. If eq_names is None, all rows should be included.
     # If equation list is set to empty list, no indices are included.
@@ -443,10 +457,16 @@ def test_assemble_subsystem(setup, var_names, eq_names):
     # Also check that the equation row sizes were correctly recorded.
     if eq_names is not None:
         for name in eq_names:
-            assert np.allclose(setup.eq_manager.assembled_equation_indices[name].size, setup.block_size(name))
+            assert np.allclose(
+                setup.eq_manager.assembled_equation_indices[name].size,
+                setup.block_size(name),
+            )
     else:
         for name in setup.eq_manager.equations:
-            assert np.allclose(setup.eq_manager.assembled_equation_indices[name].size, setup.block_size(name))
+            assert np.allclose(
+                setup.eq_manager.assembled_equation_indices[name].size,
+                setup.block_size(name),
+            )
 
 
 @pytest.mark.parametrize(
