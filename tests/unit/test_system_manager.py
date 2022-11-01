@@ -226,6 +226,108 @@ def _compare_matrices(m1, m2):
         ["z", "y_merged"],  # Combination of simple and merged.
     ],
 )
+@pytest.mark.parametrize("iterate", [True, False])
+@pytest.mark.parametrize("as_variable", [True, False])
+def test_set_get_methods(setup, var_names, iterate: bool, as_variable: bool):
+    """Test the set and get methods of the SystemManager class.
+
+    The test is performed for a number of different combinations of variables.
+
+    Values are assigned to the STATE or ITERATE storage, and then retrieved.
+
+    Both setting and adding values are tested.
+
+    """
+    eq_manager = setup.eq_manager
+
+    np.random.seed(42)
+
+    # Represent the variables either as strings or as Ad variables.
+    if as_variable:
+        # Get the variables
+        variables = [getattr(setup, var_name) for var_name in var_names]
+    else:
+        # Represent the variables as strings
+        variables = var_names
+
+    if len(variables) == 1:
+        variables = variables[0]
+
+    sz = eq_manager.dofs_of(variables)
+
+    # First generate random values, set them, and then retrieve them.
+    vals = np.random.rand(sz.size)
+    eq_manager.set_variable_values(vals, variables, to_iterate=iterate)
+    retrieved_vals = eq_manager.get_variable_values(variables, from_iterate=iterate)
+    assert np.allclose(vals, retrieved_vals)
+
+    # Set new values without setting additive to True. This should overwrite the old
+    # values.
+    new_vals = np.random.rand(sz.size)
+    eq_manager.set_variable_values(new_vals, variables, to_iterate=iterate)
+    retrieved_vals2 = eq_manager.get_variable_values(variables, from_iterate=iterate)
+    assert np.allclose(new_vals, retrieved_vals2)
+
+    # Set the values again, this time with additive=True. This should double the
+    # retrieved values.
+    eq_manager.set_variable_values(
+        new_vals, variables, to_iterate=iterate, additive=True
+    )
+    retrieved_vals3 = eq_manager.get_variable_values(variables, from_iterate=iterate)
+
+    assert np.allclose(2 * new_vals, retrieved_vals3)
+
+
+@pytest.mark.parametrize(
+    "var_names",
+    [
+        [],  # No secondary variables
+        ["x"],  # A simple variable which is also part of a merged one
+        ["x_merged"],  # Merged variable
+        ["z"],  # Simple variable not available as merged
+        ["z", "y_merged"],  # Combination of simple and merged.
+    ],
+)
+def test_projection_matrix(setup, var_names):
+    # Test of the projection matrix method. The only interesting test is the
+    # secondary variable functionality (the other functionality is tested elsewhere).
+
+    # The tests compare assembly by an EquationManager with explicitly defined
+    # secondary variables with a 'truth' based on direct elimination of columns
+    # in the Jacobian matrix.
+    # The expected behavior is that the residual vector is fixed, while the
+    # Jacobian matrix is altered only in columns that correspond to eliminated
+    # variables.
+
+    variables = [var for var in setup.eq_manager.variables]
+    for var in var_names:
+        variables.remove(var)
+
+    P = setup.eq_manager.projection_to(variables=variables)
+
+    # Get dof indices of the variables that have been eliminated
+    if len(var_names) > 0:
+        removed_dofs = np.sort(
+            np.hstack([setup.eq_manager.dofs_of(var) for var in var_names])
+        )
+    else:
+        removed_dofs = []
+
+    remaining_dofs = np.setdiff1d(np.arange(setup.eq_manager.num_dofs()), removed_dofs)
+
+    assert np.allclose(P.indices, remaining_dofs)
+
+
+@pytest.mark.parametrize(
+    "var_names",
+    [
+        [],  # No secondary variables
+        ["x"],  # A simple variable which is also part of a merged one
+        ["x_merged"],  # Merged variable
+        ["z"],  # Simple variable not available as merged
+        ["z", "y_merged"],  # Combination of simple and merged.
+    ],
+)
 def test_secondary_variable_assembly(setup, var_names):
     # Test of the standard assemble method. The only interesting test is the
     # secondary variable functionality (the other functionality is tested elsewhere).
