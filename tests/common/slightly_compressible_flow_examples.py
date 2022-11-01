@@ -139,8 +139,8 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
 
         super()._assign_equations()
 
-        # AD representation of the mass operator
-        accumulation_term = pp.ad.MassMatrixAd(self.parameter_key, self._ad.subdomains)
+        # Retrieve geometry object to get hold of the cell volumes afterwards
+        geo_ad = pp.ad.Geometry(self.mdg.subdomains(), self.mdg.dim_max())
 
         # Access to pressure ad variable
         p = self._ad.pressure
@@ -149,9 +149,9 @@ class NonLinearSCF(pp.SlightlyCompressibleFlow):
         # Retrieve porosity
         poro = pp.ad.Function(self._porosity, name="porosity", array_compatible=True)
 
-        # Note that this require the fluid compressiblity = 1 to work properly
+        # Note that this requires the fluid compressiblity = 1 to work properly
         accumulation_term = (
-            accumulation_term.mass * (poro(p) - poro(p.previous_timestep()))
+            geo_ad.cell_volumes * (poro(p) - poro(p.previous_timestep()))
         ) / self._ad.time_step
 
         # Add accumulation term to incompressible flow equations
