@@ -47,7 +47,7 @@ class DofManager:
                 mixed-dimensional grid.
 
         """
-        DeprecationWarning("The DofManager will be replaced by ADSystem.")
+        DeprecationWarning("The DofManager will be replaced by SystemManager.")
         self.mdg = mdg
 
         # Counter for block index

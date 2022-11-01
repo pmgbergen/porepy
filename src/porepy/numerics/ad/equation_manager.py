@@ -65,7 +65,7 @@ class EquationManager:
                 to be considered secondary for this EquationManager.
 
         """
-        DeprecationWarning("The EquationManager will be replaced by ADSystem.")
+        DeprecationWarning("The EquationManager will be replaced by SystemManager.")
         self.mdg = mdg
 
         # Inform mypy about variables, and then set them by a dedicated method.

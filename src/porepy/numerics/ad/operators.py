@@ -541,7 +541,7 @@ class Operator:
 
     ### Operator discretization ---------------------------------------------------------------
     # TODO this is specific to discretizations and should not be done here
-    # let the AD system do this by calling respective util methods
+    # let the SystemManager do this by calling respective util methods
 
     def discretize(self, mdg: pp.MixedDimensionalGrid) -> None:
         """Perform discretization operation on all discretizations identified in
@@ -1153,8 +1153,6 @@ class Variable(Operator):
     Conversion of the variables into numerical value should be done with respect to the
     state of an array; see :meth:`Operator.evaluate`.
     Therefore, the class does not implement :meth:`Operator.parse`.
-
-    Variables should not be created directly in a model. Use an AD System class instead.
 
     Parameters:
         name : given name. Used to together with the domain to identify the variable

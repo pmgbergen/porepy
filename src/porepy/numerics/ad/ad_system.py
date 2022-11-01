@@ -1,4 +1,4 @@
-"""Contains the AD system manager, managing variables and equations for a system modelled
+"""Contains the SystemManager, managing variables and equations for a system modelled
 using the AD framework.
 
 """
@@ -149,12 +149,12 @@ Examples:
 
 
 class SystemManager:
-    """Represents a physical system, modelled by AD variables and equations in AD form.
+    """Represents an equation system, modelled by AD variables and equations in AD form.
 
     This class provides functionalities to create and manage variables,
     as well as managing equations in AD operator form.
 
-    It further provides functions to assemble subsystems, using subsets of equations and
+    It further provides functions to assemble subsystems and using subsets of equations and
     variables.
 
     Notes:
@@ -168,7 +168,7 @@ class SystemManager:
         (e.g. cell-wise for equations without spatial differential operators) is not performed.
 
     Examples:
-        An example of how to instantiate an AD system with *primary* and *secondary* variables
+        An example of how to instantiate an SystemManager with *primary* and *secondary* variables
         would be
 
         >>> from enum import Enum
@@ -193,9 +193,9 @@ class SystemManager:
     ] = ("cells", "faces", "nodes")
     """A set denoting admissible types of local DOFs for variables.
 
-    - nodes: DOFs per node, which constitute the grid
-    - cells: DOFs per cell (center), which are defined by nodes
-    - faces: DOFS per face, which form the (polygonal) boundary of cells
+    - nodes: DOFs per grid node
+    - cells: DOFs per grid cell (center)
+    - faces: DOFS per grid face (center)
 
     """
 
@@ -276,7 +276,7 @@ class SystemManager:
         """Contains the names of variables assigned to a specific category (key)."""
 
         self._block_numbers: dict[tuple[str, GridLike], int] = dict()
-        """Dictionary containing the block number for a given combination of grid/ mortar grid
+        """Dictionary containing the block number for a given combination of grid/mortar grid
         and variable name (key).
 
         """
@@ -294,7 +294,7 @@ class SystemManager:
         equation_names: Optional[str | list[str]] = None,
         variable_names: Optional[str | list[str]] = None,
     ) -> SystemManager:
-        """Creates an ``SystemManager`` for a given subset of equations and variables.
+        """Creates a ``SystemManager`` for a given subset of equations and variables.
 
         Currently only subsystems containing *whole* equations and variables in the
         mixed-dimensional sense can be created. Chopping into grid variables and restricting
@@ -318,8 +318,8 @@ class SystemManager:
                 subsystem. If None (default), the whole set of known md variables is used.
 
         Returns:
-            a new instance of ``SystemManagerManager``. The subsystem equations and variables
-            are ordered as imposed by this systems's order.
+            a new instance of ``SystemManager``. The subsystem equations and variables
+                are ordered as imposed by this systems's order.
 
         Raises:
             ValueError: if passed names are not among created variables and set equations.
@@ -347,7 +347,7 @@ class SystemManager:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
         # creating a new manager
-        new_manger = SystemManager(self.mdg, var_categories=self.var_categories)
+        new_manager = SystemManager(self.mdg, var_categories=self.var_categories)
 
         # this method imitates the variable creation and equation setting procedures by
         # calling private methods and accessing private attributes.
@@ -358,14 +358,14 @@ class SystemManager:
             if name in variable_names:
                 # updating md variables in subsystem
                 md_var = self._variables[name]
-                new_manger._variables.update({name: md_var})
+                new_manager._variables.update({name: md_var})
 
                 # updating grid variables in subsystem
                 for var in md_var.sub_vars:
-                    if var.domain in new_manger._grid_variables:
-                        new_manger._grid_variables[var.domain].update({name: var})
+                    if var.domain in new_manager._grid_variables:
+                        new_manager._grid_variables[var.domain].update({name: var})
                     else:
-                        new_manger._grid_variables[var.domain] = {name: var}
+                        new_manager._grid_variables[var.domain] = {name: var}
 
                 # find category
                 if self.var_categories:
@@ -377,13 +377,13 @@ class SystemManager:
                     var_cat = pp.PRIMARY_VARIABLES
 
                 # updating category information in subsystem
-                if var_cat in new_manger._vars_of_category:
-                    new_manger._vars_of_category[var_cat].append(name)
+                if var_cat in new_manager._vars_of_category:
+                    new_manager._vars_of_category[var_cat].append(name)
                 else:
-                    new_manger._vars_of_category[var_cat] = [name]
+                    new_manager._vars_of_category[var_cat] = [name]
 
                 # creating dofs in subsystem
-                new_manger._append_dofs(name, var_cat)
+                new_manager._append_dofs(name, var_cat)
 
         # loop over known equations to preserve row order
         for name in known_equations:
@@ -392,13 +392,13 @@ class SystemManager:
                 image_info = self._equ_image_dof_info[name]
                 image_composition = self._equ_image_space_composition[name]
                 # set the information produced in set_equations directly
-                new_manger._equ_image_space_composition.update(
+                new_manager._equ_image_space_composition.update(
                     {name: image_composition}
                 )
-                new_manger._equ_image_dof_info.update({name: image_info})
-                new_manger._equations.update({name: equation})
+                new_manager._equ_image_dof_info.update({name: image_info})
+                new_manager._equations.update({name: equation})
 
-        return new_manger
+        return new_manager
 
     @property
     def equations(self) -> dict[str, Operator]:
@@ -440,7 +440,7 @@ class SystemManager:
         category. A variable cannot be in multiple categories, but only one.
 
         Notes:
-            This methods provides support for creating variables on **all** subdomains
+            This method provides support for creating variables on **all** subdomains
             or interfaces, without having to pass them all as arguments.
             If the argument ``subdomains`` is an empty list, the method will use all
             subdomains found in the mixed-dimensional grid.
@@ -503,10 +503,16 @@ class SystemManager:
         # container for all grid variables
         variables = list()
 
-        if subdomains:
-            self._var_dofs[name] = (dof_info, subdomains)
-            for sd in subdomains:
-                data = self.mdg.subdomain_data(sd)
+        # Merge subdomains and interfaces into a single list
+        grids: list = subdomains if subdomains else interfaces
+        if grids:
+            self._var_dofs[name] = (dof_info, grids)
+
+            for grid in grids:
+                if subdomains:
+                    data = self.mdg.subdomain_data(grid)
+                else:
+                    data = self.mdg.interface_data(grid)
 
                 # prepare data dictionary if this was not done already
                 if pp.STATE not in data:
@@ -515,31 +521,11 @@ class SystemManager:
                     data[pp.STATE][pp.ITERATE] = dict()
 
                 # create grid variable
-                new_var = Variable(name, dof_info, domain=sd)
-                if sd not in self._grid_variables:
-                    self._grid_variables[sd] = dict()
-                if name not in self._grid_variables[sd]:
-                    self._grid_variables[sd].update({name: new_var})
-                variables.append(new_var)
-
-        if interfaces:
-            self._var_dofs[name] = (dof_info, interfaces)
-            for intf in interfaces:
-                data = self.mdg.interface_data(intf)
-
-                # prepare data dictionary if this was not done already
-
-                if pp.STATE not in data:
-                    data[pp.STATE] = dict()
-                if pp.ITERATE not in data[pp.STATE]:
-                    data[pp.STATE][pp.ITERATE] = dict()
-
-                # create mortar grid variable
-                new_var = Variable(name, dof_info, domain=intf)
-                if intf not in self._grid_variables:
-                    self._grid_variables[intf] = dict()
-                if name not in self._grid_variables[intf]:
-                    self._grid_variables[intf].update({name: new_var})
+                new_var = Variable(name, dof_info, domain=grid)
+                if grid not in self._grid_variables:
+                    self._grid_variables[grid] = dict()
+                if name not in self._grid_variables[grid]:
+                    self._grid_variables[grid].update({name: new_var})
                 variables.append(new_var)
 
         # create and store the md variable
@@ -640,11 +626,12 @@ class SystemManager:
 
         Parameters:
             variables (optional): variable-like input for which the values are
-                requisted. If None (default), the global vector of unknowns is returned.
+                requested. If None (default), the global vector of unknowns is returned.
             from_iterate (optional): flag to return values stored as ITERATE,
                 instead of STATE (default).
 
-        Returns: the respective (sub) vector in numerical format.
+        Returns:
+            the respective (sub) vector in numerical format.
 
         Raises:
             KeyError: if no values are stored for the var-like input.
@@ -799,7 +786,7 @@ class SystemManager:
 
             # count number of dofs for this variable on this grid and store it.
             # the number of dofs for each dof type defaults to zero.
-            local_dofs = self._var_dofs[var_name]
+            local_dofs = self._var_dofs[var_name][0]
             num_local_dofs = (
                 sd.num_cells * local_dofs.get("cells", 0)
                 + sd.num_faces * local_dofs.get("faces", 0)
@@ -818,8 +805,8 @@ class SystemManager:
             last_block_number += 1
 
             # count number of dofs for this variable on this grid and store it.
-            # tonly cell-wise dofs are allowed on interfaces
-            local_dofs = self._var_dofs[var_name]
+            # only cell-wise dofs are allowed on interfaces
+            local_dofs = self._var_dofs[var_name][0]
             total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
             new_block_dofs_.append(total_local_dofs)
 
@@ -1131,7 +1118,7 @@ class SystemManager:
             variable itself.
 
         Raises:
-            KeyError: if the dof is out of range (larger then ``num_dofs`` or smaller
+            KeyError: if the dof is out of range (larger than ``num_dofs`` or smaller
                 than 0).
 
         """
@@ -1462,7 +1449,7 @@ class SystemManager:
         identified and only discretized once.
 
         Parameters:
-            equations (optional): a subset of equation..
+            equations (optional): a subset of equations.
                 If not provided (None), all known equations will be discretized.
 
         """
@@ -1526,7 +1513,7 @@ class SystemManager:
 
             The columns of the subsystem are assumed to be properly defined by ``variables``,
             otherwise a matrix of shape ``(M,)`` is returned. This happens if grid variables
-            are passed which are unknown to this AD system.
+            are passed which are unknown to this SystemManager.
 
         Parameters:
             equations (optional): a subset of equation to which the subsystem should be
@@ -1539,7 +1526,7 @@ class SystemManager:
 
             variables (optional): variable-like input specifying the subspace in column-sense.
                 If not provided (None), all variables will be included.
-            state (optional): State vector to assemble from. By default the stored ITERATE or
+            state (optional): State vector to assemble from. By default, the stored ITERATE or
                 STATE are used, in that order.
 
         Returns:
@@ -1918,7 +1905,7 @@ class SystemManager:
 
     def __repr__(self) -> str:
         s = (
-            "AD System manager for mixed-dimensional grid with "
+            "SystemManager for mixed-dimensional grid with "
             f"{self.mdg.num_subdomains()} subdomains "
             f"and {self.mdg.num_interfaces()}"
             " interfaces.\n"
@@ -1937,7 +1924,7 @@ class SystemManager:
 
     def __str__(self) -> str:
         s = (
-            "AD System manager for mixed-dimensional grid with "
+            "SystemManager for mixed-dimensional grid with "
             f"{self.mdg.num_subdomains()} subdomains "
             f"and {self.mdg.num_interfaces()}"
             " interfaces.\n"
