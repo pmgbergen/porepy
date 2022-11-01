@@ -48,9 +48,9 @@ class Operator:
 
     """
 
-    Operations: EnumMeta = Enum("Operations", [
-        "void", "add", "sub", "mul", "div", "evaluate", "approximate"
-    ])
+    Operations: EnumMeta = Enum(
+        "Operations", ["void", "add", "sub", "mul", "div", "evaluate", "approximate"]
+    )
     """Object representing all supported operations by the operator class.
 
     Used to construct the operator tree and identify Operator.Operations.
@@ -158,7 +158,9 @@ class Operator:
                 # We are on an atomic operator. If this is a time-dependent operator,
                 # set it to be evaluated at the previous time step. If not, leave the
                 # operator as it is.
-                if isinstance(op, (Variable, MixedDimensionalVariable, TimeDependentArray)):
+                if isinstance(
+                    op, (Variable, MixedDimensionalVariable, TimeDependentArray)
+                ):
                     # IMPLEMENTATION NOTE: We need to use a copy, not a deep copy here. A
                     # deep copy would change the underlying grids and mortar grids. For
                     # variables (atomic and merged) this would render a KeyValue if the
@@ -246,7 +248,9 @@ class Operator:
             # this is a single or combined variable; see self.__init__, definition of
             # self._variable_ids.
             # TODO no different between merged or no merged variables!?
-            if isinstance(op, pp.ad.MixedDimensionalVariable) or isinstance(op, MixedDimensionalVariable):
+            if isinstance(op, pp.ad.MixedDimensionalVariable) or isinstance(
+                op, MixedDimensionalVariable
+            ):
                 if op.prev_time:
                     return self._prev_vals[op.id]
                 elif op.prev_iter:
@@ -554,7 +558,7 @@ class Operator:
 
     def _identify_discretizations(
         self,
-    ) -> dict['_ad_utils.MergedOperator', GridLike]:
+    ) -> dict["_ad_utils.MergedOperator", GridLike]:
         """Perform a recursive search to find all discretizations present in the
         operator tree. Uniquify the list to avoid double computations.
 
@@ -576,7 +580,6 @@ class Operator:
             discr.append(self)
 
         return discr
-
 
     ### Operator parsing ----------------------------------------------------------------------
 
@@ -708,7 +711,9 @@ class Operator:
 
         return eq
 
-    def _identify_variables(self, system_manager: pp.ad.SystemManager, var: Optional[list] = None):
+    def _identify_variables(
+        self, system_manager: pp.ad.SystemManager, var: Optional[list] = None
+    ):
         """Identify all variables in this operator."""
         # 1. Get all variables present in this operator.
         # The variable finder is implemented in a special function, aimed at recursion
@@ -740,9 +745,7 @@ class Operator:
                 # Loop over all subvariables for the merged variable
                 for i, sub_var in enumerate(variable.sub_vars):
                     # Store dofs
-                    ind_var.append(
-                        system_manager.dofs_of(sub_var)
-                    )
+                    ind_var.append(system_manager.dofs_of(sub_var))
                     if i == 0:
                         # Store id of variable, but only for the first one; we will
                         # concatenate the arrays in ind_var into one array
@@ -754,9 +757,7 @@ class Operator:
                     variable_ids.append(variable.id)
             else:
                 # This is a variable that lives on a single grid
-                ind_var.append(
-                    system_manager.dofs_of(variable)
-                )
+                ind_var.append(system_manager.dofs_of(variable))
                 variable_ids.append(variable.id)
 
             # Gather all indices for this variable
@@ -816,9 +817,7 @@ class Operator:
 
     def __mul__(self, other):
         children = self._parse_other(other)
-        return Operator(
-            tree=Tree(Operator.Operations.mul, children), name="* operator"
-        )
+        return Operator(tree=Tree(Operator.Operations.mul, children), name="* operator")
 
     def __truediv__(self, other):
         children = self._parse_other(other)
@@ -1238,7 +1237,6 @@ class Variable(Operator):
         """
         raise RuntimeError("Cannot rename operators representing a variable.")
 
-
     def previous_timestep(self) -> Variable:
         """Return a representation of this variable on the previous time step.
 
@@ -1257,7 +1255,7 @@ class Variable(Operator):
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
-        return Variable(self.name, ndof, self.domain, previous_iteration=True) 
+        return Variable(self.name, ndof, self.domain, previous_iteration=True)
 
     def __repr__(self) -> str:
         s = (
@@ -1333,12 +1331,13 @@ class MixedDimensionalVariable(Variable):
         """A tuple of all domains on which the atomic sub-variables are defined."""
         domains = [var.domain for var in self.sub_vars]
         # Verify that all domains of of the same type
-        assert all(isinstance(d, pp.Grid) for d in domains) or all(isinstance(d, pp.MortarGrid) for d in domains)
+        assert all(isinstance(d, pp.Grid) for d in domains) or all(
+            isinstance(d, pp.MortarGrid) for d in domains
+        )
         return domains
 
     def size(self) -> int:
-        """Returns the total size of the merged variable by summing the sizes of sub-variables.
-        """
+        """Returns the total size of the merged variable by summing the sizes of sub-variables."""
         return sum([v.size() for v in self.sub_vars])
 
     def previous_timestep(self) -> MixedDimensionalVariable:
