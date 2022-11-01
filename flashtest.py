@@ -11,9 +11,9 @@ from iapws import IAPWS95
 p = 101.000  # 101 kPa
 T = 373.15  # 100 deg C
 h = T + p
-salt_fraction = 0.5
+salt_fraction = 0.01
 k_salt = 0.2
-k_water = 1.
+k_water = 1.015
 
 ### CALCULATION
 c = pp.composite.Composition()
@@ -43,7 +43,7 @@ c.initialize()
 success = c.isothermal_flash(copy_to_state=True, initial_guess="feed")
 c.evaluate_saturations(success)
 c.print_last_flash()
-c._print_state()
+c.print_state()
 
 print("Done")
 

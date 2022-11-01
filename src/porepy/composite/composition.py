@@ -159,8 +159,8 @@ class Composition:
         self._phases.append(IncompressibleFluid("L", self.ad_system))
         self._phases.append(IdealGas("G", self.ad_system))
         self._skew_cc.update({
-            self._phases[0] : 0.3,
-            self._phases[1] : 0.7
+            self._phases[0] : 1.,
+            self._phases[1] : 1.
         })
 
     ### Thermodynamic State -------------------------------------------------------------------
@@ -228,13 +228,19 @@ class Composition:
         """Returns the name of the temperature variable."""
         return self._T_var
 
-    def density(self, prev_time: bool = False) -> pp.ad.Operator | Literal[0]:
+    def density(
+        self,
+        prev_time: bool = False,
+        eliminate_reference_phase_saturation: bool = False
+    ) -> pp.ad.Operator | Literal[0]:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [mol / REV]
 
         Parameters:
             prev_time: indicator to use values from the previous time step.
+            eliminate_reference_phase_saturation (optional): If True, the saturation of the
+                reference phase is eliminated by unity
 
         Returns:
             Returns the overall molar density of the composition
@@ -253,13 +259,49 @@ class Composition:
                     self.p.previous_timestep(),
                     self.T.previous_timestep(),
                 )
-                for phase in self._phases
+                for phase in self.phases if phase != self.reference_phase
             ]
+
+            # treat the weight of the reference phase depending on the flag
+            if eliminate_reference_phase_saturation:
+                weight = pp.ad.Scalar(1.)
+                for phase in self.phases:
+                    if phase != self.reference_phase:
+                        weight -= phase.saturation.previous_timestep()
+                rho.append(
+                    weight
+                    * self.reference_phase.density(
+                        self.p.previous_timestep(),
+                        self.T.previous_timestep(),
+                    )
+                )
+            else:
+                rho.append(
+                    self.reference_phase.saturation.previous_timestep()
+                    * self.reference_phase.density(
+                        self.p.previous_timestep(),
+                        self.T.previous_timestep(),
+                    )
+                )
         else:
             rho = [
                 phase.saturation * phase.density(self.p, self.T)
-                for phase in self._phases
+                for phase in self.phases if phase != self.reference_phase
             ]
+
+            # treat the weight of the reference phase depending on the flag
+            if eliminate_reference_phase_saturation:
+                weight = pp.ad.Scalar(1.)
+                for phase in self.phases:
+                    if phase != self.reference_phase:
+                        weight -= phase.saturation
+                rho.append(weight * self.reference_phase.density(self.p, self.T))
+            else:
+                rho.append(
+                    self.reference_phase.saturation
+                    * self.reference_phase.density(self.p, self.T,)
+                )
+
         # summing the elements of the list results in the mixture density
         return sum(rho)
 
@@ -399,7 +441,7 @@ class Composition:
 
             # replace the reference phase fraction by unity
             if phase == self.reference_phase:
-                constraint = self._y_R
+                constraint = self.get_reference_phase_fraction_by_unity()
 
             # instantiate semi-smooth min in AD form with skewing factor
             equation = self._ss_min(constraint, skew_factor * lagrange)
@@ -652,10 +694,9 @@ class Composition:
         for phase in self.phases:
 
             if phase == ref_phase and eliminate_reference_phase_fraction:
-                if self._y_R is None:
-                    self._y_R = self.get_reference_phase_fraction_by_unity()
+                y_R = self.get_reference_phase_fraction_by_unity()
                 # - (1 - sum_{e != R} y_e) * chi_ce
-                equation -= self._y_R * ref_phase.ext_fraction_of_component(component)
+                equation -= y_R * ref_phase.ext_fraction_of_component(component)
             else:
                 # - y_e * chi_ce
                 equation -= phase.fraction * phase.ext_fraction_of_component(component)
@@ -676,7 +717,24 @@ class Composition:
             if phase != self.reference_phase:
                 # - y_e, where e != R
                 equation -= phase.fraction
-        # y_1
+        # y_R
+        return equation
+
+    def get_reference_phase_saturation_by_unity(self) -> pp.ad.Operator:
+        """Returns an equation which expresses the saturation of the reference phase through
+        the saturations of other phases by unity.
+
+            ``s_R = 1 - sum_{e != R} s_e
+
+        Returns:
+            AD operator representing the right-hand side of the equation.
+        """
+        equation = pp.ad.Scalar(1.0)
+        for phase in self.phases:
+            if phase != self.reference_phase:
+                # - s_e, where e != R
+                equation -= phase.saturation
+        # s_R
         return equation
 
     def get_phase_fraction_unity(self) -> pp.ad.Operator:
@@ -711,18 +769,23 @@ class Composition:
 
         return equation
 
-    def get_phase_fraction_relation(self, phase: Phase) -> pp.ad.Operator:
+    def get_phase_fraction_relation(
+        self,
+        phase: Phase,
+        eliminate_reference_phase_saturation: bool = False
+    ) -> pp.ad.Operator:
         """Returns a nonlinear equation representing the relation between the molar fraction
         of a phase and its volumetric fraction (saturation).
 
         The equation includes the unity of saturations, i.e.
 
             ``y_e = (rho_e * s_e) / (sum_f rho_f s_f)``
-            ``sum_f s_f  = 1``
-            ``y_e * (sum_(f != e) rho_f * s_f) + (y_e - 1) * rho_e * s_e = 0``
+            ``y_e * rho - s_e * rho_e = 0``
 
         Parameters:
             phase: a phase in this composition
+            eliminate_reference_phase_saturation (optional): If True, eliminates the reference
+                phase saturation inside the mixture density expression by unity.
 
         Returns:
             AD operator representing the left-hand side of the third equation (rhos=0).
@@ -737,7 +800,22 @@ class Composition:
         #         )
 
         # equation = phase.fraction * sum(other_phase_parts) + phase_part
-        equation = self.density() * phase.fraction - phase.saturation
+        if eliminate_reference_phase_saturation:
+            equation = self.density(
+                eliminate_reference_phase_saturation=True
+            ) * phase.fraction
+            if phase != self.reference_phase:
+                equation -= phase.density(self.p, self.T) * phase.saturation
+            else:
+                equation -= (
+                    phase.density(self.p, self.T)
+                    * self.get_reference_phase_saturation_by_unity()
+                )
+        else:
+            equation = (
+                self.density() * phase.fraction
+                - phase.density(self.p, self.T) * phase.saturation
+            )
 
         return equation
 
@@ -754,8 +832,13 @@ class Composition:
 
         """
         equation = self.h
+
         for phase in self.phases:
-            equation -= phase.fraction * phase.specific_enthalpy(self.p, self.T)
+            if phase == self.reference_phase:
+                y_R = self.get_reference_phase_fraction_by_unity()
+                equation -= y_R * phase.specific_enthalpy(self.p, self.T)
+            else:
+                equation -= phase.fraction * phase.specific_enthalpy(self.p, self.T)
 
         return equation
 
@@ -834,8 +917,8 @@ class Composition:
 
         # assemble linear system of eq for semi-smooth subsystem
         A, b = self.ad_system.assemble_subsystem(equations, var_names)
-        self._print_state(True)
-        self._print_system(A, b, subsystem)
+        # self._print_state(True)
+        # self._print_system(A, b, subsystem)
 
         # if residual is already small enough
         if np.linalg.norm(b) <= self.flash_tolerance:
@@ -861,7 +944,7 @@ class Composition:
                 # counting necessary number of iterations
                 iter_final = i + 1  # shift since range() starts with zero
                 A, b = self.ad_system.assemble_subsystem(equations, var_names)
-                self._print_system(A, b, subsystem)
+                # self._print_system(A, b, subsystem)
 
                 # in case of convergence
                 if np.linalg.norm(b) <= self.flash_tolerance:
@@ -890,7 +973,16 @@ class Composition:
 
         return success
 
-    def _print_system(self, A, b, subsystem):
+    def print_vars(self, vars):
+        all_vars = [block[1] for block in self.ad_system.dof_manager.block_dof]
+        print("Variables:")
+        print(
+            list(
+                sorted(set(vars), key=lambda x: all_vars.index(x))
+            )
+        )
+
+    def print_system(self, A, b, subsystem):
         all_vars = [block[1] for block in self.ad_system.dof_manager.block_dof]
         print("Variables:")
         print(
@@ -910,7 +1002,7 @@ class Composition:
         print(A.todense())
         print("---")
 
-    def _print_state(self, from_iterate: bool = False) -> None:
+    def print_state(self, from_iterate: bool = False) -> None:
         L = self._phases[0]
         G = self._phases[1]
         if from_iterate:
