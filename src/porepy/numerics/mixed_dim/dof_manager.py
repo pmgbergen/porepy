@@ -494,8 +494,8 @@ class DofManager:
 
     def transfer_variable(
         self,
-        grids: Optional[List[GridLike]] = None,
-        variables: Optional[List[str]] = None,
+        grids: Optional[list[GridLike]] = None,
+        variables: Optional[list[str]] = None,
         from_iterate_to_state: Optional[bool] = None,
         from_state_to_iterate: Optional[bool] = None,
     ) -> None:
