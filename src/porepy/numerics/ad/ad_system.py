@@ -410,7 +410,7 @@ class SystemManager:
     ) -> MixedDimensionalVariable:
         """Creates a new variable according to specifications.
 
-        This method does now assign any values to the variable. This has to be done in a
+        This method does not assign any values to the variable. This has to be done in a
         subsequent step (using e.g. :meth:`set_var_values`).
 
         If variables are categorized using enums, each variable must be assigned to a
@@ -896,7 +896,7 @@ class SystemManager:
                 requested_blocks = list(set(requested_blocks))
                 # Processing grid restrictions.
                 for name in grid_restricted_vars:
-                    # All grids on which this variable is defined
+                    # All grids on which this variable is defined.
                     all_grids = set(self._variables[name].domain)
 
                     # Grids that should be filtered away
@@ -923,7 +923,7 @@ class SystemManager:
             return [block for block in self._block_numbers if block[0] == variable]
         
         # variable represented as md-var: include all associated grids
-        # NOTE: check MixedDimensionalVariable first, since it is a subclass of Variable
+        # NOTE: Check MixedDimensionalVariable first, since it is a subclass of Variable
         elif isinstance(variable, MixedDimensionalVariable):
             if variable not in self._variables.values():
                 raise ValueError(f"Unknown mixed-dimensional variable {variable}.")
@@ -1211,9 +1211,9 @@ class SystemManager:
         assert len(equation_domain) == 0
 
         # perform a validity check of the input
-        #equ_ad = equation.evaluate(self.dof_manager)
-        #is_num_equ = len(equ_ad.val)
-        #if total_num_equ != is_num_equ:
+        # equ_ad = equation.evaluate(self.dof_manager)
+        # is_num_equ = len(equ_ad.val)
+        # if total_num_equ != is_num_equ:
         #    raise ValueError(
         #        f"Passed 'equation_operator' has {is_num_equ} equations,"
         #        f" opposing indicated number of {total_num_equ}."
@@ -1321,9 +1321,17 @@ class SystemManager:
 
     def _parse_single_equation_like(
         self, equation: str | Operator | dict[str | Operator, list[GridLike]]
-    ) -> dict[str, None | list[GridLike]]:
-        """Another helper's helper, this time for row blocks.
-        Parses non-sequential equation-likes."""
+    ) -> dict[str, None | np.ndarray]:
+        """Helper method to identify possible restrictions of a single equation-like.
+
+        Args:
+            equation: equation-like to be parsed.
+
+        Returns:
+            A dictionary with the name of the equation as key and the corresponding
+            restricted indices as values. If no restriction is given, the value is None.
+        
+        """
 
         # equation represented by string: No row-slicing
         if isinstance(equation, str):
@@ -1340,7 +1348,8 @@ class SystemManager:
         # equations represented by dict with restriction to grids: get target row
         # indices.
         elif isinstance(equation, dict):
-            block = dict()
+
+            block: dict[str, None | np.ndarray] = dict()
             for equ, grids in equation.items():
                 if isinstance(equ, Operator):
                     name = equ.name
@@ -1382,10 +1391,17 @@ class SystemManager:
     def _gridbased_equation_complement(
         self, equations: dict[str, None | np.ndarray]
     ) -> dict[str, None | np.ndarray]:
-        """Takes the information from equation parsing and finds for each equation the
-        indices which were excluded in the grid-sense.
+        """Takes the information from equation parsing and finds for each equation 
+        (identified by its name string) the indices which were excluded in the
+        grid-sense.
+
+        Args:
+            equation: dictionary with equation names as keys and the corresponding
+
+            TODO!!!
+
         """
-        complement = dict()
+        complement: dict[str, None | np.ndarray] = dict()
         for name, idx in equations.items():
             # if indices where filtered based on grids, we find the complementing indices
             if idx:
@@ -1398,6 +1414,7 @@ class SystemManager:
             # if there was no grid-based row filtering, the complement is empty
             else:
                 complement.update({name: None})
+        return complement
 
     def discretize(self, equations: Optional[EquationLike] = None) -> None:
         """Find and loop over all discretizations in the equation operators, extract
