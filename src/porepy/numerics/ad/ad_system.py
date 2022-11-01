@@ -173,7 +173,7 @@ class SystemManager:
 
         >>> from enum import Enum
         >>> import porepy as pp
-        >>> var_categories = Enum('var_categories, ['primary', 'secondary'])
+        >>> var_categories = Enum('var_categories', ['primary', 'secondary'])
         >>> mdg = ...  # some mixed-dim grid
         >>> ad_sys = pp.ad.SystemManager(mdg, var_categories)
         >>> p = ad_sys.create_variable('pressure', category=var_categories.primary)
@@ -287,7 +287,7 @@ class SystemManager:
 
         """
 
-        self._var_dofs: dict[str, tuple(dict[str, int], list[GridLike])] = dict()
+        self._var_dofs: dict[str, tuple[dict[str, int], list[GridLike]]] = dict()
 
     def SubSystem(
         self,
@@ -425,7 +425,7 @@ class SystemManager:
     def create_variable(
         self,
         name: str,
-        dof_info: dict[str, int] = {"cells": 1},
+        dof_info: Optional[dict] = None,
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
         # category: Optional[Enum] = None,
@@ -463,8 +463,6 @@ class SystemManager:
                 If None, then it will not be defined on any subdomain.
             interfaces (optional): list of interfaces on which the variable is defined.
                 If None, then it will not be defined on any interface.
-            category (optional): assigns a category to the variable. Must be an
-               :class:`Enum` contained in :class:`EnumMeta` passed at instantiation.
 
         Returns:
             a mixed-dimensional variable with above specifications.
@@ -477,6 +475,11 @@ class SystemManager:
             KeyError: if a variable with given name is already defined.
 
         """
+        # Set default value for dof_info. This is a mutable object, so we need to
+        # create a new one each time and not set the default in the signature.
+        if dof_info is None:
+            dof_info = {"cells": 1}
+
         # sanity check for admissible DOF types
         requested_type = set(dof_info.keys())
         if not requested_type.issubset(set(self.admissible_dof_types)):
@@ -591,7 +594,7 @@ class SystemManager:
         passed at instantiation, an empty list is returned for unknown categories.
 
         Parameters:
-            category (optional): filter names by one or multiple categories.
+            categories (optional): filter names by one or multiple categories.
 
         Returns: a tuple of names, optionally corresponding to the passed category.
 
@@ -1420,7 +1423,7 @@ class SystemManager:
         grid-sense.
 
         Args:
-            equation: dictionary with equation names as keys and the corresponding
+            equations: dictionary with equation names as keys and the corresponding
 
             TODO!!!
 
@@ -1595,7 +1598,7 @@ class SystemManager:
         secondary_equations: Optional[EquationLike] = None,
         secondary_variables: Optional[VarLike] = None,
         excl_loc_prim_to_sec: bool = False,
-        inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,
+        inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,  # Why the extra[]?
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
@@ -1646,7 +1649,7 @@ class SystemManager:
             excl_loc_prim_to_sec (optional): If True, primary local blocks which are excluded
                 by the variable- and equation-like structure, are added to the secondary block.
 
-                I.e. if a variable ``p`` is defined on two grids ``sd1, sd2``, ad the user
+                I.e. if a variable ``p`` is defined on two grids ``sd1, sd2``, and the user
                 defines the primary (column) block to be only given by ``p`` on ``sd1``,
                 then the (column) block corresponding to ``p`` on ``sd2`` will be added to the
                 secondary block.
@@ -1688,7 +1691,7 @@ class SystemManager:
             # default projection to secondaries
             secondary_projection = self.projection_to(secondary_variables)
             # assert primary and secondary columns do not overlap
-            common_column_indices = np.intersect1d(
+            common_column_indices: np.ndarray = np.intersect1d(
                 primary_projection.indices, secondary_projection.indices
             )
             if common_column_indices.size > 0:
@@ -1737,6 +1740,7 @@ class SystemManager:
                     np.hstack([excl_projection.indices, primary_projection.indices])
                 )
                 # the secondary indices are computed by the complement of above
+                # FIXME: Define shape
                 idx_s = np.delete(np.arange(shape[1], dtype=int), idx_excl)
                 shape = (idx_s.size, num_dofs)
                 secondary_projection = sps.coo_matrix(
