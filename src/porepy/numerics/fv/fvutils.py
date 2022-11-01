@@ -312,7 +312,7 @@ def find_active_indices(
     Args:
         parameter_dictionary (dict): Parameters, potentially containing fields
             "specified_cells", "specified_faces", "specified_nodes".
-        g (pp.Grid): Grid to be discretized.
+        sd (pp.Grid): Grid to be discretized.
 
     Returns:
         np.ndarray: Cells to be included in the active grid.
@@ -430,16 +430,16 @@ def remove_nonlocal_contribution(
         pp.matrix_operations.zero_rows(mat, eliminate_ind)
 
 
-def expand_indices_nd(ind, nd, direction="F"):
+def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
     """
     Expand indices from scalar to vector form.
 
     Examples:
     >>> i = np.array([0, 1, 3])
-    >>> __expand_indices_nd(i, 2)
+    >>> expand_indices_nd(i, 2)
     (array([0, 1, 2, 3, 6, 7]))
 
-    >>> __expand_indices_nd(i, 3, "C")
+    >>> expand_indices_nd(i, 3, "C")
     (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
 
     Args:
@@ -1497,7 +1497,7 @@ def compute_darcy_flux(
         fluxes between grids will be added only at the mdg edge, not at the node
         fields. The signs of the darcy_flux correspond to the directions of the
         normals, in the edge/coupling case those of the higher grid. For edges
-        beteween grids of equal dimension, there is an implicit assumption
+        between grids of equal dimension, there is an implicit assumption
         that all normals point from the second to the first of the sorted grids
         (mdg.sorted_nodes_of_edge(e)).
     """

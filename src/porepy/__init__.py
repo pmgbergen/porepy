@@ -44,7 +44,6 @@ except:
 from porepy.utils.common_constants import *
 from porepy.utils.porepy_types import *
 
-
 from porepy.utils.tangential_normal_projection import TangentialNormalProjection
 
 from porepy.utils import permutations
@@ -202,6 +201,7 @@ from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
 
 from porepy.utils import error
+
 
 # Modules
 from porepy.fracs import utils as frac_utils
