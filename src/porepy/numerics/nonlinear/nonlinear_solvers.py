@@ -60,8 +60,10 @@ class NewtonSolver:
                 True if the while loop has to be repeated. False otherwise.
 
             """
+
+            # Note that we use < (and not <=) because we start with iteration_counter = 0
             repeat = (
-                iters <= self.params["max_iterations"]  # (C1)
+                iters < self.params["max_iterations"]  # (C1)
                 and not has_converged  # (C2)
                 and not has_diverged  # (C3)
             )
@@ -69,7 +71,7 @@ class NewtonSolver:
 
         model.before_newton_loop()
 
-        iteration_counter = 1
+        iteration_counter = 0
         is_converged = False
         is_diverged = False
 
@@ -79,6 +81,9 @@ class NewtonSolver:
         error_norm = 1.0
 
         while repeat_loop(iteration_counter, is_converged, is_diverged):
+
+            iteration_counter += 1
+
             logger.info(
                 "Newton iteration number {} of {}".format(
                     iteration_counter, self.params["max_iterations"]
@@ -98,10 +103,6 @@ class NewtonSolver:
             )
             prev_sol = sol
             errors.append(error_norm)
-
-            iteration_counter += 1
-
-        iteration_counter -= 1  # fix off-set
 
         # Post-Newton steps
         if is_diverged or not is_converged:

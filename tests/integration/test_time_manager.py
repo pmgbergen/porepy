@@ -118,7 +118,7 @@ def test_time_step_adaptation_after_convergence(solution_type):
     np.testing.assert_almost_equal(model.out["time_step"], [0.3, 0.39, 0.31], 6)
 
 
-# -----> Testing adaptation after recomputation for non-linear model
+# -----> Testing adaptation after failed-to-converge recomputation for non-linear model
 tm_parabolic = pp.TimeManager(
     schedule=[0, 0.2],
     dt_init=0.18,
