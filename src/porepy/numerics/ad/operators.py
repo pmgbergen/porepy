@@ -817,7 +817,7 @@ class Operator:
     def __mul__(self, other):
         children = self._parse_other(other)
         return Operator(
-            tree=Tree(Operator.mroOperations.mul, children), name="* operator"
+            tree=Tree(Operator.Operations.mul, children), name="* operator"
         )
 
     def __truediv__(self, other):
