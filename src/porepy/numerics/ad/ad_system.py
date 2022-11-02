@@ -1,12 +1,15 @@
 """Contains the SystemManager, managing variables and equations for a system modelled
 using the AD framework.
 
+TODO: Do a search on 'category' and 'caterogies' and revise code and documentation.
+The categories are leftovers from the old Enum-based filtering system, which is being
+replaced by the more flexible tag-based system.
+
 """
 
 from __future__ import annotations
 
 import itertools
-from enum import Enum, EnumMeta
 from typing import Any, Callable, Literal, Optional, Union, overload
 
 import numpy as np
@@ -29,14 +32,11 @@ VarLike = Union[
     list[Variable],
     MixedDimensionalVariable,
     list[MixedDimensionalVariable],
-    Enum,
-    list[Enum],
-    list[Union[str, Variable, MixedDimensionalVariable, Enum]],
+    list[Union[str, Variable, MixedDimensionalVariable]],
 ]
 """A union type representing variables either by one or multiple names (:class:`str`),
 one or multiple :class:`~porepy.numerics.ad.operators.Variable`
-one or multiple :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`
-or one or multiple categories of variables (:class:`~enum.Enum`).
+one or multiple :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`.
 
 During parsing, grid variables are prioritized, i.e. a grid variable restricts its respective
 mixed-dimensional variable, as well as categories.
@@ -199,19 +199,12 @@ class SystemManager:
 
     """
 
-    def __init__(
-        self,
-        mdg: pp.MixedDimensionalGrid,
-        var_categories: Optional[EnumMeta] = None,
-    ) -> None:
+    def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
 
         ### PUBLIC
 
         self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional domain passed at instantiation."""
-
-        # self.var_categories: Optional[EnumMeta] = var_categories
-        """Enumeration object containing the variable categories passed at instantiation."""
 
         self._tags: dict[str, dict[str, Any]] = {}
         """Tagging system for variables.
@@ -302,7 +295,7 @@ class SystemManager:
 
         Notes:
             Subsystems have the same categories
-            (same ``EnumMeta`` object is passed as argument). But only requested variables are
+             But only requested variables are
             added.
             If the new subsystem has no variables in a specific category, methods accepting
             categories as arguments will work but result in null:
@@ -428,7 +421,6 @@ class SystemManager:
         dof_info: Optional[dict] = None,
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
-        # category: Optional[Enum] = None,
         tags: Optional[dict[str, Any]] = None,
     ) -> MixedDimensionalVariable:
         """Creates a new variable according to specifications.
@@ -586,7 +578,6 @@ class SystemManager:
 
     def get_var_names(
         self,
-        categories: Optional[Enum | list[Enum]] = None,
     ) -> tuple[str, ...]:
         """Get all (unique) variable names defined so far.
 
@@ -594,7 +585,7 @@ class SystemManager:
         passed at instantiation, an empty list is returned for unknown categories.
 
         Parameters:
-            categories (optional): filter names by one or multiple categories.
+            TODO: Introduce tags here?
 
         Returns: a tuple of names, optionally corresponding to the passed category.
 
@@ -611,8 +602,6 @@ class SystemManager:
                 for vars in self._vars_of_category.values():
                     var_names += vars
             else:
-                if isinstance(categories, Enum):
-                    categories = [categories]  # type: ignore
                 for cat in categories:
                     var_names += self._vars_of_category.get(cat, list())
             return tuple(var_names)
@@ -940,7 +929,7 @@ class SystemManager:
                 ]
 
     def _parse_single_varlike(
-        self, variable: str | Variable | MixedDimensionalVariable | Enum
+        self, variable: str | Variable | MixedDimensionalVariable
     ) -> list[tuple[str, GridLike]]:
         """Helper of helper :) Parses non-sequential VarLikes."""
 
@@ -965,15 +954,6 @@ class SystemManager:
             else:
                 raise ValueError(f"Unknown grid variable {variable}.")
 
-        # if a category is passed, with return all blocks associated with respective
-        # variables
-        elif isinstance(variable, Enum):
-            # EK: What if self.var_category is not defined?
-            if variable not in self.var_categories:
-                raise ValueError(f"Unknown category {variable}.")
-            else:
-                var_names = self._vars_of_category[variable]
-                return [block for block in self._block_numbers if block[0] in var_names]
         else:
             raise TypeError(f"Type {type(variable)} not parsable as variable-like.")
 
@@ -985,7 +965,7 @@ class SystemManager:
         """
         # strings, md variables and categories represent always a whole in the variable
         # sense and the complement is empty
-        if isinstance(variables, (str, MixedDimensionalVariable, Enum)):
+        if isinstance(variables, (str, MixedDimensionalVariable)):
             return list()
 
         # grid variables are part of a md variable, the complement are the remaining
@@ -1598,7 +1578,9 @@ class SystemManager:
         secondary_equations: Optional[EquationLike] = None,
         secondary_variables: Optional[VarLike] = None,
         excl_loc_prim_to_sec: bool = False,
-        inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,  # Why the extra[]?
+        inverter: Callable[
+            [sps.spmatrix], sps.spmatrix
+        ] = sps.linalg.inv,  # Why the extra[]?
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
