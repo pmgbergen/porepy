@@ -340,7 +340,7 @@ class SystemManager:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
         # creating a new manager
-        new_manager = SystemManager(self.mdg, var_categories=self.var_categories)
+        new_manager = SystemManager(self.mdg, var_categories=getattr(self, "var_categories", None))
 
         # this method imitates the variable creation and equation setting procedures by
         # calling private methods and accessing private attributes.
@@ -1578,9 +1578,7 @@ class SystemManager:
         secondary_equations: Optional[EquationLike] = None,
         secondary_variables: Optional[VarLike] = None,
         excl_loc_prim_to_sec: bool = False,
-        inverter: Callable[
-            [sps.spmatrix], sps.spmatrix
-        ] = sps.linalg.inv,  # Why the extra[]?
+        inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
