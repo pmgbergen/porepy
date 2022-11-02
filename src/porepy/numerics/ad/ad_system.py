@@ -1,10 +1,6 @@
 """Contains the SystemManager, managing variables and equations for a system modelled
 using the AD framework.
 
-TODO: Do a search on 'category' and 'caterogies' and revise code and documentation.
-The categories are leftovers from the old Enum-based filtering system, which is being
-replaced by the more flexible tag-based system.
-
 """
 
 from __future__ import annotations
@@ -39,7 +35,7 @@ one or multiple :class:`~porepy.numerics.ad.operators.Variable`
 one or multiple :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`.
 
 During parsing, grid variables are prioritized, i.e. a grid variable restricts its respective
-mixed-dimensional variable, as well as categories.
+mixed-dimensional variable.
 
 Examples:
     If ``T`` and ``T_g`` are a mixed-dimensional variable and a grid variable respectively,
@@ -49,15 +45,8 @@ Examples:
 
     Represents the temperature variable on a single grid.
 
-    If additionally ``h`` and ``T`` are categorized as ``energy``, the structure
-
-    >>> [energy, T_g]
-
-    will represent the mixed-dimensional variable ``h`` and the grid variable ``T_g``.
-
-    Additionally, note that if ``T`` is named ``'temperature'``
-    (consequently ``T_g`` will have the same name), then the following variable-like structures
-    are equivalent
+    If ``T`` is named ``'temperature'`` (consequently ``T_g`` will have the same name),
+    then the following variable-like structures are equivalent
 
     >>> [T, T_g]
     >>> ['temperature', T_g]
@@ -171,20 +160,9 @@ class SystemManager:
         An example of how to instantiate an SystemManager with *primary* and *secondary* variables
         would be
 
-        >>> from enum import Enum
-        >>> import porepy as pp
-        >>> var_categories = Enum('var_categories', ['primary', 'secondary'])
-        >>> mdg = ...  # some mixed-dim grid
-        >>> ad_sys = pp.ad.SystemManager(mdg, var_categories)
-        >>> p = ad_sys.create_variable('pressure', category=var_categories.primary)
-        >>> rho = ad_sys.create_variable('density', category=var_categories.secondary)
-        >>> primary_projection = ad_sys.projection_to(var_category.primary)
 
     Parameters:
         mdg: mixed-dimensional grid representing the whole computational domain.
-        var_categories (optional): an :class:`~enum.EnumMeta` object containing categories for
-            variables, defined by the user. They can later be used to assign categories to
-            created variables and assemble respective subsystems using the enumerated object.
 
     """
 
@@ -265,9 +243,6 @@ class SystemManager:
 
         """
 
-        self._vars_of_category: dict[Any, list[str]] = dict()
-        """Contains the names of variables assigned to a specific category (key)."""
-
         self._block_numbers: dict[tuple[str, GridLike], int] = dict()
         """Dictionary containing the block number for a given combination of grid/mortar grid
         and variable name (key).
@@ -292,17 +267,6 @@ class SystemManager:
         Currently only subsystems containing *whole* equations and variables in the
         mixed-dimensional sense can be created. Chopping into grid variables and restricting
         equations to certain grids is as of now not supported (hence the signature).
-
-        Notes:
-            Subsystems have the same categories
-             But only requested variables are
-            added.
-            If the new subsystem has no variables in a specific category, methods accepting
-            categories as arguments will work but result in null:
-
-            - dofs are empty
-            - projections are null space projections
-            - assembled sub-matrices are empty
 
         Parameters:
             equation_names (optional): names of known equation for the new subsystem.
@@ -340,7 +304,7 @@ class SystemManager:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
         # creating a new manager
-        new_manager = SystemManager(self.mdg, var_categories=getattr(self, "var_categories", None))
+        new_manager = SystemManager(self.mdg)
 
         # this method imitates the variable creation and equation setting procedures by
         # calling private methods and accessing private attributes.
@@ -360,23 +324,8 @@ class SystemManager:
                     else:
                         new_manager._grid_variables[var.domain] = {name: var}
 
-                # find category
-                if self.var_categories:
-                    for cat in self.var_categories:
-                        if name in self._vars_of_category[cat]:
-                            var_cat = cat
-                            break
-                else:
-                    var_cat = pp.PRIMARY_VARIABLES
-
-                # updating category information in subsystem
-                if var_cat in new_manager._vars_of_category:
-                    new_manager._vars_of_category[var_cat].append(name)
-                else:
-                    new_manager._vars_of_category[var_cat] = [name]
-
                 # creating dofs in subsystem
-                new_manager._append_dofs(name, var_cat)
+                new_manager._append_dofs(name)
 
         # loop over known equations to preserve row order
         for name in known_equations:
@@ -428,9 +377,6 @@ class SystemManager:
         This method does not assign any values to the variable. This has to be done in a
         subsequent step (using e.g. :meth:`set_var_values`).
 
-        If variables are categorized using enums, each variable must be assigned to a
-        category. A variable cannot be in multiple categories, but only one.
-
         Notes:
             This method provides support for creating variables on **all** subdomains
             or interfaces, without having to pass them all as arguments.
@@ -455,6 +401,7 @@ class SystemManager:
                 If None, then it will not be defined on any subdomain.
             interfaces (optional): list of interfaces on which the variable is defined.
                 If None, then it will not be defined on any interface.
+            tags (optional): dictionary containing tags for the variable.
 
         Returns:
             a mixed-dimensional variable with above specifications.
@@ -462,8 +409,6 @@ class SystemManager:
         Raises:
             ValueError: if non-admissible DOF types are used as local DOFs.
             ValueError: if one attempts to create a variable not defined on any grid.
-            ValueError: if passed category is not in enumeration object passed at
-                instantiation.
             KeyError: if a variable with given name is already defined.
 
         """
@@ -581,30 +526,13 @@ class SystemManager:
     ) -> tuple[str, ...]:
         """Get all (unique) variable names defined so far.
 
-        If specific categories are requested and the categories do not correspond to the ones
-        passed at instantiation, an empty list is returned for unknown categories.
-
         Parameters:
             TODO: Introduce tags here?
 
-        Returns: a tuple of names, optionally corresponding to the passed category.
+        Returns: a tuple of names.
 
         """
-        # if no categories were assigned, we use PorePy's default storage key
-        # and ignore any category argument
-        if self.var_categories is None:
-            return tuple(self._vars_of_category.get(pp.PRIMARY_VARIABLES, list()))
-        # if categories where assigned, we try to get the respective ones
-        # unknown categories return an empty list
-        else:
-            var_names = list()
-            if categories is None:
-                for vars in self._vars_of_category.values():
-                    var_names += vars
-            else:
-                for cat in categories:
-                    var_names += self._vars_of_category.get(cat, list())
-            return tuple(var_names)
+        return tuple(self._variables.keys())
 
     def get_variable_values(
         self, variables: Optional[VarLike] = None, from_iterate: bool = False
@@ -756,7 +684,6 @@ class SystemManager:
 
         Parameters:
             var_name: name of the newly created variable
-            var_cat: category of the variable under which the DOF information is stored
 
         """
         # number of totally created dof blocks so far
@@ -963,8 +890,8 @@ class SystemManager:
         The grid-based complement consists of all those grid variables, which are not
         inside ``variables``, but their respective variable names appear in the structure.
         """
-        # strings, md variables and categories represent always a whole in the variable
-        # sense and the complement is empty
+        # strings and md variables represent always a whole in the variable sense. Hence
+        # the complement is empty
         if isinstance(variables, (str, MixedDimensionalVariable)):
             return list()
 
@@ -997,8 +924,7 @@ class SystemManager:
         """Create a projection matrix from the global vector of unknowns to a specified
         subspace.
 
-        The subspace can be specified by variable categories, variable names and
-        variables (see :data:`VarLike`).
+        The subspace can be specified by variable names or variables (see :data:`VarLike`).
 
         The transpose of the returned matrix can be used to slice respective columns out
         of the global Jacobian.
