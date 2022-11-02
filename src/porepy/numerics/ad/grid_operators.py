@@ -514,6 +514,30 @@ class MortarProjections(Operator):
         return s
 
 
+class BoundaryProjection(Operator):
+    """A projection operator between boundary grids and subdomains.
+
+    WIP. The projections have not yet been used to formulate equations, thus it is not
+    clear whether the design is optimal, or if changes are needed.
+    """
+
+    def __init__(
+        self, mdg: pp.MixedDimensionalGrid, subdomains: list[pp.Grid], dim: int = 1
+    ) -> None:
+
+        mat = [
+            sps.kron(mdg.subdomain_to_boundary_grid(sd).projection, sps.eye(dim))
+            for sd in subdomains
+        ]
+        self._projection: sps.spmatrix = sps.bmat(mat, format="csr")
+
+    def subdomain_to_boundary(self) -> sps.spmatrix:
+        return self._projection
+
+    def boundary_to_subdomain(self) -> sps.spmatrix:
+        return self._projection.transpose().tocsc()
+
+
 class Trace(Operator):
     """Wrapper class for Ad representations of trace operators and their inverse,
     that is, mappings between grid cells and faces.

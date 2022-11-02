@@ -22,10 +22,19 @@ class MixedDimensionalGrid:
     """
 
     def __init__(self) -> None:
-        self._subdomain_data: dict[pp.Grid, dict] = {}
-        self._interface_data: dict[pp.MortarGrid, dict] = {}
-        self._interface_to_subdomains: dict[pp.MortarGrid, tuple[pp.Grid, pp.Grid]] = {}
         self.name = "Mixed-dimensional grid"
+
+        self._subdomain_data: dict[pp.Grid, dict] = {}
+        """Dictionary storing data associated with subdomains."""
+
+        self._interface_data: dict[pp.MortarGrid, dict] = {}
+        """Dictionary storing data associated with interfaces."""
+
+        self._interface_to_subdomains: dict[pp.MortarGrid, tuple[pp.Grid, pp.Grid]] = {}
+        """Dictionary storing the mapping from interfaces to the adjacent subdomains."""
+
+        self._subdomain_boundary_grids: dict[pp.Grid, pp.BoundaryGrid] = {}
+        """Dictionary storing the boundary grids associated with subdomains."""
 
     def __contains__(self, key: Any) -> bool:
         """Overload __contains__.
@@ -227,6 +236,18 @@ class MixedDimensionalGrid:
                 interfaces.append(intf)
         return self.sort_interfaces(interfaces)
 
+    def subdomain_to_boundary_grid(self, sd: pp.Grid) -> pp.BoundaryGrid:
+        """Get the boundary grid associated with a subdomain.
+
+        Args:
+            sd: A subdomain in the mixed-dimensional grid.
+
+        Returns:
+            The BoundaryGrid associated with this subdomain.
+
+        """
+        return self._subdomain_boundary_grids[sd]
+
     def neighboring_subdomains(
         self, sd: pp.Grid, only_higher: bool = False, only_lower: bool = False
     ) -> list[pp.Grid]:
@@ -298,6 +319,9 @@ class MixedDimensionalGrid:
     def add_subdomains(self, new_subdomains: Union[pp.Grid, Iterable[pp.Grid]]) -> None:
         """Add new subdomains to the mixed-dimensional grid.
 
+        Also generate a BoundaryGrid for ecah subdomain and store it in this
+        MixedDimensionalGrid.
+
         Args:
             new_subdomains (pp.Grid or Iterable of pp.Grid): The subdomains to be added. None
                 of these should have been added previously.
@@ -317,6 +341,9 @@ class MixedDimensionalGrid:
         for sd in ng:
             # Add the grid to the dictionary of subdomains with an empty data dictionary.
             self._subdomain_data[sd] = {}
+
+            # Generate a boundary grid for this grid
+            self._subdomain_boundary_grids[sd] = pp.BoundaryGrid(g=sd)
 
     def add_interface(
         self,
