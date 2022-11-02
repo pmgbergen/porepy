@@ -379,7 +379,7 @@ class IncompressibleFluid(Phase):
     
     """
     
-    num_moles: float = 1e3
+    num_moles: float = 1e6
 
     def density(self, p, T):
         return pp.ad.Array(
@@ -412,7 +412,7 @@ class IdealGas(Phase):
         # h = u + p / rho(p,T)
         # which due to the ideal gas law simplifies to
         # h = u + R * T
-        return H_REF + CP_REF * (T - T_REF)
+        return H_REF + CP_REF * (T - T_REF) + V_REF * (p - P_REF)
 
     def dynamic_viscosity(self, p, T):
         return pp.ad.Array(np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells()))
