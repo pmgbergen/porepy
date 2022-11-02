@@ -94,7 +94,7 @@ class SystemManagerSetup:
         self.x = x_ad
         self.x2 = eq_manager.create_variable("x2", subdomains=[sd_1])
 
-        self.z1 = z_ad
+        self.z = z_ad
         self.x_merged = x_merged
         self.y_merged = y_merged
 
@@ -117,7 +117,7 @@ class SystemManagerSetup:
             return self.sd_1.num_cells + self.sd_2.num_cells
         elif var == self.y_merged:
             return self.sd_1.num_cells + self.sd_2.num_cells
-        elif var == self.z1:
+        elif var == self.z:
             return self.sd_2.num_cells
         else:
             raise ValueError
@@ -131,7 +131,7 @@ class SystemManagerSetup:
             return self.eq_manager.dofs_of(g, n)
 
         return self.eq_manager.dofs_of(var)
-        if var in (self.x1, self.x2, self.z1):
+        if var in (self.x1, self.x2, self.z):
             return self.eq_manager.dofs_of(var)  # inds(self.x1.domain, self.x1.name)
 
         #        elif var == self.x2:
@@ -155,8 +155,8 @@ class SystemManagerSetup:
             )
             return dofs
 
-        #        elif var == self.z1:
-        #            return inds(self.z1.domain, self.z1.name)
+        #        elif var == self.z:
+        #            return inds(self.z.domain, self.z.name)
         else:
             raise ValueError
 
@@ -477,7 +477,7 @@ def test_assemble_subsystem(setup, var_names, eq_names):
         ["y_merged"],
         ["x1", "y_merged"],
         ["y_merged", "x1"],
-        ["x_merged", "y_merged", "z1"],
+        ["x_merged", "y_merged", "z"],
     ],
 )
 @pytest.mark.parametrize(
@@ -549,7 +549,7 @@ def test_extract_subsystem(setup, eq_names, var_names):
     # Combinations of variables and variables. These cannot be set independently, since
     # the block to be eliminated should be square and invertible.
     [
-        [["simple"], ["z1"]],  # Single equation, atomic variable
+        [["simple"], ["z"]],  # Single equation, atomic variable
         [["simple"], ["x1"]],  # Atomic version of variable which is also merged
         [["merged"], ["y_merged"]],  # Merged equation, variable is only merged
         [["merged"], ["x_merged"]],  # variable is both merged and atomic
@@ -574,7 +574,7 @@ def test_schur_complement(setup, eq_var_to_exclude):
     eq_name = [eq for eq in eq_manager.equations if eq not in eq_to_exclude]
 
     # Set of all variables. z and y are only given in one form as input to this test.
-    all_variables = ["z1", "y_merged"]
+    all_variables = ["z", "y_merged"]
 
     # x can be both merged and simple
     if "x_merged" in var_to_exclude:
