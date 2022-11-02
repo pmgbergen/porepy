@@ -291,6 +291,17 @@ def test_mortar_projections(mdg, scalar):
     assert _compare_matrices(known_sgn_mat, proj.sign_of_mortar_sides)
 
 
+def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid):
+    """Aspects to test:
+    1) That we can create a boundary projection operator with the correct size and items.
+    2) Specifically that the top-dimensional grid and one of the fracture grids
+       contribute to the boundary projection operator, while the third has a projection
+       matrix with zero rows.
+    """
+    # Leave a test that will fail here, so that we remember to implement this.
+    assert False
+
+
 @pytest.mark.parametrize("scalar", [True, False])
 def test_boundary_condition(mdg: pp.MixedDimensionalGrid, scalar: bool):
     """Test of boundary condition representation.
@@ -503,10 +514,6 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
     _compare_matrices(val, sps.block_diag(divergences))
 
 
-
-
-
-
 def test_ad_discretization_class():
     # Test of the mother class of all discretizations (pp.ad.Discretization)
 
@@ -587,4 +594,3 @@ class _MockDiscretization:
         self.not_matrix_keys = "failed"
 
         self.keyword = key
-
