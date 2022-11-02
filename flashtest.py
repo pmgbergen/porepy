@@ -1,19 +1,20 @@
 import sys
+
 sys.path.append("/mnt/c/Users/vl-work/Desktop/github/porepy/src")
 
 import numpy as np
+from iapws import IAPWS95
+from matplotlib import pyplot as plt
+
 import porepy as pp
 
-from matplotlib import pyplot as plt
-from iapws import IAPWS95
-
 ### PARAMETRIZATION
-p = 101.000  # 101 kPa
-T = 373.15  # 100 deg C
+p = 101.320  # 101 kPa
+T = 343.15  # 100 deg C
 h = T + p
-salt_fraction = 0.01
-k_salt = 0.2
-k_water = 1.015
+salt_fraction = 0.5
+k_salt = 0.1
+k_water = 10
 
 ### CALCULATION
 c = pp.composite.Composition()
@@ -31,7 +32,7 @@ ad_system.set_var_values(water.fraction_name, (1-salt_fraction) * np.ones(nc), T
 ad_system.set_var_values(salt.fraction_name, salt_fraction * np.ones(nc), True)
 ad_system.set_var_values(c._p_var, p * np.ones(nc), True)
 ad_system.set_var_values(c._T_var, T * np.ones(nc), True)
-ad_system.set_var_values(c._h_var, h * np.ones(nc), True)
+ad_system.set_var_values(c._h_var, np.zeros(nc), True)
 
 c.k_values = {
     water: k_water,
@@ -40,10 +41,12 @@ c.k_values = {
 
 c.initialize()
 
-success = c.isothermal_flash(copy_to_state=True, initial_guess="feed")
-c.evaluate_saturations(success)
-c.print_last_flash()
+success = c.isothermal_flash(copy_to_state=False, initial_guess="feed")
+c.evaluate_saturations(False)
+c.evaluate_specific_enthalpy(False)
+
 c.print_state()
+c.print_state(True)
 
 print("Done")
 

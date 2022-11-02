@@ -1,5 +1,6 @@
 import sys
 from datetime import datetime
+
 sys.path.append("/mnt/c/Users/vl-work/Desktop/github/porepy/src")
 
 import porepy as pp
@@ -11,18 +12,17 @@ params = {
     "file_name": file_name,
     "use_ad": False,
     "eliminate_ref_phase": True,
+    "use_pressure_equation": False,
+    "monolithic": True,
 }
 
 t = 0.
-T = 10
+T = 3
 dt = 0.1
-max_iter = 50
-tol = 1e-4
+max_iter = 200
+tol = 1e-5
 
-model = pp.CompositionalFlowModel(
-    params=params,
-    monolithic_solver=False,
-)
+model = pp.CompositionalFlowModel(params=params)
 
 model.prepare_simulation()
 model.dt = dt
