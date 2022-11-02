@@ -21,104 +21,138 @@ import porepy as pp
 
 
 class SystemManagerSetup:
-    """Class to set up an EquationManager with a combination of variables
+    """Class to set up a SystemManager with a combination of variables
     and equations, designed to make it convenient to test critical functionality
-    of the EM.
+    of the SystemManager.
+
+    The setup is intended for testing advanced functionality, like assembly of equations,
+    construction of subsystems of equations etc. The below setup is in itself a test of
+    basic functionality, like creation of variables and equations.
+    TODO: We should have dedicated tests for variable creation, to make sure we cover
+    all options.
     """
 
     def __init__(self):
-        sd_1 = pp.CartGrid(np.array([3, 1]))
-        sd_2 = pp.CartGrid(np.array([4, 1]))
+        mdg = pp.grids.standard_grids.md_grids_2d.two_intersecting()
 
-        mdg = pp.MixedDimensionalGrid()
-        mdg.add_subdomains([sd_1, sd_2])
+        sys_man = pp.SystemManager(mdg)
 
-        for sd, data in mdg.subdomains(return_data=True):
-            data[pp.PRIMARY_VARIABLES] = {
-                "x": {"cells": 1},
-                "y": {"cells": 1},
-                "x_merged": {"cells": 1},
-                "y_merged": {"cells": 1},
-            }
-            if sd == sd_2:
-                # Add a third variable on the second grid
-                data[pp.PRIMARY_VARIABLES].update({"z": {"cells": 1}})
-            else:
-                data[pp.PRIMARY_VARIABLES].update({"x2": {"cells": 1}})
+        # List of all subdomains
+        subdomains = sys_man.subdomains()
+        # Also generate a variable on the top-dimensional domain
+        sd_top = sys_man.subdomains(dim=mdg.dim_max())[0]
 
-            x = 2 * np.ones(sd.num_cells)
-            y = 3 * np.ones(sd.num_cells)
-            z = 4 * np.ones(sd.num_cells)
+        interfaces = sys_man.interfaces()
+        intf_top = sys_man.interfaces(dim=mdg.dim_max() - 1)[0]
 
-            data[pp.STATE] = {
-                "x": x,
-                "y": y,
-                "z": z,
-                "x_merged": x.copy(),
-                "y_merged": y.copy(),
-                "x2": x.copy(),
-                pp.ITERATE: {
-                    "x": x.copy(),
-                    "y": y.copy(),
-                    "z": z.copy(),
-                    "x_merged": x.copy(),
-                    "y_merged": y.copy(),
-                    "x2": x.copy(),
-                },
-            }
-
-        # Ad representation of variables
-        eq_manager = pp.ad.SystemManager(mdg)
-
-        x_ad = eq_manager.create_variable("x", subdomains=[sd_2])
-        y_ad = eq_manager.create_variable("y", subdomains=[sd_2])
-        z_ad = eq_manager.create_variable("z", subdomains=[sd_2])
-
-        x_merged = eq_manager.create_variable("x_merged", subdomains=[sd_1, sd_2])
-        y_merged = eq_manager.create_variable("y_merged", subdomains=[sd_1, sd_2])
-
-        projections = pp.ad.SubdomainProjections(subdomains=[sd_1, sd_2])
-        proj = projections.cell_restriction([sd_2])
-
-        # One equation with only simple variables (not merged)
-        eq_simple = x_ad * y_ad + 2 * z_ad
-        # One equation using only merged variables
-        eq_merged = y_merged * (1 + x_merged)
-        # One equation combining merged and simple variables
-        eq_combined = x_ad + y_ad * (proj * y_merged)
-
-        eq_manager.equations.update(
-            {"simple": eq_simple, "merged": eq_merged, "combined": eq_combined}
+        self.name_sd_variable = "x"
+        self.sd_variable = sys_man.create_variable(
+            self.name_sd_variable, subdomains=subdomains
         )
 
-        self.x = x_ad
-        self.x2 = eq_manager.create_variable("x2", subdomains=[sd_1])
+        self.name_intf_variable = "y"
+        self.intf_variable = sys_man.create_variable(
+            self.name_intf_variable, interfaces=interfaces
+        )
 
-        self.z1 = z_ad
-        self.x_merged = x_merged
-        self.y_merged = y_merged
+        self.name_sd_top_variable = "z"
+        self.sd_top_variable = sys_man.create_variable(
+            self.name_sd_top_variable, subdomains=[sd_top]
+        )
 
-        self.sd_1 = sd_1
-        self.sd_2 = sd_2
+        self.name_intf_top_variable = "w"
+        self.intf_top_variable = sys_man.create_variable(
+            self.name_intf_top_variable, interfaces=[intf_top]
+        )
 
-        A, b = eq_manager.assemble()
-        self.A = A
-        self.b = b
-        self.eq_manager = eq_manager
+        # Set state and iterate for the variables.
+        # The assigned numbers are not important, the comparisons below will be between
+        # an assembled matrix for the full and for a reduced system, and similar for
+        # the right hand side vector.
+        for sd, data in mdg.subdomains(return_data=True):
+            data[pp.STATE][self.name_sd_variable] = sd.dim * np.ones(sd.num_cells)
+            data[pp.STATE][pp.ITERATE][self.name_sd_variable] = sd.dim * np.ones(
+                sd.num_cells
+            )
+
+            if sd == sd_top:
+                data[pp.STATE][self.name_sd_top_variable] = sd.dim * np.ones(
+                    sd.num_cells
+                )
+                data[pp.STATE][pp.ITERATE][self.name_sd_op_variable] = sd.dim * np.ones(
+                    sd.num_cells
+                )
+
+        # Also assign state and iterate for the interface variables
+        for intf, data in mdg.interfaces(return_data=True):
+            data[pp.STATE][self.name_intf_variable] = intf.dim * np.ones(intf.num_cells)
+            data[pp.STATE][pp.ITERATE][self.name_intf_variable] = intf.dim * np.ones(
+                intf.num_cells
+            )
+
+            if intf == intf_top:
+                data[pp.STATE][self.name_intf_top_variable] = intf.dim * np.ones(
+                    intf.num_cells
+                )
+                data[pp.STATE][pp.ITERATE][
+                    self.name_intf_top_variable
+                ] = intf.dim * np.ones(intf.num_cells)
+
+        # Set equations on subdomains
+
+        projections = pp.ad.SubdomainProjections(subdomains=subdomains)
+        proj = projections.cell_restriction([sd_top])
+
+        # One equation with only simple variables (not merged)
+        self.eq_all_subdomains = self.sd_variable * self.sd_variable
+        self.eq_all_subdomains.name = "eq_all_subdomains"
+        # One equation using only merged variables
+        self.eq_single_subdomain = self.sd_top_variable * self.sd_top_variable
+        self.eq_single_subdomain.name = "eq_single_subdomain"
+        # One equation combining merged and simple variables
+        self.eq_combined = self.sd_top_variable * (proj * self.sd_variable)
+        self.eq_combined.name = "eq_combined"
+
+        dof_all_subdomains = {sd: {"cells": 1} for sd in subdomains}
+        dof_single_subdomain = {sd_top: {"cells": 1}}
+        dof_combined = {sd_top: {"cells": 1}}
+
+        sys_man.set_equation(self.eq_all_subdomains, dof_all_subdomains)
+        sys_man.set_equation(self.eq_single_subdomain, dof_single_subdomain)
+        sys_man.set_equation(self.eq_combined, dof_combined)
+
+        # Define equations on the interfaces
+        # Common for all interfaces
+        self.eq_all_interfaces = self.intf_variable * self.intf_variable
+        self.eq_all_interfaces.name = "eq_all_interfaces"
+        # The top interface only
+        self.eq_single_interface = self.intf_top_variable * self.intf_top_variable
+        self.eq_single_interface.name = "eq_single_interface"
+        # TODO: Should we do something on a combination as well?
+
+        self.A, self.b = sys_man.assemble()
+        self.sys_man = sys_man
+
+        # Store subdomains and interfaces
+        self.subdomains = subdomains
+        self.sd_top = sd_top
+        self.interfaces = interfaces
+        self.intf_top = intf_top
+        self.mdg = mdg
 
     ## Helper methods below.
 
     def var_size(self, var):
         # For a given variable, get its size (number of dofs) based on what
         # we know about the variables specified in self.__init__
-        if var == self.x1:
-            return self.sd_2.num_cells
-        elif var == self.x_merged:
-            return self.sd_1.num_cells + self.sd_2.num_cells
-        elif var == self.y_merged:
-            return self.sd_1.num_cells + self.sd_2.num_cells
-        elif var == self.z1:
-            return self.sd_2.num_cells
+        if var == self.sd_variable:
+            return self.mdg.num_subdomain_cells()
+        elif var == self.sd_top_variable:
+            return self.sd_top.num_cells
+        elif var == self.intf_variable:
+            return self.mdg.num_interface_cells()
+        elif var == self.intf_top_variable:
+            return self.intf_top.num_cells
         else:
             raise ValueError
 
