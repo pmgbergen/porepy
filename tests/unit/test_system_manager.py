@@ -33,17 +33,17 @@ class SystemManagerSetup:
     """
 
     def __init__(self):
-        mdg = pp.grids.standard_grids.md_grids_2d.two_intersecting()
+        mdg, _ = pp.grids.standard_grids.md_grids_2d.two_intersecting()
 
-        sys_man = pp.SystemManager(mdg)
+        sys_man = pp.ad.SystemManager(mdg)
 
         # List of all subdomains
-        subdomains = sys_man.subdomains()
+        subdomains = mdg.subdomains()
         # Also generate a variable on the top-dimensional domain
-        sd_top = sys_man.subdomains(dim=mdg.dim_max())[0]
+        sd_top = mdg.subdomains(dim=mdg.dim_max())[0]
 
-        interfaces = sys_man.interfaces()
-        intf_top = sys_man.interfaces(dim=mdg.dim_max() - 1)[0]
+        interfaces = mdg.interfaces()
+        intf_top = mdg.interfaces(dim=mdg.dim_max() - 1)[0]
 
         self.name_sd_variable = "x"
         self.sd_variable = sys_man.create_variable(
@@ -69,34 +69,16 @@ class SystemManagerSetup:
         # The assigned numbers are not important, the comparisons below will be between
         # an assembled matrix for the full and for a reduced system, and similar for
         # the right hand side vector.
-        for sd, data in mdg.subdomains(return_data=True):
-            data[pp.STATE][self.name_sd_variable] = sd.dim * np.ones(sd.num_cells)
-            data[pp.STATE][pp.ITERATE][self.name_sd_variable] = sd.dim * np.ones(
-                sd.num_cells
-            )
-
-            if sd == sd_top:
-                data[pp.STATE][self.name_sd_top_variable] = sd.dim * np.ones(
-                    sd.num_cells
-                )
-                data[pp.STATE][pp.ITERATE][self.name_sd_op_variable] = sd.dim * np.ones(
-                    sd.num_cells
-                )
-
-        # Also assign state and iterate for the interface variables
-        for intf, data in mdg.interfaces(return_data=True):
-            data[pp.STATE][self.name_intf_variable] = intf.dim * np.ones(intf.num_cells)
-            data[pp.STATE][pp.ITERATE][self.name_intf_variable] = intf.dim * np.ones(
-                intf.num_cells
-            )
-
-            if intf == intf_top:
-                data[pp.STATE][self.name_intf_top_variable] = intf.dim * np.ones(
-                    intf.num_cells
-                )
-                data[pp.STATE][pp.ITERATE][
-                    self.name_intf_top_variable
-                ] = intf.dim * np.ones(intf.num_cells)
+        sys_man.set_variable_values(
+            self.sd_variable, np.arange(mdg.num_subdomain_cells())
+        )
+        sys_man.set_variable_values(self.sd_top_variable, np.arange(sd_top.num_cells))
+        sys_man.set_variable_values(
+            self.intf_variable, np.arange(mdg.num_interface_cells())
+        )
+        sys_man.set_variable_values(
+            self.intf_top_variable, np.arange(intf_top.num_cells)
+        )
 
         # Set equations on subdomains
 
@@ -105,13 +87,13 @@ class SystemManagerSetup:
 
         # One equation with only simple variables (not merged)
         self.eq_all_subdomains = self.sd_variable * self.sd_variable
-        self.eq_all_subdomains.name = "eq_all_subdomains"
+        self.eq_all_subdomains.set_name("eq_all_subdomains")
         # One equation using only merged variables
         self.eq_single_subdomain = self.sd_top_variable * self.sd_top_variable
-        self.eq_single_subdomain.name = "eq_single_subdomain"
+        self.eq_single_subdomain.set_name("eq_single_subdomain")
         # One equation combining merged and simple variables
         self.eq_combined = self.sd_top_variable * (proj * self.sd_variable)
-        self.eq_combined.name = "eq_combined"
+        self.eq_combined.set_name("eq_combined")
 
         dof_all_subdomains = {sd: {"cells": 1} for sd in subdomains}
         dof_single_subdomain = {sd_top: {"cells": 1}}
@@ -124,10 +106,10 @@ class SystemManagerSetup:
         # Define equations on the interfaces
         # Common for all interfaces
         self.eq_all_interfaces = self.intf_variable * self.intf_variable
-        self.eq_all_interfaces.name = "eq_all_interfaces"
+        self.eq_all_interfaces.set_name("eq_all_interfaces")
         # The top interface only
         self.eq_single_interface = self.intf_top_variable * self.intf_top_variable
-        self.eq_single_interface.name = "eq_single_interface"
+        self.eq_single_interface.set_name("eq_single_interface")
         # TODO: Should we do something on a combination as well?
 
         self.A, self.b = sys_man.assemble()
@@ -261,19 +243,51 @@ def _compare_matrices(m1, m2):
     return True
 
 
-@pytest.mark.parametrize(
-    "var_names",
-    [
-        [],  # No secondary variables
-        ["x"],  # A simple variable which is also part of a merged one
-        ["x_merged"],  # Merged variable
-        ["z"],  # Simple variable not available as merged
-        ["z", "y_merged"],  # Combination of simple and merged.
-    ],
-)
+def _variable_from_setup(
+    setup,
+    as_str: bool,
+    on_interface: bool,
+    on_subdomain: bool,
+    single_grid: bool,
+    full_grid: bool,
+):
+    # Helper method to get a variable from the setup, either as a string or as
+    # a variable object. The variable is either on a subdomain or an interface.
+    vars = []
+    if on_interface:
+        if as_str:
+            if single_grid:
+                vars.append("intf_top_variable")
+            if full_grid:
+                vars.append("intf_variable")
+        else:
+            if single_grid:
+                vars.append(setup.intf_top_variable)
+            if full_grid:
+                vars.append(setup.intf_variable)
+    if on_subdomain:
+        if as_str:
+            if single_grid:
+                vars.append("sd_top_variable")
+            if full_grid:
+                vars.append("sd_variable")
+        else:
+            if single_grid:
+                vars.append(setup.sd_top_variable)
+            if full_grid:
+                vars.append(setup.sd_variable)
+    return vars
+
+
+@pytest.mark.parametrize("as_str", [True, False])
+@pytest.mark.parametrize("on_interface", [True, False])
+@pytest.mark.parametrize("on_subdomain", [True, False])
+@pytest.mark.parametrize("single_grid", [True, False])
+@pytest.mark.parametrize("full_grid", [True, False])
 @pytest.mark.parametrize("iterate", [True, False])
-@pytest.mark.parametrize("as_variable", [True, False])
-def test_set_get_methods(setup, var_names, iterate: bool, as_variable: bool):
+def test_set_get_methods(
+    setup, as_str, on_interface, on_subdomain, single_grid, full_grid, iterate
+):
     """Test the set and get methods of the SystemManager class.
 
     The test is performed for a number of different combinations of variables.
@@ -287,16 +301,9 @@ def test_set_get_methods(setup, var_names, iterate: bool, as_variable: bool):
 
     np.random.seed(42)
 
-    # Represent the variables either as strings or as Ad variables.
-    if as_variable:
-        # Get the variables
-        variables = [getattr(setup, var_name) for var_name in var_names]
-    else:
-        # Represent the variables as strings
-        variables = var_names
-
-    if len(variables) == 1:
-        variables = variables[0]
+    variables = _variable_from_setup(
+        setup, as_str, on_interface, on_subdomain, single_grid, full_grid
+    )
 
     sz = eq_manager.dofs_of(variables)
 

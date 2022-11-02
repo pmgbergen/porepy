@@ -885,7 +885,7 @@ class SystemManager:
         # else we parse the input
         else:
             # parsing of non-sequential VarLikes
-            if isinstance(variables, (str, Variable, MixedDimensionalVariable, Enum)):
+            if isinstance(variables, (str, Variable, MixedDimensionalVariable)):
                 return self._parse_single_varlike(variables)
             # try to iterate over sequential VarLike
             else:
