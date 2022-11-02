@@ -321,6 +321,7 @@ class SystemManager:
                         new_manager._grid_variables[var.domain] = {name: var}
 
                 # creating dofs in subsystem
+                # TODO: This has not been updated to the new signature of _append_dofs
                 new_manager._append_dofs(name)
 
         # loop over known equations to preserve row order
@@ -469,7 +470,7 @@ class SystemManager:
         self._variables.update({name: merged_var})
 
         # append the new DOFs to the global system
-        self._append_dofs(name)
+        self._append_dofs(merged_var)
 
         # Add tags
         if tags is None:
@@ -667,7 +668,7 @@ class SystemManager:
 
     ### DOF management -----------------------------------------------------------------
 
-    def _append_dofs(self, var_name: str) -> None:
+    def _append_dofs(self, variable: pp.ad.MixedDimensionalVariable) -> None:
         """Appends DOFs for a newly created variable.
 
         Must only be called by :meth:`create_variable`.
@@ -679,7 +680,7 @@ class SystemManager:
                 append dofs on interfaces where variable is defined (order given by mdg)
 
         Parameters:
-            var_name: name of the newly created variable
+            variable: The newly created variable
 
         """
         # number of totally created dof blocks so far
@@ -689,18 +690,29 @@ class SystemManager:
         # new dofs per block
         new_block_dofs_: list[int] = list()
 
+        # Name of the variable
+        var_name = variable.name
+
         # add dofs found on subdomains for this variable name
-        for sd, data in self.mdg.subdomains(return_data=True):
-            # last sanity check that no previous data is overwritten
-            # should not happen if class not used in hacky way
+        # IMPLEMENTATION NOTE: It was easier to implement this by looping over all
+        # subdomains and checking if the variable is defined on them, rather than
+        # looping over the domain of the variable, and checking if it the items in the
+        # domain are subdomains or interfaces.
+        for sd in self.mdg.subdomains():
+            if sd not in variable.domain:
+                # This is an interface. Continue.
+                continue
+
+            # Sanity check that no previous data is overwritten. This should not happen,
+            # if class not used in hacky way.
             assert (var_name, sd) not in self._block_numbers
 
-            # assign a new block number and increase the counter
+            # Assign a new block number and increase the counter.
             new_block_numbers[(var_name, sd)] = last_block_number
             last_block_number += 1
 
-            # count number of dofs for this variable on this grid and store it.
-            # the number of dofs for each dof type defaults to zero.
+            # Count number of dofs for this variable on this grid and store it.
+            # The number of dofs for each dof type defaults to zero.
             local_dofs = self._var_dofs[var_name][0]
             num_local_dofs = (
                 sd.num_cells * local_dofs.get("cells", 0)
@@ -708,26 +720,31 @@ class SystemManager:
                 + sd.num_nodes * local_dofs.get("nodes", 0)
             )
             new_block_dofs_.append(num_local_dofs)
-        # add dofs found on interfaces for this variable
-        for intf, data in self.mdg.interfaces(return_data=True):
 
-            # last sanity check that no previous data is overwritten
-            # should not happen if class not used in hacky way
+        # Add dofs found on interfaces for this variable
+        for intf in self.mdg.interfaces():
+            if intf not in variable.domain:
+                # This is a subdomain. Continue.
+                continue
+
+            # Sanity check that no previous data is overwritten. This should not happen,
+            # if class not used in hacky way.
             assert (var_name, intf) not in self._block_numbers
 
-            # assign a new block number and increase the counter
+            # Assign a new block number and increase the counter.
             new_block_numbers[(var_name, intf)] = last_block_number
             last_block_number += 1
 
-            # count number of dofs for this variable on this grid and store it.
-            # only cell-wise dofs are allowed on interfaces
+            # Count number of dofs for this variable on this grid and store it.
+            # Only cell-wise dofs are allowed on interfaces
             local_dofs = self._var_dofs[var_name][0]
             total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
             new_block_dofs_.append(total_local_dofs)
 
-        # converting block dofs to array
+        # Converting block dofs to array
         new_block_dofs = np.array(new_block_dofs_, dtype=int)
-        # update the global dofs so far with the new blocks
+
+        # Update the global dofs so far with the new blocks
         self._block_numbers.update(new_block_numbers)
         self._block_dofs = np.concatenate([self._block_dofs, new_block_dofs])
 
@@ -759,33 +776,37 @@ class SystemManager:
         new_block_counter: int = 0
         new_block_numbers: dict[tuple[str, GridLike], int] = dict()
         new_block_dofs: list[int] = list()
-        block_pair: tuple[GridLike, str]  # appeasing mypy
+        block_pair: tuple[str, GridLike]  # appeasing mypy
 
-        # first set of diagonal blocks, per subdomain
+        # First set of diagonal blocks, per subdomain
         for sd in self.mdg.subdomains():
-            # sub-loop of variables per subdomain
+            # Sub-loop of variables per subdomain
             for var_name in self._variables:
                 block_pair = (var_name, sd)
                 if block_pair in self._block_numbers:
-                    # extract created number of dofs
-                    local_dofs = self._block_dofs[self._block_numbers[block_pair]]
-                    # store new block number and dofs in new order
+                    # Extract created number of dofs
+                    local_dofs: int = self._block_dofs[self._block_numbers[block_pair]]
+
+                    # Store new block number and dofs in new order
                     new_block_dofs.append(local_dofs)
                     new_block_numbers.update({block_pair: new_block_counter})
                     new_block_counter += 1
-        # second set of diagonal blocks, per interface
+
+        # Second set of diagonal blocks, per interface
         for intf in self.mdg.interfaces():
-            # sub-loop of variables per interface
+            # Sub-loop of variables per interface
             for var_name in self._variables:
                 block_pair = (var_name, intf)
                 if block_pair in self._block_numbers:
-                    # extract created number of dofs
+                    # Extract created number of dofs
                     local_dofs = self._block_dofs[self._block_numbers[block_pair]]
-                    # store new block number and dofs in new order
+
+                    # Store new block number and dofs in new order
                     new_block_dofs.append(local_dofs)
                     new_block_numbers.update({block_pair: new_block_counter})
                     new_block_counter += 1
-        # replace old block order
+
+        # Replace old block order
         self._block_dofs = np.array(new_block_dofs, dtype=int)
         self._block_numbers = new_block_numbers
 
@@ -841,9 +862,7 @@ class SystemManager:
 
         # iterate over available blocks and check if they are requested
         # this ensures uniqueness again and correct order
-        return [
-            block for block in self._block_numbers if block in requested_blocks
-        ]
+        return [block for block in self._block_numbers if block in requested_blocks]
 
     def _parse_single_varlike(
         self, variable: str | Variable | MixedDimensionalVariable
@@ -1135,7 +1154,6 @@ class SystemManager:
         # assert the equation is not defined on an unknown domain
         assert len(equation_domain) == 0
 
-
         # if all good, we assume we can proceed
         self._equ_image_space_composition.update({name: image_info})
         self._equ_image_dof_info.update({name: num_equ_per_dof})
@@ -1225,9 +1243,7 @@ class SystemManager:
         ordered_blocks = dict()
         for equation in self._equations:
             if equation in requested_row_blocks:
-                ordered_blocks.update(
-                    {equation: requested_row_blocks[equation]}
-                )
+                ordered_blocks.update({equation: requested_row_blocks[equation]})
         return ordered_blocks
 
     def _parse_single_equation_like(

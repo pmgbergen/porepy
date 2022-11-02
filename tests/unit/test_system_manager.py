@@ -20,6 +20,80 @@ import scipy.sparse as sps
 import porepy as pp
 
 
+def test_variable_creation():
+    """Test that variable creation from a SystemManager works as expected.
+
+    The test generates a MixedDimensionalGrid, defines some variables on it, and checks
+    that the variables have the correct sizes and names.
+
+    Also tested is the methods num_dofs() and partly dofs_of()
+    """
+    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal(simplex=False)
+
+    sys_man = pp.ad.SystemManager(mdg)
+
+    # Define the number of variables per grid item. Faces are included just to test that
+    # this also works.
+    dof_info_sd = {"cells": 1, "faces": 2}
+    dof_info_intf = {"cells": 1}
+
+    # Create variables on subdomain and interface.
+    subdomains = mdg.subdomains()
+    single_subdomain = mdg.subdomains(dim=mdg.dim_max())
+
+    interfaces = mdg.interfaces()
+
+    # Define one variable on all subdomains, one on a single subdomain, and one on
+    # all interfaces (there is only one interface in this grid).
+    subdomain_variable = sys_man.create_variable(
+        "var_1", dof_info_sd, subdomains=subdomains
+    )
+    single_subdomain_variable = sys_man.create_variable(
+        "var_2", dof_info_sd, single_subdomain
+    )
+    interface_variable = sys_man.create_variable(
+        "var_3", dof_info_intf, interfaces=interfaces
+    )
+
+    # Also define a variable on subdomains without specifying the subdomains.
+    # The resulting variable should have the same size as the one where all subdomains
+    # are explicitly set.
+    subdomain_variable_implicitly_defined = sys_man.create_variable(
+        "var_4", dof_info_sd, subdomains=[]
+    )
+
+    # Check that the variables are created correctly
+    assert subdomain_variable.name == "var_1"
+    assert single_subdomain_variable.name == "var_2"
+    assert interface_variable.name == "var_3"
+    assert subdomain_variable_implicitly_defined.name == "var_4"
+
+    # Check that the number of dofs is correct for each variable.
+    num_subdomain_faces = sum([sd.num_faces for sd in subdomains])
+
+    # Need a factor 2 here, since we have defined two variables on all subdomains.
+    ndof_subdomains = 2 * (
+        mdg.num_subdomain_cells() * dof_info_sd["cells"]
+        + num_subdomain_faces * dof_info_sd["faces"]
+    )
+    ndof_single_subdomain = (
+        single_subdomain[0].num_cells * dof_info_sd["cells"]
+        + single_subdomain[0].num_faces * dof_info_sd["faces"]
+    )
+    ndof_interface = mdg.num_interface_cells() * dof_info_intf["cells"]
+
+    assert (
+        sys_man.dofs_of(subdomain_variable).size
+        + sys_man.dofs_of(subdomain_variable_implicitly_defined).size
+    ) == ndof_subdomains
+    assert sys_man.dofs_of(single_subdomain_variable).size == ndof_single_subdomain
+    assert sys_man.dofs_of(interface_variable).size == ndof_interface
+
+    assert (
+        sys_man.num_dofs() == ndof_subdomains + ndof_single_subdomain + ndof_interface
+    )
+
+
 class SystemManagerSetup:
     """Class to set up a SystemManager with a combination of variables
     and equations, designed to make it convenient to test critical functionality
@@ -70,15 +144,27 @@ class SystemManagerSetup:
         # an assembled matrix for the full and for a reduced system, and similar for
         # the right hand side vector.
         global_vals = np.arange(sys_man.num_dofs())
-        global_vals[sys_man.dofs_of([self.sd_variable])] = np.arange(mdg.num_subdomain_cells())
-        global_vals[sys_man.dofs_of([self.sd_top_variable])] = np.arange(sd_top.num_cells)
-        global_vals[sys_man.dofs_of([self.intf_variable])] = np.arange(mdg.num_interface_cells())
-        global_vals[sys_man.dofs_of([self.intf_top_variable])] = np.arange(intf_top.num_cells)
+        global_vals[sys_man.dofs_of([self.sd_variable])] = np.arange(
+            mdg.num_subdomain_cells()
+        )
+        global_vals[sys_man.dofs_of([self.sd_top_variable])] = np.arange(
+            sd_top.num_cells
+        )
+        global_vals[sys_man.dofs_of([self.intf_variable])] = np.arange(
+            mdg.num_interface_cells()
+        )
+        global_vals[sys_man.dofs_of([self.intf_top_variable])] = np.arange(
+            intf_top.num_cells
+        )
 
         sys_man.set_variable_values(
             global_vals,
-            variables=[self.name_sd_variable, self.name_sd_top_variable, self.name_intf_variable,
-                       self.name_intf_top_variable],
+            variables=[
+                self.name_sd_variable,
+                self.name_sd_top_variable,
+                self.name_intf_variable,
+                self.name_intf_top_variable,
+            ],
         )
 
         # Set equations on subdomains
