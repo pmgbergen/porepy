@@ -585,6 +585,7 @@ class TestStructuredSimplexGridCoverage(unittest.TestCase):
         g.compute_geometry()
         self.assertTrue(np.abs(domain.prod() - np.sum(g.cell_volumes)) < 1e-10)
 
+
 class TestGridCounter(unittest.TestCase):
     def test_different_grids(self):
         """Test that different consecutively created grids have consecutive counters."""
@@ -613,6 +614,7 @@ class TestGridCounter(unittest.TestCase):
         g1 = simplex.StructuredTriangleGrid(np.array([1, 1]))
         g2 = g1.copy()
         self.assertTrue(g1.id == g2.id - 1)
+
 
 class TestGridMappings1d(unittest.TestCase):
     def test_merge_single_grid(self):
@@ -667,6 +669,33 @@ class TestGridMappings1d(unittest.TestCase):
         self.assertTrue(np.all(intf.primary_to_mortar_int().A == [0, 1, 0]))
         self.assertTrue(np.all(intf.secondary_to_mortar_avg().A == [0, 1]))
         self.assertTrue(np.all(intf.secondary_to_mortar_int().A == [0, 1]))
+
+
+def test_boundary_grid():
+    """Test that the boundary grid is created correctly."""
+    # First make a standard grid and its derived BoundaryGrid
+    g = pp.CartGrid([2, 2])
+
+    boundary_grid = pp.BoundaryGrid(g)
+
+    # Hardcoded value for the number of cells
+    assert boundary_grid.num_cells == 8
+
+    proj = boundary_grid.projection
+
+    assert proj.shape == (8, 12)
+
+    rows, cols, _ = sps.find(proj)
+    assert np.allclose(np.sort(rows), np.arange(8))
+    # Hardcoded values based on the known ordering of faces in a Cartesian grid
+    assert np.allclose(np.sort(cols), np.array([0, 2, 3, 5, 6, 7, 10, 11]))
+
+    # Next, mark all faces in the grid as not on the domain boundary.
+    # The boundary grid should then be empty.
+    g.tags["domain_boundary_faces"] = np.zeros(g.num_faces, dtype=bool)
+    boundary_grid = pp.BoundaryGrid(g)
+    assert boundary_grid.num_cells == 0
+    assert boundary_grid.projection.shape == (0, 12)
 
 
 @pytest.mark.parametrize(
