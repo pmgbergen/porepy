@@ -69,15 +69,16 @@ class SystemManagerSetup:
         # The assigned numbers are not important, the comparisons below will be between
         # an assembled matrix for the full and for a reduced system, and similar for
         # the right hand side vector.
+        global_vals = np.arange(sys_man.num_dofs())
+        global_vals[sys_man.dofs_of([self.sd_variable])] = np.arange(mdg.num_subdomain_cells())
+        global_vals[sys_man.dofs_of([self.sd_top_variable])] = np.arange(sd_top.num_cells)
+        global_vals[sys_man.dofs_of([self.intf_variable])] = np.arange(mdg.num_interface_cells())
+        global_vals[sys_man.dofs_of([self.intf_top_variable])] = np.arange(intf_top.num_cells)
+
         sys_man.set_variable_values(
-            self.sd_variable, np.arange(mdg.num_subdomain_cells())
-        )
-        sys_man.set_variable_values(self.sd_top_variable, np.arange(sd_top.num_cells))
-        sys_man.set_variable_values(
-            self.intf_variable, np.arange(mdg.num_interface_cells())
-        )
-        sys_man.set_variable_values(
-            self.intf_top_variable, np.arange(intf_top.num_cells)
+            global_vals,
+            variables=[self.name_sd_variable, self.name_sd_top_variable, self.name_intf_variable,
+                       self.name_intf_top_variable],
         )
 
         # Set equations on subdomains
