@@ -20,19 +20,16 @@ __all__ = ["SystemManager"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
 """A union type representing a domain either by a grid or mortar grids."""
-
+SingleVariable = Union[str, Variable, MixedDimensionalVariable]
 VarLike = Union[
-    str,
     list[str],
-    Variable,
     list[Variable],
-    MixedDimensionalVariable,
     list[MixedDimensionalVariable],
     list[Union[str, Variable, MixedDimensionalVariable]],
 ]
-"""A union type representing variables either by one or multiple names (:class:`str`),
-one or multiple :class:`~porepy.numerics.ad.operators.Variable`
-one or multiple :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`.
+"""A union type representing variables either names (:class:`str`), multiple 
+:class:`~porepy.numerics.ad.operators.Variable` or 
+:class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`.
 
 During parsing, grid variables are prioritized, i.e. a grid variable restricts its respective
 mixed-dimensional variable.
@@ -70,17 +67,16 @@ Examples:
 """
 
 EquationLike = Union[
-    str,
     list[str],
-    Operator,
     list[Operator],
     dict[str, list[GridLike]],
     dict[Operator, list[GridLike]],
     list[Union[str, dict[str, list[GridLike]], dict[Operator, list[GridLike]]]],
 ]
-"""A union type representing equations either by one or multiple names (:class:`str`),
-one or multiple :class:`~porepy.numerics.ad.operators.Operator`,
-or a dictionary containing equation domains (:data:`GridLike`) per equation (name or Operator).
+"""A union type representing equations by names (:class:`str`),
+:class:`~porepy.numerics.ad.operators.Operator`,
+or a dictionary containing equation domains (:data:`GridLike`) per equation 
+(:key:name or Operator).
 
 If an equation is defined on multiple grids, the dictionary can be used to represent a
 restriction of that equation on respective grids.
@@ -809,51 +805,45 @@ class SystemManager:
         # the default return value is all blocks
         if variables is None:
             return list(self._block_numbers.keys())
-        # else we parse the input
-        else:
-            # parsing of non-sequential VarLikes
-            if isinstance(variables, (str, Variable, MixedDimensionalVariable)):
-                return self._parse_single_varlike(variables)
-            # try to iterate over sequential VarLike
-            else:
-                # storage for all requested blocks, possible not unique and
-                # un-restricted in terms of grids
-                requested_blocks = list()
 
-                # storage for all grid-restricted vars to eliminate the rest
-                grid_restricted_vars = set()
-                restricted_grids: dict[str, set] = dict()
+        # storage for all requested blocks, possible not unique and
+        # un-restricted in terms of grids
+        requested_blocks = list()
 
-                for variable in variables:
-                    # same parsing as for non_sequentials
-                    requested_blocks += self._parse_single_varlike(variable)
+        # storage for all grid-restricted vars to eliminate the rest
+        grid_restricted_vars = set()
+        restricted_grids: dict[str, set] = dict()
 
-                    # filtering grid restrictions
-                    if isinstance(variable, Variable):
-                        grid_restricted_vars.add(variable.name)
-                        if variable.name in restricted_grids:
-                            restricted_grids[variable.name].add(variable.domain)
-                        else:
-                            restricted_grids[variable.name] = set([variable.domain])
+        for variable in variables:
+            # same parsing as for non_sequentials
+            requested_blocks += self._parse_single_varlike(variable)
 
-                # Make results unique.
-                requested_blocks = list(set(requested_blocks))
-                # Processing grid restrictions.
-                for name in grid_restricted_vars:
-                    # All grids on which this variable is defined.
-                    all_grids = set(self._variables[name].domain)
+            # filtering grid restrictions
+            if isinstance(variable, Variable):
+                grid_restricted_vars.add(variable.name)
+                if variable.name in restricted_grids:
+                    restricted_grids[variable.name].add(variable.domain)
+                else:
+                    restricted_grids[variable.name] = set(variable.domain)
 
-                    # Grids that should be filtered away
-                    filtered_grids = all_grids.difference(restricted_grids[name])
-                    for f_name, f_grid in itertools.product([name], filtered_grids):
-                        if (f_name, f_grid) in requested_blocks:
-                            requested_blocks.remove((f_name, f_grid))
+        # Make results unique.
+        requested_blocks = list(set(requested_blocks))
+        # Processing grid restrictions.
+        for name in grid_restricted_vars:
+            # All grids on which this variable is defined.
+            all_grids = set(self._variables[name].domain)
 
-                # iterate over available blocks and check if they are requested
-                # this ensures uniqueness again and correct order
-                return [
-                    block for block in self._block_numbers if block in requested_blocks
-                ]
+            # Grids that should be filtered away
+            filtered_grids = all_grids.difference(restricted_grids[name])
+            for f_name, f_grid in itertools.product([name], filtered_grids):
+                if (f_name, f_grid) in requested_blocks:
+                    requested_blocks.remove((f_name, f_grid))
+
+        # iterate over available blocks and check if they are requested
+        # this ensures uniqueness again and correct order
+        return [
+            block for block in self._block_numbers if block in requested_blocks
+        ]
 
     def _parse_single_varlike(
         self, variable: str | Variable | MixedDimensionalVariable
@@ -890,18 +880,20 @@ class SystemManager:
         The grid-based complement consists of all those grid variables, which are not
         inside ``variables``, but their respective variable names appear in the structure.
         """
-        # strings and md variables represent always a whole in the variable sense. Hence
+        # strings and md variables represent always a whole in the variable sense. Hence,
         # the complement is empty
         if isinstance(variables, (str, MixedDimensionalVariable)):
             return list()
 
-        # grid variables are part of a md variable, the complement are the remaining
-        # grid vars
-        elif isinstance(variables, Variable):
-            # Get the MixedDimensionalVariable version of this variable
-            md_v = self._variables[variables.name]
-            # Return all components of the md variable that are not the input variable
-            return [var for var in md_v.sub_vars if var.domain != variables.domain]
+        # I think the commented out code below is not needed, since the grid-based
+        # after enforcing list in VarLike TODO: Check this and remove if true
+        # # grid variables are part of a md variable, the complement are the remaining
+        # # grid vars
+        # elif isinstance(variables, Variable):
+        #     # Get the MixedDimensionalVariable version of this variable
+        #     md_v = self._variables[variables.name]
+        #     # Return all components of the md variable that are not the input variable
+        #     return [var for var in md_v.sub_vars if var.domain != variables.domain]
 
         # non sequential var-like structure
         else:
@@ -1143,14 +1135,6 @@ class SystemManager:
         # assert the equation is not defined on an unknown domain
         assert len(equation_domain) == 0
 
-        # perform a validity check of the input
-        # equ_ad = equation.evaluate(self.dof_manager)
-        # is_num_equ = len(equ_ad.val)
-        # if total_num_equ != is_num_equ:
-        #    raise ValueError(
-        #        f"Passed 'equation_operator' has {is_num_equ} equations,"
-        #        f" opposing indicated number of {total_num_equ}."
-        #    )
 
         # if all good, we assume we can proceed
         self._equ_image_space_composition.update({name: image_info})
@@ -1222,35 +1206,29 @@ class SystemManager:
         if equations is None:
             return dict((name, None) for name in self._equations)
         # else we parse the input
-        else:
-            # parsing non-sequential arguments
-            if isinstance(equations, (str, Operator, dict)):
-                return self._parse_single_equation_like(equations)
-            # try to iterate over sequential equation-likes
-            else:
-                # storage for requested blocks, unique information per equation name
-                requested_row_blocks = dict()
-                # storage for restricted equations
-                restricted_equations = dict()
+        # storage for requested blocks, unique information per equation name
+        requested_row_blocks = dict()
+        # storage for restricted equations
+        restricted_equations = dict()
 
-                for equation in equations:
-                    block = self._parse_single_equation_like(equation)
-                    # store restrictions
-                    if isinstance(equation, dict):
-                        restricted_equations.update(block)
-                    else:
-                        requested_row_blocks.update(block)
-                # update the requested blocks with the restricted to overwrite the indices if
-                # an equation was passed in both restricted and unrestricted structure
-                requested_row_blocks.update(restricted_equations)
-                # ensure order
-                ordered_blocks = dict()
-                for equation in self._equations:
-                    if equation in requested_row_blocks:
-                        ordered_blocks.update(
-                            {equation: requested_row_blocks[equation]}
-                        )
-                return ordered_blocks
+        for equation in equations:
+            block = self._parse_single_equation_like(equation)
+            # store restrictions
+            if isinstance(equation, dict):
+                restricted_equations.update(block)
+            else:
+                requested_row_blocks.update(block)
+        # update the requested blocks with the restricted to overwrite the indices if
+        # an equation was passed in both restricted and unrestricted structure
+        requested_row_blocks.update(restricted_equations)
+        # ensure order
+        ordered_blocks = dict()
+        for equation in self._equations:
+            if equation in requested_row_blocks:
+                ordered_blocks.update(
+                    {equation: requested_row_blocks[equation]}
+                )
+        return ordered_blocks
 
     def _parse_single_equation_like(
         self, equation: str | Operator | dict[str | Operator, list[GridLike]]
@@ -1269,13 +1247,13 @@ class SystemManager:
         # equation represented by string: No row-slicing
         if isinstance(equation, str):
             if equation not in self._equations:
-                raise ValueError(f"Unkown equation name {equation}.")
+                raise ValueError(f"Unknown equation name {equation}.")
             return {equation: None}
 
         # equation represented by Operator: No row-slicing
         elif isinstance(equation, Operator):
             if equation.name not in self._equations:
-                raise ValueError(f"Unkown equation operator {equation}.")
+                raise ValueError(f"Unknown equation operator {equation}.")
             return {equation.name: None}
 
         # equations represented by dict with restriction to grids: get target row
@@ -1287,11 +1265,11 @@ class SystemManager:
                 if isinstance(equ, Operator):
                     name = equ.name
                     if name not in self._equations:
-                        raise ValueError(f"Unkown equation name {equation}.")
+                        raise ValueError(f"Unknown equation name {equation}.")
                 elif isinstance(equ, str):
                     name = equ
                     if name not in self._equations:
-                        raise ValueError(f"Unkown equation operator {equation}.")
+                        raise ValueError(f"Unknown equation operator {equation}.")
                 else:
                     raise TypeError(
                         f"Item ({type(equ)}, {type(grids)}) not parsable as equation-like."
