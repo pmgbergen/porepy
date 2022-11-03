@@ -277,18 +277,18 @@ def plot_mdg(
         kwargs["rgb"] = np.divide(kwargs.get("rgb", [1, 0, 0]), sd.id + 1)
         # Plot the subdomain and data
 
-        vector_value = sd_data.get(pp.STATE, {}).get(vector_value, None)
-        if vector_value is not None:
+        vector_value_array = sd_data.get(pp.STATE, {}).get(vector_value, None)
+        if vector_value_array is not None:
             # The further algorithm requires the vector_value array of shape (3 x n). but
             # We have the 1D data array. Thus, we fill the remaining dimensions with zeros.
-            vector_value = vector_value.reshape(sd.dim, -1)
-            vector_value = np.vstack(
-                [vector_value, np.zeros((3 - sd.dim, vector_value.shape[1]))]
+            vector_value_array = vector_value_array.reshape(sd.dim, -1, order="F")
+            vector_value_array = np.vstack(
+                [vector_value_array, np.zeros((3 - sd.dim, vector_value_array.shape[1]))]
             )
         _plot_sd_xd(
             sd,
             sd_data.get(pp.STATE, {}).get(cell_value, None),
-            vector_value,
+            vector_value_array,
             ax,
             **kwargs,
         )
