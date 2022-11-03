@@ -176,7 +176,7 @@ class SystemManager:
         self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional domain passed at instantiation."""
 
-        self._variable_tags: dict[pp.MixedDimensionalVariable, dict[str, Any]] = {}
+        self._variable_tags: dict[str, dict[str, Any]] = {}
         """Tagging system for variables.
         
         The tags are stored in a dictionary, where the keys are the tag names, and the
@@ -186,8 +186,9 @@ class SystemManager:
         Tags can be assigned to variables at creation, or later using the method
         set_variable_tag.
 
-        New categories of tags can be added 
+        New categories of tags can be added with the method add_variable_tag.
         """
+
         self.assembled_equation_indices: dict[str, np.ndarray] = dict()
         """Contains the row indices in the last assembled (sub-) system for a given equation
         name (key). This dictionary changes with every call to any assemble-method.
@@ -474,7 +475,7 @@ class SystemManager:
         if tags is None:
             tags = {}
 
-        self._variable_tags[merged_variable] = tags
+        self._variable_tags[name] = tags
 
         return merged_variable
 
@@ -500,20 +501,20 @@ class SystemManager:
             if len(variables) != len(tags):
                 raise ValueError("Length of variable and variable_tag must be equal.")
             for t, v in zip(tags, variables):
-                self._variable_tags[v].update(t)
+                self._variable_tags[v.name].update(t)
 
         elif len(tags) > 1:
             for t in tags:
-                self._variable_tags[variables[0]].update(t)
+                self._variable_tags[variables[0].name].update(t)
         elif len(variables) > 1:
             for v in variables:
-                self._variable_tags[v].update(tags[0])
+                self._variable_tags[v.name].update(tags[0])
         else:
-            self._variable_tags[variables[0]].update(tags[0])
+            self._variable_tags[variables[0].name].update(tags[0])
 
     def get_variables_by_tag(
         self, tag_name: str, tag_value: Optional[Any] = None
-    ) -> dict[str, Any]:
+    ) -> list[pp.ad.MixedDimensionalVariable]:
         """Get the variable status for a given tag.
 
         By request, the results can be filtered so that only variables with a given tag
@@ -531,10 +532,14 @@ class SystemManager:
 
         """
         filtered_variables = []
+        # Loop over all variables, see if they have the requested tag
         for var in self.variables:
-            if tag_name in self._variable_tags[var]:
+            if tag_name in self._variable_tags[var].keys():
+                # The variable passes the filter if the tag has the requested value, or
+                # if no value is requested.
                 if tag_value is None or self._variable_tags[var][tag_name] == tag_value:
-                    filtered_variables.append(var)
+                    filtered_variables.append(self.variables[var])
+
         return filtered_variables
 
     def get_variable_names(
@@ -1656,9 +1661,9 @@ class SystemManager:
         secondary_rows: dict[str, None | np.ndarray] | None
         sec_equ_names: list[str]
         shape = (
-                primary_projection.shape[1] - primary_projection.shape[0],
-                num_dofs,
-            )
+            primary_projection.shape[1] - primary_projection.shape[0],
+            num_dofs,
+        )
         if excl_loc_prim_to_sec:
 
             # remove indices found in primary projection
