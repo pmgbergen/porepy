@@ -94,6 +94,52 @@ def test_variable_creation():
     )
 
 
+def test_variable_tags():
+    mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal(simplex=False)
+
+    sys_man = pp.ad.SystemManager(mdg)
+
+    # Define the number of variables per grid item. Faces are included just to test that
+    # this also works.
+    dof_info = {"cells": 1}
+
+    # Create variables on subdomain and interface.
+    subdomains = mdg.subdomains()
+    single_subdomain = mdg.subdomains(dim=mdg.dim_max())
+
+    # Define one variable on all subdomains, one on a single subdomain, and one on
+    # all interfaces (there is only one interface in this grid).
+    var_1 = sys_man.create_variable(
+        "var_1", dof_info, subdomains=subdomains, tags={"tag1": 1}
+    )
+    var_2 = sys_man.create_variable("var_2", dof_info, single_subdomain)
+
+    assert sys_man.variable_tags[var_1] == {"tag1": 1}
+    # By default, variables should not have tags
+    assert len(sys_man.variable_tags[var_2]) == 0
+
+    # Add separate tags to separate variables
+    sys_man.add_variable_tags([var_1, var_2], [{"tag_2": 2}, {"tag_3": 3}])
+    assert sys_man.variable_tags[var_1]["tag_2"] == 2
+    assert sys_man.variable_tags[var_2]["tag_3"] == 3
+
+    # Add the same tag to both variables.
+    # This will overwrite the previous tag for var_1, but not for var_2
+    sys_man.add_variable_tags([var_1, var_2], [{"tag_2": 4}])
+    assert sys_man.variable_tags[var_1]["tag_2"] == 4
+    assert sys_man.variable_tags[var_2]["tag_2"] == 4
+
+    # Add multiple tags to a single variable.
+    # tag_3 will be overwritten, tag_4 is added as a boolean
+    sys_man.add_variable_tags([var_2], [{"tag_3": 4}, {"tag_4": False}])
+    assert sys_man.variable_tags[var_2]["tag_3"] == 4
+    assert sys_man.variable_tags[var_2]["tag_4"] == False
+
+    # Assign one tag to one variable
+    sys_man.add_variable_tags([var_1], [{"tag_4": True}])
+    assert sys_man.variable_tags[var_1]["tag_4"] == True
+
+
 class SystemManagerSetup:
     """Class to set up a SystemManager with a combination of variables
     and equations, designed to make it convenient to test critical functionality
