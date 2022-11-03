@@ -462,6 +462,11 @@ def _plot_sd_xd(
 
     # Add vector data
     if vector_value is not None:
+        # The further algorithm requires the vector_value array of shape (3 x n), but we have the 1D data array.
+        # Thus, we fill the remaining dimensions with zeros.
+        vector_value = vector_value.reshape(sd.dim, -1)
+        difference_dim = 3 - sd.dim
+        vector_value = np.vstack([vector_value, np.zeros((difference_dim, vector_value.shape[1]))])
         _quiver(sd, vector_value, ax, **kwargs)
 
 
