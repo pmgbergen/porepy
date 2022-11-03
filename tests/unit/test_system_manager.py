@@ -114,30 +114,57 @@ def test_variable_tags():
     )
     var_2 = sys_man.create_variable("var_2", dof_info, single_subdomain)
 
-    assert sys_man.variable_tags[var_1] == {"tag1": 1}
+    assert sys_man.variable_tags["var_1"] == {"tag1": 1}
     # By default, variables should not have tags
-    assert len(sys_man.variable_tags[var_2]) == 0
+    assert len(sys_man.variable_tags["var_2"]) == 0
 
     # Add separate tags to separate variables
     sys_man.add_variable_tags([var_1, var_2], [{"tag_2": 2}, {"tag_3": 3}])
-    assert sys_man.variable_tags[var_1]["tag_2"] == 2
-    assert sys_man.variable_tags[var_2]["tag_3"] == 3
+    assert sys_man.variable_tags["var_1"]["tag_2"] == 2
+    assert sys_man.variable_tags["var_2"]["tag_3"] == 3
 
     # Add the same tag to both variables.
     # This will overwrite the previous tag for var_1, but not for var_2
-    sys_man.add_variable_tags([var_1, var_2], [{"tag_2": 4}])
-    assert sys_man.variable_tags[var_1]["tag_2"] == 4
-    assert sys_man.variable_tags[var_2]["tag_2"] == 4
+    sys_man.add_variable_tags(["var_1", "var_2"], [{"tag_2": 4}])
+    assert sys_man.variable_tags["var_1"]["tag_2"] == 4
+    assert sys_man.variable_tags["var_2"]["tag_2"] == 4
 
     # Add multiple tags to a single variable.
     # tag_3 will be overwritten, tag_4 is added as a boolean
-    sys_man.add_variable_tags([var_2], [{"tag_3": 4}, {"tag_4": False}])
-    assert sys_man.variable_tags[var_2]["tag_3"] == 4
-    assert sys_man.variable_tags[var_2]["tag_4"] == False
+    sys_man.add_variable_tags(["var_2"], [{"tag_3": 4}, {"tag_4": False}])
+    assert sys_man.variable_tags["var_2"]["tag_3"] == 4
+    assert sys_man.variable_tags["var_2"]["tag_4"] == False
 
     # Assign one tag to one variable
-    sys_man.add_variable_tags([var_1], [{"tag_4": True}])
-    assert sys_man.variable_tags[var_1]["tag_4"] == True
+    sys_man.add_variable_tags(["var_1"], [{"tag_4": True}])
+    assert sys_man.variable_tags["var_1"]["tag_4"] == True
+
+    # Also let var_1 have tag_3, this is useful for testing of the get_variables_by_tag
+    # method below.
+    sys_man.add_variable_tags(["var_1"], [{"tag_3": 3}])
+
+    # Next stage: Fetch variables based on tags
+    # First, requets a tag which both variables have
+    retrieved_vars_1 = sys_man.get_variables_by_tag("tag_4")
+    assert var_1 in retrieved_vars_1 and var_2 in retrieved_vars_1
+
+    # Request tag_4 again, but with a value of False. This should return only var_2
+    retrieved_vars_2 = sys_man.get_variables_by_tag("tag_4", False)
+    assert var_1 not in retrieved_vars_2 and var_2 in retrieved_vars_2
+
+    # Request tag_1, which only var_1 has
+    retrieved_vars_3 = sys_man.get_variables_by_tag("tag1")
+    assert var_1 in retrieved_vars_3 and var_2 not in retrieved_vars_3
+
+    # Request tag_1 again, but with a value different from that of var_1. This should
+    # return an empty list.
+    retrieved_vars_4 = sys_man.get_variables_by_tag("tag1", 2)
+    assert len(retrieved_vars_4) == 0
+
+    # Request tag_3, which both variables have, but with a value of 4. This should
+    # return only var_2
+    retrieved_vars_5 = sys_man.get_variables_by_tag("tag_3", 4)
+    assert var_1 not in retrieved_vars_5 and var_2 in retrieved_vars_5
 
 
 class SystemManagerSetup:
@@ -236,7 +263,6 @@ class SystemManagerSetup:
         self.eq_single_subdomain = self.sd_top_variable * self.sd_top_variable
         self.eq_single_subdomain.set_name("eq_single_subdomain")
 
-
         dof_all_subdomains = {sd: {"cells": 1} for sd in subdomains}
         dof_single_subdomain = {sd_top: {"cells": 1}}
         dof_combined = {sd_top: {"cells": 1}}
@@ -252,19 +278,18 @@ class SystemManagerSetup:
         self.eq_single_interface = self.intf_top_variable * self.intf_top_variable
         self.eq_single_interface.set_name("eq_single_interface")
 
-
-
         # TODO: Should we do something on a combination as well?
         dof_all_interfaces = {intf: {"cells": 1} for intf in interfaces}
         dof_single_interface = {intf_top: {"cells": 1}}
         sys_man.set_equation(self.eq_all_interfaces, dof_all_interfaces)
         sys_man.set_equation(self.eq_single_interface, dof_single_interface)
         self.eq_inds = np.array(
-            [mdg.num_subdomain_cells(),
-             mdg.subdomains()[0].num_cells,
-             mdg.num_interface_cells(),
-             mdg.interfaces()[0].num_cells,
-             ]
+            [
+                mdg.num_subdomain_cells(),
+                mdg.subdomains()[0].num_cells,
+                mdg.num_interface_cells(),
+                mdg.interfaces()[0].num_cells,
+            ]
         )
         if not square_system:
             # One equation combining top and all subdomains.
@@ -304,7 +329,6 @@ class SystemManagerSetup:
         # For a given variable, get the global indices assigned by
         # the DofManager. Based on knowledge of how the variables were
         # defined in self.__init__
-
 
         return self.sys_man.dofs_of([var])
 
@@ -455,9 +479,7 @@ def test_set_get_methods(
 
     # Set the values again, this time with additive=True. This should double the
     # retrieved values.
-    sys_man.set_variable_values(
-        new_vals, variables, to_iterate=iterate, additive=True
-    )
+    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate, additive=True)
     retrieved_vals3 = sys_man.get_variable_values(variables, from_iterate=iterate)
 
     assert np.allclose(2 * new_vals, retrieved_vals3)
@@ -572,7 +594,13 @@ def test_secondary_variable_assembly(setup, var_names):
         ["eq_combined", "eq_single_subdomain"],  # Different combination
         ["eq_single_interface", "eq_all_interfaces"],  # Interface equations
         ["eq_single_interface", "eq_all_interfaces", "eq_single_subdomain"],  # Mixed
-        ["eq_single_interface", "eq_all_interfaces", "eq_single_subdomain", "eq_all_subdomains", "eq_combined"],  # All
+        [
+            "eq_single_interface",
+            "eq_all_interfaces",
+            "eq_single_subdomain",
+            "eq_all_subdomains",
+            "eq_combined",
+        ],  # All
     ],
 )
 def test_assemble_subsystem(setup, var_names, eq_names):
@@ -590,9 +618,7 @@ def test_assemble_subsystem(setup, var_names, eq_names):
     for var in var_names:
         variables.remove(var)
 
-    A_sub, b_sub = sys_man.assemble_subsystem(
-        equations=eq_names, variables=variables
-    )
+    A_sub, b_sub = sys_man.assemble_subsystem(equations=eq_names, variables=variables)
 
     # Get active rows and columns. If eq_names is None, all rows should be included.
     # If equation list is set to empty list, no indices are included.
@@ -639,6 +665,7 @@ def test_assemble_subsystem(setup, var_names, eq_names):
                 setup.block_size(name),
             )
 
+
 @pytest.mark.parametrize(
     "var_names",
     [
@@ -661,7 +688,13 @@ def test_assemble_subsystem(setup, var_names, eq_names):
         ["eq_combined", "eq_single_subdomain"],  # Different combination
         ["eq_single_interface", "eq_all_interfaces"],  # Interface equations
         ["eq_single_interface", "eq_all_interfaces", "eq_single_subdomain"],  # Mixed
-        ["eq_single_interface", "eq_all_interfaces", "eq_single_subdomain", "eq_all_subdomains", "eq_combined"],  # All
+        [
+            "eq_single_interface",
+            "eq_all_interfaces",
+            "eq_single_subdomain",
+            "eq_all_subdomains",
+            "eq_combined",
+        ],  # All
     ],
 )
 def extract_subsystem(setup, eq_names, var_names):
@@ -726,7 +759,10 @@ def extract_subsystem(setup, eq_names, var_names):
         [["eq_single_interface"], ["w"]],  # Single equation, atomic variable
         [["eq_all_subdomains"], ["x"]],  # MD variable
         [["eq_single_subdomain"], ["z"]],  # variable is both merged and atomic
-        [["eq_all_interfaces", "eq_single_subdomain"], ["z", "y"]],  # Two equations, two variables
+        [
+            ["eq_all_interfaces", "eq_single_subdomain"],
+            ["z", "y"],
+        ],  # Two equations, two variables
     ],
 )
 def test_schur_complement(eq_var_to_exclude):
@@ -749,8 +785,6 @@ def test_schur_complement(eq_var_to_exclude):
 
     # Set of all variables. z and y are only given in one form as input to this test.
     all_variables = ["x", "w", "z", "y"]
-
-
 
     # Names of variables to keep
     var_name = list(set(all_variables).difference(set(var_to_exclude)))
@@ -782,7 +816,9 @@ def test_schur_complement(eq_var_to_exclude):
     b_known = b_2 - B * inverter(D) * b_1
 
     # Compute Schur complement with method to be tested
-    S, bS = sys_man.assemble_schur_complement_system(eq_name, variables, inverter=inverter)
+    S, bS = sys_man.assemble_schur_complement_system(
+        eq_name, variables, inverter=inverter
+    )
 
     assert np.allclose(bS, b_known)
     assert _compare_matrices(S, S_known)
