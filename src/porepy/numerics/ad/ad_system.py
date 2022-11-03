@@ -632,7 +632,8 @@ class SystemManager:
                  requested. If None (default), the global vector of unknowns will be
                  set.
             to_iterate (optional): flag to write values to ITERATE, instead of STATE
-                (default).
+                (default). TODO: Change signature to both to_iterate and to_state? Then
+                we can set both at the same time. If yes, copy values!
             additive (optional): flag to write values *additively* to ITERATE or STATE.
                 To be used in iterative procedures.
 
@@ -861,10 +862,14 @@ class SystemManager:
             # filtering grid restrictions
             if isinstance(variable, Variable):
                 grid_restricted_variables.add(variable.name)
-                if variable.name in restricted_grids:
-                    restricted_grids[variable.name].add(variable.domain)
+                if isinstance(variable.domain, list):
+                    domain_set = set(variable.domain)
                 else:
-                    restricted_grids[variable.name] = set(variable.domain)
+                    domain_set = {variable.domain}
+                if variable.name in restricted_grids:
+                    restricted_grids[variable.name].add(domain_set)
+                else:
+                    restricted_grids[variable.name] = domain_set
 
         # Make results unique.
         requested_blocks = list(set(requested_blocks))
