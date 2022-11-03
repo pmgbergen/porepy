@@ -40,7 +40,7 @@ def test_plot_grid_mdg(mdg):
 
 
 def test_plot_grid_simple_grid(mdg):
-    """Tests that no error is risen if we plot the single and provide variable arrays.
+    """Tests that no error is raised if we plot a single dimension grid and provide variable arrays.
     This use case requires the user to reshape the vector array to the shape (3 x n).
     The redundant dimensions are filled with zeros."""
     grid, data = mdg.subdomains(return_data=True)[0]
