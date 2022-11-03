@@ -217,7 +217,9 @@ class SystemManager:
 
         """
 
-        self._equ_image_dof_info: dict[str, dict[GridLike, dict[str, int]]] = dict()
+        self._equ_image_dof_info: dict[
+            str, dict[GridLike, dict[Literal["cells", "faces", "nodes"], int]]
+        ] = dict()
         """Contains for every equation name (key) the argument ``num_equ_per_dof`` which
         was passed when the equation was set.
 
@@ -363,7 +365,7 @@ class SystemManager:
     def create_variable(
         self,
         name: str,
-        dof_info: Optional[dict] = None,
+        dof_info: Optional[dict[Literal["cells", "faces", "nodes"], int]] = None,
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
         tags: Optional[dict[str, Any]] = None,
@@ -391,8 +393,7 @@ class SystemManager:
             name: used here as an identifier. Can be used to associate the variable wit
                 some physical quantity like ``'pressure'``.
             dof_info: dictionary containing information about number of DOFs per
-                admissible type (see :data:`admissible_dof_types`). Defaults to
-                ``{'cells':1}``.
+                admissible type. Defaults to ``{'cells':1}``.
             subdomains (optional): list of subdomains on which the variable is defined.
                 If None, then it will not be defined on any subdomain.
             interfaces (optional): list of interfaces on which the variable is defined.
@@ -940,6 +941,8 @@ class SystemManager:
         The grid-based complement consists of all those grid variables, which are not
         inside ``variables``, but their respective variable names appear in the structure.
         """
+        # TODO: EK does not understand this function at all.
+
         # strings and md variables represent always a whole in the variable sense. Hence,
         # the complement is empty
         if isinstance(variables, (str, MixedDimensionalVariable)):
@@ -1115,7 +1118,10 @@ class SystemManager:
     def set_equation(
         self,
         equation: Operator,
-        num_equ_per_dof: dict[GridLike, dict[str, int]],
+        # EK: Using dof here is slightly misleading, it is really equation per grid
+        # quantity (cell, face, node). Also, in principle, I prefer equation to equ.
+        # However num_equations_per_grid_quantity is a bit long.
+        num_equ_per_dof: dict[GridLike, dict[Literal["cells", "faces", "nodes"], int]],
     ) -> None:
         """Sets an equation using the passed operator **and uses its name as an identifier**.
 
@@ -1136,75 +1142,98 @@ class SystemManager:
                 zero and this instance represents the left-hand side.
                 **The equation must be ready for evaluation,
                 i.e. all involved variables must have values set.**
+                An equation can be defined on sets of subdomains or interfaces, but
+                not on a combination.
+
             num_equ_per_dof: a dictionary describing how many equations
                 ``equation_operator`` provides. This is a temporary work-around until
                 operators are able to provide information on their image space.
-                The dictionary must contain the number of equations per admissible dof
-                type, (see :data:`porepy.DofManager.admissible_dof_types`),
-                for each grid the operator was defined on.
+                The dictionary must contain the number of equations per grid quantity
+                (cells, faces, nodes) for each grid the operator was defined on.
 
         Raises:
-            ValueError: if the equation operator has a name already assigned to a
-                previously set equation
-            AssertionError: if the equation is defined on an unknown grid.
-            ValueError: if indicated number of equations does not match the actual
+            ValueError: If the equation operator has a name already assigned to a
+                previously set equation.
+            ValueError: If the equation is defined on both subdomains and interfaces.
+            AssertionError: If the equation is defined on an unknown grid.
+            ValueError: If indicated number of equations does not match the actual
                 number as per evaluation of operator.
 
         """
+        # The function loops over all grids the operator is defined on and calculate the
+        # number of equations per grid quantity (cell, face, node). This information
+        # is then stored together with the equation itself.
+
         image_info: dict[GridLike, np.ndarray] = dict()
         total_num_equ = 0
-        valid_grids: list[pp.Grid] = [sd for sd in self.mdg.subdomains()]
-        valid_intf: list[pp.MortarGrid] = [intf for intf in self.mdg.interfaces()]
+
+        # The domain of this equation is the set of grids on which it is defined
         equation_domain = list(num_equ_per_dof.keys())
         name = equation.name
         if name in self._equations:
             raise ValueError(
-                "The name of the equation operator is already used by another equation:\n"
-                f"{self._equations[name]}"
+                "The name of the equation operator is already used by another equation:"
+                f"\n{self._equations[name]}"
                 "\n\nMake sure your equations are uniquely named."
             )
 
-        # we loop over the valid grids and interfaces in that order to assert a correct
-        # indexation according to the global order (for grid in sds, for grid in intfs)
-        # the user does not have to care about the order in num_equ_per_dof
-        for sd in valid_grids:
+        # We require that equations are defined either on a set of subdomains, or a set
+        # of interfaces. The combination of the two is mathematically possible, provided
+        # a sufficiently general notation is used, but the chances of this being
+        # misused is considered high compared to the benefits of allowing such combined
+        # domains, and we therefore disallow it.
+        if not all([isinstance(g, pp.Grid) for g in equation_domain]) or all(
+            [isinstance(g, pp.MortarGrid) for g in equation_domain]
+        ):
+            raise AssertionError(
+                "An equation should be defined on both subdomains and interfaces."
+            )
+
+        # We loop over the subdomains and interfaces in that order to assert a correct
+        # indexation according to the global order (for grid in sds, for grid in intfs).
+        # The user does not have to care about the order in num_equ_per_dof.
+        for sd in self.mdg.subdomains():
             if sd in equation_domain:
                 dof_info = num_equ_per_dof[sd]
-                # equations on subdomains can be defined on any dof type
+                # Equations on subdomains can be defined on any grid quantity.
                 num_equ_per_grid = int(
                     sd.num_cells * dof_info.get("cells", 0)
                     + sd.num_nodes * dof_info.get("nodes", 0)
                     + sd.num_faces * dof_info.get("faces", 0)
                 )
-                # row indices for this grid, cast to integers
+                # Row indices for this grid, cast to integers.
                 block_idx = np.arange(num_equ_per_grid, dtype=int) + total_num_equ
-                # cumulate total number of equations
+                # Cumulate total number of equations.
                 total_num_equ += num_equ_per_grid
-                # store block idx per grid
+                # Store block idx per grid.
                 image_info.update({sd: block_idx})
-                # remove the subdomain from the domain list
+                # Remove the subdomain from the domain list.
                 equation_domain.remove(sd)
 
-        for intf in valid_intf:
+        for intf in self.mdg.interfaces():
             if intf in equation_domain:
                 dof_info = num_equ_per_dof[intf]
-                # equations on interfaces can only be defined on cells
+                # Equations on interfaces can only be defined on cells.
                 num_equ_per_grid = int(intf.num_cells * dof_info.get("cells", 0))
-                # row indices for this grid, cast to integers
+                # Row indices for this grid, cast to integers.
                 block_idx = np.arange(num_equ_per_grid, dtype=int) + total_num_equ
-                # cumulate total number of equations
+                # Cumulate total number of equations.
                 total_num_equ += num_equ_per_grid
-                # store block idx per grid
+                # Store block idx per grid
                 image_info.update({intf: block_idx})
-                # remove the grid from the domain list
+                # Remove the grid from the domain list
                 equation_domain.remove(intf)
 
-        # assert the equation is not defined on an unknown domain
+        # Assert the equation is not defined on an unknown domain.
         assert len(equation_domain) == 0
 
-        # if all good, we assume we can proceed
+        # If all good, we store the information:
+        # The rows (referring to a global indexation) that this equation provides.
         self._equ_image_space_composition.update({name: image_info})
+        # Information on the size of the equation, in terms of the grids it is defined
+        # on.
         self._equ_image_dof_info.update({name: num_equ_per_dof})
+        # Store the equation itself.
         self._equations.update({name: equation})
 
     def get_equation(self, name: str) -> Operator:
@@ -1220,8 +1249,14 @@ class SystemManager:
     def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
 
+        TODO: Do we need to also adjust self._equ_image_space_composition (the indices
+        associated with each equation)? Not sure, it depends on how this information
+        is used below. We anyhow need to incorporate this in testing.
+
         Returns:
-            a reference to the equation in operator form or None, if the equation is unknown.
+            A reference to the equation in operator form or None, if the equation is
+            unknown.
+            TODO: Should we raise an error if an unknown equation is attempted removed?
 
         """
         if name in self._equations:
@@ -1268,30 +1303,45 @@ class SystemManager:
         will be raised.
 
         """
-        # the default return value is all equations with no grid restrictions
+        # The default return value is all equations with no grid restrictions.
         if equations is None:
             return dict((name, None) for name in self._equations)
-        # else we parse the input
-        # storage for requested blocks, unique information per equation name
+
+        # We need to parse the input.
+        # Storage for requested blocks, unique information per equation name.
         requested_row_blocks = dict()
-        # storage for restricted equations
+        # Storage for restricted equations.
         restricted_equations = dict()
 
         for equation in equations:
+            # Get the row indices (in the global system) associated with this equation.
+            # If the equation is restricted (the user has provided a dictionary with
+            # grids on which the equation should be evaluated), the variable blocks
+            # will contain only the row indices associated with the restricted grids.
             block = self._parse_single_equation_like(equation)
-            # store restrictions
+
+            # Store restrictions, using different storage for restricted and
+            # unrestricted equations.
             if isinstance(equation, dict):
+                # A dictionary means the equation is restricted to a subset of grids.
                 restricted_equations.update(block)
             else:
+                # This equation is not restricted to a subset of grids.
                 requested_row_blocks.update(block)
-        # update the requested blocks with the restricted to overwrite the indices if
-        # an equation was passed in both restricted and unrestricted structure
+
+        # Update the requested blocks with the restricted to overwrite the indices if
+        # an equation was passed in both restricted and unrestricted structure.
+        # TODO: Should we rather raise an error if this happens?
         requested_row_blocks.update(restricted_equations)
-        # ensure order
+
+        # Build the restricted set of equations, using the order in self._equations.
+        # The latter is critical for ensuring determinism of the system.
         ordered_blocks = dict()
         for equation in self._equations:
+            # By now, all equations are contained in requested_row_blocks.
             if equation in requested_row_blocks:
                 ordered_blocks.update({equation: requested_row_blocks[equation]})
+
         return ordered_blocks
 
     def _parse_single_equation_like(
@@ -1300,32 +1350,41 @@ class SystemManager:
         """Helper method to identify possible restrictions of a single equation-like.
 
         Args:
-            equation: equation-like to be parsed.
+            equation: Equation-like to be parsed.
 
         Returns:
             A dictionary with the name of the equation as key and the corresponding
             restricted indices as values. If no restriction is given, the value is None.
 
         """
+        # If the equation is a dictionary, the dictionary values are grids (subdomains
+        # or interfaces) that defines restrictions of the equation; these must be
+        # identified. If the equation is not a dictionary, there will be restriction.
 
-        # equation represented by string: No row-slicing
+        # Equation represented by string - return the corresponding equation.
         if isinstance(equation, str):
             if equation not in self._equations:
                 raise ValueError(f"Unknown equation name {equation}.")
             return {equation: None}
 
-        # equation represented by Operator: No row-slicing
+        # Equation represented by Operator. Return the
         elif isinstance(equation, Operator):
             if equation.name not in self._equations:
                 raise ValueError(f"Unknown equation operator {equation}.")
+            # No restriction.
             return {equation.name: None}
 
-        # equations represented by dict with restriction to grids: get target row
+        # Equations represented by dict with restriction to grids: get target row
         # indices.
         elif isinstance(equation, dict):
 
             block: dict[str, None | np.ndarray] = dict()
             for equ, grids in equation.items():
+                # equ is an identifier of the equation (either a string or an operator)
+                # grids is a list of grids (subdomains or interfaces) that defines
+                # a restriction of the equation domain.
+
+                # Translate equ into a name (string).
                 if isinstance(equ, Operator):
                     name = equ.name
                     if name not in self._equations:
@@ -1339,19 +1398,32 @@ class SystemManager:
                         f"Item ({type(equ)}, {type(grids)}) not parsable as equation-like."
                     )
 
+                # Get the indices associated with this equation.
                 img_info = self._equ_image_space_composition[name]
-                # check if the user requests a properly defined subsystem
+
+                # Check if the user requests a properly defined subsets of the grids
+                # associated with this equation.
                 unknown_grids = set(grids).difference(set(img_info.keys()))
                 if len(unknown_grids) > 0:
+                    # Getting an error here means the user has requested a grid that is
+                    # not associated with this equation. This is not a meaningful
+                    # operation.
                     raise ValueError(
                         f"Equation {name} not defined on grids {unknown_grids}"
                     )
-                block_idx = list()
-                # loop over image space information to ensure correct order
+
+                # The indices (row indices in the global system) associated with this
+                # equation and the grids requested by the user.
+                block_idx: list[np.ndarray] = list()
+
+                # Loop over image space information to ensure correct order.
+                # Note that looping over the grids risks that the order does not
+                # correspond to the order in the equation was defined. This will surely
+                # lead to trouble down the line.
                 for grid in img_info:
                     if grid in grids:
                         block_idx.append(img_info[grid])
-                # if indices not empty, concatenate and return
+                # If indices not empty, concatenate and return
                 if block_idx:
                     block.update({name: np.concatenate(block_idx, dtype=int)})
                 # indices should by logic always be found, if not alert the user.
@@ -1361,6 +1433,8 @@ class SystemManager:
                     )
             return block
         else:
+            # Getting an error here means the user has passed a type that is not
+            # an equation-like.
             raise TypeError(f"Type {type(equation)} not parsable as equation-like.")
 
     def _gridbased_equation_complement(
@@ -1378,15 +1452,21 @@ class SystemManager:
         """
         complement: dict[str, None | np.ndarray] = dict()
         for name, idx in equations.items():
-            # if indices where filtered based on grids, we find the complementing indices
+            # If indices where filtered based on grids, we find the complementing
+            # indices.
+            # If idx is None, this means no filtering was done.
             if idx:
+                # Get the indices associated with this equation.
                 img_info = self._equ_image_space_composition[name]
-                # assure ordering and uniqueness whole equation indexation
+
+                # Assure ordering and uniqueness whole equation indexation
                 all_idx = np.unique(np.hstack(img_info.values()))
-                # complementing indices are found by deleting the filtered indices
+
+                # Complementing indices are found by deleting the filtered indices
                 complement_idx = np.delete(all_idx, idx)
                 complement.update({name: complement_idx})
-            # if there was no grid-based row filtering, the complement is empty
+
+            # If there was no grid-based row filtering, the complement is empty.
             else:
                 complement.update({name: None})
         return complement
@@ -1490,7 +1570,11 @@ class SystemManager:
         if variables is None:
             variables = self._variables
 
-        equ_blocks = self._parse_equation_like(equations)
+        # equ_blocks is a dictionary with equation names as keys and the corresponding
+        # row indices of the equations. If the user has requested that equations are
+        # restricted to a subset of grids, the row indices are restricted accordingly.
+        # If no such request has been made, the value is None.
+        equ_blocks: dict[str, np.ndarray | None] = self._parse_equation_like(equations)
 
         # Data structures for building matrix and residual vector
         mat: list[sps.spmatrix] = []
@@ -1501,26 +1585,29 @@ class SystemManager:
         self.assembled_equation_indices = dict()
 
         # Iterate over equations, assemble.
+        # Also keep track of the row indices of each equation, and store it in
+        # assembled_equation_indices.
         for equ_name, rows in equ_blocks.items():
-            # this will raise a key error if the equation name is unknown
+            # This will raise a key error if the equation name is unknown
             eq = self._equations[equ_name]
             ad = eq.evaluate(self, state)
 
-            # if restriction to grid-related row blocks was made,
-            # perform row slicing based on information we have obtained from parsing
+            # If restriction to grid-related row blocks was made,
+            # perform row slicing based on information we have obtained from parsing.
             if rows:
                 mat.append(ad.jac[rows])
                 rhs.append(ad.val[rows])
                 block_length = len(rhs[-1])
-            # if no grid-related row restriction was made, append the whole thing
+            # If no grid-related row restriction was made, append the whole thing.
             else:
                 mat.append(ad.jac)
                 rhs.append(ad.val)
                 block_length = len(ad.val)
 
-            # create indices range and shift to correct position
+            # Create indices range and shift to correct position.
             block_indices = np.arange(block_length) + ind_start
-            # extract last index as starting point for next block of indices
+            # Extract last index and add 1 to get the starting point for next block of
+            # indices.
             ind_start = block_indices[-1] + 1
             self.assembled_equation_indices.update({equ_name: block_indices})
 
@@ -1533,8 +1620,9 @@ class SystemManager:
             A = sps.csr_matrix((0, self.num_dofs()))
             rhs_cat = np.empty(0)
 
-        # slice out the columns belonging to the requested subsets of variables and
-        # grid-related column blocks by using the transposed projection to respective subspace
+        # Slice out the columns belonging to the requested subsets of variables and
+        # grid-related column blocks by using the transposed projection to respective
+        # subspace.
         # Multiply rhs by -1 to move to the rhs
         column_projection = self.projection_to(variables).transpose()
         return A * column_projection, -rhs_cat
@@ -1570,9 +1658,9 @@ class SystemManager:
 
         Notes:
             The optional arguments defining the secondary block, and the flag
-            ``excl_loc_prim_to_sec`` are meant for nested Schur-complements and splitting
-            solvers. This is an advanced usage and requires the user to be sensitive about what
-            he is doing, since the resulting blocks ``A_pp`` and ``A_ss`` might end up
+            ``excl_loc_prim_to_sec`` are meant for nested Schur-complements and
+            splitting solvers. This is an advanced usage and requires the user to be
+            careful, since the resulting blocks ``A_pp`` and ``A_ss`` might end up
             to be not square. This will result in errors.
 
         Examples:
@@ -1582,6 +1670,9 @@ class SystemManager:
             >>> inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
 
             It is costly in terms of computational time and memory though.
+
+            TODO: We should rather use the block inverter in pp.matrix_operations. This
+            will require some work on ensuring the system is block-diagonal.
 
         Parameters:
             primary_equations: a subset of equations specifying the primary subspace in
@@ -1623,22 +1714,38 @@ class SystemManager:
                 - if the secondary block is not square
             ValueError: if primary and secondary columns overlap
         """
-
+        # Find the rows of the primary block. This can include both equations defined
+        # on their full image, and equations specified on a subset of grids.
+        # The variable primary_rows will contain the indices in the global system
+        # corresponding to the primary block.
         primary_rows = self._parse_equation_like(primary_equations)
+        # Find indices of equations involved in the primary block, but on grids that
+        # were filtered out.
         excl_prim_rows = self._gridbased_equation_complement(primary_rows)
+
+        # Names of equations that form the primary block.
         prim_equ_names = list(primary_rows.keys())
+
+        # Projection of variables to the set of primary blocks.
+        # TODO: If the user has specified a subset of grids, the variables must be
+        # adjusted accordingly. EK thinks this is not implemented, but it should be
+        # straightforward if we implement a method variables_on_subset_of_grids().
+        # UPDATE: Something like this is done below (see if on excl_loc_prim_to_sec).
+        # It seems this will do the trick, but it should be included in tests.
         primary_projection = self.projection_to(primary_variables)
         num_dofs = primary_projection.shape[1]
 
-        # assert non-emptiness of primary block
+        # Assert non-emptiness of primary block.
         assert len(primary_rows) > 0
         assert primary_projection.shape[0] > 0
 
-        # finding secondary column indices and respective projection
+        # Finding secondary column indices and respective projection.
         if secondary_variables:
-            # default projection to secondaries
+            # Default projection to secondaries.
+            # TODO: This must likely be supplemented with primary variables defined on
+            # excluded grids, see comment regarding primary variables.
             secondary_projection = self.projection_to(secondary_variables)
-            # assert primary and secondary columns do not overlap
+            # Assert primary and secondary columns do not overlap
             common_column_indices: np.ndarray = np.intersect1d(
                 primary_projection.indices, secondary_projection.indices
             )
@@ -1649,6 +1756,9 @@ class SystemManager:
             if excl_loc_prim_to_sec:
                 # finding grid variables, who are primary in terms of name, but excluded by the
                 # filter the VariableType structure imposes
+                # TODO: The workings of the below function is unclear to EK.
+                # TODO: We need to revisit this whole if-block after having decided how
+                # variables should be represented.
                 excluded_grid_variables = self._gridbased_variable_complement(
                     primary_variables
                 )
@@ -1682,6 +1792,7 @@ class SystemManager:
                 np.arange(shape[1], dtype=int), primary_projection.indices
             )
             assert len(idx_s) == shape[0]
+            # TODO EK: Why is the projection defined above overwritten here?
             secondary_projection = sps.coo_matrix(
                 (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
                 shape=shape,
