@@ -777,15 +777,15 @@ class SystemManager:
         self._cluster_dofs_gridwise()
 
     def _cluster_dofs_gridwise(self) -> None:
-        """Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense and
-        reduce the matrix bandwidth.
+        """Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense
+        and reduce the matrix bandwidth.
 
-        The aim is to impose a more block-diagonal-like structure on the Jacobian where blocks
-        in the column sense represent single grids in the following order:
+        The aim is to impose a more block-diagonal-like structure on the Jacobian where
+        blocks in the column sense represent single grids in the following order:
 
         Notes:
-            Off-diagonal blocks will still be present if subdomain-interface fluxes are present
-            in the md-sense.
+            Off-diagonal blocks will still be present if subdomain-interface fluxes are
+            present in the md-sense.
 
         1. For each grid in ``mdg.subdomains``
             1. For each variable defined on that grid
@@ -798,6 +798,7 @@ class SystemManager:
         This method is called after each creation of variables and respective DOFs.
 
         """
+        # Data stracture for the new order of dofs
         new_block_counter: int = 0
         new_block_numbers: dict[tuple[str, GridLike], int] = dict()
         new_block_dofs: list[int] = list()
@@ -807,6 +808,8 @@ class SystemManager:
         for sd in self.mdg.subdomains():
             # Sub-loop of variables per subdomain
             for variable_name in self._variables:
+                # If this variable-subdomain combination is present, add it to the new
+                # order of dofs
                 block_pair = (variable_name, sd)
                 if block_pair in self._block_numbers:
                     # Extract created number of dofs
@@ -848,16 +851,18 @@ class SystemManager:
             of performance.
 
         """
-        # the default return value is all blocks
+        #
+
+        # The default return value is all blocks
         if variables is None:
             return list(self._block_numbers.keys())
 
-        # storage for all requested blocks, possible not unique and
-        # un-restricted in terms of grids
-        requested_blocks = list()
+        # Storage for all requested blocks, possible not unique and un-restricted in
+        # terms of grids
+        requested_blocks: list[tuple[str, GridLike]] = list()
 
-        # storage for all grid-restricted vars to eliminate the rest
-        grid_restricted_variables = set()
+        # Storage for all grid-restricted variables to eliminate the rest
+        grid_restricted_variables: set[str] = set()
         restricted_grids: dict[str, set] = dict()
 
         for variable in variables:
@@ -896,23 +901,28 @@ class SystemManager:
     def _parse_single_variable_type(
         self, variable: str | Variable | MixedDimensionalVariable
     ) -> list[tuple[str, GridLike]]:
-        """Helper of helper :) Parses VariableTypes that are not sequences."""
+        """Helper of helper :) Parses VariableTypes that are not sequences.
 
-        # variable represented as a string: include all associated grids
+        The method finds all blocks that are associated with the given variable, that
+        is, the pairing of the variable with all grids on which it is defined.
+
+        """
+
+        # Variable represented as a string: include all associated grids
         if isinstance(variable, str):
             if variable not in self._variables:
                 raise ValueError(f"Unknown variable name {variable}.")
             return [block for block in self._block_numbers if block[0] == variable]
 
-        # variable represented as md-var: include all associated grids
+        # Variable represented as md-variable: include all associated grids.
         # NOTE: Check MixedDimensionalVariable first, since it is a subclass of Variable
         elif isinstance(variable, MixedDimensionalVariable):
             if variable not in self._variables.values():
                 raise ValueError(f"Unknown mixed-dimensional variable {variable}.")
             return [block for block in self._block_numbers if block[0] == variable.name]
 
-        # variable represented as grid variable: return local block
-        # We know this is not a MixedDimensionalVariable.
+        # Variable represented as grid variable: return local block.
+        # We know this is not a MixedDimensionalVariable (which is treated above).
         elif isinstance(variable, Variable):
             if (variable.name, variable.domain) in self._block_numbers:
                 return [(variable.name, variable.domain)]
