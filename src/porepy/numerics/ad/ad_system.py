@@ -1650,51 +1650,53 @@ class SystemManager:
                 ).tocsr()
         else:
             # we use the complement of the indices in the primary projection
-            if excl_loc_prim_to_sec:
-                shape = (
-                    primary_projection.shape[1] - primary_projection.shape[0],
-                    num_dofs,
-                )
-                # remove indices found in primary projection
-                # csr sparse projections have only one entry per column
-                idx_s = np.delete(
-                    np.arange(shape[1], dtype=int), primary_projection.indices
-                )
-                assert len(idx_s) == shape[0]
-                secondary_projection = sps.coo_matrix(
-                    (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
-                    shape=shape,
-                ).tocsr()
-            else:
-                # finding grid vars, who are primary in terms of name, but excluded by the
-                # filter the VariableType structure imposes
-                excluded_grid_variables = self._gridbased_variable_complement(
-                    primary_variables
-                )
-                excl_projection = self.projection_to(excluded_grid_variables)
-                # take the indices of the excluded local prims and included prims
-                idx_excl = np.unique(
-                    np.hstack([excl_projection.indices, primary_projection.indices])
-                )
-                # the secondary indices are computed by the complement of above
-                # FIXME: Define shape
-                idx_s = np.delete(np.arange(shape[1], dtype=int), idx_excl)
-                shape = (idx_s.size, num_dofs)
-                secondary_projection = sps.coo_matrix(
-                    (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
-                    shape=shape,
-                ).tocsr()
+            pass
 
         # finding secondary row indices
         secondary_rows: dict[str, None | np.ndarray] | None
         sec_equ_names: list[str]
+        shape = (
+                primary_projection.shape[1] - primary_projection.shape[0],
+                num_dofs,
+            )
+        if excl_loc_prim_to_sec:
+
+            # remove indices found in primary projection
+            # csr sparse projections have only one entry per column
+            idx_s = np.delete(
+                np.arange(shape[1], dtype=int), primary_projection.indices
+            )
+            assert len(idx_s) == shape[0]
+            secondary_projection = sps.coo_matrix(
+                (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
+                shape=shape,
+            ).tocsr()
+        else:
+            # finding grid vars, who are primary in terms of name, but excluded by the
+            # filter the VariableType structure imposes
+            excluded_grid_variables = self._gridbased_variable_complement(
+                primary_variables
+            )
+            excl_projection = self.projection_to(excluded_grid_variables)
+            # take the indices of the excluded local prims and included prims
+            idx_excl = np.unique(
+                np.hstack([excl_projection.indices, primary_projection.indices])
+            )
+            # the secondary indices are computed by the complement of above
+            # FIXME: Define shape
+            idx_s = np.delete(np.arange(shape[1], dtype=int), idx_excl)
+            shape = (idx_s.size, num_dofs)
+            secondary_projection = sps.coo_matrix(
+                (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
+                shape=shape,
+            ).tocsr()
         if secondary_equations:
             secondary_rows = self._parse_equation_like(secondary_equations)
             sec_equ_names = list(secondary_rows.keys())
         else:
             secondary_rows = None
             sec_equ_names = list(
-                set(self._equations.keys).difference(set(primary_rows.keys()))
+                set(self._equations.keys()).difference(set(primary_rows.keys()))
             )
 
         # check the primary and secondary system are not overlapping in terms of equations
@@ -1718,7 +1720,7 @@ class SystemManager:
         # excluded local primary blocks are stored as top rows in the secondary block
         for name in self._equations:
             if name in prim_equ_names:
-                A_temp, b_temp = self.assemble_subsystem(name, state=state)
+                A_temp, b_temp = self.assemble_subsystem([name], state=state)
                 idx_p = primary_rows[name]
                 # check if a grid filter was applied for that equation
                 if idx_p:
@@ -1748,7 +1750,7 @@ class SystemManager:
         # but process only secondary equations
         for name in self._equations:
             if name in sec_equ_names:
-                A_temp, b_temp = self.assemble_subsystem(name, state=state)
+                A_temp, b_temp = self.assemble_subsystem([name], state=state)
                 # if secondary equations were defined, we check if we have to restrict
                 # them
                 if secondary_rows:
