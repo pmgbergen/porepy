@@ -180,7 +180,7 @@ class SystemManager:
         self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional domain passed at instantiation."""
 
-        self._tags: dict[str, dict[str, Any]] = {}
+        self._variable_tags: dict[pp.MixedDimensionalVariable, dict[str, Any]] = {}
         """Tagging system for variables.
         
         The tags are stored in a dictionary, where the keys are the tag names, and the
@@ -356,8 +356,8 @@ class SystemManager:
         return self._variables
 
     @property
-    def tags(self) -> dict[str, dict[str, Any]]:
-        return self._tags
+    def variable_tags(self) -> dict[str, dict[str, Any]]:
+        return self._variable_tags
 
     ### Variable management ------------------------------------------------------------
 
@@ -476,14 +476,14 @@ class SystemManager:
         if tags is None:
             tags = {}
 
-        self._tags[name] = tags
+        self._variable_tags[merged_var] = tags
 
         return merged_var
 
-    def assign_tag(
+    def add_variable_tags(
         self,
-        tag_name: str,
-        variable_tag: dict[str, Any],
+        variables: VarLike,
+        tags: list[dict[str, Any]],
     ) -> None:
         """Assigns a tag to all variables in the system.
 
@@ -492,9 +492,26 @@ class SystemManager:
             variable_tag: dictionary mapping variable names to tags.
 
         """
-        for var, value in self._tags.items():
-            if var in variable_tag:
-                value[tag_name] = variable_tag[var]
+        assert isinstance(variables, list)
+
+        for ind, var in enumerate(variables):
+            if isinstance(var, str):
+                variables[ind] = self._variables[var]
+
+        if len(tags) > 1 and len(variables) > 1:
+            if len(variables) != len(tags):
+                raise ValueError("Length of variable and variable_tag must be equal.")
+            for t, v in zip(tags, variables):
+                self._variable_tags[v].update(t)
+
+        elif len(tags) > 1:
+            for t in tags:
+                self._variable_tags[variables[0]].update(t)
+        elif len(variables) > 1:
+            for v in variables:
+                self._variable_tags[v].update(tags[0])
+        else:
+            self._variable_tags[variables[0]].update(tags[0])
 
     def get_variable_by_tag(
         self, tag_name: str, tag_value: Optional[Any] = None
@@ -515,8 +532,15 @@ class SystemManager:
                 all variables that have this tag are returned.
 
         """
-        pass
-        # TODO
+        filtered_variables = []
+        for variable in self.variables:
+            if tag_name in self._variable_tags[variable]:
+                if (
+                    tag_value is None
+                    or self._variable_tags[variable][tag_name] == tag_value
+                ):
+                    filtered_variables.append(variable)
+        return filtered_variables
 
     def get_var_names(
         self,
