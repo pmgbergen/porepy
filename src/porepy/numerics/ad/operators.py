@@ -745,7 +745,7 @@ class Operator:
                 # Loop over all subvariables for the merged variable
                 for i, sub_var in enumerate(variable.sub_vars):
                     # Store dofs
-                    ind_var.append(system_manager.dofs_of(sub_var))
+                    ind_var.append(system_manager.dofs_of([sub_var]))
                     if i == 0:
                         # Store id of variable, but only for the first one; we will
                         # concatenate the arrays in ind_var into one array
@@ -757,7 +757,7 @@ class Operator:
                     variable_ids.append(variable.id)
             else:
                 # This is a variable that lives on a single grid
-                ind_var.append(system_manager.dofs_of(variable))
+                ind_var.append(system_manager.dofs_of([variable]))
                 variable_ids.append(variable.id)
 
             # Gather all indices for this variable

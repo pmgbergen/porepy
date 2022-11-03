@@ -83,11 +83,11 @@ def test_variable_creation():
     ndof_interface = mdg.num_interface_cells() * dof_info_intf["cells"]
 
     assert (
-        sys_man.dofs_of(subdomain_variable).size
-        + sys_man.dofs_of(subdomain_variable_implicitly_defined).size
+        sys_man.dofs_of([subdomain_variable]).size
+        + sys_man.dofs_of([subdomain_variable_implicitly_defined]).size
     ) == ndof_subdomains
-    assert sys_man.dofs_of(single_subdomain_variable).size == ndof_single_subdomain
-    assert sys_man.dofs_of(interface_variable).size == ndof_interface
+    assert sys_man.dofs_of([single_subdomain_variable]).size == ndof_single_subdomain
+    assert sys_man.dofs_of([interface_variable]).size == ndof_interface
 
     assert (
         sys_man.num_dofs() == ndof_subdomains + ndof_single_subdomain + ndof_interface
@@ -212,6 +212,16 @@ class SystemManagerSetup:
                 self.name_intf_top_variable,
             ],
         )
+        sys_man.set_variable_values(
+            global_vals,
+            variables=[
+                self.name_sd_variable,
+                self.name_sd_top_variable,
+                self.name_intf_variable,
+                self.name_intf_top_variable,
+            ],
+            to_iterate=True,
+        )
 
         # Set equations on subdomains
 
@@ -276,38 +286,8 @@ class SystemManagerSetup:
         # the DofManager. Based on knowledge of how the variables were
         # defined in self.__init__
 
-        def inds(g, n):
-            return self.eq_manager.dofs_of(g, n)
 
-        return self.eq_manager.dofs_of(var)
-        if var in (self.x1, self.x2, self.z):
-            return self.eq_manager.dofs_of(var)  # inds(self.x1.domain, self.x1.name)
-
-        #        elif var == self.x2:
-        #            return inds(self.x2.domain, self.x1.name)
-
-        elif var == self.x_merged:
-            dofs = np.hstack(
-                [
-                    inds(self.sd_1, self.x_merged.name),
-                    inds(self.sd_2, self.x_merged.name),
-                ]
-            )
-            return dofs
-
-        elif var == self.y_merged:
-            dofs = np.hstack(
-                [
-                    inds(self.sd_1, self.y_merged.name),
-                    inds(self.sd_2, self.y_merged.name),
-                ]
-            )
-            return dofs
-
-        #        elif var == self.z:
-        #            return inds(self.z.domain, self.z.name)
-        else:
-            raise ValueError
+        return self.eq_manager.dofs_of([var])
 
     def eq_ind(self, name):
         # Get row indices of an equation, based on the (known) order in which
@@ -390,9 +370,9 @@ def _variable_from_setup(
     if on_interface:
         if as_str:
             if single_grid:
-                vars.append("intf_top_variable")
+                vars.append("w")  # intf_top_variable
             if full_grid:
-                vars.append("intf_variable")
+                vars.append("y")  # intf_variable
         else:
             if single_grid:
                 vars.append(setup.intf_top_variable)
@@ -401,9 +381,9 @@ def _variable_from_setup(
     if on_subdomain:
         if as_str:
             if single_grid:
-                vars.append("sd_top_variable")
+                vars.append("y")  # sd_top_variable
             if full_grid:
-                vars.append("sd_variable")
+                vars.append("x")
         else:
             if single_grid:
                 vars.append(setup.sd_top_variable)
@@ -430,7 +410,7 @@ def test_set_get_methods(
     Both setting and adding values are tested.
 
     """
-    eq_manager = setup.eq_manager
+    sys_man = setup.sys_man
 
     np.random.seed(42)
 
@@ -438,27 +418,30 @@ def test_set_get_methods(
         setup, as_str, on_interface, on_subdomain, single_grid, full_grid
     )
 
-    sz = eq_manager.dofs_of(variables)
+    inds = sys_man.dofs_of(variables)
 
     # First generate random values, set them, and then retrieve them.
-    vals = np.random.rand(sz.size)
-    eq_manager.set_variable_values(vals, variables, to_iterate=iterate)
-    retrieved_vals = eq_manager.get_variable_values(variables, from_iterate=iterate)
+    vals = np.zeros(sys_man.num_dofs())
+    vals = np.random.rand(inds.size)
+
+    sys_man.set_variable_values(vals, variables, to_iterate=iterate)
+    retrieved_vals = sys_man.get_variable_values(variables, from_iterate=iterate)
     assert np.allclose(vals, retrieved_vals)
 
     # Set new values without setting additive to True. This should overwrite the old
     # values.
-    new_vals = np.random.rand(sz.size)
-    eq_manager.set_variable_values(new_vals, variables, to_iterate=iterate)
-    retrieved_vals2 = eq_manager.get_variable_values(variables, from_iterate=iterate)
+    new_vals = np.zeros(sys_man.num_dofs())
+    new_vals = np.random.rand(inds.size)
+    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate)
+    retrieved_vals2 = sys_man.get_variable_values(variables, from_iterate=iterate)
     assert np.allclose(new_vals, retrieved_vals2)
 
     # Set the values again, this time with additive=True. This should double the
     # retrieved values.
-    eq_manager.set_variable_values(
+    sys_man.set_variable_values(
         new_vals, variables, to_iterate=iterate, additive=True
     )
-    retrieved_vals3 = eq_manager.get_variable_values(variables, from_iterate=iterate)
+    retrieved_vals3 = sys_man.get_variable_values(variables, from_iterate=iterate)
 
     assert np.allclose(2 * new_vals, retrieved_vals3)
 
@@ -493,7 +476,7 @@ def test_projection_matrix(setup, var_names):
     # Get dof indices of the variables that have been eliminated
     if len(var_names) > 0:
         removed_dofs = np.sort(
-            np.hstack([setup.eq_manager.dofs_of(var) for var in var_names])
+            np.hstack([setup.eq_manager.dofs_of([var]) for var in var_names])
         )
     else:
         removed_dofs = []
@@ -532,7 +515,7 @@ def test_secondary_variable_assembly(setup, var_names):
 
     # Get dof indices of the variables that have been eliminated
     if len(var_names) > 0:
-        dofs = np.sort(np.hstack([setup.eq_manager.dofs_of(var) for var in var_names]))
+        dofs = np.sort(np.hstack([setup.eq_manager.dofs_of([var]) for var in var_names]))
     else:
         dofs = []
 
