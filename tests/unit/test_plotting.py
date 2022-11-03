@@ -29,7 +29,7 @@ def mdg(request):
 
 
 def test_plot_grid_mdg(mdg):
-    """Tests that no error is risen if we plot mdg and provide variable names."""
+    """Tests that no error is raised if we plot mdg and provide variable names."""
     pp.plot_grid(
         mdg,
         cell_value=SCALAR_VARIABLE,
