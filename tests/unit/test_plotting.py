@@ -9,9 +9,12 @@ import numpy as np
 import porepy as pp
 from porepy.grids.standard_grids import md_grids_2d, md_grids_3d
 
+plt = pytest.importorskip("matplotlib.pyplot")
+
 
 SCALAR_VARIABLE = "scalar"
-VECTOR_VARIABLE = "vector_cell"
+VECTOR_VARIABLE_CELL = "vector_cell"
+VECTOR_VARIABLE_FACE = "vector_face"
 
 
 @pytest.fixture(
@@ -28,32 +31,40 @@ def mdg(request):
     return mdg_
 
 
-def test_plot_grid_mdg(mdg):
+@pytest.mark.parametrize("vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE])
+def test_plot_grid_mdg(mdg, vector_variable):
     """Tests that no error is raised if we plot mdg and provide variable names."""
     pp.plot_grid(
         mdg,
         cell_value=SCALAR_VARIABLE,
-        vector_variable=VECTOR_VARIABLE,
+        vector_value=vector_variable,
         vector_scale=10,
         info="CNFO",
+        if_plot=False,
     )
+    plt.close()
 
 
-def test_plot_grid_simple_grid(mdg):
+@pytest.mark.parametrize("vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE])
+def test_plot_grid_simple_grid(mdg, vector_variable):
     """Tests that no error is raised if we plot a single dimension grid and provide variable arrays.
     This use case requires the user to reshape the vector array to the shape (3 x n).
     The redundant dimensions are filled with zeros."""
     grid, data = mdg.subdomains(return_data=True)[0]
     scalar_data = data[pp.STATE][SCALAR_VARIABLE]
-    vector_data = data[pp.STATE][VECTOR_VARIABLE].reshape((mdg.dim_max(), -1), order="F")
-    vector_data = np.vstack([vector_data, np.zeros((3 - mdg.dim_max(), vector_data.shape[1]))])
+    vector_data = data[pp.STATE][vector_variable].reshape((mdg.dim_max(), -1), order="F")
+    vector_data = np.vstack(
+        [vector_data, np.zeros((3 - vector_data.shape[0], vector_data.shape[1]))]
+    )
     pp.plot_grid(
         grid,
         cell_value=scalar_data,
-        vector_variable=vector_data,
+        vector_value=vector_data,
         vector_scale=10,
         info="CNFO",
+        if_plot=False,
     )
+    plt.close()
 
 
 def test_save_img():
@@ -69,7 +80,7 @@ def test_save_img():
         image_name,
         mdg,
         cell_value=SCALAR_VARIABLE,
-        vector_variable=VECTOR_VARIABLE,
+        vector_value=VECTOR_VARIABLE_CELL,
     )
 
     assert os.path.exists(image_name)
@@ -84,16 +95,8 @@ def _initialize_mdg(mdg_):
         if sd.dim in (mdg_.dim_max(), mdg_.dim_max() - 1):
             data[pp.STATE] = {
                 SCALAR_VARIABLE: np.ones(sd.num_cells),
-                VECTOR_VARIABLE: np.ones((sd.dim, sd.num_cells)).ravel(order="F"),
+                VECTOR_VARIABLE_CELL: np.ones((mdg_.dim_max(), sd.num_cells)).ravel(order="F"),
+                VECTOR_VARIABLE_FACE: np.ones((mdg_.dim_max(), sd.num_faces)).ravel(order="F"),
             }
         else:
-            data[pp.PRIMARY_VARIABLES] = {}
-
-    for intf, data in mdg_.interfaces(return_data=True):
-        if intf.dim == mdg_.dim_max() - 1:
-            data[pp.STATE] = {
-                SCALAR_VARIABLE: np.ones(intf.num_cells),
-                VECTOR_VARIABLE: np.ones((intf.dim, intf.num_cells)).ravel(order="F"),
-            }
-        else:
-            data[pp.PRIMARY_VARIABLES] = {}
+            data[pp.STATE] = {}

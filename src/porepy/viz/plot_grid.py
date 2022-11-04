@@ -279,11 +279,19 @@ def plot_mdg(
 
         vector_value_array = sd_data.get(pp.STATE, {}).get(vector_value, None)
         if vector_value_array is not None:
-            # The further algorithm requires the vector_value array of shape (3 x n). But
-            # we have a 1D data array. Thus, we first reshape and then fill the remaining dimensions with zeros.
-            vector_value_array = vector_value_array.reshape(sd.dim, -1, order="F")
+            # The further algorithm requires the vector_value array of shape (3 x n).
+            # Now, we have a 1D array.
+            # Thus, we first reshape and then fill the remaining dimensions with zeros.
+            vector_value_array = vector_value_array.reshape(
+                (mdg.dim_max(), -1), order="F"
+            )
             vector_value_array = np.vstack(
-                [vector_value_array, np.zeros((3 - sd.dim, vector_value_array.shape[1]))]
+                [
+                    vector_value_array,
+                    np.zeros(
+                        (3 - vector_value_array.shape[0], vector_value_array.shape[1])
+                    ),
+                ]
             )
         _plot_sd_xd(
             sd,
