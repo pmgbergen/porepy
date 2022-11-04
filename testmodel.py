@@ -166,8 +166,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self._prolong_sec = self.dof_manager.projection_to(secondary_vars).transpose()
         self._prolong_system = self.dof_manager.projection_to(self._system_vars).transpose()
 
-        if self._use_pressure_equation:
-            self._sn = self.get_sn()
+        self._sn = self.get_sn()
 
         self._set_up()
 
@@ -357,17 +356,19 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                 additive=True,
                 to_iterate=True,
             )
-        
-        sn = self._sn.evaluate(self.dof_manager).val
-        self.ad_system.set_var_values("sn", sn, False)
+        if self._use_pressure_equation:
+            sn = self._sn.evaluate(self.dof_manager).val
+            self.ad_system.set_var_values("sn", sn, False)
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
     ) -> None:
 
         self.dof_manager.distribute_variable(solution, variables=self._system_vars)
-        sn = self._sn.evaluate(self.dof_manager).val
-        self.ad_system.set_var_values("sn", sn, True)
+
+        if self._use_pressure_equation:
+            sn = self._sn.evaluate(self.dof_manager).val
+            self.ad_system.set_var_values("sn", sn, True)
         self._export()
 
     def after_newton_failure(
@@ -556,8 +557,8 @@ params = {
     "folder_name": "/mnt/c/Users/vl-work/Desktop/sim-results/" + file_name + "/",
     "file_name": file_name,
     "use_ad": False,
-    "use_pressure_equation": True,
-    "monolithic": True,
+    "use_pressure_equation": False,
+    "monolithic": False,
 }
 
 t = 0.
