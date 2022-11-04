@@ -47,8 +47,7 @@ def wrap_discretization(
     mat_dict_key: Optional[str] = None,
     mat_dict_grids=None,
 ):
-    """Convert a discretization to its AD equivalent.
-    """
+    """Convert a discretization to its AD equivalent."""
     if subdomains is None:
         assert isinstance(interfaces, list)
     else:

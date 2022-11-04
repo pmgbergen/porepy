@@ -55,24 +55,24 @@ def test_variable_creation():
         "var_3", dof_info_intf, interfaces=interfaces
     )
 
+    # TODO: Purge. This option was removed
     # Also define a variable on subdomains without specifying the subdomains.
     # The resulting variable should have the same size as the one where all subdomains
     # are explicitly set.
-    subdomain_variable_implicitly_defined = sys_man.create_variable(
-        "var_4", dof_info_sd, subdomains=[]
-    )
+    # subdomain_variable_implicitly_defined = sys_man.create_variable(
+    #     "var_4", dof_info_sd, subdomains=[]
+    # )
 
     # Check that the variables are created correctly
     assert subdomain_variable.name == "var_1"
     assert single_subdomain_variable.name == "var_2"
     assert interface_variable.name == "var_3"
-    assert subdomain_variable_implicitly_defined.name == "var_4"
 
     # Check that the number of dofs is correct for each variable.
     num_subdomain_faces = sum([sd.num_faces for sd in subdomains])
 
     # Need a factor 2 here, since we have defined two variables on all subdomains.
-    ndof_subdomains = 2 * (
+    ndof_subdomains = (
         mdg.num_subdomain_cells() * dof_info_sd["cells"]
         + num_subdomain_faces * dof_info_sd["faces"]
     )
@@ -82,12 +82,12 @@ def test_variable_creation():
     )
     ndof_interface = mdg.num_interface_cells() * dof_info_intf["cells"]
 
+    assert (sys_man.dofs_of(subdomain_variable.sub_vars).size) == ndof_subdomains
     assert (
-        sys_man.dofs_of([subdomain_variable]).size
-        + sys_man.dofs_of([subdomain_variable_implicitly_defined]).size
-    ) == ndof_subdomains
-    assert sys_man.dofs_of([single_subdomain_variable]).size == ndof_single_subdomain
-    assert sys_man.dofs_of([interface_variable]).size == ndof_interface
+        sys_man.dofs_of(single_subdomain_variable.sub_vars).size
+        == ndof_single_subdomain
+    )
+    assert sys_man.dofs_of(interface_variable.sub_vars).size == ndof_interface
 
     assert (
         sys_man.num_dofs() == ndof_subdomains + ndof_single_subdomain + ndof_interface
@@ -231,23 +231,19 @@ class SystemManagerSetup:
         )
         # Add one to avoid zero values, which yields singular matrices
         global_vals += 1
+        all_variables = [
+            self.name_sd_variable,
+            self.name_sd_top_variable,
+            self.name_intf_variable,
+            self.name_intf_top_variable,
+        ]
         sys_man.set_variable_values(
             global_vals,
-            variables=[
-                self.name_sd_variable,
-                self.name_sd_top_variable,
-                self.name_intf_variable,
-                self.name_intf_top_variable,
-            ],
+            variables=all_variables,
         )
         sys_man.set_variable_values(
             global_vals,
-            variables=[
-                self.name_sd_variable,
-                self.name_sd_top_variable,
-                self.name_intf_variable,
-                self.name_intf_top_variable,
-            ],
+            variables=all_variables,
             to_iterate=True,
         )
 
@@ -422,7 +418,7 @@ def _variable_from_setup(
     if on_subdomain:
         if as_str:
             if single_grid:
-                vars.append("y")  # sd_top_variable
+                vars.append("z")  # sd_top_variable
             if full_grid:
                 vars.append("x")
         else:
@@ -462,7 +458,6 @@ def test_set_get_methods(
     inds = sys_man.dofs_of(variables)
 
     # First generate random values, set them, and then retrieve them.
-    vals = np.zeros(sys_man.num_dofs())
     vals = np.random.rand(inds.size)
 
     sys_man.set_variable_values(vals, variables, to_iterate=iterate)
@@ -471,7 +466,6 @@ def test_set_get_methods(
 
     # Set new values without setting additive to True. This should overwrite the old
     # values.
-    new_vals = np.zeros(sys_man.num_dofs())
     new_vals = np.random.rand(inds.size)
     sys_man.set_variable_values(new_vals, variables, to_iterate=iterate)
     retrieved_vals2 = sys_man.get_variable_values(variables, from_iterate=iterate)
@@ -506,9 +500,7 @@ def test_projection_matrix(setup, var_names):
     # Jacobian matrix is altered only in columns that correspond to eliminated
     # variables.
 
-    variables = [var for var in setup.sys_man.variables]
-    for var in var_names:
-        variables.remove(var)
+    variables = [var for var in setup.sys_man.variables if var.name not in var_names]
 
     proj = setup.sys_man.projection_to(variables=variables)
 
@@ -547,9 +539,7 @@ def test_secondary_variable_assembly(setup, var_names):
     # variables.
 
     #    secondary_variables = [getattr(setup, name) for name in var_names]
-    variables = [var for var in setup.sys_man.variables]
-    for var in var_names:
-        variables.remove(var)
+    variables = [var for var in setup.sys_man.variables if var.name not in var_names]
     A, b = setup.sys_man.assemble_subsystem(variables=variables)
 
     # Get dof indices of the variables that have been eliminated
@@ -614,9 +604,7 @@ def test_assemble_subsystem(setup, var_names, eq_names):
     # Convert variable names into variables
     if var_names is None:
         var_names = []
-    variables = [var for var in setup.sys_man.variables]
-    for var in var_names:
-        variables.remove(var)
+    variables = [var for var in setup.sys_man.variables if var.name not in var_names]
 
     A_sub, b_sub = sys_man.assemble_subsystem(equations=eq_names, variables=variables)
 
