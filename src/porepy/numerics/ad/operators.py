@@ -1176,6 +1176,7 @@ class Variable(Operator):
         name: str,
         ndof: dict[str, int],
         domain: GridLike,
+        tags: Optional[dict[str, Any]] = None,
         previous_timestep: bool = False,
         previous_iteration: bool = False,
     ) -> None:
@@ -1208,10 +1209,18 @@ class Variable(Operator):
         self._faces: int = ndof.get("faces", 0)
         self._nodes: int = ndof.get("nodes", 0)
 
+        # tag
+        self._tags: dict[str, Any] = tags if tags is not None else {}
+
     @property
     def domain(self) -> GridLike:
         """The grid or mortar grid on which this variable is defined."""
         return self._g
+
+    @property
+    def tags(self) -> dict[str, Any]:
+        """A dictionary of tags associated with this variable."""
+        return self._tags
 
     def size(self) -> int:
         """Returns the total number of dofs this variable has."""
@@ -1256,8 +1265,12 @@ class Variable(Operator):
         return Variable(self.name, ndof, self.domain, previous_iteration=True)
 
     def __repr__(self) -> str:
-        s = (
-            f"Variable {self.name}, id: {self.id}\n"
+        s = f"Variable {self.name} with id {self.id}"
+        if isinstance(self.domain, pp.MortarGrid):
+            s += f" on interface {self.domain.id}"
+        else:
+            s += f" on grid {self.domain.id}"
+        s += (
             f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
             f"nodes ({self._nodes})\n"
         )
@@ -1323,6 +1336,22 @@ class MixedDimensionalVariable(Variable):
 
         # must be done since super not called here in init
         self._set_tree()
+        self.copy_common_sub_tags()
+
+    def copy_common_sub_tags(self) -> None:
+        """Copy any shared tags from the sub variables to this variable.
+
+        Only tags with identical values are copied. Thus, the md variable can "trust" that
+        its tags are consistent with all sub variables.
+        """
+        common_tags = set(self.sub_vars[0].tags.keys())
+        for var in self.sub_vars[1:]:
+            common_tags.intersection_update(set(var.tags.keys()))
+        for key in common_tags:
+            values = set(var.tag[key] for var in self.sub_vars)
+            if len(values) == 1:
+                self.tags[key] = values.pop()
+        self._tags = dict(copy.deepcopy(common_tags))
 
     @property
     def domain(self) -> list[GridLike]:  # type: ignore[override]
@@ -1335,7 +1364,8 @@ class MixedDimensionalVariable(Variable):
         return domains
 
     def size(self) -> int:
-        """Returns the total size of the merged variable by summing the sizes of sub-variables."""
+        """Returns the total size of the merged variable by summing the sizes of sub-variables.
+        """
         return sum([v.size() for v in self.sub_vars])
 
     def previous_timestep(self) -> MixedDimensionalVariable:

@@ -5,7 +5,6 @@ using the AD framework.
 
 from __future__ import annotations
 
-import itertools
 from typing import Any, Callable, Literal, Optional, Union, overload
 
 import numpy as np
@@ -20,44 +19,13 @@ __all__ = ["SystemManager"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
 """A union type representing a domain either by a grid or mortar grids."""
-VariableType = Union[str, Variable, MixedDimensionalVariable]
-"""A union type representing variables either names (:class:`str`), multiple 
+VariableList = Union[list[str], list[Variable], list[MixedDimensionalVariable]]
+"""A union type representing variables through either names (:class:`str`), multiple 
 :class:`~porepy.numerics.ad.operators.Variable` or 
 :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`.
 
-During parsing, grid variables are prioritized, i.e. a grid variable restricts its respective
-mixed-dimensional variable.
-
-Examples:
-    If ``T`` and ``T_g`` are a mixed-dimensional variable and a grid variable respectively,
-    representing the temperature, the variable-like structure
-
-    >>> [T, T_g]
-
-    Represents the temperature variable on a single grid.
-
-    If ``T`` is named ``'temperature'`` (consequently ``T_g`` will have the same name),
-    then the following variable-like structures are equivalent
-
-    >>> [T, T_g]
-    >>> ['temperature', T_g]
-
-    Also equivalent are
-
-    >>> [T]
-    >>> ['temperature']
-
-    In this case, the user can omit the list and pass only
-
-    >>> T
-    >>> 'temperature'
-
-    For consistency reasons, the order within sequential variable-like structures does not
-    influence the result when assembling subsystems or requesting variable values,
-    since the AD framework always imposes its internally defined order of dofs and columns,
-    which by logic of linear algebra must be the same.
-    No restrictions are imposed on the user on how to assemble variable-like structure.
-
+This type is accepted as input to various methods and parsed to a list of
+:class:`~porepy.numerics.ad.operators.Variable`.
 """
 
 EquationLike = Union[
@@ -68,7 +36,7 @@ EquationLike = Union[
     list[Union[str, dict[str, list[GridLike]], dict[Operator, list[GridLike]]]],
 ]
 # TODO: We should probably remove the list, and rather use list[EquationType] where
-# needed.
+# needed. Or rename to EquationList (see also VariableList).
 """A union type representing equations by names (:class:`str`),
 :class:`~porepy.numerics.ad.operators.Operator`,
 or a dictionary containing equation domains (:data:`GridLike`) per equation 
@@ -148,11 +116,6 @@ class SystemManager:
         subdomains and interfaces. A more localized optimization
         (e.g. cell-wise for equations without spatial differential operators) is not performed.
 
-    Examples:
-        An example of how to instantiate an SystemManager with *primary* and *secondary* variables
-        would be
-
-
     Parameters:
         mdg: mixed-dimensional grid representing the whole computational domain.
 
@@ -204,9 +167,6 @@ class SystemManager:
 
         """
 
-        self._variables: dict[str, MixedDimensionalVariable] = dict()
-        """Contains references to (global) MixedDimensionalVariables for a given name (key)."""
-
         self._equ_image_space_composition: dict[
             str, dict[GridLike, np.ndarray]
         ] = dict()
@@ -225,10 +185,9 @@ class SystemManager:
 
         """
 
-        self._grid_variables: dict[GridLike, dict[str, Variable]] = dict()
-        """Contains references to grid Variables and their names for a given grid (key).
-        The reference is stored as another dict, which returns the variable for a given name
-        (key).
+        self._variables: list[Variable] = list()
+        """Contains references to grid Variables. A Variable is uniquely identified by its
+        name and domain.
 
         """
 
@@ -238,19 +197,19 @@ class SystemManager:
 
         """
 
-        self._block_numbers: dict[tuple[str, GridLike], int] = dict()
-        """Dictionary containing the block number for a given combination of grid/mortar grid
-        and variable name (key).
+        self._variable_numbers: dict[Variable, int] = dict()
+        """Dictionary containing the index of the variable in the system vector of the last
+        assembled system.
 
         """
 
-        self._block_dofs: np.ndarray = np.array([], dtype=int)
+        self._variable_num_dofs: np.ndarray = np.array([], dtype=int)
         """Array containing the number of DOFS per block number. The block number corresponds
-        to this array's indexation.
+        to this array's indexation, see also _variable_numbers.
 
         """
 
-        self._variable_dofs: dict[str, tuple[dict[str, int], list[GridLike]]] = dict()
+        self._variable_dof_type: dict[Variable, dict[str, int]] = dict()
 
     def SubSystem(
         self,
@@ -277,6 +236,7 @@ class SystemManager:
             ValueError: if passed names are not among created variables and set equations.
 
         """
+        assert False  # Not updated after atomization of variables
         # parsing input arguments
         if isinstance(equation_names, str):
             equation_names = [equation_names]
@@ -312,15 +272,6 @@ class SystemManager:
                 md_variable = self._variables[name]
                 new_manager._variables.update({name: md_variable})
 
-                # updating grid variables in subsystem
-                for var in md_variable.sub_vars:
-                    # TODO: Change MixedDimensionalVariable.sub_vars to sub_variables?
-                    # Or perhaps something else than sub?
-                    if var.domain in new_manager._grid_variables:
-                        new_manager._grid_variables[var.domain].update({name: var})
-                    else:
-                        new_manager._grid_variables[var.domain] = {name: var}
-
                 # creating dofs in subsystem
                 # TODO: This has not been updated to the new signature of _append_dofs
                 new_manager._append_dofs(name)
@@ -349,18 +300,42 @@ class SystemManager:
         return self._equations
 
     @property
-    def variables(self) -> dict[str, MixedDimensionalVariable]:
-        """Dictionary containing names (keys) and mixed-dimensional variables (values),
-        which have been created in this system.
-
-        """
+    def variables(self) -> list[Variable]:
+        """List containing all Variables known to this system."""
         return self._variables
 
     @property
-    def variable_tags(self) -> dict[str, dict[str, Any]]:
-        return self._variable_tags
+    def domains(self) -> list[GridLike]:
+        """List containing all domains known to this system."""
+        # Find all domains
+        domains = set()
+        for var in self._variables:
+            domains.add(var.domain)
+        return list(domains)
 
     ### Variable management ------------------------------------------------------------
+    
+    def md_variable(
+        self, name: str, grids: Optional[list] = None
+    ) -> MixedDimensionalVariable:
+        """Return the mixed-dimensional variable for a given name.
+
+        Parameters:
+            name (str): Name of the mixed-dimensional variable.
+
+        Returns:
+            MixedDimensionalVariable: The mixed-dimensional variable.
+
+        """
+        if grids is None:
+            variables = [var for var in self._variables if var.name == name]
+        else:
+            variables = [
+                var
+                for var in self._variables
+                if var.name == name and var.domain in grids
+            ]
+        return MixedDimensionalVariable(variables)
 
     def create_variable(
         self,
@@ -387,10 +362,10 @@ class SystemManager:
             An example on how to define a pressure variable with cell-wise one DOF
             (default) on **all** subdomains and **no** interfaces would be
 
-            >>> p = ad_system.create_variable('pressure', subdomains=[])
+            >>> p = ad_system.create_variable('pressure', subdomains=mdg.subdomains())
 
         Parameters:
-            name: used here as an identifier. Can be used to associate the variable wit
+            name: used here as an identifier. Can be used to associate the variable with
                 some physical quantity like ``'pressure'``.
             dof_info: dictionary containing information about number of DOFs per
                 admissible type. Defaults to ``{'cells':1}``.
@@ -398,7 +373,7 @@ class SystemManager:
                 If None, then it will not be defined on any subdomain.
             interfaces (optional): list of interfaces on which the variable is defined.
                 If None, then it will not be defined on any interface.
-            tags (optional): dictionary containing tags for the variable.
+            tags (optional): dictionary containing tags for the variables.
 
         Returns:
             a mixed-dimensional variable with above specifications.
@@ -430,22 +405,16 @@ class SystemManager:
         if name in self._variables:
             raise KeyError(f"Variable with name '{name}' already defined.")
 
-        # if an empty list was received, we use ALL subdomains
-        if isinstance(subdomains, list) and len(subdomains) == 0:
-            subdomains = [sg for sg in self.mdg.subdomains()]
-        # if an empty list was received, we use ALL interfaces
-        if isinstance(interfaces, list) and len(interfaces) == 0:
-            interfaces = [intf for intf in self.mdg.interfaces()]
-
         # container for all grid variables
         variables = list()
 
         # Merge subdomains and interfaces into a single list
         grids: list = subdomains if subdomains else interfaces
         if grids:
-            self._variable_dofs[name] = (dof_info, grids)
 
             for grid in grids:
+                # check if the grid is known to the system
+
                 if subdomains:
                     data = self.mdg.subdomain_data(grid)
                 else:
@@ -458,106 +427,95 @@ class SystemManager:
                     data[pp.STATE][pp.ITERATE] = dict()
 
                 # create grid variable
-                new_variable = Variable(name, dof_info, domain=grid)
-                if grid not in self._grid_variables:
-                    self._grid_variables[grid] = dict()
-                if name not in self._grid_variables[grid]:
-                    self._grid_variables[grid].update({name: new_variable})
+                new_variable = Variable(name, dof_info, domain=grid, tags=tags)
+                
+                # Store it in the system
                 variables.append(new_variable)
+                self._variables.append(new_variable)
 
-        # create and store the md variable
+                # append the new DOFs to the global system
+                self._variable_dof_type[new_variable] = dof_info
+                self._append_dofs(new_variable)
+        # create an md variable
         merged_variable = MixedDimensionalVariable(variables)
-        self._variables.update({name: merged_variable})
-
-        # append the new DOFs to the global system
-        self._append_dofs(merged_variable)
-
-        # Add tags
-        if tags is None:
-            tags = {}
-
-        self._variable_tags[name] = tags
 
         return merged_variable
 
     def add_variable_tags(
         self,
-        variables: list[VariableType],
         tags: list[dict[str, Any]],
+        variables: Optional[VariableList] = None,
     ) -> None:
-        """Assigns a tag to all variables in the system.
+        """Assigns a tag to variables.
 
         Parameters:
+            variables: List of variables to which the tag should be assigned. None is
+                interpreted as all variables.
             tag_name: name of the tag.
-            variable_tag: dictionary mapping variable names to tags.
 
         """
         assert isinstance(variables, list)
 
-        for ind, var in enumerate(variables):
-            if isinstance(var, str):
-                variables[ind] = self._variables[var]
+        variables = self._parse_variable_type(variables)
+        for var in variables:
+            var.tags.update(tags)
 
-        if len(tags) > 1 and len(variables) > 1:
-            if len(variables) != len(tags):
-                raise ValueError("Length of variable and variable_tag must be equal.")
-            for t, v in zip(tags, variables):
-                self._variable_tags[v.name].update(t)
-
-        elif len(tags) > 1:
-            for t in tags:
-                self._variable_tags[variables[0].name].update(t)
-        elif len(variables) > 1:
-            for v in variables:
-                self._variable_tags[v.name].update(tags[0])
-        else:
-            self._variable_tags[variables[0].name].update(tags[0])
-
-    def get_variables_by_tag(
-        self, tag_name: str, tag_value: Optional[Any] = None
-    ) -> list[pp.ad.MixedDimensionalVariable]:
-        """Get the variable status for a given tag.
-
-        By request, the results can be filtered so that only variables with a given tag
-        value are returned.
-
-        Args:
-            tag_name: Name of the tag.
-            tag_value: Target tag value. If provided, only variables for which the tag
-                has this value is returned.
-
-        Returns:
-            dict: A mapping from variables (as strings) to tag values. If tag_value is
-                specified, only variables with the target value are returned; if not,
-                all variables that have this tag are returned.
-
-        """
-        filtered_variables = []
-        # Loop over all variables, see if they have the requested tag
-        for var in self.variables:
-            if tag_name in self._variable_tags[var].keys():
-                # The variable passes the filter if the tag has the requested value, or
-                # if no value is requested.
-                if tag_value is None or self._variable_tags[var][tag_name] == tag_value:
-                    filtered_variables.append(self.variables[var])
-
-        return filtered_variables
-
-    def get_variable_names(
+    def get_variables(
         self,
-    ) -> tuple[str, ...]:
-        """Get all (unique) variable names defined so far.
+        variables: Optional[list[Variable]] = None,
+        grids: Optional[list[pp.Grid]] = None,
+        tag_name: Optional[str] = None,
+        tag_value: Optional[Any] = None,
+    ) -> list[Variable]:
+        """Filter variables based on grid, tag name and tag value.
+
+        Particular usage: calling without arguments will return all variables in the system.
+        FIXME: Rename to filter_variables? Remove variables property? The property is covered
+        by this method, which might be renamed to variables if property is removed.
 
         Parameters:
-            TODO: Introduce tags here?
+            variables: list of variables to filter. If None, all variables in the system are
+                included.
+            grids: list of grids to filter on. If None, all grids are included.
+            tag_name: name of the tag to filter on. If None, no filtering on tags.
+            tag_value: value of the tag to filter on. If None, no filtering on tag values.
+                If tag_name is not None, but tag_value is None, all variables with the given
+                    tag_name are returned regardless of value.
 
-        Returns: a tuple of names.
+        Returns:
+            list of filtered variables.
 
         """
-        return tuple(self._variables.keys())
+        # Shortcut for efficiency. 
+        # The same behavior is achieved without this, but it is slower.
+        if (
+            variables is None
+            and grids is None
+            and tag_name is None
+            and tag_value is None
+        ):
+            return self._variables
 
+        # If no variables or grids are given, use full sets.
+        if variables is None:
+            variables = self._variables
+        if grids is None:
+            grids = self.domains
+        
+        filtered_variables = []
+        variables = self._parse_variable_type(variables)
+        for var in variables:
+            if var.domain in grids:
+                # Add variable if tag_name is not specified or if the variable has the tag
+                # and the tag value matches the requested value.
+                if tag_name is None:
+                    filtered_variables.append(var)
+                elif tag_name in var.tags:
+                    if tag_value is None or var.tags[tag_name] == tag_value:
+                        filtered_variables.append(var)
+ 
     def get_variable_values(
-        self, variables: Optional[list[VariableType]] = None, from_iterate: bool = False
+        self, variables: Optional[VariableList] = None, from_iterate: bool = False
     ) -> np.ndarray:
         """Assembles an array containing values for the passed variable-like argument.
 
@@ -580,16 +538,16 @@ class SystemManager:
             ValueError: if unknown VariableType arguments are passed.
 
         """
+        variables = self._parse_variable_type(variables)
         # storage for atomic blocks of the sub vector (identified by name-grid pairs)
         values = list()
-        # assemble requested name-grid pairs
-        requested_blocks = self._parse_variable_type(variables)
 
         # loop over all blocks and process those requested
         # this ensures uniqueness and correct order
-        for block in self._block_numbers:
-            if block in requested_blocks:
-                name, grid = block
+        for variable in self._variable_numbers:
+            if variable in variables:
+                name = variable.name
+                grid = variable.domain
                 if isinstance(grid, pp.Grid):
                     data = self.mdg.subdomain_data(grid)
                 elif isinstance(grid, pp.MortarGrid):
@@ -617,7 +575,7 @@ class SystemManager:
     def set_variable_values(
         self,
         values: np.ndarray,
-        variables: Optional[list[VariableType]] = None,
+        variables: Optional[VariableList] = None,
         to_iterate: bool = False,
         additive: bool = False,
     ) -> None:
@@ -647,20 +605,19 @@ class SystemManager:
             ValueError: if unknown VariableType arguments are passed.
 
         """
-        # assemble requested name-grid pairs
-        requested_blocks = self._parse_variable_type(variables)
         # start of dissection
-        block_start = 0
-        block_end = 0
-
-        for block, block_number in self._block_numbers.items():
-            if block in requested_blocks:
-                name, grid = block
-                block_length = int(self._block_dofs[block_number])
-                block_end = block_start + block_length
+        dof_start = 0
+        dof_end = 0
+        variables = self._parse_variable_type(variables)
+        for variable, variable_number in self._variable_numbers.items():
+            if variable in variables:
+                name = variable.name
+                grid = variable.domain
+                num_dofs = int(self._variable_num_dofs[variable_number])
+                dof_end = dof_start + num_dofs
                 # extract local vector
                 # this will raise errors if indexation out of range
-                local_vec = values[block_start:block_end]
+                local_vec = values[dof_start:dof_end]
                 # get storage
                 if isinstance(grid, pp.Grid):
                     data = self.mdg.subdomain_data(grid)
@@ -684,17 +641,17 @@ class SystemManager:
                         data[pp.STATE][name] = local_vec.copy()
 
                 # move dissection forward
-                block_start = block_end
+                dof_start = dof_end
 
         # last sanity check if the vector was properly sized, or if it was too large.
         # This imposes a theoretically unnecessary restriction on the input argument
         # since we only require a vector of at least this size.
         # Do we care if there are more values than necessary? TODO
-        assert block_end == values.size
+        assert dof_end == values.size
 
     ### DOF management -----------------------------------------------------------------
 
-    def _append_dofs(self, variable: pp.ad.MixedDimensionalVariable) -> None:
+    def _append_dofs(self, variable: pp.ad.Variable) -> None:
         """Appends DOFs for a newly created variable.
 
         Must only be called by :meth:`create_variable`.
@@ -710,69 +667,27 @@ class SystemManager:
 
         """
         # number of totally created dof blocks so far
-        last_block_number: int = len(self._block_numbers)
-        # new blocks
-        new_block_numbers: dict[tuple[str, GridLike], int] = dict()
-        # new dofs per block
-        new_block_dofs_: list[int] = list()
+        last_variable_number: int = len(self._variable_numbers)
+        
+        # Sanity check that no previous data is overwritten. This should not happen,
+        # if class not used in hacky way.
+        assert variable not in self._variable_numbers
 
-        # Name of the variable
-        variable_name = variable.name
+        # Count number of dofs for this variable on this grid and store it.
+        # The number of dofs for each dof type defaults to zero.
 
-        # add dofs found on subdomains for this variable name
-        # IMPLEMENTATION NOTE: It was easier to implement this by looping over all
-        # subdomains and checking if the variable is defined on them, rather than
-        # looping over the domain of the variable, and checking if it the items in the
-        # domain are subdomains or interfaces.
-        for sd in self.mdg.subdomains():
-            if sd not in variable.domain:
-                # This is an interface. Continue.
-                continue
+        local_dofs = self._variable_dof_type[variable]
+        num_dofs = variable.domain.num_cells * local_dofs.get("cells", 0)
+        if isinstance(variable.domain, pp.Grid):
+            num_dofs += +variable.domain.num_faces * local_dofs.get(
+                "faces", 0
+            ) + variable.domain.num_nodes * local_dofs.get("nodes", 0)
 
-            # Sanity check that no previous data is overwritten. This should not happen,
-            # if class not used in hacky way.
-            assert (variable_name, sd) not in self._block_numbers
-
-            # Assign a new block number and increase the counter.
-            new_block_numbers[(variable_name, sd)] = last_block_number
-            last_block_number += 1
-
-            # Count number of dofs for this variable on this grid and store it.
-            # The number of dofs for each dof type defaults to zero.
-            local_dofs = self._variable_dofs[variable_name][0]
-            num_local_dofs = (
-                sd.num_cells * local_dofs.get("cells", 0)
-                + sd.num_faces * local_dofs.get("faces", 0)
-                + sd.num_nodes * local_dofs.get("nodes", 0)
-            )
-            new_block_dofs_.append(num_local_dofs)
-
-        # Add dofs found on interfaces for this variable
-        for intf in self.mdg.interfaces():
-            if intf not in variable.domain:
-                # This is a subdomain. Continue.
-                continue
-
-            # Sanity check that no previous data is overwritten. This should not happen,
-            # if class not used in hacky way.
-            assert (variable_name, intf) not in self._block_numbers
-
-            # Assign a new block number and increase the counter.
-            new_block_numbers[(variable_name, intf)] = last_block_number
-            last_block_number += 1
-
-            # Count number of dofs for this variable on this grid and store it.
-            # Only cell-wise dofs are allowed on interfaces
-            local_dofs = self._variable_dofs[variable_name][0]
-            total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
-            new_block_dofs_.append(total_local_dofs)
-
-        # Converting block dofs to array
-        new_block_dofs = np.array(new_block_dofs_, dtype=int)
-
-        # Update the global dofs so far with the new blocks
-        self._block_numbers.update(new_block_numbers)
-        self._block_dofs = np.concatenate([self._block_dofs, new_block_dofs])
+        # Update the global dofs and block numbers
+        self._variable_numbers.update({variable: last_variable_number})
+        self._variable_num_dofs = np.concatenate(
+            [self._variable_num_dofs, np.array([num_dofs], dtype=int)]
+        )
 
         # first optimization of Jacobian structure
         self._cluster_dofs_gridwise()
@@ -800,107 +715,68 @@ class SystemManager:
 
         """
         # Data stracture for the new order of dofs
-        new_block_counter: int = 0
-        new_block_numbers: dict[tuple[str, GridLike], int] = dict()
+        new_variable_counter: int = 0
+        new_variable_numbers: dict[Variable, int] = dict()
         new_block_dofs: list[int] = list()
         block_pair: tuple[str, GridLike]  # appeasing mypy
 
-        # First set of diagonal blocks, per subdomain
-        for sd in self.mdg.subdomains():
-            # Sub-loop of variables per subdomain
-            for variable_name in self._variables:
-                # If this variable-subdomain combination is present, add it to the new
-                # order of dofs
-                block_pair = (variable_name, sd)
-                if block_pair in self._block_numbers:
-                    # Extract created number of dofs
-                    local_dofs: int = self._block_dofs[self._block_numbers[block_pair]]
+        for variable in self._variables:
+            # If this variable-grid combination is present, add it to the new
+            # order of dofs
+            if variable in self._variable_numbers:
+                # Extract created number of dofs
+                local_dofs: int = self._variable_num_dofs[
+                    self._variable_numbers[variable]
+                ]
 
-                    # Store new block number and dofs in new order
-                    new_block_dofs.append(local_dofs)
-                    new_block_numbers.update({block_pair: new_block_counter})
-                    new_block_counter += 1
-
-        # Second set of diagonal blocks, per interface
-        for intf in self.mdg.interfaces():
-            # Sub-loop of variables per interface
-            for variable_name in self._variables:
-                block_pair = (variable_name, intf)
-                if block_pair in self._block_numbers:
-                    # Extract created number of dofs
-                    local_dofs = self._block_dofs[self._block_numbers[block_pair]]
-
-                    # Store new block number and dofs in new order
-                    new_block_dofs.append(local_dofs)
-                    new_block_numbers.update({block_pair: new_block_counter})
-                    new_block_counter += 1
+                # Store new block number and dofs in new order
+                new_block_dofs.append(local_dofs)
+                new_variable_numbers.update({variable: new_variable_counter})
+                new_variable_counter += 1
 
         # Replace old block order
-        self._block_dofs = np.array(new_block_dofs, dtype=int)
-        self._block_numbers = new_block_numbers
+        self._variable_num_dofs = np.array(new_block_dofs, dtype=int)
+        self._variable_numbers = new_variable_numbers
 
     def _parse_variable_type(
-        self,
-        variables: Optional[list[VariableType]] = None,
-    ) -> list[tuple[str, GridLike]]:
-        """Helper method to create name-grid pairs for VariableType input.
+        self, variables: Optional[VariableList]
+    ) -> list[Variable]:
+        """Parse the input argument for the variable type.
 
-        Raises a type error if the input or part of the input is not VariableType.
+        Parameters:
+            variables (dict or list): The input argument for the variable type.
+                The following interpretation rules are applied:
+                    - If None, return all variables
+                    - If a list of variables, return same
+                    - If a list of strings, return all variables with those names
+                    - If mixed-dimensional variable, return sub-variables
 
-        Notes:
-            This method, and the sub-routine _parse_single_variable_type, are crucial in terms
-            of performance.
+        Returns:
+            list: A list of Variables.
 
         """
-        #
-
-        # The default return value is all blocks
         if variables is None:
-            return list(self._block_numbers.keys())
-
-        # Storage for all requested blocks, possible not unique and un-restricted in
-        # terms of grids
-        requested_blocks: list[tuple[str, GridLike]] = list()
-
-        # Storage for all grid-restricted variables to eliminate the rest
-        grid_restricted_variables: set[str] = set()
-        restricted_grids: dict[str, set] = dict()
-
+            return self.get_variables()
+        parsed_variables = []
         for variable in variables:
-            # same parsing as for non_sequentials
-            requested_blocks += self._parse_single_variable_type(variable)
-
-            # filtering grid restrictions
-            if isinstance(variable, Variable):
-                grid_restricted_variables.add(variable.name)
-                if isinstance(variable.domain, list):
-                    domain_set = set(variable.domain)
-                else:
-                    domain_set = {variable.domain}
-                if variable.name in restricted_grids:
-                    restricted_grids[variable.name].add(domain_set)
-                else:
-                    restricted_grids[variable.name] = domain_set
-
-        # Make results unique.
-        requested_blocks = list(set(requested_blocks))
-        # Processing grid restrictions.
-        for name in grid_restricted_variables:
-            # All grids on which this variable is defined.
-            all_grids = set(self._variables[name].domain)
-
-            # Grids that should be filtered away
-            filtered_grids = all_grids.difference(restricted_grids[name])
-            for f_name, f_grid in itertools.product([name], filtered_grids):
-                if (f_name, f_grid) in requested_blocks:
-                    requested_blocks.remove((f_name, f_grid))
-
-        # iterate over available blocks and check if they are requested
-        # this ensures uniqueness again and correct order
-        return [block for block in self._block_numbers if block in requested_blocks]
+            if isinstance(variable, MixedDimensionalVariable):
+                parsed_variables += variable.sub_vars
+            elif isinstance(variable, Variable):
+                parsed_variables.append(variable)
+            elif isinstance(variable, str):
+                # Use _variables to avoid recursion (get_variables() calls this method)
+                vars = [var for var in self._variables if var.name == variable]
+                parsed_variables += vars
+            else:
+                raise ValueError(
+                    "Variable type must be a string or a Variable, not {}".format(
+                        type(variable)
+                    )
+                )
+        return parsed_variables
 
     def _parse_single_variable_type(
-        self, variable: str | Variable | MixedDimensionalVariable
+        self, variable: str | Variable 
     ) -> list[tuple[str, GridLike]]:
         """Helper of helper :) Parses VariableTypes that are not sequences.
 
@@ -909,32 +785,15 @@ class SystemManager:
 
         """
 
-        # Variable represented as a string: include all associated grids
-        if isinstance(variable, str):
-            if variable not in self._variables:
-                raise ValueError(f"Unknown variable name {variable}.")
-            return [block for block in self._block_numbers if block[0] == variable]
-
-        # Variable represented as md-variable: include all associated grids.
-        # NOTE: Check MixedDimensionalVariable first, since it is a subclass of Variable
-        elif isinstance(variable, MixedDimensionalVariable):
-            if variable not in self._variables.values():
-                raise ValueError(f"Unknown mixed-dimensional variable {variable}.")
-            return [block for block in self._block_numbers if block[0] == variable.name]
-
-        # Variable represented as grid variable: return local block.
-        # We know this is not a MixedDimensionalVariable (which is treated above).
-        elif isinstance(variable, Variable):
-            if (variable.name, variable.domain) in self._block_numbers:
-                return [(variable.name, variable.domain)]
-            else:
-                raise ValueError(f"Unknown grid variable {variable}.")
-
+        assert isinstance(variable, Variable)
+        "Variable must be of type Variable."
+        if variable in self._variable_numbers:
+            return variable
         else:
-            raise TypeError(f"Type {type(variable)} not parsable as variable-like.")
+            raise ValueError(f"Unknown variable {variable}.")
 
     def _gridbased_variable_complement(
-        self, variables: list[VariableType]
+        self, variables: VariableList
     ) -> list[Variable]:
         """Finds the grid-based complement of a variable-like structure.
 
@@ -949,16 +808,6 @@ class SystemManager:
             # TODO: Can we drop this, or is it possible that a single variable has made
             # it into this subroutine?
             return list()
-
-        # I think the commented out code below is not needed, since the grid-based
-        # after enforcing list in VariableType TODO: Check this and remove if true
-        # # grid variables are part of a md variable, the complement are the remaining
-        # # grid vars
-        # elif isinstance(variables, Variable):
-        #     # Get the MixedDimensionalVariable version of this variable
-        #     md_v = self._variables[variables.name]
-        #     # Return all components of the md variable that are not the input variable
-        #     return [var for var in md_v.sub_vars if var.domain != variables.domain]
 
         # non sequential var-like structure
         else:
@@ -977,15 +826,16 @@ class SystemManager:
 
     def num_dofs(self) -> int:
         """Returns the total number of dofs managed by this system."""
-        return int(sum(self._block_dofs))  # cast numpy.int64 into Python int
+        return int(sum(self._variable_num_dofs))  # cast numpy.int64 into Python int
 
     def projection_to(
-        self, variables: Optional[list[VariableType]] = None
+        self, variables: Optional[VariableList] = None
     ) -> sps.csr_matrix:
         """Create a projection matrix from the global vector of unknowns to a specified
         subspace.
 
-        The subspace can be specified by variable names or variables (see :data:`VariableType`).
+        The subspace can be specified by variable names or variables
+        (see :data:`VariableType`).
 
         The transpose of the returned matrix can be used to slice respective columns out
         of the global Jacobian.
@@ -1024,7 +874,7 @@ class SystemManager:
         else:
             return sps.csr_matrix((0, num_dofs))
 
-    def dofs_of(self, variables: list[VariableType]) -> np.ndarray:
+    def dofs_of(self, variables: VariableList) -> np.ndarray:
         """Get the indices in the global vector of unknowns belonging to the variable(s).
 
         The global order of indices is preserved.
@@ -1039,20 +889,19 @@ class SystemManager:
             ValueError: if unknown VariableType arguments are passed.
 
         """
+        variables = self._parse_variable_type(variables)
         # global block indices
-        global_block_dofs = np.hstack((0, np.cumsum(self._block_dofs)))
-        # parsing of requested blocks
-        requested_blocks = self._parse_variable_type(variables)
-        # storage of indices per requested block
+        global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
+        # storage of indices per requested variable
         indices = list()
-        for block in requested_blocks:
-            block_number = self._block_numbers[block]
-            block_indices = np.arange(
-                global_block_dofs[block_number],
-                global_block_dofs[block_number + 1],
+        for variable in variables:
+            var_number = self._variable_numbers[variable]
+            var_indices = np.arange(
+                global_variable_dofs[var_number],
+                global_variable_dofs[var_number + 1],
                 dtype=int,
             )
-            indices.append(block_indices)
+            indices.append(var_indices)
         # concatenate indices, if any
         if indices:
             return np.concatenate(indices, dtype=int)
@@ -1071,7 +920,7 @@ class SystemManager:
         ...
 
     def identify_dof(
-        self, dof: int, return_variable: bool = False
+        self, dof: int, return_variable: bool = True
     ) -> tuple[str, GridLike] | Variable:
         """Identifies the block to which a specific DOF index belongs.
 
@@ -1098,20 +947,17 @@ class SystemManager:
             raise KeyError("Dof index out of range.")
 
         # global block indices
-        global_block_dofs = np.hstack((0, np.cumsum(self._block_dofs)))
+        global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
         # Find the block number belonging to this index
-        target_block_number = np.argmax(global_block_dofs > dof) - 1
-        # find block belonging to the number, first and logically only occurrence
-        for block_pair, block_number in self._block_numbers.items():
-            if block_number == target_block_number:
-                if return_variable:
-                    # note the grid variables are stored per grid-name not name-grid
-                    return self._grid_variables[block_pair[1]][block_pair[0]]
-                else:
-                    return block_pair
-        # if search was not successful, something went terribly wrong
-        # should never happen, but if it does, notify the user
-        raise RuntimeError("Someone messed with the global block indexation...")
+        variable_number = np.argmax(global_variable_dofs > dof) - 1
+        # Get the variable key from _variable_numbers
+        variable = [
+            var for var, num in self._variable_numbers.items() if num == variable_number
+        ][0]
+        if return_variable:
+            return variable
+        else:
+            return variable.name, variable.domain
 
     ### Equation management -------------------------------------------------------------------
 
@@ -1182,9 +1028,10 @@ class SystemManager:
         # a sufficiently general notation is used, but the chances of this being
         # misused is considered high compared to the benefits of allowing such combined
         # domains, and we therefore disallow it.
-        if not all([isinstance(g, pp.Grid) for g in equation_domain]) or all(
-            [isinstance(g, pp.MortarGrid) for g in equation_domain]
-        ):
+        all_subdomains = all([isinstance(g, pp.Grid) for g in equation_domain])
+        all_interfaces = all([isinstance(g, pp.MortarGrid) for g in equation_domain])
+        # FIXME: Is it allowed to have no domain or should we change to == 1?
+        if not all_interfaces + all_subdomains <= 1:
             raise AssertionError(
                 "An equation should be defined on both subdomains and interfaces."
             )
@@ -1526,7 +1373,7 @@ class SystemManager:
     def assemble_subsystem(
         self,
         equations: Optional[EquationLike] = None,
-        variables: Optional[list[VariableType]] = None,
+        variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
@@ -1630,9 +1477,9 @@ class SystemManager:
     def assemble_schur_complement_system(
         self,
         primary_equations: EquationLike,
-        primary_variables: VariableType,
+        primary_variables: VariableList,
         secondary_equations: Optional[EquationLike] = None,
-        secondary_variables: Optional[list[VariableType]] = None,
+        secondary_variables: Optional[VariableList] = None,
         excl_loc_prim_to_sec: bool = False,
         inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,
         state: Optional[np.ndarray] = None,
