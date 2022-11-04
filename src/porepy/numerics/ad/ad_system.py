@@ -314,7 +314,7 @@ class SystemManager:
         return list(domains)
 
     ### Variable management ------------------------------------------------------------
-    
+
     def md_variable(
         self, name: str, grids: Optional[list] = None
     ) -> MixedDimensionalVariable:
@@ -428,7 +428,7 @@ class SystemManager:
 
                 # create grid variable
                 new_variable = Variable(name, dof_info, domain=grid, tags=tags)
-                
+
                 # Store it in the system
                 variables.append(new_variable)
                 self._variables.append(new_variable)
@@ -486,7 +486,7 @@ class SystemManager:
             list of filtered variables.
 
         """
-        # Shortcut for efficiency. 
+        # Shortcut for efficiency.
         # The same behavior is achieved without this, but it is slower.
         if (
             variables is None
@@ -501,7 +501,7 @@ class SystemManager:
             variables = self._variables
         if grids is None:
             grids = self.domains
-        
+
         filtered_variables = []
         variables = self._parse_variable_type(variables)
         for var in variables:
@@ -513,7 +513,7 @@ class SystemManager:
                 elif tag_name in var.tags:
                     if tag_value is None or var.tags[tag_name] == tag_value:
                         filtered_variables.append(var)
- 
+
     def get_variable_values(
         self, variables: Optional[VariableList] = None, from_iterate: bool = False
     ) -> np.ndarray:
@@ -668,7 +668,7 @@ class SystemManager:
         """
         # number of totally created dof blocks so far
         last_variable_number: int = len(self._variable_numbers)
-        
+
         # Sanity check that no previous data is overwritten. This should not happen,
         # if class not used in hacky way.
         assert variable not in self._variable_numbers
@@ -738,9 +738,7 @@ class SystemManager:
         self._variable_num_dofs = np.array(new_block_dofs, dtype=int)
         self._variable_numbers = new_variable_numbers
 
-    def _parse_variable_type(
-        self, variables: Optional[VariableList]
-    ) -> list[Variable]:
+    def _parse_variable_type(self, variables: Optional[VariableList]) -> list[Variable]:
         """Parse the input argument for the variable type.
 
         Parameters:
@@ -776,7 +774,7 @@ class SystemManager:
         return parsed_variables
 
     def _parse_single_variable_type(
-        self, variable: str | Variable 
+        self, variable: str | Variable
     ) -> list[tuple[str, GridLike]]:
         """Helper of helper :) Parses VariableTypes that are not sequences.
 
@@ -792,9 +790,7 @@ class SystemManager:
         else:
             raise ValueError(f"Unknown variable {variable}.")
 
-    def _gridbased_variable_complement(
-        self, variables: VariableList
-    ) -> list[Variable]:
+    def _gridbased_variable_complement(self, variables: VariableList) -> list[Variable]:
         """Finds the grid-based complement of a variable-like structure.
 
         The grid-based complement consists of all those grid variables, which are not
@@ -828,9 +824,7 @@ class SystemManager:
         """Returns the total number of dofs managed by this system."""
         return int(sum(self._variable_num_dofs))  # cast numpy.int64 into Python int
 
-    def projection_to(
-        self, variables: Optional[VariableList] = None
-    ) -> sps.csr_matrix:
+    def projection_to(self, variables: Optional[VariableList] = None) -> sps.csr_matrix:
         """Create a projection matrix from the global vector of unknowns to a specified
         subspace.
 
