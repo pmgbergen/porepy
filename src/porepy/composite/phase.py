@@ -14,6 +14,7 @@ import porepy as pp
 
 from .component import Component, VarLike
 from ._composite_utils import R_IDEAL, T_REF, P_REF, CP_REF, V_REF, H_REF
+from .model_fluids import H2O
 
 __all__ = ["Phase", "IncompressibleFluid", "IdealGas"]
 
@@ -370,7 +371,7 @@ class Phase(abc.ABC):
 
 
 class IncompressibleFluid(Phase):
-    """Ideal, Incompressible fluid with constant density of 1e3 mole per V_REF.
+    """Ideal, Incompressible fluid with constant density of 1e4 mol water per V_REF.
     
     The EOS is reduced to
     
@@ -379,12 +380,12 @@ class IncompressibleFluid(Phase):
     
     """
     
-    num_moles: float = 1e6
+    rho0: float = 1e4 / V_REF
 
     def density(self, p, T):
         return pp.ad.Array(
             np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells())
-            * self.num_moles / V_REF
+            * self.rho0
         )
 
     def specific_enthalpy(self, p, T):

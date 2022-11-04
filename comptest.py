@@ -12,13 +12,13 @@ params = {
     "file_name": file_name,
     "use_ad": False,
     "eliminate_ref_phase": True,
-    "use_pressure_equation": False,
+    "use_pressure_equation": True,
     "monolithic": True,
 }
 
 t = 0.
-T = 3
-dt = 0.1
+T = 1.
+dt = 0.01
 max_iter = 200
 tol = 1e-5
 
@@ -26,6 +26,9 @@ model = pp.CompositionalFlowModel(params=params)
 
 model.prepare_simulation()
 model.dt = dt
+
+
+model.assemble_test()
 
 while t < T:
     print(".. Timestep t=%f , dt=%e" % (t, model.dt))
@@ -53,5 +56,8 @@ while t < T:
             raise RuntimeError("Time step halving due to convergence failure reached critical value.")
     else:
         t += model.dt
+    
+    if t >= T:
+        print(f"Reached and of simulation: t={t}")
 
 model.after_simulation()
