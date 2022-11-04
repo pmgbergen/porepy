@@ -377,7 +377,7 @@ class _Arrow3D(FancyArrowPatch):
         """
         # Render the 3d coordinates of the arrows as preparation for plotting in the 2d plane.
         xs3d, ys3d, zs3d = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+        xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, self.axes.M)
         # Extract the rendered positions in the 2d plotting plane
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
         # Draw the arrows
