@@ -99,6 +99,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.upwind_sw_bc: pp.ad.BoundaryCondition
         self.upwind_sn: pp.ad.UpwindAd
         self.upwind_sn_bc: pp.ad.BoundaryCondition
+        self.bc_out: pp.ad.BoundaryCondition
 
         ### PRIVATE
         self._prolong_prim: sps.spmatrix
@@ -117,6 +118,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
 
         self._grids = [g for g in self.mdg.subdomains()]
         self._edges = [e for e in self.mdg.interfaces()]
+
+        self.test = False
 
     def create_grid(self) -> None:
         """Assigns a cartesian grid as computational domain.
@@ -245,6 +248,18 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                 },
             )
 
+            # saving outflow boundary indicator
+            bc, bc_vals = self._bc_outflow(sd)
+            pp.initialize_data(
+                sd,
+                data,
+                f"{self.flow_keyword}_out",
+                {
+                    "bc": bc,
+                    "bc_values": bc_vals,
+                },
+            )
+
         # For now we consider only a single domain
         for intf, data in self.mdg.interfaces(return_data=True):
             raise NotImplementedError("Mixed dimensional case not yet available.")
@@ -268,7 +283,19 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.upwind_sn = pp.ad.UpwindAd(kw, self._grids)
         self.upwind_sn_bc = pp.ad.BoundaryCondition(kw, self._grids)
 
+        kw = f"{self.flow_keyword}_out"
+        self.bc_out = pp.ad.BoundaryCondition(kw, self._grids)
+
     ## Boundary Conditions
+
+    def _bc_outflow(self, sd: pp.Grid) -> tuple[pp.BoundaryCondition, np.ndarray]:
+        all_idx, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
+        
+        vals = np.zeros(sd.num_faces)
+        vals[idx_east] = self.inflow_sw
+        bc = pp.BoundaryCondition(sd, all_idx, "neu")
+
+        return bc, vals
 
     def _bc_advective_flux(self, sd: pp.Grid) -> tuple[pp.BoundaryCondition, np.ndarray]:
         _, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
@@ -285,7 +312,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         return bc, vals
 
     def _bc_advective_upwind_sw(self, sd: pp.Grid) -> tuple[pp.BoundaryCondition, np.ndarray]:
-        """BC values for the scalar part in the advective flux in component mass balance."""
         all_idx, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
         
         vals = np.zeros(sd.num_faces)
@@ -329,6 +355,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.upwind_sw.bound_transport_dir.discretize(self.mdg)
         self.upwind_sw.bound_transport_neu.discretize(self.mdg)
         
+        if self.test:
+            self._test()
         # for eq in self.ad_system._equations.values():
         #     eq.discretize(self.mdg)
 
@@ -349,7 +377,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                 x_s = inv_A_ss * (b_s - A_sp * solution_vector)
                 DX = self._prolong_prim * solution_vector + self._prolong_sec * x_s
 
-        # post-processing eliminated component fraction additively to iterate
         self.dof_manager.distribute_variable(
                 values=DX,
                 variables=self._system_vars,
@@ -382,12 +409,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self._exporter.write_pvd()
 
     def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-        """APerforms a Newton step for the whole system in a monolithic way, by constructing
-        a Schur complement using the equilibrium equations and non-primary variables.
-
-        :return: If converged, returns the solution. Until then, returns the update.
-        :rtype: numpy.ndarray
-        """
         
         if self._use_pressure_equation:
             A, b = self.ad_system.assemble_subsystem(variables=self.system["primary_vars"])
@@ -499,6 +520,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
 
         upwind_adv = self.upwind_sw
         upwind_adv_bc = self.upwind_sw_bc
+        bc_out = self.bc_out
 
         accumulation = self.mass_matrix.mass * self.rho_w * (
             self.sw - self.sw.previous_timestep()
@@ -512,6 +534,9 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             - upwind_adv.bound_transport_dir * advective_flux * upwind_adv_bc
             - upwind_adv.bound_transport_neu * upwind_adv_bc
         )
+        # advection -= (
+        #     upwind_adv.bound_transport_neu * (bc_out * advective_flux)
+        # )
 
         equation = accumulation + self.dt * (self.div * advection)
         
@@ -542,7 +567,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         )
 
         equation = accumulation + self.dt * (self.div * advection)
-        
+
         equ_name = "mass_sn"
         image_info = dict()
         for sd in self.mdg.subdomains():
@@ -550,6 +575,26 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.ad_system.set_equation(equ_name, equation, num_equ_per_dof=image_info)
         self.system["primary_equations"].append(equ_name)
 
+    def _test(self):
+        # div(A * F), where F is a flux and A a scalar to be upwinded
+        F = (self.mpfa.flux * self.p).evaluate(self.dof_manager).val
+        FBC = (self.mpfa.bound_flux * self.p_bc).evaluate(self.dof_manager)
+        UP = self.upwind_sw.upwind.evaluate(self.dof_manager)
+        UPDIR = self.upwind_sw.bound_transport_dir.evaluate(self.dof_manager)
+        UPNEU = self.upwind_sw.bound_transport_neu.evaluate(self.dof_manager)
+        UPBC = self.upwind_sw_bc.evaluate(self.dof_manager)
+
+        A = (self.rho_w * self.sw).evaluate(self.dof_manager).val
+
+        ADVF = F + FBC
+        TOTAL = ADVF *(UP*A) - UPDIR * ADVF * UPBC
+        FNEU = UPNEU * UPBC
+
+        print(TOTAL)
+        print(FNEU)
+        print(TOTAL - FNEU)  # !!! NO OUTFLUX TODO
+
+        return
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
 file_name = "testmodel_" + timestamp
@@ -575,6 +620,9 @@ model.dt = dt
 while t < T:
     print(".. Timestep t=%f , dt=%e" % (t, model.dt))
     model.before_newton_loop()
+
+    # if t > 3:
+    #     model.test = True
 
     for i in range(1, max_iter + 1):
         model.before_newton_iteration()
