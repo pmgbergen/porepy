@@ -72,13 +72,13 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.dof_manager: pp.DofManager = self.ad_system.dof_manager
 
         self.p: pp.ad.MergedVariable = self.ad_system.create_variable("p")
-        self.sw: pp.ad.MergedVariable = self.ad_system.create_variable("sw")
-        self.sn: pp.ad.MergedVariable = self.ad_system.create_variable("sn")
+        self.sw: pp.ad.MergedVariable = self.ad_system.create_variable("s_w")
+        self.sn: pp.ad.MergedVariable = self.ad_system.create_variable("s_n")
 
         val = np.ones(self.mdg.num_subdomain_cells())
         self.ad_system.set_var_values("p", self.initial_p * val, True)
-        self.ad_system.set_var_values("sw", self.initial_sw * val, True)
-        self.ad_system.set_var_values("sn", self.initial_sn * val, True)
+        self.ad_system.set_var_values("s_w", self.initial_sw * val, True)
+        self.ad_system.set_var_values("s_n", self.initial_sn * val, True)
 
         # contains information about the primary system
         self.system: dict[str, list] = dict()
@@ -144,15 +144,15 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             }
         )
         if self._use_pressure_equation:
-            primary_vars = ["p", "sw"]
-            secondary_vars = ["sn"]
+            primary_vars = ["p", "s_w"]
+            secondary_vars = ["s_n"]
         else:
             if self._monolithic:
-                primary_vars = ["p", "sw", "sn"]
+                primary_vars = ["p", "s_w", "s_n"]
                 secondary_vars = []
             else:
-                primary_vars = ["p", "sw"]
-                secondary_vars = ["sn"]
+                primary_vars = ["p", "s_w"]
+                secondary_vars = ["s_n"]
 
         self.system.update({"primary_vars": primary_vars})
         self.system.update({"secondary_vars": secondary_vars})
@@ -166,7 +166,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self._prolong_sec = self.dof_manager.projection_to(secondary_vars).transpose()
         self._prolong_system = self.dof_manager.projection_to(self._system_vars).transpose()
 
-        self._sn = self.get_sn()
+        self._sn_by_unity = self.get_sn()
 
         self._set_up()
 
@@ -357,8 +357,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                 to_iterate=True,
             )
         if self._use_pressure_equation:
-            sn = self._sn.evaluate(self.dof_manager).val
-            self.ad_system.set_var_values("sn", sn, False)
+            sn = self._sn_by_unity.evaluate(self.dof_manager).val
+            self.ad_system.set_var_values("s_n", sn, False)
 
     def after_newton_convergence(
         self, solution: np.ndarray, errors: float, iteration_counter: int
@@ -367,8 +367,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.dof_manager.distribute_variable(solution, variables=self._system_vars)
 
         if self._use_pressure_equation:
-            sn = self._sn.evaluate(self.dof_manager).val
-            self.ad_system.set_var_values("sn", sn, True)
+            sn = self._sn_by_unity.evaluate(self.dof_manager).val
+            self.ad_system.set_var_values("s_n", sn, True)
         self._export()
 
     def after_newton_failure(
@@ -557,8 +557,8 @@ params = {
     "folder_name": "/mnt/c/Users/vl-work/Desktop/sim-results/" + file_name + "/",
     "file_name": file_name,
     "use_ad": False,
-    "use_pressure_equation": False,
-    "monolithic": False,
+    "use_pressure_equation": True,
+    "monolithic": True,
 }
 
 t = 0.
