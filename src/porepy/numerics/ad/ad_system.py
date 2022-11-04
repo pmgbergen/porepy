@@ -393,14 +393,14 @@ class ADSystem:
             image_info.update({grid: block_idx})
 
         # perform a validity check of the input
-        equation_operator.discretize(self.dof_manager.mdg)
-        equ_ad = equation_operator.evaluate(self.dof_manager)
-        is_num_equ = len(equ_ad.val)
-        if total_num_equ != is_num_equ:
-            raise ValueError(
-                f"Passed 'equation_operator' has {is_num_equ} equations,"
-                f" opposing indicated number of {total_num_equ}."
-            )
+        # equation_operator.discretize(self.dof_manager.mdg)
+        # equ_ad = equation_operator.evaluate(self.dof_manager)
+        # is_num_equ = len(equ_ad.val)
+        # if total_num_equ != is_num_equ:
+        #     raise ValueError(
+        #         f"Passed 'equation_operator' has {is_num_equ} equations,"
+        #         f" opposing indicated number of {total_num_equ}."
+        #     )
         
         # if all good, we assume we can proceed
         self._equ_image_space_composition.update({name: image_info})
