@@ -18,25 +18,32 @@ from .operators import MixedDimensionalVariable, Operator, Variable
 __all__ = ["EquationSystem"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
-"""A union type representing a domain either by a grid or mortar grids."""
+"""A union type representing a domain either by a grid or mortar grid.
+FIXME: Rename to Domain? Or GridLikeList/GridList below?"""
+DomainList = Union[list(pp.Grid), list(pp.MortarGrid)]
+"""A union type representing a list of grids or mortar grids.
+This is *not* a list of GridLike, as that would allow a list of mixed grids and 
+mortar grids."""
 VariableList = Union[list[str], list[Variable], list[MixedDimensionalVariable]]
 """A union type representing variables through either names (:class:`str`), multiple 
 :class:`~porepy.numerics.ad.operators.Variable` or 
 :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`.
 
 This type is accepted as input to various methods and parsed to a list of
-:class:`~porepy.numerics.ad.operators.Variable`.
+:class:`~porepy.numerics.ad.operators.Variable` using 
+:meth:`~porepy.numerics.ad.equation_system.EquationSystem._parse_variable_list`.
 """
 
 EquationLike = Union[
     list[str],
     list[Operator],
-    dict[str, list[GridLike]],
-    dict[Operator, list[GridLike]],
-    list[Union[str, dict[str, list[GridLike]], dict[Operator, list[GridLike]]]],
+    dict[str, DomainList],
+    dict[Operator, DomainList],
+    list[Union[str, dict[str, DomainList], dict[Operator, DomainList]]],
 ]
 # TODO: We should probably remove the list, and rather use list[EquationType] where
-# needed. Or rename to EquationList (see also VariableList).
+# needed. Or rename to EquationList (see also VariableList). Also clean up the
+# docstring.
 """A union type representing equations by names (:class:`str`),
 :class:`~porepy.numerics.ad.operators.Operator`,
 or a dictionary containing equation domains (:data:`GridLike`) per equation 
@@ -95,7 +102,11 @@ Examples:
     No restrictions are imposed on the user on how to assemble the equation-like structure.
 
 """
-
+GridEntity = Literal["cells", "faces", "nodes"]
+"""A union type representing a grid entity, either a cell, face or node.
+This is used to define the domain of a variable or an equation,
+i.e. whether it is defined on cells, faces or nodes.
+"""
 
 class EquationSystem:
     """Represents an equation system, modelled by AD variables and equations in AD form.
@@ -135,27 +146,12 @@ class EquationSystem:
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
 
         ### PUBLIC
-
         self.mdg: pp.MixedDimensionalGrid = mdg
         """Mixed-dimensional domain passed at instantiation."""
-
-        self._variable_tags: dict[str, dict[str, Any]] = {}
-        """Tagging system for variables.
-        
-        The tags are stored in a dictionary, where the keys are the tag names, and the
-        values are inner dictionaries, where the keys are the variable names, and the
-        values are the tags.
-
-        Tags can be assigned to variables at creation, or later using the method
-        add_variable_tags.
-
-        New categories of tags can be added with the method add_variable_tag.
-        """
 
         self.assembled_equation_indices: dict[str, np.ndarray] = dict()
         """Contains the row indices in the last assembled (sub-) system for a given equation
         name (key). This dictionary changes with every call to any assemble-method.
-
         """
 
         ### PRIVATE
@@ -163,7 +159,7 @@ class EquationSystem:
         self._equations: dict[str, Operator] = dict()
         """Contains references to equations in AD operator form for a given name (key).
         Private to avoid having people setting equations directly and circumventing the current
-        set-method which included information about the image space.
+        set-method which includes information about the image space.
 
         """
 
@@ -180,7 +176,7 @@ class EquationSystem:
         """
 
         self._equation_image_size_info: dict[
-            str, dict[Literal["cells", "faces", "nodes"], int]
+            str, dict[GridEntity, int]
         ] = dict()
         """Contains for every equation name (key) the argument the number of equations
         per grid entity.
@@ -189,13 +185,13 @@ class EquationSystem:
 
         self._variables: list[Variable] = list()
         """Contains references to grid Variables. A Variable is uniquely identified by its
-        name and domain.
+        name and domain, stored as attributes of the Variable object.
 
         """
 
         self._Schur_complement: Optional[tuple] = None
         """Contains block matrices and the split rhs of the last assembled Schur complement,
-        such that the expansion can be made.
+        such that the expansion can be made. FIXME: What does this line mean?
 
         """
 
@@ -244,10 +240,7 @@ class EquationSystem:
             equation_names = [equation_names]
         elif equation_names is None:
             equation_names = list(self._equations.keys())
-        if isinstance(variable_names, str):
-            variable_names = [variable_names]
-        elif variable_names is None:
-            variable_names = list(self._variables.keys())
+        variables = self._parse_variable_type(variable_names)
 
         # checking input, if subsystem is well-defined
         known_equations = set(self._equations.keys())
@@ -255,8 +248,7 @@ class EquationSystem:
         if len(unknown_equations) > 0:
             raise ValueError(f"Unknown variable(s) {unknown_equations}.")
 
-        known_variables = set(self._variables.keys())
-        unknown_variables = set(variable_names).difference(known_variables)
+        unknown_variables = variables.difference(self._variables)
         if len(unknown_variables) > 0:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
@@ -268,15 +260,13 @@ class EquationSystem:
         # This should be acceptable since this is a factory method.
 
         # loop over known variables to preserve DOF order
-        for name in known_variables:
-            if name in variable_names:
-                # updating md variables in subsystem
-                md_variable = self._variables[name]
-                new_manager._variables.update({name: md_variable})
+        for variable in self._variables:
+            if variable in variables:
+                # updating variables in subsystem
+                new_manager._variables.update(variable)
 
                 # creating dofs in subsystem
-                # TODO: This has not been updated to the new signature of _append_dofs
-                new_manager._append_dofs(name)
+                new_manager._append_dofs(variable)
 
         # loop over known equations to preserve row order
         for name in known_equations:
@@ -307,13 +297,13 @@ class EquationSystem:
         return self._variables
 
     @property
-    def domains(self) -> list[GridLike]:
-        """List containing all domains known to this system."""
+    def variable_domains(self) -> DomainList:
+        """List containing all domains where at least one variable is defined."""
         # EK: There is a nuance here, from the docstring, I expected something like
         # return self.mdg.subdomains() + self.mdg.interfaces(). I'm fine with having a
         # method that considers only GridLike where the variables are defined, but I
         # think we should reconsider the name.
-        # Find all domains
+        # IS: Fair. Done. You might want an equiation_domain method.
         domains = set()
         for var in self._variables:
             domains.add(var.domain)
@@ -322,19 +312,31 @@ class EquationSystem:
     ### Variable management ------------------------------------------------------------
 
     def md_variable(
-        self, name: str, grids: Optional[list[GridLike]] = None
+        self, name: str, grids: Optional[DomainList] = None
     ) -> MixedDimensionalVariable:
-        """Return the mixed-dimensional variable for a given name.
+        """Create a mixed-dimensional variable for a given name-domain list combination.
 
         Parameters:
             name (str): Name of the mixed-dimensional variable.
+            grids (optional): List of grids where the variable is defined. If None (default),
+                all grids where the variable is defined are used.
 
         Returns:
             MixedDimensionalVariable: The mixed-dimensional variable.
 
+        Raises:
+            ValueError if variables called name exist on both grids and interfaces and
+                domain type is not specified (grids is None).
         """
         if grids is None:
             variables = [var for var in self._variables if var.name == name]
+            # We don't allow combinations of variables with different domain types
+            # in a md variable.
+            domains = set(var.domain for var in variables)
+            if len(domains) > 1:
+                raise ValueError(
+                    f"Variable {name} is defined on multiple domain types: {domains}."
+                )
         else:
             variables = [
                 var
@@ -346,7 +348,7 @@ class EquationSystem:
     def create_variable(
         self,
         name: str,
-        dof_info: Optional[dict[Literal["cells", "faces", "nodes"], int]] = None,
+        dof_info: Optional[dict[GridEntity, int]] = None,
         subdomains: Optional[list[pp.Grid]] = None,
         interfaces: Optional[list[pp.MortarGrid]] = None,
         tags: Optional[dict[str, Any]] = None,
@@ -379,7 +381,9 @@ class EquationSystem:
                 If None, then it will not be defined on any subdomain.
             interfaces (optional): list of interfaces on which the variable is defined.
                 If None, then it will not be defined on any interface.
-            tags (optional): dictionary containing tags for the variables.
+            tags (optional): dictionary containing tags for the variables. The tags are
+                assigned to all variables created by this method and can be updated
+                using :meth:`update_variable_tags`.
 
         Returns:
             a mixed-dimensional variable with above specifications.
@@ -416,7 +420,7 @@ class EquationSystem:
 
         # Merge subdomains and interfaces into a single list
         assert subdomains is not None or interfaces is not None  # for mypy
-        grids: list[GridLike] = subdomains if subdomains else interfaces
+        grids: DomainList = subdomains if subdomains else interfaces
         if grids:
 
             for grid in grids:
@@ -450,7 +454,7 @@ class EquationSystem:
 
         return merged_variable
 
-    def add_variable_tags(
+    def update_variable_tags(
         self,
         tags: dict[str, Any],
         variables: Optional[VariableList] = None,
@@ -461,7 +465,7 @@ class EquationSystem:
             tag_name: Tag dictionary (tag-value pairs). This will be assigned to all
                 variables in the list.
             variables: List of variables to which the tag should be assigned. None is
-                interpreted as all variables.
+                interpreted as all variables. 
 
                 NOTE: If a mixed-dimensional variable is passed, the tags will be
                 assigned to its sub-variables (living on individual grids).
@@ -517,7 +521,7 @@ class EquationSystem:
         if grids is None:
             # Note: This gives all grids known to variables, not all grids in the
             # md grid. The result of the filtering will be the same, though.
-            grids = self.domains
+            grids = self.variable_domains
 
         filtered_variables = []
         variables = self._parse_variable_type(variables)
@@ -635,8 +639,8 @@ class EquationSystem:
                 grid = variable.domain
                 num_dofs = int(self._variable_num_dofs[variable_number])
                 dof_end = dof_start + num_dofs
-                # extract local vector
-                # this will raise errors if indexation out of range
+                # Extract local vector.
+                # This will raise errors if indexation is out of range.
                 local_vec = values[dof_start:dof_end]
                 # Fetch the storage from the relevant dicitonary in the
                 # MixedDimensionalGrid.
@@ -680,10 +684,6 @@ class EquationSystem:
 
         This method defines a preliminary global order of dofs:
 
-            For each variable
-                append dofs on subdomains where variable is defined (order given by mdg)
-                append dofs on interfaces where variable is defined (order given by mdg)
-
         Parameters:
             variable: The newly created variable
 
@@ -726,8 +726,8 @@ class EquationSystem:
         blocks in the column sense represent single grids in the following order:
 
         Notes:
-            Off-diagonal blocks will still be present if subdomain-interface fluxes are
-            present in the md-sense.
+            Off-diagonal blocks will still be present if subdomain-interface variables are
+            defined.
 
         1. For each grid in ``mdg.subdomains``
             1. For each variable defined on that grid
@@ -738,13 +738,13 @@ class EquationSystem:
         (stored as order of keys in ``self.variables``).
 
         This method is called after each creation of variables and respective DOFs.
-
+        TODO: Revisit. I think I have broken it by looping over _variables instead of
+        subdomains and interfaces.
         """
         # Data stracture for the new order of dofs.
         new_variable_counter: int = 0
         new_variable_numbers: dict[Variable, int] = dict()
         new_block_dofs: list[int] = list()
-        block_pair: tuple[str, GridLike]  # appeasing mypy
 
         for variable in self._variables:
             # If this variable-grid combination is present, add it to the new
@@ -766,6 +766,10 @@ class EquationSystem:
 
     def _parse_variable_type(self, variables: Optional[VariableList]) -> list[Variable]:
         """Parse the input argument for the variable type.
+
+        This method is used to parse the input argument for the variable type in
+        several exposed methods, allowing the user to specify a single variable or a
+        list of variables more flexibly.
 
         Parameters:
             variables (dict or list): The input argument for the variable type.
@@ -798,23 +802,6 @@ class EquationSystem:
                     )
                 )
         return parsed_variables
-
-    def _parse_single_variable_type(
-        self, variable: str | Variable
-    ) -> list[tuple[str, GridLike]]:
-        """Helper of helper :) Parses VariableTypes that are not sequences.
-
-        The method finds all blocks that are associated with the given variable, that
-        is, the pairing of the variable with all grids on which it is defined.
-
-        """
-
-        assert isinstance(variable, Variable)
-        "Variable must be of type Variable."
-        if variable in self._variable_numbers:
-            return variable
-        else:
-            raise ValueError(f"Unknown variable {variable}.")
 
     def _gridbased_variable_complement(self, variables: VariableList) -> list[Variable]:
         """Finds the grid-based complement of a variable-like structure.
@@ -853,8 +840,6 @@ class EquationSystem:
         """Create a projection matrix from the global vector of unknowns to a specified
         subspace.
 
-        The subspace can be specified by variable names or variables
-        (see :data:`VariableType`).
 
         The transpose of the returned matrix can be used to slice respective columns out
         of the global Jacobian.
@@ -862,19 +847,16 @@ class EquationSystem:
         The projection preserves the global order defined by the system, i.e. it
         includes no permutation.
 
-        If no subspace is specified using ``variables``, a null-space projection is
-        returned.
-
         Parameters:
             variables (optional): VariableType input for which the subspace is
-            requested.
+                requested. If no subspace is specified using ``variables``, 
+                a null-space projection is returned.
 
         Returns:
             a sparse projection matrix of shape ``(M, num_dofs)``, where
             ``0 <= M <= num_dofs``.
 
         """
-
         # current number of total dofs
         num_dofs = self.num_dofs()
         if variables:
@@ -889,14 +871,12 @@ class EquationSystem:
                     (np.ones(subspace_size), (np.arange(subspace_size), indices)),
                     shape=(subspace_size, num_dofs),
                 ).tocsr()
-        # case where the subspace is null, i.e. no variables specified
+        # Case where the subspace is null, i.e. no variables specified
         else:
             return sps.csr_matrix((0, num_dofs))
 
     def dofs_of(self, variables: VariableList) -> np.ndarray:
         """Get the indices in the global vector of unknowns belonging to the variable(s).
-
-        The global order of indices is preserved.
 
         Parameters:
             variables: VariableType input for which the indices are requested.
@@ -909,9 +889,9 @@ class EquationSystem:
 
         """
         variables = self._parse_variable_type(variables)
-        # global block indices
         global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
-        # storage of indices per requested variable
+        
+        # Storage of indices per requested variable.
         indices = list()
         for variable in variables:
             var_number = self._variable_numbers[variable]
@@ -921,40 +901,23 @@ class EquationSystem:
                 dtype=int,
             )
             indices.append(var_indices)
-        # concatenate indices, if any
+
+        # Concatenate indices, if any
         if indices:
             return np.concatenate(indices, dtype=int)
         else:
             return np.array([], dtype=int)
 
-    @overload
-    def identify_dof(
-        self, dof: int, return_variable: Literal[False] = False
-    ) -> tuple[str, GridLike]:
-        # NOTE: The Literal[False] is needed for overloading to work.
-        ...
-
-    @overload
-    def identify_dof(self, dof: int, return_variable: Literal[True]) -> Variable:
-        ...
-
-    def identify_dof(
-        self, dof: int, return_variable: bool = True
-    ) -> tuple[str, GridLike] | Variable:
-        """Identifies the block to which a specific DOF index belongs.
-
-        The block is represented either by a name-grid pair or the respective variable.
+    def identify_dof(self, dof: int) -> Variable:
+        """Identifies the variable to which a specific DOF index belongs.
 
         The intended use is to help identify entries in the global vector or the column
-        of the Jacobian, which do not behave as expected.
+        of the Jacobian.
 
         Parameters:
             dof: a single index in the global vector.
-            return_variable (optional): if True, returns the variable object instead of the
-                name-grid combination representing the dof.
-
-        Returns: a 2-tuple containing variable name and a grid, or the respective
-            variable itself.
+            
+        Returns: the identified Variable object.
 
         Raises:
             KeyError: if the dof is out of range (larger than ``num_dofs`` or smaller
@@ -965,26 +928,22 @@ class EquationSystem:
         if not (0 <= dof < num_dofs):  # indices go from 0 to num_dofs - 1
             raise KeyError("Dof index out of range.")
 
-        # global block indices
         global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
-        # Find the block number belonging to this index
+        # Find the variable number belonging to this index
         variable_number = np.argmax(global_variable_dofs > dof) - 1
         # Get the variable key from _variable_numbers
         variable = [
             var for var, num in self._variable_numbers.items() if num == variable_number
         ][0]
-        if return_variable:
-            return variable
-        else:
-            return variable.name, variable.domain
+        return variable
 
     ### Equation management -------------------------------------------------------------------
 
     def set_equation(
         self,
         equation: Operator,
-        grids: list[GridLike],
-        equations_per_grid_entity: dict[Literal["cells", "faces", "nodes"], int],
+        grids: DomainList,
+        equations_per_grid_entity: dict[GridEntity, int],
     ) -> None:
         """Sets an equation using the passed operator **and uses its name as an identifier**.
 
@@ -1200,7 +1159,7 @@ class EquationSystem:
         return ordered_blocks
 
     def _parse_single_equation_like(
-        self, equation: str | Operator | dict[str | Operator, list[GridLike]]
+        self, equation: str | Operator | dict[str | Operator, DomainList]
     ) -> dict[str, None | np.ndarray]:
         """Helper method to identify possible restrictions of a single equation-like.
 
@@ -1343,7 +1302,7 @@ class EquationSystem:
 
         # List containing all discretizations
         discr: list = []
-        # TODO the search can be done once (in some kind of initialization)
+        # TODO: the search can be done once (in some kind of initialization)
         for name in equation_names:
             # this raises a key error if a given equation name is unknown
             eqn = self._equations[name]
@@ -1392,7 +1351,7 @@ class EquationSystem:
 
         Notes:
             The ordering of columns in the returned system are defined by the global DOF.
-            The row blocks are of the same order as equations were added to this system.
+            The row blocks are in the same order as equations were added to this system.
             If an equation is defined on multiple grids, the respective row-block is internally
             ordered as given by the mixed-dimensional grid
             (for sd in subdomains, for intf in interfaces).
@@ -1402,9 +1361,9 @@ class EquationSystem:
             are passed which are unknown to this EquationSystem.
 
         Parameters:
-            equations (optional): a subset of equation to which the subsystem should be
-                restricted.
-                If not provided (None), all equations known to this manager will be included.
+            equations (optional): a subset of equations to which the subsystem should be
+                restricted. If not provided (None), all equations known to this
+                equation system manager will be included.
 
                 The user can specify grids per equation (name) to which the subsystem should be
                 restricted in the row-sense. Grids not belonging to the domain of an equation

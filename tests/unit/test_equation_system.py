@@ -135,7 +135,7 @@ def test_variable_tags():
 
     # Add a tag to var_1. This will modify the underlying atomic variables, but not
     # var_1 itself.
-    sys_man.add_variable_tags({"tag_2": 2}, [var_1])
+    sys_man.update_variable_tags({"tag_2": 2}, [var_1])
     assert all(
         [var.tags["tag_2"] == 2 for var in sys_man.variables if var.name == "var_1"]
     )
@@ -153,9 +153,9 @@ def test_variable_tags():
     assert all(["tag_3" not in var.tags for var in sys_man.variables])
 
     # Add tags to var_2. This will be useful when we test filtering of variables below.
-    sys_man.add_variable_tags({"tag_2": 4}, [var_2])
-    sys_man.add_variable_tags({"tag_3": False}, [var_1])
-    sys_man.add_variable_tags({"tag_3": True}, [var_2])
+    sys_man.update_variable_tags({"tag_2": 4}, [var_2])
+    sys_man.update_variable_tags({"tag_3": False}, [var_1])
+    sys_man.update_variable_tags({"tag_3": True}, [var_2])
 
     ## Test of get_variables
     # First no filtering. This should give all variables.
