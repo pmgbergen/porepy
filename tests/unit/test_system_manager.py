@@ -238,9 +238,11 @@ class SystemManagerSetup:
             self.name_sd_variable, subdomains=subdomains
         )
 
+        # Let interface variables have size 2, this gives us a bit more to play with
+        # in the testing of assembly.
         self.name_intf_variable = "y"
         self.intf_variable = sys_man.create_variable(
-            self.name_intf_variable, interfaces=interfaces
+            self.name_intf_variable, dof_info={"cells": 2}, interfaces=interfaces
         )
 
         self.name_sd_top_variable = "z"
@@ -250,7 +252,7 @@ class SystemManagerSetup:
 
         self.name_intf_top_variable = "w"
         self.intf_top_variable = sys_man.create_variable(
-            self.name_intf_top_variable, interfaces=[intf_top]
+            self.name_intf_top_variable, dof_info={"cells": 2}, interfaces=[intf_top]
         )
 
         # Set state and iterate for the variables.
@@ -265,10 +267,10 @@ class SystemManagerSetup:
             sd_top.num_cells
         )
         global_vals[sys_man.dofs_of([self.intf_variable])] = np.arange(
-            mdg.num_interface_cells()
+            mdg.num_interface_cells() * 2
         )
         global_vals[sys_man.dofs_of([self.intf_top_variable])] = np.arange(
-            intf_top.num_cells
+            intf_top.num_cells * 2
         )
         # Add one to avoid zero values, which yields singular matrices
         global_vals += 1
@@ -295,12 +297,20 @@ class SystemManagerSetup:
         self.eq_single_subdomain = self.sd_top_variable * self.sd_top_variable
         self.eq_single_subdomain.set_name("eq_single_subdomain")
 
-        dof_all_subdomains = {sd: {"cells": 1} for sd in subdomains}
-        dof_single_subdomain = {sd_top: {"cells": 1}}
-        dof_combined = {sd_top: {"cells": 1}}
+        dof_all_subdomains = {"cells": 1}
+        dof_single_subdomain = {"cells": 1}
+        dof_combined = {"cells": 1}
 
-        sys_man.set_equation(self.eq_all_subdomains, dof_all_subdomains)
-        sys_man.set_equation(self.eq_single_subdomain, dof_single_subdomain)
+        sys_man.set_equation(
+            self.eq_all_subdomains,
+            grids=subdomains,
+            equations_per_grid_entity=dof_all_subdomains,
+        )
+        sys_man.set_equation(
+            self.eq_single_subdomain,
+            grids=[sd_top],
+            equations_per_grid_entity=dof_single_subdomain,
+        )
 
         # Define equations on the interfaces
         # Common for all interfaces
@@ -311,16 +321,24 @@ class SystemManagerSetup:
         self.eq_single_interface.set_name("eq_single_interface")
 
         # TODO: Should we do something on a combination as well?
-        dof_all_interfaces = {intf: {"cells": 1} for intf in interfaces}
-        dof_single_interface = {intf_top: {"cells": 1}}
-        sys_man.set_equation(self.eq_all_interfaces, dof_all_interfaces)
-        sys_man.set_equation(self.eq_single_interface, dof_single_interface)
+        dof_all_interfaces = {"cells": 2}
+        dof_single_interface = {"cells": 2}
+        sys_man.set_equation(
+            self.eq_all_interfaces,
+            grids=interfaces,
+            equations_per_grid_entity=dof_all_interfaces,
+        )
+        sys_man.set_equation(
+            self.eq_single_interface,
+            grids=[intf_top],
+            equations_per_grid_entity=dof_single_interface,
+        )
         self.eq_inds = np.array(
             [
                 mdg.num_subdomain_cells(),
                 mdg.subdomains()[0].num_cells,
-                mdg.num_interface_cells(),
-                mdg.interfaces()[0].num_cells,
+                mdg.num_interface_cells() * 2,
+                mdg.interfaces()[0].num_cells * 2,
             ]
         )
         if not square_system:
@@ -328,16 +346,18 @@ class SystemManagerSetup:
             # Assigned last to avoid mess if omitted
             self.eq_combined = self.sd_top_variable * (proj * self.sd_variable)
             self.eq_combined.set_name("eq_combined")
-            sys_man.set_equation(self.eq_combined, dof_combined)
+            sys_man.set_equation(
+                self.eq_combined, grids=[sd_top], equations_per_grid_entity=dof_combined
+            )
             self.eq_inds = np.append(self.eq_inds, mdg.subdomains()[0].num_cells)
 
         self.A, self.b = sys_man.assemble()
         self.sys_man = sys_man
 
         # Store subdomains and interfaces
-        self.subdomains = subdomains
+        self.subdomains = mdg.subdomains()
         self.sd_top = sd_top
-        self.interfaces = interfaces
+        self.interfaces = mdg.interfaces()
         self.intf_top = intf_top
         self.mdg = mdg
 
@@ -351,9 +371,9 @@ class SystemManagerSetup:
         elif var == self.sd_top_variable:
             return self.sd_top.num_cells
         elif var == self.intf_variable:
-            return self.mdg.num_interface_cells()
+            return self.mdg.num_interface_cells() * 2
         elif var == self.intf_top_variable:
-            return self.intf_top.num_cells
+            return self.intf_top.num_cells * 2
         else:
             raise ValueError
 
@@ -600,6 +620,76 @@ def test_projection_matrix(setup, var_names):
     remaining_dofs = np.setdiff1d(np.arange(setup.sys_man.num_dofs()), removed_dofs)
 
     assert np.allclose(proj.indices, remaining_dofs)
+
+
+def test_set_remove_equations(setup):
+
+    sys_man = setup.sys_man
+
+    dof_info_subdomain = {"cells": 1}
+    dof_info_interface = {"cells": 2}
+
+    # First try to set an equation that is already present. This should raise an error.
+    with pytest.raises(ValueError):
+        sys_man.set_equation(
+            setup.eq_all_subdomains,
+            grids=setup.subdomains,
+            equations_per_grid_entity=dof_info_subdomain,
+        )
+
+    # Now remove all equations.
+    eq_keys = list(sys_man.equations.keys())
+    for name in eq_keys:
+        sys_man.remove_equation(name)
+
+    # Also remove an non-existing equation, check that an error is raised.
+    with pytest.raises(ValueError):
+        sys_man.remove_equation("nonexistent")
+
+    # Now set the equation again.
+    sys_man.set_equation(
+        setup.eq_single_subdomain,
+        grids=[setup.sd_top],
+        equations_per_grid_entity=dof_info_subdomain,
+    )
+
+    # Check that the equation size has been set correctly
+    blocks = sys_man._equation_image_space_composition
+    assert np.allclose(
+        blocks[setup.eq_single_subdomain.name][setup.sd_top],
+        np.arange(setup.sd_top.num_cells * dof_info_subdomain["cells"]),
+    )
+
+    # Add a second equation, defined on both subdomains
+    sys_man.set_equation(
+        setup.eq_all_subdomains,
+        grids=setup.subdomains,
+        equations_per_grid_entity=dof_info_subdomain,
+    )
+    offset = 0
+    for sd in setup.subdomains:
+        assert np.allclose(
+            blocks[setup.eq_all_subdomains.name][sd],
+            offset + np.arange(sd.num_cells * dof_info_subdomain["cells"]),
+        )
+        offset += sd.num_cells * dof_info_subdomain["cells"]
+
+    # Add a third equation, defined on the interface.
+    # This time we switch the order of the interfaces. This should not matter for the
+    # indices of the equation, since these are added in the order returned by
+    # mdg.interfaces()
+    sys_man.set_equation(
+        setup.eq_all_interfaces,
+        grids=setup.interfaces[::-1],
+        equations_per_grid_entity=dof_info_interface,
+    )
+    offset = 0
+    for intf in setup.interfaces:
+        assert np.allclose(
+            blocks[setup.eq_all_interfaces.name][intf],
+            offset + np.arange(intf.num_cells * dof_info_interface["cells"]),
+        )
+        offset += intf.num_cells * dof_info_interface["cells"]
 
 
 @pytest.mark.parametrize(
