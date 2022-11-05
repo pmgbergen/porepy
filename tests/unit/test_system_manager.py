@@ -469,6 +469,10 @@ def test_set_get_methods(
     The test is performed for a number of different combinations of variables.
 
     Values are assigned to the STATE or ITERATE storage, and then retrieved.
+    NOTE: Setting to STATE has not been parametrized, since this would double the number
+    of tests, and since the asymmetry between the get and set methods (set can set to
+    STATE and/or ITERATE, get can only get from one of them) requires some special
+    handling in the test; see below.
 
     Both setting and adding values are tested.
 
@@ -486,23 +490,57 @@ def test_set_get_methods(
     # First generate random values, set them, and then retrieve them.
     vals = np.random.rand(inds.size)
 
-    sys_man.set_variable_values(vals, variables, to_iterate=iterate)
-    retrieved_vals = sys_man.get_variable_values(variables, from_iterate=iterate)
-    assert np.allclose(vals, retrieved_vals)
+    # Set values to ITERATE if specified, but not to state.
+    sys_man.set_variable_values(vals, variables, to_iterate=iterate, to_state=False)
+    retrieved_vals = sys_man.get_variable_values(variables, from_iterate=True)
+    # Iterate may or may not have been updated; if not, it should have the default
+    # value of 0.0
+    if iterate:
+        assert np.allclose(vals, retrieved_vals)
+    else:
+        assert np.allclose(0, retrieved_vals)
+    # State should not have been updated
+    retrieved_vals_state = sys_man.get_variable_values(variables, from_iterate=False)
+    assert np.allclose(0, retrieved_vals_state)
+
+    # Set values again, this time also to the state.
+    sys_man.set_variable_values(vals, variables, to_iterate=iterate, to_state=True)
+    # Retrieve only values from state; iterate should be the same as before (and the
+    # additive mode is checked below).
+    retrieved_vals_state = sys_man.get_variable_values(variables, from_iterate=False)
+    assert np.allclose(vals, retrieved_vals_state)
 
     # Set new values without setting additive to True. This should overwrite the old
     # values.
     new_vals = np.random.rand(inds.size)
-    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate)
+    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate, to_state=False)
     retrieved_vals2 = sys_man.get_variable_values(variables, from_iterate=iterate)
-    assert np.allclose(new_vals, retrieved_vals2)
+    # Iterate has either been updated, or it still has the default value of 0.0
+    if iterate:
+        assert np.allclose(new_vals, retrieved_vals2)
+    else:
+        assert np.allclose(0, retrieved_vals2)
+    # Set values to state. This should overwrite the old values.
+    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate, to_state=False)
+    retrieved_vals_state_2 = sys_man.get_variable_values(variables, from_iterate=False)
+    assert np.allclose(new_vals, retrieved_vals_state_2)
 
     # Set the values again, this time with additive=True. This should double the
     # retrieved values.
-    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate, additive=True)
+    sys_man.set_variable_values(
+        new_vals, variables, to_iterate=iterate, to_state=False, additive=True
+    )
     retrieved_vals3 = sys_man.get_variable_values(variables, from_iterate=iterate)
-
-    assert np.allclose(2 * new_vals, retrieved_vals3)
+    if iterate:
+        assert np.allclose(2 * new_vals, retrieved_vals3)
+    else:
+        assert np.allclose(0, retrieved_vals3)
+    # And finally set to state, with additive=True. This should double the retrieved
+    sys_man.set_variable_values(
+        new_vals, variables, to_iterate=iterate, to_state=True, additive=True
+    )
+    retrieved_vals_state_3 = sys_man.get_variable_values(variables, from_iterate=False)
+    assert np.allclose(2 * new_vals, retrieved_vals_state_3)
 
 
 @pytest.mark.parametrize(

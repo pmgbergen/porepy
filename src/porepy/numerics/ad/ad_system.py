@@ -586,6 +586,7 @@ class SystemManager:
         self,
         values: np.ndarray,
         variables: Optional[VariableList] = None,
+        to_state: bool = False,
         to_iterate: bool = False,
         additive: bool = False,
     ) -> None:
@@ -605,9 +606,9 @@ class SystemManager:
             variables (optional): VariableType input for which the values are
                  requested. If None (default), the global vector of unknowns will be
                  set.
-            to_iterate (optional): flag to write values to ITERATE, instead of STATE
-                (default). TODO: Change signature to both to_iterate and to_state? Then
-                we can set both at the same time. If yes, copy values!
+            to_state (optional): Flag to write values to STATE.
+            to_iterate (optional): Flag to write values to ITERATE.
+
             additive (optional): flag to write values *additively* to ITERATE or STATE.
                 To be used in iterative procedures.
 
@@ -628,35 +629,37 @@ class SystemManager:
                 # extract local vector
                 # this will raise errors if indexation out of range
                 local_vec = values[dof_start:dof_end]
-                # get storage
+                # Fetch the storage from the relevant dicitonary in the
+                # MixedDimensionalGrid.
                 if isinstance(grid, pp.Grid):
                     data = self.mdg.subdomain_data(grid)
                 elif isinstance(grid, pp.MortarGrid):
                     data = self.mdg.interface_data(grid)
-                # data dict should have pp.STATE and pp.ITERATE entries already created
-                # during create_variable
 
-                # store new values as requested
+                # Data dict will have pp.STATE and pp.ITERATE entries already created
+                # during create_variable. If an error is returned here, a variable has
+                # been created in a non-standard way.
+                # Store new values as requested.
                 if additive:
                     if to_iterate:
-                        data[pp.STATE][pp.ITERATE][name] = (
-                            data[pp.STATE][pp.ITERATE][name] + local_vec
-                        )
-                    else:
-                        data[pp.STATE][name] = data[pp.STATE][name] + local_vec
+                        # No need for a copy here, since we are adding to an existing
+                        # array.
+                        data[pp.STATE][pp.ITERATE][name] += local_vec
+                    if to_state:
+                        data[pp.STATE][name] += local_vec
                 else:
                     if to_iterate:
+                        # The copy is critcial here.
                         data[pp.STATE][pp.ITERATE][name] = local_vec.copy()
-                    else:
+                    if to_state:
                         data[pp.STATE][name] = local_vec.copy()
 
-                # move dissection forward
+                # Move dissection forward.
                 dof_start = dof_end
 
-        # last sanity check if the vector was properly sized, or if it was too large.
+        # Last sanity check if the vector was properly sized, or if it was too large.
         # This imposes a theoretically unnecessary restriction on the input argument
         # since we only require a vector of at least this size.
-        # Do we care if there are more values than necessary? TODO
         assert dof_end == values.size
 
     ### DOF management -----------------------------------------------------------------
