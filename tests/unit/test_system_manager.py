@@ -205,7 +205,7 @@ def test_variable_tags():
     # Filter on tag_3, which takes boolean values. This should give only var_2
     retrieved_var_10 = sys_man.get_variables(tag_name="tag_3", tag_value=True)
     assert len(retrieved_var_10) == 1
-    assert retrieved_var_10.domain == single_subdomain[0]
+    assert retrieved_var_10[0].domain == single_subdomain[0]
 
 
 class SystemManagerSetup:
@@ -279,14 +279,9 @@ class SystemManagerSetup:
             self.name_intf_top_variable,
         ]
         sys_man.set_variable_values(
-            global_vals,
-            variables=all_variables,
+            global_vals, variables=all_variables, to_iterate=True, to_state=True
         )
-        sys_man.set_variable_values(
-            global_vals,
-            variables=all_variables,
-            to_iterate=True,
-        )
+        self.initial_values = global_vals
 
         # Set equations on subdomains
 
@@ -499,7 +494,9 @@ def test_set_get_methods(
     variables = _variable_from_setup(
         setup, as_str, on_interface, on_subdomain, single_grid, full_grid
     )
-
+    # Indices of the active variables in this test configuration. Note that inds is
+    # ordered according to variables, whereas the variable states to be returned later
+    # are ordered according to the global ordering of unknowns.
     inds = sys_man.dofs_of(variables)
 
     # First generate random values, set them, and then retrieve them.
@@ -513,10 +510,15 @@ def test_set_get_methods(
     if iterate:
         assert np.allclose(vals, retrieved_vals)
     else:
-        assert np.allclose(0, retrieved_vals)
+        # This was fetched from state, which still has the intial values.
+        # To restrict to the variables of interest (those present in 'varables'),
+        # we consider a restricted set of indices, as defined by 'inds', however, we
+        # also need to do a sort, since get_variable_values returns the values in
+        # the global ordering.
+        assert np.allclose(setup.initial_values[np.sort(inds)], retrieved_vals)
     # State should not have been updated
     retrieved_vals_state = sys_man.get_variable_values(variables, from_iterate=False)
-    assert np.allclose(0, retrieved_vals_state)
+    assert np.allclose(setup.initial_values[np.sort(inds)], retrieved_vals_state)
 
     # Set values again, this time also to the state.
     sys_man.set_variable_values(vals, variables, to_iterate=iterate, to_state=True)
@@ -530,13 +532,15 @@ def test_set_get_methods(
     new_vals = np.random.rand(inds.size)
     sys_man.set_variable_values(new_vals, variables, to_iterate=iterate, to_state=False)
     retrieved_vals2 = sys_man.get_variable_values(variables, from_iterate=iterate)
-    # Iterate has either been updated, or it still has the default value of 0.0
+    # Iterate has either been updated, or it still has the initial value
     if iterate:
         assert np.allclose(new_vals, retrieved_vals2)
     else:
-        assert np.allclose(0, retrieved_vals2)
+        # This was fetched from state, which still has vals
+        assert np.allclose(vals, retrieved_vals2)
+
     # Set values to state. This should overwrite the old values.
-    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate, to_state=False)
+    sys_man.set_variable_values(new_vals, variables, to_iterate=iterate, to_state=True)
     retrieved_vals_state_2 = sys_man.get_variable_values(variables, from_iterate=False)
     assert np.allclose(new_vals, retrieved_vals_state_2)
 
@@ -549,7 +553,9 @@ def test_set_get_methods(
     if iterate:
         assert np.allclose(2 * new_vals, retrieved_vals3)
     else:
-        assert np.allclose(0, retrieved_vals3)
+        # This was fetched from state, which still has new_vals
+        assert np.allclose(new_vals, retrieved_vals3)
+
     # And finally set to state, with additive=True. This should double the retrieved
     sys_man.set_variable_values(
         new_vals, variables, to_iterate=iterate, to_state=True, additive=True
