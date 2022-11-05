@@ -49,19 +49,34 @@ def test_variable_creation():
         "var_1", dof_info_sd, subdomains=subdomains
     )
     single_subdomain_variable = sys_man.create_variable(
-        "var_2", dof_info_sd, single_subdomain
+        "var_2", dof_info_sd, subdomains=single_subdomain
     )
     interface_variable = sys_man.create_variable(
         "var_3", dof_info_intf, interfaces=interfaces
     )
 
-    # TODO: Purge. This option was removed
-    # Also define a variable on subdomains without specifying the subdomains.
-    # The resulting variable should have the same size as the one where all subdomains
-    # are explicitly set.
-    # subdomain_variable_implicitly_defined = sys_man.create_variable(
-    #     "var_4", dof_info_sd, subdomains=[]
-    # )
+    # Check that the variable storage in the SystemManager is correct.
+    # subdomain_variable is defined on two subdomains, the other on one.
+    assert len(sys_man.variables) == 4
+
+    # Tests of the md_variable method
+    # Fetch a version of var_1. It should have the same sub-variables as the md-variable
+    # returned from variable creation.
+    subdomain_variable_fetched = sys_man.md_variable("var_1")
+    assert len(subdomain_variable.sub_vars) == len(subdomain_variable_fetched.sub_vars)
+    for sub_var in subdomain_variable_fetched.sub_vars:
+        assert sub_var in subdomain_variable.sub_vars
+
+    # Next, fetch a version of var_1, restricted to a single subdomain. This should
+    # in practice be equivalent to var_2.
+    single_subdomain_variable_fetched = sys_man.md_variable(
+        "var_1", grids=single_subdomain
+    )
+    assert len(single_subdomain_variable_fetched.sub_vars) == 1
+    assert (
+        single_subdomain_variable_fetched.sub_vars[0].name == "var_1"
+        and single_subdomain_variable_fetched.domain[0] == single_subdomain[0]
+    )
 
     # Check that the variables are created correctly
     assert subdomain_variable.name == "var_1"
