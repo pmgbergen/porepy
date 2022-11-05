@@ -443,15 +443,19 @@ class SystemManager:
 
     def add_variable_tags(
         self,
-        tags: list[dict[str, Any]],
+        tags: dict[str, Any],
         variables: Optional[VariableList] = None,
     ) -> None:
-        """Assigns a tag to variables.
+        """Assigns tags to variables.
 
         Parameters:
+            tag_name: Tag dictionary (tag-value pairs). This will be assigned to all
+                variables in the list.
             variables: List of variables to which the tag should be assigned. None is
                 interpreted as all variables.
-            tag_name: name of the tag.
+
+                NOTE: If a mixed-dimensional variable is passed, the tags will be
+                assigned to its sub-variables (living on individual grids).
 
         """
         assert isinstance(variables, list)
@@ -473,14 +477,16 @@ class SystemManager:
         FIXME: Rename to filter_variables? Remove variables property? The property is covered
         by this method, which might be renamed to variables if property is removed.
 
+        EK: I kept the name. It seems fair to me to keep the property, it is a simple code.
+
         Parameters:
-            variables: list of variables to filter. If None, all variables in the system are
-                included.
+            variables: list of variables to filter. If None, all variables in the system
+                are included.
             grids: list of grids to filter on. If None, all grids are included.
             tag_name: name of the tag to filter on. If None, no filtering on tags.
             tag_value: value of the tag to filter on. If None, no filtering on tag values.
                 If tag_name is not None, but tag_value is None, all variables with the given
-                    tag_name are returned regardless of value.
+                tag_name are returned regardless of value.
 
         Returns:
             list of filtered variables.
@@ -500,19 +506,23 @@ class SystemManager:
         if variables is None:
             variables = self._variables
         if grids is None:
+            # Note: This gives all grids known to variables, not all grids in the
+            # md grid. The result of the filtering will be the same, though.
             grids = self.domains
 
         filtered_variables = []
         variables = self._parse_variable_type(variables)
         for var in variables:
             if var.domain in grids:
-                # Add variable if tag_name is not specified or if the variable has the tag
-                # and the tag value matches the requested value.
+                # Add variable if tag_name is not specified or if the variable has the
+                # tag and the tag value matches the requested value.
                 if tag_name is None:
                     filtered_variables.append(var)
                 elif tag_name in var.tags:
                     if tag_value is None or var.tags[tag_name] == tag_value:
                         filtered_variables.append(var)
+
+        return filtered_variables
 
     def get_variable_values(
         self, variables: Optional[VariableList] = None, from_iterate: bool = False
