@@ -427,7 +427,7 @@ class DifferentiableFVAd:
         subdomains: List[pp.Grid],
         mdg: pp.MixedDimensionalGrid,
         base_discr: Union[pp.ad.MpfaAd, pp.ad.TpfaAd],
-        system_manager: pp.ad.SystemManager,
+        system_manager: pp.ad.EquationSystem,
         permeability_function: Callable[[pp.ad.Variable], pp.ad.Ad_array],
         permeability_argument: pp.ad.Variable,
         potential: pp.ad.Variable,
@@ -440,7 +440,7 @@ class DifferentiableFVAd:
             mdg: Mixed-dimensional grid.
             base_discr: Tpfa or Mpfa discretization (Ad), gol which we want to
                 approximate the transmissibility matrix.
-            system_manager (pp.ad.SystemManager): Needed to evaluate Ad operators.
+            system_manager (pp.EquationSystem): Needed to evaluate Ad operators.
             permeability_function: returning permeability as an Ad_array given the
                 perm_argument.
             permeability_argument: pp.ad.Variable representing the variable upon which

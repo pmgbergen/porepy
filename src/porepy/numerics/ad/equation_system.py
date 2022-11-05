@@ -1,4 +1,4 @@
-"""Contains the SystemManager, managing variables and equations for a system modelled
+"""Contains the EquationSystem, managing variables and equations for a system modelled
 using the AD framework.
 
 """
@@ -15,7 +15,7 @@ import porepy as pp
 from . import _ad_utils
 from .operators import MixedDimensionalVariable, Operator, Variable
 
-__all__ = ["SystemManager"]
+__all__ = ["EquationSystem"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
 """A union type representing a domain either by a grid or mortar grids."""
@@ -97,7 +97,7 @@ Examples:
 """
 
 
-class SystemManager:
+class EquationSystem:
     """Represents an equation system, modelled by AD variables and equations in AD form.
 
     This class provides functionalities to create and manage variables,
@@ -217,8 +217,8 @@ class SystemManager:
         self,
         equation_names: Optional[str | list[str]] = None,
         variable_names: Optional[str | list[str]] = None,
-    ) -> SystemManager:
-        """Creates a ``SystemManager`` for a given subset of equations and variables.
+    ) -> EquationSystem:
+        """Creates a ``EquationSystem`` for a given subset of equations and variables.
 
         Currently only subsystems containing *whole* equations and variables in the
         mixed-dimensional sense can be created. Chopping into grid variables and restricting
@@ -231,7 +231,7 @@ class SystemManager:
                 subsystem. If None (default), the whole set of known md variables is used.
 
         Returns:
-            a new instance of ``SystemManager``. The subsystem equations and variables
+            a new instance of ``EquationSystem``. The subsystem equations and variables
                 are ordered as imposed by this systems's order.
 
         Raises:
@@ -261,7 +261,7 @@ class SystemManager:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
         # creating a new manager
-        new_manager = SystemManager(self.mdg)
+        new_manager = EquationSystem(self.mdg)
 
         # this method imitates the variable creation and equation setting procedures by
         # calling private methods and accessing private attributes.
@@ -1136,7 +1136,7 @@ class SystemManager:
         if len(operator.tree.children) > 0:
             # Go further in recursion
             for child in operator.tree.children:
-                discr += SystemManager._recursive_discretization_search(child, list())
+                discr += EquationSystem._recursive_discretization_search(child, list())
 
         if isinstance(operator, _ad_utils.MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
@@ -1150,8 +1150,8 @@ class SystemManager:
         """Helper method to parse equation-like inputs into a properly ordered structure.
 
         The equations will be ordered according to the order in self._equations (which
-        is the order in which they were added to the system manager and which also is
-        fixed since iteration of dictionaries is so).
+        is the order in which they were added to the equation system manager and which also
+        is fixed since iteration of dictionaries is so).
 
         Raises a type error if the input or part of the input is not equation-like.
         If an equation is requested for a grid on which it is not defined, a value error
@@ -1399,7 +1399,7 @@ class SystemManager:
 
             The columns of the subsystem are assumed to be properly defined by ``variables``,
             otherwise a matrix of shape ``(M,)`` is returned. This happens if grid variables
-            are passed which are unknown to this SystemManager.
+            are passed which are unknown to this EquationSystem.
 
         Parameters:
             equations (optional): a subset of equation to which the subsystem should be
@@ -1829,7 +1829,7 @@ class SystemManager:
 
     def __repr__(self) -> str:
         s = (
-            "SystemManager for mixed-dimensional grid with "
+            "EquationSystem for mixed-dimensional grid with "
             f"{self.mdg.num_subdomains()} subdomains "
             f"and {self.mdg.num_interfaces()}"
             " interfaces.\n"
@@ -1848,7 +1848,7 @@ class SystemManager:
 
     def __str__(self) -> str:
         s = (
-            "SystemManager for mixed-dimensional grid with "
+            "EquationSystem for mixed-dimensional grid with "
             f"{self.mdg.num_subdomains()} subdomains "
             f"and {self.mdg.num_interfaces()}"
             " interfaces.\n"

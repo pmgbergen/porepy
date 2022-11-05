@@ -9,9 +9,9 @@ etc.
 __all__ = []
 
 from . import (
-    ad_system,
     discretizations,
     equation_manager,
+    equation_system,
     forward_mode,
     functions,
     grid_operators,
@@ -19,9 +19,9 @@ from . import (
     operators,
     time_derivatives,
 )
-from .ad_system import *
 from .discretizations import *
 from .equation_manager import *
+from .equation_system import *
 from .forward_mode import *
 from .functions import *
 from .grid_operators import *
@@ -36,5 +36,5 @@ __all__.extend(functions.__all__)
 __all__.extend(forward_mode.__all__)
 __all__.extend(grid_operators.__all__)
 __all__.extend(equation_manager.__all__)
-__all__.extend(ad_system.__all__)
+__all__.extend(equation_system.__all__)
 __all__.extend(time_derivatives.__all__)

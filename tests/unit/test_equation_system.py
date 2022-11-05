@@ -1,10 +1,10 @@
-"""Tests of the SystemManager used in the Ad machinery.
+"""Tests of the EquationSystem used in the Ad machinery.
 
 The tests focus on various assembly methods:
     * test_secondary_variable_assembly: Test of assembly when secondary variables are
         present.
     * test_assemble_subsystem: Assemble blocks of the full set of equations.
-    * test_extract_subsystem: Extract a new SystemManager for a subset of equations.
+    * test_extract_subsystem: Extract a new EquationSystem for a subset of equations.
     * test_schur_complement: Assemble a subsystem, using a Schur complement reduction.
 
 To be tested:
@@ -21,7 +21,7 @@ import porepy as pp
 
 
 def test_variable_creation():
-    """Test that variable creation from a SystemManager works as expected.
+    """Test that variable creation from a EquationSystem works as expected.
 
     The test generates a MixedDimensionalGrid, defines some variables on it, and checks
     that the variables have the correct sizes and names.
@@ -30,7 +30,7 @@ def test_variable_creation():
     """
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal(simplex=False)
 
-    sys_man = pp.ad.SystemManager(mdg)
+    sys_man = pp.ad.EquationSystem(mdg)
 
     # Define the number of variables per grid item. Faces are included just to test that
     # this also works.
@@ -55,7 +55,7 @@ def test_variable_creation():
         "var_3", dof_info_intf, interfaces=interfaces
     )
 
-    # Check that the variable storage in the SystemManager is correct.
+    # Check that the variable storage in the EquationSystem is correct.
     # subdomain_variable is defined on two subdomains, the other on one.
     assert len(sys_man.variables) == 4
 
@@ -112,7 +112,7 @@ def test_variable_creation():
 def test_variable_tags():
     mdg, _ = pp.grids.standard_grids.md_grids_2d.single_horizontal(simplex=False)
 
-    sys_man = pp.ad.SystemManager(mdg)
+    sys_man = pp.ad.EquationSystem(mdg)
 
     # Define the number of variables per grid item. Faces are included just to test that
     # this also works.
@@ -208,10 +208,10 @@ def test_variable_tags():
     assert retrieved_var_10[0].domain == single_subdomain[0]
 
 
-class SystemManagerSetup:
-    """Class to set up a SystemManager with a combination of variables
+class EquationSystemSetup:
+    """Class to set up a EquationSystem with a combination of variables
     and equations, designed to make it convenient to test critical functionality
-    of the SystemManager.
+    of the EquationSystem.
 
     The setup is intended for testing advanced functionality, like assembly of equations,
     construction of subsystems of equations etc. The below setup is in itself a test of
@@ -223,7 +223,7 @@ class SystemManagerSetup:
     def __init__(self, square_system=False):
         mdg, _ = pp.grids.standard_grids.md_grids_2d.two_intersecting()
 
-        sys_man = pp.ad.SystemManager(mdg)
+        sys_man = pp.ad.EquationSystem(mdg)
 
         # List of all subdomains
         subdomains = mdg.subdomains()
@@ -386,7 +386,7 @@ class SystemManagerSetup:
 
     def eq_ind(self, name):
         # Get row indices of an equation, based on the (known) order in which
-        # equations were added to the SystemManager
+        # equations were added to the EquationSystem
         inds = self.eq_inds
         if name == "eq_all_subdomains":
             return np.arange(inds[0])
@@ -418,7 +418,7 @@ def _eliminate_columns_from_matrix(A, indices, reverse):
 @pytest.fixture
 def setup():
     # Method to deliver a setup to all tests
-    return SystemManagerSetup()
+    return EquationSystemSetup()
 
 
 def _eliminate_rows_from_matrix(A, indices, reverse):
@@ -494,7 +494,7 @@ def _variable_from_setup(
 def test_set_get_methods(
     setup, as_str, on_interface, on_subdomain, single_grid, full_grid, iterate
 ):
-    """Test the set and get methods of the SystemManager class.
+    """Test the set and get methods of the EquationSystem class.
 
     The test is performed for a number of different combinations of variables.
 
@@ -598,7 +598,7 @@ def test_projection_matrix(setup, var_names):
     # Test of the projection matrix method. The only interesting test is the
     # secondary variable functionality (the other functionality is tested elsewhere).
 
-    # The tests compare assembly by a SystemManager with explicitly defined
+    # The tests compare assembly by a EquationSystem with explicitly defined
     # secondary variables with a 'truth' based on direct elimination of columns
     # in the Jacobian matrix.
     # The expected behavior is that the residual vector is fixed, while the
@@ -939,7 +939,7 @@ def test_schur_complement(eq_var_to_exclude):
     # the sets.
 
     # Ensure the system is square by leaving out eq_combined
-    setup = SystemManagerSetup(square_system=True)
+    setup = EquationSystemSetup(square_system=True)
     eq_to_exclude, var_to_exclude = eq_var_to_exclude
     sys_man = setup.sys_man
     # Equations to keep
