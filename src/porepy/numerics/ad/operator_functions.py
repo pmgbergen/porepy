@@ -50,12 +50,7 @@ class AbstractFunction(Operator):
 
     """
 
-    def __init__(
-        self,
-        func: Callable,
-        name: str,
-        array_compatible: bool = False
-    ):
+    def __init__(self, func: Callable, name: str, array_compatible: bool = False):
         super().__init__(name=name)
         ### PUBLIC
 

@@ -47,7 +47,7 @@ class DofManager:
                 mixed-dimensional grid.
 
         """
-        DeprecationWarning("The DofManager will be replaced by SystemManager.")
+        DeprecationWarning("The DofManager will be replaced by EquationSystem.")
         self.mdg = mdg
 
         # Counter for block index
@@ -62,39 +62,39 @@ class DofManager:
 
         for sd, data in mdg.subdomains(return_data=True):
             if pp.PRIMARY_VARIABLES not in data:
-                            continue
+                continue
 
             for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
-                    # First assign a block index.
+                # First assign a block index.
                 # Note that the keys in the dictionary is a tuple, with a grid
                 # and a variable name (str)
-                    block_dof[(sd, local_var)] = block_dof_counter
-                    block_dof_counter += 1
+                block_dof[(sd, local_var)] = block_dof_counter
+                block_dof_counter += 1
 
-                    # Count number of dofs for this variable on this grid and store it.
+                # Count number of dofs for this variable on this grid and store it.
                 # The number of dofs for each grid entitiy type defaults to zero.
-                    total_local_dofs = (
-                        sd.num_cells * local_dofs.get("cells", 0)
-                        + sd.num_faces * local_dofs.get("faces", 0)
-                        + sd.num_nodes * local_dofs.get("nodes", 0)
-                    )
-                    full_dof.append(total_local_dofs)
+                total_local_dofs = (
+                    sd.num_cells * local_dofs.get("cells", 0)
+                    + sd.num_faces * local_dofs.get("faces", 0)
+                    + sd.num_nodes * local_dofs.get("nodes", 0)
+                )
+                full_dof.append(total_local_dofs)
 
         for intf, data in mdg.interfaces(return_data=True):
             if pp.PRIMARY_VARIABLES not in data:
-                            continue
+                continue
 
             for local_var, local_dofs in data[pp.PRIMARY_VARIABLES].items():
 
                 # First count the number of dofs per variable. Note that the
                 # identifier here is a tuple of the edge and a variable str.
-                    block_dof[(intf, local_var)] = block_dof_counter
-                    block_dof_counter += 1
+                block_dof[(intf, local_var)] = block_dof_counter
+                block_dof_counter += 1
 
                 # We only allow for cell variables on the mortar grid.
-                    # This will not change in the foreseeable future
-                    total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
-                    full_dof.append(total_local_dofs)
+                # This will not change in the foreseeable future
+                total_local_dofs = intf.num_cells * local_dofs.get("cells", 0)
+                full_dof.append(total_local_dofs)
 
         # Array version of the number of dofs per node/edge and variable
         self.full_dof: np.ndarray = np.array(full_dof)

@@ -541,7 +541,7 @@ class Operator:
 
     ### Operator discretization ---------------------------------------------------------------
     # TODO this is specific to discretizations and should not be done here
-    # let the SystemManager do this by calling respective util methods
+    # let the EquationSystem do this by calling respective util methods
 
     def discretize(self, mdg: pp.MixedDimensionalGrid) -> None:
         """Perform discretization operation on all discretizations identified in
@@ -585,7 +585,7 @@ class Operator:
 
     def evaluate(
         self,
-        system_manager: pp.ad.SystemManager,
+        system_manager: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
     ):  # TODO ensure the operator always returns an AD array
         """Evaluate the residual and Jacobian matrix for a given state.
@@ -712,7 +712,7 @@ class Operator:
         return eq
 
     def _identify_variables(
-        self, system_manager: pp.ad.SystemManager, var: Optional[list] = None
+        self, system_manager: pp.ad.EquationSystem, var: Optional[list] = None
     ):
         """Identify all variables in this operator."""
         # 1. Get all variables present in this operator.
@@ -1358,7 +1358,6 @@ class MixedDimensionalVariable(Variable):
             values = set(var.tags[key] for var in self.sub_vars)
             if len(values) == 1:
                 self.tags[key] = values.pop()
-        
 
     @property
     def domain(self) -> list[GridLike]:  # type: ignore[override]
@@ -1371,7 +1370,8 @@ class MixedDimensionalVariable(Variable):
         return domains
 
     def size(self) -> int:
-        """Returns the total size of the merged variable by summing the sizes of sub-variables."""
+        """Returns the total size of the merged variable by summing the sizes of sub-variables.
+        """
         return sum([v.size() for v in self.sub_vars])
 
     def previous_timestep(self) -> MixedDimensionalVariable:

@@ -65,7 +65,7 @@ class EquationManager:
                 to be considered secondary for this EquationManager.
 
         """
-        DeprecationWarning("The EquationManager will be replaced by SystemManager.")
+        DeprecationWarning("The EquationManager will be replaced by EquationSystem.")
         self.mdg = mdg
 
         # Inform mypy about variables, and then set them by a dedicated method.
@@ -166,7 +166,9 @@ class EquationManager:
                 subdomains.
 
         """
-        return pp.ad.MixedDimensionalVariable([self.variables[g][v] for g, v in grid_var])
+        return pp.ad.MixedDimensionalVariable(
+            [self.variables[g][v] for g, v in grid_var]
+        )
 
     def variable(self, grid_like: GridLike, variable: str) -> "pp.ad.Variable":
         """Get a variable for a specified grid or interface between grids, that is
@@ -337,7 +339,9 @@ class EquationManager:
     def assemble_schur_complement_system(
         self,
         primary_equations: Sequence[str],
-        primary_variables: Sequence[Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]],
+        primary_variables: Sequence[
+            Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]
+        ],
         inverter: Callable[[sps.spmatrix], sps.spmatrix],
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
@@ -526,7 +530,9 @@ class EquationManager:
 
     def _variable_set_complement(
         self,
-        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]] = None,
+        variables: Sequence[
+            Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]
+        ] = None,
     ) -> List["pp.ad.Variable"]:
         """
         Take the complement of a set of variables, with respect to the full set of

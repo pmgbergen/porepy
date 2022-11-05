@@ -187,8 +187,8 @@ from porepy.models.thm_model import THM
 from porepy.models.incompressible_flow_model import IncompressibleFlow
 from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
 
-# from porepy.numerics.ad.equation_manager import Equation, EquationManager
 from porepy.numerics import ad
+from porepy.numerics.ad.equation_system import EquationSystem
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager
