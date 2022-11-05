@@ -147,7 +147,7 @@ class SystemManager:
         values are the tags.
 
         Tags can be assigned to variables at creation, or later using the method
-        set_variable_tag.
+        add_variable_tags.
 
         New categories of tags can be added with the method add_variable_tag.
         """
@@ -167,21 +167,23 @@ class SystemManager:
 
         """
 
-        self._equ_image_space_composition: dict[
+        self._equation_image_space_composition: dict[
             str, dict[GridLike, np.ndarray]
         ] = dict()
-        """Contains for every equation name (key) a dictionary, which provides again for every
-        involved grid (key) the indices of equations expressed through the equation operator.
-        The ordering of the items in the grid-array dictionaries is consistent with the
-        remaining PorePy framework.
+        """Contains for every equation name (key) a dictionary, which provides again for
+        every involved grid (key) the indices of equations expressed through the
+        equation operator. The ordering of the items in the grid-array dictionaries is
+        consistent with the remaining PorePy framework. The ordering is local to the
+        equation, so it can be used to slice an eqution prior to concatenation of
+        equations into a global matrix.
 
         """
 
-        self._equ_image_dof_info: dict[
-            str, dict[GridLike, dict[Literal["cells", "faces", "nodes"], int]]
+        self._equation_image_size_info: dict[
+            str, dict[Literal["cells", "faces", "nodes"], int]
         ] = dict()
-        """Contains for every equation name (key) the argument ``num_equ_per_dof`` which
-        was passed when the equation was set.
+        """Contains for every equation name (key) the argument the number of equations
+        per grid entity.
 
         """
 
@@ -280,13 +282,13 @@ class SystemManager:
         for name in known_equations:
             if name in equation_names:
                 equation = self._equations[name]
-                image_info = self._equ_image_dof_info[name]
-                image_composition = self._equ_image_space_composition[name]
+                image_info = self._equation_image_size_info[name]
+                image_composition = self._equation_image_space_composition[name]
                 # set the information produced in set_equations directly
-                new_manager._equ_image_space_composition.update(
+                new_manager._equation_image_space_composition.update(
                     {name: image_composition}
                 )
-                new_manager._equ_image_dof_info.update({name: image_info})
+                new_manager._equation_image_size_info.update({name: image_info})
                 new_manager._equations.update({name: equation})
 
         return new_manager
@@ -981,10 +983,8 @@ class SystemManager:
     def set_equation(
         self,
         equation: Operator,
-        # EK: Using dof here is slightly misleading, it is really equation per grid
-        # quantity (cell, face, node). Also, in principle, I prefer equation to equ.
-        # However num_equations_per_grid_quantity is a bit long.
-        num_equ_per_dof: dict[GridLike, dict[Literal["cells", "faces", "nodes"], int]],
+        grids: list[GridLike],
+        equations_per_grid_entity: dict[Literal["cells", "faces", "nodes"], int],
     ) -> None:
         """Sets an equation using the passed operator **and uses its name as an identifier**.
 
@@ -1007,12 +1007,12 @@ class SystemManager:
                 i.e. all involved variables must have values set.**
                 An equation can be defined on sets of subdomains or interfaces, but
                 not on a combination.
-
-            num_equ_per_dof: a dictionary describing how many equations
+            grids: A list of grids on which the equation is defined.
+            equations_per_grid_entity: a dictionary describing how many equations
                 ``equation_operator`` provides. This is a temporary work-around until
                 operators are able to provide information on their image space.
-                The dictionary must contain the number of equations per grid quantity
-                (cells, faces, nodes) for each grid the operator was defined on.
+                The dictionary must contain the number of equations per grid entity
+                (cells, faces, nodes) for the operator.
 
         Raises:
             ValueError: If the equation operator has a name already assigned to a
@@ -1026,12 +1026,11 @@ class SystemManager:
         # The function loops over all grids the operator is defined on and calculate the
         # number of equations per grid quantity (cell, face, node). This information
         # is then stored together with the equation itself.
-
         image_info: dict[GridLike, np.ndarray] = dict()
         total_num_equ = 0
 
         # The domain of this equation is the set of grids on which it is defined
-        equation_domain = list(num_equ_per_dof.keys())
+
         name = equation.name
         if name in self._equations:
             raise ValueError(
@@ -1045,25 +1044,24 @@ class SystemManager:
         # a sufficiently general notation is used, but the chances of this being
         # misused is considered high compared to the benefits of allowing such combined
         # domains, and we therefore disallow it.
-        all_subdomains = all([isinstance(g, pp.Grid) for g in equation_domain])
-        all_interfaces = all([isinstance(g, pp.MortarGrid) for g in equation_domain])
+        all_subdomains = all([isinstance(g, pp.Grid) for g in grids])
+        all_interfaces = all([isinstance(g, pp.MortarGrid) for g in grids])
         # FIXME: Is it allowed to have no domain or should we change to == 1?
         if not all_interfaces + all_subdomains <= 1:
             raise AssertionError(
-                "An equation should be defined on both subdomains and interfaces."
+                "An equation should not be defined on both subdomains and interfaces."
             )
 
         # We loop over the subdomains and interfaces in that order to assert a correct
         # indexation according to the global order (for grid in sds, for grid in intfs).
-        # The user does not have to care about the order in num_equ_per_dof.
+        # The user does not have to care about the order in grids.
         for sd in self.mdg.subdomains():
-            if sd in equation_domain:
-                dof_info = num_equ_per_dof[sd]
+            if sd in grids:
                 # Equations on subdomains can be defined on any grid quantity.
                 num_equ_per_grid = int(
-                    sd.num_cells * dof_info.get("cells", 0)
-                    + sd.num_nodes * dof_info.get("nodes", 0)
-                    + sd.num_faces * dof_info.get("faces", 0)
+                    sd.num_cells * equations_per_grid_entity.get("cells", 0)
+                    + sd.num_nodes * equations_per_grid_entity.get("nodes", 0)
+                    + sd.num_faces * equations_per_grid_entity.get("faces", 0)
                 )
                 # Row indices for this grid, cast to integers.
                 block_idx = np.arange(num_equ_per_grid, dtype=int) + total_num_equ
@@ -1072,13 +1070,14 @@ class SystemManager:
                 # Store block idx per grid.
                 image_info.update({sd: block_idx})
                 # Remove the subdomain from the domain list.
-                equation_domain.remove(sd)
+                grids.remove(sd)
 
         for intf in self.mdg.interfaces():
-            if intf in equation_domain:
-                dof_info = num_equ_per_dof[intf]
+            if intf in grids:
                 # Equations on interfaces can only be defined on cells.
-                num_equ_per_grid = int(intf.num_cells * dof_info.get("cells", 0))
+                num_equ_per_grid = int(
+                    intf.num_cells * equations_per_grid_entity.get("cells", 0)
+                )
                 # Row indices for this grid, cast to integers.
                 block_idx = np.arange(num_equ_per_grid, dtype=int) + total_num_equ
                 # Cumulate total number of equations.
@@ -1086,49 +1085,41 @@ class SystemManager:
                 # Store block idx per grid
                 image_info.update({intf: block_idx})
                 # Remove the grid from the domain list
-                equation_domain.remove(intf)
+                grids.remove(intf)
 
         # Assert the equation is not defined on an unknown domain.
-        assert len(equation_domain) == 0
+        assert len(grids) == 0
 
         # If all good, we store the information:
         # The rows (referring to a global indexation) that this equation provides.
-        self._equ_image_space_composition.update({name: image_info})
+        self._equation_image_space_composition.update({name: image_info})
         # Information on the size of the equation, in terms of the grids it is defined
         # on.
-        self._equ_image_dof_info.update({name: num_equ_per_dof})
+        self._equation_image_size_info.update({name: equations_per_grid_entity})
         # Store the equation itself.
         self._equations.update({name: equation})
-
-    def get_equation(self, name: str) -> Operator:
-        """
-        Returns: a reference to a previously passed equation in operator form.
-
-        Raises:
-            KeyError: if ``name`` does not correspond to any known equation.
-
-        """
-        return self._equations[name]
 
     def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
 
-        TODO: Do we need to also adjust self._equ_image_space_composition (the indices
-        associated with each equation)? Not sure, it depends on how this information
-        is used below. We anyhow need to incorporate this in testing.
-
         Returns:
             A reference to the equation in operator form or None, if the equation is
             unknown.
-            TODO: Should we raise an error if an unknown equation is attempted removed?
+
+        Raises:
+            ValueError: If an unknown equation is attempted removed.
 
         """
         if name in self._equations:
+            # Remove the equation from the storage
             equ = self._equations.pop(name)
-            del self._equ_image_space_composition[name]
+            # Remove the image space information.
+            # Note that there is no need to modify the numbering of the other equations,
+            # since this is a local (to the equation) numbering.
+            del self._equation_image_space_composition[name]
             return equ
         else:
-            return None  # appeasing mypy
+            raise ValueError(f"Cannot remove unknown equation {name}")
 
     ### System assembly and discretization ----------------------------------------------------
 
@@ -1263,7 +1254,7 @@ class SystemManager:
                     )
 
                 # Get the indices associated with this equation.
-                img_info = self._equ_image_space_composition[name]
+                img_info = self._equation_image_space_composition[name]
 
                 # Check if the user requests a properly defined subsets of the grids
                 # associated with this equation.
@@ -1321,7 +1312,7 @@ class SystemManager:
             # If idx is None, this means no filtering was done.
             if idx:
                 # Get the indices associated with this equation.
-                img_info = self._equ_image_space_composition[name]
+                img_info = self._equation_image_space_composition[name]
 
                 # Assure ordering and uniqueness whole equation indexation
                 all_idx = np.unique(np.hstack(img_info.values()))
