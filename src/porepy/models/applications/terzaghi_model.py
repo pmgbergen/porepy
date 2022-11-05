@@ -14,6 +14,70 @@ import porepy as pp
 import os
 
 from typing import Union
+from dataclasses import dataclass
+from time import time
+
+
+@dataclass
+class TerzaghiSolution:
+    """Data class to store variables of interest from Terzaghi's model."""
+
+    def __init__(self, model: 'Terzaghi'):
+        """ Data class constructor.
+
+        Args:
+            model : Terzaghi model.
+
+        """
+        sd = model.mdg.subdomains()[0]
+        data = model.mdg.subdomain_data(sd)
+        p_var = model.scalar_variable
+        u_var = model.displacement_variable
+        t = model.time_manager.time
+
+        # Time variables
+        self.time = t
+        self.nondim_time = model.nondim_time(t)
+
+        # Spatial variables
+        self.vertical_coo = sd.cell_centers[1]
+        self.nondim_vertical_coo = model.nondim_length(self.vertical_coo)
+
+        # Pressure variables
+        if t == 0:
+            self.numerical_pressure = model.params["vertical_load"]
+            self.exact_pressure = model.params["vertical_load"]
+            self.numerical_nondim_pressure = np.ones(sd.num_cells)
+            self.exact_nondim_pressure = np.ones(sd.num_cells)
+        else:
+            self.numerical_pressure = data[pp.STATE][p_var]
+            self.exact_pressure = model.exact_pressure(t)
+            self.numerical_nondim_pressure = model.nondim_pressure(self.numerical_pressure)
+            self.exact_nondim_pressure = model.nondim_pressure(self.exact_pressure)
+
+        # Mechanical variables
+        if t == 0:
+            self.numerical_displacement = np.zeros(sd.dim * sd.num_cells)
+            self.numerical_consolidation_degree = 0.0
+            self.exact_consolidation_degree = 0.0
+        else:
+            self.numerical_displacement = data[pp.STATE][u_var]
+            self.numerical_consolidation_degree = model.numerical_consolidation_degree(
+                self.numerical_displacement, self.numerical_pressure
+            )
+            self.exact_consolidation_degree = model.exact_consolidation_degree(t)
+
+        # Error variables
+        self.pressure_error = model.l2_relative_error(
+            sd=sd,
+            true_val=self.exact_pressure,
+            approx_val=self.numerical_pressure,
+            is_scalar=True,
+            is_cc=True
+        )
+        self.consolidation_degree_error = np.abs(
+            self.exact_consolidation_degree - self.numerical_consolidation_degree
+        )
 
 
 class Terzaghi(pp.ContactMechanicsBiot):
@@ -87,9 +151,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         # Create a solution dictionary to store variables of interest
         self.sol = {counter: {} for counter in range(len(self.time_manager.schedule))}
-
-        # Counter for storing variables of interest
-        self._store_counter: int = 0
+        self._sol_counter: int = 0
 
     def create_grid(self) -> None:
         """Create a two-dimensional Cartesian grid."""
@@ -121,7 +183,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         initial_p = vertical_load * np.ones(sd.num_cells)
         data[pp.STATE][self.scalar_variable] = initial_p
         data[pp.STATE][pp.ITERATE][self.scalar_variable] = initial_p
-        self._store_variables()
+        self.sol[0] = TerzaghiSolution(self)
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the flow subproblem.
@@ -214,8 +276,8 @@ class Terzaghi(pp.ContactMechanicsBiot):
         # Store solutions
         schedule = self.time_manager.schedule
         if any([np.isclose(self.time_manager.time, t_sch) for t_sch in schedule]):
-            self._store_counter += 1  # increase exporter counter
-            self._store_variables()  # store variables in the sol dictionary
+            self._sol_counter += 1
+            self.sol[self._sol_counter] = TerzaghiSolution(self)
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
@@ -310,7 +372,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         return c_v
 
-    # -----> Analytical expressions
+    # -----> Exact, numerical, and non-dimensional expressions
     def nondim_time(self, t: Union[float, int]) -> float:
         """Nondimensionalize time.
 
@@ -326,6 +388,24 @@ class Terzaghi(pp.ContactMechanicsBiot):
         c_v = self.consolidation_coefficient()
 
         return (t * c_v) / (h ** 2)
+
+    def nondim_length(
+            self, length: Union[float, int, np.ndarray]
+    ) -> Union[float, int, np.ndarray]:
+        """Nondimensionalize length.
+
+        Args:
+            length : length in meters.
+
+        Returns:
+            Non-dimensionalized length.
+
+        """
+        return length / self.params["height"]
+
+    def nondim_pressure(self, pressure: np.ndarray) -> np.ndarray:
+        """Nondimensionalize pressure"""
+        return pressure / np.abs(self.params["vertical_load"])
 
     def exact_pressure(self, t: Union[float, int]) -> np.ndarray:
         """Compute exact pressure.
@@ -357,46 +437,56 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         return p
 
-    # -----> Helper methods
-    def _store_variables(self) -> None:
-        """Utility function to store variables of interest."""
+    def exact_consolidation_degree(self, t: Union[float, int]) -> float:
+        """Compute exact degree of consolidation
 
-        # Useful data
-        sd: pp.Grid = self.mdg.subdomains()[0]
-        data: dict = self.mdg.subdomain_data(sd)
-        t: Union[float, int] = self.time_manager.time
-        p_var: str = self.scalar_variable
-        u_var: str = self.displacement_variable
-        p0: Union[float, int] = np.abs(self.params["vertical_load"])
-        yc: np.ndarray = sd.cell_centers[1]
-        height: Union[float, int] = self.params["height"]
+        Args:
+            t : time in seconds.
 
-        # Store solutions
-        self.sol[self._store_counter]["t"] = t
-        self.sol[self._store_counter]["t_nondim"] = self.nondim_time(t)
-        self.sol[self._store_counter]["yc"] = yc
-        self.sol[self._store_counter]["yc_nondim"] = yc / height
+        Returns:
+            Degree of consolidation for the given time.
 
-        if t == 0:
-            self.sol[self._store_counter]["unum"] = np.zeros(sd.dim * sd.num_cells)
-            self.sol[self._store_counter]["pnum"] = p0
-            self.sol[self._store_counter]["pex"] = p0
-            self.sol[self._store_counter]["pnum_nondim"] = np.ones(sd.num_cells)
-            self.sol[self._store_counter]["pex_nondim"] = np.ones(sd.num_cells)
-        else:
-            self.sol[self._store_counter]["unum"] = data[pp.STATE][u_var]
-            self.sol[self._store_counter]["pnum"] = data[pp.STATE][p_var]
-            self.sol[self._store_counter]["pex"] = self.exact_pressure(t)
-            self.sol[self._store_counter]["pnum_nondim"] = data[pp.STATE][p_var] / p0
-            self.sol[self._store_counter]["pex_nondim"] = self.exact_pressure(t) / p0
+        """
+        t_nondim = self.nondim_time(t)
+        sum_series = 0
+        for i in range(1, self.params["upper_limit_summation"] + 1):
+            sum_series += (
+                    1
+                    / ((2 * i - 1) ** 2)
+                    * np.exp(-((2 * i - 1) ** 2) * (np.pi ** 2 / 4) * t_nondim)
+            )
+        deg_cons = 1 - (8 / (np.pi ** 2)) * sum_series
 
-        self.sol[self._store_counter]["p_error"] = self.l2_relative_error(
-            sd,
-            self.sol[self._store_counter]["pex"],
-            self.sol[self._store_counter]["pnum"],
-            is_cc=True,
-            is_scalar=True,
-        )
+        return deg_cons
+
+    def numerical_consolidation_degree(
+            self, displacement: np.ndarray,
+            pressure: np.ndarray
+    ) -> float:
+        """Numerical consolidation coefficient.
+
+        Args:
+            displacement: Displacement solution of shape (sd.dim * sd.num_cells, ).
+            pressure: Pressure solution of shape (sd.num_cells, ).
+
+        Returns:
+            Numerical degree of consolidation.
+
+        """
+
+        sd = self.mdg.subdomains()[0]
+        h = self.params["height"]
+        m_v = self.confined_compressibility()
+        vertical_load = self.params["vertical_load"]
+        trace_u = self.displacement_trace(displacement, pressure)
+
+        u_inf = m_v * h * vertical_load
+        u_0 = 0
+        u = np.max(np.abs(trace_u[1:: sd.dim]))
+
+        consol_deg = (u - u_0) / (u_inf - u_0)
+
+        return consol_deg
 
     def displacement_trace(
             self, displacement: np.ndarray, pressure: np.ndarray
@@ -404,14 +494,13 @@ class Terzaghi(pp.ContactMechanicsBiot):
         """Project the displacement vector onto the faces.
 
         Args:
-            displacement (sd.dim * sd.num_cells, ): displacement solution.
-            pressure (sd.num_cells, ): pressure solution.
+            displacement: displacement solution of shape (sd.dim * sd.num_cells, ).
+            pressure: pressure solution of shape (sd.num_cells, ).
 
         Returns:
-            trace_u (sd.dim * sd.num_faces, ): trace of the displacement.
+            Trace of the displacement with shape (sd.dim * sd.num_faces, ).
 
         """
-
         # Rename arguments
         u = displacement
         p = pressure
@@ -419,15 +508,10 @@ class Terzaghi(pp.ContactMechanicsBiot):
         # Discretization matrices
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
-        bound_u_cell = data[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key][
-            "bound_displacement_cell"
-        ]
-        bound_u_face = data[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key][
-            "bound_displacement_face"
-        ]
-        bound_u_pressure = data[pp.DISCRETIZATION_MATRICES][
-            self.mechanics_parameter_key
-        ]["bound_displacement_pressure"]
+        discr = data[pp.DISCRETIZATION_MATRICES][self.mechanics_parameter_key]
+        bound_u_cell = discr["bound_displacement_cell"]
+        bound_u_face = discr["bound_displacement_face"]
+        bound_u_pressure = discr["bound_displacement_pressure"]
 
         # Mechanical boundary values
         bc_vals = data[pp.PARAMETERS][self.mechanics_parameter_key]["bc_values"]
@@ -437,6 +521,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         return trace_u
 
+    # -----> Helper methods
     def plot_results(self):
         """Plot dimensionless pressure"""
 
@@ -451,13 +536,13 @@ class Terzaghi(pp.ContactMechanicsBiot):
         fig, ax = plt.subplots(figsize=(9, 8))
         for key in self.sol:
             ax.plot(
-                self.sol[key]["pex_nondim"],
-                self.sol[key]["yc_nondim"],
+                self.sol[key].exact_nondim_pressure,
+                self.sol[key].nondim_vertical_coo,
                 color=cmap.colors[key],
             )
             ax.plot(
-                self.sol[key]["pnum_nondim"],
-                self.sol[key]["yc_nondim"],
+                self.sol[key].numerical_nondim_pressure,
+                self.sol[key].nondim_vertical_coo,
                 color=cmap.colors[key],
                 linewidth=0,
                 marker=".",
@@ -470,7 +555,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${np.round(self.sol[key]['t_nondim'], 6)}",
+                label=rf"$\tau=${np.round(self.sol[key].nondim_time, 6)}",
             )
         ax.set_xlabel(r"$\tilde{p} = p/p_0$", fontsize=15)
         ax.set_ylabel(r"$\tilde{y} = y/h$", fontsize=15)
@@ -526,3 +611,32 @@ class Terzaghi(pp.ContactMechanicsBiot):
         l2_error = numerator / denominator
 
         return l2_error
+
+#%% Runner
+# Time manager
+time_manager = pp.TimeManager([0, 0.01, 0.1, 0.5, 1, 2], 0.001, constant_dt=True)
+
+# Model parameters
+params = {
+        'alpha_biot': 1.0,  # [-]
+        'height': 1.0,  # [m]
+        'lambda_lame': 1.65E9,  # [Pa]
+        'mu_lame': 1.475E9,  # [Pa]
+        'num_cells': 20,
+        'permeability': 9.86E-14,  # [m^2]
+        'perturbation_factor': 1E-6,
+        'plot_results': True,
+        'specific_weight': 9.943E3,  # [Pa * m^-1]
+        'time_manager': time_manager,
+        'upper_limit_summation': 1000,
+        'use_ad': True,
+        'vertical_load': 6E8,  # [N * m^-1]
+        'viscosity': 1E-3,  # [Pa * s]
+    }
+
+# Run model
+tic = time()
+print("Simulation started...")
+model = Terzaghi(params)
+pp.run_time_dependent_model(model, params)
+print(f"Simulation finished in {round(time() - tic)} sec.")
