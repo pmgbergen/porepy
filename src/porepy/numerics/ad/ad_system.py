@@ -307,6 +307,10 @@ class SystemManager:
     @property
     def domains(self) -> list[GridLike]:
         """List containing all domains known to this system."""
+        # EK: There is a nuance here, from the docstring, I expected something like
+        # return self.mdg.subdomains() + self.mdg.interfaces(). I'm fine with having a
+        # method that considers only GridLike where the variables are defined, but I
+        # think we should reconsider the name.
         # Find all domains
         domains = set()
         for var in self._variables:
@@ -316,7 +320,7 @@ class SystemManager:
     ### Variable management ------------------------------------------------------------
 
     def md_variable(
-        self, name: str, grids: Optional[list] = None
+        self, name: str, grids: Optional[list[GridLike]] = None
     ) -> MixedDimensionalVariable:
         """Return the mixed-dimensional variable for a given name.
 
@@ -409,7 +413,8 @@ class SystemManager:
         variables = list()
 
         # Merge subdomains and interfaces into a single list
-        grids: list = subdomains if subdomains else interfaces
+        assert subdomains is not None or interfaces is not None  # for mypy
+        grids: list[GridLike] = subdomains if subdomains else interfaces
         if grids:
 
             for grid in grids:
@@ -436,7 +441,9 @@ class SystemManager:
                 # append the new DOFs to the global system
                 self._variable_dof_type[new_variable] = dof_info
                 self._append_dofs(new_variable)
-        # create an md variable
+
+        # Create an md variable that wrapps all the individual variables created on
+        # individual grids.
         merged_variable = MixedDimensionalVariable(variables)
 
         return merged_variable
@@ -616,7 +623,7 @@ class SystemManager:
             ValueError: if unknown VariableType arguments are passed.
 
         """
-        # start of dissection
+        # Start of dissection.
         dof_start = 0
         dof_end = 0
         variables = self._parse_variable_type(variables)
@@ -690,9 +697,13 @@ class SystemManager:
         # The number of dofs for each dof type defaults to zero.
 
         local_dofs = self._variable_dof_type[variable]
+        # Both subdomains and interfaces have cell variables.
         num_dofs = variable.domain.num_cells * local_dofs.get("cells", 0)
+
+        # For subdomains, but not interfaces, we also need to account for faces and
+        # nodes.
         if isinstance(variable.domain, pp.Grid):
-            num_dofs += +variable.domain.num_faces * local_dofs.get(
+            num_dofs += variable.domain.num_faces * local_dofs.get(
                 "faces", 0
             ) + variable.domain.num_nodes * local_dofs.get("nodes", 0)
 
@@ -727,7 +738,7 @@ class SystemManager:
         This method is called after each creation of variables and respective DOFs.
 
         """
-        # Data stracture for the new order of dofs
+        # Data stracture for the new order of dofs.
         new_variable_counter: int = 0
         new_variable_numbers: dict[Variable, int] = dict()
         new_block_dofs: list[int] = list()
@@ -735,14 +746,14 @@ class SystemManager:
 
         for variable in self._variables:
             # If this variable-grid combination is present, add it to the new
-            # order of dofs
+            # order of dofs.
             if variable in self._variable_numbers:
                 # Extract created number of dofs
                 local_dofs: int = self._variable_num_dofs[
                     self._variable_numbers[variable]
                 ]
 
-                # Store new block number and dofs in new order
+                # Store new block number and dofs in new order.
                 new_block_dofs.append(local_dofs)
                 new_variable_numbers.update({variable: new_variable_counter})
                 new_variable_counter += 1
@@ -809,7 +820,6 @@ class SystemManager:
         The grid-based complement consists of all those grid variables, which are not
         inside ``variables``, but their respective variable names appear in the structure.
         """
-        # TODO: EK does not understand this function at all.
 
         # strings and md variables represent always a whole in the variable sense. Hence,
         # the complement is empty
