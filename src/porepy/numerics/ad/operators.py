@@ -1267,9 +1267,9 @@ class Variable(Operator):
     def __repr__(self) -> str:
         s = f"Variable {self.name} with id {self.id}"
         if isinstance(self.domain, pp.MortarGrid):
-            s += f" on interface {self.domain.id}"
+            s += f" on interface {self.domain.id}\n"
         else:
-            s += f" on grid {self.domain.id}"
+            s += f" on grid {self.domain.id}\n"
         s += (
             f"Degrees of freedom: cells ({self._cells}), faces ({self._faces}), "
             f"nodes ({self._nodes})\n"
@@ -1371,8 +1371,7 @@ class MixedDimensionalVariable(Variable):
         return domains
 
     def size(self) -> int:
-        """Returns the total size of the merged variable by summing the sizes of sub-variables.
-        """
+        """Returns the total size of the merged variable by summing the sizes of sub-variables."""
         return sum([v.size() for v in self.sub_vars])
 
     def previous_timestep(self) -> MixedDimensionalVariable:

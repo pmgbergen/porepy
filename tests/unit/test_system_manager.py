@@ -1,10 +1,10 @@
-"""Tests of the EquationManager used in the Ad framework.
+"""Tests of the SystemManager used in the Ad machinery.
 
 The tests focus on various assembly methods:
     * test_secondary_variable_assembly: Test of assembly when secondary variables are
         present.
     * test_assemble_subsystem: Assemble blocks of the full set of equations.
-    * test_extract_subsystem: Extract a new EquationManager for a subset of equations.
+    * test_extract_subsystem: Extract a new SystemManager for a subset of equations.
     * test_schur_complement: Assemble a subsystem, using a Schur complement reduction.
 
 To be tested:
@@ -764,7 +764,7 @@ def test_assemble_subsystem(setup, var_names, eq_names):
         ],  # All
     ],
 )
-def extract_subsystem(setup, eq_names, var_names):
+def test_extract_subsystem(setup, eq_names, var_names):
     # Check functionality to extract subsystems from the EquationManager.
     # The tests check that the expected variables and equations are present in
     # the subsystem.
