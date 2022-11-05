@@ -110,61 +110,87 @@ def test_variable_tags():
     # Define one variable on all subdomains, one on a single subdomain, and one on
     # all interfaces (there is only one interface in this grid).
     var_1 = sys_man.create_variable(
-        "var_1", dof_info, subdomains=subdomains, tags={"tag1": 1}
+        "var_1", dof_info, subdomains=subdomains, tags={"tag_1": 1}
     )
-    var_2 = sys_man.create_variable("var_2", dof_info, single_subdomain)
+    var_2 = sys_man.create_variable("var_2", dof_info, subdomains=single_subdomain)
 
-    assert sys_man.variable_tags["var_1"] == {"tag1": 1}
+    assert var_1.tags == {"tag_1": 1}
     # By default, variables should not have tags
-    assert len(sys_man.variable_tags["var_2"]) == 0
+    assert len(var_2.tags) == 0
 
-    # Add separate tags to separate variables
-    sys_man.add_variable_tags([var_1, var_2], [{"tag_2": 2}, {"tag_3": 3}])
-    assert sys_man.variable_tags["var_1"]["tag_2"] == 2
-    assert sys_man.variable_tags["var_2"]["tag_3"] == 3
+    # Add a tag to var_1. This will modify the underlying atomic variables, but not
+    # var_1 itself.
+    sys_man.add_variable_tags({"tag_2": 2}, [var_1])
+    assert all(
+        [var.tags["tag_2"] == 2 for var in sys_man.variables if var.name == "var_1"]
+    )
 
-    # Add the same tag to both variables.
-    # This will overwrite the previous tag for var_1, but not for var_2
-    sys_man.add_variable_tags(["var_1", "var_2"], [{"tag_2": 4}])
-    assert sys_man.variable_tags["var_1"]["tag_2"] == 4
-    assert sys_man.variable_tags["var_2"]["tag_2"] == 4
+    assert "tag_2" not in var_1.tags
+    # However, if we fetch a new md-variable representing var_1, it should have the tag.
+    var_1_new = sys_man.md_variable("var_1")
+    assert "tag_2" in var_1_new.tags and var_1_new.tags["tag_2"] == 2
 
-    # Add multiple tags to a single variable.
-    # tag_3 will be overwritten, tag_4 is added as a boolean
-    sys_man.add_variable_tags(["var_2"], [{"tag_3": 4}, {"tag_4": False}])
-    assert sys_man.variable_tags["var_2"]["tag_3"] == 4
-    assert sys_man.variable_tags["var_2"]["tag_4"] == False
+    # We can also add a tag to var_1, this will not be seen by the underlying atomic
+    # variables.
+    var_1.tags["tag_3"] = 3
+    # Strictly speaking, this will also test the variables that are not part of var_1,
+    # that should be fine, they should not have the tag.
+    assert all(["tag_3" not in var.tags for var in sys_man.variables])
 
-    # Assign one tag to one variable
-    sys_man.add_variable_tags(["var_1"], [{"tag_4": True}])
-    assert sys_man.variable_tags["var_1"]["tag_4"] == True
+    # Add tags to var_2. This will be useful when we test filtering of variables below.
+    sys_man.add_variable_tags({"tag_2": 4}, [var_2])
+    sys_man.add_variable_tags({"tag_3": False}, [var_1])
+    sys_man.add_variable_tags({"tag_3": True}, [var_2])
 
-    # Also let var_1 have tag_3, this is useful for testing of the get_variables_by_tag
-    # method below.
-    sys_man.add_variable_tags(["var_1"], [{"tag_3": 3}])
+    ## Test of get_variables
+    # First no filtering. This should give all variables.
+    retrieved_var_1 = sys_man.get_variables()
+    assert len(retrieved_var_1) == 3
+    # Also uniquify, this should not change the length
+    assert len(retrieved_var_1) == len(set(retrieved_var_1))
 
-    # Next stage: Fetch variables based on tags
-    # First, requets a tag which both variables have
-    retrieved_vars_1 = sys_man.get_variables_by_tag("tag_4")
-    assert var_1 in retrieved_vars_1 and var_2 in retrieved_vars_1
+    # Filter on variable name var_1. Here we send in a list of atomic variables and
+    # should recieve the same list.
+    retrieved_var_2 = sys_man.get_variables(variables=var_1.sub_vars)
+    assert len(retrieved_var_2) == 2
+    assert all([var in retrieved_var_2 for var in var_1.sub_vars])
 
-    # Request tag_4 again, but with a value of False. This should return only var_2
-    retrieved_vars_2 = sys_man.get_variables_by_tag("tag_4", False)
-    assert var_1 not in retrieved_vars_2 and var_2 in retrieved_vars_2
+    # Filter on grids.
+    retrieved_var_3 = sys_man.get_variables(grids=single_subdomain)
+    assert len(retrieved_var_3) == 2
+    assert all([var.domain == single_subdomain[0] for var in retrieved_var_3])
 
-    # Request tag_1, which only var_1 has
-    retrieved_vars_3 = sys_man.get_variables_by_tag("tag1")
-    assert var_1 in retrieved_vars_3 and var_2 not in retrieved_vars_3
+    # Filter on combination of grid and variable
+    retrieved_var_4 = sys_man.get_variables(
+        grids=single_subdomain, variables=var_1.sub_vars
+    )
+    assert len(retrieved_var_4) == 1
 
-    # Request tag_1 again, but with a value different from that of var_1. This should
-    # return an empty list.
-    retrieved_vars_4 = sys_man.get_variables_by_tag("tag1", 2)
-    assert len(retrieved_vars_4) == 0
+    # Filter on a non-existing tags
+    retrieved_var_5 = sys_man.get_variables(tag_name="tag_4")
+    assert len(retrieved_var_5) == 0
+    # Filter on a tag that exists, but with a non-exiting value
+    retrieved_var_6 = sys_man.get_variables(tag_name="tag_2", tag_value=5)
+    assert len(retrieved_var_6) == 0
 
-    # Request tag_3, which both variables have, but with a value of 4. This should
-    # return only var_2
-    retrieved_vars_5 = sys_man.get_variables_by_tag("tag_3", 4)
-    assert var_1 not in retrieved_vars_5 and var_2 in retrieved_vars_5
+    # Filter on the name tag_1. This should give only var_1
+    retrieved_var_7 = sys_man.get_variables(tag_name="tag_1")
+    assert len(retrieved_var_7) == 2
+    assert all([var in retrieved_var_7 for var in var_1.sub_vars])
+
+    # Filter on the name tag_2. This should give var_1 and var_2
+    retrieved_var_8 = sys_man.get_variables(tag_name="tag_2")
+    assert len(retrieved_var_8) == 3
+
+    # Filter on tag_2, with value 2. This should give only var_1
+    retrieved_var_9 = sys_man.get_variables(tag_name="tag_2", tag_value=2)
+    assert len(retrieved_var_9) == 2
+    assert all([var in retrieved_var_9 for var in var_1.sub_vars])
+
+    # Filter on tag_3, which takes boolean values. This should give only var_2
+    retrieved_var_10 = sys_man.get_variables(tag_name="tag_3", tag_value=True)
+    assert len(retrieved_var_10) == 1
+    assert retrieved_var_10.domain == single_subdomain[0]
 
 
 class SystemManagerSetup:

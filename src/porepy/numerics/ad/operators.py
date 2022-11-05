@@ -1344,14 +1344,21 @@ class MixedDimensionalVariable(Variable):
         Only tags with identical values are copied. Thus, the md variable can "trust" that
         its tags are consistent with all sub variables.
         """
+        self._tags = {}
+        # Initialize with tags from the first sub-variable.
         common_tags = set(self.sub_vars[0].tags.keys())
+        # Loop over all other sub-variables, take the intersection with the existing set
+        # (common_tags) and update the set.
         for var in self.sub_vars[1:]:
             common_tags.intersection_update(set(var.tags.keys()))
+        # Now, common_tags contains all tags that are shared by all sub-variables.
         for key in common_tags:
-            values = set(var.tag[key] for var in self.sub_vars)
+            # Find the tag values for the common tags. If the tag value is unique,
+            # assign it to the md variable.
+            values = set(var.tags[key] for var in self.sub_vars)
             if len(values) == 1:
                 self.tags[key] = values.pop()
-        self._tags = dict(copy.deepcopy(common_tags))
+        
 
     @property
     def domain(self) -> list[GridLike]:  # type: ignore[override]
