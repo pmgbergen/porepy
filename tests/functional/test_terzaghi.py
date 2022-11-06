@@ -38,16 +38,16 @@ def test_pressure_and_consolidation_degree():
     pp.run_time_dependent_model(model, model.params)
 
     # Check pressure error
-    desired_p = [0.0, 0.06884914805129305, 0.04553528965962772, 0.022392040856504078]
-    actual_p = [sol.pressure_error for sol in model.solutions]
-    np.testing.assert_allclose(actual_p, desired_p, rtol=1e-3, atol=1e-5)
+    desired_error_p = [0.0, 0.06884914805129305, 0.04553528965962772, 0.022392040856504078]
+    actual_error_p = [sol.pressure_error for sol in model.solutions]
+    np.testing.assert_allclose(actual_error_p, desired_error_p, rtol=1e-3, atol=1e-5)
 
     # Check consolidation degree
-    desired_consol = [
+    desired_error_consol = [
         0.0,
         0.02700528627244403,
         0.01883909437589315,
         0.010927389539718946,
     ]
-    actual_consol = [sol.consolidation_degree_error for sol in model.solutions]
-    np.testing.assert_allclose(actual_consol, desired_consol, rtol=1e-3, atol=1e-5)
+    actual_error_consol = [sol.consolidation_degree_error for sol in model.solutions]
+    np.testing.assert_allclose(actual_error_consol, desired_error_consol, rtol=1e-3, atol=1e-5)
