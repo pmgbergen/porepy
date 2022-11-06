@@ -4,7 +4,7 @@ defined here are mainly wrappers that constructs Ad matrices based on grid infor
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -38,7 +38,7 @@ class SubdomainProjections(Operator):
 
     def __init__(
         self,
-        subdomains: List[pp.Grid],
+        subdomains: list[pp.Grid],
         dim: int = 1,
     ) -> None:
         """Construct subdomain restrictions and prolongations for a set of subdomains.
@@ -67,7 +67,7 @@ class SubdomainProjections(Operator):
             subdomains, self.dim
         )
 
-    def cell_restriction(self, subdomains: List[pp.Grid]) -> Matrix:
+    def cell_restriction(self, subdomains: list[pp.Grid]) -> Matrix:
         """Construct restrictions from global to subdomain cell quantities.
 
         Parameters:
@@ -94,7 +94,7 @@ class SubdomainProjections(Operator):
             mat = sps.csr_matrix((0, self._tot_num_cells * self.dim))
         return pp.ad.Matrix(mat, name="CellRestriction")
 
-    def cell_prolongation(self, subdomains: List[pp.Grid]) -> Matrix:
+    def cell_prolongation(self, subdomains: list[pp.Grid]) -> Matrix:
         """Construct prolongation from subdomain to global cell quantities.
 
         Parameters:
@@ -125,7 +125,7 @@ class SubdomainProjections(Operator):
         else:
             raise ValueError(self._error_message())
 
-    def face_restriction(self, subdomains: List[pp.Grid]) -> Matrix:
+    def face_restriction(self, subdomains: list[pp.Grid]) -> Matrix:
         """Construct restrictions from global to subdomain face quantities.
 
         Parameters:
@@ -160,7 +160,7 @@ class SubdomainProjections(Operator):
         else:
             raise ValueError(self._error_message())
 
-    def face_prolongation(self, subdomains: List[pp.Grid]) -> Matrix:
+    def face_prolongation(self, subdomains: list[pp.Grid]) -> Matrix:
         """Construct prolongation from subdomain to global face quantities.
 
         Parameters:
@@ -239,8 +239,8 @@ class MortarProjections(Operator):
     def __init__(
         self,
         mdg: pp.MixedDimensionalGrid,
-        subdomains: List[pp.Grid],
-        interfaces: List[pp.MortarGrid],
+        subdomains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
         dim: int = 1,
     ) -> None:
         """Construct mortar projection object.
@@ -477,7 +477,7 @@ class Trace(Operator):
 
     def __init__(
         self,
-        subdomains: List[pp.Grid],
+        subdomains: list[pp.Grid],
         dim: int = 1,
         name: Optional[str] = None,
     ):
@@ -669,7 +669,7 @@ class Divergence(Operator):
 
     def __init__(
         self,
-        subdomains: List[pp.Grid],
+        subdomains: list[pp.Grid],
         dim: int = 1,
         name: Optional[str] = None,
     ):
@@ -693,7 +693,6 @@ class Divergence(Operator):
         self.subdomains = subdomains
 
         self.dim: int = dim
-        self._set_tree(None)
 
     def __repr__(self) -> str:
         s = (
@@ -746,7 +745,7 @@ class BoundaryCondition(Operator):
     def __init__(
         self,
         keyword: str,
-        subdomains: List[pp.Grid],
+        subdomains: list[pp.Grid],
         name: Optional[str] = None,
     ):
         """Construct a wrapper for boundary conditions for a set of subdomains.
@@ -770,9 +769,7 @@ class BoundaryCondition(Operator):
         """
         super().__init__(name=name)
         self.keyword = keyword
-        self.subdomains: List[pp.Grid] = subdomains
-        # FIXME: Super sets tree. Purge?
-        self._set_tree()
+        self.subdomains: list[pp.Grid] = subdomains
 
     def __repr__(self) -> str:
         s = f"Boundary Condition operator with keyword {self.keyword}\n"
@@ -820,8 +817,8 @@ class ParameterArray(Operator):
         self,
         param_keyword: str,
         array_keyword: str,
-        subdomains: Optional[List[pp.Grid]] = None,
-        interfaces: Optional[List[pp.MortarGrid]] = None,
+        subdomains: Optional[list[pp.Grid]] = None,
+        interfaces: Optional[list[pp.MortarGrid]] = None,
         name: Optional[str] = None,
     ):
         """Construct a wrapper for parameter arrays for a set of subdomains.
@@ -861,9 +858,8 @@ class ParameterArray(Operator):
             interfaces = []
         self.param_keyword = param_keyword
         self.array_keyword = array_keyword
-        self.subdomains: List[pp.Grid] = subdomains
-        self.interfaces: List[pp.MortarGrid] = interfaces
-        self._set_tree()
+        self.subdomains: list[pp.Grid] = subdomains
+        self.interfaces: list[pp.MortarGrid] = interfaces
 
     def __repr__(self) -> str:
         s = (
@@ -953,8 +949,8 @@ class ParameterMatrix(ParameterArray):
 
 
 def _subgrid_projections(
-    subdomains: List[pp.Grid], dim: int
-) -> Tuple[Dict[pp.Grid, sps.spmatrix], Dict[pp.Grid, sps.spmatrix]]:
+    subdomains: list[pp.Grid], dim: int
+) -> tuple[dict[pp.Grid, sps.spmatrix], dict[pp.Grid, sps.spmatrix]]:
     """Construct prolongation matrices from individual subdomains to a set of subdomains.
 
     Args:
@@ -973,8 +969,8 @@ def _subgrid_projections(
     input subdomains.
 
     """
-    face_projection: Dict[pp.Grid, np.ndarray] = {}
-    cell_projection: Dict[pp.Grid, np.ndarray] = {}
+    face_projection: dict[pp.Grid, np.ndarray] = {}
+    cell_projection: dict[pp.Grid, np.ndarray] = {}
     are_interfaces = isinstance(subdomains[0], pp.MortarGrid)
     if not are_interfaces:
         tot_num_faces = np.sum([g.num_faces for g in subdomains]) * dim

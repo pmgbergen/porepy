@@ -191,6 +191,7 @@ from porepy.numerics import ad
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
 from porepy.models.materials import UnitFluid, UnitSolid, Material
+from porepy.numerics.ad.equation_system import EquationSystem
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager

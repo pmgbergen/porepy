@@ -65,6 +65,7 @@ class EquationManager:
                 to be considered secondary for this EquationManager.
 
         """
+        DeprecationWarning("The EquationManager will be replaced by EquationSystem.")
         self.mdg = mdg
 
         # Inform mypy about variables, and then set them by a dedicated method.
@@ -136,15 +137,13 @@ class EquationManager:
             variables[intf] = {}
             num_cells = intf.num_cells
             for var, info in intf_data[pp.PRIMARY_VARIABLES].items():
-                variables[intf][var] = operators.Variable(
-                    var, info, interfaces=[intf], num_cells=num_cells
-                )
+                variables[intf][var] = operators.Variable(var, info, interfaces=[intf])
 
         self.variables = variables
 
     def merge_variables(
         self, grid_var: Sequence[Tuple[GridLike, str]]
-    ) -> "pp.ad.MergedVariable":
+    ) -> "pp.ad.MixedDimensionalVariable":
         """Concatenate a variable defined over several subdomains or interfaces.
 
 
@@ -167,7 +166,9 @@ class EquationManager:
                 subdomains.
 
         """
-        return pp.ad.MergedVariable([self.variables[g][v] for g, v in grid_var])
+        return pp.ad.MixedDimensionalVariable(
+            [self.variables[g][v] for g, v in grid_var]
+        )
 
     def variable(self, grid_like: GridLike, variable: str) -> "pp.ad.Variable":
         """Get a variable for a specified grid or interface between grids, that is
@@ -261,7 +262,7 @@ class EquationManager:
         self,
         eq_names: Optional[Sequence[str]] = None,
         variables: Optional[
-            Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
+            Sequence[Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]]
         ] = None,
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a specified subset of
@@ -338,7 +339,9 @@ class EquationManager:
     def assemble_schur_complement_system(
         self,
         primary_equations: Sequence[str],
-        primary_variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
+        primary_variables: Sequence[
+            Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]
+        ],
         inverter: Callable[[sps.spmatrix], sps.spmatrix],
     ) -> Tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
@@ -430,7 +433,7 @@ class EquationManager:
     def subsystem_equation_manager(
         self,
         eq_names: Sequence[str],
-        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]],
+        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]],
     ) -> "EquationManager":
         """Extract an EquationManager for a subset of variables and equations.
         In effect, this produce a nonlinear subsystem.
@@ -527,7 +530,9 @@ class EquationManager:
 
     def _variable_set_complement(
         self,
-        variables: Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]] = None,
+        variables: Sequence[
+            Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]
+        ] = None,
     ) -> List["pp.ad.Variable"]:
         """
         Take the complement of a set of variables, with respect to the full set of
@@ -558,7 +563,7 @@ class EquationManager:
     def _variables_as_list(
         self,
         variables: Optional[
-            Sequence[Union["pp.ad.Variable", "pp.ad.MergedVariable"]]
+            Sequence[Union["pp.ad.Variable", "pp.ad.MixedDimensionalVariable"]]
         ] = None,
     ) -> List["pp.ad.Variable"]:
         """Unravel a list of variables into atomic (non-merged) variables.
@@ -595,7 +600,7 @@ class EquationManager:
         # Loop over all variables, add the variable itself, or its subvariables
         # (if it is Merged)
         for v in tmp_vars:
-            if isinstance(v, (pp.ad.MergedVariable, operators.MergedVariable)):
+            if isinstance(v, pp.ad.MixedDimensionalVariable):
                 for sv in v.sub_vars:
                     var.append(sv)
             elif isinstance(v, (pp.ad.Variable, operators.Variable)):
