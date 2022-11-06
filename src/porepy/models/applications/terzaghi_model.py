@@ -7,15 +7,15 @@ for the mechanical subproblem and no-flux boundary conditions for the flow subpr
 the sides of the domain such that the one-dimensional process can be emulated.
 """
 
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors  # type: ignore
-import numpy as np
-import porepy as pp
 import os
-
-from typing import Union
 from dataclasses import dataclass
-from time import time
+from typing import Union
+
+import matplotlib.colors as mcolors  # type: ignore
+import matplotlib.pyplot as plt
+import numpy as np
+
+import porepy as pp
 
 
 @dataclass
@@ -88,6 +88,10 @@ class Terzaghi(pp.ContactMechanicsBiot):
     Examples:
 
         .. code:: Python
+
+        # Import modules
+        import porepy as pp
+        from time import time
 
         # Time manager
         time_manager = pp.TimeManager([0, 0.01, 0.1, 0.5, 1, 2], 0.001, constant_dt=True)
@@ -213,7 +217,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
             sd: Subdomain grid.
 
         Returns:
-            bc: Vectorial boundary condition representation.
+            Vectorial boundary condition representation.
 
         """
         # Inherit bc from parent class. This sets all bc faces as Dirichlet.
@@ -249,7 +253,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
             sd: Subdomain grid.
 
         Returns:
-            bc_values (sd.dim * sd.num_faces): Containing the boundary condition values.
+            Vectorial boundary condition values of shape (sd.dim * sd.num_faces, ).
 
         """
 
@@ -270,6 +274,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         errors: float,
         iteration_counter: int,
     ) -> None:
+        """Method to be called after the linear system has been solved."""
         super().after_newton_convergence(solution, errors, iteration_counter)
 
         # Store solutions
@@ -346,8 +351,12 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return self.params["alpha_biot"] * np.ones(sd.num_cells)
 
     def confined_compressibility(self) -> Union[int, float]:
-        """Confined compressibility [Pa^-1]"""
+        """Compute confined compressibility [Pa^-1]
 
+        Returns:
+            Confined compressibility.
+
+        """
         mu_s = self.params["mu_lame"]
         lambda_s = self.params["lambda_lame"]
         m_v = 1 / (2 * mu_s + lambda_s)
@@ -355,8 +364,12 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return m_v
 
     def consolidation_coefficient(self) -> Union[int, float]:
-        """Consolidation coefficient [m^2 * s^-1]"""
+        """Compute consolidation coefficient [m^2 * s^-1]
 
+        Returns:
+            Coefficient of consolidation.
+
+        """
         k = self.params["permeability"]  # [m^2]
         mu_f = self.params["viscosity"]  # [Pa * s]
         gamma_f = self.params["specific_weight"]  # [Pa * m^-1]
@@ -381,7 +394,6 @@ class Terzaghi(pp.ContactMechanicsBiot):
             Dimensionless time for the given time `t`.
 
         """
-
         h = self.params["height"]
         c_v = self.consolidation_coefficient()
 
@@ -402,7 +414,15 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return length / self.params["height"]
 
     def nondim_pressure(self, pressure: np.ndarray) -> np.ndarray:
-        """Nondimensionalize pressure"""
+        """Nondimensionalize pressure.
+
+        Args:
+            pressure : pressure in Pa.
+
+        Returns:
+            Non-dimensional pressure.
+
+        """
         return pressure / np.abs(self.params["vertical_load"])
 
     def exact_pressure(self, t: Union[float, int]) -> np.ndarray:
@@ -415,7 +435,6 @@ class Terzaghi(pp.ContactMechanicsBiot):
             Exact pressure for the given time `t`.
 
         """
-
         sd = self.mdg.subdomains()[0]
         yc = sd.cell_centers[1]
         h = self.params["height"]
@@ -436,7 +455,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return p
 
     def exact_consolidation_degree(self, t: Union[float, int]) -> float:
-        """Compute exact degree of consolidation
+        """Compute exact degree of consolidation.
 
         Args:
             t : time in seconds.
@@ -470,7 +489,6 @@ class Terzaghi(pp.ContactMechanicsBiot):
             Numerical degree of consolidation.
 
         """
-
         sd = self.mdg.subdomains()[0]
         h = self.params["height"]
         m_v = self.confined_compressibility()
@@ -521,7 +539,6 @@ class Terzaghi(pp.ContactMechanicsBiot):
     # -----> Helper methods
     def plot_results(self) -> None:
         """Plot the results"""
-
         # Retrieve colormap from the tab20 pallete
         cmap = mcolors.ListedColormap(
             plt.cm.tab20.colors[: len(self.time_manager.schedule)]
@@ -670,7 +687,6 @@ class Terzaghi(pp.ContactMechanicsBiot):
             l2_error: discrete L2-error of the quantity of interest.
 
         """
-
         if is_cc:
             if is_scalar:
                 meas = sd.cell_volumes
@@ -687,33 +703,3 @@ class Terzaghi(pp.ContactMechanicsBiot):
         l2_error = numerator / denominator
 
         return l2_error
-
-
-#%% Runner
-# Time manager
-time_manager = pp.TimeManager([0, 0.01, 0.1, 0.5, 1, 2], 0.001, constant_dt=True)
-
-# Model parameters
-params = {
-    "alpha_biot": 1.0,  # [-]
-    "height": 1.0,  # [m]
-    "lambda_lame": 1.65e9,  # [Pa]
-    "mu_lame": 1.475e9,  # [Pa]
-    "num_cells": 20,
-    "permeability": 9.86e-14,  # [m^2]
-    "perturbation_factor": 1e-6,
-    "plot_results": True,
-    "specific_weight": 9.943e3,  # [Pa * m^-1]
-    "time_manager": time_manager,
-    "upper_limit_summation": 1000,
-    "use_ad": True,
-    "vertical_load": 6e8,  # [N * m^-1]
-    "viscosity": 1e-3,  # [Pa * s]
-}
-
-# Run model
-tic = time()
-print("Simulation started...")
-model = Terzaghi(params)
-pp.run_time_dependent_model(model, params)
-print(f"Simulation finished in {round(time() - tic)} sec.")
