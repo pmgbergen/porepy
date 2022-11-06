@@ -6,6 +6,7 @@ current model employs a two-dimensional Cartesian grid with roller boundary cond
 for the mechanical subproblem and no-flux boundary conditions for the flow subproblem on
 the sides of the domain such that the one-dimensional process can be emulated.
 """
+from __future__ import annotations
 
 import os
 from dataclasses import dataclass
