@@ -5,6 +5,10 @@ Even though Terzaghi's consolidation problem is strictly speaking one-dimensiona
 current model employs a two-dimensional Cartesian grid with roller boundary conditions
 for the mechanical subproblem and no-flux boundary conditions for the flow subproblem on
 the sides of the domain such that the one-dimensional process can be emulated.
+
+The reason why we need to employ a two-dimensional grid is because PorePy only supports
+Neumann boundary conditions for the discretization of the elasticity equations in
+one-dimensional subdomains.
 """
 from __future__ import annotations
 
