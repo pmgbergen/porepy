@@ -127,7 +127,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         """Constructor of the Terzaghi class.
 
         Args:
-            params: Model parameters. Admissible entries are:
+            params: Model parameters. Required entries are:
 
                 - 'alpha_biot' : Biot constant (int or float).
                 - 'height' : Height of the domain in `m` (int or float).
