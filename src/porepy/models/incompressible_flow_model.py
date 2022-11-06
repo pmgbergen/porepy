@@ -255,7 +255,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self._eq_manager = pp.ad.EquationManager(self.mdg, self.dof_manager)
 
     def _create_ad_variables(self) -> None:
-        """Create the merged variables for potential and mortar flux"""
+        """Create the mixed-dimensional variables for potential and mortar flux"""
 
         self._ad.pressure = self._eq_manager.merge_variables(
             [(sd, self.variable) for sd in self.mdg.subdomains()]

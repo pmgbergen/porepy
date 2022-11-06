@@ -345,7 +345,7 @@ class EquationSystem:
             ]
         return MixedDimensionalVariable(variables)
 
-    def create_variable(
+    def create_variables(
         self,
         name: str,
         dof_info: Optional[dict[GridEntity, int]] = None,
@@ -353,7 +353,7 @@ class EquationSystem:
         interfaces: Optional[list[pp.MortarGrid]] = None,
         tags: Optional[dict[str, Any]] = None,
     ) -> MixedDimensionalVariable:
-        """Creates a new variable according to specifications.
+        """Creates new variables according to specifications.
 
         This method does not assign any values to the variable. This has to be done in a
         subsequent step (using e.g. :meth:`set_var_values`).
@@ -370,7 +370,7 @@ class EquationSystem:
             An example on how to define a pressure variable with cell-wise one DOF
             (default) on **all** subdomains and **no** interfaces would be
 
-            >>> p = ad_system.create_variable('pressure', subdomains=mdg.subdomains())
+            >>> p = ad_system.create_variables('pressure', subdomains=mdg.subdomains())
 
         Parameters:
             name: used here as an identifier. Can be used to associate the variable with
@@ -650,7 +650,7 @@ class EquationSystem:
                     data = self.mdg.interface_data(grid)
 
                 # Data dict will have pp.STATE and pp.ITERATE entries already created
-                # during create_variable. If an error is returned here, a variable has
+                # during create_variables. If an error is returned here, a variable has
                 # been created in a non-standard way.
                 # Store new values as requested.
                 if additive:
@@ -680,7 +680,7 @@ class EquationSystem:
     def _append_dofs(self, variable: pp.ad.Variable) -> None:
         """Appends DOFs for a newly created variable.
 
-        Must only be called by :meth:`create_variable`.
+        Must only be called by :meth:`create_variables`.
 
         This method defines a preliminary global order of dofs:
 

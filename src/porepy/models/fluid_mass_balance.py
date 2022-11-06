@@ -273,47 +273,62 @@ class VariablesSinglePhaseFlow:
     """
     Creates necessary variables (pressure, interface flux) and provides getter methods for
     these and their reference values.
-    Getters construct merged variables on the fly, and can be called on any subset of the
+    Getters construct mixed-dimensional variables on the fly, and can be called on any subset of the
     grids where the variable is defined. Setter method (assig_variables), however, must
     create on all grids where the variable is to be used.
 
     .. note::
-        Awaiting Veljko's more convenient SystemManager, some old implementation is kept.
+        Wrapping in class methods and not calling equation_system directly allows for easier
+        changes of primary variables. As long as all calls to fluid_flux() accept Operators as
+        return values, we can in theory add it as a primary variable and solved mixed form.
+        Similarly for different formulations of the pressure (e.g. pressure head) or enthalpy/
+        temperature for the energy equation.
     """
 
-    def _assign_variables(self) -> None:
+    def create_variables(self) -> None:
         """
         Assign primary variables to subdomains and interfaces of the mixed-dimensional grid.
         Old implementation awaiting SystemManager
 
         """
-        for _, data in self.mdg.subdomains(return_data=True):
-            data[pp.PRIMARY_VARIABLES] = {
-                self.variable: {"cells": 1},
-            }
-        for intf, data in self.mdg.interfaces(return_data=True):
-            if intf.codim == 2:
-                continue
-            else:
-                data[pp.PRIMARY_VARIABLES] = {
-                    self.mortar_variable: {"cells": 1},
-                }
+        self.equation_system.create_variables(
+            self.pressure_variable,
+            subdomains=self.mdg.subdomains(),
+        )
+        self.equation_system.create_variables(
+            self.interface_fluid_flux_variable,
+            subdomains=self.mdg.interfaces(),
+        )
 
-    def pressure(self, subdomains):
-        p = self._eq_manager.merge_variables([(sd, self.variable) for sd in subdomains])
-        # Veljko: p = self.system_manager.merged_variable(subdomains, "pressure")
+    def pressure(self, subdomains) -> pp.ad.MixedDimensionalVariable:
+        p = self.equation_system.md_variable(self.pressure_variable, subdomains)
         return p
 
     def interface_fluid_flux(
         self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.MergedVariable:
-        flux = self._eq_manager.merge_variables(
-            [(intf, self.mortar_variable) for intf in interfaces if intf.codim < 2]
-        )
-        # Veljko: flux = self.system_manager.merged_variable(subdomains, self.mortar_variable)
+    ) -> pp.ad.MixedDimensionalVariable:
+        """Interface fluid flux.
+        
+        Args:
+            interfaces: List of interface grids.
+
+        Returns:
+            Variable representing the interface fluid flux.
+        """
+        flux = self.equation_system.md_variable(self.interface_fluid_flux_variable, interfaces)
         return flux
 
     def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference pressure.
+        
+        Args:
+            subdomains: List of subdomains.
+            
+            Returns:
+                Operator representing the reference pressure.
+                
+        TODO: Confirm that this is the right place for this method.
+        """
         num_cells = sum([sd.num_cells for sd in subdomains])
         return ad_wrapper(self.fluid.PRESSURE, True, num_cells, "reference_pressure")
 
@@ -333,8 +348,8 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
         # Variables
-        self.variable: str = "p"
-        self.mortar_variable: str = "mortar_" + self.variable
+        self.pressure_variable: str = "p"
+        self.interface_fluid_flux_variable: str = "mortar_" + self.variable
         self.darcy_discretization_parameter_key: str = "flow"
         self.mobility_discretization_parameter_key: str = "mobility"
         self.exporter: pp.Exporter
@@ -355,17 +370,15 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         )
 
         self._assign_variables()
-        self._create_dof_and_eq_manager()
+        self.set_equation_system_manager()
         self._initial_condition()
-        # New: Set material components. Could be moved to init:
         self.set_materials()
-        # New: renamed from _set_parameters
         self.set_discretization_parameters()
 
         self.set_equations()
 
         self._export()
-        self._discretize()
+        self.discretize()
         self._initialize_linear_solver()
 
     def set_materials(self):
@@ -383,8 +396,6 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         """New formulation requires darcy flux (the flux is "advective" with mobilities
         included).
 
-        Returns:
-
         """
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
@@ -400,7 +411,6 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
                 self.flow_parameter_keyword,
                 {"darcy_flux": np.zeros(intf.num_faces)},
             )
-        # FIXME: Rediscretize upstream.
 
     def set_discretization_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
@@ -477,24 +487,17 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, all_bf, "dir")
 
-    def _create_dof_and_eq_manager(self) -> None:
+    def set_equation_system_manager(self) -> None:
         """Create a dof_manager and eq_manager based on a mixed-dimensional grid"""
-        self.dof_manager = pp.DofManager(self.mdg)
-        self._eq_manager = pp.ad.EquationManager(self.mdg, self.dof_manager)
+        self.equation_system = pp.EquationSystem(self.mdg)
 
-    def _discretize(self) -> None:
+    def discretize(self) -> None:
         """Discretize all terms"""
         tic = time.time()
-        self._eq_manager.discretize(self.mdg)
+        self.equation_system.discretize()
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
     def before_newton_iteration(self):
-        # pp.fvutils.compute_darcy_flux(
-        #     self.mdg,
-        #     self.darcy_discretization_parameter_key,
-        #     self.darcy_discretization_parameter_key,
-        #     lam_name=self.mortar_variable,
-        # )
         # Evaluate Darcy flux for each subdomain and interface and store in the
         # data dictionary.
         for sd, data in self.mdg.subdomains(return_data=True):

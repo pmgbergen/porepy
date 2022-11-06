@@ -247,7 +247,7 @@ class Operator:
             # How to access the array of (Ad representation of) states depends on weather
             # this is a single or combined variable; see self.__init__, definition of
             # self._variable_ids.
-            # TODO no different between merged or no merged variables!?
+            # TODO: no difference between merged or no mixed-dimensional variables!?
             if isinstance(op, pp.ad.MixedDimensionalVariable) or isinstance(
                 op, MixedDimensionalVariable
             ):
@@ -742,7 +742,7 @@ class Operator:
 
             if isinstance(variable, MixedDimensionalVariable):
                 # Is this equivalent to the test in previous function?
-                # Loop over all subvariables for the merged variable
+                # Loop over all subvariables for the mixed-dimensional variable
                 for i, sub_var in enumerate(variable.sub_vars):
                     # Store dofs
                     ind_var.append(system_manager.dofs_of([sub_var]))
@@ -1373,12 +1373,12 @@ class MixedDimensionalVariable(Variable):
         return domains
 
     def size(self) -> int:
-        """Returns the total size of the merged variable by summing the sizes of sub-variables.
+        """Returns the total size of the mixed-dimensional variable by summing the sizes of sub-variables.
         """
         return sum([v.size() for v in self.sub_vars])
 
     def previous_timestep(self) -> MixedDimensionalVariable:
-        """Return a representation of this merged variable on the previous time step.
+        """Return a representation of this mixed-dimensional variable on the previous time step.
 
         Returns:
             Variable: A representation of this variable, with self.prev_time=True.
@@ -1390,7 +1390,7 @@ class MixedDimensionalVariable(Variable):
         return new_var
 
     def previous_iteration(self) -> MixedDimensionalVariable:
-        """Return a representation of this merged variable on the previous iteration.
+        """Return a representation of this mixed-dimensional variable on the previous iteration.
 
         Returns:
             Variable: A representation of this variable, with self.prev_iter=True.

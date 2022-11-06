@@ -247,7 +247,7 @@ def test_time_dependent_array():
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationManager.
     1) Fetching the same variable twice should get the same variable (same attribute id).
-    2) Fetching the same merged variable twice should result in objects with different
+    2) Fetching the same mixed-dimensional variable twice should result in objects with different
        id attributes, but point to the same underlying variable.
 
     No tests are made of the actual values of the variables, as this is tested in
@@ -275,11 +275,11 @@ def test_ad_variable_creation():
     # A variable with the same name, but on a different grid should have a different id
     assert var_1.id != var_3.id
 
-    # Fetch merged variable representations of the same variables
+    # Fetch mixed-dimensional variable representations of the same variables
     mvar_1 = eq_manager.merge_variables([(mdg.subdomains(dim=mdg.dim_max())[0], "foo")])
     mvar_2 = eq_manager.merge_variables([(mdg.subdomains(dim=mdg.dim_max())[0], "foo")])
 
-    # The two merged variables should have different ids
+    # The two mixed-dimensional variables should have different ids
     assert mvar_2.id != mvar_1.id
     # The id of the merged and atomic variables should be different
     assert mvar_1.id != var_1
@@ -313,7 +313,7 @@ def test_ad_variable_creation():
     assert var_1_prev_iter.id != var_1.id
     assert var_1_prev_time.id != var_1.id
 
-    # Then merged variables.
+    # Then mixed-dimensional variables.
     mvar_1_prev_iter = mvar_1.previous_iteration()
     mvar_1_prev_time = mvar_1.previous_timestep()
     assert mvar_1_prev_iter.id != mvar_1.id
@@ -323,12 +323,12 @@ def test_ad_variable_evaluation():
     """Test that the values of Ad variables are as expected under evalutation
     (translation from the abstract Ad framework to forward mode).
 
-    Boththe atomic and merged variables are tested. The tests cover both the
+    Boththe atomic and mixed-dimensional variables are tested. The tests cover both the
     current values of the variables (pp.ITERATE), and their values at previous
     iterations and time steps.
 
     See also test_variable_combinations, which specifically tests evaluation of
-    variables in a setting of multiple variables, including merged variables.
+    variables in a setting of multiple variables, including mixed-dimensional variables.
 
     """
     # Create a MixedDimensionalGrid with two fractures.
@@ -425,7 +425,7 @@ def test_ad_variable_evaluation():
         mdg.subdomains(dim=0)[0],
     ]
 
-    # Generate merged variables via the EquationManager.
+    # Generate mixed-dimensional variables via the EquationManager.
     var_ad = eq_manager.merge_variables([(g, var) for g in subdomains])
 
     # Check equivalence between the two approaches to generation.
@@ -498,7 +498,7 @@ def test_ad_variable_evaluation():
     [["foo"], ["foo", "bar"]],
 )
 def test_variable_combinations(grids, variables):
-    """ Test combinations of variables, and merged variables, on different grids.
+    """ Test combinations of variables, and mixed-dimensional variables, on different grids.
     The main check is if Jacobian matrices are of the right size.
     """
     # Make MixedDimensionalGrid, populate with necessary information
@@ -534,7 +534,7 @@ def test_variable_combinations(grids, variables):
                 # Check that the Jacobian matrix has the right number of columns
                 assert expr.jac.shape[1] == dof_manager.num_dofs()
 
-    # Next, check that merged variables are handled correctly.
+    # Next, check that mixed-dimensional variables are handled correctly.
     for var in merged_vars:
         expr = var.evaluate(dof_manager)
         vals = []
@@ -545,7 +545,7 @@ def test_variable_combinations(grids, variables):
         assert expr.jac.shape[1] == dof_manager.num_dofs()
 
     # Finally, check that the size of the Jacobian matrix is correct when combining
-    # variables (this will cover both variables and merged variable with the same name,
+    # variables (this will cover both variables and mixed-dimensional variable with the same name,
     # and with different name).
     for sd in grids:
         for var in ad_vars:
@@ -648,7 +648,7 @@ def test_time_differentiation():
     dt_var_array = pp.ad.dt(var_array_2, time_step)
     assert np.allclose(dt_var_array.evaluate(dof_manager).val, 5)
 
-    # Also do a test of the merged variable.
+    # Also do a test of the mixed-dimensional variable.
     mvar = eq_manager.merge_variables([(sd, "foo")])
 
     dt_mvar = pp.ad.dt(mvar, time_step)
@@ -660,7 +660,7 @@ def test_time_differentiation():
     assert np.allclose(diff_mvar.evaluate(dof_manager).val[: sd.num_cells], 2 * ts)
     assert np.allclose(diff_mvar.evaluate(dof_manager).val[sd.num_cells :], ts)
 
-    # Make a combined operator with the merged variable, test this.
+    # Make a combined operator with the mixed-dimensional variable, test this.
     dt_mvar = pp.ad.dt(mvar * mvar, time_step)
     assert np.allclose(dt_mvar.evaluate(dof_manager).val[: sd.num_cells], 4)
     assert np.allclose(dt_mvar.evaluate(dof_manager).val[sd.num_cells :], 0.5)
