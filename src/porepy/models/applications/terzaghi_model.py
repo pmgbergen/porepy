@@ -8,7 +8,7 @@ the sides of the domain such that the one-dimensional process can be emulated.
 """
 
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+import matplotlib.colors as mcolors  # type: ignore
 import numpy as np
 import porepy as pp
 import os
@@ -22,8 +22,8 @@ from time import time
 class TerzaghiSolution:
     """Data class to store variables of interest from Terzaghi's model."""
 
-    def __init__(self, model: 'Terzaghi'):
-        """ Data class constructor.
+    def __init__(self, model: "Terzaghi"):
+        """Data class constructor.
 
         Args:
             model : Terzaghi model.
@@ -52,7 +52,9 @@ class TerzaghiSolution:
         else:
             self.numerical_pressure = data[pp.STATE][p_var]
             self.exact_pressure = model.exact_pressure(t)
-            self.numerical_nondim_pressure = model.nondim_pressure(self.numerical_pressure)
+            self.numerical_nondim_pressure = model.nondim_pressure(
+                self.numerical_pressure
+            )
             self.exact_nondim_pressure = model.nondim_pressure(self.exact_pressure)
 
         # Mechanical variables
@@ -73,7 +75,7 @@ class TerzaghiSolution:
             true_val=self.exact_pressure,
             approx_val=self.numerical_pressure,
             is_scalar=True,
-            is_cc=True
+            is_cc=True,
         )
         self.consolidation_degree_error = np.abs(
             self.exact_consolidation_degree - self.numerical_consolidation_degree
@@ -149,9 +151,8 @@ class Terzaghi(pp.ContactMechanicsBiot):
         if not self.params["use_ad"]:
             raise ValueError("Model only valid when ad is used.")
 
-        # Create a solution dictionary to store variables of interest
-        self.sol = {counter: {} for counter in range(len(self.time_manager.schedule))}
-        self._sol_counter: int = 0
+        # Create a solution list to store variables
+        self.solutions: list[TerzaghiSolution] = []
 
     def create_grid(self) -> None:
         """Create a two-dimensional Cartesian grid."""
@@ -159,9 +160,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         h = self.params["height"]
         phys_dims = np.array([h, h])
         n_cells = np.array([1, n])
-        self.box = pp.geometry.bounding_box.from_points(
-            np.array([[0, 0], phys_dims]).T
-        )
+        self.box = pp.geometry.bounding_box.from_points(np.array([[0, 0], phys_dims]).T)
         sd: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         sd.compute_geometry()
         np.random.seed(35)  # this seed is fixed but completely arbitrary
@@ -183,7 +182,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         initial_p = vertical_load * np.ones(sd.num_cells)
         data[pp.STATE][self.scalar_variable] = initial_p
         data[pp.STATE][pp.ITERATE][self.scalar_variable] = initial_p
-        self.sol[0] = TerzaghiSolution(self)
+        self.solutions.append(TerzaghiSolution(self))
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the flow subproblem.
@@ -203,7 +202,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         bc_type = np.asarray(all_bc.size * ["neu"])
         bc_type[north_bc] = "dir"
 
-        bc = pp.BoundaryCondition(sd, faces=all_bc, cond=bc_type)
+        bc = pp.BoundaryCondition(sd, faces=all_bc, cond=list(bc_type))
 
         return bc
 
@@ -266,18 +265,17 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return bc_values
 
     def after_newton_convergence(
-            self,
-            solution: np.ndarray,
-            errors: float,
-            iteration_counter: int,
+        self,
+        solution: np.ndarray,
+        errors: float,
+        iteration_counter: int,
     ) -> None:
         super().after_newton_convergence(solution, errors, iteration_counter)
 
         # Store solutions
         schedule = self.time_manager.schedule
         if any([np.isclose(self.time_manager.time, t_sch) for t_sch in schedule]):
-            self._sol_counter += 1
-            self.sol[self._sol_counter] = TerzaghiSolution(self)
+            self.solutions.append(TerzaghiSolution(self))
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
@@ -368,7 +366,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         alpha_biot = self.params["alpha_biot"]  # [-]
         m_v = self.confined_compressibility()  # [Pa^-1]
 
-        c_v = hydraulic_conductivity / (gamma_f * (storativity + alpha_biot ** 2 * m_v))
+        c_v = hydraulic_conductivity / (gamma_f * (storativity + alpha_biot**2 * m_v))
 
         return c_v
 
@@ -387,10 +385,10 @@ class Terzaghi(pp.ContactMechanicsBiot):
         h = self.params["height"]
         c_v = self.consolidation_coefficient()
 
-        return (t * c_v) / (h ** 2)
+        return (t * c_v) / (h**2)
 
     def nondim_length(
-            self, length: Union[float, int, np.ndarray]
+        self, length: Union[float, int, np.ndarray]
     ) -> Union[float, int, np.ndarray]:
         """Nondimensionalize length.
 
@@ -429,9 +427,9 @@ class Terzaghi(pp.ContactMechanicsBiot):
         sum_series = np.zeros_like(yc)
         for i in range(1, n + 1):
             sum_series += (
-                    (((-1) ** (i - 1)) / (2 * i - 1))
-                    * np.cos((2 * i - 1) * (np.pi / 2) * (yc / h))
-                    * np.exp((-((2 * i - 1) ** 2)) * (np.pi ** 2 / 4) * dimless_t)
+                (((-1) ** (i - 1)) / (2 * i - 1))
+                * np.cos((2 * i - 1) * (np.pi / 2) * (yc / h))
+                * np.exp((-((2 * i - 1) ** 2)) * (np.pi**2 / 4) * dimless_t)
             )
         p = (4 / np.pi) * vertical_load * sum_series
 
@@ -451,17 +449,16 @@ class Terzaghi(pp.ContactMechanicsBiot):
         sum_series = 0
         for i in range(1, self.params["upper_limit_summation"] + 1):
             sum_series += (
-                    1
-                    / ((2 * i - 1) ** 2)
-                    * np.exp(-((2 * i - 1) ** 2) * (np.pi ** 2 / 4) * t_nondim)
+                1
+                / ((2 * i - 1) ** 2)
+                * np.exp(-((2 * i - 1) ** 2) * (np.pi**2 / 4) * t_nondim)
             )
-        deg_cons = 1 - (8 / (np.pi ** 2)) * sum_series
+        deg_cons = 1 - (8 / (np.pi**2)) * sum_series
 
         return deg_cons
 
     def numerical_consolidation_degree(
-            self, displacement: np.ndarray,
-            pressure: np.ndarray
+        self, displacement: np.ndarray, pressure: np.ndarray
     ) -> float:
         """Numerical consolidation coefficient.
 
@@ -482,14 +479,14 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         u_inf = m_v * h * vertical_load
         u_0 = 0
-        u = np.max(np.abs(trace_u[1:: sd.dim]))
+        u = np.max(np.abs(trace_u[1 :: sd.dim]))
 
         consol_deg = (u - u_0) / (u_inf - u_0)
 
         return consol_deg
 
     def displacement_trace(
-            self, displacement: np.ndarray, pressure: np.ndarray
+        self, displacement: np.ndarray, pressure: np.ndarray
     ) -> np.ndarray:
         """Project the displacement vector onto the faces.
 
@@ -522,28 +519,57 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return trace_u
 
     # -----> Helper methods
-    def plot_results(self):
-        """Plot dimensionless pressure"""
+    def plot_results(self) -> None:
+        """Plot the results"""
 
-        folder = "out/"
-        fnamep = "pressure"
-        extension = ".pdf"
+        # Retrieve colormap from the tab20 pallete
         cmap = mcolors.ListedColormap(
             plt.cm.tab20.colors[: len(self.time_manager.schedule)]
         )
 
-        # -----> Pressure plot
+        # Pressure plot
+        self._pressure_plot(
+            folder="out/",
+            file_name="nondimensional_pressure",
+            file_extension=".pdf",
+            color_map=cmap,
+        )
+
+        # Degree of consolidation plot
+        self._consolidation_degree_plot(
+            folder="out/",
+            file_name="consolidation_degree",
+            file_extension=".pdf",
+            color_map=cmap,
+        )
+
+    def _pressure_plot(
+        self,
+        folder: str,
+        file_name: str,
+        file_extension: str,
+        color_map: mcolors.ListedColormap,
+    ) -> None:
+        """Plot nondimensional pressure profiles
+
+        Args:
+            folder: name of the folder to store the results e.g., "out/"
+            file_name: name of the file e.g., "pressure_profiles"
+            file_extension: extension of the file e.g., ".pdf"
+            color_map: listed color map object.
+
+        """
         fig, ax = plt.subplots(figsize=(9, 8))
-        for key in self.sol:
+        for idx, sol in enumerate(self.solutions):
             ax.plot(
-                self.sol[key].exact_nondim_pressure,
-                self.sol[key].nondim_vertical_coo,
-                color=cmap.colors[key],
+                sol.exact_nondim_pressure,
+                sol.nondim_vertical_coo,
+                color=color_map.colors[idx],
             )
             ax.plot(
-                self.sol[key].numerical_nondim_pressure,
-                self.sol[key].nondim_vertical_coo,
-                color=cmap.colors[key],
+                sol.numerical_nondim_pressure,
+                sol.nondim_vertical_coo,
+                color=color_map.colors[idx],
                 linewidth=0,
                 marker=".",
                 markersize=8,
@@ -551,11 +577,11 @@ class Terzaghi(pp.ContactMechanicsBiot):
             ax.plot(
                 [],
                 [],
-                color=cmap.colors[key],
+                color=color_map.colors[idx],
                 linewidth=0,
                 marker="s",
                 markersize=12,
-                label=rf"$\tau=${np.round(self.sol[key].nondim_time, 6)}",
+                label=rf"$\tau=${np.round(sol.nondim_time, 5)}",
             )
         ax.set_xlabel(r"$\tilde{p} = p/p_0$", fontsize=15)
         ax.set_ylabel(r"$\tilde{y} = y/h$", fontsize=15)
@@ -565,16 +591,66 @@ class Terzaghi(pp.ContactMechanicsBiot):
         plt.subplots_adjust(right=0.7)
         if not os.path.exists(folder):
             os.makedirs(folder)
-        plt.savefig(folder + fnamep + extension, bbox_inches="tight")
+        plt.savefig(folder + file_name + file_extension, bbox_inches="tight")
+        plt.gcf().clear()
+
+    def _consolidation_degree_plot(
+        self,
+        folder: str,
+        file_name: str,
+        file_extension: str,
+        color_map: mcolors.ListedColormap,
+    ) -> None:
+        """Plot the degree of consolidation versus non-dimesional time.
+
+        Args:
+            folder: name of the folder to store the results e.g., "out/".
+            file_name: name of the file e.g., "pressure_profiles".
+            file_extension: extension of the file e.g., ".pdf".
+            color_map: listed color map object.
+
+        """
+
+        # Retrieve data
+        exact_consolidation = np.asarray(
+            [sol.exact_consolidation_degree for sol in self.solutions]
+        )
+        numerical_consolidation = np.asarray(
+            [sol.numerical_consolidation_degree for sol in self.solutions]
+        )
+        nondim_times = np.asarray([sol.nondim_time for sol in self.solutions])
+
+        fig, ax = plt.subplots(figsize=(9, 8))
+        ax.semilogx(
+            nondim_times, exact_consolidation, color=color_map.colors[0], label="Exact"
+        )
+        ax.semilogx(
+            nondim_times,
+            numerical_consolidation,
+            color=color_map.colors[0],
+            linewidth=0,
+            marker=".",
+            markersize=12,
+            label="Numerical",
+        )
+        ax.set_xlabel(r"$c_f t / h^2$", fontsize=15)
+        ax.set_ylabel(r"$U(t)$", fontsize=15)
+        ax.legend(fontsize=14)
+        ax.set_title("Degree of consolidation vs. non-dimensional time", fontsize=16)
+        ax.grid()
+        plt.subplots_adjust(right=0.7)
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        plt.savefig(folder + file_name + file_extension, bbox_inches="tight")
         plt.gcf().clear()
 
     @staticmethod
     def l2_relative_error(
-            sd: pp.Grid,
-            true_val: np.ndarray,
-            approx_val: np.ndarray,
-            is_cc: bool,
-            is_scalar: bool,
+        sd: pp.Grid,
+        true_val: np.ndarray,
+        approx_val: np.ndarray,
+        is_cc: bool,
+        is_scalar: bool,
     ) -> float:
         """Compute the error measured in the discrete (relative) L2-norm.
 
@@ -612,27 +688,28 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         return l2_error
 
+
 #%% Runner
 # Time manager
 time_manager = pp.TimeManager([0, 0.01, 0.1, 0.5, 1, 2], 0.001, constant_dt=True)
 
 # Model parameters
 params = {
-        'alpha_biot': 1.0,  # [-]
-        'height': 1.0,  # [m]
-        'lambda_lame': 1.65E9,  # [Pa]
-        'mu_lame': 1.475E9,  # [Pa]
-        'num_cells': 20,
-        'permeability': 9.86E-14,  # [m^2]
-        'perturbation_factor': 1E-6,
-        'plot_results': True,
-        'specific_weight': 9.943E3,  # [Pa * m^-1]
-        'time_manager': time_manager,
-        'upper_limit_summation': 1000,
-        'use_ad': True,
-        'vertical_load': 6E8,  # [N * m^-1]
-        'viscosity': 1E-3,  # [Pa * s]
-    }
+    "alpha_biot": 1.0,  # [-]
+    "height": 1.0,  # [m]
+    "lambda_lame": 1.65e9,  # [Pa]
+    "mu_lame": 1.475e9,  # [Pa]
+    "num_cells": 20,
+    "permeability": 9.86e-14,  # [m^2]
+    "perturbation_factor": 1e-6,
+    "plot_results": True,
+    "specific_weight": 9.943e3,  # [Pa * m^-1]
+    "time_manager": time_manager,
+    "upper_limit_summation": 1000,
+    "use_ad": True,
+    "vertical_load": 6e8,  # [N * m^-1]
+    "viscosity": 1e-3,  # [Pa * s]
+}
 
 # Run model
 tic = time()
