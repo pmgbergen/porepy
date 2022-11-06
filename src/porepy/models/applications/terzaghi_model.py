@@ -311,7 +311,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
     # -----> Physical parameters
     def _permeability(self, sd: pp.Grid) -> np.ndarray:
-        """Override value of intrinsic permeability [m^2]
+        """Override value of intrinsic permeability [m^2].
 
         Args:
             sd: Subdomain grid.
@@ -323,7 +323,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return self.params["permeability"] * np.ones(sd.num_cells)
 
     def _storativity(self, sd: pp.Grid) -> np.ndarray:
-        """Override value of storativity [Pa^-1]
+        """Override value of storativity [Pa^-1].
 
         Args:
             sd: Subdomain grid.
@@ -335,7 +335,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return np.zeros(sd.num_cells)
 
     def _stiffness_tensor(self, sd: pp.Grid) -> pp.FourthOrderTensor:
-        """Override stiffness tensor
+        """Override stiffness tensor.
 
         Args:
             sd: Subdomain grid.
@@ -349,7 +349,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return pp.FourthOrderTensor(mu, lam)
 
     def _viscosity(self, sd: pp.Grid) -> np.ndarray:
-        """Override fluid viscosity values [Pa * s]
+        """Override fluid viscosity values [Pa * s].
 
         Args:
             sd: Subdomain grid.
@@ -373,7 +373,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return self.params["alpha_biot"] * np.ones(sd.num_cells)
 
     def confined_compressibility(self) -> Union[int, float]:
-        """Compute confined compressibility [Pa^-1]
+        """Compute confined compressibility [Pa^-1].
 
         Returns:
             Confined compressibility.
@@ -386,7 +386,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         return m_v
 
     def consolidation_coefficient(self) -> Union[int, float]:
-        """Compute consolidation coefficient [m^2 * s^-1]
+        """Compute consolidation coefficient [m^2 * s^-1].
 
         Returns:
             Coefficient of consolidation.
@@ -599,12 +599,12 @@ class Terzaghi(pp.ContactMechanicsBiot):
         file_extension: str,
         color_map: mcolors.ListedColormap,
     ) -> None:
-        """Plot nondimensional pressure profiles
+        """Plot nondimensional pressure profiles.
 
         Args:
-            folder: name of the folder to store the results e.g., "out/"
-            file_name: name of the file e.g., "pressure_profiles"
-            file_extension: extension of the file e.g., ".pdf"
+            folder: name of the folder to store the results e.g., "out/".
+            file_name: name of the file e.g., "pressure_profiles".
+            file_extension: extension of the file e.g., ".pdf".
             color_map: listed color map object.
 
         """
@@ -716,7 +716,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
                 vector quantities (displacement and traction).
 
         Returns:
-            l2_error: discrete L2-error of the quantity of interest.
+            Discrete L2-error of the quantity of interest.
 
         """
         if is_cc:
