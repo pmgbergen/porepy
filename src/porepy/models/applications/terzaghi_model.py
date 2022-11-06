@@ -190,14 +190,24 @@ class Terzaghi(pp.ContactMechanicsBiot):
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
 
     def _initial_condition(self) -> None:
-        """Override initial condition for the flow subproblem."""
+        """Set initial condition.
+
+        Terzaghi's problem assumes that the soil is initially unconsolidated and that
+        initial fluid pressure equals the vertical load.
+
+        """
         super()._initial_condition()
+
+        # Since the parent class sets zero initial displacement, we only need to modify the
+        # intial conditions for the flow subproblem.
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
         vertical_load = self.params["vertical_load"]
         initial_p = vertical_load * np.ones(sd.num_cells)
         data[pp.STATE][self.scalar_variable] = initial_p
         data[pp.STATE][pp.ITERATE][self.scalar_variable] = initial_p
+
+        # Store initial solution
         self.solutions.append(TerzaghiSolution(self))
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -286,7 +296,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         errors: float,
         iteration_counter: int,
     ) -> None:
-        """Method to be called after the linear system has been solved."""
+        """Method to be called after the Newton solver has converged."""
         super().after_newton_convergence(solution, errors, iteration_counter)
 
         # Store solutions
