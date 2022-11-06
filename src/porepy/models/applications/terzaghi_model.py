@@ -1,14 +1,34 @@
 """
 Implementation of Terzaghi's consolidation problem.
 
+Terzaghi's problem is a well known one-dimensional poroelastic problem [1 - 3]. Generally,
+when soils are subjected to a vertical load, porosity decreases, resulting in less available
+space for pore water. The liquid within the pores can be expelled, however, in certain types
+of soils (especially clayey soils) this process may take some time due to their low
+permeability. This process is referred to as consolidation.
+
+We consider a soil column of height `h`, where a constant load `F` is applied to the top of
+the column while keeping the bottom impervious to flow. The exherted load will cause an
+instantaneous rise in the fluid pressure, which will be equal to the applied load. After
+that, the fluid pressure will montonically decrease towards zero.
+
 Even though Terzaghi's consolidation problem is strictly speaking one-dimensional, the
-current model employs a two-dimensional Cartesian grid with roller boundary conditions
+implemented model employs a two-dimensional Cartesian grid with roller boundary conditions
 for the mechanical subproblem and no-flux boundary conditions for the flow subproblem on
 the sides of the domain such that the one-dimensional process can be emulated.
 
 The reason why we need to employ a two-dimensional grid is because PorePy only supports
 Neumann boundary conditions for the discretization of the elasticity equations in
 one-dimensional subdomains.
+
+References:
+
+    [1] von Terzaghi, K. (1923). Die berechnung der durchassigkeitsziffer des tones aus dem
+        verlauf der hydrodynamischen spannungs. erscheinungen. Sitzungsber. Akad. Wiss. Math.
+        Naturwiss. Kl. Abt. 2A, 132, 105-124.
+    [2] von Terzaghi, K. (1944). Theoretical Soil Mechanics.
+    [3] Verruijt, A. (2017). An Introduction to Soil Mechanics (Vol. 30). Springer.
+
 """
 from __future__ import annotations
 
