@@ -728,7 +728,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
             if is_scalar:
                 meas = sd.cell_faces
             else:
-                meas = sd.cell_faces.repat(sd.dim)
+                meas = sd.cell_faces.repeat(sd.dim)
 
         numerator = np.sqrt(np.sum(meas * np.abs(true_val - approx_val) ** 2))
         denominator = np.sqrt(np.sum(meas * np.abs(true_val) ** 2))
