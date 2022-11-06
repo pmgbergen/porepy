@@ -9,7 +9,14 @@ from porepy.models.applications.terzaghi_model import Terzaghi
 
 
 def test_pressure_and_consolidation_degree():
-    """Checks error for pressure solution and degree of consolidation"""
+    """Checks error for pressure solution and degree of consolidation.
+
+    Model parameters have been taken from [1].
+
+    [1] Mikelić, A., Wang, B., & Wheeler, M. F. (2014). Numerical convergence study of
+        iterative coupling for coupled flow and geomechanics. Computational Geosciences,
+        18(3), 325-341.
+    """
 
     model_params = {
         "alpha_biot": 1.0,  # [-]
