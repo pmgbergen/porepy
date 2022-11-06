@@ -47,7 +47,7 @@ class DofManager:
                 mixed-dimensional grid.
 
         """
-
+        DeprecationWarning("The DofManager will be replaced by EquationSystem.")
         self.mdg = mdg
 
         # Counter for block index
@@ -285,7 +285,7 @@ class DofManager:
 
         Returns:
             tuple(int, int): Start and end of the block for this grid-variable combination.
-                The end index is the start of the next block.
+            The end index is the start of the next block.
 
         """
         block_ind = self.block_dof[(g, variable)]
