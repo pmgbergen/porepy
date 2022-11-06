@@ -36,7 +36,7 @@ class EquationManager:
             should not be changed later.
         secondary_variables (List of Ad Variables): List of variables that are secondary,
             that is, their derivatives will not be included in the Jacobian matrix.
-            Variables will be represented on atomic form, that is, merged variables are
+            Variables will be represented on atomic form, that is, mixed-dimensional variables are
             unravelled. Secondary variables act as a filter during assembly, that is,
             they do not impact the ordering or treatment of variables.
         row_block_indices_last_assembled (np.ndarray): Row indices for the start of blocks
@@ -61,7 +61,7 @@ class EquationManager:
             mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid for this EquationManager.
             dof_manager (pp.DofManager): Degree of freedom manager.
             equations (List, Optional): List of equations. Defaults to empty list.
-            secondary_variables (List of Ad Variable or MergedVariable): Variables
+            secondary_variables (List of Ad Variable or MixedDimensionalVariable): Variables
                 to be considered secondary for this EquationManager.
 
         """
@@ -148,12 +148,12 @@ class EquationManager:
 
 
 
-        The merged variable can be used to define mathematical operations on multiple
+        The mixed-dimensional variable can be used to define mathematical operations on multiple
         subdomains simultaneously (provided it is combined with other operators defined on
         the same subdomains).
 
-        NOTE: Merged variables are assigned unique ids (see documentation of
-        Variable and MergedVariable), thus two MergedVariables will have different
+        NOTE: mixed-dimensional variables are assigned unique ids (see documentation of
+        Variable and MixedDimensionalVariable), thus two MixedDimensionalVariables will have different
         ids even if they represent the same combination of subdomains and variables.
         This does not impact the parsing of the variables into numerical values.
 
@@ -162,7 +162,7 @@ class EquationManager:
                 or interface and second the name of the variable.
 
         Returns:
-            pp.ad.MergedVariable: Joint representation of the variable on the specified
+            pp.ad.MixedDimensionalVariable: Joint representation of the variable on the specified
                 subdomains.
 
         """
@@ -392,7 +392,7 @@ class EquationManager:
         if len(primary_variables) == 0:
             raise ValueError("Must take Schur complement with at least one variable")
 
-        # Unravel any merged variables
+        # Unravel any mixed-dimensional variables
         primary_variables = self._variables_as_list(primary_variables)
 
         # Get lists of all variables and equations, and find the secondary items
@@ -536,11 +536,11 @@ class EquationManager:
     ) -> List["pp.ad.Variable"]:
         """
         Take the complement of a set of variables, with respect to the full set of
-        variables. The variables are returned as atomic (merged variables are
+        variables. The variables are returned as atomic (mixed-dimensional variables are
         unravelled as part of the process).
 
         Parameters:
-            variables (Sequence of pp.ad.Variable or pp.ad.MergedVariable, optional):
+            variables (Sequence of pp.ad.Variable or pp.ad.MixedDimensionalVariable, optional):
                 Variables for which the complement should be taken. If not provided,
                 all variables known to this EquationManager will be added, thus an
                 empty list will be returned.
@@ -551,7 +551,7 @@ class EquationManager:
 
         """
 
-        # Unravel any merged variable
+        # Unravel any mixed-dimensional variable
         variables = self._variables_as_list(variables)
         # Get list of all variables
         all_variables = self._variables_as_list()
@@ -574,7 +574,7 @@ class EquationManager:
         and we need the atomic variables.
 
         Parameters:
-            variables (Sequence of pp.ad.Variable or pp.ad.MergedVariable, optional):
+            variables (Sequence of pp.ad.Variable or pp.ad.MixedDimensionalVariable, optional):
                 Variables to be unravelled. If not provided, all variables known to this
                 EquationManager will be considered.
 
@@ -679,7 +679,7 @@ class EquationManager:
             # Leave a hint that any merged secondary variables have been split into subparts
             s += (
                 f"In total {len(self.secondary_variables)} secondary variables"
-                "(having split merged variables).\n"
+                "(having split mixed-dimensional variables).\n"
                 "Listing secondary variables:\n"
             )
             # Make a list of

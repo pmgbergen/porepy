@@ -502,7 +502,7 @@ class DifferentiableFVAd:
         Returns:
 
         Note on parameters: When this function is called, potential should be an Ad
-        operator (say, a MergedVariable representation of the pressure). During
+        operator (say, a MixedDimensionalVariable representation of the pressure). During
         evaluation, because of the way operator trees are evaluated, potential will be
         an Ad_array (it is closer to being an atomic variable, thus it will be
         evaluated before this function).
@@ -627,7 +627,7 @@ class DifferentiableFVAd:
 
         """
         # Note on parameters: When this function is called, potential should be an Ad
-        # operator (say, a MergedVariable representation of the pressure). During
+        # operator (say, a MixedDimensionalVariable representation of the pressure). During
         # evaluation, because of the way operator trees are evaluated, potential will be
         # an Ad_array (it is closer to being an atomic variable, thus it will be
         # evaluated before this function).

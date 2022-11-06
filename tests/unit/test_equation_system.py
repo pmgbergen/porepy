@@ -45,13 +45,13 @@ def test_variable_creation():
 
     # Define one variable on all subdomains, one on a single subdomain, and one on
     # all interfaces (there is only one interface in this grid).
-    subdomain_variable = sys_man.create_variable(
+    subdomain_variable = sys_man.create_variables(
         "var_1", dof_info_sd, subdomains=subdomains
     )
-    single_subdomain_variable = sys_man.create_variable(
+    single_subdomain_variable = sys_man.create_variables(
         "var_2", dof_info_sd, subdomains=single_subdomain
     )
-    interface_variable = sys_man.create_variable(
+    interface_variable = sys_man.create_variables(
         "var_3", dof_info_intf, interfaces=interfaces
     )
 
@@ -124,10 +124,10 @@ def test_variable_tags():
 
     # Define one variable on all subdomains, one on a single subdomain, and one on
     # all interfaces (there is only one interface in this grid).
-    var_1 = sys_man.create_variable(
+    var_1 = sys_man.create_variables(
         "var_1", dof_info, subdomains=subdomains, tags={"tag_1": 1}
     )
-    var_2 = sys_man.create_variable("var_2", dof_info, subdomains=single_subdomain)
+    var_2 = sys_man.create_variables("var_2", dof_info, subdomains=single_subdomain)
 
     assert var_1.tags == {"tag_1": 1}
     # By default, variables should not have tags
@@ -234,24 +234,24 @@ class EquationSystemSetup:
         intf_top = mdg.interfaces(dim=mdg.dim_max() - 1)[0]
 
         self.name_sd_variable = "x"
-        self.sd_variable = sys_man.create_variable(
+        self.sd_variable = sys_man.create_variables(
             self.name_sd_variable, subdomains=subdomains
         )
 
         # Let interface variables have size 2, this gives us a bit more to play with
         # in the testing of assembly.
         self.name_intf_variable = "y"
-        self.intf_variable = sys_man.create_variable(
+        self.intf_variable = sys_man.create_variables(
             self.name_intf_variable, dof_info={"cells": 2}, interfaces=interfaces
         )
 
         self.name_sd_top_variable = "z"
-        self.sd_top_variable = sys_man.create_variable(
+        self.sd_top_variable = sys_man.create_variables(
             self.name_sd_top_variable, subdomains=[sd_top]
         )
 
         self.name_intf_top_variable = "w"
-        self.intf_top_variable = sys_man.create_variable(
+        self.intf_top_variable = sys_man.create_variables(
             self.name_intf_top_variable, dof_info={"cells": 2}, interfaces=[intf_top]
         )
 
@@ -697,7 +697,7 @@ def test_set_remove_equations(setup):
     [
         [],  # No secondary variables
         ["x"],  # A simple variable which is also part of a merged one
-        ["y"],  # Merged variable
+        ["y"],  # mixed-dimensional variable
         ["z"],  # Simple variable not available as merged
         ["z", "w"],  # Combination of simple and merged.
     ],
@@ -871,7 +871,7 @@ def test_extract_subsystem(setup, eq_names, var_names):
     variables = [getattr(setup, var) for var in var_names]
 
     # Secondary variables are constructed as atomic. The number of these is found by
-    # the number of variables + the number of merged variables (known to be defined
+    # the number of variables + the number of mixed-dimensional variables (known to be defined
     # on exactly two grids)
     num_atomic_vars = len(var_names) + sum(["merged" in var for var in var_names])
     # The number of secondary variables is also known

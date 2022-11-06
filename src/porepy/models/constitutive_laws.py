@@ -182,7 +182,7 @@ class DarcyFlux:
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
         discr = self.darcy_flux_discretization(subdomains)
-        p: pp.ad.MergedVariable = self.pressure(subdomains)
+        p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
         pressure_trace = (
             discr.bound_pressure_cell * p
             + discr.bound_pressure_face
