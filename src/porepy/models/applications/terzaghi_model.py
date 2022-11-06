@@ -49,30 +49,17 @@ class TerzaghiSolution:
         self.nondim_vertical_coo = model.nondim_length(self.vertical_coo)
 
         # Pressure variables
-        if t == 0:
-            self.numerical_pressure = model.params["vertical_load"]
-            self.exact_pressure = model.params["vertical_load"]
-            self.numerical_nondim_pressure = np.ones(sd.num_cells)
-            self.exact_nondim_pressure = np.ones(sd.num_cells)
-        else:
-            self.numerical_pressure = data[pp.STATE][p_var]
-            self.exact_pressure = model.exact_pressure(t)
-            self.numerical_nondim_pressure = model.nondim_pressure(
-                self.numerical_pressure
-            )
-            self.exact_nondim_pressure = model.nondim_pressure(self.exact_pressure)
+        self.numerical_pressure = data[pp.STATE][p_var]
+        self.exact_pressure = model.exact_pressure(t)
+        self.numerical_nondim_pressure = model.nondim_pressure(self.numerical_pressure)
+        self.exact_nondim_pressure = model.nondim_pressure(self.exact_pressure)
 
         # Mechanical variables
-        if t == 0:
-            self.numerical_displacement = np.zeros(sd.dim * sd.num_cells)
-            self.numerical_consolidation_degree = 0.0
-            self.exact_consolidation_degree = 0.0
-        else:
-            self.numerical_displacement = data[pp.STATE][u_var]
-            self.numerical_consolidation_degree = model.numerical_consolidation_degree(
-                self.numerical_displacement, self.numerical_pressure
-            )
-            self.exact_consolidation_degree = model.exact_consolidation_degree(t)
+        self.numerical_displacement = data[pp.STATE][u_var]
+        self.numerical_consolidation_degree = model.numerical_consolidation_degree(
+            displacement=self.numerical_displacement, pressure=self.numerical_pressure
+        )
+        self.exact_consolidation_degree = model.exact_consolidation_degree(t)
 
         # Error variables
         self.pressure_error = model.l2_relative_error(
@@ -448,14 +435,17 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         n = self.params["upper_limit_summation"]
 
-        sum_series = np.zeros_like(yc)
-        for i in range(1, n + 1):
-            sum_series += (
-                (((-1) ** (i - 1)) / (2 * i - 1))
-                * np.cos((2 * i - 1) * (np.pi / 2) * (yc / h))
-                * np.exp((-((2 * i - 1) ** 2)) * (np.pi**2 / 4) * dimless_t)
-            )
-        p = (4 / np.pi) * vertical_load * sum_series
+        if t == 0:  # initally, the pressure equals the vertical load
+            p = vertical_load * np.ones(sd.num_cells)
+        else:
+            sum_series = np.zeros_like(yc)
+            for i in range(1, n + 1):
+                sum_series += (
+                    (((-1) ** (i - 1)) / (2 * i - 1))
+                    * np.cos((2 * i - 1) * (np.pi / 2) * (yc / h))
+                    * np.exp((-((2 * i - 1) ** 2)) * (np.pi**2 / 4) * dimless_t)
+                )
+            p = (4 / np.pi) * vertical_load * sum_series
 
         return p
 
@@ -470,14 +460,18 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         """
         t_nondim = self.nondim_time(t)
-        sum_series = 0
-        for i in range(1, self.params["upper_limit_summation"] + 1):
-            sum_series += (
-                1
-                / ((2 * i - 1) ** 2)
-                * np.exp(-((2 * i - 1) ** 2) * (np.pi**2 / 4) * t_nondim)
-            )
-        deg_cons = 1 - (8 / (np.pi**2)) * sum_series
+
+        if t == 0:  # initially, the soil is unconsolidated
+            deg_cons = 0.0
+        else:
+            sum_series = 0
+            for i in range(1, self.params["upper_limit_summation"] + 1):
+                sum_series += (
+                    1
+                    / ((2 * i - 1) ** 2)
+                    * np.exp(-((2 * i - 1) ** 2) * (np.pi**2 / 4) * t_nondim)
+                )
+            deg_cons = 1 - (8 / (np.pi**2)) * sum_series
 
         return deg_cons
 
@@ -498,13 +492,16 @@ class Terzaghi(pp.ContactMechanicsBiot):
         h = self.params["height"]
         m_v = self.confined_compressibility()
         vertical_load = self.params["vertical_load"]
-        trace_u = self.displacement_trace(displacement, pressure)
+        t = self.time_manager.time
 
-        u_inf = m_v * h * vertical_load
-        u_0 = 0
-        u = np.max(np.abs(trace_u[1 :: sd.dim]))
-
-        consol_deg = (u - u_0) / (u_inf - u_0)
+        if t == 0:  # initially, the soil is unconsolidated
+            consol_deg = 0.0
+        else:
+            trace_u = self.displacement_trace(displacement, pressure)
+            u_inf = m_v * h * vertical_load
+            u_0 = 0
+            u = np.max(np.abs(trace_u[1 :: sd.dim]))
+            consol_deg = (u - u_0) / (u_inf - u_0)
 
         return consol_deg
 
