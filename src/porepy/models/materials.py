@@ -172,7 +172,7 @@ class UnitFluid(Material):
 
 class UnitSolid(Material):
     """Solid material with unit values.
-    
+
     See UnitFluid.
     """
 

@@ -49,7 +49,8 @@ class Operator:
     """
 
     Operations: EnumMeta = Enum(
-        "Operations", ["void", "add", "sub", "mul", "div", "evaluate", "approximate", "pow"]
+        "Operations",
+        ["void", "add", "sub", "mul", "div", "evaluate", "approximate", "pow"],
     )
     """Object representing all supported operations by the operator class.
 
@@ -858,7 +859,9 @@ class Operator:
 
     def __pow__(self, other):
         children = self._parse_other(other)
-        return Operator(tree=Tree(Operator.Operations.pow, children), name="** operator")
+        return Operator(
+            tree=Tree(Operator.Operations.pow, children), name="** operator"
+        )
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
@@ -1392,12 +1395,13 @@ class MixedDimensionalVariable(Variable):
         return domains
 
     def size(self) -> int:
-        """Returns the total size of the mixed-dimensional variable by summing the sizes of sub-variables.
-        """
+        """Returns the total size of the mixed-dimensional variable
+        by summing the sizes of sub-variables."""
         return sum([v.size() for v in self.sub_vars])
 
     def previous_timestep(self) -> MixedDimensionalVariable:
-        """Return a representation of this mixed-dimensional variable on the previous time step.
+        """Return a representation of this mixed-dimensional variable on the previous
+        time step.
 
         Returns:
             Variable: A representation of this variable, with self.prev_time=True.
@@ -1409,7 +1413,8 @@ class MixedDimensionalVariable(Variable):
         return new_var
 
     def previous_iteration(self) -> MixedDimensionalVariable:
-        """Return a representation of this mixed-dimensional variable on the previous iteration.
+        """Return a representation of this mixed-dimensional variable on the previous
+        iteration.
 
         Returns:
             Variable: A representation of this variable, with self.prev_iter=True.

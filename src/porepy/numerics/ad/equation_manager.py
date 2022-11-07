@@ -36,8 +36,8 @@ class EquationManager:
             should not be changed later.
         secondary_variables (List of Ad Variables): List of variables that are secondary,
             that is, their derivatives will not be included in the Jacobian matrix.
-            Variables will be represented on atomic form, that is, mixed-dimensional variables are
-            unravelled. Secondary variables act as a filter during assembly, that is,
+            Variables will be represented on atomic form, that is, mixed-dimensional variables
+            are unravelled. Secondary variables act as a filter during assembly, that is,
             they do not impact the ordering or treatment of variables.
         row_block_indices_last_assembled (np.ndarray): Row indices for the start of blocks
             corresponding to different equations in the last assembled system. The last item
@@ -135,7 +135,6 @@ class EquationManager:
 
         for intf, intf_data in mdg.interfaces(return_data=True):
             variables[intf] = {}
-            num_cells = intf.num_cells
             for var, info in intf_data[pp.PRIMARY_VARIABLES].items():
                 variables[intf][var] = operators.Variable(var, info, interfaces=[intf])
 
@@ -148,13 +147,13 @@ class EquationManager:
 
 
 
-        The mixed-dimensional variable can be used to define mathematical operations on multiple
-        subdomains simultaneously (provided it is combined with other operators defined on
-        the same subdomains).
+        The mixed-dimensional variable can be used to define mathematical operations on
+        multiple subdomains simultaneously (provided it is combined with other operators
+        defined on the same subdomains).
 
         NOTE: mixed-dimensional variables are assigned unique ids (see documentation of
-        Variable and MixedDimensionalVariable), thus two MixedDimensionalVariables will have different
-        ids even if they represent the same combination of subdomains and variables.
+        Variable and MixedDimensionalVariable), thus two MixedDimensionalVariables will have
+        different ids even if they represent the same combination of subdomains and variables.
         This does not impact the parsing of the variables into numerical values.
 
         Args:
@@ -162,8 +161,8 @@ class EquationManager:
                 or interface and second the name of the variable.
 
         Returns:
-            pp.ad.MixedDimensionalVariable: Joint representation of the variable on the specified
-                subdomains.
+            pp.ad.MixedDimensionalVariable: Joint representation of the variable on the
+                specified subdomains.
 
         """
         return pp.ad.MixedDimensionalVariable(

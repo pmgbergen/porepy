@@ -247,7 +247,7 @@ class ModelGeometry:
         for intf in interfaces:
             # Extracting matrix for each interface should in theory allow for multiple
             # matrix subdomains, but this is not tested.
-            matrix_subdomain = self.mdg.interface_to_subdomain(intf)[0]
+            matrix_subdomain = self.mdg.interface_to_subdomain_pair(intf)[0]
             faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
             switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
                 matrix_subdomain, self.nd, faces_on_fracture_surface
