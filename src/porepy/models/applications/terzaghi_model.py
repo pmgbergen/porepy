@@ -8,9 +8,9 @@ of soils (especially clayey soils) this process may take some time due to their 
 permeability. This process is referred to as consolidation.
 
 We consider a soil column of height `h`, where a constant load `F` is applied to the top of
-the column while keeping the bottom impervious to flow. The exherted load will cause an
+the column while keeping the bottom impervious to flow. The exerted load will cause an
 instantaneous rise in the fluid pressure, which will be equal to the applied load. After
-that, the fluid pressure will montonically decrease towards zero.
+that, the fluid pressure will monotonically decrease towards zero.
 
 Even though Terzaghi's consolidation problem is strictly speaking one-dimensional, the
 implemented model employs a two-dimensional Cartesian grid with roller boundary conditions
