@@ -24,6 +24,7 @@ operators = [
     ("-", _operations.sub),
     ("*", _operations.mul),
     ("/", _operations.div),
+    ("**", _operations.pow),
 ]
 
 

@@ -49,7 +49,7 @@ class Operator:
     """
 
     Operations: EnumMeta = Enum(
-        "Operations", ["void", "add", "sub", "mul", "div", "evaluate", "approximate"]
+        "Operations", ["void", "add", "sub", "mul", "div", "evaluate", "approximate", "pow"]
     )
     """Object representing all supported operations by the operator class.
 
@@ -407,6 +407,18 @@ class Operator:
                     "Encountered a case not covered when dividing Ad objects"
                 )
 
+        elif tree.op == Operator.Operations.pow:
+            # To raise to a power we need two objects
+            assert len(results) == 2
+            # The second argument must be a scalar
+            assert isinstance(results[1], numbers.Real)
+
+            try:
+                return results[0] ** results[1]
+            except ValueError as exc:
+                msg = self._get_error_message("raising to a power", tree, results)
+                raise ValueError(msg) from exc
+
         elif tree.op == Operator.Operations.evaluate:
             # This is a function, which should have at least one argument
             assert len(results) > 1
@@ -600,7 +612,7 @@ class Operator:
 
         Returns:
             An Ad-array representation of the residual and Jacobian. Note that the Jacobian
-            matrix need not be invertible, or ever square; this depends on the operator.
+            matrix need not be invertible, or even square; this depends on the operator.
 
         """
         # Get the mixed-dimensional grid used for the dof-manager.
@@ -843,6 +855,10 @@ class Operator:
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
         return Operator(tree=Tree(Operator.Operations.sub, children), name="- operator")
+
+    def __pow__(self, other):
+        children = self._parse_other(other)
+        return Operator(tree=Tree(Operator.Operations.pow, children), name="** operator")
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
@@ -1348,6 +1364,9 @@ class MixedDimensionalVariable(Variable):
         its tags are consistent with all sub variables.
         """
         self._tags = {}
+        # If there are no sub variables, there is nothing to do.
+        if self._no_variables:
+            return
         # Initialize with tags from the first sub-variable.
         common_tags = set(self.sub_vars[0].tags.keys())
         # Loop over all other sub-variables, take the intersection with the existing set
