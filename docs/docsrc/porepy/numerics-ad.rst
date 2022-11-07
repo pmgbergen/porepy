@@ -57,10 +57,6 @@ Elemental AD data structures
     :members:
     :undoc-members:
 
-.. autoclass:: Tree
-    :members:
-    :undoc-members:
-
 Common mathematical functions
 =============================
 
@@ -77,6 +73,10 @@ AD-representation of constant scalars, vectors and matrices
     :undoc-members:
 
 .. autoclass:: Array
+    :members:
+    :undoc-members:
+
+.. autoclass:: TimeDependentArray
     :members:
     :undoc-members:
 
@@ -111,14 +111,14 @@ Operator functions
 Grid operators
 ==============
 
-qwer
+todo
 
 Numerical discretization schemes
 ================================
 
-qwer
+todo
 
 AD Equation Manager
 ===================
 
-qwer
+todo

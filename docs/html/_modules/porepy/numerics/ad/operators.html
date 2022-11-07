@@ -1,0 +1,1524 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>porepy.numerics.ad.operators &#8212; PorePy 1.5 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/nature.css" />
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">PorePy</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">porepy.numerics.ad.operators</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for porepy.numerics.ad.operators</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; Implementation of wrappers for Ad representations of several operators.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">numbers</span>
+<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">count</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">_ad_utils</span>
+<span class="kn">from</span> <span class="nn">.forward_mode</span> <span class="kn">import</span> <span class="n">Ad_array</span><span class="p">,</span> <span class="n">initAdArrays</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Operator&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Matrix&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Array&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;TimeDependentArray&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Scalar&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;Variable&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;MergedVariable&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">GridLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
+
+<span class="c1"># Abstract representations of mathematical operations supported by the Ad framework.</span>
+<span class="n">Operation</span> <span class="o">=</span> <span class="n">Enum</span><span class="p">(</span><span class="s2">&quot;Operation&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;void&quot;</span><span class="p">,</span> <span class="s2">&quot;add&quot;</span><span class="p">,</span> <span class="s2">&quot;sub&quot;</span><span class="p">,</span> <span class="s2">&quot;mul&quot;</span><span class="p">,</span> <span class="s2">&quot;div&quot;</span><span class="p">,</span> <span class="s2">&quot;evaluate&quot;</span><span class="p">])</span>
+
+
+<span class="k">def</span> <span class="nf">_get_shape</span><span class="p">(</span><span class="n">mat</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get shape of a numpy.ndarray or the Jacobian of Ad_array&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">forward_mode</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">mat</span><span class="o">.</span><span class="n">jac</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">mat</span><span class="o">.</span><span class="n">shape</span>
+
+
+<div class="viewcode-block" id="Operator"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Operator">[docs]</a><span class="k">class</span> <span class="nc">Operator</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Parent class for all AD operators.</span>
+
+<span class="sd">    This class is not meant to be initiated directly, rather the various</span>
+<span class="sd">    subclasses should be used. Instances of this class will still be created when</span>
+<span class="sd">    subclasses are combined by operations.</span>
+
+<span class="sd">    Contains a tree structure of child operators for the recursive forward evaluation.</span>
+
+<span class="sd">    Provides overload functions for basic arithmetic operations.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name (str): Name of this operator. Used for string representations</span>
+<span class="sd">        subdomains (Grid, default=None): List of subdomains on which the operator is</span>
+<span class="sd">            defined. Will be empty for operators not associated with specific subdomains.</span>
+<span class="sd">        interfaces (MortarGrid, default=None): List of edges (tuple of subdomains) in the</span>
+<span class="sd">            mixed-dimensional grid on which the operator is defined.</span>
+<span class="sd">            Will be empty for operators not associated with specific subdomains.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        interfaces: See description of argument ``interfaces``.</span>
+<span class="sd">        subdomains: See description of argument ``subdomains``.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">interfaces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tree</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tree</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">subdomains</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">subdomains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">interfaces</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">interfaces</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_set_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">tree</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tree</span> <span class="o">=</span> <span class="n">Tree</span><span class="p">(</span><span class="n">Operation</span><span class="o">.</span><span class="n">void</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tree</span> <span class="o">=</span> <span class="n">tree</span>
+
+    <span class="k">def</span> <span class="nf">_set_subdomains_or_interfaces</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">interfaces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;For operators which are defined for either subdomains or interfaces but not both.</span>
+
+<span class="sd">        Check that exactly one of subdomains and interfaces is given and assign to the</span>
+<span class="sd">        operator. The unspecified grid-like type will also be set as an attribute, i.e.</span>
+<span class="sd">        either op.subdomains or op.interfaces is an empty list, while the other is a</span>
+<span class="sd">        list with len&gt;0.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            subdomains (optional list of subdomains): The subdomain list.</span>
+<span class="sd">            interfaces (optional list of tuples of subdomains): The interface list.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">subdomains</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subdomains</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">interfaces</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">interfaces</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Operator defined on both subdomains and interfaces.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="n">interfaces</span>
+
+    <span class="k">def</span> <span class="nf">_find_subtree_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Method to recursively look for Variables (or MergedVariables) in an</span>
+<span class="sd">        operator tree.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># The variables should be located at leaves in the tree. Traverse the tree</span>
+        <span class="c1"># recursively, look for variables, and then gather the results.</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Variable</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">):</span>
+            <span class="c1"># We are at the bottom of a branch of the tree, return the operator</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We need to look deeper in the tree.</span>
+            <span class="c1"># Look for variables among the children</span>
+            <span class="n">sub_variables</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="c1"># When using nested pp.ad.Functions, some of the children may be Ad_arrays</span>
+            <span class="c1"># (forward mode), rather than Operators. For the former, don&#39;t look for</span>
+            <span class="c1"># children - they have none.</span>
+            <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">):</span>
+                    <span class="n">sub_variables</span> <span class="o">+=</span> <span class="n">child</span><span class="o">.</span><span class="n">_find_subtree_variables</span><span class="p">()</span>
+
+            <span class="c1"># Some work is needed to parse the information</span>
+            <span class="n">var_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">sub_variables</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Variable</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">):</span>
+                    <span class="c1"># Effectively, this node is one step from the leaf</span>
+                    <span class="n">var_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                    <span class="c1"># We are further up in the tree.</span>
+                    <span class="k">for</span> <span class="n">sub_var</span> <span class="ow">in</span> <span class="n">var</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sub_var</span><span class="p">,</span> <span class="n">Variable</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
+                            <span class="n">sub_var</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span>
+                        <span class="p">):</span>
+                            <span class="n">var_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub_var</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">var_list</span>
+
+    <span class="k">def</span> <span class="nf">_identify_variables</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">dof_manager</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">DofManager</span><span class="p">,</span> <span class="n">var</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Identify all variables in this operator.&quot;&quot;&quot;</span>
+        <span class="c1"># 1. Get all variables present in this operator.</span>
+        <span class="c1"># The variable finder is implemented in a special function, aimed at recursion</span>
+        <span class="c1"># through the operator tree.</span>
+        <span class="c1"># Uniquify by making this a set, and then sort on variable id</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_find_subtree_variables</span><span class="p">())),</span>
+            <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">var</span><span class="p">:</span> <span class="n">var</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># 2. Get a mapping between variables (*not* only MergedVariables) and their</span>
+        <span class="c1"># indices according to the DofManager. This is needed to access the state of</span>
+        <span class="c1"># a variable when parsing the operator to numerical values using forward Ad.</span>
+
+        <span class="c1"># For each variable, get the global index</span>
+        <span class="n">inds</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">variable_ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">prev_time</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">prev_iter</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">variable</span> <span class="ow">in</span> <span class="n">variables</span><span class="p">:</span>
+            <span class="c1"># Indices (in DofManager sense) of this variable. Will be built gradually</span>
+            <span class="c1"># for MergedVariables, in one go for plain Variables.</span>
+            <span class="n">ind_var</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">prev_time</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">variable</span><span class="o">.</span><span class="n">prev_time</span><span class="p">)</span>
+            <span class="n">prev_iter</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">variable</span><span class="o">.</span><span class="n">prev_iter</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
+                <span class="n">variable</span><span class="p">,</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MergedVariable</span><span class="p">,</span> <span class="n">MergedVariable</span><span class="p">)</span>
+            <span class="p">):</span>  <span class="c1"># Is this equivalent to the test in previous function?</span>
+                <span class="c1"># Loop over all subvariables for the merged variable</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">sub_var</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">variable</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">):</span>
+                    <span class="c1"># Store dofs</span>
+                    <span class="n">ind_var</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">dof_manager</span><span class="o">.</span><span class="n">grid_and_variable_to_dofs</span><span class="p">(</span><span class="n">sub_var</span><span class="o">.</span><span class="n">_g</span><span class="p">,</span> <span class="n">sub_var</span><span class="o">.</span><span class="n">_name</span><span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="c1"># Store id of variable, but only for the first one; we will</span>
+                        <span class="c1"># concatenate the arrays in ind_var into one array</span>
+                        <span class="n">variable_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">variable</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">variable</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="c1"># For empty lists of subvariables, we still need to assign an id</span>
+                    <span class="c1"># to the variable.</span>
+                    <span class="n">variable_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">variable</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># This is a variable that lives on a single grid</span>
+                <span class="n">ind_var</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">dof_manager</span><span class="o">.</span><span class="n">grid_and_variable_to_dofs</span><span class="p">(</span><span class="n">variable</span><span class="o">.</span><span class="n">_g</span><span class="p">,</span> <span class="n">variable</span><span class="o">.</span><span class="n">_name</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">variable_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">variable</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+            <span class="c1"># Gather all indices for this variable</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ind_var</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">inds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ind_var</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">inds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">inds</span><span class="p">,</span> <span class="n">variable_ids</span><span class="p">,</span> <span class="n">prev_time</span><span class="p">,</span> <span class="n">prev_iter</span>
+
+    <span class="k">def</span> <span class="nf">_identify_subtree_discretizations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">discr</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Recursive search in the tree of this operator to identify all discretizations</span>
+<span class="sd">        represented in the operator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Go further in recursion</span>
+            <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                <span class="n">discr</span> <span class="o">+=</span> <span class="n">child</span><span class="o">.</span><span class="n">_identify_subtree_discretizations</span><span class="p">([])</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_ad_utils</span><span class="o">.</span><span class="n">MergedOperator</span><span class="p">):</span>
+            <span class="c1"># We have reached the bottom; this is a discretization (example: mpfa.flux)</span>
+            <span class="n">discr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">discr</span>
+
+    <span class="k">def</span> <span class="nf">_identify_discretizations</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">_ad_utils</span><span class="o">.</span><span class="n">MergedOperator</span><span class="p">,</span> <span class="n">GridLike</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;Perform a recursive search to find all discretizations present in the</span>
+<span class="sd">        operator tree. Uniquify the list to avoid double computations.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">all_discr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identify_subtree_discretizations</span><span class="p">([])</span>
+        <span class="k">return</span> <span class="n">_ad_utils</span><span class="o">.</span><span class="n">uniquify_discretization_list</span><span class="p">(</span><span class="n">all_discr</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Operator.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Operator.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Perform the ``discretize`` function of all child operators which are discretizations</span>
+<span class="sd">        using data from mdg.</span>
+
+<span class="sd">        IMPLEMENTATION NOTE: The discretizations was identified at initialization of</span>
+<span class="sd">        Expression - it is now done here to accommodate updates (?) and</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">unique_discretizations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+            <span class="n">_ad_utils</span><span class="o">.</span><span class="n">MergedOperator</span><span class="p">,</span> <span class="n">GridLike</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identify_discretizations</span><span class="p">()</span>
+        <span class="n">_ad_utils</span><span class="o">.</span><span class="n">discretize_from_list</span><span class="p">(</span><span class="n">unique_discretizations</span><span class="p">,</span> <span class="n">mdg</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Operator.is_leaf"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Operator.is_leaf">[docs]</a>    <span class="k">def</span> <span class="nf">is_leaf</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Check if this operator is a leaf in the tree-representation of an expression.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if the operator has no children. Note that this implies that the</span>
+<span class="sd">            method parse() is expected to be implemented.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="Operator.set_name"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Operator.set_name">[docs]</a>    <span class="k">def</span> <span class="nf">set_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Reset this object&#39;s name originally passed at instantiation&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span></div>
+
+<div class="viewcode-block" id="Operator.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Operator.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return an operator that represents the value of this operator at the previous</span>
+<span class="sd">        timestep.</span>
+
+<span class="sd">        The operator tree at the previous time step is created as a shallow copy, and will</span>
+<span class="sd">        thus be identical to the original operator, except that all time dependent operators</span>
+<span class="sd">        are evaluated at the previous time step.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A copy of self, with all time dependent operators evaluated at the previous</span>
+<span class="sd">                time step.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Create a copy of the operator tree evaluated at a previous time step. This is done</span>
+        <span class="c1"># by traversing the underlying graph, and set all time-dependent objects to be</span>
+        <span class="c1"># evaluated at the previous time step.</span>
+
+        <span class="k">def</span> <span class="nf">_traverse_tree</span><span class="p">(</span><span class="n">op</span><span class="p">:</span> <span class="n">Operator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Operator</span><span class="p">:</span>
+            <span class="sd">&quot;&quot;&quot;Helper function which traverses an operator tree by recursion.&quot;&quot;&quot;</span>
+
+            <span class="n">children</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span>
+
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># We are on an atomic operator. If this is a time-dependent operator,</span>
+                <span class="c1"># set it to be evaluated at the previous time step. If not, leave the</span>
+                <span class="c1"># operator as it is.</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="p">(</span><span class="n">Variable</span><span class="p">,</span> <span class="n">MergedVariable</span><span class="p">,</span> <span class="n">TimeDependentArray</span><span class="p">)):</span>
+                    <span class="c1"># IMPLEMENTATION NOTE: We need to use a copy, not a deep copy here. A</span>
+                    <span class="c1"># deep copy would change the underlying grids and mortar grids. For</span>
+                    <span class="c1"># variables (atomic and merged) this would render a KeyValue if the</span>
+                    <span class="c1"># grid is used to fetch the relevant degree of freedom in the global</span>
+                    <span class="c1"># ordering, as is done by the DofManager.</span>
+                    <span class="c1"># If other time-dependent other operators are added, they will have to</span>
+                    <span class="c1"># override this previous_timestep method.</span>
+                    <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">op</span><span class="p">)</span><span class="o">.</span><span class="n">previous_timestep</span><span class="p">()</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># No need to use a copy here.</span>
+                    <span class="c1"># This also means that operators that are not time dependent need not</span>
+                    <span class="c1"># override this previous_timestep method.</span>
+                    <span class="k">return</span> <span class="n">op</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Recursively iterate over the subtree, get the children, evaluated at the</span>
+                <span class="c1"># previous time when relevant, and add it to the new list.</span>
+                <span class="n">new_children</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Operator</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">ci</span><span class="p">,</span> <span class="n">child</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">children</span><span class="p">):</span>
+                    <span class="c1"># Recursive call to fix the subtree.</span>
+                    <span class="n">new_children</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_traverse_tree</span><span class="p">(</span><span class="n">child</span><span class="p">))</span>
+
+                <span class="c1"># We would like to return a new operator which represents the same</span>
+                <span class="c1"># calculation as op, though with a different set of children. We cannot use</span>
+                <span class="c1"># copy.copy (shallow copy), since this will identify the lists of children</span>
+                <span class="c1"># in the old and new operator. Also, we cannot do a deep copy, since this</span>
+                <span class="c1"># will copy grids in individual subdomains - see implementation not in the</span>
+                <span class="c1"># above treatment of Variables.</span>
+                <span class="c1"># The solution is to make a new Tree with the same operation as the old</span>
+                <span class="c1"># operator, but with the new list of children.</span>
+                <span class="n">new_tree</span> <span class="o">=</span> <span class="n">Tree</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="n">new_children</span><span class="p">)</span>
+
+                <span class="c1"># Use the same lists of subdomains and interfaces as in the old operator,</span>
+                <span class="c1"># with empty lists if these are not present.</span>
+                <span class="n">subdomains</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="s2">&quot;subdomains&quot;</span><span class="p">,</span> <span class="p">[])</span>
+                <span class="n">interfaces</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="s2">&quot;interfaces&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+                <span class="c1"># Create new operator from the tree.</span>
+                <span class="n">new_op</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">op</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span>
+                    <span class="n">subdomains</span><span class="o">=</span><span class="n">subdomains</span><span class="p">,</span>
+                    <span class="n">interfaces</span><span class="o">=</span><span class="n">interfaces</span><span class="p">,</span>
+                    <span class="n">tree</span><span class="o">=</span><span class="n">new_tree</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">new_op</span>
+
+        <span class="c1"># Get a copy of the operator with all time-dependent quantities evaluated at the</span>
+        <span class="c1"># previous time step.</span>
+        <span class="n">prev_time</span> <span class="o">=</span> <span class="n">_traverse_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">prev_time</span></div>
+
+<div class="viewcode-block" id="Operator.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Operator.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Translate the operator into a numerical expression.</span>
+
+<span class="sd">        Subclasses that represent atomic operators (leaves in a tree-representation of</span>
+<span class="sd">        an operator) should override this method to return e.g. a number, an array or a</span>
+<span class="sd">        matrix.</span>
+<span class="sd">        This method should not be called on operators that are formed as combinations</span>
+<span class="sd">        of atomic operators; such operators should be evaluated by the method :meth:`evaluate`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mdg: Mixed-dimensional grid on which this operator is to be parsed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A numerical format representing this operators value on given domain.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;This type of operator cannot be parsed right away&quot;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_parse_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;TODO: Currently, there is no prioritization between the operations; for</span>
+<span class="sd">        some reason, things just work. We may need to make an ordering in which the</span>
+<span class="sd">        operations should be carried out. It seems that the strategy of putting on</span>
+<span class="sd">        hold until all children are processed works, but there likely are cases where</span>
+<span class="sd">        this is not the case.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># The parsing strategy depends on the operator at hand:</span>
+        <span class="c1"># 1) If the operator is a Variable, it will be represented according to its</span>
+        <span class="c1">#    state.</span>
+        <span class="c1"># 2) If the operator is a leaf in the tree-representation of the operator,</span>
+        <span class="c1">#    parsing is left to the operator itself.</span>
+        <span class="c1"># 3) If the operator is formed by combining other operators lower in the tree,</span>
+        <span class="c1">#    parsing is handled by first evaluating the children (leads to recursion)</span>
+        <span class="c1">#    and then perform the operation on the result.</span>
+
+        <span class="c1"># Check for case 1 or 2</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">Variable</span><span class="p">):</span>
+            <span class="c1"># Case 1: Variable</span>
+
+            <span class="c1"># How to access the array of (Ad representation of) states depends on weather</span>
+            <span class="c1"># this is a single or combined variable; see self.__init__, definition of</span>
+            <span class="c1"># self._variable_ids.</span>
+            <span class="c1"># TODO no different between merged or no merged variables!?</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MergedVariable</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">MergedVariable</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prev_vals</span><span class="p">[</span><span class="n">op</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="n">op</span><span class="o">.</span><span class="n">prev_iter</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prev_iter_vals</span><span class="p">[</span><span class="n">op</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span><span class="p">[</span><span class="n">op</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">op</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prev_vals</span><span class="p">[</span><span class="n">op</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="n">op</span><span class="o">.</span><span class="n">prev_iter</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span>
+                    <span class="n">op</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span>
+                <span class="p">):</span>  <span class="c1"># TODO make it more explicit that op corresponds to a non_ad_variable?</span>
+                    <span class="c1"># e.g. by op.id in non_ad_variable_ids.</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prev_iter_vals</span><span class="p">[</span><span class="n">op</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span><span class="p">[</span><span class="n">op</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">):</span>
+            <span class="c1"># When using nested operator functions, op can be an already evaluated term.</span>
+            <span class="c1"># Just return it.</span>
+            <span class="k">return</span> <span class="n">op</span>
+
+        <span class="k">elif</span> <span class="n">op</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">():</span>
+            <span class="c1"># Case 2</span>
+            <span class="k">return</span> <span class="n">op</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">mdg</span><span class="p">)</span>  <span class="c1"># type:ignore</span>
+
+        <span class="c1"># This is not an atomic operator. First parse its children, then combine them</span>
+        <span class="n">tree</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">tree</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_parse_operator</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">mdg</span><span class="p">)</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">]</span>
+
+        <span class="c1"># Combine the results</span>
+        <span class="k">if</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">add</span><span class="p">:</span>
+            <span class="c1"># To add we need two objects</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+
+            <span class="c1"># Convert any vectors that mascarade as a nx1 (1xn) scipy matrix</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ravel_scipy_matrix</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="c1"># With the implementation of Ad arrays, addition does not</span>
+                <span class="c1"># commute for combinations with numpy arrays. Switch the order</span>
+                <span class="c1"># of results, and everything works.</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="n">results</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_error_message</span><span class="p">(</span><span class="s2">&quot;adding&quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+
+        <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">sub</span><span class="p">:</span>
+            <span class="c1"># To subtract we need two objects</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+
+            <span class="c1"># Convert any vectors that mascarade as a nx1 (1xn) scipy matrix</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ravel_scipy_matrix</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+            <span class="n">factor</span> <span class="o">=</span> <span class="mi">1</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="c1"># With the implementation of Ad arrays, subtraction does not</span>
+                <span class="c1"># commute for combinations with numpy arrays. Switch the order</span>
+                <span class="c1"># of results, and everything works.</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="n">results</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">factor</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">factor</span> <span class="o">*</span> <span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_error_message</span><span class="p">(</span><span class="s2">&quot;subtracting&quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+
+        <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">mul</span><span class="p">:</span>
+            <span class="c1"># To multiply we need two objects</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span>
+                <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">forward_mode</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="c1"># In the implementation of multiplication between an Ad_array and a</span>
+                <span class="c1"># numpy array (in the forward mode Ad), a * b and b * a do not</span>
+                <span class="c1"># commute. Flip the order of the results to get the expected behavior.</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="n">results</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
+                    <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">forward_mode</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">)</span>
+                <span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                    <span class="c1"># Special error message here, since the information provided by</span>
+                    <span class="c1"># the standard method looks like a contradiction.</span>
+                    <span class="c1"># Move this to a helper method if similar cases arise for other</span>
+                    <span class="c1"># operations.</span>
+                    <span class="n">msg_0</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_parse_readable</span><span class="p">()</span>
+                    <span class="n">msg_1</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">_parse_readable</span><span class="p">()</span>
+                    <span class="n">nl</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="s2">&quot;Error when right multiplying </span><span class="se">\n</span><span class="s2">&quot;</span>
+                        <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">msg_0</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="o">+</span> <span class="n">nl</span>
+                        <span class="o">+</span> <span class="s2">&quot;with&quot;</span>
+                        <span class="o">+</span> <span class="n">nl</span>
+                        <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;  numpy array </span><span class="si">{</span><span class="n">msg_1</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="o">+</span> <span class="n">nl</span>
+                        <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Size of arrays: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">val</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">&quot;</span>
+                        <span class="o">+</span> <span class="n">nl</span>
+                        <span class="o">+</span> <span class="s2">&quot;Did you forget some parentheses?&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_error_message</span><span class="p">(</span><span class="s2">&quot;multiplying&quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+
+        <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">div</span><span class="p">:</span>
+            <span class="c1"># Some care is needed here, to account for cases where item in the results</span>
+            <span class="c1"># array is a numpy array</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">):</span>
+                <span class="c1"># If the first item is an Ad array, the implementation of the forward</span>
+                <span class="c1"># mode should take care of everything.</span>
+                <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)):</span>
+                <span class="c1"># if the first array is a numpy array or sparse matrix,</span>
+                <span class="c1"># then numpy&#39;s implementation of division will be invoked.</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Real</span><span class="p">)):</span>
+                    <span class="c1"># Both items are numpy arrays or scalars, everything is fine.</span>
+                    <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">):</span>
+                    <span class="c1"># Numpy cannot deal with division with an Ad_array. Instead, multiply</span>
+                    <span class="c1"># with the inverse of results[1] (this is equivalent, and makes</span>
+                    <span class="c1"># numpy happy). The return from numpy will be a new array (data type</span>
+                    <span class="c1"># object) with the actual Ad_array as the first item. Exactly why</span>
+                    <span class="c1"># numpy functions in this way is not clear to EK.</span>
+                    <span class="k">return</span> <span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="o">-</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Not sure what this will cover. We have to wait for it to happen.</span>
+                    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                        <span class="s2">&quot;Encountered a case not covered when dividing Ad objects&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Real</span><span class="p">):</span>
+                <span class="c1"># if the dividend is a number, the divisor has to be an Ad_array,</span>
+                <span class="c1"># otherwise the overloaded division wouldn&#39;t have been invoked</span>
+                <span class="c1"># We use the same strategy as in above case where the divisor is an Ad_array</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">):</span>
+                    <span class="c1"># See remarks by EK in case ndarray / Ad_array</span>
+                    <span class="k">return</span> <span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="o">-</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># In case above argument, that the divisor can only be an Ad_array,</span>
+                    <span class="c1"># is wrong</span>
+                    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                        <span class="s2">&quot;Encountered a case not covered when dividing Ad objects&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># This case could include results[0] being a float, or different numbers,</span>
+                <span class="c1"># which again should be easy to cover.</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                    <span class="s2">&quot;Encountered a case not covered when dividing Ad objects&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">evaluate</span><span class="p">:</span>
+            <span class="c1"># This is a function, which should have at least one argument</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span>
+            <span class="n">func_op</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># if the callable can be fed with Ad_arrays, do it</span>
+            <span class="k">if</span> <span class="n">func_op</span><span class="o">.</span><span class="n">ad_compatible</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">func_op</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># This should be a Function with approximated Jacobian and value.</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="n">func_op</span><span class="o">.</span><span class="n">get_values</span><span class="p">(</span><span class="o">*</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+                    <span class="n">jac</span> <span class="o">=</span> <span class="n">func_op</span><span class="o">.</span><span class="n">get_jacobian</span><span class="p">(</span><span class="o">*</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="c1"># TODO specify what can go wrong here (Exception type)</span>
+                    <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Ad parsing: Error evaluating operator function:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="n">msg</span> <span class="o">+=</span> <span class="n">func_op</span><span class="o">.</span><span class="n">_parse_readable</span><span class="p">()</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+                <span class="k">return</span> <span class="n">Ad_array</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">jac</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Should not happen&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_error_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="c1"># Helper function to format error message</span>
+        <span class="n">msg_0</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_parse_readable</span><span class="p">()</span>
+        <span class="n">msg_1</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">_parse_readable</span><span class="p">()</span>
+
+        <span class="n">nl</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Ad parsing: Error when </span><span class="si">{</span><span class="n">operation</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="s2">&quot;  &quot;</span>
+            <span class="o">+</span> <span class="n">msg_0</span>
+            <span class="o">+</span> <span class="n">nl</span>
+            <span class="o">+</span> <span class="s2">&quot;with&quot;</span>
+            <span class="o">+</span> <span class="n">nl</span>
+            <span class="o">+</span> <span class="s2">&quot;  &quot;</span>
+            <span class="o">+</span> <span class="n">msg_1</span>
+            <span class="o">+</span> <span class="n">nl</span>
+        <span class="p">)</span>
+
+        <span class="n">msg</span> <span class="o">+=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Matrix sizes are </span><span class="si">{</span><span class="n">_get_shape</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="s2"> and &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_get_shape</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">msg</span>
+
+    <span class="k">def</span> <span class="nf">_parse_readable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Make a human-readable error message related to a parsing error.</span>
+<span class="sd">        NOTE: The exact formatting should be considered work in progress,</span>
+<span class="sd">        in particular when it comes to function evaluation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># There are three cases to consider: Either the operator is a leaf,</span>
+        <span class="c1"># it is a composite operator with a name, or it is a general composite</span>
+        <span class="c1"># operator.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_leaf</span><span class="p">():</span>
+            <span class="c1"># Leafs are represented by their strings.</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Composite operators that have been given a name (possibly</span>
+            <span class="c1"># with a goal of simple identification of an error)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+        <span class="c1"># General operator. Split into its parts by recursion.</span>
+        <span class="n">tree</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tree</span>
+
+        <span class="n">child_str</span> <span class="o">=</span> <span class="p">[</span><span class="n">child</span><span class="o">.</span><span class="n">_parse_readable</span><span class="p">()</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">]</span>
+
+        <span class="n">is_func</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">operator_str</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># readable representations of known operations</span>
+        <span class="k">if</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">add</span><span class="p">:</span>
+            <span class="n">operator_str</span> <span class="o">=</span> <span class="s2">&quot;+&quot;</span>
+        <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">sub</span><span class="p">:</span>
+            <span class="n">operator_str</span> <span class="o">=</span> <span class="s2">&quot;-&quot;</span>
+        <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">mul</span><span class="p">:</span>
+            <span class="n">operator_str</span> <span class="o">=</span> <span class="s2">&quot;*&quot;</span>
+        <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">div</span><span class="p">:</span>
+            <span class="n">operator_str</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span>
+        <span class="c1"># function evaluations have their own readable representation</span>
+        <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operation</span><span class="o">.</span><span class="n">evaluate</span><span class="p">:</span>
+            <span class="n">is_func</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="c1"># for unknown operations, &#39;operator_str&#39; remains None</span>
+
+        <span class="c1"># error message for function evaluations</span>
+        <span class="k">if</span> <span class="n">is_func</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">child_str</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">(&quot;</span>
+            <span class="n">msg</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">child</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">child_str</span><span class="p">[</span><span class="mi">1</span><span class="p">:]])</span>
+            <span class="n">msg</span> <span class="o">+=</span> <span class="s2">&quot;)&quot;</span>
+            <span class="k">return</span> <span class="n">msg</span>
+        <span class="c1"># if operation is unknown, a new error will be raised to raise awareness</span>
+        <span class="k">elif</span> <span class="n">operator_str</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;UNKNOWN parsing of operation on: &quot;</span>
+            <span class="n">msg</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">child</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">child_str</span><span class="p">])</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="c1"># error message for known Operations</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">child_str</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">operator_str</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">child_str</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_ravel_scipy_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+        <span class="c1"># In some cases, parsing may leave what is essentially an array, but with the</span>
+        <span class="c1"># format of a scipy matrix. This must be converted to a numpy array before</span>
+        <span class="c1"># moving on.</span>
+        <span class="c1"># Note: It is not clear that this conversion is meaningful in all cases, so be</span>
+        <span class="c1"># cautious with adding this extra parsing to more operations.</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">res</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">):</span>
+                <span class="k">assert</span> <span class="n">res</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">res</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">1</span>
+                <span class="n">results</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Operator with no name&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Operator named </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; formed by </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">op</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span><span class="si">}</span><span class="s2"> children.&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+
+<div class="viewcode-block" id="Operator.viz"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Operator.viz">[docs]</a>    <span class="k">def</span> <span class="nf">viz</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Draws a visualization of the operator tree that has this operator as its root.&quot;&quot;&quot;</span>
+        <span class="n">G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
+
+        <span class="k">def</span> <span class="nf">parse_subgraph</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+            <span class="n">G</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="n">operation</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">op</span>
+            <span class="n">G</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">operation</span><span class="p">)</span>
+            <span class="n">G</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">operation</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">:</span>
+                <span class="n">parse_subgraph</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
+                <span class="n">G</span><span class="o">.</span><span class="n">add_edge</span><span class="p">(</span><span class="n">child</span><span class="p">,</span> <span class="n">operation</span><span class="p">)</span>
+
+        <span class="n">parse_subgraph</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">nx</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">with_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+    <span class="c1">### Below here are method for overloading arithmetic operators</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span>
+            <span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operation</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Multiplication operator&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__truediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operation</span><span class="o">.</span><span class="n">div</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Division operator&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operation</span><span class="o">.</span><span class="n">add</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Addition operator&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operation</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Subtraction operator&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="c1"># consider the expression a-b. right-subtraction means self == b</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="c1"># we need to change the order here since a-b != b-a</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="p">[</span><span class="n">children</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operation</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Subtraction operator&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Operator.evaluate"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Operator.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dof_manager</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">DofManager</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ad_array</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate the residual and Jacobian matrix for a given state.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            dof_manager (pp.DofManager): used to represent the problem. Will be used</span>
+<span class="sd">                to parse the sub-operators that combine to form this operator.</span>
+<span class="sd">            state (np.ndarray, optional): State vector for which the residual and its</span>
+<span class="sd">                derivatives should be formed. If not provided, the state will be pulled from</span>
+<span class="sd">                the previous iterate (if this exists), or alternatively from the state</span>
+<span class="sd">                at the previous time step.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`Ad_array`: A representation of the residual and Jacobian.</span>
+<span class="sd">            Note that the Jacobian matrix need not be invertible, or ever square;</span>
+<span class="sd">            this depends on the operator.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Get the mixed-dimensional grid used for the dof-manager.</span>
+        <span class="n">mdg</span> <span class="o">=</span> <span class="n">dof_manager</span><span class="o">.</span><span class="n">mdg</span>
+
+        <span class="c1"># Identify all variables in the Operator tree. This will include real variables,</span>
+        <span class="c1"># and representation of previous time steps and iterations.</span>
+        <span class="p">(</span>
+            <span class="n">variable_dofs</span><span class="p">,</span>
+            <span class="n">variable_ids</span><span class="p">,</span>
+            <span class="n">is_prev_time</span><span class="p">,</span>
+            <span class="n">is_prev_iter</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identify_variables</span><span class="p">(</span><span class="n">dof_manager</span><span class="p">)</span>
+
+        <span class="c1"># Split variable dof indices and ids into groups of current variables (those</span>
+        <span class="c1"># of the current iteration step), and those from the previous time steps and</span>
+        <span class="c1"># iterations.</span>
+        <span class="n">current_indices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">current_ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">prev_indices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">prev_ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">prev_iter_indices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">prev_iter_ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">ind</span><span class="p">,</span> <span class="n">var_id</span><span class="p">,</span> <span class="n">is_prev</span><span class="p">,</span> <span class="n">is_prev_it</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+            <span class="n">variable_dofs</span><span class="p">,</span> <span class="n">variable_ids</span><span class="p">,</span> <span class="n">is_prev_time</span><span class="p">,</span> <span class="n">is_prev_iter</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">is_prev</span><span class="p">:</span>
+                <span class="n">prev_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+                <span class="n">prev_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">var_id</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">is_prev_it</span><span class="p">:</span>
+                <span class="n">prev_iter_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+                <span class="n">prev_iter_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">var_id</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">current_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
+                <span class="n">current_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">var_id</span><span class="p">)</span>
+
+        <span class="c1"># Save information.</span>
+        <span class="c1"># IMPLEMENTATION NOTE: Storage in a separate data class could have</span>
+        <span class="c1"># been a more elegant option.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_variable_dofs</span> <span class="o">=</span> <span class="n">current_indices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_variable_ids</span> <span class="o">=</span> <span class="n">current_ids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prev_time_dofs</span> <span class="o">=</span> <span class="n">prev_indices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prev_time_ids</span> <span class="o">=</span> <span class="n">prev_ids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prev_iter_dofs</span> <span class="o">=</span> <span class="n">prev_iter_indices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prev_iter_ids</span> <span class="o">=</span> <span class="n">prev_iter_ids</span>
+
+        <span class="c1"># Parsing in two stages: First make a forward Ad-representation of the variable</span>
+        <span class="c1"># state (this must be done jointly for all variables of the operator to get all</span>
+        <span class="c1"># derivatives represented). Then parse the operator by traversing its</span>
+        <span class="c1"># tree-representation, and parse and combine individual operators.</span>
+
+        <span class="c1"># Initialize variables</span>
+        <span class="n">prev_vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof_manager</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">())</span>
+
+        <span class="n">populate_state</span> <span class="o">=</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">populate_state</span><span class="p">:</span>
+            <span class="n">state</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof_manager</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">())</span>
+
+        <span class="k">assert</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span> <span class="ow">in</span> <span class="n">dof_manager</span><span class="o">.</span><span class="n">block_dof</span><span class="p">:</span>
+            <span class="n">ind</span> <span class="o">=</span> <span class="n">dof_manager</span><span class="o">.</span><span class="n">grid_and_variable_to_dofs</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">):</span>
+                <span class="n">prev_vals</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">g</span><span class="p">)[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">var</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">prev_vals</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">g</span><span class="p">)[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">var</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">populate_state</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">):</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">state</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">g</span><span class="p">)[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span><span class="n">var</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                        <span class="n">prev_vals</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">g</span><span class="p">)[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">var</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">state</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">g</span><span class="p">)[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span><span class="n">var</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                        <span class="n">state</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">g</span><span class="p">)[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">var</span><span class="p">]</span>
+
+        <span class="c1"># Initialize Ad variables with the current iterates</span>
+
+        <span class="c1"># The size of the Jacobian matrix will always be set according to the</span>
+        <span class="c1"># variables found by the DofManager in the MixedDimensionalGrid.</span>
+
+        <span class="c1"># NOTE: This implies that to derive a subsystem from the Jacobian</span>
+        <span class="c1"># matrix of this Expression will require restricting the columns of</span>
+        <span class="c1"># this matrix.</span>
+
+        <span class="c1"># First generate an Ad array (ready for forward Ad) for the full set.</span>
+        <span class="n">ad_vars</span> <span class="o">=</span> <span class="n">initAdArrays</span><span class="p">([</span><span class="n">state</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Next, the Ad array must be split into variables of the right size</span>
+        <span class="c1"># (splitting impacts values and number of rows in the Jacobian, but</span>
+        <span class="c1"># the Jacobian columns must stay the same to preserve all cross couplings</span>
+        <span class="c1"># in the derivatives).</span>
+
+        <span class="c1"># Dictionary which maps from Ad variable ids to Ad_array.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># Loop over all variables, restrict to an Ad array corresponding to</span>
+        <span class="c1"># this variable.</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">var_id</span><span class="p">,</span> <span class="n">dof</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_variable_ids</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variable_dofs</span><span class="p">):</span>
+            <span class="n">ncol</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">size</span>
+            <span class="n">nrow</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">dof</span><span class="p">)</span><span class="o">.</span><span class="n">size</span>
+            <span class="c1"># Restriction matrix from full state (in Forward Ad) to the specific</span>
+            <span class="c1"># variable.</span>
+            <span class="n">R</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
+                <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nrow</span><span class="p">),</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nrow</span><span class="p">),</span> <span class="n">dof</span><span class="p">)),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">nrow</span><span class="p">,</span> <span class="n">ncol</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span><span class="p">[</span><span class="n">var_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">R</span> <span class="o">*</span> <span class="n">ad_vars</span>
+
+        <span class="c1"># Also make mappings from the previous iteration.</span>
+        <span class="c1"># This is simpler, since it is only a matter of getting the residual vector</span>
+        <span class="c1"># correctly (not Jacobian matrix).</span>
+
+        <span class="n">prev_iter_vals_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">state</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prev_iter_dofs</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prev_iter_vals</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">var_id</span><span class="p">:</span> <span class="n">val</span>
+            <span class="k">for</span> <span class="p">(</span><span class="n">var_id</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_prev_iter_ids</span><span class="p">,</span> <span class="n">prev_iter_vals_list</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Also make mappings from the previous time step.</span>
+        <span class="n">prev_vals_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">prev_vals</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prev_time_dofs</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prev_vals</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">var_id</span><span class="p">:</span> <span class="n">val</span> <span class="k">for</span> <span class="p">(</span><span class="n">var_id</span><span class="p">,</span> <span class="n">val</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_prev_time_ids</span><span class="p">,</span> <span class="n">prev_vals_list</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Parse operators. This is left to a separate function to facilitate the</span>
+        <span class="c1"># necessary recursion for complex operators.</span>
+        <span class="n">eq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">eq</span></div>
+
+    <span class="k">def</span> <span class="nf">_parse_other</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Scalar</span><span class="p">(</span><span class="n">other</span><span class="p">)]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Array</span><span class="p">(</span><span class="n">other</span><span class="p">)]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">other</span><span class="p">)]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Operator</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">):</span>
+            <span class="c1"># This may happen when using nested pp.ad.Function.</span>
+            <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot parse </span><span class="si">{</span><span class="n">other</span><span class="si">}</span><span class="s2"> as an AD operator&quot;</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">Matrix</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ad representation of a sparse matrix.</span>
+
+<span class="sd">    For dense matrices, use :class:`Array` instead.</span>
+
+<span class="sd">    This is a shallow wrapper around the real matrix; it is needed to combine the matrix</span>
+<span class="sd">    with other types of Ad objects.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        mat: Sparse matrix to be wrapped as an AD operator.</span>
+<span class="sd">        name: Name of this operator</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mat</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_mat</span> <span class="o">=</span> <span class="n">mat</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="n">mat</span><span class="o">.</span><span class="n">shape</span>
+        <span class="sd">&quot;&quot;&quot;Shape of the wrapped matrix.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Matrix with shape </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_mat</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_mat</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> elements&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Matrix &quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The wrapped matrix.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mat</span>
+
+    <span class="k">def</span> <span class="nf">transpose</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Matrix&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Returns an AD operator representing the transposed matrix.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mat</span><span class="o">.</span><span class="n">transpose</span><span class="p">())</span>
+
+
+<span class="k">class</span> <span class="nc">Array</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;AD representation of a constant numpy array.</span>
+
+<span class="sd">    For sparse matrices, use :class:`Matrix` instead.</span>
+<span class="sd">    For time-dependent arrays see :class:`TimeDependentArray`.</span>
+
+<span class="sd">    This is a shallow wrapper around the real array; it is needed to combine the array</span>
+<span class="sd">    with other types of AD operators.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        values: Numpy array to be represented.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Construct an Ad representation of a numpy array.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            values: Numpy array to be represented.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span> <span class="o">=</span> <span class="n">values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Wrapped numpy array of size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Array&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The wrapped array</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span>
+
+
+<span class="k">class</span> <span class="nc">TimeDependentArray</span><span class="p">(</span><span class="n">Array</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An Ad-wrapper around a time-dependent numpy array.</span>
+
+<span class="sd">    The array is tied to a MixedDimensionalGrid, and is distributed among the data</span>
+<span class="sd">    dictionaries associated with subdomains and interfaces. The array values are stored</span>
+<span class="sd">    in data[pp.STATE][pp.ITERATE][self._name] for the current time and</span>
+<span class="sd">    data[pp.STATE][self._name] for the previous time.</span>
+
+<span class="sd">    The array can be differentiated in time using pp.ad.dt().</span>
+
+<span class="sd">    The intended use is to represent time-varying quantities in equations, e.g., source</span>
+<span class="sd">    terms. Future use will also include numerical values of boundary conditions,</span>
+<span class="sd">    however, this is pending an update to the model classes.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        prev_time (boolean): If True, the array will be evaluated using</span>
+<span class="sd">            data[pp.STATE] (data being the data dictionaries for subdomains and</span>
+<span class="sd">            interfaces), if False, data[pp.STATE][pp.ITERATE] is used.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">interfaces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">previous_timestep</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initialize a TimeDependentArray.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name: Name of the variable. Should correspond to items in data[pp.STATE].</span>
+<span class="sd">            subdomains: Subdomains on which the array is defined. Defaults to None.</span>
+<span class="sd">            interfaces: Interfaces on which the array is defined. Defaults to None.</span>
+
+<span class="sd">            Exactly one of subdomains and interfaces must be non-empty.</span>
+
+<span class="sd">            previous_timestep: Flag indicating if the array should be evaluated at the</span>
+<span class="sd">                previous time step.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If either none of, or both of, subdomains and interfaces are</span>
+<span class="sd">                empty.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="k">if</span> <span class="n">subdomains</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subdomains</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">interfaces</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">interfaces</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;A time dependent array must be associated with&quot;</span>
+                <span class="s2">&quot; interfaces or subdomains.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;A time dependent array must be associated with either&quot;</span>
+                <span class="s2">&quot; interfaces or subdomains, not both.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Store subdomains and interfaces.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="n">interfaces</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_grids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">GridLike</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_interface_array</span><span class="p">:</span> <span class="nb">bool</span>
+
+        <span class="c1"># Shorthand access to subdomain or interface grids:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Appease mypy</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_grids</span> <span class="o">=</span> <span class="n">subdomains</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_interface_array</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">intf</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span> <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="n">interfaces</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_grids</span> <span class="o">=</span> <span class="n">interfaces</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_interface_array</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">previous_timestep</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeDependentArray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Return a representation of this variable on the previous time step.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            This array represented at the previous time step.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_interface_array</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">TimeDependentArray</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">interfaces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">,</span> <span class="n">previous_timestep</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">TimeDependentArray</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">previous_timestep</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Convert this array into numerical values.</span>
+
+<span class="sd">        The numerical values will be picked from the representation of the array in</span>
+<span class="sd">        data[pp.STATE][pp.ITERATE] (where data is the data dictionary of the subdomains</span>
+<span class="sd">        or interfaces of this Array), or, if self.prev_time = True, from data[pp.STATE].</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mdg: Mixed-dimensional grid.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A numpy ndarray containing the numerical values of this array.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grids</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_interface_array</span><span class="p">:</span>
+                <span class="c1"># Appease mypy</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">interface_data</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span>
+                <span class="n">vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">])</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">vals</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Wrapped time-dependent array with name </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_interface_array</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Defined on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_grids</span><span class="p">)</span><span class="si">}</span><span class="s2"> interfaces.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Defined on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_grids</span><span class="p">)</span><span class="si">}</span><span class="s2"> subdomains.</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Evaluated at the previous time step.&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+
+<span class="k">class</span> <span class="nc">Scalar</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ad representation of a scalar.</span>
+
+<span class="sd">    This is a shallow wrapper around a real scalar. It may be useful to combine</span>
+<span class="sd">    the scalar with other types of Ad objects.</span>
+
+<span class="sd">    NOTE: Since this is a wrapper around a Python immutable, copying a Scalar will</span>
+<span class="sd">    effectively create a deep copy, i.e., changes in the value of one Scalar will not</span>
+<span class="sd">    be reflected in the other. This is in contrast to the behavior of the other</span>
+<span class="sd">    Ad objects.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Wrapped scalar with value </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Scalar&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The wrapped number.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span>
+
+
+<span class="k">class</span> <span class="nc">Variable</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;AD operator representing a variable defined on a single grid or mortar grid.</span>
+
+<span class="sd">    For combinations of variables on different subdomains, see :class:`MergedVariable`.</span>
+
+<span class="sd">    A conversion of the variable into numerical value should be done with respect to the</span>
+<span class="sd">    state of an array; see :meth:`Operator.evaluate`. Therefore, the variable does not</span>
+<span class="sd">    implement the method :meth:`Operator.parse`.</span>
+
+<span class="sd">    A variable is associated with either a grid or an interface. Therefore it is assumed that</span>
+<span class="sd">    either ``subdomains`` or ``interfaces`` is passed as an argument.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        name: Variable name.</span>
+<span class="sd">        ndof: Number of dofs per grid element.</span>
+<span class="sd">            Valid keys are ``cells``, ``faces`` and ``nodes``.</span>
+<span class="sd">        subdomains (length=1): List containing a single grid.</span>
+<span class="sd">        interfaces (length=1): List containing a single mortar grid.</span>
+<span class="sd">        num_cells: Number of cells in the grid.</span>
+<span class="sd">            Only relevant if this is an interface variable.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Identifiers for variables. This will assign a unique id to all instances of this</span>
+    <span class="c1"># class. This is used when operators are parsed to the forward Ad format. The</span>
+    <span class="c1"># value of the id has no particular meaning.</span>
+    <span class="n">_ids</span> <span class="o">=</span> <span class="n">count</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">ndof</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">interfaces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">previous_timestep</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">previous_iteration</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">ndof</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;cells&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_faces</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">ndof</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;faces&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">ndof</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nodes&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_subdomains_or_interfaces</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_g</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
+
+        <span class="c1"># Shorthand access to grid or edge:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Variable must be associated with exactly one grid.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_edge_var</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Variable must be associated with exactly one edge.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_edge_var</span> <span class="o">=</span> <span class="kc">True</span>
+        
+        <span class="c1"># The number of cells in the grid. Will only be used if grid_like is a tuple</span>
+        <span class="c1"># that is, if this is a mortar variable</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_cells</span> <span class="o">=</span> <span class="n">num_cells</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">previous_timestep</span>
+        <span class="sd">&quot;&quot;&quot;Indicates whether the variable represents the state at the previous time step.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">prev_iter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">previous_iteration</span>
+        <span class="sd">&quot;&quot;&quot;Indicates whether the variable represents the state at the previous iteration.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ids</span><span class="p">)</span>
+        <span class="sd">&quot;&quot;&quot;Unique identifier of this variable.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The number of dofs of this variable on its grid.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_edge_var</span><span class="p">:</span>
+            <span class="c1"># This is a mortar grid. Assume that there are only cell unknowns</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># We now know _g is a grid by logic, make an assertion to appease mypy</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_g</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_g</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span>
+                <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_g</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_faces</span>
+                <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_g</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            A representation of this variable at the previous time step,</span>
+<span class="sd">            with its ``prev_time`` attribute set to ``True``.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ndof</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">,</span> <span class="s2">&quot;faces&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_faces</span><span class="p">,</span> <span class="s2">&quot;nodes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span><span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_edge_var</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">interfaces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">,</span> <span class="n">previous_timestep</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">previous_timestep</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            A representation of this variable on the previous time iteration,</span>
+<span class="sd">            with its ``prev_iter`` attribute set to ``True``.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ndof</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="p">,</span> <span class="s2">&quot;faces&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_faces</span><span class="p">,</span> <span class="s2">&quot;nodes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span><span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_edge_var</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">interfaces</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">,</span> <span class="n">previous_iteration</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Variable</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">previous_iteration</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Variable </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">, id: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Degrees of freedom in cells: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_cells</span><span class="si">}</span><span class="s2">, faces: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_faces</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;nodes: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_iter</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Evaluated at the previous iteration.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Evaluated at the previous time step.</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">return</span> <span class="n">s</span>
+
+
+<span class="k">class</span> <span class="nc">MergedVariable</span><span class="p">(</span><span class="n">Variable</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;AD operator representing a collection of variables that individually live on separate</span>
+<span class="sd">    subdomains or interfaces, but treated jointly in the mixed-dimensional sense.</span>
+
+<span class="sd">    Conversion of the variables into numerical value should be done with respect to the</span>
+<span class="sd">    state of an array; see :meth:`Operator.evaluate`. Therefore, the MergedVariable does not</span>
+<span class="sd">    implement the method :meth:`Operator.parse`.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        variables: List of variables to be merged. Should all have the same name.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span> <span class="o">=</span> <span class="n">variables</span>
+        <span class="sd">&quot;&quot;&quot;List of single-grid variables which are merged into this merged variable, </span>
+<span class="sd">        passed at instantiation.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Use counter from superclass to ensure unique Variable ids</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">Variable</span><span class="o">.</span><span class="n">_ids</span><span class="p">)</span>
+
+        <span class="c1"># Flag to identify variables merged over no subdomains. This requires special treatment</span>
+        <span class="c1"># in various parts of the code.</span>
+        <span class="c1"># A use case is variables that are only defined on subdomains of codimension &gt;= 1</span>
+        <span class="c1"># (e.g., contact traction variable), assigned to a problem where the grid happened</span>
+        <span class="c1"># not to have any fractures.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_no_variables</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+
+        <span class="c1"># Take the name from the first variable.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_no_variables</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;no_sub_variables&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">variables</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_name</span>
+            <span class="c1"># Check that all variables have the same name.</span>
+            <span class="c1"># We may release this in the future, but for now, we make it a requirement</span>
+            <span class="n">all_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">_name</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variables</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_names</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_no_variables</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_interface</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_g</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prev_iter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Total size of this merged variable (sum of sizes of respective sub-variables).</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="n">v</span><span class="o">.</span><span class="n">size</span><span class="p">()</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MergedVariable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            A representation of this merged variable on the previous time</span>
+<span class="sd">            iteration, with its ``prev_iter`` attribute set to ``True``.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_subs</span> <span class="o">=</span> <span class="p">[</span><span class="n">var</span><span class="o">.</span><span class="n">previous_timestep</span><span class="p">()</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">]</span>
+        <span class="n">new_var</span> <span class="o">=</span> <span class="n">MergedVariable</span><span class="p">(</span><span class="n">new_subs</span><span class="p">)</span>
+        <span class="n">new_var</span><span class="o">.</span><span class="n">prev_time</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">new_var</span>
+
+    <span class="k">def</span> <span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MergedVariable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            A representation of this merged variable on the previous </span>
+<span class="sd">            iteration, with its ``prev_iter`` attribute set to ``True``</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_subs</span> <span class="o">=</span> <span class="p">[</span><span class="n">var</span><span class="o">.</span><span class="n">previous_iteration</span><span class="p">()</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">]</span>
+        <span class="n">new_var</span> <span class="o">=</span> <span class="n">MergedVariable</span><span class="p">(</span><span class="n">new_subs</span><span class="p">)</span>
+        <span class="n">new_var</span><span class="o">.</span><span class="n">prev_iter</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">new_var</span>
+
+    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;MergedVariable&quot;</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            A shallow copy should be sufficient here; the attributes are not expected to </span>
+<span class="sd">            change.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">sz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">var</span><span class="o">.</span><span class="n">size</span><span class="p">()</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_no_variables</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span>
+                <span class="s2">&quot;Merged variable defined on an empty list of subdomains or interfaces&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_interface</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Merged interface&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Merged&quot;</span>
+
+        <span class="n">s</span> <span class="o">+=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot; variable with name </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">, id </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Composed of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">)</span><span class="si">}</span><span class="s2"> variables</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Degrees of freedom in cells: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_cells</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;, faces: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_faces</span><span class="si">}</span><span class="s2">, nodes: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_nodes</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Total size: </span><span class="si">{</span><span class="n">sz</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_iter</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Evaluated at the previous iteration.</span><span class="se">\n</span><span class="s2">&quot;</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Evaluated at the previous time step.</span><span class="se">\n</span><span class="s2">&quot;</span>
+
+        <span class="k">return</span> <span class="n">s</span>
+
+
+<span class="k">class</span> <span class="nc">Tree</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Simple implementation of a Tree class. Used to represent combinations of</span>
+<span class="sd">    Ad operators.</span>
+
+<span class="sd">    References:</span>
+<span class="sd">        https://stackoverflow.com/questions/2358045/how-can-i-implement-a-tree-in-python</span>
+
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        operation: see :data:`Operation`</span>
+<span class="sd">        children: List of children, either as Ad arrays or other :class:`Operator`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">operation</span><span class="p">:</span> <span class="n">Operation</span><span class="p">,</span>
+        <span class="n">children</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Operator</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">op</span> <span class="o">=</span> <span class="n">operation</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Operator</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">children</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">children</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_child</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">add_child</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Operator</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Adds a child to this instance.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">PorePy</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">porepy.numerics.ad.operators</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..
+    </div>
+  </body>
+</html>
