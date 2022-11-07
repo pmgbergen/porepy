@@ -234,8 +234,11 @@ class Upwind(Discretization):
 
         # Get the sign of the advective flux
         darcy_flux: np.ndarray = np.sign(parameter_dictionary[self._flux_array_key])
-
+        # Get the fixed boundary conditions
         bc: pp.BoundaryCondition = parameter_dictionary["bc"]
+        # Get free flow boundary, if any
+        freeflow_bc: np.ndarray = parameter_dictionary.get(
+            "freeflow_bc", np.zeros(sd.num_faces, dtype=bool))
 
         # Booleans of flux direction
         pos_flux = darcy_flux >= 0
@@ -278,8 +281,14 @@ class Upwind(Discretization):
             )
         )[0]
 
+        # free flow boundary face indices
+        freeflow_ind = np.where(freeflow_bc)[0]
+
         # Delete indices that should be treated by boundary conditions
         delete_ind = np.sort(np.r_[neumann_ind, inflow_ind])
+        # include indices which are treated as free
+        # TODO raise error if free flow boundary overlaps with other BC?
+        delete_ind = np.setdiff1d(delete_ind, freeflow_ind, assume_unique=True)
         row = np.delete(row, delete_ind)
         values = np.delete(values, delete_ind)
         col = np.delete(upstream_cell_ind, delete_ind)

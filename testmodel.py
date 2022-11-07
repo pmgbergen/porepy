@@ -5,8 +5,6 @@ sys.path.append("/mnt/c/Users/vl-work/Desktop/github/porepy/src")
 
 from datetime import datetime
 
-import matplotlib.colors as mcolors
-import matplotlib.pyplot as plot
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
@@ -59,11 +57,11 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.inflow_p: float = 150
         self.outflow_p: float = 100
         
-        self.inflow_sw: float = 0.1
-        self.inflow_sn: float = 0.9
+        self.inflow_sw: float = 0.7
+        self.inflow_sn: float = 0.3
 
-        self.rho_w: float = 3.
-        self.rho_n: float = 2.
+        self.rho_w: float = 1.
+        self.rho_n: float = 1.
         self.permeability: float = 0.1
 
         self.mdg: pp.MixedDimensionalGrid
@@ -100,7 +98,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.upwind_sw_bc: pp.ad.BoundaryCondition
         self.upwind_sn: pp.ad.UpwindAd
         self.upwind_sn_bc: pp.ad.BoundaryCondition
-        self.bc_out: pp.ad.BoundaryCondition
 
         ### PRIVATE
         self._prolong_prim: sps.spmatrix
@@ -224,6 +221,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                 },
             )
 
+            free_flow = self._bc_freeflow(sd)
             bc, bc_vals = self._bc_advective_upwind_sw(sd)
             pp.initialize_data(
                 sd,
@@ -233,6 +231,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                     "bc": bc,
                     "bc_values": bc_vals,
                     "darcy_flux": np.zeros(sd.num_faces),
+                    # "freeflow_bc": free_flow,
                 },
             )
 
@@ -245,18 +244,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                     "bc": bc,
                     "bc_values": bc_vals,
                     "darcy_flux": np.zeros(sd.num_faces),
-                },
-            )
-
-            # saving outflow boundary indicator
-            bc, bc_vals = self._bc_outflow(sd)
-            pp.initialize_data(
-                sd,
-                data,
-                f"{self.flow_keyword}_out",
-                {
-                    "bc": bc,
-                    "bc_values": bc_vals,
+                    # "freeflow_bc": free_flow,
                 },
             )
 
@@ -283,19 +271,15 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.upwind_sn = pp.ad.UpwindAd(kw, self._grids)
         self.upwind_sn_bc = pp.ad.BoundaryCondition(kw, self._grids)
 
-        kw = f"{self.flow_keyword}_out"
-        self.bc_out = pp.ad.BoundaryCondition(kw, self._grids)
-
     ## Boundary Conditions
 
-    def _bc_outflow(self, sd: pp.Grid) -> tuple[pp.BoundaryCondition, np.ndarray]:
+    def _bc_freeflow(self, sd: pp.Grid) -> np.ndarray:
         all_idx, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
         
-        vals = np.zeros(sd.num_faces)
-        vals[idx_east] = 1.
-        bc = pp.BoundaryCondition(sd, all_idx, "neu")
+        vals = np.zeros(sd.num_faces, dtype=bool)
+        vals[idx_east] = True
 
-        return bc, vals
+        return vals
 
     def _bc_advective_flux(self, sd: pp.Grid) -> tuple[pp.BoundaryCondition, np.ndarray]:
         _, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
@@ -355,13 +339,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.upwind_sw.upwind.discretize(self.mdg)
         # self.upwind_sw.bound_transport_dir.discretize(self.mdg)
         # self.upwind_sw.bound_transport_neu.discretize(self.mdg)
-        
-        for sd, data in self.mdg.subdomains(return_data=True):
-            self._recompute_outflux(sd, data)
-    
-    def _recompute_outflux(self, sd, data):
-
-        advective_flux = self.mpfa.flux * self.p + self.mpfa.bound_flux * self.p_bc
 
     def after_newton_iteration(
         self, solution_vector: np.ndarray, iteration: int
@@ -460,18 +437,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         """Specifies whether the Model problem is nonlinear."""
         return True
 
-    def matrix_plot(self, A):
-        plot.figure()
-        ax1 = plot.subplot(211)
-        ax1.matshow(A.todense())
-        plot.colorbar(orientation="vertical")
-        plot.set_cmap("terrain")
-
-        ax2 = plot.subplot(212)
-        norm = mcolors.TwoSlopeNorm(vmin=-10.0, vcenter=0, vmax=10.0)
-        ax2.matshow(A.todense(),norm=norm,cmap='RdBu_r')        
-        plot.show()
-
     def set_unity(self) -> None:
         """Sets the equation representing the feed fraction unity.
 
@@ -523,7 +488,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
 
         upwind_adv = self.upwind_sw
         upwind_adv_bc = self.upwind_sw_bc
-        bc_out = self.bc_out
 
         accumulation = self.mass_matrix.mass * self.rho_w * (
             self.sw - self.sw.previous_timestep()
@@ -537,9 +501,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             - upwind_adv.bound_transport_dir * advective_flux * upwind_adv_bc
             - upwind_adv.bound_transport_neu * upwind_adv_bc
         )
-        # advection -= (
-        #     upwind_adv.bound_transport_neu * (bc_out * advective_flux)
-        # )
 
         equation = accumulation + self.dt * (self.div * advection)
         
