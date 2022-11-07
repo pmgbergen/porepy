@@ -279,7 +279,7 @@ class Operator:
 
         Parameters:
             name: the new name to be assigned.
-    
+
         """
         self._name = name
 
@@ -1230,7 +1230,7 @@ class Variable(Operator):
                 raise ValueError("Variable must be associated with exactly one edge.")
             self._g = self.interfaces[0]
             self._is_edge_var = True
-        
+
         # The number of cells in the grid. Will only be used if grid_like is a tuple
         # that is, if this is a mortar variable
         self._num_cells = num_cells
@@ -1328,7 +1328,7 @@ class MergedVariable(Variable):
     def __init__(self, variables: list[Variable]) -> None:
 
         self.sub_vars = variables
-        """List of single-grid variables which are merged into this merged variable, 
+        """List of single-grid variables which are merged into this merged variable,
         passed at instantiation."""
 
         # Use counter from superclass to ensure unique Variable ids
@@ -1382,7 +1382,7 @@ class MergedVariable(Variable):
     def previous_iteration(self) -> MergedVariable:
         """
         Returns:
-            A representation of this merged variable on the previous 
+            A representation of this merged variable on the previous
             iteration, with its ``prev_iter`` attribute set to ``True``
 
         """
@@ -1394,7 +1394,7 @@ class MergedVariable(Variable):
     def copy(self) -> "MergedVariable":
         """
         Returns:
-            A shallow copy should be sufficient here; the attributes are not expected to 
+            A shallow copy should be sufficient here; the attributes are not expected to
             change.
 
         """
