@@ -53,8 +53,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
 
         ## Initial Conditions
         self.initial_p: float = 100
-        self.initial_sw: float = 0.5
-        self.initial_sn: float = 0.5
+        self.initial_sw: float = 0.
+        self.initial_sn: float = 1.
         
         self.inflow_p: float = 150
         self.outflow_p: float = 100
@@ -64,6 +64,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
 
         self.rho_w: float = 3.
         self.rho_n: float = 2.
+        self.permeability: float = 0.1
 
         self.mdg: pp.MixedDimensionalGrid
         self.create_grid()
@@ -161,7 +162,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.system.update({"secondary_vars": secondary_vars})
         self._system_vars = primary_vars + secondary_vars
 
-        all_vars = list(set(primary_vars + secondary_vars))
         export_vars = set(self._system_vars)
         self._export_vars = list(export_vars)
 
@@ -209,7 +209,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             ### MASS BALANCE EQUATIONS
             # advective flux in mass balance
             bc, bc_vals = self._bc_advective_flux(sd)
-            transmissibility = pp.SecondOrderTensor(np.ones(sd.num_cells))
+            transmissibility = pp.SecondOrderTensor(np.ones(sd.num_cells) * self.permeability)
             pp.initialize_data(
                 sd,
                 data,
@@ -292,7 +292,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         all_idx, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
         
         vals = np.zeros(sd.num_faces)
-        vals[idx_east] = self.inflow_sw
+        vals[idx_east] = 1.
         bc = pp.BoundaryCondition(sd, all_idx, "neu")
 
         return bc, vals
@@ -342,7 +342,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             self.mdg,
             self.flow_keyword,
             self.flow_keyword,
-            p_name="p"
+            p_name="p",
+            from_iterate=True,
         )
 
         for sd, data in self.mdg.subdomains(return_data=True):
@@ -352,13 +353,15 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             data["parameters"][f"{self.upwind_keyword}_sn"]["darcy_flux"] = np.copy(flux)
         
         self.upwind_sw.upwind.discretize(self.mdg)
-        self.upwind_sw.bound_transport_dir.discretize(self.mdg)
-        self.upwind_sw.bound_transport_neu.discretize(self.mdg)
+        # self.upwind_sw.bound_transport_dir.discretize(self.mdg)
+        # self.upwind_sw.bound_transport_neu.discretize(self.mdg)
         
-        if self.test:
-            self._test()
-        # for eq in self.ad_system._equations.values():
-        #     eq.discretize(self.mdg)
+        for sd, data in self.mdg.subdomains(return_data=True):
+            self._recompute_outflux(sd, data)
+    
+    def _recompute_outflux(self, sd, data):
+
+        advective_flux = self.mpfa.flux * self.p + self.mpfa.bound_flux * self.p_bc
 
     def after_newton_iteration(
         self, solution_vector: np.ndarray, iteration: int
@@ -412,6 +415,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         
         if self._use_pressure_equation:
             A, b = self.ad_system.assemble_subsystem(variables=self.system["primary_vars"])
+            if self.test:
+                self.matrix_plot(A)
         else:
             if self._monolithic:
                 A, b = self.ad_system.assemble_subsystem(variables=self._system_vars)
@@ -457,16 +462,14 @@ class TestModel(pp.models.abstract_model.AbstractModel):
 
     def matrix_plot(self, A):
         plot.figure()
-        plot.subplot(211)
-        plot.matshow(A.todense())
+        ax1 = plot.subplot(211)
+        ax1.matshow(A.todense())
         plot.colorbar(orientation="vertical")
         plot.set_cmap("terrain")
 
-        plot.subplot(212)
+        ax2 = plot.subplot(212)
         norm = mcolors.TwoSlopeNorm(vmin=-10.0, vcenter=0, vmax=10.0)
-        plot.matshow(A.todense(),norm=norm,cmap='RdBu_r')
-        plot.colorbar()
-        
+        ax2.matshow(A.todense(),norm=norm,cmap='RdBu_r')        
         plot.show()
 
     def set_unity(self) -> None:
@@ -597,7 +600,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         return
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
-file_name = "testmodel_" + timestamp
+file_name = "testmodel_"  # + timestamp
 params = {
     "folder_name": "/mnt/c/Users/vl-work/Desktop/sim-results/" + file_name + "/",
     "file_name": file_name,
@@ -614,8 +617,8 @@ tol = 1e-5
 
 model =TestModel(params=params)
 
-model.prepare_simulation()
 model.dt = dt
+model.prepare_simulation()
 
 while t < T:
     print(".. Timestep t=%f , dt=%e" % (t, model.dt))

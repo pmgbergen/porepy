@@ -129,7 +129,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.porosity = 1.0
         """Base porosity of model domain."""
 
-        self.permeability = 1.
+        self.permeability = 0.001
         """Base permeability of model domain."""
 
         self.mdg: pp.MixedDimensionalGrid
@@ -455,8 +455,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         self._system_equations = [equ for equ in self.flow_subsystem["primary_equations"]]
         self._system_equations += [equ for equ in self.flow_subsystem["secondary_equations"]]
-
-        self.set_test_equation()
 
     def _export(self) -> None:
         self._exporter.write_vtu(self._export_vars, time_dependent=True)
@@ -792,7 +790,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             self.mdg,
             self.flow_keyword,
             self.flow_keyword,
-            p_name=self.composition.p_name)
+            p_name=self.composition.p_name,
+            from_iterate=True,
+        )
 
         # we now proceed and see where the flux is needed
         for sd, data in self.mdg.subdomains(return_data=True):
@@ -820,20 +820,26 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             self.mdg,
             self.energy_keyword,
             f"{self.energy_upwind_keyword}_conductive",
-            p_name=self.composition.T_name)
+            p_name=self.composition.T_name,
+            from_iterate=True,
+        )
 
         ## re-discretize the upwinding
-        
-        # self.darcy_upwind.upwind.discretize(self.mdg)
-        # self.darcy_upwind.bound_transport_dir.discretize(self.mdg)
-        # self.darcy_upwind.bound_transport_neu.discretize(self.mdg)
-        # self.conductive_upwind.upwind.discretize(self.mdg)
-        # self.conductive_upwind.bound_transport_dir.discretize(self.mdg)
-        # self.conductive_upwind.bound_transport_neu.discretize(self.mdg)
+        ## it is enough to call only discretize on the upwind itself, since it computes the
+        ## boundary matrices along
+        # for pressure equation
+        if self._use_pressure_equation:
+            self.advective_upwind.upwind.discretize(self.mdg)
+        # for component mass balance
+        for upwind in self.advective_upwind_component.values():
+            upwind.upwind.discretize(self.mdg)
+        # two upwinding classes for energy balance
+        self.advective_upwind_energy.upwind.discretize(self.mdg)
+        self.conductive_upwind.upwind.discretize(self.mdg)
         
         ## lazy discretization (everything) TODO optimize, only upwinding must be re-discr.
-        for eq in self.ad_system._equations.values():
-            eq.discretize(self.mdg)
+        # for eq in self.ad_system._equations.values():
+        #     eq.discretize(self.mdg)
 
         if not self._monolithic:
             print(f".. .. isenthalpic flash at iteration {self._nonlinear_iteration}.")
@@ -1013,33 +1019,15 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
     def matrix_plot(self, A):
         plot.figure()
-        plot.subplot(211)
-        plot.matshow(A.todense())
+        ax1 = plot.subplot(211)
+        ax1.matshow(A.todense())
         plot.colorbar(orientation="vertical")
         plot.set_cmap("terrain")
 
-        plot.subplot(212)
+        ax2 = plot.subplot(212)
         norm = mcolors.TwoSlopeNorm(vmin=-10.0, vcenter=0, vmax=10.0)
-        plot.matshow(A.todense(),norm=norm,cmap='RdBu_r')
-        plot.colorbar()
-        
+        ax2.matshow(A.todense(),norm=norm,cmap='RdBu_r')        
         plot.show()
-
-    def set_test_equation(self):
-        
-        equation = self.div
-        
-        equ_name = "test"
-        image_info = dict()
-        for sd in self.mdg.subdomains():
-            image_info.update({sd: {"cells": 1}})
-        self.ad_system.set_equation(equ_name, equation, num_equ_per_dof=image_info)
-
-    def assemble_test(self):
-
-        ad = self.ad_system._equations["test"].evaluate(self.dof_man)
-
-        print("...")
 
     ### MODEL EQUATIONS -----------------------------------------------------------------------
 
