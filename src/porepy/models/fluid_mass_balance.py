@@ -21,15 +21,15 @@ import logging
 import time
 from typing import Dict, Optional
 
-import constitutive_laws
 import numpy as np
-from constitutive_laws import ad_wrapper
-from geometry import ModelGeometry
-
+from .geometry import ModelGeometry
+from .constitutive_laws import ad_wrapper
 import porepy as pp
 
 logger = logging.getLogger(__name__)
 
+
+# ad_wrapper = pp.constitutive_laws.ad_wrapper
 
 class ScalarBalanceEquation:
     """Generic class for scalar balance equations on the form
@@ -58,9 +58,10 @@ class ScalarBalanceEquation:
             Operator representing the balance equation.
         """
 
-        dt = pp.ad.time_derivatives.dt
+        dt_operator = pp.ad.time_derivatives.dt
+        dt = self.time_manager.dt
         div = pp.ad.Divergence(subdomains)
-        return dt(accumulation) + div * flux - source
+        return dt_operator(accumulation, dt) + div * flux - source
 
     def volume_integral(
         self,
@@ -98,8 +99,8 @@ class MassBalanceEquations(ScalarBalanceEquation):
         interfaces = self.mdg.interfaces()
         sd_eq = self.subdomain_mass_balance_equation(subdomains)
         intf_eq = self.interface_fluid_flux_equation(interfaces)
-        self.system_manager.set_equation(sd_eq, (subdomains, "cells", 1))
-        self.system_manager.set_equation(intf_eq, (interfaces, "cells", 1))
+        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+        self.equation_system.set_equation(intf_eq, interfaces, {"cells": 1})
 
     def subdomain_mass_balance_equation(
         self, subdomains: list[pp.Grid]
@@ -107,7 +108,9 @@ class MassBalanceEquations(ScalarBalanceEquation):
         accumulation = self.fluid_mass(subdomains)
         flux = self.fluid_flux(subdomains)
         source = self.fluid_source(subdomains)
-        return self.balance_equation(subdomains, accumulation, flux, source)
+        eq = self.balance_equation(subdomains, accumulation, flux, source)
+        eq.set_name("subdomain_mass_balance_equation")
+        return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 
@@ -128,7 +131,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
             Operator representing the fluid flux.
         """
         discr = self.mobility_discretization(subdomains)
-        mob_rho = self.cell_mobility(subdomains) * self.density(subdomains)
+        mob_rho = self.cell_mobility(subdomains) * self.fluid_density(subdomains)
 
         bc_values = self.bc_values_mobrho(subdomains)
         # Signature of method should allow reuse for e.g. enthalpy flux
@@ -150,11 +153,12 @@ class MassBalanceEquations(ScalarBalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.cell_mobility(subdomains) * self.density(subdomains)
+        mob_rho = self.cell_mobility(subdomains) * self.fluid_density(subdomains)
         var: pp.ad.Variable = self.interface_fluid_flux(interfaces)
         eq: pp.ad.Operator = var - self.interface_advective_flux(
             interfaces, mob_rho, discr
         )
+        eq.set_name("interface_fluid_flux_equation")
         return eq
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -173,7 +177,12 @@ class MassBalanceEquations(ScalarBalanceEquation):
 
 
 class ConstitutiveEquationsIncompressibleFlow(
-    constitutive_laws.DarcyFlux, constitutive_laws.DimensionReduction
+    pp.constitutive_laws.DarcyFlux, 
+    pp.constitutive_laws.InterfaceDarcyFlux,
+    pp.constitutive_laws.DimensionReduction,
+    pp.constitutive_laws.AdvectiveFlux,
+    pp.constitutive_laws.ConstantPorousMedium,
+    pp.constitutive_laws.ConstantSinglePhaseFluid,
 ):
     """Constitutive equations for incompressible flow."""
 
@@ -251,7 +260,7 @@ class ConstitutiveEquationsIncompressibleFlow(
         for sd in subdomains:
             rho_by_mu = self.fluid.density([sd]) / self.fluid.viscosity([sd])
             vals = np.zeros(sd.num_faces)
-            all_bf, *_ = self.domain_boundary_faces(sd)
+            all_bf, *_ = self.domain_boundary_sides(sd)
             vals[all_bf] = rho_by_mu
             bc_values.append(vals)
         bc_values = np.hstack(bc_values)
@@ -259,7 +268,7 @@ class ConstitutiveEquationsIncompressibleFlow(
 
 
 class ConstitutiveEquationsCompressibleFlow(
-    constitutive_laws.FluidDensityFromPressure, ConstitutiveEquationsIncompressibleFlow
+    pp.constitutive_laws.FluidDensityFromPressure, ConstitutiveEquationsIncompressibleFlow
 ):
     """Resolution order is important:
     Left to right, i.e., DensityFromPressure mixin's method is used when calling
@@ -333,7 +342,7 @@ class VariablesSinglePhaseFlow:
         return ad_wrapper(self.fluid.PRESSURE, True, num_cells, "reference_pressure")
 
 
-class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel):
+class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
     """This is whatever is left of pp.IncompressibleFlow.
 
     At some point, this will be refined to be a more sophisticated (modularised) solution
@@ -348,38 +357,11 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
     def __init__(self, params: Optional[Dict] = None) -> None:
         super().__init__(params)
         # Variables
-        self.pressure_variable: str = "p"
-        self.interface_fluid_flux_variable: str = "mortar_" + self.variable
+        self.pressure_variable: str = "pressure"
+        self.interface_fluid_flux_variable: str = "interface_fluid_flux"
         self.darcy_discretization_parameter_key: str = "flow"
         self.mobility_discretization_parameter_key: str = "mobility"
-        self.exporter: pp.Exporter
-
-        # Place initialization stuff to be moved to abstract below.
-        self.units = params.get("units", pp.Units())
-
-    def prepare_simulation(self) -> None:
-        self.set_geometry()
-        # Exporter initialization must be done after grid creation.
-        self.exporter = pp.Exporter(
-            self.mdg,
-            self.params["file_name"],
-            folder_name=self.params["folder_name"],
-            export_constants_separately=self.params.get(
-                "export_constants_separately", False
-            ),
-        )
-
-        self._assign_variables()
-        self.set_equation_system_manager()
-        self._initial_condition()
-        self.set_materials()
-        self.set_discretization_parameters()
-
-        self.set_equations()
-
-        self._export()
-        self.discretize()
-        self._initialize_linear_solver()
+        
 
     def set_materials(self):
         """Sketch approach of setting materials. Works for now.
@@ -388,7 +370,10 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         May want to use more refined approach (setter method, protect attribute names...)
         FIXME: Move to AbstractModel/AbstractSolutionStrategy.
         """
-        for name, material in self.params["materials"].items():
+        # Default values
+        materials = {"fluid": pp.UnitFluid, "solid": pp.UnitSolid}
+        materials.update(self.params.get("materials", {}))
+        for name, material in materials.items():
             assert issubclass(material, pp.models.materials.Material)
             setattr(self, name, material(self.units))
 
@@ -397,18 +382,19 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         included).
 
         """
+        super()._initial_condition()
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
                 sd,
                 data,
-                self.flow_parameter_keyword,
+                self.mobility_discretization_parameter_key,
                 {"darcy_flux": np.zeros(sd.num_faces)},
             )
         for intf, data in self.mdg.interfaces(return_data=True):
             pp.initialize_data(
                 intf,
                 data,
-                self.flow_parameter_keyword,
+                self.mobility_discretization_parameter_key,
                 {"darcy_flux": np.zeros(intf.num_faces)},
             )
 
@@ -420,12 +406,14 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         """
         for sd, data in self.mdg.subdomains(return_data=True):
 
-            specific_volume = self.grid_specific_volume(sd)
-
+            specific_volume_mat, *_ = self.specific_volume([sd]).evaluate(self.equation_system)
+            # Extract diagonal of the specific volume matrix.
+            specific_volume = specific_volume_mat.diagonal()
+            # Check that the matrix is actually diagonal.
+            assert np.all(np.isclose(specific_volume, specific_volume_mat.data))
+            
             kappa = self.permeability(sd)
-            diffusivity = pp.SecondOrderTensor(
-                kappa * specific_volume * np.ones(sd.num_cells)
-            )
+            diffusivity = pp.SecondOrderTensor(kappa * specific_volume)
 
             pp.initialize_data(
                 sd,
@@ -440,7 +428,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
             pp.initialize_data(
                 sd,
                 data,
-                self.darcy_discretization_parameter_key,
+                self.mobility_discretization_parameter_key,
                 {
                     "bc": self.bc_type_mobrho(sd),
                     "second_order_tensor": diffusivity,
@@ -488,7 +476,7 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         return pp.BoundaryCondition(sd, all_bf, "dir")
 
     def set_equation_system_manager(self) -> None:
-        """Create a dof_manager and eq_manager based on a mixed-dimensional grid"""
+        """Create an equation_system manager on the mixed-dimensional grid."""
         self.equation_system = pp.EquationSystem(self.mdg)
 
     def discretize(self) -> None:
@@ -497,50 +485,34 @@ class SolutionStrategyIncompressibleFlow(pp.models.abstract_model.AbstractModel)
         self.equation_system.discretize()
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
-    def before_newton_iteration(self):
-        # Evaluate Darcy flux for each subdomain and interface and store in the
-        # data dictionary.
+    def before_nonlinear_iteration(self):
+        """
+        Evaluate Darcy flux for each subdomain and interface and store in the
+        data dictionary for use in upstream weighting.
+        """
         for sd, data in self.mdg.subdomains(return_data=True):
-            val = self.darcy_flux([sd]).evaluate(self.dof_manager).val
-            data[pp.PARAMETERS][self.mobility_discretization_parameter_key] = val
+            vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
+            data[pp.PARAMETERS][self.mobility_discretization_parameter_key].update("darcy_flux", vals)
 
         for intf, data in self.mdg.interfaces(return_data=True):
-            val = self.interface_darcy_flux([intf]).evaluate(self.dof_manager).val
-            data[pp.PARAMETERS][self.mobility_discretization_parameter_key] = val
+            vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
+            data[pp.PARAMETERS][self.mobility_discretization_parameter_key].update("darcy_flux", vals)
         # FIXME: Rediscretize upwind.
 
-    def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
-        """
-        Scatters the solution vector for current iterate.
 
-        Parameters:
-            solution_vector (np.array): solution vector for the current iterate.
+        
 
-        """
-        self._nonlinear_iteration += 1
-        self.dof_manager.distribute_variable(
-            values=solution_vector, additive=self._use_ad, to_iterate=True
-        )
-
-    def after_newton_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-
-        solution = self.dof_manager.assemble_variable(from_iterate=True)
-        self.dof_manager.distribute_variable(values=solution, additive=False)
-        self.convergence_status = True
-        self._export()
 
     def _export(self):
         if hasattr(self, "exporter"):
-            self.exporter.write_vtu([self.variable])
+            self.exporter.write_vtu([self.pressure_variable])
 
     def _is_nonlinear_problem(self):
         return False
 
     ## Methods required by AbstractModel but irrelevant for static problems:
     def before_newton_loop(self):
-        self._nonlinear_iteration = 0
+        
 
     def after_simulation(self):
         pass

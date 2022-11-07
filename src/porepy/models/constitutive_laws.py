@@ -2,7 +2,7 @@
 
 Consists of three types of classes
     Units for scaling
-    Materials for constants (Rock, Fluid). These are envisioned as components/attributes of
+    Materials for constants (Solid, Fluid). These are envisioned as components/attributes of
         model classes, see fluid_mass_balance.SolutionStrategyIncompressibleFlow.set_materials
     Constitutive equations on ad form. This will eventually become the most important part,
         from which a model is assembled based on mixin/inheritance.
@@ -78,10 +78,15 @@ class DimensionReduction:
         area/volume (or "specific volume") for intersections of dimension 1 and 0.
         See also specific_volume.
         """
-        apertures = list()
-        for sd in subdomains:
-            a_loc = self.grid_aperture(sd)
-            apertures = apertures.append(a_loc)
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        for i, sd in enumerate(subdomains):
+            
+            a_loc = ad_wrapper(self.grid_aperture(sd), array=False)
+            if i == 0:
+                apertures = projection.cell_prolongation([sd]) * a_loc
+            else:
+                apertures += projection.cell_prolongation([sd]) * a_loc
+        apertures.set_name("aperture")
         return apertures
 
     def specific_volume(self, subdomains: list[pp.Grid]) -> np.ndarray:
@@ -96,23 +101,21 @@ class DimensionReduction:
         # Compute specific volume as the cross-sectional area/volume
         # of the cell, i.e. raise to the power nd-dim
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-        for dim in range(self.nd):
+        v: pp.ad.Operator = None
+        for dim in range(self.nd+1):
             sd_dim = [sd for sd in subdomains if sd.dim == dim]
+            if len(sd_dim) == 0:
+                continue
             a_loc = projection.cell_restriction(sd_dim) * a
-            v_loc = a_loc ** (self.nd - dim)
-            if dim == 0:
+            v_loc = a_loc ** pp.ad.Scalar(self.nd - dim)
+            if v is None:
                 v = projection.cell_prolongation(sd_dim) * v_loc
             else:
                 v += projection.cell_prolongation(sd_dim) * v_loc
         v.set_name("specific_volume")
         return v
 
-        volumes = np.array([])
-        for sd in subdomains:
-            v_loc = self.grid_specific_volume(sd)
-
-            volumes = np.concatenate((volumes, v_loc))
-        return volumes
+ 
 
 
 class ConstantFluidDensity:
@@ -209,13 +212,13 @@ class DarcyFlux:
             discr.flux * self.pressure(subdomains)
             + discr.bound_flux
             * (
-                self.bc_values_darcy(subdomains)
+                self.bc_values_darcy_flux(subdomains)
                 + projection.mortar_to_primary_int
                 * self.interface_darcy_flux(interfaces)
             )
-            + discr.vector_source * self.vector_source(subdomains)
+            + discr.vector_source * self.vector_source(subdomains, material=self.fluid)
         )
-        flux.set_name("Fluid flux")
+        flux.set_name("Darcy_flux")
         return flux
 
     def darcy_flux_discretization(
@@ -236,10 +239,29 @@ class DarcyFlux:
         """
         return pp.ad.MpfaAd(self.darcy_discretization_parameter_key, subdomains)
 
+    def vector_source(
+        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]], material: str
+    ) -> pp.ad.Operator:
+        """Vector source term.
 
-class GradientInterfaceFlux:
-    def gradient_interface_flux(
-        self, interfaces: list[pp.MortarGrid], potential_name: str
+        Represents gravity effects. EK: Let's discuss how to name/think about this term. Note
+        that it appears slightly differently in a flux and a force/momentum balance.
+
+        Args:
+            grids: List of subdomain or interface grids where the vector source is defined.
+            material: Name of the material. Could be either "fluid" or "solid".
+
+        Returns:
+            Cell-wise nd-vector source term operator
+        """
+        vals: np.ndarray = self.fluid.convert_and_expand(0, "m*s^-2", grids, dim=self.nd)
+        source: pp.ad.Matrix = ad_wrapper(vals, array=False, name="zero_vector_source")
+        return source
+
+
+class InterfaceDarcyFlux:
+    def interface_darcy_flux(
+        self, interfaces: list[pp.MortarGrid], potential_name: str = "pressure"
     ) -> pp.ad.Operator:
         """Interface fluxes in the gradient.
 
@@ -249,6 +271,9 @@ class GradientInterfaceFlux:
         Returns:
             Face-wise gradient interface flux in cubic meters per second.
         """
+        # If no interfaces are given, return an empty operator.
+        if not interfaces:
+            return pp.ad.Operator()
         subdomains = self.interfaces_to_subdomains(interfaces)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
@@ -295,7 +320,7 @@ class GradientInterfaceFlux:
 
 
 class AdvectiveFlux:
-    def fluid_flux(
+    def advective_flux(
         self,
         subdomains: list[pp.Grid],
         advected_entity: pp.ad.Operator,
@@ -317,7 +342,7 @@ class AdvectiveFlux:
         """
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains)
-        mortar_projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
+        mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
         flux: pp.ad.Operator = (
             darcy_flux * discr.upwind * advected_entity
             - discr.bound_transport_dir * darcy_flux * bc_values
@@ -344,6 +369,9 @@ class AdvectiveFlux:
         Returns:
             Operator representing the advective flux on the interfaces.
         """
+        # If no interfaces are given, return an empty operator.
+        if not interfaces:
+            return pp.ad.Operator()
         subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
         trace = pp.ad.Trace(subdomains)
@@ -395,7 +423,7 @@ class GravityForce:
         # Geometry needed for basis vector.
         geometry = pp.ad.Geometry(grids, nd=self.nd)
         val: np.ndarray = self.fluid.convert_and_expand(
-            pp.GRAVITY_ACCELERATION, "m/s^2", grids
+            pp.GRAVITY_ACCELERATION, "m*s^-2", grids
         )
         gravity: pp.ad.Matrix = ad_wrapper(val, array=False, name="gravity")
         rho = getattr(self, material + "_density")(grids)
@@ -433,7 +461,7 @@ class LinearElasticMechanicalStress:
 
 # Foregriper litt her for å illustrere utvidelse til poromekanikk.
 # Det blir
-# PoroConstit(LinearElasticRock, PressureStress):
+# PoroConstit(LinearElasticSolid, PressureStress):
 #    def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
 #        return self.pressure_stress(subdomains) + self.mechanical_stress(subdomains)
 class PressureStress:
@@ -469,8 +497,8 @@ class PressureStress:
         return stress
 
 
-class LinearElasticRock(LinearElasticMechanicalStress):
-    """Linear elastic properties of rock.
+class LinearElasticSolid(LinearElasticMechanicalStress):
+    """Linear elastic properties of a solid.
 
     Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
     parameters (bulk_modulus, lame_mu, poisson_ratio). The latter are computed from the former.
@@ -487,7 +515,7 @@ class LinearElasticRock(LinearElasticMechanicalStress):
             Cell-wise shear modulus operator [Pa].
         """
         return ad_wrapper(
-            self.rock.shear_modulus(subdomains), False, name="shear_modulus"
+            self.solid.shear_modulus(subdomains), False, name="shear_modulus"
         )
 
     def lame_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -499,7 +527,7 @@ class LinearElasticRock(LinearElasticMechanicalStress):
         Returns:
             Cell-wise Lame's first parameter operator [Pa].
         """
-        return ad_wrapper(self.rock.lame_lambda(subdomains), False, name="lame_lambda")
+        return ad_wrapper(self.solid.lame_lambda(subdomains), False, name="lame_lambda")
 
     def youngs_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Young's modulus [Pa].
@@ -511,12 +539,12 @@ class LinearElasticRock(LinearElasticMechanicalStress):
             Cell-wise Young's modulus in Pascal.
         """
         val = (
-            self.rock.shear_modulus(subdomains)
+            self.solid.shear_modulus(subdomains)
             * (
-                3 * self.rock.lame_lambda(subdomains)
-                + 2 * self.rock.shear_modulus(subdomains)
+                3 * self.solid.lame_lambda(subdomains)
+                + 2 * self.solid.shear_modulus(subdomains)
             )
-            / (self.rock.lame_lambda(subdomains) + self.rock.shear_modulus(subdomains))
+            / (self.solid.lame_lambda(subdomains) + self.solid.shear_modulus(subdomains))
         )
         return ad_wrapper(val, False, name="youngs_modulus")
 
@@ -529,8 +557,8 @@ class LinearElasticRock(LinearElasticMechanicalStress):
         Returns:
             Cell-wise stiffness tensor in SI units.
         """
-        lmbda = self.rock.lame_lambda([subdomain])
-        mu = self.rock.shear_modulus([subdomain])
+        lmbda = self.solid.lame_lambda([subdomain])
+        mu = self.solid.shear_modulus([subdomain])
         return pp.FourthOrderTensor(mu, lmbda)
 
 
@@ -549,7 +577,7 @@ class FracturedSolid:
         Returns:
             Cell-wise reference gap operator [m].
         """
-        return ad_wrapper(self.rock.gap(subdomains), True, name="reference_gap")
+        return ad_wrapper(self.solid.gap(subdomains), True, name="reference_gap")
 
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction coefficient.
@@ -561,7 +589,7 @@ class FracturedSolid:
             Cell-wise friction coefficient operator.
         """
         return ad_wrapper(
-            self.rock.friction_coefficient(subdomains),
+            self.solid.friction_coefficient(subdomains),
             False,
             name="friction_coefficient",
         )
@@ -604,11 +632,18 @@ class ConstantPorousMedium:
         # This will be set as before (pp.PARAMETERS) since it is a discretization parameter
         # Hence not list[subdomains]
         # perm = pp.SecondOrderTensor(
-        #    self.rock.permeability(subdomain) * np.ones(subdomain.num_cells)
+        #    self.solid.permeability(subdomain) * np.ones(subdomain.num_cells)
         # )
-        return self.rock.permeability(subdomain)
+        return self.solid.permeability(subdomain)
 
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        poro = self.rock.porosity(subdomains)
+        poro = self.solid.porosity(subdomains)
 
         return poro
+
+class ConstantSinglePhaseFluid(ConstantFluidDensity, ConstantViscosity):
+    """Collection of constant fluid properties.
+
+    This class is intended for use in single-phase flow models.
+    """
+    ...
