@@ -1,4 +1,4 @@
-"""This mixin class is used to save data from a model to file. 
+"""This mixin class is used to save data from a model to file.
 
 It is combined with a Model class and provides methods for saving data to file.
 
@@ -6,21 +6,24 @@ We provide basic Exporter functionality, but the user is free to override
 and extend this class to suit their needs. This could include, e.g., saving
 data to a database, or to a file format other than vtu.
 """
+from __future__ import annotations
+
+from typing import Any
+
 import porepy as pp
 
-from __future__ import annotations
-from typing import Any
 
 class DataSavingMixin:
     """Class for saving data from a simulation model.
-    
-    
+
+
 
     Contract with other classes:
         The model should/may call save_data_time_step() at the end of each time step.
         The model should/may call finalize_save_data() at the end of the simulation.
 
     """
+
     equation_system: pp.EquationSystem
     """Equation system manager."""
     params: dict[str, Any]
@@ -30,17 +33,19 @@ class DataSavingMixin:
         """Export the model state at a given time step."""
         if not self.suppress_export:
             self.exporter.write_vtu(
-                self.export_data(), self.time_manager.time, time_dependent=True
-                )
+                self.data_to_export(),
+                time_dependent=True,
+                time_step=self.time_manager.time,
+            )
 
-    def finalize_save_data(self) -> None:
+    def finalize_data_saving(self) -> None:
         """Export pvd file and finalize export."""
         if not self.suppress_export:
             self.exporter.write_pvd()
 
-    def export_data(self):
+    def data_to_export(self):
         """Return data to be exported.
-        
+
         Return type should comply with pp.exporter.DataInput.
 
         Returns:
@@ -51,7 +56,7 @@ class DataSavingMixin:
 
     def initialize_data_saving(self) -> None:
         """Initialize data saving.
-        
+
         This method is called by :meth:`prepare_simulation` to initialize the exporter,
         and any other data saving functionality (e.g., empty data containers to be
         appended in :meth:`save_data_time_step`).

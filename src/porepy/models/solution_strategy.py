@@ -79,7 +79,7 @@ class SolutionStrategy(abc.ABC):
         """Run at the start of simulation. Used for initialization etc."""
         # Set the geometry of the problem. This is a method that must be implemented
         # in a ModelGeometry class.
-        self.set_geometry()  
+        self.set_geometry()
         # Exporter initialization must be done after grid creation.
         self.initialize_data_saving()
 
@@ -91,13 +91,21 @@ class SolutionStrategy(abc.ABC):
         self.set_materials()
         self.set_discretization_parameters()
         self.set_equations()
-        
+
         # Export initial condition
-        self._export()
-        
+        self.save_data_time_step()
+
         self.discretize()
         self._initialize_linear_solver()
 
+    def set_equation_system_manager(self) -> None:
+        """Create an equation_system manager on the mixed-dimensional grid."""
+        self.equation_system = pp.EquationSystem(self.mdg)
+
+    def initial_condition(self) -> None:
+        """Set the initial condition for the problem."""
+        vals = np.zeros(self.equation_system.num_dofs())
+        self.equation_system.set_variable_values(vals, to_iterate=True, to_state=True)
 
     def before_newton_loop(self) -> None:
         """Wrap for legacy reasons. To be removed."""
@@ -159,7 +167,9 @@ class SolutionStrategy(abc.ABC):
 
         """
         solution = self.equation_system.get_variable_values(from_iterate=True)
-        self.equation_system.set_variable_values(values=solution, to_state=True, additive=False)
+        self.equation_system.set_variable_values(
+            values=solution, to_state=True, additive=False
+        )
         self.convergence_status = True
         self.save_data_time_step()
 
@@ -178,10 +188,7 @@ class SolutionStrategy(abc.ABC):
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
-
-    def after_simulation(self):
-        if not self.supports_export:
-            self.exporter.write_pvd()
+        self.finalize_data_saving()
 
     def check_convergence(
         self,
@@ -261,7 +268,7 @@ class SolutionStrategy(abc.ABC):
         The linear system is defined by the current state of the model.
 
         Attributes:
-            linear_system is assigned. 
+            linear_system is assigned.
         """
         t_0 = time.time()
         self.linear_system = self.equation_system.assemble()
@@ -316,6 +323,6 @@ class SolutionStrategy(abc.ABC):
 
         return np.atleast_1d(x)
 
-    def is_nonlinear_problem(self) -> bool:
+    def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear."""
         return True

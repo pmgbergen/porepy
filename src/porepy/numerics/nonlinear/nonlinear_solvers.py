@@ -30,8 +30,10 @@ class NewtonSolver:
         iteration_counter = 0
 
         is_converged = False
-
-        prev_sol = model.dof_manager.assemble_variable(from_iterate=False)
+        if hasattr(model, "equation_system"):
+            prev_sol = model.equation_system.get_variable_values(from_iterate=False)
+        else:
+            prev_sol = model.dof_manager.assemble_variable(from_iterate=False)
         init_sol = prev_sol
         errors = []
         error_norm = 1
