@@ -48,6 +48,7 @@ PorePy AD provides objects for
 
 Elemental AD data structures
 ============================
+.. currentmodule:: porepy.numerics.ad.operators
 
 .. autoclass:: Ad_array
     :members:
@@ -66,7 +67,7 @@ Common mathematical functions
 
 AD-representation of constant scalars, vectors and matrices
 ===========================================================
-.. currentmodule:: porepy.ad
+.. currentmodule:: porepy.numerics.ad.operators
 
 .. autoclass:: Scalar
     :members:
