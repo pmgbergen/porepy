@@ -7,6 +7,8 @@
     BoundaryCondition
     ParameterVector
     ParameterMatrix
+
+Tests of the base Discretization class are also placed here.
 """
 from __future__ import annotations
 
@@ -15,7 +17,6 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
-from tests.unit.test_ad import _compare_matrices, _list_ind_of_grid
 
 
 def set_parameters(
@@ -475,3 +476,90 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
     op = pp.ad.Divergence(subdomains)
     val = op.parse(mdg)
     _compare_matrices(val, sps.block_diag(divergences))
+
+
+
+
+
+
+def test_ad_discretization_class():
+    # Test of the mother class of all discretizations (pp.ad.Discretization)
+
+    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+    mdg = pp.meshing.cart_grid(fracs, np.array([2, 2]))
+
+    subdomains = [g for g in mdg.subdomains()]
+    sub_list = subdomains[:2]
+
+    # Make two Mock discretizations, with different keywords
+    key = "foo"
+    sub_key = "bar"
+    discr = _MockDiscretization(key)
+    sub_discr = _MockDiscretization(sub_key)
+
+    # Ad wrappers
+    # This mimics the old init of Discretization, before it was decided to
+    # make that class semi-ABC. Still checks the wrap method
+    discr_ad = pp.ad.Discretization()
+    discr_ad.subdomains = subdomains
+    discr_ad._discretization = discr
+    pp.ad._ad_utils.wrap_discretization(discr_ad, discr, subdomains)
+    sub_discr_ad = pp.ad.Discretization()
+    sub_discr_ad.subdomains = sub_list
+    sub_discr_ad._discretization = sub_discr
+    pp.ad._ad_utils.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
+
+    # values
+    known_val = np.random.rand(len(subdomains))
+    known_sub_val = np.random.rand(len(sub_list))
+
+    # Assign a value to the discretization matrix, with the right key
+    for vi, sd in enumerate(subdomains):
+        data = mdg.subdomain_data(sd)
+        data[pp.DISCRETIZATION_MATRICES] = {key: {"foobar": known_val[vi]}}
+
+    # Same with submatrix
+    for vi, sd in enumerate(sub_list):
+        data = mdg.subdomain_data(sd)
+        data[pp.DISCRETIZATION_MATRICES].update(
+            {sub_key: {"foobar": known_sub_val[vi]}}
+        )
+
+    # Compare values under parsing. Note we need to pick out the diagonal, due to the
+    # way parsing makes block matrices.
+    assert np.allclose(known_val, discr_ad.foobar.parse(mdg).diagonal())
+    assert np.allclose(known_sub_val, sub_discr_ad.foobar.parse(mdg).diagonal())
+
+
+## Below are helpers for tests of the Ad wrappers.
+
+
+def _compare_matrices(m1, m2):
+    if isinstance(m1, pp.ad.Matrix):
+        m1 = m1._mat
+    if isinstance(m2, pp.ad.Matrix):
+        m2 = m2._mat
+    if m1.shape != m2.shape:
+        return False
+    d = m1 - m2
+    if d.data.size > 0:
+        if np.max(np.abs(d.data)) > 1e-10:
+            return False
+    return True
+
+
+def _list_ind_of_grid(subdomains, g):
+    for i, gl in enumerate(subdomains):
+        if g == gl:
+            return i
+
+    raise ValueError("grid is not in list")
+
+
+class _MockDiscretization:
+    def __init__(self, key):
+        self.foobar_matrix_key = "foobar"
+        self.not_matrix_keys = "failed"
+
+        self.keyword = key
+
