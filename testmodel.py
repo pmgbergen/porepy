@@ -392,8 +392,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         
         if self._use_pressure_equation:
             A, b = self.ad_system.assemble_subsystem(variables=self.system["primary_vars"])
-            if self.test:
-                self.matrix_plot(A)
         else:
             if self._monolithic:
                 A, b = self.ad_system.assemble_subsystem(variables=self._system_vars)

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-import matplotlib.colors as mcolors
 import matplotlib.pyplot as plot
 import numpy as np
 import scipy.sparse as sps
@@ -837,7 +836,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.advective_upwind_energy.upwind.discretize(self.mdg)
         self.conductive_upwind.upwind.discretize(self.mdg)
         
-        ## lazy discretization (everything) TODO optimize, only upwinding must be re-discr.
         # for eq in self.ad_system._equations.values():
         #     eq.discretize(self.mdg)
 
@@ -950,8 +948,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             b = b_p - A_ps * inv_A_ss * b_s
             self._for_expansion = (inv_A_ss, b_s, A_sp)
 
-        # self.composition.print_system(A, b, False)
-        print("Res: ", np.linalg.norm(b))
         if np.linalg.norm(b) < tol:
             self.converged = True
             x = self.dof_man.assemble_variable(variables=self._system_vars, from_iterate=True)
@@ -1019,15 +1015,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
     def matrix_plot(self, A):
         plot.figure()
-        ax1 = plot.subplot(211)
-        ax1.matshow(A.todense())
+        plot.matshow(A.todense())
         plot.colorbar(orientation="vertical")
         plot.set_cmap("terrain")
-
-        ax2 = plot.subplot(212)
-        norm = mcolors.TwoSlopeNorm(vmin=-10.0, vcenter=0, vmax=10.0)
-        ax2.matshow(A.todense(),norm=norm,cmap='RdBu_r')        
-        plot.show()
 
     ### MODEL EQUATIONS -----------------------------------------------------------------------
 
