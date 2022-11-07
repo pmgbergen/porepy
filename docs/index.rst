@@ -49,7 +49,7 @@ PorePy is divided into the following modules
 .. toctree::
    :titlesonly:
 
-   docsrc/porepy/numerics
+   docsrc/porepy/numerics/numerics
 
 For developers
 ==============
