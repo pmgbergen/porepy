@@ -13,6 +13,7 @@ To be tested:
 
 
 """
+import random
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -692,6 +693,112 @@ def test_set_remove_equations(setup):
         offset += intf.num_cells * dof_info_interface["cells"]
 
 
+def test_parse_variable_like():
+    """Test the private function _parse_variable_type().
+
+    Thorough testing of this function allows us to assume variable parsing is properly
+    handled for more advanced functions (e.g., assembly), thus there is no need to test
+    those functions on varying input formats.
+
+    We test only variables on subdomanis; the EquationSystem does not care about the
+    type of domain for a variable.
+
+    """
+    setup = EquationSystemSetup()
+    eq_system = setup.sys_man
+
+    num_subdomains = setup.mdg.num_subdomains()
+    num_interfaces = setup.mdg.num_interfaces()
+
+    # First pass None, this should give all variables
+    received_variables_1 = eq_system._parse_variable_type(None)
+    assert len(received_variables_1) == len(set(received_variables_1))
+    assert len(received_variables_1) == num_interfaces + num_subdomains + 2
+
+    # Next pass an empty list. We expect to receive an empty list back
+    received_variables_2 = eq_system._parse_variable_type([])
+    assert len(received_variables_2) == 0
+
+    # Pass a Variable, we should get it back
+    var = setup.sd_top_variable.sub_vars[0]
+    received_variables_3 = eq_system._parse_variable_type([var])
+    assert len(received_variables_3) == 1
+    assert received_variables_3[0] == var
+
+    # Pass an md-variable with one sub-variable, check we get back the sub-variable
+    received_variables_4 = eq_system._parse_variable_type([setup.sd_top_variable])
+    assert len(received_variables_4) == 1
+    assert received_variables_4[0] == setup.sd_top_variable.sub_vars[0]
+
+    # Send an md-variable with two sub-variables
+    received_variables_5 = eq_system._parse_variable_type([setup.sd_variable])
+    assert len(received_variables_5) == len(setup.sd_variable.sub_vars)
+    assert all([var in received_variables_5 for var in setup.sd_variable.sub_vars])
+
+    # Send in the md-variable as a string, it should not make a difference
+    received_variables_6 = eq_system._parse_variable_type([setup.name_sd_variable])
+    assert len(received_variables_6) == len(setup.sd_variable.sub_vars)
+    assert all([var in received_variables_6 for var in setup.sd_variable.sub_vars])
+
+    # Send in two md-variables
+    received_variables_7 = eq_system._parse_variable_type(
+        [setup.sd_variable, setup.sd_top_variable]
+    )
+    assert len(received_variables_7) == len(setup.sd_variable.sub_vars) + len(
+        setup.sd_top_variable.sub_vars
+    )
+
+    # Send in a combination of string and variables.
+    # NOTE: While this combination goes against the specification in the type hints
+    # (list of strings and list of variable is permitted, combined lists are not), the
+    # current implementation actually allows for this. If the implementation is changed,
+    # the checks involving received_variables_8 and _9 can be deleted.
+    received_variables_8 = eq_system._parse_variable_type(
+        setup.sd_variable.sub_vars + [setup.name_sd_top_variable]
+    )
+    assert len(received_variables_8) == len(setup.sd_variable.sub_vars) + len(
+        setup.sd_top_variable.sub_vars
+    )
+
+    # Send in a combination of string and md-variables
+    received_variables_9 = eq_system._parse_variable_type(
+        [setup.sd_variable, setup.name_sd_top_variable]
+    )
+    assert len(received_variables_9) == len(setup.sd_variable.sub_vars) + len(
+        setup.sd_top_variable.sub_vars
+    )
+
+
+def test_parse_single_equation_like():
+    """Test the helper function for parsing single equations.
+
+    We consider only the equation posed on all subdomains, parsing of other equations
+    should be identical.
+    
+    """
+    setup = EquationSystemSetup()
+    eq_system = setup.sys_man
+
+    for eq in [setup.eq_all_subdomains, setup.eq_all_subdomains.name]:
+        restriction_1 = eq_system._parse_single_equation_like(eq)
+        assert len(restriction_1) == 1
+        name = eq if isinstance(eq, str) else eq.name
+
+        assert name in restriction_1
+        assert restriction_1[name] is None
+
+        restriction_2 = eq_system._parse_single_equation_like({eq: [setup.sd_top]})
+        assert len(restriction_2) == 1
+        assert np.allclose(restriction_2[name], np.arange(setup.sd_top.num_cells))
+
+        eq_def = {eq: setup.subdomains[::-1]}
+        restriction_3 = eq_system._parse_single_equation_like(eq_def)
+        assert np.allclose(restriction_3[name], np.arange(setup.mdg.num_subdomain_cells()))
+
+
+test_parse_single_equation_like()
+
+
 @pytest.mark.parametrize(
     "var_names",
     [
@@ -756,6 +863,10 @@ def test_secondary_variable_assembly(setup, var_names):
         [],  # Empty list should give a system with zero rows
         ["eq_single_subdomain"],  # Single equation
         ["eq_single_subdomain", "eq_all_subdomains"],  # Combination of two equations
+        [
+            "eq_all_subdomains",
+            "eq_single_subdomains",
+        ],  # The combination in reverse order
         ["eq_combined", "eq_single_subdomain"],  # Different combination
         ["eq_single_interface", "eq_all_interfaces"],  # Interface equations
         ["eq_single_interface", "eq_all_interfaces", "eq_single_subdomain"],  # Mixed
@@ -769,11 +880,16 @@ def test_secondary_variable_assembly(setup, var_names):
     ],
 )
 def test_assemble_subsystem(setup, var_names, eq_names):
-    # Test of functionality to assemble subsystems from an EquationManager.
-    #
-    # The test is based on assembly of a subsystem and comparing this to a truth
-    # from assembly of the full system, and then explicitly dump rows and columns.
+    """Test of functionality to assemble subsystems from an EquationSystem.
 
+    The test is based on assembly of a subsystem and comparing this to a truth
+    from assembly of the full system, and then explicitly dump rows and columns.
+
+    We test combinations of one or more equations, together with one or more variables.
+    Variables are only defined by strings; the alternative format of a variables is
+    not considered, since the variables are only passed to EquationSystem.dofs_of()
+    (via the method projection_to()).
+    """
     sys_man = setup.sys_man
 
     # Convert variable names into variables
