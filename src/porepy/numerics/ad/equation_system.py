@@ -108,6 +108,7 @@ This is used to define the domain of a variable or an equation,
 i.e. whether it is defined on cells, faces or nodes.
 """
 
+
 class EquationSystem:
     """Represents an equation system, modelled by AD variables and equations in AD form.
 
@@ -175,9 +176,7 @@ class EquationSystem:
 
         """
 
-        self._equation_image_size_info: dict[
-            str, dict[GridEntity, int]
-        ] = dict()
+        self._equation_image_size_info: dict[str, dict[GridEntity, int]] = dict()
         """Contains for every equation name (key) the argument the number of equations
         per grid entity.
 
@@ -465,7 +464,7 @@ class EquationSystem:
             tag_name: Tag dictionary (tag-value pairs). This will be assigned to all
                 variables in the list.
             variables: List of variables to which the tag should be assigned. None is
-                interpreted as all variables. 
+                interpreted as all variables.
 
                 NOTE: If a mixed-dimensional variable is passed, the tags will be
                 assigned to its sub-variables (living on individual grids).
@@ -771,6 +770,12 @@ class EquationSystem:
         several exposed methods, allowing the user to specify a single variable or a
         list of variables more flexibly.
 
+        There is no filtering of the variables, for instance:
+            - No assumptions should be made on the order of the parsed variables.
+            - The variable list is not uniquified; if the same variable is passed twice
+              (say, as a Variable and by its string), it will duplicated in the list of
+              parsed variables.
+
         Parameters:
             variables (dict or list): The input argument for the variable type.
                 The following interpretation rules are applied:
@@ -806,8 +811,9 @@ class EquationSystem:
     def _gridbased_variable_complement(self, variables: VariableList) -> list[Variable]:
         """Finds the grid-based complement of a variable-like structure.
 
-        The grid-based complement consists of all those grid variables, which are not
-        inside ``variables``, but their respective variable names appear in the structure.
+        The grid-based complement consists of all variables known to this
+        EquationSystem, but which are not in the passed list ``variables``.
+
         """
 
         # strings and md variables represent always a whole in the variable sense. Hence,
@@ -849,7 +855,7 @@ class EquationSystem:
 
         Parameters:
             variables (optional): VariableType input for which the subspace is
-                requested. If no subspace is specified using ``variables``, 
+                requested. If no subspace is specified using ``variables``,
                 a null-space projection is returned.
 
         Returns:
@@ -890,7 +896,7 @@ class EquationSystem:
         """
         variables = self._parse_variable_type(variables)
         global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
-        
+
         # Storage of indices per requested variable.
         indices = list()
         for variable in variables:
@@ -916,7 +922,7 @@ class EquationSystem:
 
         Parameters:
             dof: a single index in the global vector.
-            
+
         Returns: the identified Variable object.
 
         Raises:
@@ -1414,7 +1420,7 @@ class EquationSystem:
         # Also keep track of the row indices of each equation, and store it in
         # assembled_equation_indices.
         for equ_name, rows in equ_blocks.items():
-            # This will raise a key error if the equation name is unknown
+            # This will raise a key error if the equation name is unknown.
             eq = self._equations[equ_name]
             ad = eq.evaluate(self, state)
 
