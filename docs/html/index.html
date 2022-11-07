@@ -1,0 +1,178 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Welcome to PorePy! &#8212; PorePy 1.5 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/nature.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Numerics" href="docsrc/porepy/numerics.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="docsrc/porepy/numerics.html" title="Numerics"
+             accesskey="N">next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">PorePy</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Welcome to PorePy!</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="welcome-to-porepy">
+<h1>Welcome to PorePy!<a class="headerlink" href="#welcome-to-porepy" title="Permalink to this heading">¶</a></h1>
+<p>PorePy is a research code that is mainly developed at the Department of Mathematics at the University of Bergen.
+The code is aimed at simulation of multiphysics processes in fractured porous media.
+Specifically, the code is typically applied to</p>
+<ol class="arabic simple">
+<li><p>Develop simulation technology for fractured porous media. This includes discretization methods and coupling schemes.</p></li>
+<li><p>Study processes that cannot be properly represented by standard simulation tools.</p></li>
+</ol>
+<p>As a by-product of these two main use cases, a third main research topic is</p>
+<ol class="arabic simple" start="3">
+<li><p>Develop design principles for simulation software for mixed-dimensional multiphysics problems.</p></li>
+</ol>
+<section id="what-is-porepy-good-at">
+<h2>What is PorePy good at?<a class="headerlink" href="#what-is-porepy-good-at" title="Permalink to this heading">¶</a></h2>
+<p>The main strengths of PorePy are:</p>
+<ul class="simple">
+<li><p>Natural representation of variables and processes in fracture networks, and on the fracture-matrix interface.</p></li>
+<li><p>Semi-automatic construction of meshes that conform to fracture networks.</p></li>
+<li><p>Discretization methods for flow, deformation, transport and frictional fracture deformation.</p></li>
+<li><p>Flexibility in combining discretizations and constitutive relations in the matrix and in the fracture network.</p></li>
+</ul>
+<p>Other notable features are:</p>
+<ul class="simple">
+<li><p>Simple functionality for fracture propagation (newly added, use with care).</p></li>
+<li><p>Extensive functionality for computational geometry.</p></li>
+<li><p>Automatic differentiation. Under active improvement.</p></li>
+</ul>
+</section>
+<section id="what-is-porepy-not-so-good-at">
+<h2>What is PorePy not so good at?<a class="headerlink" href="#what-is-porepy-not-so-good-at" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>No native support for linear and non-linear solvers. This will be improved in the near future.</p></li>
+<li><p>Few standardized setups are available; mostly, the user is responsible for specifying problems and discretizations.
+The exception is the hierarchy of models for mechanics, poromechanics and thermo-poromechanics, all coupled with fracture deformation.</p></li>
+</ul>
+<p>PorePy cannot be expected to function as a black box tool for general multiphysics problems.
+While simple flow and transport problems can be solved relatively straightforwardly,
+more complex problems will likely require diving into parts of the source code.
+This is partly due to lack of resources from the developer side,
+but it also reflects that these are difficult problems for which robust and standardized setups cannot be defined.</p>
+</section>
+</section>
+<section id="the-porepy-package">
+<h1>The PorePy package<a class="headerlink" href="#the-porepy-package" title="Permalink to this heading">¶</a></h1>
+<p>PorePy is divided into the following modules</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="docsrc/porepy/numerics.html">Numerics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="docsrc/porepy/numerics-ad.html">Automatic Differentiation</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="for-developers">
+<h1>For developers<a class="headerlink" href="#for-developers" title="Permalink to this heading">¶</a></h1>
+<p>Below you will find guidelines and instructions for developing activities in PorePy.
+All new developers are required to familiarize themselves with the <em>How-To-X</em> sections before
+attempting a pull-request.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this heading">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="#">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Welcome to PorePy!</a><ul>
+<li><a class="reference internal" href="#what-is-porepy-good-at">What is PorePy good at?</a></li>
+<li><a class="reference internal" href="#what-is-porepy-not-so-good-at">What is PorePy not so good at?</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#the-porepy-package">The PorePy package</a></li>
+<li><a class="reference internal" href="#for-developers">For developers</a></li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="docsrc/porepy/numerics.html"
+                          title="next chapter">Numerics</a></p>
+  </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="docsrc/porepy/numerics.html" title="Numerics"
+             >next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">PorePy</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Welcome to PorePy!</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..
+    </div>
+  </body>
+</html>

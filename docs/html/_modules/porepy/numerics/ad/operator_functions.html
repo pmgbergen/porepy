@@ -1,0 +1,697 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>porepy.numerics.ad.operator_functions &#8212; PorePy 1.5 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/nature.css" />
+    <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+    <script src="../../../../_static/jquery.js"></script>
+    <script src="../../../../_static/underscore.js"></script>
+    <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">PorePy</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">porepy.numerics.ad.operator_functions</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for porepy.numerics.ad.operator_functions</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Contains callable operators representing functions to be called with other</span>
+<span class="sd">operators as input arguments.</span>
+<span class="sd">Contains also a decorator class for callables, which transforms them automatically in the</span>
+<span class="sd">specified operator function type.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+
+<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">from</span> <span class="nn">porepy.numerics.ad.forward_mode</span> <span class="kn">import</span> <span class="n">Ad_array</span>
+
+<span class="kn">from</span> <span class="nn">.operators</span> <span class="kn">import</span> <span class="n">Operation</span><span class="p">,</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">Tree</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Function&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ConstantFunction&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;DiagonalJacobianFunction&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;InterpolatedFunction&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ADmethod&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1">### BASE CLASSES ------------------------------------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="AbstractFunction"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractFunction">[docs]</a><span class="k">class</span> <span class="nc">AbstractFunction</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Abstract class for all operator functions, i.e. functions evaluated on some other AD</span>
+<span class="sd">    operators.</span>
+
+<span class="sd">    Implements the callable-functionality and provides abstract methods for obtaining function</span>
+<span class="sd">    values and the Jacobian.</span>
+<span class="sd">    The abstraction intends to provide means for approximating operators, where values are</span>
+<span class="sd">    e.g. interpolated and the Jacobian is approximated using FD.</span>
+
+<span class="sd">    IMPLEMENTATION NOTE:</span>
+<span class="sd">        One can flag the operator as ``ad_compatible``. If flagged, the AD framework passes</span>
+<span class="sd">        AD arrays directly to the callable ``func`` and will **not** call the abstract methods</span>
+<span class="sd">        for values and the Jacobian during operator parsing.</span>
+<span class="sd">        If for some reason one wants to flag the function as AD compatible, but still have the</span>
+<span class="sd">        abstract methods called, this is as of now **not** supported.</span>
+
+<span class="sd">        For now only one child class, porepy.ad.Function, flags itself always as AD compatible.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="AbstractFunction.__init__"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractFunction.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">array_compatible</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">ad_compatible</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Configures this instance as a valid AD operator.</span>
+<span class="sd">        The passed callable is expected to take numerical information in some form and</span>
+<span class="sd">        return numerical information in the same form form.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            func (Callable): callable Python object representing a (numeric) function</span>
+<span class="sd">            name (str): name of this instance as an AD operator</span>
+<span class="sd">            array_compatible (default=False): If true, the callable ``func`` will be called</span>
+<span class="sd">                using arrays (numpy.typing.ArrayLike). Flagging this true, the user ensures</span>
+<span class="sd">                that the callable can work with arrays and return respectively</span>
+<span class="sd">                formatted output. If false, the function will be evaluated element-wise</span>
+<span class="sd">                (scalar input)</span>
+<span class="sd">            ad_compatible (default=False): If true, the callable ``func`` will be called using</span>
+<span class="sd">                the porepy.ad.Ad_array.</span>
+
+<span class="sd">                Important NOTE: As of now, this will effectively bypass the abstract methods</span>
+<span class="sd">                for generating values and the Jacobian, assuming both will be provided</span>
+<span class="sd">                correctly by the return value of ``func``</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1">### PUBLIC</span>
+        <span class="c1"># Reference to callable passed at instantiation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">func</span>
+        <span class="c1"># indicator whether above callable can be fed with vectors (numpy.ndarray) or not</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">array_compatible</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">array_compatible</span>
+        <span class="c1"># indicator whether above callable can be fed with Ad_array instances</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ad_compatible</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">ad_compatible</span>
+
+        <span class="c1">### PRIVATE</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_operation</span><span class="p">:</span> <span class="n">Operation</span> <span class="o">=</span> <span class="n">Operation</span><span class="o">.</span><span class="n">evaluate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">]):</span>
+        <span class="sd">&quot;&quot;&quot;Renders this function operator callable, fulfilling its notion as &#39;function&#39;.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            *args: AD operators passed as symbolic arguments for the callable passed at</span>
+<span class="sd">                instantiation.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            porepy.ad.Operator: Operator with call-arguments as children in the operator tree.</span>
+<span class="sd">                The assigned operation is ``evaluate``.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">children</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">]</span>
+        <span class="n">op</span> <span class="o">=</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_operation</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="n">children</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">op</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;String representation of this operator function.</span>
+<span class="sd">        Uses currently only the given name.&quot;&quot;&quot;</span>
+
+        <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;AD Operator function &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;AD Operator functions are meant to be called, not multiplied.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;AD Operator functions are meant to be called, not added.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;AD Operator functions are meant to be called, not subtracted.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;AD Operator functions are meant to be called, not subtracted.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__div__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;AD Operator functions are meant to be called, not divided.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__truediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;AD Operator functions are meant to be called, not divided.&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AbstractFunction.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractFunction.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">md</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parsing to a numerical value.</span>
+
+<span class="sd">        The real work will be done by combining the function with arguments, during</span>
+<span class="sd">        parsing of an operator tree.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            md: Mixed-dimensional grid.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The instance itself</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="AbstractFunction.get_values"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractFunction.get_values">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Abstract method for evaluating the callable passed at instantiation.</span>
+
+<span class="sd">        This method will be called during the operator parsing.</span>
+<span class="sd">        The AD arrays passed as arguments will be in the same order as the operators passed to</span>
+<span class="sd">        the call to this instance.</span>
+
+<span class="sd">        The returned numpy array will be set as &#39;val&#39; argument for the AD array representing</span>
+<span class="sd">        this instance.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            *args: Ad_array representation of the operators passed during the call to this</span>
+<span class="sd">                instance</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy.ndarray: numeric function values</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="AbstractFunction.get_jacobian"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractFunction.get_jacobian">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span> <span class="nf">get_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Abstract method for evaluating the Jacobian of the callable passed at instantiation.</span>
+
+<span class="sd">        This method will be called during the operator parsing.</span>
+<span class="sd">        The AD arrays passed as arguments will be in the same order as the operators passed to</span>
+<span class="sd">        the call to this instance.</span>
+
+<span class="sd">        The returned numpy array will be be set as &#39;jac&#39; argument for the AD array representing</span>
+<span class="sd">        this instance.</span>
+
+<span class="sd">        NOTE: the necessary dimensions for the jacobian can be extracted from the dimensions</span>
+<span class="sd">        of the Jacobians of passed Ad_array instances.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            *args: Ad_array representation of the operators passed during the call to this</span>
+<span class="sd">                instance</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            numpy.ndarray: numeric representation of the Jacobian of this function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div></div>
+
+
+<div class="viewcode-block" id="AbstractJacobianFunction"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractJacobianFunction">[docs]</a><span class="k">class</span> <span class="nc">AbstractJacobianFunction</span><span class="p">(</span><span class="n">AbstractFunction</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;&#39;Half&#39;-abstract base class, providing a call to the callable ``func`` in order to obtain</span>
+<span class="sd">    numeric function values.</span>
+
+<span class="sd">    What remains abstract is the Jacobian.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="AbstractJacobianFunction.get_values"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractJacobianFunction.get_values">[docs]</a>    <span class="k">def</span> <span class="nf">get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="c1"># get values of argument Ad_arrays.</span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">val</span> <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span>
+
+        <span class="c1"># if the callable is flagged as conform for vector operations, feed vectors</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">array_compatible</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">vals</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># if not vector-conform, feed element-wise</span>
+
+            <span class="c1"># TODO this displays some special behavior when val-arrays have different lengths:</span>
+            <span class="c1"># it returns None-like things for every iteration more then shortest length</span>
+            <span class="c1"># These Nones are ignored for some reason by the function call, as well as by the</span>
+            <span class="c1"># array constructor.</span>
+            <span class="c1"># If a mortar var and a subdomain var are given as args,</span>
+            <span class="c1"># then the lengths will be different for example.</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">vals_i</span><span class="p">)</span> <span class="k">for</span> <span class="n">vals_i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">vals</span><span class="p">)])</span></div></div>
+
+
+<span class="c1">### CONCRETE IMPLEMENTATIONS ------------------------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="Function"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.Function">[docs]</a><span class="k">class</span> <span class="nc">Function</span><span class="p">(</span><span class="n">AbstractFunction</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Ad representation of an analytically given function,</span>
+<span class="sd">    where it is expected that passing Ad_arrays directly to ``func`` will</span>
+<span class="sd">    return the proper result.</span>
+
+<span class="sd">    Here the values AND the Jacobian are obtained exactly by the AD framework.</span>
+
+<span class="sd">    The intended use is as a wrapper for operations on pp.ad.Ad_array objects,</span>
+<span class="sd">    in forms which are not directly or easily expressed by the rest of the Ad</span>
+<span class="sd">    framework.</span>
+
+<span class="sd">    NOTE: This is a special case where the abstract methods for getting values and the Jacobian</span>
+<span class="sd">    are formally implemented but never used by the AD framework (see ``ad_compatible``)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">array_compatible</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">array_compatible</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Function.get_values"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.Function.get_values">[docs]</a>    <span class="k">def</span> <span class="nf">get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">val</span></div>
+
+<div class="viewcode-block" id="Function.get_jacobian"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.Function.get_jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">get_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">jac</span></div></div>
+
+
+<div class="viewcode-block" id="ConstantFunction"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ConstantFunction">[docs]</a><span class="k">class</span> <span class="nc">ConstantFunction</span><span class="p">(</span><span class="n">AbstractFunction</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; &quot;Function representing constant, scalar values with no dependencies and ergo a</span>
+<span class="sd">    zero Jacobian.</span>
+
+<span class="sd">    It still has to be called though since it fulfills the notion of a &#39;function&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ConstantFunction.__init__"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ConstantFunction.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            values: constant values per cell</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># dummy function, takes whatever and returns only the pre-set values</span>
+        <span class="k">def</span> <span class="nf">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">values</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span> <span class="o">=</span> <span class="n">values</span></div>
+
+<div class="viewcode-block" id="ConstantFunction.get_values"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ConstantFunction.get_values">[docs]</a>    <span class="k">def</span> <span class="nf">get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The values passed at instantiation.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span></div>
+
+<div class="viewcode-block" id="ConstantFunction.get_jacobian"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ConstantFunction.get_jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">get_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        IMPLEMENTATION NOTE:</span>
+<span class="sd">        The return value is not a sparse matrix as imposed by the parent method signature,</span>
+<span class="sd">        but a zero.</span>
+<span class="sd">        Numerical operations with a zero always works with any numeric formats in</span>
+<span class="sd">        numpy, scipy and PorePy&#39;s AD framework.</span>
+<span class="sd">        Since the constant function (most likely) gets no arguments passed,</span>
+<span class="sd">        we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The trivial derivative of a constant.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="mf">0.0</span></div></div>
+
+
+<div class="viewcode-block" id="DiagonalJacobianFunction"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.DiagonalJacobianFunction">[docs]</a><span class="k">class</span> <span class="nc">DiagonalJacobianFunction</span><span class="p">(</span><span class="n">AbstractJacobianFunction</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Approximates the Jacobian of the function using identities and scalar</span>
+<span class="sd">    multipliers per dependency.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DiagonalJacobianFunction.__init__"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.DiagonalJacobianFunction.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">multipliers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">array_compatible</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Args:</span>
+<span class="sd">            multipliers: scalar multipliers for the identity blocks in the Jacobian,</span>
+<span class="sd">                per dependency of ``func``. The order in ``multipliers`` is expected to match</span>
+<span class="sd">                the order of AD operators passed to the call of this function.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">array_compatible</span><span class="p">)</span>
+        <span class="c1"># check and format input for further use</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">multipliers</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_multipliers</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">multipliers</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_multipliers</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">multipliers</span><span class="p">)]</span></div>
+
+<div class="viewcode-block" id="DiagonalJacobianFunction.get_jacobian"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.DiagonalJacobianFunction.get_jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">get_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;The approximate Jacobian consists of identity blocks times scalar multiplier</span>
+<span class="sd">        per every function dependency.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># the Jacobian of a (Merged) Variable is already a properly sized block identity</span>
+        <span class="n">jac</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">jac</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multipliers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># summing identity blocks for each dependency</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># TODO think about exception handling in case not enough</span>
+            <span class="c1"># L-values were provided initially</span>
+            <span class="k">for</span> <span class="n">arg</span><span class="p">,</span> <span class="n">L</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_multipliers</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+                <span class="n">jac</span> <span class="o">+=</span> <span class="n">arg</span><span class="o">.</span><span class="n">jac</span> <span class="o">*</span> <span class="n">L</span>
+
+        <span class="k">return</span> <span class="n">jac</span></div></div>
+
+
+<div class="viewcode-block" id="InterpolatedFunction"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.InterpolatedFunction">[docs]</a><span class="k">class</span> <span class="nc">InterpolatedFunction</span><span class="p">(</span><span class="n">AbstractFunction</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represents the passed function as an interpolation of chosen order on a cartesian,</span>
+<span class="sd">    uniform grid.</span>
+
+<span class="sd">    The image of the function is expected to be of dimension 1, while the domain can be</span>
+<span class="sd">    multidimensional.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="InterpolatedFunction.__init__"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.InterpolatedFunction.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">min_val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">max_val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">npt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">preval</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">array_compatible</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;All vector-valued ndarray arguments are assumed to be column vectors.</span>
+<span class="sd">        Each row-entry represents a value for an argument of ``func`` in</span>
+<span class="sd">        respective order.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            min_val: lower bounds for the domain of ``func``.</span>
+<span class="sd">            max_val: upper bound for the domain.</span>
+<span class="sd">            npt: number of interpolation points per dimension of the domain.</span>
+<span class="sd">            order: Order of interpolation. Supports currently only linear order.</span>
+<span class="sd">            preval (default=False): If True, pre-evaluates the values of the function at</span>
+<span class="sd">                the points of interpolation and stores them.</span>
+<span class="sd">                If False, evaluates them if necessary.</span>
+<span class="sd">                Influences the runtime.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">array_compatible</span><span class="p">)</span>
+
+        <span class="c1">### PUBLIC</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">order</span>
+
+        <span class="c1">### PRIVATE</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prevaluated</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">preval</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">InterpolationTable</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">order</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prevaluated</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_table</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">InterpolationTable</span><span class="p">(</span><span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">,</span> <span class="n">npt</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_table</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">AdaptiveInterpolationTable</span><span class="p">(</span><span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">,</span> <span class="n">npt</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Interpolation of order </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2"> not implemented.&quot;</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="InterpolatedFunction.get_values"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.InterpolatedFunction.get_values">[docs]</a>    <span class="k">def</span> <span class="nf">get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+        <span class="c1"># stacking argument values vertically for interpolation</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">val</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">args</span><span class="p">])</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">X</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="InterpolatedFunction.get_jacobian"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.InterpolatedFunction.get_jacobian">[docs]</a>    <span class="k">def</span> <span class="nf">get_jacobian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+        <span class="c1"># get points at which to evaluate the differentiation</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">val</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">args</span><span class="p">])</span>
+        <span class="c1"># allocate zero matrix for Jacobian with correct dimensions and in CSR format</span>
+        <span class="n">jac</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">jac</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">axis</span><span class="p">,</span> <span class="n">arg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+            <span class="c1"># The trivial Jacobian of one argument gives us the correct position for the</span>
+            <span class="c1"># entries as ones</span>
+            <span class="n">partial_jac</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">jac</span>
+            <span class="c1"># replace the ones with actual values</span>
+            <span class="c1"># Since csr, we can simply replace the data array with the values of the derivative</span>
+            <span class="n">partial_jac</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">axis</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="c1"># add blocks to complete Jacobian</span>
+            <span class="n">jac</span> <span class="o">+=</span> <span class="n">partial_jac</span>
+
+        <span class="k">return</span> <span class="n">jac</span></div></div>
+
+
+<span class="c1">### FUNCTION DECORATOR ------------------------------------------------------------------------</span>
+
+
+<div class="viewcode-block" id="ADmethod"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ADmethod">[docs]</a><span class="k">class</span> <span class="nc">ADmethod</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Automatic-Differentiation method/function.</span>
+
+<span class="sd">    (Decorator) Class for methods representing e.g., physical properties.</span>
+<span class="sd">    The decorated function is expected to take scalars/vectors and return a scalar/vector.</span>
+<span class="sd">    See example usage below.</span>
+
+<span class="sd">    The return value will be an AD operator of a type passed to the decorator.</span>
+
+<span class="sd">    .. code-block:: python</span>
+<span class="sd">        :caption: Example usage</span>
+
+<span class="sd">        import porepy as pp</span>
+
+<span class="sd">        # decorating class methods</span>
+<span class="sd">        class IdealGas:</span>
+
+<span class="sd">            @ADmethod(ad_operator=pp.ad.DiagonalJacobianFunction,</span>
+<span class="sd">                      operators_args={&quot;multipliers&quot;=[1,1]})</span>
+<span class="sd">            def density(self, p: float, T: float) -&gt; float:</span>
+<span class="sd">                return p/T</span>
+
+<span class="sd">        # decorating function</span>
+<span class="sd">        @ADmethod(ad_operator=pp.ad.Function)</span>
+<span class="sd">        def dummy_rel_perm(s):</span>
+<span class="sd">            return s**2</span>
+
+<span class="sd">    With above code, the density of an instance of &#39;IdealGas&#39; can be called using</span>
+<span class="sd">    :class:`~porepy.numerics.ad.operators.MergedVariable` representing</span>
+<span class="sd">    pressure and temperature.</span>
+<span class="sd">    Analogously, `dummy_rel_perm` can be called with one representing the saturation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ADmethod.__init__"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ADmethod.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">ad_function_type</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="s2">&quot;AbstractFunction&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Function</span><span class="p">,</span>
+        <span class="n">operator_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Decorator class constructor.</span>
+<span class="sd">        Saves information about the requested AD Function type and keyword arguments necessary</span>
+<span class="sd">        for its instantiation.</span>
+
+<span class="sd">        NOTE: If used as decorator WITHOUT explicit instantiation, the instantiation will be</span>
+<span class="sd">        done implicitly with above default arguments (that&#39;s how Python decorators work).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            func: decorated function object</span>
+<span class="sd">            ad_function_type: type reference to an AD operator function to be instantiated.</span>
+<span class="sd">                When instantiated, that instance will effectively replace ``func``.</span>
+<span class="sd">            operator_kwargs: keyword arguments to be passed when instantiating an operator</span>
+<span class="sd">                of type ``ad_function_type``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># reference to decorated function object</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_func</span> <span class="o">=</span> <span class="n">func</span>
+        <span class="c1"># mark if decoration without explicit call to constructor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_explicit_init</span> <span class="o">=</span> <span class="n">func</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="c1"># reference to instance, to which the decorated bound method belongs, if any</span>
+        <span class="c1"># if this remains None, then an unbound method was decorated</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bound_to</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># reference to operator type which should wrap the decorated method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ad_func_type</span> <span class="o">=</span> <span class="n">ad_function_type</span>
+        <span class="c1"># keyword arguments for call to constructor of operator type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_op_kwargs</span> <span class="o">=</span> <span class="n">operator_kwargs</span></div>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">ADmethod</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Wrapper factory.</span>
+<span class="sd">        The decorated object is wrapped and/or evaluated here.</span>
+
+<span class="sd">        Dependent on whether the decorated function is a method belonging to a class,</span>
+<span class="sd">        or an unbound function, the wrapper will have a different signature.</span>
+
+<span class="sd">        If bound to a class instance, the wrapper will include a partial function, where</span>
+<span class="sd">        the instance of the class was already passed beforehand.</span>
+
+<span class="sd">        IMPLEMENTATION NOTE:</span>
+<span class="sd">            If the decorator was explicitly instantiated during decoration,</span>
+<span class="sd">            that instance will effectively be replaced by another decorator instance created</span>
+<span class="sd">            here in the call.</span>
+<span class="sd">            It is expected that the the call will follow the instantiation immediately when</span>
+<span class="sd">            used as a decorator, hence properly dereferencing the original instance.</span>
+<span class="sd">            If used differently or if another reference is saved between explicit instantiation</span>
+<span class="sd">            and call, this is a potential memory leak.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># If decorated without explicit init, the function is passed during a call to</span>
+        <span class="c1"># the decorator as first argument.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_func</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># If an explicit init was made, mimic a non-explicit init to get an object with</span>
+        <span class="c1"># the descriptor protocol.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_explicit_init</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ADmethod</span><span class="p">(</span>
+                <span class="n">func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_func</span><span class="p">,</span>
+                <span class="n">ad_function_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_ad_func_type</span><span class="p">,</span>
+                <span class="n">operator_kwargs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_op_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Without an explicit init, the first decorator itself replaces the decorated</span>
+        <span class="c1"># function. This results in a call to ADmethod.__call__ instead of</span>
+        <span class="c1"># a call to the decorated function</span>
+
+        <span class="c1"># when calling the decorator, distinguish between bound method call</span>
+        <span class="c1"># (&#39;args&#39; contains &#39;self&#39; of the decorated instance) and an unbound function call</span>
+        <span class="c1"># (whatever &#39;args&#39; and &#39;kwargs&#39; contain, we pass it to the wrapper)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bound_to</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">wrapped_function</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ad_wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bound_to</span> <span class="o">==</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">wrapped_function</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ad_wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Calling bound decorator &quot;</span>
+                <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+                <span class="o">+</span> <span class="s2">&quot; with unknown instance &quot;</span>
+                <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2"> This decorator is bound to &quot;</span>
+                <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bound_to</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">wrapped_function</span>
+
+    <span class="k">def</span> <span class="fm">__get__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">binding_instance</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">binding_type</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Descriptor protocol.</span>
+
+<span class="sd">        If this ADmethod decorates a class method (and effectively replaces it), it will</span>
+<span class="sd">        be bound to the class instance, similar to bound methods.</span>
+
+<span class="sd">        Every time this instance is syntactically accessed as an attribute of the class</span>
+<span class="sd">        instance, this getter is called and returns a partially evaluated call to this</span>
+<span class="sd">        instance instead.</span>
+<span class="sd">        By calling this instance this way, we can save a reference to the `self`</span>
+<span class="sd">        argument of the decorated class method and pass it as an argument to the</span>
+<span class="sd">        decorated method.</span>
+
+<span class="sd">        The reason why this is necessary is due to the fact, that class methods</span>
+<span class="sd">        are always passed in unbound form to the decorator when the code is</span>
+<span class="sd">        evaluated</span>
+<span class="sd">        (i.e. they don&#39;t have a reference to the `self` argument, contrary to bound</span>
+<span class="sd">        methods)</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            binding_instance: instance, whose method has been decorated by this class.</span>
+<span class="sd">            binding_type: type instance of the decorated method&#39;s class/owner.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Save a reference to the binding instance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bound_to</span> <span class="o">=</span> <span class="n">binding_instance</span>
+        <span class="c1"># A partial call to the decorator is returned, not the decorator itself.</span>
+        <span class="c1"># This will trigger the function evaluation.</span>
+        <span class="k">return</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="fm">__call__</span><span class="p">,</span> <span class="n">binding_instance</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ADmethod.ad_wrapper"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ADmethod.ad_wrapper">[docs]</a>    <span class="k">def</span> <span class="nf">ad_wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractFunction</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Actual wrapper function.</span>
+<span class="sd">        Constructs the necessary AD-Operator class wrapping the decorated callable</span>
+<span class="sd">        and performs the evaluation/call.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            *args: arguments for the call to the wrapping AD operator function</span>
+<span class="sd">            **kwargs: keyword argument for the call to the wrapping Ad operator function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Make sure proper assignment of callable was made</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+
+        <span class="c1"># extra safety measure to ensure a bound call is done to the right binding instance.</span>
+        <span class="c1"># We pass only the binding instance referenced in the descriptor protocol.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bound_to</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">operator_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_func</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># partial evaluation of a bound function,</span>
+            <span class="c1"># since the AD operator has no reference to binding instance</span>
+            <span class="n">operator_func</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_func</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bound_to</span><span class="p">)</span>
+
+        <span class="c1"># Resulting AD operator has a special name to mark its origin</span>
+        <span class="k">if</span> <span class="s2">&quot;name&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_op_kwargs</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;ADmethod-&quot;</span>
+            <span class="n">name</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ad_func_type</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">)</span>
+                <span class="o">+</span> <span class="s2">&quot;-decorating-&quot;</span>
+                <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_func</span><span class="o">.</span><span class="vm">__qualname__</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_op_kwargs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">})</span>
+
+        <span class="c1"># calling the operator</span>
+        <span class="n">wrapping_operator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ad_func_type</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">operator_func</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_op_kwargs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">wrapping_operator</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../../index.html">PorePy</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">porepy.numerics.ad.operator_functions</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..
+    </div>
+  </body>
+</html>
