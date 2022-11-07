@@ -20,7 +20,7 @@ class Material:
     constant value, simply define a new class attribute with the same name. If a different
     value is needed for a specific subdomain or there is spatial heterogeneity internal to a
     subdomain, the method should be overridden. The latter is assumed to be most relevant for
-    rocks.
+    solids.
     """
 
     def __init__(self, units: pp.Units) -> None:
@@ -84,6 +84,7 @@ class Material:
         units: str,
         grids: list[pp.GridLike],
         grid_field: str = "num_cells",
+        dim: int = 1,
     ):
         """Convert value to SI units, and expand to all grids.
 
@@ -93,11 +94,12 @@ class Material:
             grids: List of grids (subdomains or interfaces) where the property is defined.
             grid_field: Name of field in grid defining how to expand. Default is num_cells,
                 other obvious choice is num_faces.
+            dim: Dimension of the property. Default is 1, but can be 2 or 3 for vectors.
 
         Returns:
             Array of values, one for each cell or face in all grids.
         """
-        size = sum([getattr(g, grid_field) for g in grids])
+        size = sum([getattr(g, grid_field) for g in grids]) * dim
         return self.convert_units(value, units) * np.ones(size)
 
 
@@ -146,7 +148,7 @@ class UnitFluid(Material):
             in ordering of mixins: More advanced constitutive relations must have priority
             over the material, e.g.
 
-                class CombinedConstit(DensityFromPressure, UnitFluid, UnitRock):
+                class CombinedConstit(DensityFromPressure, UnitFluid, UnitSolid):
                     pass
 
             See also fluid_density.
@@ -169,8 +171,9 @@ class UnitFluid(Material):
 
 
 class UnitSolid(Material):
-    """
-    WIP. See UnitFluid.
+    """Solid material with unit values.
+    
+    See UnitFluid.
     """
 
     THERMAL_EXPANSION: number = 1.0 / pp.KELVIN
