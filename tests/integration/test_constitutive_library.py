@@ -143,3 +143,14 @@ def test_convert_units(modify_dict, base_units, derived_units):
     dimensionless_units = ["", "1", "-", "   "]
     for unit in dimensionless_units:
         assert np.isclose(material.convert_units(1, unit), 1)
+
+def test_property_expansion(subdomains):
+    """Test convert_and_expand method of Material class.
+
+    Conversion is tested in test_convert_units, so here we only test that the expansion
+    works as expected.
+    """
+    material = pp.UnitFluid()
+    # Test that the expansion works for a single property for expansion to cells
+    nc = sum([sd.num_cells for sd in subdomains])
+    assert material.convert_and_expand("density", subdomains).shape == (nc,)
