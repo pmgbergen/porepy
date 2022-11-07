@@ -20,7 +20,7 @@ __all__ = ["EquationSystem"]
 GridLike = Union[pp.Grid, pp.MortarGrid]
 """A union type representing a domain either by a grid or mortar grid.
 FIXME: Rename to Domain? Or GridLikeList/GridList below?"""
-DomainList = Union[list(pp.Grid), list(pp.MortarGrid)]
+DomainList = Union[list[pp.Grid], list[pp.MortarGrid]]
 """A union type representing a list of grids or mortar grids.
 This is *not* a list of GridLike, as that would allow a list of mixed grids and 
 mortar grids."""
@@ -987,9 +987,10 @@ class EquationSystem:
         # is then stored together with the equation itself.
         image_info: dict[GridLike, np.ndarray] = dict()
         total_num_equ = 0
+        
+
 
         # The domain of this equation is the set of grids on which it is defined
-
         name = equation.name
         if name in self._equations:
             raise ValueError(
@@ -998,11 +999,22 @@ class EquationSystem:
                 "\n\nMake sure your equations are uniquely named."
             )
 
+        # If no grids are specified, there is nothing to do
+        if not grids:
+            self._equation_image_space_composition.update({name: image_info})
+            # Information on the size of the equation, in terms of the grids it is defined
+            # on.
+            self._equation_image_size_info.update({name: equations_per_grid_entity})
+            # Store the equation itself.
+            self._equations.update({name: equation})
+            return
+
         # We require that equations are defined either on a set of subdomains, or a set
         # of interfaces. The combination of the two is mathematically possible, provided
         # a sufficiently general notation is used, but the chances of this being
         # misused is considered high compared to the benefits of allowing such combined
         # domains, and we therefore disallow it.
+
         all_subdomains = all([isinstance(g, pp.Grid) for g in grids])
         all_interfaces = all([isinstance(g, pp.MortarGrid) for g in grids])
         # FIXME: Is it allowed to have no domain or should we change to == 1?
