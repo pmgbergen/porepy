@@ -181,17 +181,24 @@ from porepy.models.run_models import (
     run_time_dependent_model,
 )
 
+
+from porepy.numerics import ad
+from porepy.numerics.ad.equation_system import EquationSystem
+
+from porepy import models
+from porepy.models.geometry import ModelGeometry
+from porepy.models.units import Units
+from porepy.models.materials import UnitFluid, UnitSolid, Material
+from porepy.models.solution_strategy import SolutionStrategy
+from porepy.models import constitutive_laws
+from porepy.models import fluid_mass_balance
+
 from porepy.models.contact_mechanics_model import ContactMechanics
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
 from porepy.models.thm_model import THM
 from porepy.models.incompressible_flow_model import IncompressibleFlow
 from porepy.models.slightly_compressible_flow_model import SlightlyCompressibleFlow
 
-from porepy.numerics import ad
-from porepy.models.geometry import ModelGeometry
-from porepy.models.units import Units
-from porepy.models.materials import UnitFluid, UnitSolid, Material
-from porepy.numerics.ad.equation_system import EquationSystem
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager
