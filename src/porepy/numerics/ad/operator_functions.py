@@ -47,6 +47,25 @@ class AbstractFunction(Operator):
 
         For now only one child class, porepy.ad.Function, flags itself always as AD compatible.
 
+    Parameters:
+        func: callable Python object representing a (numeric) function.
+            Expected to take numerical information in some form and return numerical
+            information in the same form.
+        name: name of this instance as an AD operator
+        array_compatible (optional): If true, the callable ``func`` will be called
+            using arrays (numpy.typing.ArrayLike). Flagging this true, the user ensures
+            that the callable can work with arrays and return respectively
+            formatted output. If false, the function will be evaluated element-wise
+            (scalar input). Defaults to False.
+        ad_compatible (Optional): If true, the callable ``func`` will be called using
+            the porepy.ad.Ad_array.
+
+            Note that as of now, this will effectively bypass the abstract methods
+            for generating values and the Jacobian, assuming both will be provided
+            correctly by the return value of ``func``.
+
+            Defaults to False.
+
     """
 
     def __init__(
@@ -56,28 +75,6 @@ class AbstractFunction(Operator):
         array_compatible: bool = False,
         ad_compatible: bool = False,
     ):
-        """Configures this instance as a valid AD operator.
-        The passed callable is expected to take numerical information in some form and
-        return numerical information in the same form form.
-
-        Parameters:
-            func: callable Python object representing a (numeric) function
-            name: name of this instance as an AD operator
-            array_compatible (optional): If true, the callable ``func`` will be called
-                using arrays (numpy.typing.ArrayLike). Flagging this true, the user ensures
-                that the callable can work with arrays and return respectively
-                formatted output. If false, the function will be evaluated element-wise
-                (scalar input). Defaults to False.
-            ad_compatible (Optional): If true, the callable ``func`` will be called using
-                the porepy.ad.Ad_array.
-
-                Note that as of now, this will effectively bypass the abstract methods
-                for generating values and the Jacobian, assuming both will be provided
-                correctly by the return value of ``func``.
-
-                Defaults to False.
-
-        """
         ### PUBLIC
         # Reference to callable passed at instantiation
         self.func: Callable = func

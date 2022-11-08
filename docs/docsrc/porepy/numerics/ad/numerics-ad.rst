@@ -102,14 +102,14 @@ Operator functions
 
 .. autoclass:: AbstractFunction
     :members:
-    :special-members: __call__
+
+    .. automethod:: __call__
 
 .. autoclass:: AbstractJacobianFunction
     :members:
 
 .. autoclass:: Function
     :members:
-    :exclude-members: get_values, get_jacobian
 
 .. autoclass:: ConstantFunction
     :members:
@@ -119,11 +119,12 @@ Operator functions
 
 .. autoclass:: InterpolatedFunction
     :members:
-    :exclude-members: get_values, get_jacobian
 
 .. autoclass:: ADmethod
     :members:
-    :special-members: __call__, __get__
+
+    .. automethod:: __call__
+    .. automethod:: __get__
 
 Grid operators
 ==============
