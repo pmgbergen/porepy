@@ -64,7 +64,7 @@
     <span class="k">return</span> <span class="n">ad_arrays</span>
 
 
-<div class="viewcode-block" id="Ad_array"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Ad_array">[docs]</a><span class="k">class</span> <span class="nc">Ad_array</span><span class="p">:</span>
+<div class="viewcode-block" id="Ad_array"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Ad_array">[docs]</a><span class="k">class</span> <span class="nc">Ad_array</span><span class="p">:</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">val</span> <span class="o">=</span> <span class="n">val</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">jac</span> <span class="o">=</span> <span class="n">jac</span>
@@ -220,7 +220,7 @@
     <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Ad_array.copy"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Ad_array.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Ad_array.copy"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Ad_array.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">b</span> <span class="o">=</span> <span class="n">Ad_array</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">b</span><span class="o">.</span><span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">val</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -232,7 +232,7 @@
             <span class="n">b</span><span class="o">.</span><span class="n">jac</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jac</span>
         <span class="k">return</span> <span class="n">b</span></div>
 
-<div class="viewcode-block" id="Ad_array.diagvec_mul_jac"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Ad_array.diagvec_mul_jac">[docs]</a>    <span class="k">def</span> <span class="nf">diagvec_mul_jac</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<div class="viewcode-block" id="Ad_array.diagvec_mul_jac"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Ad_array.diagvec_mul_jac">[docs]</a>    <span class="k">def</span> <span class="nf">diagvec_mul_jac</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">A</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
@@ -242,7 +242,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">A</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">jac</span></div>
 
-<div class="viewcode-block" id="Ad_array.jac_mul_diagvec"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Ad_array.jac_mul_diagvec">[docs]</a>    <span class="k">def</span> <span class="nf">jac_mul_diagvec</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+<div class="viewcode-block" id="Ad_array.jac_mul_diagvec"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Ad_array.jac_mul_diagvec">[docs]</a>    <span class="k">def</span> <span class="nf">jac_mul_diagvec</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">A</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
@@ -252,7 +252,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">jac</span> <span class="o">*</span> <span class="n">A</span></div>
 
-<div class="viewcode-block" id="Ad_array.full_jac"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.Ad_array.full_jac">[docs]</a>    <span class="k">def</span> <span class="nf">full_jac</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Ad_array.full_jac"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Ad_array.full_jac">[docs]</a>    <span class="k">def</span> <span class="nf">full_jac</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">jac</span></div>
 
     <span class="k">def</span> <span class="nf">_other_mul_jac</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
