@@ -105,16 +105,26 @@ autodoc_default_options = {
     "special-members": False,
     "private-members": False,
     "show-inheritance": True,
+    "inherited-members": False,
     "no-value": False
 }
+
+# uses type hints in signatures for e.g. linking (default)
+autodoc_typehints = "signature"
+
+# Avoid double appearance of documentation if child member has no docs
+autodoc_inherit_docstrings = False
+
+# Used to shorten the parsing of type hint aliases
+autodoc_type_aliases = {}
 
 # -- Napoleon Settings ------------------------------------------------------------------------
 
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
-napoleon_include_init_with_doc = True
-napoleon_include_private_with_doc = False
-napoleon_include_special_with_doc = False
+# napoleon_include_init_with_doc = False
+# napoleon_include_private_with_doc = False
+# napoleon_include_special_with_doc = False
 napoleon_use_admonition_for_examples = False
 napoleon_use_admonition_for_notes = False
 napoleon_use_admonition_for_references = False
