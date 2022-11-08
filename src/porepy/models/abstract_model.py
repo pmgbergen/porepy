@@ -362,7 +362,7 @@ class AbstractModel:
 
         The method is primarily intended for box-shaped domains. However, it can also be
         applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)
-        provided `tol` is correctly tuned.
+        provided `tol` is tuned accordingly.
 
         Args:
             sd: Subdomain grid.
