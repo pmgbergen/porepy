@@ -17,8 +17,8 @@ params = {
 }
 
 t = 0.
-T = 1.
-dt = 0.01
+T = 5.
+dt = T * 1e-2
 max_iter = 200
 tol = 1e-5
 

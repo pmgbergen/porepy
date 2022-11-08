@@ -50,7 +50,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.converged: bool = False
         """Indicator if current Newton-step converged."""
 
-        self.dt: float = 0.5
+        self.dt: float = 0.1
         """Timestep size."""
 
         ## Initial Conditions
@@ -128,7 +128,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.porosity = 1.0
         """Base porosity of model domain."""
 
-        self.permeability = 0.001
+        self.permeability = 0.01
         """Base permeability of model domain."""
 
         self.mdg: pp.MixedDimensionalGrid
@@ -217,8 +217,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Assigns a cartesian grid as computational domain.
         Overwrites/sets the instance variables 'mdg'.
         """
-        refinement = 7
-        phys_dims = [3, 1]
+        refinement = 2
+        phys_dims = [2, 1]
         n_cells = [i * refinement for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
         self.box = pp.geometry.bounding_box.from_points(bounding_box_points)
@@ -308,18 +308,21 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             water: k_water,
             salt: k_salt
         }
-        # sources
+
+        # mass sources
         self.mass_sources.update({
             water : 0. * injected_moles_water,  
             salt : 0. * injected_moles_water,  # trace amounts to avoid washing out
         })
+
+        # source is extensive, multiply with injected moles (kJ)
         h_water = self.composition.reference_phase.specific_enthalpy(
             self.injection_pressure,
             self.injection_temperature
         ) * injected_moles_water
         self.enthalpy_sources = {
-            water: 0. * h_water,  # in kJ
-            salt: 0. * h_water,  # no new salt enters the system
+            water: 0. * h_water,
+            salt: 0. * h_water,
         }
 
         ## setting of initial values
@@ -462,6 +465,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
     
     def _set_up(self) -> None:
         """Set model components including
+
             - source terms,
             - boundary values,
             - permeability tensor
@@ -496,6 +500,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
             ### MASS BALANCE EQUATIONS
             # advective flux in mass balance
+            outflow_faces = self._bc_outflow(sd)
             bc, bc_vals = self._bc_advective_flux(sd)
             transmissibility = pp.SecondOrderTensor(
                 self.permeability * np.ones(sd.num_cells)
@@ -525,6 +530,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                         "bc": bc,
                         "bc_values": bc_vals,
                         "darcy_flux": np.zeros(sd.num_faces),
+                        "freeflow_bc": outflow_faces,
                     },
                 )
             # upwind bc per component mass balance
@@ -541,6 +547,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                         "bc": bc,
                         "bc_values": bc_vals,
                         "darcy_flux": np.zeros(sd.num_faces),
+                        "freeflow_bc": outflow_faces,
                     },
                 )
 
@@ -568,6 +575,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                     "bc": bc,
                     "bc_values": bc_vals,
                     "darcy_flux": np.zeros(sd.num_faces),
+                    "freeflow_bc": outflow_faces,
                 },
             )
             # conductive flux in energy equation
@@ -651,6 +659,19 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.conductive_upwind_bc = pp.ad.BoundaryCondition(kw, self._grids)
 
     ## Boundary Conditions
+
+    def _bc_outflow(self, sd: pp.Grid) -> np.ndarray:
+        """
+        Returns:
+            A boolean array of size ``num_faces`` indicating the outflow boundary.
+
+        """
+        _, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
+        
+        vals = np.zeros(sd.num_faces, dtype=bool)
+        vals[idx_east] = True
+
+        return vals
 
     def _bc_advective_flux(self, sd: pp.Grid) -> tuple[pp.BoundaryCondition, np.ndarray]:
         """BC for advective flux (Darcy). Override for modifications.
