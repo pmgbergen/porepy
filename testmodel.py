@@ -5,8 +5,6 @@ sys.path.append("/mnt/c/Users/vl-work/Desktop/github/porepy/src")
 
 from datetime import datetime
 
-import matplotlib.colors as mcolors
-import matplotlib.pyplot as plot
 import numpy as np
 import scipy.sparse as sps
 import scipy.sparse.linalg as spla
@@ -53,17 +51,18 @@ class TestModel(pp.models.abstract_model.AbstractModel):
 
         ## Initial Conditions
         self.initial_p: float = 100
-        self.initial_sw: float = 0.5
-        self.initial_sn: float = 0.5
+        self.initial_sw: float = 0.
+        self.initial_sn: float = 1.
         
         self.inflow_p: float = 150
         self.outflow_p: float = 100
         
-        self.inflow_sw: float = 0.1
-        self.inflow_sn: float = 0.9
+        self.inflow_sw: float = 0.7
+        self.inflow_sn: float = 0.3
 
-        self.rho_w: float = 3.
-        self.rho_n: float = 2.
+        self.rho_w: float = 1.
+        self.rho_n: float = 1.
+        self.permeability: float = 0.1
 
         self.mdg: pp.MixedDimensionalGrid
         self.create_grid()
@@ -99,7 +98,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.upwind_sw_bc: pp.ad.BoundaryCondition
         self.upwind_sn: pp.ad.UpwindAd
         self.upwind_sn_bc: pp.ad.BoundaryCondition
-        self.bc_out: pp.ad.BoundaryCondition
 
         ### PRIVATE
         self._prolong_prim: sps.spmatrix
@@ -161,7 +159,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.system.update({"secondary_vars": secondary_vars})
         self._system_vars = primary_vars + secondary_vars
 
-        all_vars = list(set(primary_vars + secondary_vars))
         export_vars = set(self._system_vars)
         self._export_vars = list(export_vars)
 
@@ -209,7 +206,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             ### MASS BALANCE EQUATIONS
             # advective flux in mass balance
             bc, bc_vals = self._bc_advective_flux(sd)
-            transmissibility = pp.SecondOrderTensor(np.ones(sd.num_cells))
+            transmissibility = pp.SecondOrderTensor(np.ones(sd.num_cells) * self.permeability)
             pp.initialize_data(
                 sd,
                 data,
@@ -224,6 +221,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                 },
             )
 
+            free_flow = self._bc_freeflow(sd)
             bc, bc_vals = self._bc_advective_upwind_sw(sd)
             pp.initialize_data(
                 sd,
@@ -233,6 +231,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                     "bc": bc,
                     "bc_values": bc_vals,
                     "darcy_flux": np.zeros(sd.num_faces),
+                    # "freeflow_bc": free_flow,
                 },
             )
 
@@ -245,18 +244,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                     "bc": bc,
                     "bc_values": bc_vals,
                     "darcy_flux": np.zeros(sd.num_faces),
-                },
-            )
-
-            # saving outflow boundary indicator
-            bc, bc_vals = self._bc_outflow(sd)
-            pp.initialize_data(
-                sd,
-                data,
-                f"{self.flow_keyword}_out",
-                {
-                    "bc": bc,
-                    "bc_values": bc_vals,
+                    # "freeflow_bc": free_flow,
                 },
             )
 
@@ -283,19 +271,15 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         self.upwind_sn = pp.ad.UpwindAd(kw, self._grids)
         self.upwind_sn_bc = pp.ad.BoundaryCondition(kw, self._grids)
 
-        kw = f"{self.flow_keyword}_out"
-        self.bc_out = pp.ad.BoundaryCondition(kw, self._grids)
-
     ## Boundary Conditions
 
-    def _bc_outflow(self, sd: pp.Grid) -> tuple[pp.BoundaryCondition, np.ndarray]:
+    def _bc_freeflow(self, sd: pp.Grid) -> np.ndarray:
         all_idx, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
         
-        vals = np.zeros(sd.num_faces)
-        vals[idx_east] = self.inflow_sw
-        bc = pp.BoundaryCondition(sd, all_idx, "neu")
+        vals = np.zeros(sd.num_faces, dtype=bool)
+        vals[idx_east] = True
 
-        return bc, vals
+        return vals
 
     def _bc_advective_flux(self, sd: pp.Grid) -> tuple[pp.BoundaryCondition, np.ndarray]:
         _, idx_east, idx_west, *_ = self._domain_boundary_sides(sd)
@@ -342,7 +326,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             self.mdg,
             self.flow_keyword,
             self.flow_keyword,
-            p_name="p"
+            p_name="p",
+            from_iterate=True,
         )
 
         for sd, data in self.mdg.subdomains(return_data=True):
@@ -352,13 +337,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             data["parameters"][f"{self.upwind_keyword}_sn"]["darcy_flux"] = np.copy(flux)
         
         self.upwind_sw.upwind.discretize(self.mdg)
-        self.upwind_sw.bound_transport_dir.discretize(self.mdg)
-        self.upwind_sw.bound_transport_neu.discretize(self.mdg)
-        
-        if self.test:
-            self._test()
-        # for eq in self.ad_system._equations.values():
-        #     eq.discretize(self.mdg)
+        # self.upwind_sw.bound_transport_dir.discretize(self.mdg)
+        # self.upwind_sw.bound_transport_neu.discretize(self.mdg)
 
     def after_newton_iteration(
         self, solution_vector: np.ndarray, iteration: int
@@ -412,6 +392,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         
         if self._use_pressure_equation:
             A, b = self.ad_system.assemble_subsystem(variables=self.system["primary_vars"])
+            if self.test:
+                self.matrix_plot(A)
         else:
             if self._monolithic:
                 A, b = self.ad_system.assemble_subsystem(variables=self._system_vars)
@@ -454,20 +436,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear."""
         return True
-
-    def matrix_plot(self, A):
-        plot.figure()
-        plot.subplot(211)
-        plot.matshow(A.todense())
-        plot.colorbar(orientation="vertical")
-        plot.set_cmap("terrain")
-
-        plot.subplot(212)
-        norm = mcolors.TwoSlopeNorm(vmin=-10.0, vcenter=0, vmax=10.0)
-        plot.matshow(A.todense(),norm=norm,cmap='RdBu_r')
-        plot.colorbar()
-        
-        plot.show()
 
     def set_unity(self) -> None:
         """Sets the equation representing the feed fraction unity.
@@ -520,7 +488,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
 
         upwind_adv = self.upwind_sw
         upwind_adv_bc = self.upwind_sw_bc
-        bc_out = self.bc_out
 
         accumulation = self.mass_matrix.mass * self.rho_w * (
             self.sw - self.sw.previous_timestep()
@@ -534,9 +501,6 @@ class TestModel(pp.models.abstract_model.AbstractModel):
             - upwind_adv.bound_transport_dir * advective_flux * upwind_adv_bc
             - upwind_adv.bound_transport_neu * upwind_adv_bc
         )
-        # advection -= (
-        #     upwind_adv.bound_transport_neu * (bc_out * advective_flux)
-        # )
 
         equation = accumulation + self.dt * (self.div * advection)
         
@@ -597,7 +561,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         return
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
-file_name = "testmodel_" + timestamp
+file_name = "testmodel_"  # + timestamp
 params = {
     "folder_name": "/mnt/c/Users/vl-work/Desktop/sim-results/" + file_name + "/",
     "file_name": file_name,
@@ -614,8 +578,8 @@ tol = 1e-5
 
 model =TestModel(params=params)
 
-model.prepare_simulation()
 model.dt = dt
+model.prepare_simulation()
 
 while t < T:
     print(".. Timestep t=%f , dt=%e" % (t, model.dt))

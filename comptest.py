@@ -24,11 +24,8 @@ tol = 1e-5
 
 model = pp.CompositionalFlowModel(params=params)
 
-model.prepare_simulation()
 model.dt = dt
-
-
-model.assemble_test()
+model.prepare_simulation()
 
 while t < T:
     print(".. Timestep t=%f , dt=%e" % (t, model.dt))
