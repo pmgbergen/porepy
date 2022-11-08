@@ -37,25 +37,29 @@
           <div class="body" role="main">
             
   <h1>Source code for porepy.numerics.ad.functions</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">This module contains functions to be wrapped in a pp.ad.Function and used as part</span>
-<span class="sd">of compound pp.ad.Operators, i.e. as (terms of) equations.</span>
+<span></span><span class="sd">&quot;&quot;&quot;This module contains functions to be wrapped in a</span>
+<span class="sd">:class:`~porepy.numerics.ad.operator_functions.Function` and used as part</span>
+<span class="sd">of compound :class:`~porepy.numerics.ad.operators.Operator`, i.e. as (terms of) equations.</span>
 
-<span class="sd">Some functions depend on non-ad objects. This requires that the function (f) be wrapped</span>
-<span class="sd">in an ad Function using partial evaluation:</span>
+<span class="sd">Some functions depend on non-ad objects. This requires that the function ``f`` be wrapped</span>
+<span class="sd">in an ``ad.Function`` using partial evaluation:</span>
 
-<span class="sd">    from functools import partial</span>
-<span class="sd">    AdFunction = pp.ad.Function(partial(f, other_parameter), &quot;name&quot;)</span>
-<span class="sd">    equation: pp.ad.Operator = AdFunction(var) - 2 * var</span>
+<span class="sd">Examples:</span>
+<span class="sd">    &gt;&gt;&gt; from functools import partial</span>
+<span class="sd">    &gt;&gt;&gt; AdFunction = pp.ad.Function(partial(f, other_parameter), &quot;name&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; equation: pp.ad.Operator = AdFunction(var) - 2 * var</span>
 
-<span class="sd">with var being some ad variable.</span>
+<span class="sd">    with ``var`` being some AD variable.</span>
 
-<span class="sd">Note that while the argument to AdFunction is a pp.ad.Operator, the wrapping in</span>
-<span class="sd">pp.ad.Function implies that upon parsing, the argument passed to f will be an Ad_array.</span>
+<span class="sd">    Note that while the argument to ``AdFunction`` is a</span>
+<span class="sd">    :class:`~porepy.numerics.ad.operators.Operator, the wrapping in</span>
+<span class="sd">    ``pp.ad.Function`` implies that upon parsing,</span>
+<span class="sd">    the argument passed to ``f`` will be an Ad_array.</span>
+
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
@@ -90,7 +94,7 @@
 
 
 <span class="c1"># %% Exponential and logarithmic functions</span>
-<div class="viewcode-block" id="exp"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.exp">[docs]</a><span class="k">def</span> <span class="nf">exp</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="exp"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.exp">[docs]</a><span class="k">def</span> <span class="nf">exp</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">der</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">))</span>
@@ -99,7 +103,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="log"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.log">[docs]</a><span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="log"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.log">[docs]</a><span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">der</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
@@ -109,14 +113,14 @@
 
 
 <span class="c1"># %% Sign and absolute value functions and l2_norm</span>
-<div class="viewcode-block" id="sign"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.sign">[docs]</a><span class="k">def</span> <span class="nf">sign</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="sign"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.sign">[docs]</a><span class="k">def</span> <span class="nf">sign</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="abs"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.abs">[docs]</a><span class="k">def</span> <span class="nf">abs</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="abs"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.abs">[docs]</a><span class="k">def</span> <span class="nf">abs</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">(</span><span class="n">sign</span><span class="p">(</span><span class="n">var</span><span class="p">))</span>
@@ -125,7 +129,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="l2_norm"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.l2_norm">[docs]</a><span class="k">def</span> <span class="nf">l2_norm</span><span class="p">(</span><span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">var</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">:</span>
+<div class="viewcode-block" id="l2_norm"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.l2_norm">[docs]</a><span class="k">def</span> <span class="nf">l2_norm</span><span class="p">(</span><span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">var</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;L2 norm of a vector variable.</span>
 
 <span class="sd">    For the example of dim=3 components and n vectors, the ordering is assumed</span>
@@ -136,16 +140,12 @@
 <span class="sd">    Note:</span>
 <span class="sd">        See module level documentation on how to wrap functions like this in ad.Function.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        dim : int</span>
-<span class="sd">            Dimension, i.e. number of vector components.</span>
-<span class="sd">        var : pp.ad.Ad_array</span>
-<span class="sd">            Ad operator (variable or expression) which is argument of the norm</span>
-<span class="sd">            function.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        dim: Dimension, i.e. number of vector components.</span>
+<span class="sd">        var: Ad operator (variable or expression) which is argument of the norm function.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        pp.ad.Ad_array</span>
-<span class="sd">            The norm of var with appropriate val and jac attributes.</span>
+<span class="sd">        The norm of var with appropriate val and jac attributes.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -181,7 +181,7 @@
 
 
 <span class="c1"># %% Trigonometric functions</span>
-<div class="viewcode-block" id="sin"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.sin">[docs]</a><span class="k">def</span> <span class="nf">sin</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="sin"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.sin">[docs]</a><span class="k">def</span> <span class="nf">sin</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">))</span>
@@ -190,7 +190,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="cos"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.cos">[docs]</a><span class="k">def</span> <span class="nf">cos</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="cos"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.cos">[docs]</a><span class="k">def</span> <span class="nf">cos</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">))</span>
@@ -199,7 +199,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="tan"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.tan">[docs]</a><span class="k">def</span> <span class="nf">tan</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="tan"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.tan">[docs]</a><span class="k">def</span> <span class="nf">tan</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
@@ -208,7 +208,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="arcsin"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arcsin">[docs]</a><span class="k">def</span> <span class="nf">arcsin</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="arcsin"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.arcsin">[docs]</a><span class="k">def</span> <span class="nf">arcsin</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arcsin</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">))</span>
@@ -217,7 +217,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arcsin</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="arccos"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arccos">[docs]</a><span class="k">def</span> <span class="nf">arccos</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="arccos"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.arccos">[docs]</a><span class="k">def</span> <span class="nf">arccos</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">)))</span>
@@ -226,7 +226,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="arctan"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arctan">[docs]</a><span class="k">def</span> <span class="nf">arctan</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="arctan"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.arctan">[docs]</a><span class="k">def</span> <span class="nf">arctan</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">((</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
@@ -236,7 +236,7 @@
 
 
 <span class="c1"># %% Hyperbolic functions</span>
-<div class="viewcode-block" id="sinh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.sinh">[docs]</a><span class="k">def</span> <span class="nf">sinh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="sinh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.sinh">[docs]</a><span class="k">def</span> <span class="nf">sinh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sinh</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">))</span>
@@ -245,7 +245,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sinh</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="cosh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.cosh">[docs]</a><span class="k">def</span> <span class="nf">cosh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="cosh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.cosh">[docs]</a><span class="k">def</span> <span class="nf">cosh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sinh</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">))</span>
@@ -254,7 +254,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="tanh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.tanh">[docs]</a><span class="k">def</span> <span class="nf">tanh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="tanh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.tanh">[docs]</a><span class="k">def</span> <span class="nf">tanh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">))</span>
@@ -263,7 +263,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="arcsinh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arcsinh">[docs]</a><span class="k">def</span> <span class="nf">arcsinh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="arcsinh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.arcsinh">[docs]</a><span class="k">def</span> <span class="nf">arcsinh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arcsinh</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">((</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">))</span>
@@ -272,7 +272,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arcsinh</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="arccosh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arccosh">[docs]</a><span class="k">def</span> <span class="nf">arccosh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="arccosh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.arccosh">[docs]</a><span class="k">def</span> <span class="nf">arccosh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arccosh</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">den1</span> <span class="o">=</span> <span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">)</span>
@@ -283,7 +283,7 @@
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arccosh</span><span class="p">(</span><span class="n">var</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="arctanh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arctanh">[docs]</a><span class="k">def</span> <span class="nf">arctanh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
+<div class="viewcode-block" id="arctanh"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.arctanh">[docs]</a><span class="k">def</span> <span class="nf">arctanh</span><span class="p">(</span><span class="n">var</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="n">val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arctanh</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">)</span>
         <span class="n">jac</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">diagvec_mul_jac</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
@@ -293,33 +293,31 @@
 
 
 <span class="c1"># %% Step and Heaviside functions</span>
-<div class="viewcode-block" id="heaviside"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.heaviside">[docs]</a><span class="k">def</span> <span class="nf">heaviside</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">zerovalue</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">):</span>
+<div class="viewcode-block" id="heaviside"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.heaviside">[docs]</a><span class="k">def</span> <span class="nf">heaviside</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">zerovalue</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">heaviside</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="p">,</span> <span class="n">zerovalue</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">heaviside</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">zerovalue</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="heaviside_smooth"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.heaviside_smooth">[docs]</a><span class="k">def</span> <span class="nf">heaviside_smooth</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-3</span><span class="p">):</span>
+<div class="viewcode-block" id="heaviside_smooth"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.heaviside_smooth">[docs]</a><span class="k">def</span> <span class="nf">heaviside_smooth</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-3</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Smooth (regularized) version of the Heaviside function.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        var : Ad_array or ndarray</span>
-<span class="sd">            Input array.</span>
-<span class="sd">        eps : float, optional</span>
-<span class="sd">            Regularization parameter. The default is 1E-3. The function will</span>
-<span class="sd">            convergence to the Heaviside function in the limit when eps --&gt; 0</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        var: Input array.</span>
+<span class="sd">        eps (optional): Regularization parameter. The function will converge to the</span>
+<span class="sd">            Heaviside function in the limit when ``eps --&gt; 0``. The default is ``1e-3``.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Ad_array or ndarray (depending on the input)</span>
-<span class="sd">            Regularized heaviside function (and its Jacobian if applicable).</span>
+<span class="sd">        Regularized heaviside function (and its Jacobian if applicable) in form of a</span>
+<span class="sd">        Ad_array or ndarray (depending on the input).</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        The analytical expression for the smooth version Heaviside function reads:</span>
-<span class="sd">            H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps)),</span>
+<span class="sd">            ``H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps))``,</span>
 <span class="sd">        with its derivative smoothly approximating the Dirac delta function:</span>
-<span class="sd">            d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2)).</span>
+<span class="sd">            ``d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2))``.</span>
 
 <span class="sd">        Reference: https://ieeexplore.ieee.org/document/902291</span>
 
@@ -334,7 +332,7 @@
         <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">arctan</span><span class="p">(</span><span class="n">var</span> <span class="o">*</span> <span class="n">eps</span> <span class="o">**</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)))</span></div>
 
 
-<div class="viewcode-block" id="RegularizedHeaviside"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.RegularizedHeaviside">[docs]</a><span class="k">class</span> <span class="nc">RegularizedHeaviside</span><span class="p">:</span>
+<div class="viewcode-block" id="RegularizedHeaviside"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.RegularizedHeaviside">[docs]</a><span class="k">class</span> <span class="nc">RegularizedHeaviside</span><span class="p">:</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">regularization</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_regularization</span> <span class="o">=</span> <span class="n">regularization</span>
 
@@ -348,9 +346,7 @@
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">heaviside</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>  <span class="c1"># type: ignore</span></div>
 
 
-<div class="viewcode-block" id="maximum"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.maximum">[docs]</a><span class="k">def</span> <span class="nf">maximum</span><span class="p">(</span>
-    <span class="n">var0</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">,</span> <span class="n">var1</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">:</span>
+<div class="viewcode-block" id="maximum"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.maximum">[docs]</a><span class="k">def</span> <span class="nf">maximum</span><span class="p">(</span><span class="n">var0</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">,</span> <span class="n">var1</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Ad maximum function represented as an Ad_array.</span>
 
 <span class="sd">    The second argument is allowed to be constant, with a numpy array originally</span>
@@ -358,14 +354,11 @@
 <span class="sd">    Ad_array originating from a pp.ad.Operator.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        var0 : pp.ad.Ad_array</span>
-<span class="sd">            Ad operator (variable or expression).</span>
-<span class="sd">        var1 : Union[pp.ad.Ad_array, pp.ad.Array]</span>
-<span class="sd">            Ad operator (variable or expression) OR ad Array.</span>
+<span class="sd">        var0: First argument to the maximum function.</span>
+<span class="sd">        var1: Second argument.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        pp.ad.Ad_array</span>
-<span class="sd">            The maximum of var0 and var1 with appropriate val and jac attributes.</span>
+<span class="sd">        The maximum of ``var0`` and ``var1`` with appropriate val and jac attributes.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">vals</span> <span class="o">=</span> <span class="p">[</span><span class="n">var0</span><span class="o">.</span><span class="n">val</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
@@ -385,24 +378,21 @@
     <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">(</span><span class="n">max_val</span><span class="p">,</span> <span class="n">max_jac</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="characteristic_function"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.characteristic_function">[docs]</a><span class="k">def</span> <span class="nf">characteristic_function</span><span class="p">(</span><span class="n">tol</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">var</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">):</span>
+<div class="viewcode-block" id="characteristic_function"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.characteristic_function">[docs]</a><span class="k">def</span> <span class="nf">characteristic_function</span><span class="p">(</span><span class="n">tol</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">var</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Characteristic function of an ad variable.</span>
 
-<span class="sd">    Returns 1 if var.val is within absolute tolerance = tol of zero. The derivative is set to</span>
-<span class="sd">    zero independent of var.val.</span>
+<span class="sd">    Returns 1 if ``var.val`` is within absolute tolerance = ``tol`` of zero.</span>
+<span class="sd">    The derivative is set to zero independent of ``var.val``.</span>
 
-<span class="sd">    Usage note:</span>
-<span class="sd">        See module level documentation on how to wrap functions like this in ad.Function.</span>
+<span class="sd">    Notes:</span>
+<span class="sd">        See module level documentation on how to wrap functions like this in ``ad.Function``.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        tol : float</span>
-<span class="sd">            Absolute tolerance for comparison with 0 using np.isclose.</span>
-<span class="sd">        var : pp.ad.Ad_array</span>
-<span class="sd">            Ad operator (variable or expression).</span>
+<span class="sd">        tol: Absolute tolerance for comparison with 0 using np.isclose.</span>
+<span class="sd">        var: Ad operator (variable or expression).</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        pp.ad.Ad_array</span>
-<span class="sd">            The characteristic function of var with appropriate val and jac attributes.</span>
+<span class="sd">        The characteristic function of var with appropriate val and jac attributes.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">val</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>

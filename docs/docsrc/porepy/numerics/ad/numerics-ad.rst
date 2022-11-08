@@ -6,10 +6,10 @@ Automatic Differentiation
 
 The AD framework (*Algorithmic* or *Automatic* Differentiation) allows an object-oriented
 representation of variables and other mathematical terms, which appear in equations
-and models. The goal as for any AD framework is to provide a cheap and and automated evaluation
+and models. The goal as for any AD framework is to provide a cheap and automated evaluation
 of derivatives, to be utilized in numerical approximation techniques.
 
-All classes and functions can be accessed as shown the following example:
+All classes and functions can be accessed as shown in the following example:
 
 .. code-block:: python
     :caption: Access to AD submodule
@@ -30,7 +30,7 @@ It also provides a wrapper for discretizations of operators like the mathematica
 enabling the user to program equations in a symbolic way.
 
 .. note::
-    The expression *operator* might cause confusion. 
+    The expression *operator* might require some explanation. 
     In the sense of ``porepy.ad``, every object is an operator returning a numerical
     representation of the represented term, based on some information. What information is
     necessary and what is provided is documented in individual classes.
@@ -102,12 +102,28 @@ Operator functions
 
 .. autoclass:: AbstractFunction
     :members:
+    :special-members: __call__
 
 .. autoclass:: AbstractJacobianFunction
     :members:
 
-.. automodule:: porepy.numerics.ad.operator_functions
+.. autoclass:: Function
     :members:
+    :exclude-members: get_values, get_jacobian
+
+.. autoclass:: ConstantFunction
+    :members:
+
+.. autoclass:: DiagonalJacobianFunction
+    :members:
+
+.. autoclass:: InterpolatedFunction
+    :members:
+    :exclude-members: get_values, get_jacobian
+
+.. autoclass:: ADmethod
+    :members:
+    :special-members: __call__, __get__
 
 Grid operators
 ==============

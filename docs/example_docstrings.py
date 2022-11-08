@@ -12,7 +12,7 @@ A quick overview can be found at
 `rst-quickref <https://docutils.sourceforge.io/docs/user/rst/quickref.html>`_.
 You can also find vast support for rst elsewhere on the internet.
 
-Though PorePy closely the
+Though PorePy closely follows the
 `Google Python Style
 <https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google>`_,
 it introduces minor adaptions for readability and functionality reasons.
@@ -35,7 +35,7 @@ Next to the compiled documentation you will find fleeting links ``[source]`` to 
 respective Python code. This way you will be able to directly compare what certain syntax will
 in the end look like in the compiled format.
 
-Once the your code is properly documented, it will be included using
+Once your code is properly documented, it will be included using
 `autodoc <https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html>`_ directives
 into the global structure of the PorePy documentation.
 This will be done in a next step. Before that, familiarize yourself with the various directives
@@ -126,13 +126,12 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
     Detailed description can be given next if necessary. The extended description
     can of course span several lines.
 
-    When natural, the description can be break into several paragraphs that start
+    When natural, the description can be broken into several paragraphs that start
     without indentation.
 
     The description of arguments is started using the Google Style directive *Parameters:*.
 
-    .. note::
-
+    Note:
         You can find the ``[source]`` link in the upper right corner of this function's
         documentation and take a look at the Python and rst source code of this docstring,
         as well as for every docstring that follows.
@@ -147,7 +146,7 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
             You can even use multiple paragraphs for describing a parameter. There
             are no restrictions in this regard.
         arg3 (bool): **DO NOT** include type hints in the *Parameters* directive.
-            utilize annotations in the signature instead.
+            Utilize annotations in the signature instead.
 
     Returns:
         Describe the return value here. Multiple lines can be used and you have
@@ -156,7 +155,7 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
         **DO NOT** use type hints here as they are present in the signature.
 
     """
-    # I addition to docstrings, you should also add comments to the code. These should
+    # In addition to docstrings, you should also add comments to the code. These should
     # be sufficiently detailed that it is possible to understand the logic of the code
     # without analyzing the code in detail.
     return (arg1 > len(arg2)) and arg3
@@ -173,10 +172,11 @@ def module_level_function_2(
     If ``*args`` or ``**kwargs`` are accepted,
     they must be listed as ``*args`` and ``**kwargs`` in the *Parameters* directive.
 
-    .. note::
+    Note:
         We note that this function returns ``None`` as per signature.
         This is the default return value of Python and as such does not need documentation.
-        I.e., we can omit the *Returns:* directive.
+        I.e., we can omit the *Returns:* directive. However, it is important to explicitly
+        specify the None return in the signature.
 
     Parameters:
         optional_arg (optional): Description of ``optional_arg``.
@@ -194,7 +194,7 @@ def module_level_function_2(
 
     Raises:
         ValueError: You can use the the Google Style directive *Raises:* to describe error
-            sources you have programmed. Here for example we can raise  value error
+            sources you have programmed. Here for example we can raise a value error
             if an unexpected keyword argument was passed.
         TypeError: You can hint multiple errors. Be aware of necessary indentations when
             descriptions span multiple lines.
@@ -214,8 +214,8 @@ def module_level_function_3(
     as well as how to document special requirements for the arguments.
 
     Parameters:
-        mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``
-        vector (len=num_cells): This vectors special requirement is a certain length.
+        mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``.
+        vector (len=num_cells): This vector's special requirement is a certain length.
             We use the type hint brackets to indicate its supposed length.
             The required length is ``num_cells``, the number of cells. If unclear to what the
             number refers, explain.
@@ -224,7 +224,7 @@ def module_level_function_3(
         matrix (shape=(3, num_cells)): This argument is a sparse matrix with 3 rows and
             ``num_cells`` columns.
         option (optional): This argument has admissible values and a default value.
-            it can only be a string ``'A'``, ``'B'`` or ``'C'``.For such admissible values use
+            it can only be a string ``'A'``, ``'B'`` or ``'C'``. For such admissible values use
             :class:`typing.literal` to denote them in the signature.
             Since it has a default value, we mark it with ``(optional)``.
 
@@ -286,6 +286,8 @@ def example_generator(n: int) -> Generator[int, None, None]:
     Examples:
         The Google Style offers an *Examples:* directives where you can write text but also
         include inline examples of code usage, without the special code directive from Sphinx.
+        An indented block with the content has to follow the directive. Like all for all
+        directives, a blank line after the indented block signalizes the end of the directive.
 
         >>> print([i for i in example_generator(4)])
         [0, 1, 2, 3]
@@ -309,10 +311,10 @@ class ExampleClass:
 
     *Example:* directives are encouraged to demonstrate the usage of a class.
 
-    *Notes:* directives can be used the same way as for functions.
+    *Note:* directives can be used the same way as for functions.
 
-    At the end follows obligatory the *Parameters:* directive and an eventual *Raises:*
-    directive.
+    At the end follows obligatory the *Parameters:* directive and a *Raises:* directive,
+    if errors are raised in the constructor for some reason.
 
     Parameters:
         arg1: first argument.
@@ -323,7 +325,8 @@ class ExampleClass:
     class_attribute_1: int = 1
     """This is how to properly document a class-level attribute.
 
-    The value is shown because it is static upon class type creation.
+    The value 1 is shown in the docs, because it is static upon class type creation and Sphinx
+    realizes that.
 
     """
 
@@ -346,7 +349,7 @@ class ExampleClass:
         # !!! no docstring for __init__ !!!
 
         self.attribute_1: int = arg1
-        """This is how to properly document a instance-level attribute in the constructor."""
+        """This is how to properly document an instance-level attribute in the constructor."""
 
         self.attribute_2: str = arg2
         """str: This is an instance-level attribute with a redundant field 'Type:' caused by
@@ -443,7 +446,7 @@ class ExampleClass:
 
         Nevertheless document them properly, including parameters and return values.
 
-        Notes:
+        Note:
             The __init__ method *is* a special method, but for which above mentioned special
             rules apply, i.e. no documentation in the __init__ method.
 
