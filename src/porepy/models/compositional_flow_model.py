@@ -219,7 +219,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
         refinement = 2
         phys_dims = [2, 1]
-        n_cells = [i * refinement for i in phys_dims]
+        n_cells = [4, 2]
+        # n_cells = [i * refinement for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
         self.box = pp.geometry.bounding_box.from_points(bounding_box_points)
         sg = pp.CartGrid(n_cells, phys_dims)
