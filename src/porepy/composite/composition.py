@@ -255,19 +255,20 @@ class Composition:
 
                 p = self.p.previous_timestep()
                 T = self.T.previous_timestep()
-
-                rho = [self.reference_phase.density(p, T)]
+                rho_R = self.reference_phase.density(p, T)
+                rho = [rho_R]
 
                 rho += [
                     phase.saturation.previous_timestep()
-                    * (phase.density(p, T) - rho[0])
+                    * (phase.density(p, T) - rho_R)
                     for phase in self.phases if phase != self.reference_phase
                 ]
             else:
-                rho = [self.reference_phase.density(self.p, self.T)]
+                rho_R = self.reference_phase.density(self.p, self.T)
+                rho = [rho_R]
 
                 rho += [
-                    phase.saturation * (phase.density(self.p, self.T) - rho[0])
+                    phase.saturation * (phase.density(self.p, self.T) - rho_R)
                     for phase in self.phases if phase != self.reference_phase
                 ]
         else:

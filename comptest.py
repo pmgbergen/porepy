@@ -6,7 +6,7 @@ sys.path.append("/mnt/c/Users/vl-work/Desktop/github/porepy/src")
 import porepy as pp
 
 timestamp = datetime.now().strftime("%Y_%m_%d__%H_%M")
-file_name = "cf_" + timestamp
+file_name = "cf_test" # + timestamp
 params = {
     "folder_name": "/mnt/c/Users/vl-work/Desktop/sim-results/" + file_name + "/",
     "file_name": file_name,
@@ -17,8 +17,8 @@ params = {
 }
 
 t = 0.
-T = 5.
-dt = T * 1e-2
+T = 10.
+dt = T / 1e2
 max_iter = 200
 tol = 1e-5
 
