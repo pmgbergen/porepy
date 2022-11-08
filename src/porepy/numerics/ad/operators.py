@@ -56,11 +56,11 @@ class Operator:
     Parameters:
         name: Name of this operator. Used for string representations
         subdomains (optional): List of subdomains on which the operator is defined.
-            Will be empty for operators not associated with specific subdomains.
+            Will be empty for operators not associated with any subdomains.
             Defaults to None (converted to empty list).
         interfaces (optional): List of interfaces in the mixed-dimensional grid on which the
             operator is defined.
-            Will be empty for operators not associated with specific interface.
+            Will be empty for operators not associated with any interface.
             Defaults to None (converted to empty list).
 
     """
@@ -375,7 +375,7 @@ class Operator:
             mdg: Mixed-dimensional grid on which this operator is to be parsed.
 
         Returns:
-            A numerical format representing this operators value on given domain.
+            A numerical format representing this operator;s values on given domain.
 
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
@@ -746,7 +746,7 @@ class Operator:
         """Evaluate the residual and Jacobian matrix for a given state.
 
         Parameters:
-            dof_manager: used to represent the problem. Will be used
+            dof_manager: Used to represent the problem. Will be used
                 to parse the sub-operators that combine to form this operator.
             state (optional): State vector for which the residual and its
                 derivatives should be formed. If not provided, the state will be pulled from
@@ -755,7 +755,7 @@ class Operator:
 
         Returns:
             A representation of the residual and Jacobian in form of an AD Array.
-            Note that the Jacobian matrix need not be invertible, or ever square;
+            Note that the Jacobian matrix need not be invertible, or even square;
             this depends on the operator.
 
         """
@@ -988,7 +988,7 @@ class Array(Operator):
         """See :meth:`Operator.parse`.
 
         Returns:
-            The wrapped array
+            The wrapped array.
 
         """
         return self._values
@@ -1437,7 +1437,7 @@ class Tree:
 
 
     Parameters:
-        operation: see :data:`Operation`
+        operation: See :data:`Operation`
         children: List of children, either as Ad arrays or other :class:`Operator`.
 
     """

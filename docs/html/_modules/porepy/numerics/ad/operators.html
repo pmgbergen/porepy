@@ -81,7 +81,7 @@
         <span class="k">return</span> <span class="n">mat</span><span class="o">.</span><span class="n">shape</span>
 
 
-<div class="viewcode-block" id="Operator"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Operator">[docs]</a><span class="k">class</span> <span class="nc">Operator</span><span class="p">:</span>
+<div class="viewcode-block" id="Operator"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Operator">[docs]</a><span class="k">class</span> <span class="nc">Operator</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Parent class for all AD operators.</span>
 
 <span class="sd">    This class is not meant to be initiated directly, rather the various</span>
@@ -95,11 +95,11 @@
 <span class="sd">    Parameters:</span>
 <span class="sd">        name: Name of this operator. Used for string representations</span>
 <span class="sd">        subdomains (optional): List of subdomains on which the operator is defined.</span>
-<span class="sd">            Will be empty for operators not associated with specific subdomains.</span>
+<span class="sd">            Will be empty for operators not associated with any subdomains.</span>
 <span class="sd">            Defaults to None (converted to empty list).</span>
 <span class="sd">        interfaces (optional): List of interfaces in the mixed-dimensional grid on which the</span>
 <span class="sd">            operator is defined.</span>
-<span class="sd">            Will be empty for operators not associated with specific interface.</span>
+<span class="sd">            Will be empty for operators not associated with any interface.</span>
 <span class="sd">            Defaults to None (converted to empty list).</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -289,7 +289,7 @@
         <span class="n">all_discr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identify_subtree_discretizations</span><span class="p">([])</span>
         <span class="k">return</span> <span class="n">_ad_utils</span><span class="o">.</span><span class="n">uniquify_discretization_list</span><span class="p">(</span><span class="n">all_discr</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Operator.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Operator.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Operator.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Operator.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Perform the ``discretize`` function of all child operators which are discretizations</span>
 <span class="sd">        using data from mdg.</span>
 
@@ -302,7 +302,7 @@
         <span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identify_discretizations</span><span class="p">()</span>
         <span class="n">_ad_utils</span><span class="o">.</span><span class="n">discretize_from_list</span><span class="p">(</span><span class="n">unique_discretizations</span><span class="p">,</span> <span class="n">mdg</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Operator.is_leaf"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Operator.is_leaf">[docs]</a>    <span class="k">def</span> <span class="nf">is_leaf</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<div class="viewcode-block" id="Operator.is_leaf"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Operator.is_leaf">[docs]</a>    <span class="k">def</span> <span class="nf">is_leaf</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Check if this operator is a leaf in the tree-representation of an expression.</span>
 
 <span class="sd">        Note that this implies that the method ``parse()`` is expected to be implemented.</span>
@@ -313,7 +313,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span></div>
 
-<div class="viewcode-block" id="Operator.set_name"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Operator.set_name">[docs]</a>    <span class="k">def</span> <span class="nf">set_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Operator.set_name"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Operator.set_name">[docs]</a>    <span class="k">def</span> <span class="nf">set_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Reset this object&#39;s name originally passed at instantiation.</span>
 
 <span class="sd">        Parameters:</span>
@@ -322,7 +322,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span></div>
 
-<div class="viewcode-block" id="Operator.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Operator.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<div class="viewcode-block" id="Operator.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Operator.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Return an operator that represents the value of this operator at the previous</span>
 <span class="sd">        timestep.</span>
 
@@ -401,7 +401,7 @@
 
         <span class="k">return</span> <span class="n">prev_time</span></div>
 
-<div class="viewcode-block" id="Operator.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Operator.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<div class="viewcode-block" id="Operator.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Operator.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Translate the operator into a numerical expression.</span>
 
 <span class="sd">        Subclasses that represent atomic operators (leaves in a tree-representation of</span>
@@ -414,7 +414,7 @@
 <span class="sd">            mdg: Mixed-dimensional grid on which this operator is to be parsed.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A numerical format representing this operators value on given domain.</span>
+<span class="sd">            A numerical format representing this operator;s values on given domain.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;This type of operator cannot be parsed right away&quot;</span><span class="p">)</span></div>
@@ -725,7 +725,7 @@
     <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
 
-<div class="viewcode-block" id="Operator.viz"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Operator.viz">[docs]</a>    <span class="k">def</span> <span class="nf">viz</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Operator.viz"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Operator.viz">[docs]</a>    <span class="k">def</span> <span class="nf">viz</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Draws a visualization of the operator tree that has this operator as its root.&quot;&quot;&quot;</span>
         <span class="n">G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
 
@@ -777,7 +777,7 @@
         <span class="n">children</span> <span class="o">=</span> <span class="p">[</span><span class="n">children</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
         <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operation</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Subtraction operator&quot;</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Operator.evaluate"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Operator.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
+<div class="viewcode-block" id="Operator.evaluate"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Operator.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">dof_manager</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">DofManager</span><span class="p">,</span>
         <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -785,7 +785,7 @@
         <span class="sd">&quot;&quot;&quot;Evaluate the residual and Jacobian matrix for a given state.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">            dof_manager: used to represent the problem. Will be used</span>
+<span class="sd">            dof_manager: Used to represent the problem. Will be used</span>
 <span class="sd">                to parse the sub-operators that combine to form this operator.</span>
 <span class="sd">            state (optional): State vector for which the residual and its</span>
 <span class="sd">                derivatives should be formed. If not provided, the state will be pulled from</span>
@@ -794,7 +794,7 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A representation of the residual and Jacobian in form of an AD Array.</span>
-<span class="sd">            Note that the Jacobian matrix need not be invertible, or ever square;</span>
+<span class="sd">            Note that the Jacobian matrix need not be invertible, or even square;</span>
 <span class="sd">            this depends on the operator.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -944,7 +944,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot parse </span><span class="si">{</span><span class="n">other</span><span class="si">}</span><span class="s2"> as an AD operator&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="Matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Matrix">[docs]</a><span class="k">class</span> <span class="nc">Matrix</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<div class="viewcode-block" id="Matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Matrix">[docs]</a><span class="k">class</span> <span class="nc">Matrix</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Ad representation of a sparse matrix.</span>
 
 <span class="sd">    For dense matrices, use :class:`Array` instead.</span>
@@ -975,7 +975,7 @@
             <span class="n">s</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="Matrix.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Matrix.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<div class="viewcode-block" id="Matrix.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Matrix.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
 
 <span class="sd">        Returns:</span>
@@ -984,12 +984,12 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mat</span></div>
 
-<div class="viewcode-block" id="Matrix.transpose"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Matrix.transpose">[docs]</a>    <span class="k">def</span> <span class="nf">transpose</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Matrix&quot;</span><span class="p">:</span>
+<div class="viewcode-block" id="Matrix.transpose"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Matrix.transpose">[docs]</a>    <span class="k">def</span> <span class="nf">transpose</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Matrix&quot;</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Returns an AD operator representing the transposed matrix.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mat</span><span class="o">.</span><span class="n">transpose</span><span class="p">())</span></div></div>
 
 
-<div class="viewcode-block" id="Array"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Array">[docs]</a><span class="k">class</span> <span class="nc">Array</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<div class="viewcode-block" id="Array"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Array">[docs]</a><span class="k">class</span> <span class="nc">Array</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;AD representation of a constant numpy array.</span>
 
 <span class="sd">    For sparse matrices, use :class:`Matrix` instead.</span>
@@ -1003,7 +1003,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="Array.__init__"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Array.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Array.__init__"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Array.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Construct an Ad representation of a numpy array.</span>
 
 <span class="sd">        Parameters:</span>
@@ -1023,17 +1023,17 @@
             <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="Array.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Array.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<div class="viewcode-block" id="Array.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Array.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            The wrapped array</span>
+<span class="sd">            The wrapped array.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span></div></div>
 
 
-<div class="viewcode-block" id="TimeDependentArray"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.TimeDependentArray">[docs]</a><span class="k">class</span> <span class="nc">TimeDependentArray</span><span class="p">(</span><span class="n">Array</span><span class="p">):</span>
+<div class="viewcode-block" id="TimeDependentArray"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.TimeDependentArray">[docs]</a><span class="k">class</span> <span class="nc">TimeDependentArray</span><span class="p">(</span><span class="n">Array</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;An Ad-wrapper around a time-dependent numpy array.</span>
 
 <span class="sd">    The array is tied to a MixedDimensionalGrid, and is distributed among the data</span>
@@ -1115,7 +1115,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
 
-<div class="viewcode-block" id="TimeDependentArray.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.TimeDependentArray.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeDependentArray</span><span class="p">:</span>
+<div class="viewcode-block" id="TimeDependentArray.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.TimeDependentArray.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeDependentArray</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            This array represented at the previous time step.</span>
@@ -1130,7 +1130,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">previous_timestep</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">)</span></div>
 
-<div class="viewcode-block" id="TimeDependentArray.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.TimeDependentArray.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<div class="viewcode-block" id="TimeDependentArray.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.TimeDependentArray.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Convert this array into numerical values.</span>
 
 <span class="sd">        The numerical values will be picked from the representation of the array in</span>
@@ -1175,7 +1175,7 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<div class="viewcode-block" id="Scalar"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Scalar">[docs]</a><span class="k">class</span> <span class="nc">Scalar</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<div class="viewcode-block" id="Scalar"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Scalar">[docs]</a><span class="k">class</span> <span class="nc">Scalar</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Ad representation of a scalar.</span>
 
 <span class="sd">    This is a shallow wrapper around a real scalar. It may be useful to combine</span>
@@ -1202,7 +1202,7 @@
             <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="Scalar.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Scalar.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<div class="viewcode-block" id="Scalar.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Scalar.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
 
 <span class="sd">        Returns:</span>
@@ -1212,7 +1212,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span></div></div>
 
 
-<div class="viewcode-block" id="Variable"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Variable">[docs]</a><span class="k">class</span> <span class="nc">Variable</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<div class="viewcode-block" id="Variable"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Variable">[docs]</a><span class="k">class</span> <span class="nc">Variable</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;AD operator representing a variable defined on a single grid or mortar grid.</span>
 
 <span class="sd">    For combinations of variables on different subdomains, see :class:`MergedVariable`.</span>
@@ -1285,7 +1285,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ids</span><span class="p">)</span>
         <span class="sd">&quot;&quot;&quot;Unique identifier of this variable.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="Variable.size"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Variable.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<div class="viewcode-block" id="Variable.size"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Variable.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            The number of dofs of this variable on its grid.</span>
@@ -1303,7 +1303,7 @@
                 <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_g</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span>
             <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Variable.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Variable.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
+<div class="viewcode-block" id="Variable.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Variable.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            A representation of this variable at the previous time step,</span>
@@ -1320,7 +1320,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">previous_timestep</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Variable.previous_iteration"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.Variable.previous_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
+<div class="viewcode-block" id="Variable.previous_iteration"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.Variable.previous_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            A representation of this variable on the previous time iteration,</span>
@@ -1351,7 +1351,7 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<div class="viewcode-block" id="MergedVariable"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable">[docs]</a><span class="k">class</span> <span class="nc">MergedVariable</span><span class="p">(</span><span class="n">Variable</span><span class="p">):</span>
+<div class="viewcode-block" id="MergedVariable"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable">[docs]</a><span class="k">class</span> <span class="nc">MergedVariable</span><span class="p">(</span><span class="n">Variable</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;AD operator representing a collection of variables that individually live on separate</span>
 <span class="sd">    subdomains or interfaces, but treated jointly in the mixed-dimensional sense.</span>
 
@@ -1398,7 +1398,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">prev_iter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
-<div class="viewcode-block" id="MergedVariable.size"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<div class="viewcode-block" id="MergedVariable.size"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            Total size of this merged variable (sum of sizes of respective sub-variables).</span>
@@ -1406,7 +1406,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="n">v</span><span class="o">.</span><span class="n">size</span><span class="p">()</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">])</span></div>
 
-<div class="viewcode-block" id="MergedVariable.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MergedVariable</span><span class="p">:</span>
+<div class="viewcode-block" id="MergedVariable.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MergedVariable</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            A representation of this merged variable on the previous time</span>
@@ -1418,7 +1418,7 @@
         <span class="n">new_var</span><span class="o">.</span><span class="n">prev_time</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="n">new_var</span></div>
 
-<div class="viewcode-block" id="MergedVariable.previous_iteration"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable.previous_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MergedVariable</span><span class="p">:</span>
+<div class="viewcode-block" id="MergedVariable.previous_iteration"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable.previous_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MergedVariable</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            A representation of this merged variable on the previous</span>
@@ -1430,7 +1430,7 @@
         <span class="n">new_var</span><span class="o">.</span><span class="n">prev_iter</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">return</span> <span class="n">new_var</span></div>
 
-<div class="viewcode-block" id="MergedVariable.copy"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;MergedVariable&quot;</span><span class="p">:</span>
+<div class="viewcode-block" id="MergedVariable.copy"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operators.MergedVariable.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;MergedVariable&quot;</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            A shallow copy should be sufficient here; the attributes are not expected to</span>
@@ -1476,7 +1476,7 @@
 
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        operation: see :data:`Operation`</span>
+<span class="sd">        operation: See :data:`Operation`</span>
 <span class="sd">        children: List of children, either as Ad arrays or other :class:`Operator`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>

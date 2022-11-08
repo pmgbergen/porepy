@@ -168,7 +168,7 @@ Documenting functions
 .. rubric:: Directives inside docstrings
 
 * Write the directive blocks in the following order
-    1. Examples, Notes
+    1. Examples, Note
     2. Parameters
     3. Returns/ Yields
     4. Raises

@@ -51,7 +51,7 @@
 <span class="sd">`rst-quickref &lt;https://docutils.sourceforge.io/docs/user/rst/quickref.html&gt;`_.</span>
 <span class="sd">You can also find vast support for rst elsewhere on the internet.</span>
 
-<span class="sd">Though PorePy closely the</span>
+<span class="sd">Though PorePy closely follows the</span>
 <span class="sd">`Google Python Style</span>
 <span class="sd">&lt;https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google&gt;`_,</span>
 <span class="sd">it introduces minor adaptions for readability and functionality reasons.</span>
@@ -74,7 +74,7 @@
 <span class="sd">respective Python code. This way you will be able to directly compare what certain syntax will</span>
 <span class="sd">in the end look like in the compiled format.</span>
 
-<span class="sd">Once the your code is properly documented, it will be included using</span>
+<span class="sd">Once your code is properly documented, it will be included using</span>
 <span class="sd">`autodoc &lt;https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html&gt;`_ directives</span>
 <span class="sd">into the global structure of the PorePy documentation.</span>
 <span class="sd">This will be done in a next step. Before that, familiarize yourself with the various directives</span>
@@ -165,13 +165,12 @@
 <span class="sd">    Detailed description can be given next if necessary. The extended description</span>
 <span class="sd">    can of course span several lines.</span>
 
-<span class="sd">    When natural, the description can be break into several paragraphs that start</span>
+<span class="sd">    When natural, the description can be broken into several paragraphs that start</span>
 <span class="sd">    without indentation.</span>
 
 <span class="sd">    The description of arguments is started using the Google Style directive *Parameters:*.</span>
 
-<span class="sd">    .. note::</span>
-
+<span class="sd">    Note:</span>
 <span class="sd">        You can find the ``[source]`` link in the upper right corner of this function&#39;s</span>
 <span class="sd">        documentation and take a look at the Python and rst source code of this docstring,</span>
 <span class="sd">        as well as for every docstring that follows.</span>
@@ -186,7 +185,7 @@
 <span class="sd">            You can even use multiple paragraphs for describing a parameter. There</span>
 <span class="sd">            are no restrictions in this regard.</span>
 <span class="sd">        arg3 (bool): **DO NOT** include type hints in the *Parameters* directive.</span>
-<span class="sd">            utilize annotations in the signature instead.</span>
+<span class="sd">            Utilize annotations in the signature instead.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Describe the return value here. Multiple lines can be used and you have</span>
@@ -195,7 +194,7 @@
 <span class="sd">        **DO NOT** use type hints here as they are present in the signature.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># I addition to docstrings, you should also add comments to the code. These should</span>
+    <span class="c1"># In addition to docstrings, you should also add comments to the code. These should</span>
     <span class="c1"># be sufficiently detailed that it is possible to understand the logic of the code</span>
     <span class="c1"># without analyzing the code in detail.</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">arg1</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">arg2</span><span class="p">))</span> <span class="ow">and</span> <span class="n">arg3</span></div>
@@ -212,10 +211,11 @@
 <span class="sd">    If ``*args`` or ``**kwargs`` are accepted,</span>
 <span class="sd">    they must be listed as ``*args`` and ``**kwargs`` in the *Parameters* directive.</span>
 
-<span class="sd">    .. note::</span>
+<span class="sd">    Note:</span>
 <span class="sd">        We note that this function returns ``None`` as per signature.</span>
 <span class="sd">        This is the default return value of Python and as such does not need documentation.</span>
-<span class="sd">        I.e., we can omit the *Returns:* directive.</span>
+<span class="sd">        I.e., we can omit the *Returns:* directive. However, it is important to explicitly</span>
+<span class="sd">        specify the None return in the signature.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        optional_arg (optional): Description of ``optional_arg``.</span>
@@ -233,7 +233,7 @@
 
 <span class="sd">    Raises:</span>
 <span class="sd">        ValueError: You can use the the Google Style directive *Raises:* to describe error</span>
-<span class="sd">            sources you have programmed. Here for example we can raise  value error</span>
+<span class="sd">            sources you have programmed. Here for example we can raise a value error</span>
 <span class="sd">            if an unexpected keyword argument was passed.</span>
 <span class="sd">        TypeError: You can hint multiple errors. Be aware of necessary indentations when</span>
 <span class="sd">            descriptions span multiple lines.</span>
@@ -253,8 +253,8 @@
 <span class="sd">    as well as how to document special requirements for the arguments.</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``</span>
-<span class="sd">        vector (len=num_cells): This vectors special requirement is a certain length.</span>
+<span class="sd">        mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``.</span>
+<span class="sd">        vector (len=num_cells): This vector&#39;s special requirement is a certain length.</span>
 <span class="sd">            We use the type hint brackets to indicate its supposed length.</span>
 <span class="sd">            The required length is ``num_cells``, the number of cells. If unclear to what the</span>
 <span class="sd">            number refers, explain.</span>
@@ -263,7 +263,7 @@
 <span class="sd">        matrix (shape=(3, num_cells)): This argument is a sparse matrix with 3 rows and</span>
 <span class="sd">            ``num_cells`` columns.</span>
 <span class="sd">        option (optional): This argument has admissible values and a default value.</span>
-<span class="sd">            it can only be a string ``&#39;A&#39;``, ``&#39;B&#39;`` or ``&#39;C&#39;``.For such admissible values use</span>
+<span class="sd">            it can only be a string ``&#39;A&#39;``, ``&#39;B&#39;`` or ``&#39;C&#39;``. For such admissible values use</span>
 <span class="sd">            :class:`typing.literal` to denote them in the signature.</span>
 <span class="sd">            Since it has a default value, we mark it with ``(optional)``.</span>
 
@@ -325,6 +325,8 @@
 <span class="sd">    Examples:</span>
 <span class="sd">        The Google Style offers an *Examples:* directives where you can write text but also</span>
 <span class="sd">        include inline examples of code usage, without the special code directive from Sphinx.</span>
+<span class="sd">        An indented block with the content has to follow the directive. Like all for all</span>
+<span class="sd">        directives, a blank line after the indented block signalizes the end of the directive.</span>
 
 <span class="sd">        &gt;&gt;&gt; print([i for i in example_generator(4)])</span>
 <span class="sd">        [0, 1, 2, 3]</span>
@@ -348,10 +350,10 @@
 
 <span class="sd">    *Example:* directives are encouraged to demonstrate the usage of a class.</span>
 
-<span class="sd">    *Notes:* directives can be used the same way as for functions.</span>
+<span class="sd">    *Note:* directives can be used the same way as for functions.</span>
 
-<span class="sd">    At the end follows obligatory the *Parameters:* directive and an eventual *Raises:*</span>
-<span class="sd">    directive.</span>
+<span class="sd">    At the end follows obligatory the *Parameters:* directive and a *Raises:* directive,</span>
+<span class="sd">    if errors are raised in the constructor for some reason.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        arg1: first argument.</span>
@@ -362,7 +364,8 @@
     <span class="n">class_attribute_1</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="sd">&quot;&quot;&quot;This is how to properly document a class-level attribute.</span>
 
-<span class="sd">    The value is shown because it is static upon class type creation.</span>
+<span class="sd">    The value 1 is shown in the docs, because it is static upon class type creation and Sphinx</span>
+<span class="sd">    realizes that.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -385,7 +388,7 @@
         <span class="c1"># !!! no docstring for __init__ !!!</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute_1</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">arg1</span>
-        <span class="sd">&quot;&quot;&quot;This is how to properly document a instance-level attribute in the constructor.&quot;&quot;&quot;</span>
+        <span class="sd">&quot;&quot;&quot;This is how to properly document an instance-level attribute in the constructor.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute_2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">arg2</span>
         <span class="sd">&quot;&quot;&quot;str: This is an instance-level attribute with a redundant field &#39;Type:&#39; caused by</span>
@@ -482,7 +485,7 @@
 
 <span class="sd">        Nevertheless document them properly, including parameters and return values.</span>
 
-<span class="sd">        Notes:</span>
+<span class="sd">        Note:</span>
 <span class="sd">            The __init__ method *is* a special method, but for which above mentioned special</span>
 <span class="sd">            rules apply, i.e. no documentation in the __init__ method.</span>
 

@@ -49,9 +49,9 @@
 <h1>Automatic Differentiation<a class="headerlink" href="#automatic-differentiation" title="Permalink to this heading">¶</a></h1>
 <p>The AD framework (<em>Algorithmic</em> or <em>Automatic</em> Differentiation) allows an object-oriented
 representation of variables and other mathematical terms, which appear in equations
-and models. The goal as for any AD framework is to provide a cheap and and automated evaluation
+and models. The goal as for any AD framework is to provide a cheap and automated evaluation
 of derivatives, to be utilized in numerical approximation techniques.</p>
-<p>All classes and functions can be accessed as shown the following example:</p>
+<p>All classes and functions can be accessed as shown in the following example:</p>
 <div class="literal-block-wrapper docutils container" id="id1">
 <div class="code-block-caption"><span class="caption-text">Access to AD submodule</span><a class="headerlink" href="#id1" title="Permalink to this code">¶</a></div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
@@ -71,7 +71,7 @@ It also provides a wrapper for discretizations of operators like the mathematica
 enabling the user to program equations in a symbolic way.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The expression <em>operator</em> might cause confusion.
+<p>The expression <em>operator</em> might require some explanation.
 In the sense of <code class="docutils literal notranslate"><span class="pre">porepy.ad</span></code>, every object is an operator returning a numerical
 representation of the represented term, based on some information. What information is
 necessary and what is provided is documented in individual classes.</p>
@@ -132,11 +132,11 @@ subclasses are combined by operations.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>name</strong> – Name of this operator. Used for string representations</p></li>
 <li><p><strong>subdomains</strong> (<em>optional</em>) – List of subdomains on which the operator is defined.
-Will be empty for operators not associated with specific subdomains.
+Will be empty for operators not associated with any subdomains.
 Defaults to None (converted to empty list).</p></li>
 <li><p><strong>interfaces</strong> (<em>optional</em>) – List of interfaces in the mixed-dimensional grid on which the
 operator is defined.
-Will be empty for operators not associated with specific interface.
+Will be empty for operators not associated with any interface.
 Defaults to None (converted to empty list).</p></li>
 </ul>
 </dd>
@@ -157,7 +157,7 @@ Expression - it is now done here to accommodate updates (?) and</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dof_manager</strong> – used to represent the problem. Will be used
+<li><p><strong>dof_manager</strong> – Used to represent the problem. Will be used
 to parse the sub-operators that combine to form this operator.</p></li>
 <li><p><strong>state</strong> (<em>optional</em>) – State vector for which the residual and its
 derivatives should be formed. If not provided, the state will be pulled from
@@ -167,7 +167,7 @@ at the previous time step.</p></li>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A representation of the residual and Jacobian in form of an AD Array.
-Note that the Jacobian matrix need not be invertible, or ever square;
+Note that the Jacobian matrix need not be invertible, or even square;
 this depends on the operator.</p>
 </dd>
 </dl>
@@ -199,7 +199,7 @@ of atomic operators; such operators should be evaluated by the method <a class="
 <dd class="field-odd"><p><strong>mdg</strong> – Mixed-dimensional grid on which this operator is to be parsed.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>A numerical format representing this operators value on given domain.</p>
+<dd class="field-even"><p>A numerical format representing this operator;s values on given domain.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -257,18 +257,21 @@ passed at instantiation.</p>
 </section>
 <section id="module-porepy.numerics.ad.functions">
 <span id="common-mathematical-functions"></span><h2>Common mathematical functions<a class="headerlink" href="#module-porepy.numerics.ad.functions" title="Permalink to this heading">¶</a></h2>
-<p>This module contains functions to be wrapped in a pp.ad.Function and used as part
-of compound pp.ad.Operators, i.e. as (terms of) equations.</p>
-<p>Some functions depend on non-ad objects. This requires that the function (f) be wrapped
-in an ad Function using partial evaluation:</p>
-<blockquote>
-<div><p>from functools import partial
-AdFunction = pp.ad.Function(partial(f, other_parameter), “name”)
-equation: pp.ad.Operator = AdFunction(var) - 2 * var</p>
-</div></blockquote>
-<p>with var being some ad variable.</p>
-<p>Note that while the argument to AdFunction is a pp.ad.Operator, the wrapping in
-pp.ad.Function implies that upon parsing, the argument passed to f will be an Ad_array.</p>
+<p>This module contains functions to be wrapped in a
+<a class="reference internal" href="#porepy.numerics.ad.operator_functions.Function" title="porepy.numerics.ad.operator_functions.Function"><code class="xref py py-class docutils literal notranslate"><span class="pre">Function</span></code></a> and used as part
+of compound <a class="reference internal" href="#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a>, i.e. as (terms of) equations.</p>
+<p>Some functions depend on non-ad objects. This requires that the function <code class="docutils literal notranslate"><span class="pre">f</span></code> be wrapped
+in an <code class="docutils literal notranslate"><span class="pre">ad.Function</span></code> using partial evaluation:</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">AdFunction</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="n">partial</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">other_parameter</span><span class="p">),</span> <span class="s2">&quot;name&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">equation</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span> <span class="o">=</span> <span class="n">AdFunction</span><span class="p">(</span><span class="n">var</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">var</span>
+</pre></div>
+</div>
+<p>with <code class="docutils literal notranslate"><span class="pre">var</span></code> being some AD variable.</p>
+<p>Note that while the argument to <code class="docutils literal notranslate"><span class="pre">AdFunction</span></code> is a
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Function`</span></code> implies that upon parsing,
+the argument passed to <code class="docutils literal notranslate"><span class="pre">f</span></code> will be an Ad_array.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.functions.RegularizedHeaviside">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RegularizedHeaviside</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">regularization</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/functions.html#RegularizedHeaviside"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.functions.RegularizedHeaviside" title="Permalink to this definition">¶</a></dt>
@@ -314,27 +317,19 @@ pp.ad.Function implies that upon parsing, the argument passed to f will be an Ad
 <dt class="sig sig-object py" id="porepy.numerics.ad.functions.characteristic_function">
 <span class="sig-name descname"><span class="pre">characteristic_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">var</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/functions.html#characteristic_function"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.functions.characteristic_function" title="Permalink to this definition">¶</a></dt>
 <dd><p>Characteristic function of an ad variable.</p>
-<p>Returns 1 if var.val is within absolute tolerance = tol of zero. The derivative is set to
-zero independent of var.val.</p>
-<dl class="simple">
-<dt>Usage note:</dt><dd><p>See module level documentation on how to wrap functions like this in ad.Function.</p>
-</dd>
-</dl>
+<p>Returns 1 if <code class="docutils literal notranslate"><span class="pre">var.val</span></code> is within absolute tolerance = <code class="docutils literal notranslate"><span class="pre">tol</span></code> of zero.
+The derivative is set to zero independent of <code class="docutils literal notranslate"><span class="pre">var.val</span></code>.</p>
+<p class="rubric">Notes</p>
+<p>See module level documentation on how to wrap functions like this in <code class="docutils literal notranslate"><span class="pre">ad.Function</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>tol</strong> – float
-Absolute tolerance for comparison with 0 using np.isclose.</p></li>
-<li><p><strong>var</strong> – pp.ad.Ad_array
-Ad operator (variable or expression).</p></li>
+<li><p><strong>tol</strong> – Absolute tolerance for comparison with 0 using np.isclose.</p></li>
+<li><p><strong>var</strong> – Ad operator (variable or expression).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>pp.ad.Ad_array</dt><dd><p>The characteristic function of var with appropriate val and jac attributes.</p>
-</dd>
-</dl>
-</p>
+<dd class="field-even"><p>The characteristic function of var with appropriate val and jac attributes.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -366,27 +361,22 @@ Ad operator (variable or expression).</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>var</strong> – Ad_array or ndarray
-Input array.</p></li>
-<li><p><strong>eps</strong> – float, optional
-Regularization parameter. The default is 1E-3. The function will
-convergence to the Heaviside function in the limit when eps –&gt; 0</p></li>
+<li><p><strong>var</strong> – Input array.</p></li>
+<li><p><strong>eps</strong> (<em>optional</em>) – Regularization parameter. The function will converge to the
+Heaviside function in the limit when <code class="docutils literal notranslate"><span class="pre">eps</span> <span class="pre">--&gt;</span> <span class="pre">0</span></code>. The default is <code class="docutils literal notranslate"><span class="pre">1e-3</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Ad_array or ndarray (depending on the input)</dt><dd><p>Regularized heaviside function (and its Jacobian if applicable).</p>
-</dd>
-</dl>
-</p>
+<dd class="field-even"><p>Regularized heaviside function (and its Jacobian if applicable) in form of a
+Ad_array or ndarray (depending on the input).</p>
 </dd>
 </dl>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <dl class="simple">
-<dt>The analytical expression for the smooth version Heaviside function reads:</dt><dd><p>H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps)),</p>
+<dt>The analytical expression for the smooth version Heaviside function reads:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">H_eps(x)</span> <span class="pre">=</span> <span class="pre">(1/2)</span> <span class="pre">*</span> <span class="pre">(1</span> <span class="pre">+</span> <span class="pre">(2/pi)</span> <span class="pre">*</span> <span class="pre">arctan(x/eps))</span></code>,</p>
 </dd>
-<dt>with its derivative smoothly approximating the Dirac delta function:</dt><dd><p>d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2)).</p>
+<dt>with its derivative smoothly approximating the Dirac delta function:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">d(H(x))/dx</span> <span class="pre">=</span> <span class="pre">delta_eps</span> <span class="pre">=</span> <span class="pre">(1/pi)</span> <span class="pre">*</span> <span class="pre">(eps</span> <span class="pre">/</span> <span class="pre">(eps^2</span> <span class="pre">+</span> <span class="pre">x^2))</span></code>.</p>
 </dd>
 </dl>
 <p>Reference: <a class="reference external" href="https://ieeexplore.ieee.org/document/902291">https://ieeexplore.ieee.org/document/902291</a></p>
@@ -407,19 +397,12 @@ to be <code class="docutils literal notranslate"><span class="pre">[u0,</span> <
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dim</strong> – int
-Dimension, i.e. number of vector components.</p></li>
-<li><p><strong>var</strong> – pp.ad.Ad_array
-Ad operator (variable or expression) which is argument of the norm
-function.</p></li>
+<li><p><strong>dim</strong> – Dimension, i.e. number of vector components.</p></li>
+<li><p><strong>var</strong> – Ad operator (variable or expression) which is argument of the norm function.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>pp.ad.Ad_array</dt><dd><p>The norm of var with appropriate val and jac attributes.</p>
-</dd>
-</dl>
-</p>
+<dd class="field-even"><p>The norm of var with appropriate val and jac attributes.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -431,7 +414,7 @@ function.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.ad.functions.maximum">
-<span class="sig-name descname"><span class="pre">maximum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">var0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">var1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><span class="pre">Union</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/functions.html#maximum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.functions.maximum" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">maximum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">var0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pp.ad.Ad_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pp.ad.Ad_array</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">np.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pp.ad.Ad_array</span></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/functions.html#maximum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.functions.maximum" title="Permalink to this definition">¶</a></dt>
 <dd><p>Ad maximum function represented as an Ad_array.</p>
 <p>The second argument is allowed to be constant, with a numpy array originally
 wrapped in a pp.ad.Array, whereas the first argument is expected to be an
@@ -439,18 +422,12 @@ Ad_array originating from a pp.ad.Operator.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>var0</strong> – pp.ad.Ad_array
-Ad operator (variable or expression).</p></li>
-<li><p><strong>var1</strong> – Union[pp.ad.Ad_array, pp.ad.Array]
-Ad operator (variable or expression) OR ad Array.</p></li>
+<li><p><strong>var0</strong> – First argument to the maximum function.</p></li>
+<li><p><strong>var1</strong> – Second argument.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>pp.ad.Ad_array</dt><dd><p>The maximum of var0 and var1 with appropriate val and jac attributes.</p>
-</dd>
-</dl>
-</p>
+<dd class="field-even"><p>The maximum of <code class="docutils literal notranslate"><span class="pre">var0</span></code> and <code class="docutils literal notranslate"><span class="pre">var1</span></code> with appropriate val and jac attributes.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -553,7 +530,7 @@ with other types of AD operators.</p>
 <dd><p>See <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.parse" title="porepy.numerics.ad.operators.Operator.parse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.parse()</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>The wrapped array</p>
+<dd class="field-odd"><p>The wrapped array.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -913,15 +890,15 @@ operators.</p>
 values and the Jacobian.
 The abstraction intends to provide means for approximating operators, where values are
 e.g. interpolated and the Jacobian is approximated using FD.</p>
-<dl>
-<dt>IMPLEMENTATION NOTE:</dt><dd><p>One can flag the operator as <code class="docutils literal notranslate"><span class="pre">ad_compatible</span></code>. If flagged, the AD framework passes
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>One can flag the operator as <code class="docutils literal notranslate"><span class="pre">ad_compatible</span></code>. If flagged, the AD framework passes
 AD arrays directly to the callable <code class="docutils literal notranslate"><span class="pre">func</span></code> and will <strong>not</strong> call the abstract methods
 for values and the Jacobian during operator parsing.
 If for some reason one wants to flag the function as AD compatible, but still have the
 abstract methods called, this is as of now <strong>not</strong> supported.</p>
 <p>For now only one child class, porepy.ad.Function, flags itself always as AD compatible.</p>
-</dd>
-</dl>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.AbstractFunction.__init__">
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ad_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#AbstractFunction.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.AbstractFunction.__init__" title="Permalink to this definition">¶</a></dt>
@@ -931,18 +908,19 @@ return numerical information in the same form form.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>func</strong> (<em>Callable</em>) – callable Python object representing a (numeric) function</p></li>
-<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – name of this instance as an AD operator</p></li>
-<li><p><strong>array_compatible</strong> (<em>default=False</em>) – If true, the callable <code class="docutils literal notranslate"><span class="pre">func</span></code> will be called
+<li><p><strong>func</strong> – callable Python object representing a (numeric) function</p></li>
+<li><p><strong>name</strong> – name of this instance as an AD operator</p></li>
+<li><p><strong>array_compatible</strong> (<em>optional</em>) – If true, the callable <code class="docutils literal notranslate"><span class="pre">func</span></code> will be called
 using arrays (numpy.typing.ArrayLike). Flagging this true, the user ensures
 that the callable can work with arrays and return respectively
 formatted output. If false, the function will be evaluated element-wise
-(scalar input)</p></li>
-<li><p><strong>ad_compatible</strong> (<em>default=False</em>) – <p>If true, the callable <code class="docutils literal notranslate"><span class="pre">func</span></code> will be called using
+(scalar input). Defaults to False.</p></li>
+<li><p><strong>ad_compatible</strong> (<em>Optional</em>) – <p>If true, the callable <code class="docutils literal notranslate"><span class="pre">func</span></code> will be called using
 the porepy.ad.Ad_array.</p>
-<p>Important NOTE: As of now, this will effectively bypass the abstract methods
+<p>Note that as of now, this will effectively bypass the abstract methods
 for generating values and the Jacobian, assuming both will be provided
-correctly by the return value of <code class="docutils literal notranslate"><span class="pre">func</span></code></p>
+correctly by the return value of <code class="docutils literal notranslate"><span class="pre">func</span></code>.</p>
+<p>Defaults to False.</p>
 </p></li>
 </ul>
 </dd>
@@ -958,18 +936,18 @@ The AD arrays passed as arguments will be in the same order as the operators pas
 the call to this instance.</p>
 <p>The returned numpy array will be be set as ‘jac’ argument for the AD array representing
 this instance.</p>
-<p>NOTE: the necessary dimensions for the jacobian can be extracted from the dimensions
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The necessary dimensions for the jacobian can be extracted from the dimensions
 of the Jacobians of passed Ad_array instances.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>*args</strong> – Ad_array representation of the operators passed during the call to this
 instance</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>numeric representation of the Jacobian of this function</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)">numpy.ndarray</a></p>
+<dd class="field-even"><p>Numeric representation of the Jacobian of this function.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -989,10 +967,7 @@ this instance.</p>
 instance</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>numeric function values</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)">numpy.ndarray</a></p>
+<dd class="field-even"><p>Function values in numerical format.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1008,7 +983,7 @@ parsing of an operator tree.</p>
 <dd class="field-odd"><p><strong>md</strong> – Mixed-dimensional grid.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The instance itself</p>
+<dd class="field-even"><p>The instance itself.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1034,28 +1009,15 @@ passed at instantiation.</p>
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.AbstractJacobianFunction">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AbstractJacobianFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ad_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#AbstractJacobianFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.AbstractJacobianFunction" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.operator_functions.AbstractFunction" title="porepy.numerics.ad.operator_functions.AbstractFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractFunction</span></code></a></p>
-<p>‘Half’-abstract base class, providing a call to the callable <code class="docutils literal notranslate"><span class="pre">func</span></code> in order to obtain
-numeric function values.</p>
+<p>Partially abstract base class, providing a call to the callable <code class="docutils literal notranslate"><span class="pre">func</span></code> in order to
+obtain numeric function values.</p>
 <p>What remains abstract is the Jacobian.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.AbstractJacobianFunction.get_values">
 <span class="sig-name descname"><span class="pre">get_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#AbstractJacobianFunction.get_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.AbstractJacobianFunction.get_values" title="Permalink to this definition">¶</a></dt>
-<dd><p>Abstract method for evaluating the callable passed at instantiation.</p>
-<p>This method will be called during the operator parsing.
-The AD arrays passed as arguments will be in the same order as the operators passed to
-the call to this instance.</p>
-<p>The returned numpy array will be set as ‘val’ argument for the AD array representing
-this instance.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>*args</strong> – Ad_array representation of the operators passed during the call to this
-instance</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>numeric function values</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)">numpy.ndarray</a></p>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The direct evaluation of the callable using <code class="docutils literal notranslate"><span class="pre">val</span></code> of passed AD arrays.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -1077,77 +1039,35 @@ passed at instantiation.</p>
 
 </dd></dl>
 
-<span class="target" id="module-porepy.numerics.ad.operator_functions"></span><p>Contains callable operators representing functions to be called with other
-operators as input arguments.
-Contains also a decorator class for callables, which transforms them automatically in the
-specified operator function type.</p>
 <dl class="py class">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.ADmethod">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ADmethod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func:</span> <span class="pre">~typing.Optional[~typing.Callable]</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ad_function_type:</span> <span class="pre">~typing.Type[~porepy.numerics.ad.operator_functions.AbstractFunction]</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'porepy.numerics.ad.operator_functions.Function'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">operator_kwargs:</span> <span class="pre">dict</span> <span class="pre">=</span> <span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#ADmethod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.ADmethod" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Automatic-Differentiation method/function.</p>
-<p>(Decorator) Class for methods representing e.g., physical properties.
-The decorated function is expected to take scalars/vectors and return a scalar/vector.
-See example usage below.</p>
-<p>The return value will be an AD operator of a type passed to the decorator.</p>
-<div class="literal-block-wrapper docutils container" id="id2">
-<div class="code-block-caption"><span class="caption-text">Example usage</span><a class="headerlink" href="#id2" title="Permalink to this code">¶</a></div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-
-<span class="c1"># decorating class methods</span>
-<span class="k">class</span> <span class="nc">IdealGas</span><span class="p">:</span>
-
-    <span class="nd">@ADmethod</span><span class="p">(</span><span class="n">ad_operator</span><span class="o">=</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">DiagonalJacobianFunction</span><span class="p">,</span>
-              <span class="n">operators_args</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;multipliers&quot;</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]})</span>
-    <span class="k">def</span> <span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">T</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">p</span><span class="o">/</span><span class="n">T</span>
-
-<span class="c1"># decorating function</span>
-<span class="nd">@ADmethod</span><span class="p">(</span><span class="n">ad_operator</span><span class="o">=</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Function</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">dummy_rel_perm</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">s</span><span class="o">**</span><span class="mi">2</span>
-</pre></div>
+<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.Function">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#Function"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.Function" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.operator_functions.AbstractFunction" title="porepy.numerics.ad.operator_functions.AbstractFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractFunction</span></code></a></p>
+<p>Ad representation of an analytically given function,
+where it is expected that passing Ad_arrays directly to <code class="docutils literal notranslate"><span class="pre">func</span></code> will
+return the proper result.</p>
+<p>Here the values <strong>and</strong> the Jacobian are obtained exactly by the AD framework.</p>
+<p>The intended use is as a wrapper for operations on pp.ad.Ad_array objects,
+in forms which are not directly or easily expressed by the rest of the Ad
+framework.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is a special case where the abstract methods for getting values and the Jacobian
+are formally implemented but never used by the AD framework (see <code class="docutils literal notranslate"><span class="pre">ad_compatible</span></code>)</p>
 </div>
-</div>
-<p>With above code, the density of an instance of ‘IdealGas’ can be called using
-<a class="reference internal" href="#porepy.numerics.ad.operators.MergedVariable" title="porepy.numerics.ad.operators.MergedVariable"><code class="xref py py-class docutils literal notranslate"><span class="pre">MergedVariable</span></code></a> representing
-pressure and temperature.
-Analogously, <cite>dummy_rel_perm</cite> can be called with one representing the saturation.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.ADmethod.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func:</span> <span class="pre">~typing.Optional[~typing.Callable]</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ad_function_type:</span> <span class="pre">~typing.Type[~porepy.numerics.ad.operator_functions.AbstractFunction]</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'porepy.numerics.ad.operator_functions.Function'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">operator_kwargs:</span> <span class="pre">dict</span> <span class="pre">=</span> <span class="pre">{}</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#ADmethod.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.ADmethod.__init__" title="Permalink to this definition">¶</a></dt>
-<dd><p>Decorator class constructor.
-Saves information about the requested AD Function type and keyword arguments necessary
-for its instantiation.</p>
-<p>NOTE: If used as decorator WITHOUT explicit instantiation, the instantiation will be
-done implicitly with above default arguments (that’s how Python decorators work).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>func</strong> – decorated function object</p></li>
-<li><p><strong>ad_function_type</strong> – type reference to an AD operator function to be instantiated.
-When instantiated, that instance will effectively replace <code class="docutils literal notranslate"><span class="pre">func</span></code>.</p></li>
-<li><p><strong>operator_kwargs</strong> – keyword arguments to be passed when instantiating an operator
-of type <code class="docutils literal notranslate"><span class="pre">ad_function_type</span></code>.</p></li>
-</ul>
-</dd>
-</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.Function.interfaces">
+<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">porepy.grids.mortar_grid.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operator_functions.Function.interfaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>List of mortar grids in the mixed-dimensional grid on which the operator is defined,
+passed at instantiation.</p>
+<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.ADmethod.ad_wrapper">
-<span class="sig-name descname"><span class="pre">ad_wrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#porepy.numerics.ad.operator_functions.AbstractFunction" title="porepy.numerics.ad.operator_functions.AbstractFunction"><span class="pre">AbstractFunction</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#ADmethod.ad_wrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.ADmethod.ad_wrapper" title="Permalink to this definition">¶</a></dt>
-<dd><p>Actual wrapper function.
-Constructs the necessary AD-Operator class wrapping the decorated callable
-and performs the evaluation/call.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>*args</strong> – arguments for the call to the wrapping AD operator function</p></li>
-<li><p><strong>**kwargs</strong> – keyword argument for the call to the wrapping Ad operator function</p></li>
-</ul>
-</dd>
-</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.Function.subdomains">
+<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">porepy.grids.grid.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operator_functions.Function.subdomains" title="Permalink to this definition">¶</a></dt>
+<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
+<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
 </dd></dl>
@@ -1159,26 +1079,23 @@ and performs the evaluation/call.</p>
 <p>“Function representing constant, scalar values with no dependencies and ergo a
 zero Jacobian.</p>
 <p>It still has to be called though since it fulfills the notion of a ‘function’.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.ConstantFunction.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#ConstantFunction.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.ConstantFunction.__init__" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>values</strong> – constant values per cell</p>
+<dd class="field-odd"><p><strong>values</strong> – constant values per cell.</p>
 </dd>
 </dl>
-</dd></dl>
-
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.ConstantFunction.get_jacobian">
 <span class="sig-name descname"><span class="pre">get_jacobian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#ConstantFunction.get_jacobian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.ConstantFunction.get_jacobian" title="Permalink to this definition">¶</a></dt>
-<dd><p>IMPLEMENTATION NOTE:
-The return value is not a sparse matrix as imposed by the parent method signature,
+<dd><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The return value is not a sparse matrix as imposed by the parent method signature,
 but a zero.
 Numerical operations with a zero always works with any numeric formats in
 numpy, scipy and PorePy’s AD framework.
 Since the constant function (most likely) gets no arguments passed,
 we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>The trivial derivative of a constant.</p>
@@ -1217,20 +1134,15 @@ passed at instantiation.</p>
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.DiagonalJacobianFunction">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DiagonalJacobianFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">multipliers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><span class="pre">Union</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.11)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#DiagonalJacobianFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.DiagonalJacobianFunction" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.operator_functions.AbstractJacobianFunction" title="porepy.numerics.ad.operator_functions.AbstractJacobianFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractJacobianFunction</span></code></a></p>
-<p>Approximates the Jacobian of the function using identities and scalar
-multipliers per dependency.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.DiagonalJacobianFunction.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">multipliers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><span class="pre">Union</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.11)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#DiagonalJacobianFunction.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.DiagonalJacobianFunction.__init__" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<p>Approximates the Jacobian of the function using identities and scalar multipliers
+per dependency.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>multipliers</strong> – scalar multipliers for the identity blocks in the Jacobian,
 per dependency of <code class="docutils literal notranslate"><span class="pre">func</span></code>. The order in <code class="docutils literal notranslate"><span class="pre">multipliers</span></code> is expected to match
 the order of AD operators passed to the call of this function.</p>
 </dd>
 </dl>
-</dd></dl>
-
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.DiagonalJacobianFunction.get_jacobian">
 <span class="sig-name descname"><span class="pre">get_jacobian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#DiagonalJacobianFunction.get_jacobian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.DiagonalJacobianFunction.get_jacobian" title="Permalink to this definition">¶</a></dt>
@@ -1256,84 +1168,6 @@ passed at instantiation.</p>
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.Function">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#Function"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.Function" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.operator_functions.AbstractFunction" title="porepy.numerics.ad.operator_functions.AbstractFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractFunction</span></code></a></p>
-<p>Ad representation of an analytically given function,
-where it is expected that passing Ad_arrays directly to <code class="docutils literal notranslate"><span class="pre">func</span></code> will
-return the proper result.</p>
-<p>Here the values AND the Jacobian are obtained exactly by the AD framework.</p>
-<p>The intended use is as a wrapper for operations on pp.ad.Ad_array objects,
-in forms which are not directly or easily expressed by the rest of the Ad
-framework.</p>
-<p>NOTE: This is a special case where the abstract methods for getting values and the Jacobian
-are formally implemented but never used by the AD framework (see <code class="docutils literal notranslate"><span class="pre">ad_compatible</span></code>)</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.Function.get_jacobian">
-<span class="sig-name descname"><span class="pre">get_jacobian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#Function.get_jacobian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.Function.get_jacobian" title="Permalink to this definition">¶</a></dt>
-<dd><p>Abstract method for evaluating the Jacobian of the callable passed at instantiation.</p>
-<p>This method will be called during the operator parsing.
-The AD arrays passed as arguments will be in the same order as the operators passed to
-the call to this instance.</p>
-<p>The returned numpy array will be be set as ‘jac’ argument for the AD array representing
-this instance.</p>
-<p>NOTE: the necessary dimensions for the jacobian can be extracted from the dimensions
-of the Jacobians of passed Ad_array instances.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>*args</strong> – Ad_array representation of the operators passed during the call to this
-instance</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>numeric representation of the Jacobian of this function</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)">numpy.ndarray</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.Function.get_values">
-<span class="sig-name descname"><span class="pre">get_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#Function.get_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.Function.get_values" title="Permalink to this definition">¶</a></dt>
-<dd><p>Abstract method for evaluating the callable passed at instantiation.</p>
-<p>This method will be called during the operator parsing.
-The AD arrays passed as arguments will be in the same order as the operators passed to
-the call to this instance.</p>
-<p>The returned numpy array will be set as ‘val’ argument for the AD array representing
-this instance.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>*args</strong> – Ad_array representation of the operators passed during the call to this
-instance</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>numeric function values</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)">numpy.ndarray</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.Function.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">porepy.grids.mortar_grid.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operator_functions.Function.interfaces" title="Permalink to this definition">¶</a></dt>
-<dd><p>List of mortar grids in the mixed-dimensional grid on which the operator is defined,
-passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.Function.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">porepy.grids.grid.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operator_functions.Function.subdomains" title="Permalink to this definition">¶</a></dt>
-<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.InterpolatedFunction">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">InterpolatedFunction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_val</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">npt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preval</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#InterpolatedFunction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.InterpolatedFunction" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.operator_functions.AbstractFunction" title="porepy.numerics.ad.operator_functions.AbstractFunction"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractFunction</span></code></a></p>
@@ -1341,12 +1175,12 @@ passed at instantiation.</p>
 uniform grid.</p>
 <p>The image of the function is expected to be of dimension 1, while the domain can be
 multidimensional.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.InterpolatedFunction.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_val</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">npt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preval</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_compatible</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#InterpolatedFunction.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.InterpolatedFunction.__init__" title="Permalink to this definition">¶</a></dt>
-<dd><p>All vector-valued ndarray arguments are assumed to be column vectors.
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All vector-valued ndarray arguments are assumed to be column vectors.
 Each row-entry represents a value for an argument of <code class="docutils literal notranslate"><span class="pre">func</span></code> in
 respective order.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1354,63 +1188,14 @@ respective order.</p>
 <li><p><strong>max_val</strong> – upper bound for the domain.</p></li>
 <li><p><strong>npt</strong> – number of interpolation points per dimension of the domain.</p></li>
 <li><p><strong>order</strong> – Order of interpolation. Supports currently only linear order.</p></li>
-<li><p><strong>preval</strong> (<em>default=False</em>) – If True, pre-evaluates the values of the function at
+<li><p><strong>preval</strong> (<em>optional</em>) – If True, pre-evaluates the values of the function at
 the points of interpolation and stores them.
 If False, evaluates them if necessary.
-Influences the runtime.</p></li>
+Influences the runtime.
+Defaults to False.</p></li>
 </ul>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.InterpolatedFunction.get_jacobian">
-<span class="sig-name descname"><span class="pre">get_jacobian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#InterpolatedFunction.get_jacobian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.InterpolatedFunction.get_jacobian" title="Permalink to this definition">¶</a></dt>
-<dd><p>Abstract method for evaluating the Jacobian of the callable passed at instantiation.</p>
-<p>This method will be called during the operator parsing.
-The AD arrays passed as arguments will be in the same order as the operators passed to
-the call to this instance.</p>
-<p>The returned numpy array will be be set as ‘jac’ argument for the AD array representing
-this instance.</p>
-<p>NOTE: the necessary dimensions for the jacobian can be extracted from the dimensions
-of the Jacobians of passed Ad_array instances.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>*args</strong> – Ad_array representation of the operators passed during the call to this
-instance</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>numeric representation of the Jacobian of this function</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)">numpy.ndarray</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.InterpolatedFunction.get_values">
-<span class="sig-name descname"><span class="pre">get_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#InterpolatedFunction.get_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.InterpolatedFunction.get_values" title="Permalink to this definition">¶</a></dt>
-<dd><p>Abstract method for evaluating the callable passed at instantiation.</p>
-<p>This method will be called during the operator parsing.
-The AD arrays passed as arguments will be in the same order as the operators passed to
-the call to this instance.</p>
-<p>The returned numpy array will be set as ‘val’ argument for the AD array representing
-this instance.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>*args</strong> – Ad_array representation of the operators passed during the call to this
-instance</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>numeric function values</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)">numpy.ndarray</a></p>
-</dd>
-</dl>
-</dd></dl>
-
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.InterpolatedFunction.interfaces">
 <span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">porepy.grids.mortar_grid.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operator_functions.InterpolatedFunction.interfaces" title="Permalink to this definition">¶</a></dt>
@@ -1424,6 +1209,68 @@ passed at instantiation.</p>
 <span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">porepy.grids.grid.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.operator_functions.InterpolatedFunction.subdomains" title="Permalink to this definition">¶</a></dt>
 <dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
 <p>Will be empty for operators not associated with specific subdomains.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.ADmethod">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ADmethod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func:</span> <span class="pre">~typing.Optional[~typing.Callable]</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ad_function_type:</span> <span class="pre">~typing.Type[~porepy.numerics.ad.operator_functions.AbstractFunction]</span> <span class="pre">=</span> <span class="pre">&lt;class</span> <span class="pre">'porepy.numerics.ad.operator_functions.Function'&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">operator_kwargs:</span> <span class="pre">dict</span> <span class="pre">=</span> <span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#ADmethod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.ADmethod" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>(Decorator) Class for methods representing e.g., physical properties.
+The decorated function is expected to take scalars/vectors and return a scalar/vector.</p>
+<p>The return value will be an AD operator of a type passed to the decorator.</p>
+<p class="rubric">Examples</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+
+<span class="c1"># decorating class methods</span>
+<span class="k">class</span> <span class="nc">IdealGas</span><span class="p">:</span>
+
+    <span class="nd">@ADmethod</span><span class="p">(</span><span class="n">ad_operator</span><span class="o">=</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">DiagonalJacobianFunction</span><span class="p">,</span>
+            <span class="n">operators_args</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;multipliers&quot;</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]})</span>
+    <span class="k">def</span> <span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">T</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">p</span><span class="o">/</span><span class="n">T</span>
+
+<span class="c1"># decorating function</span>
+<span class="nd">@ADmethod</span><span class="p">(</span><span class="n">ad_operator</span><span class="o">=</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Function</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">dummy_rel_perm</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">s</span><span class="o">**</span><span class="mi">2</span>
+</pre></div>
+</div>
+<p>With above code, the density of an instance of <code class="docutils literal notranslate"><span class="pre">IdealGas</span></code> can be called using
+<a class="reference internal" href="#porepy.numerics.ad.operators.MergedVariable" title="porepy.numerics.ad.operators.MergedVariable"><code class="xref py py-class docutils literal notranslate"><span class="pre">MergedVariable</span></code></a> representing
+pressure and temperature.
+Analogously, <code class="docutils literal notranslate"><span class="pre">dummy_rel_perm</span></code> can be called with one representing the saturation.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If used as decorator WITHOUT explicit instantiation, the instantiation will be
+done implicitly with above default arguments (that’s how Python decorators work).</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>func</strong> – decorated function object</p></li>
+<li><p><strong>ad_function_type</strong> – type reference to an AD operator function to be instantiated.
+When instantiated, that instance will effectively replace <code class="docutils literal notranslate"><span class="pre">func</span></code>.</p></li>
+<li><p><strong>operator_kwargs</strong> – keyword arguments to be passed when instantiating an operator
+of type <code class="docutils literal notranslate"><span class="pre">ad_function_type</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.ADmethod.ad_wrapper">
+<span class="sig-name descname"><span class="pre">ad_wrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#porepy.numerics.ad.operator_functions.AbstractFunction" title="porepy.numerics.ad.operator_functions.AbstractFunction"><span class="pre">AbstractFunction</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#ADmethod.ad_wrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.ADmethod.ad_wrapper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Actual wrapper function.
+Constructs the necessary AD-Operator class wrapping the decorated callable
+and performs the evaluation/call.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>*args</strong> – arguments for the call to the wrapping AD operator function</p></li>
+<li><p><strong>**kwargs</strong> – keyword argument for the call to the wrapping Ad operator function</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
