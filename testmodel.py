@@ -125,8 +125,8 @@ class TestModel(pp.models.abstract_model.AbstractModel):
         """
         refinement = 15
         phys_dims = [3, 1]
-        # n_cells = [2, 2]
-        n_cells = [i * refinement for i in phys_dims]
+        n_cells = [10, 2]
+        # n_cells = [i * refinement for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
         self.box = pp.geometry.bounding_box.from_points(bounding_box_points)
         sg = pp.CartGrid(n_cells, phys_dims)
@@ -231,7 +231,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                     "bc": bc,
                     "bc_values": bc_vals,
                     "darcy_flux": np.zeros(sd.num_faces),
-                    # "freeflow_bc": free_flow,
+                    "freeflow_bc": free_flow,
                 },
             )
 
@@ -244,7 +244,7 @@ class TestModel(pp.models.abstract_model.AbstractModel):
                     "bc": bc,
                     "bc_values": bc_vals,
                     "darcy_flux": np.zeros(sd.num_faces),
-                    # "freeflow_bc": free_flow,
+                    "freeflow_bc": free_flow,
                 },
             )
 
