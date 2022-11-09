@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -5,7 +7,7 @@ from porepy.grids.grid import Grid
 
 
 class PointGrid(Grid):
-    def __init__(self, pt: np.ndarray, name: str = None) -> None:
+    def __init__(self, pt: np.ndarray, name: Optional[str] = None) -> None:
         """Constructor for 0D grid.
 
         Args:

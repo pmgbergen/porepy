@@ -12,7 +12,7 @@ The provided geometries are:
 """
 from __future__ import annotations
 
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -31,7 +31,11 @@ def _n_cells(mesh_args: Union[np.ndarray, dict, None]) -> np.ndarray:
         return mesh_args
 
 
-def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
+def single_horizontal(
+    mesh_args: Optional[dict | np.ndarray] = None,
+    x_endpoints: Optional[np.ndarray] = None,
+    simplex: bool = True,
+):
     """
     Create a grid bucket for a domain containing a single horizontal fracture at y=0.5.
 
@@ -39,7 +43,7 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
         mesh_args:  For triangular grids: Dictionary containing at least "mesh_size_frac". If
                         the optional values of "mesh_size_bound" and "mesh_size_min" are
                         not provided, these are set by utils.set_mesh_sizes.
-                    For cartesian grids: List containing number of cells in x and y
+                    For cartesian grids: np.array containing number of cells in x and y
                         direction.
         x_endpoints (list): Contains the x coordinates of the two endpoints. If not
             provided, the endpoints will be set to [0, 1]
@@ -55,6 +59,11 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
+
+        if not isinstance(mesh_args, dict):
+            # The numpy-array format for mesh_args should not be used for simplex grids
+            raise ValueError("Mesh arguments should be a dictionary for simplex grids")
+
         points = np.array([x_endpoints, [0.5, 0.5]])
         edges = np.array([[0], [1]])
         mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
@@ -66,9 +75,9 @@ def single_horizontal(mesh_args=None, x_endpoints=None, simplex=True):
 
 
 def single_vertical(
-    mesh_args: Union[np.ndarray, dict] = None,
-    y_endpoints: np.ndarray = None,
-    simplex: bool = True,
+    mesh_args: Optional[Union[np.ndarray, dict]] = None,
+    y_endpoints: Optional[np.ndarray] = None,
+    simplex: Optional[bool] = True,
 ):
     """
     Create a grid bucket for a domain containing a single vertical fracture at x=0.5.
@@ -97,7 +106,11 @@ def single_vertical(
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
-        assert type(mesh_args) == dict
+
+        if not isinstance(mesh_args, dict):
+            # The numpy-array format for mesh_args should not be used for simplex grids
+            raise ValueError("Mesh arguments should be a dictionary for simplex grids")
+
         points = np.array([[0.5, 0.5], y_endpoints])
         edges = np.array([[0], [1]])
         mdg = utils.make_mdg_2d_simplex(mesh_args, points, edges, domain)
@@ -108,7 +121,12 @@ def single_vertical(
     return mdg, domain
 
 
-def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex=True):
+def two_intersecting(
+    mesh_args: Optional[dict | np.ndarray] = None,
+    x_endpoints: Optional[list] = None,
+    y_endpoints: Optional[list] = None,
+    simplex: bool = True,
+):
     """
     Create a grid bucket for a domain containing fractures, one horizontal and one vertical
     at y=0.5 and x=0.5 respectively.
@@ -138,6 +156,11 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
     if simplex:
         if mesh_args is None:
             mesh_args = {"mesh_size_frac": 0.2}
+
+        if not isinstance(mesh_args, dict):
+            # The numpy-array format for mesh_args should not be used for simplex grids
+            raise ValueError("Mesh arguments should be a dictionary for simplex grids")
+
         points = np.array(
             [
                 [x_endpoints[0], x_endpoints[1], 0.5, 0.5],
@@ -159,7 +182,7 @@ def two_intersecting(mesh_args=None, x_endpoints=None, y_endpoints=None, simplex
     return mdg, domain
 
 
-def seven_fractures_one_L_intersection(mesh_args=None):
+def seven_fractures_one_L_intersection(mesh_args: dict):
     """
     Create a grid bucket for a domain containing the network introduced as example 1 of
     Berge et al. 2019: Finite volume discretization for poroelastic media with fractures
@@ -197,7 +220,7 @@ def seven_fractures_one_L_intersection(mesh_args=None):
     return mdg, domain
 
 
-def benchmark_regular(mesh_args, is_coarse=False):
+def benchmark_regular(mesh_args: dict, is_coarse: bool = False):
     """
     Create a grid bucket for a domain containing the network introduced as example 2 of
     Berre et al. 2018: Benchmarks for single-phase flow in fractured porous media.

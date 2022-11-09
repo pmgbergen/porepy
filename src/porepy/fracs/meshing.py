@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -28,7 +29,7 @@ mortar_sides = mortar_grid.MortarSides
 
 def subdomains_to_mdg(
     subdomains: list[list[pp.Grid]],
-    time_tot: float = None,
+    time_tot: Optional[float] = None,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
     """Convert a list of grids to a full MixedDimensionalGrid.

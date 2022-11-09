@@ -212,7 +212,7 @@ class MortarGrid:
     ### Methods to update the mortar grid, or the neighboring grids.
 
     def update_mortar(
-        self, new_side_grids: dict[MortarSides, pp.Grid], tol: float = None
+        self, new_side_grids: dict[MortarSides, pp.Grid], tol: Optional[float] = None
     ) -> None:
         """
         Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
@@ -319,7 +319,7 @@ class MortarGrid:
 
         self._check_mappings()
 
-    def update_secondary(self, new_g: pp.Grid, tol: float = None) -> None:
+    def update_secondary(self, new_g: pp.Grid, tol: Optional[float] = None) -> None:
         """Update the mappings between Mortar and secondary grid when the latter is changed.
 
         NOTE: This function assumes that the secondary grid is only updated once: A change
@@ -395,7 +395,9 @@ class MortarGrid:
 
         self._check_mappings()
 
-    def update_primary(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None) -> None:
+    def update_primary(
+        self, g_new: pp.Grid, g_old: pp.Grid, tol: Optional[float] = None
+    ) -> None:
         """
 
         Update the _primary_to_mortar_int map when the primary (higher-dimensional) grid is
