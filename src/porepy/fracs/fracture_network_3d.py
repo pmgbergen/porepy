@@ -536,7 +536,7 @@ class FractureNetwork3d(object):
         polygon_tags: dict[int, GmshInterfaceTags] = dict()
 
         for fi, _ in enumerate(self._fractures):
-            # Translate to from numerical tags to the GmshInterfaceTags system.
+            # Translate from numerical tags to the GmshInterfaceTags system.
             if has_boundary and self.tags["boundary"][fi]:
                 physical_surfaces[fi] = GmshInterfaceTags.DOMAIN_BOUNDARY_SURFACE
                 polygon_tags[fi] = GmshInterfaceTags.DOMAIN_BOUNDARY_SURFACE
