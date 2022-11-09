@@ -6,7 +6,9 @@ for MPxA discertizations, however, due to the somewhat intricate inheritance rel
 between these methods, the current structure with multiple auxiliary methods emerged.
 
 """
-from typing import Any, Callable, Dict, Generator, List, Optional, Tuple
+from __future__ import annotations
+
+from typing import Any, Callable, Generator, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -299,8 +301,8 @@ def determine_eta(sd: pp.Grid) -> float:
 
 
 def find_active_indices(
-    parameter_dictionary: Dict[str, Any], sd: pp.Grid
-) -> Tuple[np.ndarray, np.ndarray]:
+    parameter_dictionary: dict[str, Any], sd: pp.Grid
+) -> tuple[np.ndarray, np.ndarray]:
     """Process information in parameter dictionary on whether the discretization
     should consider a subgrid. Look for fields in the parameter dictionary called
     specified_cells, specified_faces or specified_nodes. These are then processed by
@@ -351,7 +353,7 @@ def find_active_indices(
 def subproblems(
     sd: pp.Grid, max_memory: int, peak_memory_estimate: int
 ) -> Generator[
-    Tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
+    tuple[pp.Grid, np.ndarray, np.ndarray, np.ndarray, np.ndarray], None, None
 ]:
 
     if sd.dim == 0:
@@ -614,7 +616,7 @@ def vector_divergence(sd: pp.Grid) -> sps.csr_matrix:
 
 def scalar_tensor_vector_prod(
     sd: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
-) -> Tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
+) -> tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
     """
     Compute product of normal vectors and tensors on a sub-cell level.
     This is essentially defining Darcy's law for each sub-face in terms of
@@ -1002,18 +1004,18 @@ class ExcludeBoundaries:
 
 def partial_update_discretization(
     sd: pp.Grid,  # Grid
-    data: Dict,  # full data dictionary for this grid
+    data: dict,  # full data dictionary for this grid
     keyword: str,  # keyword for the target discretization
     discretize: Callable,  # Discretization operation
     dim: Optional[int] = None,  # dimension. Used to expand vector quantities
-    scalar_cell_right: Optional[List[str]] = None,  # See method documentation
-    vector_cell_right: Optional[List[str]] = None,
-    scalar_face_right: Optional[List[str]] = None,
-    vector_face_right: Optional[List[str]] = None,
-    scalar_cell_left: Optional[List[str]] = None,
-    vector_cell_left: Optional[List[str]] = None,
-    scalar_face_left: Optional[List[str]] = None,
-    vector_face_left: Optional[List[str]] = None,
+    scalar_cell_right: Optional[list[str]] = None,  # See method documentation
+    vector_cell_right: Optional[list[str]] = None,
+    scalar_face_right: Optional[list[str]] = None,
+    vector_face_right: Optional[list[str]] = None,
+    scalar_cell_left: Optional[list[str]] = None,
+    vector_cell_left: Optional[list[str]] = None,
+    scalar_face_left: Optional[list[str]] = None,
+    vector_face_left: Optional[list[str]] = None,
     second_keyword: Optional[str] = None,  # Used for biot discertization
 ) -> None:
     """Do partial update of discretization scheme.
@@ -1191,10 +1193,10 @@ def partial_update_discretization(
 
 def cell_ind_for_partial_update(
     sd: pp.Grid,
-    cells: np.ndarray = None,
-    faces: np.ndarray = None,
-    nodes: np.ndarray = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+    cells: Optional[np.ndarray] = None,
+    faces: Optional[np.ndarray] = None,
+    nodes: Optional[np.ndarray] = None,
+) -> tuple[np.ndarray, np.ndarray]:
     """Obtain indices of cells and faces needed for a partial update of the
     discretization stencil.
 
@@ -1400,7 +1402,7 @@ def map_subgrid_to_grid(
     loc_cells: np.ndarray,
     is_vector: bool,
     nd: Optional[int] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Obtain mappings from the cells and faces of a subgrid back to a larger grid.
 
     Args:
