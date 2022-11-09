@@ -40,24 +40,14 @@ class FractureNetwork2d:
     Parameters:
         pts (siz: 2 x num_pts): Start and endpoints of the fractures. Points
             can be shared by fractures.
-        edges (size: (2 + num_tags) x num_fracs): The first two rows represent
-            indices, referring to pts, of the start and end points of the fractures.
-            Additional rows are optional tags of the fractures. In the standard form,
-            the third row (first row of tags) identifies the type of edges, referring
-            to the numbering system in GmshInterfaceTags. The second row of tags keeps track
-            of the numbering of the edges (referring to the original order of the edges)
-            under geometry processing like intersection removal. Additional tags can
-            be assigned
-        domain: The domain in which the fracture set is
-            defined. If dictionary, it should contain keys 'xmin', 'xmax', 'ymin',
-            'ymax', each of which maps to a double giving the range of the domain.
-            If np.array, it should be of size 2 x n, and given the vertexes of the
-            domain. The fractures need not lay inside the domain.
+        edges (size: (2 + num_tags) x num_fracs): Fractures, defined as connections
+            between the points.
+        domain: The domain in which the fracture set is defined. If dictionary, it
+            should contain keys 'xmin', 'xmax', 'ymin', 'ymax', each of which maps to a
+            double giving the range of the domain. If np.array, it should be of size
+            2 x n, and given the vertexes of the domain. The fractures need not lay
+            inside the domain.
         tol: Tolerance used in geometric computations.
-        tags: Tags for fractures.
-        _decomposition: Decomposition of the fracture network, used for export to
-            gmsh, and available for later processing. Initially empty, is created by
-            self.mesh().
 
     """
 
@@ -74,32 +64,55 @@ class FractureNetwork2d:
             pts (np.array, 2 x n): Start and endpoints of the fractures. Points
             can be shared by fractures.
         edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
-            indices, referring to pts, of the start and end points of the fractures.
+            indices, refering to pts, of the start and end points of the fractures.
             Additional rows are optional tags of the fractures.
-        domain (dictionary or set of points): The domain in which the fracture set is
-
-             defined. See self.attributes for description.
         tol (double, optional): Tolerance used in geometric computations. Defaults to
             1e-8.
 
         """
-        if pts is None:
-            self.pts = np.zeros((2, 0))
-        else:
-            self.pts = pts
+        self.pts = np.zeros((2, 0)) if pts is None else pts
+        """Start and endpoints of the fractures. Points can be shared by fractures."""
 
-        if edges is None:
-            self.edges = np.zeros((2, 0), dtype=int)
-        else:
-            self.edges = edges
+        self.edges = np.zeros((2, 0), dtype=int) if edges is None else edges
+        """The fractures as an array of start and end points, referring to ``pts``
+
+        Additional rows are optional tags of the fractures. In the standard form, the
+        third row (first row of tags) identifies the type of edges, referring to the
+        numbering system in GmshInterfaceTags. The second row of tags keeps track of the
+        numbering of the edges (referring to the original order of the edges) in
+        geometry processing like intersection removal. Additional tags can be assigned
+        by the user.
+
+        """
 
         self.domain = domain
+        """The domain for this fracture network.
+
+        The domain is defined by a dictionary with keys 'xmin', 'xmax', 'ymin', 'ymax'.
+        If not specified, the domain will be set to the bounding box of the fractures.
+
+        """
 
         self.tol = tol
+        """Tolerance used in geometric computations."""
 
-        self.tags: dict = {}
+        self.tags: dict[int | str, np.ndarray] = dict()
+        """Tags for the fractures."""
+        # TODO: The current system of tags is a bit confusing, there is both self.tags
+        # and the tags located in self.edges. The latter is used for the gmsh interface,
+        # and there may be inconsistencies in the transfer of information between the
+        # two systems.
+
         self.bounding_box_imposed: bool = False
-        self._decomposition: dict = {}
+        """Flag indicating whether the bounding box has been imposed."""
+
+        ## PRIVATE
+
+        self._decomposition: dict = dict()
+        """Dictionary of geometric information obtained from the meshing process.
+
+        This will include intersection points identified.
+        """
 
         if pts is None and edges is None:
             logger.info("Generated empty fracture set")
@@ -764,7 +777,7 @@ class FractureNetwork2d:
 
         # Define boundary tags. Set False to all existing edges (after cutting those
         # outside the boundary).
-        boundary_tags = self.tags.get("boundary", [False] * e.shape[1])
+        boundary_tags = self.tags.get("boundary", np.zeros(e.shape[1], dtype=bool))
 
         if add_domain_edges:
             num_p = p.shape[1]
@@ -782,7 +795,9 @@ class FractureNetwork2d:
                 )
 
             # Define the new boundary tags
-            new_boundary_tags = boundary_tags + dom_lines.shape[1] * [True]
+            new_boundary_tags = np.hstack(
+                [boundary_tags, np.ones(dom_lines.shape[1], bool)]
+            )
             self.tags["boundary"] = np.array(new_boundary_tags)
 
             self._decomposition["domain_boundary_points"] = num_p + np.arange(
