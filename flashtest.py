@@ -9,12 +9,12 @@ from matplotlib import pyplot as plt
 import porepy as pp
 
 ### PARAMETRIZATION
-p = 101.320  # 101 kPa
+p = 100.  # 101 kPa
 T = 343.15  # 100 deg C
 h = T + p
-salt_fraction = 0.5
+salt_fraction = 0.1
 k_salt = 0.1
-k_water = 10
+k_water = 2.
 
 ### CALCULATION
 c = pp.composite.Composition()
