@@ -1,6 +1,7 @@
 """
 Module contains class for representing a fracture network in a 2d domain.
 """
+from __future__ import annotations
 import copy
 import csv
 import logging
