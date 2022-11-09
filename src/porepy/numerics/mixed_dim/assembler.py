@@ -88,14 +88,16 @@ class Assembler:
         self._identify_variable_combinations()
 
     @staticmethod
-    def _discretization_key(row: str, col: str = None) -> str:
+    def _discretization_key(row: str, col: Optional[str] = None) -> str:
         if col is None or row == col:
             return row
         else:
             return row + "_" + col
 
     @staticmethod
-    def _variable_term_key(term: str, key_1: str, key_2: str, key_3: str = None) -> str:
+    def _variable_term_key(
+        term: str, key_1: str, key_2: str, key_3: Optional[str] = None
+    ) -> str:
         """Get the key-variable combination used to identify a specific term in the
         equation.
 
