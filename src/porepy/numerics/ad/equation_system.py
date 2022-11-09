@@ -5,7 +5,7 @@ using the AD framework.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Union, overload
+from typing import Any, Callable, Literal, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -22,15 +22,15 @@ GridLike = Union[pp.Grid, pp.MortarGrid]
 FIXME: Rename to Domain? Or GridLikeList/GridList below?"""
 DomainList = Union[list[pp.Grid], list[pp.MortarGrid]]
 """A union type representing a list of grids or mortar grids.
-This is *not* a list of GridLike, as that would allow a list of mixed grids and 
+This is *not* a list of GridLike, as that would allow a list of mixed grids and
 mortar grids."""
 VariableList = Union[list[str], list[Variable], list[MixedDimensionalVariable]]
-"""A union type representing variables through either names (:class:`str`), multiple 
-:class:`~porepy.numerics.ad.operators.Variable` or 
+"""A union type representing variables through either names (:class:`str`), multiple
+:class:`~porepy.numerics.ad.operators.Variable` or
 :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`.
 
 This type is accepted as input to various methods and parsed to a list of
-:class:`~porepy.numerics.ad.operators.Variable` using 
+:class:`~porepy.numerics.ad.operators.Variable` using
 :meth:`~porepy.numerics.ad.equation_system.EquationSystem._parse_variable_list`.
 """
 
@@ -46,7 +46,7 @@ EquationLike = Union[
 # docstring.
 """A union type representing equations by names (:class:`str`),
 :class:`~porepy.numerics.ad.operators.Operator`,
-or a dictionary containing equation domains (:data:`GridLike`) per equation 
+or a dictionary containing equation domains (:data:`GridLike`) per equation
 (:key:name or Operator).
 
 If an equation is defined on multiple grids, the dictionary can be used to represent a
@@ -988,13 +988,13 @@ class EquationSystem:
                 number as per evaluation of operator.
 
         """
+        # The grid list is changed in place, so we need to make a copy
+        grids = list(grids)
         # The function loops over all grids the operator is defined on and calculate the
         # number of equations per grid quantity (cell, face, node). This information
         # is then stored together with the equation itself.
         image_info: dict[GridLike, np.ndarray] = dict()
         total_num_equ = 0
-        
-
 
         # The domain of this equation is the set of grids on which it is defined
         name = equation.name
