@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 from enum import Enum
 from functools import partial
-from typing import Callable, Optional, Optional, Type
+from typing import Callable, Optional, Type
 
 import numpy as np
 import scipy.sparse as sps
