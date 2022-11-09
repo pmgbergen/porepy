@@ -1104,8 +1104,10 @@ class WellCoupling(AbstractInterfaceLaw):
         sd_data_secondary: Dict,
         intf_data: Dict,
         matrix: sps.spmatrix,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        pass
+    ) -> Tuple[np.ndarray, np.ndarray]:  # type:ignore
+        raise NotImplementedError(
+            "Wells are not compatible with the Assembler framework"
+        )
 
     def __repr__(self) -> str:
         return f"Interface coupling of Well type, with keyword {self.keyword}"
