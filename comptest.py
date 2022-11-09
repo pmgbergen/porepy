@@ -36,7 +36,6 @@ while t < T:
         dx = model.assemble_and_solve_linear_system(tol)
         if model.converged:
             print(f"Success flow after iteration {i - 1}.")
-            # model.print_x("convergence SUCCESS")
             model.after_newton_convergence(dx, tol, i - 1)
             break
         print(f".. .. flow iteration {i}.")
