@@ -13,7 +13,7 @@ instantaneous rise in the fluid pressure, which will be equal to the applied loa
 that, the fluid pressure will monotonically decrease towards zero.
 
 Even though Terzaghi's consolidation problem is strictly speaking one-dimensional, the
-implemented model employs a two-dimensional Cartesian grid with roller boundary conditions
+implemented setup employs a two-dimensional Cartesian grid with roller boundary conditions
 for the mechanical subproblem and no-flux boundary conditions for the flow subproblem on
 the sides of the domain such that the one-dimensional process can be emulated.
 
@@ -47,42 +47,42 @@ import porepy as pp
 class TerzaghiSolution:
     """Data class to store variables of interest from Terzaghi's model."""
 
-    def __init__(self, model: "Terzaghi"):
+    def __init__(self, setup: "Terzaghi"):
         """Data class constructor.
 
         Args:
-            model : Terzaghi model.
+            setup : Terzaghi model setup.
 
         """
-        sd = model.mdg.subdomains()[0]
-        data = model.mdg.subdomain_data(sd)
-        p_var = model.scalar_variable
-        u_var = model.displacement_variable
-        t = model.time_manager.time
+        sd = setup.mdg.subdomains()[0]
+        data = setup.mdg.subdomain_data(sd)
+        p_var = setup.scalar_variable
+        u_var = setup.displacement_variable
+        t = setup.time_manager.time
 
         # Time variables
         self.time = t
-        self.nondim_time = model.nondim_time(t)
+        self.nondim_time = setup.nondim_time(t)
 
         # Spatial variables
         self.vertical_coo = sd.cell_centers[1]
-        self.nondim_vertical_coo = model.nondim_length(self.vertical_coo)
+        self.nondim_vertical_coo = setup.nondim_length(self.vertical_coo)
 
         # Pressure variables
         self.numerical_pressure = data[pp.STATE][p_var]
-        self.exact_pressure = model.exact_pressure(t)
-        self.numerical_nondim_pressure = model.nondim_pressure(self.numerical_pressure)
-        self.exact_nondim_pressure = model.nondim_pressure(self.exact_pressure)
+        self.exact_pressure = setup.exact_pressure(t)
+        self.numerical_nondim_pressure = setup.nondim_pressure(self.numerical_pressure)
+        self.exact_nondim_pressure = setup.nondim_pressure(self.exact_pressure)
 
         # Mechanical variables
         self.numerical_displacement = data[pp.STATE][u_var]
-        self.numerical_consolidation_degree = model.numerical_consolidation_degree(
+        self.numerical_consolidation_degree = setup.numerical_consolidation_degree(
             displacement=self.numerical_displacement, pressure=self.numerical_pressure
         )
-        self.exact_consolidation_degree = model.exact_consolidation_degree(t)
+        self.exact_consolidation_degree = setup.exact_consolidation_degree(t)
 
         # Error variables
-        self.pressure_error = model.l2_relative_error(
+        self.pressure_error = setup.l2_relative_error(
             sd=sd,
             true_val=self.exact_pressure,
             approx_val=self.numerical_pressure,
@@ -95,7 +95,7 @@ class TerzaghiSolution:
 
 
 class Terzaghi(pp.ContactMechanicsBiot):
-    """Parent class for Terzaghi's consolidation problem model.
+    """Parent class for Terzaghi's setup.
 
     Examples:
 
@@ -108,8 +108,8 @@ class Terzaghi(pp.ContactMechanicsBiot):
         # Run model
         tic = time()
         print("Simulation started...")
-        model = Terzaghi({"plot_results": True}})
-        pp.run_time_dependent_model(model, params)
+        setup = Terzaghi({"plot_results": True})
+        pp.run_time_dependent_model(setup, params)
         print(f"Simulation finished in {round(time() - tic)} sec.")
 
     """
@@ -118,7 +118,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         """Constructor of the Terzaghi class.
 
         Args:
-            params: Model parameters.
+            params: Model setup parameters.
 
                 Default physical parameters were adapted from
                 https://link.springer.com/article/10.1007/s10596-013-9393-8.
