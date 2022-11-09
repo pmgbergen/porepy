@@ -93,7 +93,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Dirichlet boundary temperature in Kelvin for the conductive flux."""
         self.outflow_boundary_pressure: float = 100
         """Dirichlet boundary pressure for the outflow in kPA for the advective flux."""
-        self.inflow_boundary_pressure: float = 150.
+        self.inflow_boundary_pressure: float = 101.
         """Dirichlet boundary pressure for the inflow in kPa for the advective flux."""
         self.inflow_boundary_temperature: float = self.injection_temperature
         """Temperature at the inflow boundary for computing influxing densities."""
@@ -219,7 +219,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
         refinement = 7
         phys_dims = [3, 1]
-        # n_cells = [21, 7]
+        # n_cells = [4, 2]
         n_cells = [i * refinement for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
         self.box = pp.geometry.bounding_box.from_points(bounding_box_points)
@@ -301,8 +301,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
                 self.inflow_boundary_pressure, self.inflow_boundary_temperature
         )
         self.inflow_boundary_advective_energy = (rho_L * s_L * h_L + rho_G * s_G * h_G)  # TODO same as above
+        self.inflow_boundary_advective_pressure = (rho_L * s_L + rho_G * s_G)
+
         self.boundary_conductive = 1.
-        self.inflow_boundary_advective_pressure = (rho_L * s_L + rho_G * s_G) 
         
         # constant k-values
         self.composition.k_values = {
@@ -762,8 +763,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         all_idx, _, _, _, idx_south, *_ = self._domain_boundary_sides(sd)
 
         vals = np.zeros(sd.num_faces)
-        bc = pp.BoundaryCondition(sd, idx_south, "dir")
         vals[idx_south] = self.boundary_conductive
+        bc = pp.BoundaryCondition(sd, idx_south, "dir")
 
         return bc, vals
 
@@ -1141,20 +1142,20 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### ADVECTION
         advection_scalar = list()
         for phase in cp.phases:
+            # eliminate reference phase saturation if requested
             if phase == cp.reference_phase and self._elim_ref_phase:
                 assert self._s_R is not None
-                scalar_part = (
-                    phase.density(cp.p, cp.T)
-                    * self.rel_perm(self._s_R)
-                    / phase.dynamic_viscosity(cp.p, cp.T)
-                )
+                k_re = self.rel_perm(self._s_R)
             else:
-                scalar_part = (
-                    phase.density(cp.p, cp.T)
-                    * self.rel_perm(phase.saturation)
-                    / phase.dynamic_viscosity(cp.p, cp.T)
-                )
+                k_re = self.rel_perm(phase.saturation)
+
+            scalar_part = (
+                phase.density(cp.p, cp.T)
+                * k_re
+                / phase.dynamic_viscosity(cp.p, cp.T)
+            )
             advection_scalar.append(scalar_part)
+        # sum over all phases
         advection_scalar = sum(advection_scalar)
 
         advection = (
@@ -1208,22 +1209,22 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
             ### ADVECTION
             advection_scalar = list()
             for phase in cp.phases:
+                # eliminate reference phase saturation if requested
                 if phase == cp.reference_phase and self._elim_ref_phase:
                     assert self._s_R is not None
-                    scalar_part = (
-                        phase.density(cp.p, cp.T)
-                        * phase.ext_fraction_of_component(component)
-                        * self.rel_perm(self._s_R)
-                        / phase.dynamic_viscosity(cp.p, cp.T)
-                    )
+                    k_re = self.rel_perm(self._s_R)
                 else:
-                    scalar_part = (
-                        phase.density(cp.p, cp.T)
-                        * phase.ext_fraction_of_component(component)
-                        * self.rel_perm(phase.saturation)
-                        / phase.dynamic_viscosity(cp.p, cp.T)
-                    )
+                    k_re = self.rel_perm(phase.saturation)
+
+                scalar_part = (
+                    phase.density(cp.p, cp.T)
+                    * phase.ext_fraction_of_component(component)
+                    * k_re
+                    / phase.dynamic_viscosity(cp.p, cp.T)
+                )
+
                 advection_scalar.append(scalar_part)
+            # sum over all phases
             advection_scalar = sum(advection_scalar)
 
             advection = (
@@ -1266,22 +1267,21 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ### ADVECTION
         advective_scalar = list()
         for phase in cp.phases:
+            # eliminate reference phase saturation if requested
             if phase == cp.reference_phase and self._elim_ref_phase:
                 assert self._s_R is not None
-                scalar_part = (
-                    phase.density(cp.p, cp.T)
-                    * phase.specific_enthalpy(cp.p, cp.T)
-                    * self.rel_perm(self._s_R)
-                    / phase.dynamic_viscosity(cp.p, cp.T)
-                )
+                k_re = self.rel_perm(self._s_R)
             else:
-                scalar_part = (
-                    phase.density(cp.p, cp.T)
-                    * phase.specific_enthalpy(cp.p, cp.T)
-                    * self.rel_perm(phase.saturation)
-                    / phase.dynamic_viscosity(cp.p, cp.T)
-                )
+                k_re = self.rel_perm(phase.saturation)
+
+            scalar_part = (
+                phase.density(cp.p, cp.T)
+                * phase.specific_enthalpy(cp.p, cp.T)
+                * k_re
+                / phase.dynamic_viscosity(cp.p, cp.T)
+            )
             advective_scalar.append(scalar_part)
+        # sum over all phases
         advective_scalar = sum(advective_scalar)
 
         advection = (
@@ -1291,22 +1291,26 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         )
 
         ### CONDUCTION
+        porosity = pp.ad.ParameterArray(
+            self.mass_keyword, "mass_weight", subdomains=self._grids
+        )
         conductive_scalar = list()
         # TODO scalar part depends on saturations, effective boundary conductivity needs recomputation
         for phase in cp.phases:
+            # eliminate reference phase saturation
             if phase == cp.reference_phase and self._elim_ref_phase:
                 assert self._s_R is not None
-                scalar_part = (
-                    self._s_R
-                    * phase.thermal_conductivity(cp.p, cp.T)
-                )
+                s_e = self._s_R
             else:
-                scalar_part = (
-                    phase.saturation
-                    * phase.thermal_conductivity(cp.p, cp.T)
-                )
+                s_e = phase.saturation
+            
+            scalar_part = (
+                s_e
+                * phase.thermal_conductivity(cp.p, cp.T)
+            )
             conductive_scalar.append(scalar_part)
-        conductive_scalar = sum(conductive_scalar)
+        # sum over all phases
+        conductive_scalar = porosity * sum(conductive_scalar)
 
         conduction = (
             self.conductive_flux * (upwind_cond.upwind * conductive_scalar)
