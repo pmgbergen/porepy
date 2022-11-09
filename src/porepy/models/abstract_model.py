@@ -346,8 +346,10 @@ class AbstractModel:
         pass
 
     def _domain_boundary_sides(
-        self, g: pp.Grid
-    ) -> Tuple[
+        self,
+        sd: pp.Grid,
+        tol: float = 1e-10,
+    ) -> tuple[
         np.ndarray,
         np.ndarray,
         np.ndarray,
@@ -356,24 +358,36 @@ class AbstractModel:
         np.ndarray,
         np.ndarray,
     ]:
-        """Obtain indices of the faces of a grid that lie on each side of the domain
-        boundaries. It is assumed the domain is box shaped.
+        """Obtain indices of the faces lying on the sides of the domain boundaries.
+
+        The method is primarily intended for box-shaped domains. However, it can also be
+        applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)
+        provided `tol` is tuned accordingly.
+
+        Args:
+            sd: Subdomain grid.
+            tol: Tolerance used to determine whether a face center lies on a boundary side.
+
+        Returns:
+            Tuple of boolean arrays, each one of size sd.num_faces. For a given array,
+                a True element indicates that the face lies on the side of the domain.
+                Otherwise, the element is set to False.
+
         """
-        tol = 1e-10
         box = self.box
-        east = g.face_centers[0] > box["xmax"] - tol
-        west = g.face_centers[0] < box["xmin"] + tol
+        east = sd.face_centers[0] > box["xmax"] - tol
+        west = sd.face_centers[0] < box["xmin"] + tol
         if self.mdg.dim_max() == 1:
-            north = np.zeros(g.num_faces, dtype=bool)
+            north = np.zeros(sd.num_faces, dtype=bool)
             south = north.copy()
         else:
-            north = g.face_centers[1] > box["ymax"] - tol
-            south = g.face_centers[1] < box["ymin"] + tol
+            north = sd.face_centers[1] > box["ymax"] - tol
+            south = sd.face_centers[1] < box["ymin"] + tol
         if self.mdg.dim_max() < 3:
-            top = np.zeros(g.num_faces, dtype=bool)
+            top = np.zeros(sd.num_faces, dtype=bool)
             bottom = top.copy()
         else:
-            top = g.face_centers[2] > box["zmax"] - tol
-            bottom = g.face_centers[2] < box["zmin"] + tol
-        all_bf = g.get_boundary_faces()
+            top = sd.face_centers[2] > box["zmax"] - tol
+            bottom = sd.face_centers[2] < box["zmin"] + tol
+        all_bf = sd.get_boundary_faces()
         return all_bf, east, west, north, south, top, bottom
