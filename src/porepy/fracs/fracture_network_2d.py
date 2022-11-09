@@ -5,7 +5,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import meshio
 import numpy as np
@@ -14,12 +14,13 @@ import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
 
-from .gmsh_interface import GmshData2d, GmshWriter, Tags
+from .gmsh_interface import GmshData2d, GmshWriter
+from .gmsh_interface import Tags as GmshInterfaceTags
 
 logger = logging.getLogger(__name__)
 
 
-class FractureNetwork2d(object):
+class FractureNetwork2d:
     """Class representation of a set of fractures in a 2D domain.
 
     The fractures are represented by their endpoints. Poly-line fractures are
@@ -34,26 +35,37 @@ class FractureNetwork2d(object):
     between these components may change in the future, specifically, utility functions
     may be removed.
 
-    Attributes:
-        pts (np.array, 2 x num_pts): Start and endpoints of the fractures. Points
+    Parameters:
+        pts (siz: 2 x num_pts): Start and endpoints of the fractures. Points
             can be shared by fractures.
-        edges (np.array, (2 + num_tags) x num_fracs): The first two rows represent
+        edges (size: (2 + num_tags) x num_fracs): The first two rows represent
             indices, referring to pts, of the start and end points of the fractures.
-            Additional rows are optional tags of the fractures.
-        domain (dictionary or np.ndarray): The domain in which the fracture set is
+            Additional rows are optional tags of the fractures. In the standard form,
+            the third row (first row of tags) identifies the type of edges, referring
+            to the numbering system in GmshInterfaceTags. The second row of tags keeps track
+            of the numbering of the edges (referring to the original order of the edges)
+            under geometry processing like intersection removal. Additional tags can
+            be assigned
+        domain: The domain in which the fracture set is
             defined. If dictionary, it should contain keys 'xmin', 'xmax', 'ymin',
             'ymax', each of which maps to a double giving the range of the domain.
             If np.array, it should be of size 2 x n, and given the vertexes of the
             domain. The fractures need not lay inside the domain.
-        tol (double): Tolerance used in geometric computations.
-        tags (dict): Tags for fractures.
-        _decomposition (dict): Decomposition of the fracture network, used for export to
+        tol: Tolerance used in geometric computations.
+        tags: Tags for fractures.
+        _decomposition: Decomposition of the fracture network, used for export to
             gmsh, and available for later processing. Initially empty, is created by
             self.mesh().
 
     """
 
-    def __init__(self, pts=None, edges=None, domain=None, tol=1e-8):
+    def __init__(
+        self,
+        pts: Optional[np.ndarray] = None,
+        edges: Optional[np.ndarray] = None,
+        domain: Optional[dict | np.ndarray] = None,
+        tol: float = 1e-8,
+    ) -> None:
         """Define the fracture set.
 
         Parameters:
@@ -73,20 +85,23 @@ class FractureNetwork2d(object):
             self.pts = np.zeros((2, 0))
         else:
             self.pts = pts
+
         if edges is None:
             self.edges = np.zeros((2, 0), dtype=int)
         else:
             self.edges = edges
+
         self.domain = domain
+
         self.tol = tol
 
-        self.tags = {}
-        self.bounding_box_imposed = False
-        self._decomposition = {}
+        self.tags: dict = {}
+        self.bounding_box_imposed: bool = False
+        self._decomposition: dict = {}
 
         if pts is None and edges is None:
             logger.info("Generated empty fracture set")
-        else:
+        elif pts is not None and edges is not None:
             logger.info("Generated a fracture set with %i fractures", self.num_frac())
             if pts.size > 0:
                 logger.info(
@@ -99,6 +114,10 @@ class FractureNetwork2d(object):
                     pts[0].max(),
                     pts[1].max(),
                 )
+        else:
+            raise ValueError(
+                "Specify both points and connections for a 2d fracture network."
+            )
         if domain is not None:
             logger.info("Domain specification :" + str(domain))
 
@@ -181,18 +200,18 @@ class FractureNetwork2d(object):
     def mesh(
         self,
         mesh_args,
-        tol=None,
-        do_snap=True,
-        constraints=None,
-        file_name=None,
-        dfn=False,
-        tags_to_transfer: Optional[List[str]] = None,
-        remove_small_fractures=False,
+        tol: Optional[float] = None,
+        do_snap: bool = True,
+        constraints: Optional[np.ndarray] = None,
+        file_name: Optional[str] = None,
+        dfn: bool = False,
+        tags_to_transfer: Optional[list[str]] = None,
+        remove_small_fractures: bool = False,
         write_geo: bool = True,
         finalize_gmsh: bool = True,
         clear_gmsh: bool = False,
         **kwargs,
-    ):
+    ) -> pp.MixedDimensionalGrid:
         """Create MixedDimensionalGrid (mixed-dimensional grid) for this fracture network.
 
         Parameters:
@@ -228,6 +247,12 @@ class FractureNetwork2d(object):
         """
         if file_name is None:
             file_name = "gmsh_frac_file.msh"
+        # No constraints if not available.
+        if constraints is None:
+            constraints = np.empty(0, dtype=int)
+        else:
+            constraints = np.atleast_1d(constraints)
+        assert isinstance(constraints, np.ndarray)
 
         gmsh_repr = self.prepare_for_gmsh(
             mesh_args, tol, do_snap, constraints, dfn, remove_small_fractures
@@ -274,13 +299,13 @@ class FractureNetwork2d(object):
 
     def prepare_for_gmsh(
         self,
-        mesh_args,
-        tol=None,
-        do_snap=True,
-        constraints=None,
-        dfn=False,
-        remove_small_fractures=False,
-    ):
+        mesh_args: dict,
+        tol: Optional[float] = None,
+        do_snap: bool = True,
+        constraints: Optional[np.ndarray] = None,
+        dfn: bool = False,
+        remove_small_fractures: bool = False,
+    ) -> GmshData2d:
         """Process network intersections and write a gmsh .geo configuration file,
         ready to be processed by gmsh.
 
@@ -313,6 +338,7 @@ class FractureNetwork2d(object):
             constraints = np.empty(0, dtype=int)
         else:
             constraints = np.atleast_1d(constraints)
+        assert isinstance(constraints, np.ndarray)
         constraints = np.sort(constraints)
 
         p = self.pts
@@ -395,13 +421,13 @@ class FractureNetwork2d(object):
 
         # map the constraint index
         index_map = np.where(np.logical_not(to_delete))[0]
-        constraints = np.arange(index_map.size)[np.in1d(index_map, constraints)]
+        mapped_constraints = np.arange(index_map.size)[np.in1d(index_map, constraints)]
 
         # update the tags
         for key, value in self.tags.items():
             self.tags[key] = np.delete(value, to_delete)
 
-        self._find_and_split_intersections(constraints)
+        self._find_and_split_intersections(mapped_constraints)
         # Insert auxiliary points and determine mesh size.
         # _insert_auxiliary_points(..) does both.
         # _set_mesh_size_without_auxiliary_points() sets the mesh size
@@ -411,39 +437,65 @@ class FractureNetwork2d(object):
             self._insert_auxiliary_points(**mesh_args)
         else:
             self._set_mesh_size_without_auxiliary_points(**mesh_args)
-        # Transfer data to the format expected by the gmsh interface
+
+        # Transfer data to the format expected by the gmsh interface.
+        # This requires some information processing and translation between data
+        # formats: In the geometry processing undertaken up to this point, it has been
+        # convenient to use numerical values for identifying the different line types
+        # (fracture, constraint, boundary). For the Gmsh processing, a string-based
+        # system is used, as this is more readable and closer to the system employed in
+        # Gmsh. In practice, this requires translating from GmshInterfaceTags values to
+        # names.
+        # In addition to this translation, the below code also does some interpretation
+        # of the information obtained during geometry processing.
+
         decomp = self._decomposition
 
         edges = decomp["edges"]
-
-        # Only lines specified as fractures are defined as physical
-        phys_line_tags = {}
+        # Information about line types is found in the third row of edges
         edge_types = edges[2]
+
+        # Process information about lines that should be tagged as physical by Gmsh.
+        # These are fractures, domain boundaries and auxiliary (constraints).
+        # phys_line_tags is a mapping from line index to the Tag.
+        phys_line_tags: dict[int, GmshInterfaceTags] = {}
+
         for ei, tag in enumerate(edge_types):
             if tag in (
-                Tags.FRACTURE.value,
-                Tags.DOMAIN_BOUNDARY_LINE.value,
-                Tags.AUXILIARY_LINE.value,
+                GmshInterfaceTags.FRACTURE.value,
+                GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value,
+                GmshInterfaceTags.AUXILIARY_LINE.value,
             ):
-                phys_line_tags[ei] = tag
+                # Note: phys_line_tags contains the GmshInterfaceTags instead of
+                # the numbers in edges[2].
+                phys_line_tags[ei] = GmshInterfaceTags(tag)
 
-        phys_point_tags = {
-            i: Tags.FRACTURE_INTERSECTION_POINT.value for i in decomp["intersections"]
+        # Tag all points that have been defined as intersections between fractures.
+        # phys_point_tags is a mapping from the point index to the tag.
+        phys_point_tags: dict[int, GmshInterfaceTags] = {
+            i: GmshInterfaceTags.FRACTURE_INTERSECTION_POINT
+            for i in decomp["intersections"]
         }
 
-        point_on_fracture = edges[:2, edge_types == Tags.FRACTURE.value].ravel()
+        # Find points on the boundary, and mark these as physical points.
         point_on_boundary = edges[
-            :2, edge_types == Tags.DOMAIN_BOUNDARY_LINE.value
+            :2, edge_types == GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
         ].ravel()
-        fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
-
         phys_point_tags.update(
-            {pi: Tags.DOMAIN_BOUNDARY_POINT.value for pi in point_on_boundary}
+            {pi: GmshInterfaceTags.DOMAIN_BOUNDARY_POINT for pi in point_on_boundary}
         )
 
-        # register fracture boundary points, override previously added boundary points
+        # Find points that are both on the boundary and on a fracture. These have
+        # a special tag, thus override the values set for normal boundary points.
+        point_on_fracture = edges[
+            :2, edge_types == GmshInterfaceTags.FRACTURE.value
+        ].ravel()
+        fracture_boundary_points = np.intersect1d(point_on_fracture, point_on_boundary)
         phys_point_tags.update(
-            {pi: Tags.FRACTURE_BOUNDARY_POINT.value for pi in fracture_boundary_points}
+            {
+                pi: GmshInterfaceTags.FRACTURE_BOUNDARY_POINT
+                for pi in fracture_boundary_points
+            }
         )
 
         data = GmshData2d(
@@ -455,7 +507,7 @@ class FractureNetwork2d(object):
         )
         return data
 
-    def _find_and_split_intersections(self, constraints: np.ndarray):
+    def _find_and_split_intersections(self, constraints: np.ndarray) -> None:
         """Unified description of points and lines for domain and fractures.
 
         FIXME: update documentation
@@ -477,9 +529,11 @@ class FractureNetwork2d(object):
 
         tags = np.zeros((2, edges.shape[1]), dtype=int)
 
-        tags[0][np.logical_not(self.tags["boundary"])] = Tags.FRACTURE.value
-        tags[0][self.tags["boundary"]] = Tags.DOMAIN_BOUNDARY_LINE.value
-        tags[0][constraints] = Tags.AUXILIARY_LINE.value
+        tags[0][
+            np.logical_not(self.tags["boundary"])
+        ] = GmshInterfaceTags.FRACTURE.value
+        tags[0][self.tags["boundary"]] = GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
+        tags[0][constraints] = GmshInterfaceTags.AUXILIARY_LINE.value
 
         tags[1] = np.arange(edges.shape[1])
 
@@ -556,17 +610,17 @@ class FractureNetwork2d(object):
             }
         )
 
-    def _find_intersection_points(self, lines):
+    def _find_intersection_points(self, lines: np.ndarray) -> np.ndarray:
 
-        frac_id = np.ravel(lines[:2, lines[2] == Tags.FRACTURE.value])
+        frac_id = np.ravel(lines[:2, lines[2] == GmshInterfaceTags.FRACTURE.value])
         _, frac_ia, frac_count = np.unique(frac_id, True, False, True)
 
         # In the case we have auxiliary points remove do not create a 0d point in
         # case one intersects a single fracture. In the case of multiple fractures intersection
         # with an auxiliary point do consider the 0d.
         aux_id = np.logical_or(
-            lines[2] == Tags.AUXILIARY_LINE.value,
-            lines[2] == Tags.DOMAIN_BOUNDARY_LINE.value,
+            lines[2] == GmshInterfaceTags.AUXILIARY_LINE.value,
+            lines[2] == GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value,
         )
         if np.any(aux_id):
             aux_id = np.ravel(lines[:2, aux_id])
@@ -582,8 +636,11 @@ class FractureNetwork2d(object):
         return frac_id[frac_ia[frac_count > 1]]
 
     def _insert_auxiliary_points(
-        self, mesh_size_frac=None, mesh_size_bound=None, mesh_size_min=None
-    ):
+        self,
+        mesh_size_frac: Optional[float] = None,
+        mesh_size_bound: Optional[float] = None,
+        mesh_size_min: Optional[float] = None,
+    ) -> None:
         # Mesh size
         # Tag points at the domain corners
         logger.info("Determine mesh size")
@@ -641,7 +698,7 @@ class FractureNetwork2d(object):
 
     def impose_external_boundary(
         self,
-        domain: Optional[Union[Dict, np.ndarray]] = None,
+        domain: Optional[Union[dict, np.ndarray]] = None,
         add_domain_edges: bool = True,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -672,11 +729,12 @@ class FractureNetwork2d(object):
             x_max = domain["xmax"]
             y_min = domain["ymin"]
             y_max = domain["ymax"]
-            dom_p = np.array(
+            dom_p: np.ndarray = np.array(
                 [[x_min, x_max, x_max, x_min], [y_min, y_min, y_max, y_max]]
             )
             dom_lines = np.array([[0, 1], [1, 2], [2, 3], [3, 0]]).T
         else:
+            assert isinstance(domain, np.ndarray)
             dom_p = domain
             tmp = np.arange(dom_p.shape[1])
             dom_lines = np.vstack((tmp, (tmp + 1) % dom_p.shape[1]))
@@ -716,7 +774,7 @@ class FractureNetwork2d(object):
                 self.tags[key] = np.hstack(
                     (
                         value[edges_kept],
-                        Tags.DOMAIN_BOUNDARY_LINE.value
+                        GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
                         * np.ones(dom_lines.shape[1], dtype=int),
                     )
                 )
@@ -1283,7 +1341,7 @@ class FractureNetwork2d(object):
                 csv_writer.writerow(data)
 
     def to_file(
-        self, file_name: str, data: Dict[str, np.ndarray] = None, **kwargs
+        self, file_name: str, data: Optional[dict[str, np.ndarray]] = None, **kwargs
     ) -> None:
         """
         Export the fracture network to file.

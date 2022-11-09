@@ -8,7 +8,7 @@ import copy
 import csv
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import meshio
 import networkx as nx
@@ -16,9 +16,11 @@ import numpy as np
 from scipy.spatial import ConvexHull
 
 import porepy as pp
-from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter, Tags
+from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter
 from porepy.fracs.plane_fracture import PlaneFracture
 from porepy.utils import setmembership, sort_points
+
+from .gmsh_interface import Tags as GmshInterfaceTags
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -60,8 +62,8 @@ class FractureNetwork3d(object):
 
     def __init__(
         self,
-        fractures: Optional[List[PlaneFracture]] = None,
-        domain: Optional[Union[Dict[str, float], List[np.ndarray]]] = None,
+        fractures: Optional[list[PlaneFracture]] = None,
+        domain: Optional[Union[dict[str, float], list[np.ndarray]]] = None,
         tol: float = 1e-8,
         run_checks: bool = False,
     ) -> None:
@@ -98,7 +100,7 @@ class FractureNetwork3d(object):
         # and whether the intersection is on the boundary of the fractures.
         # Note that a Y-type intersection between three fractures is represented
         # as three intersections.
-        self.intersections: Dict[str, np.ndarray] = {
+        self.intersections: dict[str, np.ndarray] = {
             "first": np.array([], dtype=object),
             "second": np.array([], dtype=object),
             "start": np.zeros((3, 0)),
@@ -120,7 +122,7 @@ class FractureNetwork3d(object):
         self.mesh_size_frac = None
         self.mesh_size_bound = None
         # Assign an empty tag dictionary
-        self.tags: Dict[str, List[bool]] = {}
+        self.tags: dict[str, list[bool]] = {}
 
         # No auxiliary points have been added
         self.auxiliary_points_added = False
@@ -185,12 +187,12 @@ class FractureNetwork3d(object):
 
     def mesh(
         self,
-        mesh_args: Dict[str, float],
+        mesh_args: dict[str, float],
         dfn: bool = False,
         file_name: Optional[str] = None,
         constraints: Optional[np.ndarray] = None,
         write_geo: bool = True,
-        tags_to_transfer: Optional[List[str]] = None,
+        tags_to_transfer: Optional[list[str]] = None,
         finalize_gmsh: bool = True,
         clear_gmsh: bool = False,
         **kwargs,
@@ -383,7 +385,7 @@ class FractureNetwork3d(object):
         auxiliary_line[some_boundary_edge] = False
         # The edge tags for internal lines were set accordingly in self._classify_edges.
         # Update to auxiliary line if this was really what we had.
-        edge_tags[auxiliary_line] = Tags.AUXILIARY_LINE.value
+        edge_tags[auxiliary_line] = GmshInterfaceTags.AUXILIARY_LINE.value
 
         # .. and we're done with edges (until someone defines a new special case)
         # Next, find intersection points.
@@ -405,8 +407,8 @@ class FractureNetwork3d(object):
 
         # We should also consider points that are both on a fracture tip and a domain
         # boundary line - these will be added to the fracture and boundary points below.
-        domain_boundary_line = edge_tags == Tags.DOMAIN_BOUNDARY_LINE.value
-        fracture_tip_line = edge_tags == Tags.FRACTURE_TIP.value
+        domain_boundary_line = edge_tags == GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
+        fracture_tip_line = edge_tags == GmshInterfaceTags.FRACTURE_TIP.value
         domain_boundary_point = edges[:2, domain_boundary_line]
         fracture_tip_point = edges[:2, fracture_tip_line]
         domain_and_tip_point = np.intersect1d(domain_boundary_point, fracture_tip_point)
@@ -479,17 +481,21 @@ class FractureNetwork3d(object):
         # but it can be useful to mark them for other purposes (EK: DFM upscaling)
         point_tags[
             fracture_constraint_intersection
-        ] = Tags.FRACTURE_CONSTRAINT_INTERSECTION_POINT.value
+        ] = GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT.value
 
-        point_tags[fracture_and_boundary_points] = Tags.FRACTURE_BOUNDARY_POINT.value
+        point_tags[
+            fracture_and_boundary_points
+        ] = GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
 
         # We're done! Hurrah!
 
         # Find points tagged as on the domain boundary
-        boundary_points = np.where(point_tags == Tags.DOMAIN_BOUNDARY_POINT.value)[0]
+        boundary_points = np.where(
+            point_tags == GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
+        )[0]
 
         fracture_boundary_points = np.where(
-            point_tags == Tags.FRACTURE_BOUNDARY_POINT.value
+            point_tags == GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
         )[0]
 
         # Intersections on the boundary should not have a 0d grid assigned
@@ -504,48 +510,53 @@ class FractureNetwork3d(object):
 
         line_in_poly = self.decomposition["line_in_frac"]
 
-        physical_points: Dict[int, Tags] = {}
+        physical_points: dict[int, GmshInterfaceTags] = {}
         for pi in fracture_boundary_points:
-            physical_points[pi] = Tags.FRACTURE_BOUNDARY_POINT
+            physical_points[pi] = GmshInterfaceTags.FRACTURE_BOUNDARY_POINT
 
         for pi in fracture_constraint_intersection:
-            physical_points[pi] = Tags.FRACTURE_CONSTRAINT_INTERSECTION_POINT
+            physical_points[
+                pi
+            ] = GmshInterfaceTags.FRACTURE_CONSTRAINT_INTERSECTION_POINT
 
         for pi in boundary_points:
-            physical_points[pi] = Tags.DOMAIN_BOUNDARY_POINT
+            physical_points[pi] = GmshInterfaceTags.DOMAIN_BOUNDARY_POINT
 
         for pi in true_intersection_points:
-            physical_points[pi] = Tags.FRACTURE_INTERSECTION_POINT
+            physical_points[pi] = GmshInterfaceTags.FRACTURE_INTERSECTION_POINT
 
         # Use separate structures to store tags and physical names for the polygons.
         # The former is used for feeding information into gmsh, while the latter is
         # used to tag information in the output from gmsh. They are kept as separate
         # variables since a user may want to modify the physical surfaces before
         # generating the .msh file.
-        physical_surfaces: Dict[int, Tags] = {}
-        polygon_tags = np.zeros(len(self._fractures), dtype=int)
+        physical_surfaces: dict[int, GmshInterfaceTags] = dict()
+        polygon_tags: dict[int, GmshInterfaceTags] = dict()
 
         for fi, _ in enumerate(self._fractures):
+            # Translate to from numerical tags to the GmshInterfaceTags system.
             if has_boundary and self.tags["boundary"][fi]:
-                physical_surfaces[fi] = Tags.DOMAIN_BOUNDARY_SURFACE
-                polygon_tags[fi] = Tags.DOMAIN_BOUNDARY_SURFACE.value
+                physical_surfaces[fi] = GmshInterfaceTags.DOMAIN_BOUNDARY_SURFACE
+                polygon_tags[fi] = GmshInterfaceTags.DOMAIN_BOUNDARY_SURFACE
             elif fi in constraints:
-                physical_surfaces[fi] = Tags.AUXILIARY_PLANE
-                polygon_tags[fi] = Tags.AUXILIARY_PLANE.value
+                physical_surfaces[fi] = GmshInterfaceTags.AUXILIARY_PLANE
+                polygon_tags[fi] = GmshInterfaceTags.AUXILIARY_PLANE
             else:
-                physical_surfaces[fi] = Tags.FRACTURE
-                polygon_tags[fi] = Tags.FRACTURE.value
+                physical_surfaces[fi] = GmshInterfaceTags.FRACTURE
+                polygon_tags[fi] = GmshInterfaceTags.FRACTURE
 
-        physical_lines = {}
-        for ei in range(edges.shape[1]):
-            if edges[2, ei] in (
-                Tags.FRACTURE_TIP.value,
-                Tags.FRACTURE_INTERSECTION_LINE.value,
-                Tags.DOMAIN_BOUNDARY_LINE.value,
-                Tags.FRACTURE_BOUNDARY_LINE.value,
-                Tags.AUXILIARY_LINE.value,
+        physical_lines: dict[int, GmshInterfaceTags] = dict()
+        for ei, tag in enumerate(edges[2]):
+            if tag in (
+                GmshInterfaceTags.FRACTURE_TIP.value,
+                GmshInterfaceTags.FRACTURE_INTERSECTION_LINE.value,
+                GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value,
+                GmshInterfaceTags.FRACTURE_BOUNDARY_LINE.value,
+                GmshInterfaceTags.AUXILIARY_LINE.value,
             ):
-                physical_lines[ei] = edges[2, ei]
+                # Translate from the numerical value of the line to the tag in the
+                # Gmsh interface.
+                physical_lines[ei] = GmshInterfaceTags(tag)
 
         gmsh_repr = GmshData3d(
             dim=3,
@@ -571,7 +582,7 @@ class FractureNetwork3d(object):
 
     def intersections_of_fracture(
         self, frac: Union[int, PlaneFracture]
-    ) -> Tuple[List[int], List[bool]]:
+    ) -> tuple[list[int], list[bool]]:
         """Get all known intersections for a fracture.
 
         If called before find_intersections(), the returned list will be empty.
@@ -1276,7 +1287,7 @@ class FractureNetwork3d(object):
 
     def impose_external_boundary(
         self,
-        domain: Optional[Union[Dict[str, float], List[np.ndarray]]] = None,
+        domain: Optional[Union[dict[str, float], list[np.ndarray]]] = None,
         keep_box: bool = True,
         area_threshold: float = 1e-4,
         clear_gmsh: bool = True,
@@ -1492,7 +1503,7 @@ class FractureNetwork3d(object):
             # List of nodes removed (isolated by an introduced diagonal)
             removed = []
             # List of triangles introduced
-            tris: List[List[int]] = []
+            tris: list[list[int]] = []
 
             # Helper function to get i2 move to the next available node
             def _next_i2(i2):
@@ -1624,7 +1635,7 @@ class FractureNetwork3d(object):
             # Find the pairs looping over all vertexes, find all its
             # neighboring vertexes.
             main_vertex_list = []
-            other_vertex_list: List[int] = []
+            other_vertex_list: list[int] = []
             indptr_list = [0]
 
             for i in range(num_p):
@@ -1834,9 +1845,9 @@ class FractureNetwork3d(object):
         # auxiliary type. These will have tag zero; and treated in a special
         # manner by the interface to gmsh.
         not_boundary_ind = np.setdiff1d(np.arange(num_is_bound), bound_ind)
-        tag[bound_ind] = Tags.FRACTURE_TIP.value
+        tag[bound_ind] = GmshInterfaceTags.FRACTURE_TIP.value
 
-        tag[not_boundary_ind] = Tags.FRACTURE_INTERSECTION_LINE.value
+        tag[not_boundary_ind] = GmshInterfaceTags.FRACTURE_INTERSECTION_LINE.value
 
         return tag, np.logical_not(all_bound), some_bound
 
@@ -1860,7 +1871,7 @@ class FractureNetwork3d(object):
         )[0]
 
         # ... on the points...
-        point_tags = Tags.NEUTRAL.value * np.ones(
+        point_tags = GmshInterfaceTags.NEUTRAL.value * np.ones(
             self.decomposition["points"].shape[1], dtype=int
         )
         # and the mapping between fractures and edges.
@@ -1877,9 +1888,11 @@ class FractureNetwork3d(object):
                 if all(edge_of_domain_boundary):
                     # The point is not associated with a fracture extending to the
                     # boundary
-                    edge_tags[e] = Tags.DOMAIN_BOUNDARY_LINE.value
+                    edge_tags[e] = GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
                     # The points of this edge are also associated with the boundary
-                    point_tags[edges[:, e]] = Tags.DOMAIN_BOUNDARY_POINT.value
+                    point_tags[
+                        edges[:, e]
+                    ] = GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
                 else:
                     # The edge is associated with at least one fracture. Still, if it is
                     # also the edge of at least one boundary point, we will consider it
@@ -1892,13 +1905,17 @@ class FractureNetwork3d(object):
 
                     # The line is on the boundary
                     if on_one_domain_edge:
-                        edge_tags[e] = Tags.DOMAIN_BOUNDARY_LINE.value
-                        point_tags[edges[:, e]] = Tags.DOMAIN_BOUNDARY_POINT.value
+                        edge_tags[e] = GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
+                        point_tags[
+                            edges[:, e]
+                        ] = GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
                     else:
                         # The edge is an intersection between a fracture and a boundary
                         # polygon
-                        edge_tags[e] = Tags.FRACTURE_BOUNDARY_LINE.value
-                        point_tags[edges[:, e]] = Tags.FRACTURE_BOUNDARY_POINT.value
+                        edge_tags[e] = GmshInterfaceTags.FRACTURE_BOUNDARY_LINE.value
+                        point_tags[
+                            edges[:, e]
+                        ] = GmshInterfaceTags.FRACTURE_BOUNDARY_POINT.value
             else:
                 # This is not an edge on the domain boundary, and the tag assigned in
                 # in self._classify_edges() is still valid: It is either a fracture tip
@@ -1981,7 +1998,7 @@ class FractureNetwork3d(object):
         mesh_size = np.minimum(mesh_size_min, self.mesh_size_frac * np.ones(num_pts))
 
         if self.mesh_size_bound is not None:
-            on_boundary = point_tags == Tags.DOMAIN_BOUNDARY_POINT.value
+            on_boundary = point_tags == GmshInterfaceTags.DOMAIN_BOUNDARY_POINT.value
             mesh_size_bound = np.minimum(
                 mesh_size_min, self.mesh_size_bound * np.ones(num_pts)
             )
@@ -2051,7 +2068,7 @@ class FractureNetwork3d(object):
             return np.sqrt(np.sum(np.power(b - a, 2), axis=0))
 
         # Dictionary that for each fracture maps the index of all other fractures.
-        intersecting_fracs: Dict[List[int]] = {}
+        intersecting_fracs: dict[list[int]] = {}
         # Loop over all fractures
         for fi, f in enumerate(self._fractures):
 
@@ -2064,7 +2081,7 @@ class FractureNetwork3d(object):
 
             # Keep track of which other fractures are intersecting - will be
             # needed later on
-            intersections_this_fracture: List[int] = []
+            intersections_this_fracture: list[int] = []
 
             # Loop over all intersections of the fracture
             isects, is_first_isect = self.intersections_of_fracture(f)
@@ -2383,7 +2400,10 @@ class FractureNetwork3d(object):
         )
 
     def to_file(
-        self, file_name: str, data: Dict[str, Union[np.ndarray, List]] = None, **kwargs
+        self,
+        file_name: str,
+        data: Optional[dict[str, Union[np.ndarray, list]]] = None,
+        **kwargs,
     ) -> None:
         """
         Export the fracture network to file.
