@@ -404,8 +404,8 @@ class MortarProjections(Operator):
                     # The primary grid is not in the list of subdomains. All projections
                     # to the primary grid are zero. They should all have the correct
                     # dimensions, though.
-                    # The size corresponding to the (missing) secondary grid is always zero, and
-                    # that of the mortar grid is always as above.
+                    # The size corresponding to the (missing) secondary grid is always zero,
+                    # and that of the mortar grid is always as above.
                     sz_mortar = intf.num_cells * dim
                     if len(subdomains) == 0:
                         # No subdomains provided. The total size is zero.

@@ -215,7 +215,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
 
 
 class ConstitutiveEquationsIncompressibleFlow(
-    pp.constitutive_laws.DarcyFlux, 
+    pp.constitutive_laws.DarcyFlux,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.ConstantPorousMedium,
@@ -356,7 +356,7 @@ class VariablesSinglePhaseFlow:
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.MixedDimensionalVariable:
         """Interface Darcy flux.
-        
+
         Parameters:
             interfaces: List of interface grids.
 
@@ -370,13 +370,13 @@ class VariablesSinglePhaseFlow:
 
     def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Reference pressure.
-        
+
         Parameters:
             subdomains: List of subdomains.
-            
+
             Returns:
                 Operator representing the reference pressure.
-                
+
         TODO: Confirm that this is the right place for this method.
         """
         num_cells = sum([sd.num_cells for sd in subdomains])
@@ -402,7 +402,7 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
         self.interface_darcy_flux_variable: str = "interface_darcy_flux"
         self.darcy_discretization_parameter_key: str = "flow"
         self.mobility_discretization_parameter_key: str = "mobility"
-        
+
     def set_materials(self):
         """Sketch approach of setting materials. Works for now.
 
@@ -453,7 +453,7 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
             specific_volume = specific_volume_mat.diagonal()
             # Check that the matrix is actually diagonal.
             assert np.all(np.isclose(specific_volume, specific_volume_mat.data))
-            
+
             kappa = self.permeability(sd)
             diffusivity = pp.SecondOrderTensor(kappa * specific_volume)
 
