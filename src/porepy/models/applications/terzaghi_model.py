@@ -685,9 +685,13 @@ class Terzaghi(pp.ContactMechanicsBiot):
         """
 
         # Retrieve data
-        t_ex = np.linspace(self.time_manager.time_init, self.time_manager.time_final, 400)
+        t_ex = np.linspace(
+            self.time_manager.time_init, self.time_manager.time_final, 400
+        )
         nondim_t_ex = np.asarray([self.nondim_time(t) for t in t_ex])
-        exact_consolidation = np.asarray([self.exact_consolidation_degree(t) for t in t_ex])
+        exact_consolidation = np.asarray(
+            [self.exact_consolidation_degree(t) for t in t_ex]
+        )
 
         nondim_t = np.asarray([sol.nondim_time for sol in self.solutions])
         numerical_consolidation = np.asarray(
@@ -696,10 +700,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         fig, ax = plt.subplots(figsize=(9, 8))
         ax.semilogx(
-            nondim_t_ex,
-            exact_consolidation,
-            color=color_map.colors[0],
-            label="Exact"
+            nondim_t_ex, exact_consolidation, color=color_map.colors[0], label="Exact"
         )
         ax.semilogx(
             nondim_t,
