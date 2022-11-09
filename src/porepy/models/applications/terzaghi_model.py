@@ -105,12 +105,12 @@ class Terzaghi(pp.ContactMechanicsBiot):
         import porepy as pp
         from time import time
 
-        # Run model
+        # Run Terzaghi's setup
         tic = time()
         print("Simulation started...")
-        setup = Terzaghi({"plot_results": True})
+        params = {"plot_results": True}
+        setup = Terzaghi(params)
         pp.run_time_dependent_model(setup, params)
-        print(f"Simulation finished in {round(time() - tic)} sec.")
 
     """
 
