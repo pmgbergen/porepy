@@ -88,7 +88,7 @@ class AbstractFunction(Operator):
         self._operation: Operation = Operation.evaluate
         self._set_tree()
 
-    def __call__(self, *args: pp.ad.Operator | Ad_array):
+    def __call__(self, *args: pp.ad.Operator | Ad_array) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
         Parameters:
