@@ -1,5 +1,3 @@
-from typing import List
-
 import numpy as np
 
 import porepy as pp
@@ -65,7 +63,7 @@ def make_mdg_2d_simplex(
 
 
 def make_mdg_2d_cartesian(
-    n_cells: np.ndarray, fractures: List[np.ndarray], domain: dict
+    n_cells: np.ndarray, fractures: list[np.ndarray], domain: dict
 ):
     """
     Construct a grid bucket with Cartesian grid in the 2d domain.
