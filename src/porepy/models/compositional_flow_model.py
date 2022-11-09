@@ -54,7 +54,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Timestep size."""
 
         ## Initial Conditions
-        self.initial_pressure: float = 150.
+        self.initial_pressure: float = 100.
         """Initial pressure in the domain in kPa."""
 
         self.initial_temperature: float = 343.15  # 50 dec Celsius
@@ -91,9 +91,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ## Boundary conditions
         self.boundary_temperature = 423.15  # 150 Celsius
         """Dirichlet boundary temperature in Kelvin for the conductive flux."""
-        self.outflow_boundary_pressure: float = 100
+        self.outflow_boundary_pressure: float = 100.
         """Dirichlet boundary pressure for the outflow in kPA for the advective flux."""
-        self.inflow_boundary_pressure: float = 101.
+        self.inflow_boundary_pressure: float = 130.
         """Dirichlet boundary pressure for the inflow in kPa for the advective flux."""
         self.inflow_boundary_temperature: float = self.injection_temperature
         """Temperature at the inflow boundary for computing influxing densities."""
@@ -219,7 +219,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
         refinement = 7
         phys_dims = [3, 1]
-        n_cells = [4, 2]
+        # n_cells = [4, 2]
         n_cells = [i * refinement for i in phys_dims]
         bounding_box_points = np.array([[0, phys_dims[0]],[0, phys_dims[1]]])
         self.box = pp.geometry.bounding_box.from_points(bounding_box_points)
@@ -252,7 +252,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         
         ## configuration
         initial_salt_concentration = 0.1
-        k_water = 0.9
+        k_water = 2.
         k_salt = 0.1
         injected_moles_water = 7000.0 / pp.composite.H2O.molar_mass()
         # initial fractions

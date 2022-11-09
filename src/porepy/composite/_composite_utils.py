@@ -113,7 +113,8 @@ H_REF = U_REF + P_REF / RHO_REF
 _heat_capacity_ratio: float = 8./6.
 """Heat capacity ratio for ideal, triatomic gases."""
 
-CP_REF: float = _heat_capacity_ratio / (_heat_capacity_ratio - 1) * R_IDEAL
+# CP_REF: float = _heat_capacity_ratio / (_heat_capacity_ratio - 1) * R_IDEAL
+CP_REF: float = 1
 """The specific heat capacity at constant pressure for ideal water vapor.
 
 Water is tri-atomic and hence
