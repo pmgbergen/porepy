@@ -1,4 +1,5 @@
 import csv
+from typing import Optional
 
 import gmsh
 import numpy as np
@@ -403,7 +404,9 @@ def dfm_3d_from_fab(
         return mdg
 
 
-def network_3d_from_fab(f_name: str, return_all: bool = False, tol: float = None):
+def network_3d_from_fab(
+    f_name: str, return_all: bool = False, tol: Optional[float] = None
+):
     """Read fractures from a .fab file, as specified by FracMan.
 
     The filter is based on the .fab-files available at the time of writing, and

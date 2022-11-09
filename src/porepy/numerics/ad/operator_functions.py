@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 from enum import Enum
 from functools import partial
-from typing import Callable, Optional, Type
+from typing import Callable, Optional, Optional, Type
 
 import numpy as np
 import scipy.sparse as sps
@@ -447,7 +447,7 @@ class ADmethod:
 
     def __init__(
         self,
-        func: Callable = None,
+        func: Optional[Callable] = None,
         ad_function_type: Type["AbstractFunction"] = Function,
         operator_kwargs: dict = {},
     ) -> None:
