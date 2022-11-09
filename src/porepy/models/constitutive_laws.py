@@ -80,12 +80,16 @@ class DimensionReduction:
         """
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         for i, sd in enumerate(subdomains):
-            
             a_loc = ad_wrapper(self.grid_aperture(sd), array=False)
+            a_glob = (
+                projection.cell_prolongation([sd])
+                * a_loc
+                * projection.cell_restriction([sd])
+            )
             if i == 0:
-                apertures = projection.cell_prolongation([sd]) * a_loc
+                apertures = a_glob
             else:
-                apertures += projection.cell_prolongation([sd]) * a_loc
+                apertures = a_glob
         apertures.set_name("aperture")
         return apertures
 
@@ -102,20 +106,26 @@ class DimensionReduction:
         # of the cell, i.e. raise to the power nd-dim
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         v: pp.ad.Operator = None
-        for dim in range(self.nd+1):
+        for dim in range(self.nd + 1):
             sd_dim = [sd for sd in subdomains if sd.dim == dim]
             if len(sd_dim) == 0:
                 continue
-            a_loc = projection.cell_restriction(sd_dim) * a
-            v_loc = a_loc ** pp.ad.Scalar(self.nd - dim)
+            a_loc = self.aperture(sd_dim)
+            v_loc = a_loc ** pp.ad.Scalar(self.nd + 1 - dim)
+            v_glob = (
+                projection.cell_prolongation(sd_dim)
+                * v_loc
+                * projection.cell_restriction(sd_dim)
+            )
             if v is None:
-                v = projection.cell_prolongation(sd_dim) * v_loc
+                v = v_glob
             else:
-                v += projection.cell_prolongation(sd_dim) * v_loc
+                v += v_glob
         v.set_name("specific_volume")
-        return v
-
- 
+        sz = sum([sd.num_cells for sd in subdomains])
+        vals = np.ones(sz)
+        vol = ad_wrapper(vals, array=False)
+        return vol
 
 
 class ConstantFluidDensity:
@@ -163,7 +173,9 @@ class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
 
 class ConstantViscosity:
     def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        return self.fluid.viscosity(subdomains)
+        return ad_wrapper(
+            self.fluid.viscosity(subdomains), array=False, name="viscosity"
+        )
 
 
 class DarcyFlux:
@@ -189,10 +201,9 @@ class DarcyFlux:
         pressure_trace = (
             discr.bound_pressure_cell * p
             + discr.bound_pressure_face
-            * projection.mortar_to_primary_int
-            * self.interface_fluid_flux(interfaces)
-            + discr.bound_pressure_face * self.bc_values_darcy(subdomains)
-            + discr.vector_source * self.vector_source(subdomains)
+            * (projection.mortar_to_primary_int * self.interface_darcy_flux(interfaces))
+            + discr.bound_pressure_face * self.bc_values_darcy_flux(subdomains)
+            + discr.vector_source * self.vector_source(subdomains, material="fluid")
         )
         return pressure_trace
 
@@ -216,7 +227,7 @@ class DarcyFlux:
                 + projection.mortar_to_primary_int
                 * self.interface_darcy_flux(interfaces)
             )
-            + discr.vector_source * self.vector_source(subdomains, material=self.fluid)
+            + discr.vector_source * self.vector_source(subdomains, material="fluid")
         )
         flux.set_name("Darcy_flux")
         return flux
@@ -254,46 +265,11 @@ class DarcyFlux:
         Returns:
             Cell-wise nd-vector source term operator
         """
-        vals: np.ndarray = self.fluid.convert_and_expand(0, "m*s^-2", grids, dim=self.nd)
+        vals: np.ndarray = self.fluid.convert_and_expand(
+            0, "m*s^-2", grids, dim=self.nd
+        )
         source: pp.ad.Matrix = ad_wrapper(vals, array=False, name="zero_vector_source")
         return source
-
-
-class InterfaceDarcyFlux:
-    def interface_darcy_flux(
-        self, interfaces: list[pp.MortarGrid], potential_name: str = "pressure"
-    ) -> pp.ad.Operator:
-        """Interface fluxes in the gradient.
-
-        Args:
-            interfaces: List of interfaces where the gradient interface flux is defined.
-
-        Returns:
-            Face-wise gradient interface flux in cubic meters per second.
-        """
-        # If no interfaces are given, return an empty operator.
-        if not interfaces:
-            return pp.ad.Operator()
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-
-        potential_trace = getattr(self, potential_name + "_trace")(subdomains)
-        potential = getattr(self, potential_name)(subdomains)
-        interface_geometry = pp.ad.Geometry(interfaces, matrices=["cell_volumes"])
-        # Project the two pressures to the interface and multiply with the normal diffusivity
-        flux = (
-            -interface_geometry.cell_volumes
-            * self.normal_diffusivity(interfaces)
-            * (
-                projection.primary_to_mortar_avg * potential_trace
-                - projection.mortar_projection_scalar.secondary_to_mortar_avg
-                * potential
-                # FIXME: The plan is to remove RoubinCoupling. That requires alternative
-                #  implementation of the below
-                + self.interface_vector_source(interfaces)
-            )
-        )
-        return flux
 
     def interface_vector_source(self, interfaces):
         """Interface vector source term.
@@ -307,7 +283,7 @@ class InterfaceDarcyFlux:
         Returns:
             Face-wise vector source term.
         """
-        geometry = pp.ad.Geometry(interfaces, dim=self.nd, wrap_fields=["cell_volumes"])
+        geometry = pp.ad.Geometry(interfaces, nd=self.nd, matrix_names=["cell_volumes"])
         # Expand cell volumes to nd
         # Fixme: Do we need right multiplication with transpose as well?
         cell_volumes_inv = geometry.scalar_to_nd_cell * geometry.cell_volumes ** (-1)
@@ -342,9 +318,11 @@ class AdvectiveFlux:
         """
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains)
-        mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
         flux: pp.ad.Operator = (
-            darcy_flux * discr.upwind * advected_entity
+            (discr.upwind * advected_entity) * darcy_flux
             - discr.bound_transport_dir * darcy_flux * bc_values
             # Advective flux coming from lower-dimensional subdomains
             - discr.bound_transport_neu
@@ -369,13 +347,16 @@ class AdvectiveFlux:
         Returns:
             Operator representing the advective flux on the interfaces.
         """
-        # If no interfaces are given, return an empty operator.
+        # If no interfaces are given, make sure to proceed with a non-empty subdomain list.
         if not interfaces:
-            return pp.ad.Operator()
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        mortar_projection = pp.ad.MortarProjections(subdomains, interfaces, dim=1)
+            subdomains = self.mdg.subdomains(dim=self.nd)
+        else:
+            subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
         trace = pp.ad.Trace(subdomains)
-        # Project the two advected entity to the interface and multiply with upstream weights
+        # Project the two advected entities to the interface and multiply with upstream weights
         # and the interface Darcy flux.
         interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
             discr.upwind_primary
@@ -544,7 +525,10 @@ class LinearElasticSolid(LinearElasticMechanicalStress):
                 3 * self.solid.lame_lambda(subdomains)
                 + 2 * self.solid.shear_modulus(subdomains)
             )
-            / (self.solid.lame_lambda(subdomains) + self.solid.shear_modulus(subdomains))
+            / (
+                self.solid.lame_lambda(subdomains)
+                + self.solid.shear_modulus(subdomains)
+            )
         )
         return ad_wrapper(val, False, name="youngs_modulus")
 
@@ -636,14 +620,19 @@ class ConstantPorousMedium:
         # )
         return self.solid.permeability(subdomain)
 
+    def normal_permeability(self, subdomain: pp.Grid) -> pp.ad.Operator:
+        return self.solid.normal_permeability(subdomain)
+
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         poro = self.solid.porosity(subdomains)
 
         return poro
+
 
 class ConstantSinglePhaseFluid(ConstantFluidDensity, ConstantViscosity):
     """Collection of constant fluid properties.
 
     This class is intended for use in single-phase flow models.
     """
+
     ...

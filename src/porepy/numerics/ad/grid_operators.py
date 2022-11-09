@@ -291,13 +291,12 @@ class MortarProjections(Operator):
         # Helper function for that case:
         def zero_matrices(sz_mortar, sz_tot):
             m2g = pp.matrix_operations.optimized_compressed_storage(
-                            sps.csr_matrix((sz_tot, sz_mortar))
-                        )
+                sps.csr_matrix((sz_tot, sz_mortar))
+            )
             g2m = pp.matrix_operations.optimized_compressed_storage(
-                    sps.csr_matrix((sz_mortar, sz_tot))
-                )
+                sps.csr_matrix((sz_mortar, sz_tot))
+            )
             return m2g, g2m
-
 
         if len(interfaces) > 0:
             for intf in interfaces:
@@ -357,10 +356,10 @@ class MortarProjections(Operator):
                         sz_tot = 0
                     else:
                         # We need the number of rows for the primary projection matrix.
-                        # This equals total number of faces (or cells, if codim is > 1) in the subdomains
-                        # times the dimension of the problem.
+                        # This equals total number of faces (or cells, if codim is > 1) in the
+                        # subdomains times the dimension of the problem.
                         grid_entity = "num_faces" if intf.codim < 2 else "num_cells"
-                        sz_tot = sum([getattr(sd, grid_entity)  for sd in subdomains])
+                        sz_tot = sum([getattr(sd, grid_entity) for sd in subdomains])
                     m2p, p2m = zero_matrices(sz_mortar, sz_tot)
                     mortar_to_primary_int.append(m2p)
                     mortar_to_primary_avg.append(m2p)
@@ -371,12 +370,14 @@ class MortarProjections(Operator):
                     # Projections to secondary
                     mortar_to_secondary_int.append(
                         pp.matrix_operations.optimized_compressed_storage(
-                            cell_projection[g_secondary] * intf.mortar_to_secondary_int(dim)
+                            cell_projection[g_secondary]
+                            * intf.mortar_to_secondary_int(dim)
                         )
                     )
                     mortar_to_secondary_avg.append(
                         pp.matrix_operations.optimized_compressed_storage(
-                            cell_projection[g_secondary] * intf.mortar_to_secondary_avg(dim)
+                            cell_projection[g_secondary]
+                            * intf.mortar_to_secondary_avg(dim)
                         )
                     )
 
