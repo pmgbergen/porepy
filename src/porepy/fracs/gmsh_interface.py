@@ -13,6 +13,7 @@ Content:
         gmsh model. Can also mesh.
 
 """
+from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Union
