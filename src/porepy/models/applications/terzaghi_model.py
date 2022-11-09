@@ -70,7 +70,7 @@ class TerzaghiSolution:
 
         # Pressure variables
         self.numerical_pressure = data[pp.STATE][p_var]
-        self.exact_pressure = setup.exact_pressure(t)
+        self.exact_pressure = setup.exact_pressure(y=self.vertical_coo, t=self.time)
         self.numerical_nondim_pressure = setup.nondim_pressure(self.numerical_pressure)
         self.exact_nondim_pressure = setup.nondim_pressure(self.exact_pressure)
 
@@ -468,35 +468,34 @@ class Terzaghi(pp.ContactMechanicsBiot):
         """
         return pressure / np.abs(self.params["vertical_load"])
 
-    def exact_pressure(self, t: Union[float, int]) -> np.ndarray:
+    def exact_pressure(self, y: np.ndarray, t: Union[float, int]) -> np.ndarray:
         """Compute exact pressure.
 
         Args:
+            y: vertical coordinates in meters.
             t: Time in seconds.
 
         Returns:
-            Exact pressure for the given time `t`.
+            Exact pressure profile for the given time `t`.
 
         """
-        sd = self.mdg.subdomains()[0]
-        yc = sd.cell_centers[1]
-        h = self.params["height"]
-        vertical_load = self.params["vertical_load"]
-        dimless_t = self.nondim_time(t)
+        F = self.params["vertical_load"]
+        nondim_y = self.nondim_length(y)
+        nondim_t = self.nondim_time(t)
 
         n = self.params["upper_limit_summation"]
 
         if t == 0:  # initally, the pressure equals the vertical load
-            p = vertical_load * np.ones(sd.num_cells)
+            p = F * np.ones_like(y)
         else:
-            sum_series = np.zeros_like(yc)
+            sum_series = np.zeros_like(y)
             for i in range(1, n + 1):
                 sum_series += (
                     (((-1) ** (i - 1)) / (2 * i - 1))
-                    * np.cos((2 * i - 1) * (np.pi / 2) * (yc / h))
-                    * np.exp((-((2 * i - 1) ** 2)) * (np.pi**2 / 4) * dimless_t)
+                    * np.cos((2 * i - 1) * (np.pi / 2) * nondim_y)
+                    * np.exp((-((2 * i - 1) ** 2)) * (np.pi**2 / 4) * nondim_t)
                 )
-            p = (4 / np.pi) * vertical_load * sum_series
+            p = (4 / np.pi) * F * sum_series
 
         return p
 
@@ -629,11 +628,14 @@ class Terzaghi(pp.ContactMechanicsBiot):
             color_map: listed color map object.
 
         """
+
         fig, ax = plt.subplots(figsize=(9, 8))
+
+        y_ex = np.linspace(0, self.params["height"], 400)
         for idx, sol in enumerate(self.solutions):
             ax.plot(
-                sol.exact_nondim_pressure,
-                sol.nondim_vertical_coo,
+                self.nondim_pressure(self.exact_pressure(y=y_ex, t=sol.time)),
+                self.nondim_length(y_ex),
                 color=color_map.colors[idx],
             )
             ax.plot(
@@ -653,6 +655,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
                 markersize=12,
                 label=rf"$\tau=${np.round(sol.nondim_time, 5)}",
             )
+
         ax.set_xlabel(r"$\tilde{p} = p/p_0$", fontsize=15)
         ax.set_ylabel(r"$\tilde{y} = y/h$", fontsize=15)
         ax.legend(loc="center right", bbox_to_anchor=(1.4, 0.5), fontsize=13)
@@ -682,20 +685,24 @@ class Terzaghi(pp.ContactMechanicsBiot):
         """
 
         # Retrieve data
-        exact_consolidation = np.asarray(
-            [sol.exact_consolidation_degree for sol in self.solutions]
-        )
+        t_ex = np.linspace(self.time_manager.time_init, self.time_manager.time_final, 400)
+        nondim_t_ex = np.asarray([self.nondim_time(t) for t in t_ex])
+        exact_consolidation = np.asarray([self.exact_consolidation_degree(t) for t in t_ex])
+
+        nondim_t = np.asarray([sol.nondim_time for sol in self.solutions])
         numerical_consolidation = np.asarray(
             [sol.numerical_consolidation_degree for sol in self.solutions]
         )
-        nondim_times = np.asarray([sol.nondim_time for sol in self.solutions])
 
         fig, ax = plt.subplots(figsize=(9, 8))
         ax.semilogx(
-            nondim_times, exact_consolidation, color=color_map.colors[0], label="Exact"
+            nondim_t_ex,
+            exact_consolidation,
+            color=color_map.colors[0],
+            label="Exact"
         )
         ax.semilogx(
-            nondim_times,
+            nondim_t,
             numerical_consolidation,
             color=color_map.colors[0],
             linewidth=0,
@@ -703,7 +710,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
             markersize=12,
             label="Numerical",
         )
-        ax.set_xlabel(r"$c_f t / h^2$", fontsize=15)
+        ax.set_xlabel(r"$\tau(t)$", fontsize=15)
         ax.set_ylabel(r"$U(t)$", fontsize=15)
         ax.legend(fontsize=14)
         ax.set_title("Degree of consolidation vs. non-dimensional time", fontsize=16)
