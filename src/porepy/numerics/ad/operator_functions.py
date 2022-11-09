@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import abc
 from functools import partial
-from typing import Callable, List, Optional, Type, Union
+from typing import Callable, Optional, Type, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -321,7 +321,7 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
         self,
         func: Callable,
         name: str,
-        multipliers: Union[List[float], float],
+        multipliers: float | list[float],
         array_compatible: bool = False,
     ):
         super().__init__(func, name, array_compatible)

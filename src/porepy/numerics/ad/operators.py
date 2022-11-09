@@ -254,9 +254,6 @@ class Operator:
         """Perform the ``discretize`` function of all child operators which are discretizations
         using data from mdg.
 
-        IMPLEMENTATION NOTE: The discretizations was identified at initialization of
-        Expression - it is now done here to accommodate updates (?) and
-
         """
         unique_discretizations: dict[
             _ad_utils.MergedOperator, GridLike
