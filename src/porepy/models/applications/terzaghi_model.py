@@ -105,31 +105,10 @@ class Terzaghi(pp.ContactMechanicsBiot):
         import porepy as pp
         from time import time
 
-        # Time manager
-        time_manager = pp.TimeManager([0, 0.01, 0.1, 0.5, 1, 2], 0.001, constant_dt=True)
-
-        # Model parameters
-        params = {
-                'alpha_biot': 1.0,  # [-]
-                'height': 1.0,  # [m]
-                'lambda_lame': 1.65E9,  # [Pa]
-                'mu_lame': 1.475E9,  # [Pa]
-                'num_cells': 20,
-                'permeability': 9.86E-14,  # [m^2]
-                'perturbation_factor': 1E-6,
-                'plot_results': True,
-                'specific_weight': 9.943E3,  # [Pa * m^-1]
-                'time_manager': time_manager,
-                'upper_limit_summation': 1000,
-                'use_ad': True,
-                'vertical_load': 6E8,  # [N * m^-1]
-                'viscosity': 1E-3,  # [Pa * s]
-            }
-
         # Run model
         tic = time()
         print("Simulation started...")
-        model = Terzaghi(params)
+        model = Terzaghi({"plot_results": True}})
         pp.run_time_dependent_model(model, params)
         print(f"Simulation finished in {round(time() - tic)} sec.")
 
@@ -139,28 +118,70 @@ class Terzaghi(pp.ContactMechanicsBiot):
         """Constructor of the Terzaghi class.
 
         Args:
-            params: Model parameters. Required entries are:
+            params: Model parameters.
 
-                - 'alpha_biot' : Biot constant (int or float).
-                - 'height' : Height of the domain in `m` (int or float).
-                - 'lambda_lame' : Lamé parameter in `Pa` (int or float).
-                - 'mu_lame' : Lamé parameter in `m` (int or float).
-                - 'num_cells' : Number of vertical cells (int).
-                - 'permeability' : Intrinsic permeability in `m^2` (int or float).
-                - 'pertubation_factor' : Perturbation factor (int or float). To be applied to
-                  the vertical node coordinates of the mesh. This is necessary to avoid
-                  singular matrices with MPSA and the use of roller boundary conditions.
+                Default physical parameters were adapted from
+                https://link.springer.com/article/10.1007/s10596-013-9393-8.
+
+                Optional parameters are:
+
+                - 'alpha_biot' : Biot constant (int or float). Default is 1.0.
+                - 'height' : Height of the domain in `m` (int or float). Default is 1.0.
+                - 'lambda_lame' : Lamé parameter in `Pa` (int or float). Defualt is 1.65e9.
+                - 'mu_lame' : Lamé parameter in `m` (int or float). Default is 1.475E9.
+                - 'num_cells' : Number of vertical cells (int). Default is 20.
+                - 'permeability' : Permeability in `m^2` (int or float). Default is 9.86e-14.
+                - 'pertubation_factor' : Perturbation factor (int or float). Used for
+                  perturbing the physical nodes of the mesh. This is necessary to avoid
+                  singular matrices with MPSA and the use of rollers. Default is 1e-6.
                 - 'plot_results' : Whether to plot the results (bool). The resulting plot is
-                  saved inside the `out` folder.
+                  saved inside the `out` folder. Default is False.
                 - 'specific_weight' : Fluid specific weight in `Pa * m^-1` (int or float).
-                  Recall that the specific weight is density * gravity.
-                - 'time_manager' : Time manager object (pp.TimeManager).
-                - 'use_ad' : Whether to use ad (bool). Note that this must be set to True.
-                  Otherwise, an error will be raised.
+                  Recall that the specific weight is density * gravity. Default is 9.943e3.
+                - 'time_manager' : Time manager object (pp.TimeManager). Default is
+                  pp.TimeManager([0, 0.01, 0.1, 0.5, 1, 2], 0.001, constant_dt=True).
+                - 'use_ad' : Whether to use ad (bool). Must be set to True. Otherwise,
+                  an error will be raised. Default is True.
                 - 'vertical_load' : Applied vertical load in `N * m^-1` (int or float).
-                - 'viscosity' : Fluid viscosity in `Pa * s` (int or float).
+                  Default is 6e8.
+                - 'viscosity' : Fluid viscosity in `Pa * s` (int or float). Default is 1e-3.
 
         """
+
+        def set_default_params(keyword: str, value: object) -> None:
+            """
+            Set default parameters if a keyword is absent in the `params` dictionary.
+
+            Args:
+                keyword: Parameter keyword, e.g., "alpha_biot".
+                value: Value of `keyword`, e.g., 1.0.
+
+            """
+            if keyword not in params.keys():
+                params[keyword] = value
+
+        # Default parameters
+        default_tm = pp.TimeManager([0, 0.01, 0.1, 0.5, 1, 2], 0.001, constant_dt=True)
+        default_params: list[tuple] = [
+            ("alpha_biot", 1.0),  # [-]
+            ("height", 1.0),  # [m]
+            ("lambda_lame", 1.65e9),  # [Pa]
+            ("mu_lame", 1.475e9),  # [Pa]
+            ("num_cells", 20),
+            ("permeability", 9.86e-14),  # [m^2]
+            ("perturbation_factor", 1e-6),
+            ("plot_results", False),
+            ("specific_weight", 9.943e3),  # [Pa * m^-1]
+            ("time_manager", default_tm),  # all time-related variables must be in [s]
+            ("upper_limit_summation", 1000),
+            ("use_ad", True),  # only `use_ad = True` is supported
+            ("vertical_load", 6e8),  # [N * m^-1]
+            ("viscosity", 1e-3),  # [Pa * s]
+        ]
+
+        # Set default values
+        for key, val in default_params:
+            set_default_params(key, val)
         super().__init__(params)
 
         # ad sanity check
