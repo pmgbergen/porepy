@@ -4,6 +4,7 @@ A module for representation and manipulations of fractures and fracture sets.
 The model relies heavily on functions in the computational geometry library.
 
 """
+from __future__ import annotations
 import copy
 import csv
 import logging
