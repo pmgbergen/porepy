@@ -407,7 +407,7 @@ class Composition:
             ph_subsystem["equations"].append(name)
 
         ### enthalpy constraint for p-H flash
-        equation = self.get_enthalpy_constraint()
+        equation = self.get_enthalpy_constraint(True)
         equations.update({self._enthalpy_constraint: equation})
         ph_subsystem["equations"].append(self._enthalpy_constraint)
 
@@ -979,7 +979,7 @@ class Composition:
             equation = self.h
 
             for phase in self.phases:
-                equation -= phase.fraction * (phase.specific_enthalpy(self.p, self.T) - h_R)
+                equation -= phase.fraction * phase.specific_enthalpy(self.p, self.T)
 
         return equation
 
