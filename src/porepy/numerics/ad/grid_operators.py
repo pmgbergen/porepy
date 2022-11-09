@@ -288,6 +288,17 @@ class MortarProjections(Operator):
         # global grid numbering to local mortar subdomains, and then stack the latter.
 
         # Special treatment is needed for the case of empty lists - see below
+        # Helper function for that case:
+        def zero_matrices(sz_mortar, sz_tot):
+            m2g = pp.matrix_operations.optimized_compressed_storage(
+                            sps.csr_matrix((sz_tot, sz_mortar))
+                        )
+            g2m = pp.matrix_operations.optimized_compressed_storage(
+                    sps.csr_matrix((sz_mortar, sz_tot))
+                )
+            return m2g, g2m
+
+
         if len(interfaces) > 0:
             for intf in interfaces:
                 g_primary, g_secondary = mdg.interface_to_subdomain_pair(intf)
@@ -300,71 +311,115 @@ class MortarProjections(Operator):
                     # face_projection for g_secondary, depending on the exact
                     # configuration
                     raise NotImplementedError("Non-standard interface.")
-                primary_projection = (
-                    face_projection[g_primary]
-                    if intf.codim < 2
-                    else cell_projection[g_primary]
-                )
-                # Create all projection matrices for this MortarGrid and append them to
-                # the list. The use of optimized storage is of importance here, since
-                # for small subdomain subdomains in problems with many cells in total, the
-                # projection matrices may have many more rows than columns, or opposite.
+                if g_primary in subdomains:
+                    primary_projection = (
+                        face_projection[g_primary]
+                        if intf.codim < 2
+                        else cell_projection[g_primary]
+                    )
+                    # Create all projection matrices for this MortarGrid and append them to
+                    # the list. The use of optimized storage is of importance here, since
+                    # for small subdomain subdomains in problems with many cells in total, the
+                    # projection matrices may have many more rows than columns, or opposite.
 
-                # Projections to primary
-                mortar_to_primary_int.append(
-                    pp.matrix_operations.optimized_compressed_storage(
-                        primary_projection * intf.mortar_to_primary_int(dim)
+                    # Projections to primary
+                    mortar_to_primary_int.append(
+                        pp.matrix_operations.optimized_compressed_storage(
+                            primary_projection * intf.mortar_to_primary_int(dim)
+                        )
                     )
-                )
-                mortar_to_primary_avg.append(
-                    pp.matrix_operations.optimized_compressed_storage(
-                        primary_projection * intf.mortar_to_primary_avg(dim)
+                    mortar_to_primary_avg.append(
+                        pp.matrix_operations.optimized_compressed_storage(
+                            primary_projection * intf.mortar_to_primary_avg(dim)
+                        )
                     )
-                )
 
-                # Projections from primary
-                primary_to_mortar_int.append(
-                    pp.matrix_operations.optimized_compressed_storage(
-                        intf.primary_to_mortar_int(dim) * primary_projection.T
+                    # Projections from primary
+                    primary_to_mortar_int.append(
+                        pp.matrix_operations.optimized_compressed_storage(
+                            intf.primary_to_mortar_int(dim) * primary_projection.T
+                        )
                     )
-                )
-                primary_to_mortar_avg.append(
-                    pp.matrix_operations.optimized_compressed_storage(
-                        intf.primary_to_mortar_avg(dim) * primary_projection.T
+                    primary_to_mortar_avg.append(
+                        pp.matrix_operations.optimized_compressed_storage(
+                            intf.primary_to_mortar_avg(dim) * primary_projection.T
+                        )
                     )
-                )
+                else:
+                    # The primary grid is not in the list of subdomains. All projections
+                    # to the primary grid are zero. They should all have the correct
+                    # dimensions, though.
+                    # The size corresponding to the (missing) primary grid is always zero, and
+                    # that of the mortar grid is always as above.
+                    sz_mortar = intf.num_cells * dim
+                    if len(subdomains) == 0:
+                        # No subdomains provided
+                        sz_tot = 0
+                    else:
+                        # We need the number of rows for the primary projection matrix.
+                        # This equals total number of faces (or cells, if codim is > 1) in the subdomains
+                        # times the dimension of the problem.
+                        grid_entity = "num_faces" if intf.codim < 2 else "num_cells"
+                        sz_tot = sum([getattr(sd, grid_entity)  for sd in subdomains])
+                    m2p, p2m = zero_matrices(sz_mortar, sz_tot)
+                    mortar_to_primary_int.append(m2p)
+                    mortar_to_primary_avg.append(m2p)
+                    primary_to_mortar_int.append(p2m)
+                    primary_to_mortar_avg.append(p2m)
 
-                # Projections to secondary
-                mortar_to_secondary_int.append(
-                    pp.matrix_operations.optimized_compressed_storage(
-                        cell_projection[g_secondary] * intf.mortar_to_secondary_int(dim)
+                if g_secondary in subdomains:
+                    # Projections to secondary
+                    mortar_to_secondary_int.append(
+                        pp.matrix_operations.optimized_compressed_storage(
+                            cell_projection[g_secondary] * intf.mortar_to_secondary_int(dim)
+                        )
                     )
-                )
-                mortar_to_secondary_avg.append(
-                    pp.matrix_operations.optimized_compressed_storage(
-                        cell_projection[g_secondary] * intf.mortar_to_secondary_avg(dim)
+                    mortar_to_secondary_avg.append(
+                        pp.matrix_operations.optimized_compressed_storage(
+                            cell_projection[g_secondary] * intf.mortar_to_secondary_avg(dim)
+                        )
                     )
-                )
 
-                # Projections from secondary.
-                # IMPLEMENTATION NOTE: For some reason, forcing csr format here
-                # decreased the runtime with a factor of 5, while this was not important
-                # while creating the other projection matrices. Experimentation showed no
-                # similar pattern when flipping between csc and csr formats, so it probably
-                # just has to be in this way, or this was case-dependent behavior (the
-                # relevant test case was the field case in the 3d flow benchmark).
-                secondary_to_mortar_int.append(
-                    pp.matrix_operations.optimized_compressed_storage(
-                        intf.secondary_to_mortar_int(dim).tocsr()
-                        * cell_projection[g_secondary].T
+                    # Projections from secondary.
+                    # IMPLEMENTATION NOTE: For some reason, forcing csr format here
+                    # decreased the runtime with a factor of 5, while this was not important
+                    # while creating the other projection matrices. Experimentation showed no
+                    # similar pattern when flipping between csc and csr formats, so it probably
+                    # just has to be in this way, or this was case-dependent behavior (the
+                    # relevant test case was the field case in the 3d flow benchmark).
+                    secondary_to_mortar_int.append(
+                        pp.matrix_operations.optimized_compressed_storage(
+                            intf.secondary_to_mortar_int(dim).tocsr()
+                            * cell_projection[g_secondary].T
+                        )
                     )
-                )
-                secondary_to_mortar_avg.append(
-                    pp.matrix_operations.optimized_compressed_storage(
-                        intf.secondary_to_mortar_avg(dim).tocsr()
-                        * cell_projection[g_secondary].T
+                    secondary_to_mortar_avg.append(
+                        pp.matrix_operations.optimized_compressed_storage(
+                            intf.secondary_to_mortar_avg(dim).tocsr()
+                            * cell_projection[g_secondary].T
+                        )
                     )
-                )
+                else:
+                    # The primary grid is not in the list of subdomains. All projections
+                    # to the primary grid are zero. They should all have the correct
+                    # dimensions, though.
+                    # The size corresponding to the (missing) secondary grid is always zero, and
+                    # that of the mortar grid is always as above.
+                    sz_mortar = intf.num_cells * dim
+                    if len(subdomains) == 0:
+                        # No subdomains provided. The total size is zero.
+                        sz_tot = 0
+                    else:
+                        # We need the number of rows for the primary projection matrix.
+                        # This equals total number of faces in the subdomains
+                        # times the dimension of the problem.
+                        sz_tot = sum([sd.num_cells for sd in subdomains])
+                    m2s, s2m = zero_matrices(sz_mortar, sz_tot)
+                    mortar_to_secondary_int.append(m2s)
+                    mortar_to_secondary_avg.append(m2s)
+                    secondary_to_mortar_int.append(s2m)
+                    secondary_to_mortar_avg.append(s2m)
+
         else:
             # FIXME: The assumption here is that a MixedDimensionalGrid with a single grid
             # (no fractures) has been constructed. In this case, the projection
@@ -553,7 +608,13 @@ class Geometry(Operator):
     FIXME: Implement parse??
     """
 
-    def __init__(self, subdomains: list[pp.Grid], nd: int, name: Optional[str] = None):
+    def __init__(
+        self,
+        subdomains: list[pp.Grid],
+        nd: int,
+        name: Optional[str] = None,
+        matrix_names: Optional[list[str]] = None,
+    ):
         """Construct concatenated grid operators for a given set of subdomains.
 
         The operators will be ordered according to the ordering in grids. It is critical
@@ -579,13 +640,22 @@ class Geometry(Operator):
         self.nd = nd
 
         self.num_cells: int = sum([g.num_cells for g in subdomains])
-        self.num_faces: int = sum([g.num_faces for g in subdomains])
+        if len(subdomains) > 0 and isinstance(subdomains[0], pp.MortarGrid):
+            is_mortar = True
+        else:
+            is_mortar = False
+            self.num_faces: int = sum([g.num_faces for g in subdomains])
 
         # Wrap the stacked matrices into Ad objects (could be extended to e.g. face normals)
-        for field in ["cell_volumes", "face_areas"]:
-            ad_matrix = Matrix(
-                sps.diags(np.hstack([getattr(g, field) for g in subdomains]))
-            )
+        if not matrix_names:
+            matrix_names = ["cell_volumes", "face_areas"]
+        for field in matrix_names:
+            if len(subdomains) == 0:
+                ad_matrix = Matrix(sps.csr_matrix((0, 0)))
+            else:
+                ad_matrix = Matrix(
+                    sps.diags(np.hstack([getattr(g, field) for g in subdomains]))
+                )
             setattr(self, field, ad_matrix)
 
         def scalar_to_nd(size):
@@ -603,7 +673,8 @@ class Geometry(Operator):
             return pp.ad.Matrix(mat)
 
         self.scalar_to_nd_cell = scalar_to_nd(self.num_cells)
-        self.scalar_to_nd_face = scalar_to_nd(self.num_faces)
+        if not is_mortar:
+            self.scalar_to_nd_face = scalar_to_nd(self.num_faces)
 
     def basis(self, dim: int = None) -> np.ndarray:
         """Return a cell-wise basis for all subdomains.
@@ -689,8 +760,7 @@ class Divergence(Operator):
             name (str, optional): Name to be assigned to the operator. Default is None.
 
         """
-        super().__init__(name=name)
-        self.subdomains = subdomains
+        super().__init__(subdomains=subdomains, name=name)
 
         self.dim: int = dim
 
