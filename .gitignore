@@ -18,6 +18,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 
+*/__pycache__/*
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
@@ -165,6 +167,7 @@ nbproject/
 *.swm
 *.pid
 *.pyc
+*.pyc*
 *.py#
 *.py~
 *.un~
