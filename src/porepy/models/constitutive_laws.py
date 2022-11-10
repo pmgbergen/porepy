@@ -89,7 +89,7 @@ class DimensionReduction:
             if i == 0:
                 apertures = a_glob
             else:
-                apertures = a_glob
+                apertures = apertures + a_glob
         apertures.set_name("aperture")
         return apertures
 
@@ -100,8 +100,6 @@ class DimensionReduction:
         area/volume (or "specific volume") for intersections of dimension 1 and 0.
         See also specific_volume.
         """
-        # Get aperture
-        a: pp.ad.Operator = self.aperture(subdomains)
         # Compute specific volume as the cross-sectional area/volume
         # of the cell, i.e. raise to the power nd-dim
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
@@ -120,12 +118,12 @@ class DimensionReduction:
             if v is None:
                 v = v_glob
             else:
-                v += v_glob
+                v = v + v_glob
         v.set_name("specific_volume")
-        sz = sum([sd.num_cells for sd in subdomains])
-        vals = np.ones(sz)
-        vol = ad_wrapper(vals, array=False)
-        return vol
+        # sz = sum([sd.num_cells for sd in subdomains])
+        # vals = np.ones(sz)
+        # vol = ad_wrapper(vals, array=False)
+        return v
 
 
 class ConstantFluidDensity:
@@ -268,7 +266,7 @@ class DarcyFlux:
         vals: np.ndarray = self.fluid.convert_and_expand(
             0, "m*s^-2", grids, dim=self.nd
         )
-        source: pp.ad.Matrix = ad_wrapper(vals, array=False, name="zero_vector_source")
+        source: pp.ad.Matrix = ad_wrapper(vals, array=True, name="zero_vector_source")
         return source
 
     def interface_vector_source(self, interfaces):
@@ -322,7 +320,7 @@ class AdvectiveFlux:
             self.mdg, subdomains, interfaces, dim=1
         )
         flux: pp.ad.Operator = (
-            (discr.upwind * advected_entity) * darcy_flux
+            darcy_flux * (discr.upwind * advected_entity)
             - discr.bound_transport_dir * darcy_flux * bc_values
             # Advective flux coming from lower-dimensional subdomains
             - discr.bound_transport_neu
@@ -613,11 +611,17 @@ class FrictionBound:
 
 class ConstantPorousMedium:
     def permeability(self, subdomain: pp.Grid) -> pp.SecondOrderTensor:
-        # This will be set as before (pp.PARAMETERS) since it is a discretization parameter
-        # Hence not list[subdomains]
-        # perm = pp.SecondOrderTensor(
-        #    self.solid.permeability(subdomain) * np.ones(subdomain.num_cells)
-        # )
+        """Permeability [m^2].
+
+        This will be set as before (pp.PARAMETERS) since it is a discretization parameter.
+        Hence not list[subdomains].
+
+        Parameters:
+            subdomain: Subdomain where the permeability is defined.
+
+        Returns:
+            Cell-wise permeability tensor.
+        """
         return self.solid.permeability(subdomain)
 
     def normal_permeability(self, subdomain: pp.Grid) -> pp.ad.Operator:
