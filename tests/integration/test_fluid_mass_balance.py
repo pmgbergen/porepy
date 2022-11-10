@@ -77,6 +77,18 @@ def test_ad_parsing_constitutive_laws(setup, method_name):
     op.evaluate(setup.equation_system)
 
 
+def test_special_signatures(setup) -> None:
+    """Test that the ad parsing works as expected.
+
+    This test is for methods with special signatures:
+    - vector_source
+    """
+    op0 = setup.vector_source(grids=setup.mdg.subdomains(), material="fluid")
+    op1 = setup.vector_source(grids=setup.mdg.interfaces(), material="fluid")
+    op0.evaluate(setup.equation_system)
+    op1.evaluate(setup.equation_system)
+
+
 @pytest.mark.parametrize(
     "variable_name",
     [
@@ -131,29 +143,23 @@ def test_ad_parsing_variables(setup, variable_name, variable_inds):
 )
 def test_parse_equations(setup, equation_name, domain_inds):
     """Test that equation parsing works as expected."""
-    equation = getattr(setup, equation_name)
-
-    sig = signature(equation)
-    assert len(sig.parameters) == 1
-    if "subdomains" in sig.parameters:
+    if "balance" in equation_name:
         domains = setup.mdg.subdomains()
-    elif "interfaces" in sig.parameters:
+    elif "flux" in equation_name:
         domains = setup.mdg.interfaces()
+    else:
+        raise ValueError("Unknown equation type")
 
     # Pick out the relevant domains
     domains = [domains[i] for i in domain_inds if i < len(domains)]
-    op = equation(domains)
+    evaluation = setup.equation_system.assemble_subsystem({equation_name: domains})
 
-    assert isinstance(op, pp.ad.Operator)
-    # The operator should be evaluateable
-    evaluation = op.evaluate(setup.equation_system)
     # Check that value and Jacobian are of the correct shape
     sz_tot = setup.equation_system.num_dofs()
     sz_var = sum([d.num_cells for d in domains])
-    assert evaluation.val.size == sz_var
-    assert evaluation.jac.shape == (sz_var, sz_tot)
+    assert evaluation[1].size == sz_var
+    assert evaluation[0].shape == (sz_var, sz_tot)
 
-    # Compare with assembly using EquationSystem
-    equation_es = setup.equation_system.assemble_subsystem({equation_name: domains})
-    assert np.allclose(evaluation.val, equation_es.val)
-    assert np.allclose(evaluation.jac, equation_es.jac)
+# ob = IncompressibleCombined({})
+# ob.prepare_simulation()
+# test_parse_equations(ob, "fluid_mass_balance_equation", [0, 1])
