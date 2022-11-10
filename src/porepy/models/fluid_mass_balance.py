@@ -143,7 +143,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
             Operator representing the fluid flux.
         """
         discr = self.mobility_discretization(subdomains)
-        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.fluid_density(subdomains) * self.mobility(subdomains)
 
         bc_values = self.bc_values_mobrho(subdomains)
         # Signature of method should allow reuse for e.g. enthalpy flux
@@ -232,7 +232,8 @@ class ConstitutiveEquationsIncompressibleFlow(
         Returns:
             Operator representing the mobility.
         """
-        return self.viscosity(subdomains)
+        val = 1 / self.fluid.viscosity(subdomains)
+        return ad_wrapper(val, array=True, name="viscosity")
 
     def mobility_discretization(
         self, subdomains: list[pp.Grid]
@@ -378,6 +379,10 @@ class VariablesSinglePhaseFlow:
                 Operator representing the reference pressure.
 
         TODO: Confirm that this is the right place for this method.
+        # IS: Definitely not a Material. Most closely related to the constitutive laws.
+        # Perhaps create a reference values class that is a mixin to the constitutive laws?
+        # Could have values in the init and methods returning operators just as
+        # this method.
         """
         p_ref = self.fluid.convert_and_expand(0, "Pa", subdomains)
         return ad_wrapper(p_ref, True, name="reference_pressure")
