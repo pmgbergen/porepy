@@ -121,7 +121,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
         flux = self.fluid_flux(subdomains)
         source = self.fluid_source(subdomains)
         eq = self.balance_equation(subdomains, accumulation, flux, source)
-        eq.set_name("subdomain_mass_balance_equation")
+        eq.set_name("fluid_mass_balance_equation")
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -379,8 +379,8 @@ class VariablesSinglePhaseFlow:
 
         TODO: Confirm that this is the right place for this method.
         """
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        return ad_wrapper(self.fluid.PRESSURE, True, num_cells, "reference_pressure")
+        p_ref = self.fluid.convert_and_expand(0, "Pa", subdomains)
+        return ad_wrapper(p_ref, True, name="reference_pressure")
 
 
 class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):

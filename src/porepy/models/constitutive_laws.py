@@ -626,7 +626,7 @@ class ConstantPorousMedium:
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         poro = self.solid.porosity(subdomains)
 
-        return poro
+        return ad_wrapper(poro, False, name="porosity")
 
 
 class ConstantSinglePhaseFluid(ConstantFluidDensity, ConstantViscosity):
