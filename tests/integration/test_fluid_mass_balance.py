@@ -1,10 +1,13 @@
 """Tests for fluid mass balance models."""
 
-import numpy as np
-import porepy as pp
-import pytest
-from porepy.models import fluid_mass_balance as fmb
 from inspect import signature
+
+import numpy as np
+import pytest
+
+import porepy as pp
+from porepy.models import fluid_mass_balance as fmb
+
 
 class FracGeom(pp.ModelGeometry):
     def set_fracture_network(self) -> None:
@@ -32,6 +35,7 @@ class IncompressibleCombined(
 
     pass
 
+
 @pytest.fixture
 def setup():
 
@@ -39,7 +43,9 @@ def setup():
     ob.prepare_simulation()
     return ob
 
-@pytest.mark.parametrize("method_name",
+
+@pytest.mark.parametrize(
+    "method_name",
     [
         "bc_values_darcy_flux",
         "bc_values_mobrho",
@@ -53,7 +59,9 @@ def setup():
         "interface_fluid_flux",
         "fluid_flux",
         "pressure_trace",
-    ]
+        "porosity",
+        "reference_pressure",
+    ],
 )
 def test_ad_parsing_constitutive_laws(setup, method_name):
     """Test that the ad parsing works as expected."""
@@ -69,17 +77,19 @@ def test_ad_parsing_constitutive_laws(setup, method_name):
     op.evaluate(setup.equation_system)
 
 
-@pytest.mark.parametrize("variable_name",
+@pytest.mark.parametrize(
+    "variable_name",
     [
         "pressure",
         "interface_darcy_flux",
-    ]
+    ],
 )
-@pytest.mark.parametrize("variable_inds",
+@pytest.mark.parametrize(
+    "variable_inds",
     [
         [0],
         [0, 1],
-    ]
+    ],
 )
 def test_ad_parsing_variables(setup, variable_name, variable_inds):
     """Test that the ad parsing works as expected."""
@@ -96,4 +106,54 @@ def test_ad_parsing_variables(setup, variable_name, variable_inds):
     op = variable(domains)
 
     assert isinstance(op, pp.ad.Operator)
-    op.evaluate(setup.equation_system)
+    # The operator should be evaluateable
+    evaluation = op.evaluate(setup.equation_system)
+    # Check that value and Jacobian are of the correct shape
+    sz_tot = setup.equation_system.num_dofs()
+    sz_var = sum([d.num_cells for d in domains])
+    assert evaluation.val.size == sz_var
+    assert evaluation.jac.shape == (sz_var, sz_tot)
+
+
+@pytest.mark.parametrize(
+    "equation_name",
+    [
+        "fluid_mass_balance_equation",
+        "interface_darcy_flux_equation",
+    ],
+)
+@pytest.mark.parametrize(
+    "domain_inds",
+    [
+        [0],
+        [0, 1],
+    ],
+)
+def test_parse_equations(setup, equation_name, domain_inds):
+    """Test that equation parsing works as expected."""
+    equation = getattr(setup, equation_name)
+
+    sig = signature(equation)
+    assert len(sig.parameters) == 1
+    if "subdomains" in sig.parameters:
+        domains = setup.mdg.subdomains()
+    elif "interfaces" in sig.parameters:
+        domains = setup.mdg.interfaces()
+
+    # Pick out the relevant domains
+    domains = [domains[i] for i in domain_inds if i < len(domains)]
+    op = equation(domains)
+
+    assert isinstance(op, pp.ad.Operator)
+    # The operator should be evaluateable
+    evaluation = op.evaluate(setup.equation_system)
+    # Check that value and Jacobian are of the correct shape
+    sz_tot = setup.equation_system.num_dofs()
+    sz_var = sum([d.num_cells for d in domains])
+    assert evaluation.val.size == sz_var
+    assert evaluation.jac.shape == (sz_var, sz_tot)
+
+    # Compare with assembly using EquationSystem
+    equation_es = setup.equation_system.assemble_subsystem({equation_name: domains})
+    assert np.allclose(evaluation.val, equation_es.val)
+    assert np.allclose(evaluation.jac, equation_es.jac)
