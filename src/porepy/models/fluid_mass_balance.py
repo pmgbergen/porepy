@@ -143,7 +143,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
             Operator representing the fluid flux.
         """
         discr = self.mobility_discretization(subdomains)
-        mob_rho = self.cell_mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
 
         bc_values = self.bc_values_mobrho(subdomains)
         # Signature of method should allow reuse for e.g. enthalpy flux
@@ -193,7 +193,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.cell_mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.interface_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("interface_fluid_flux")
@@ -223,7 +223,7 @@ class ConstitutiveEquationsIncompressibleFlow(
 ):
     """Constitutive equations for incompressible flow."""
 
-    def cell_mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mobility of the fluid flux.
 
         Parameters:
