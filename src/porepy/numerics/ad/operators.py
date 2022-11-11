@@ -286,7 +286,8 @@ class Operator:
             # To add we need two objects
             assert len(results) == 2
 
-            # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
+            # Convert any vectors that mascarade as a n x 1 (1 x n) scipy matrix to a
+            # numpy array.
             self._ravel_scipy_matrix(results)
 
             if isinstance(results[0], np.ndarray):
@@ -304,7 +305,8 @@ class Operator:
             # To subtract we need two objects
             assert len(results) == 2
 
-            # Convert any vectors that mascarade as a nx1 (1xn) scipy matrix
+            # Convert any vectors that mascarade as a n x 1 (1 x n) scipy matrix to a
+            # numpy array.
             self._ravel_scipy_matrix(results)
 
             factor = 1
@@ -526,11 +528,16 @@ class Operator:
         # In some cases, parsing may leave what is essentially an array, but with the
         # format of a scipy matrix. This must be converted to a numpy array before
         # moving on.
-        # Note: It is not clear that this conversion is meaningful in all cases, so be
-        # cautious with adding this extra parsing to more Operator.Operations.
+        # NOTE: It is not clear that this conversion is meaningful in all cases, so be
+        # cautious with adding this extra parsing to other operations, besides
+        # addition and subtraction.
+
+        # Loop over all results, and convert scipy matrices to numpy arrays if they
+        # have size 1 in one direction. Matrices of other sizes are left as they are.
         for i, res in enumerate(results):
-            if isinstance(res, sps.spmatrix):
-                assert res.shape[0] <= 1 or res.shape[1] <= 1
+            if isinstance(res, sps.spmatrix) and (
+                res.shape[0] <= 1 or res.shape[1] <= 1
+            ):
                 results[i] = res.toarray().ravel()
 
     def viz(self):
