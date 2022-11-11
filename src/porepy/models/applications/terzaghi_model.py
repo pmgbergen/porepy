@@ -24,9 +24,11 @@ one-dimensional subdomains.
 References:
 
     [1] von Terzaghi, K. (1923). Die berechnung der durchassigkeitsziffer des tones aus dem
-        verlauf der hydrodynamischen spannungs. erscheinungen. Sitzungsber. Akad. Wiss. Math.
-        Naturwiss. Kl. Abt. 2A, 132, 105-124.
+    verlauf der hydrodynamischen spannungs. erscheinungen. Sitzungsber. Akad. Wiss. Math.
+    Naturwiss. Kl. Abt. 2A, 132, 105-124.
+
     [2] von Terzaghi, K. (1944). Theoretical Soil Mechanics.
+
     [3] Verruijt, A. (2017). An Introduction to Soil Mechanics (Vol. 30). Springer.
 
 """
@@ -99,18 +101,20 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
     Examples:
 
-        .. code:: Python
+        .. code:: python
 
-        # Import modules
-        import porepy as pp
-        from time import time
+            # Import modules
+            import porepy as pp
+            from time import time
 
-        # Run Terzaghi's setup
-        tic = time()
-        print("Simulation started...")
-        params = {"plot_results": True}
-        setup = Terzaghi(params)
-        pp.run_time_dependent_model(setup, params)
+            # Run Terzaghi's setup
+            tic = time()
+            print("Simulation started...")
+            params = {"plot_results": True}
+            setup = Terzaghi(params)
+            pp.run_time_dependent_model(setup, params)
+            toc = time()
+            print(f"Simulation finished in {round(toc - tic)} seconds.")
 
     """
 
@@ -193,6 +197,8 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
     def create_grid(self) -> None:
         """Create a two-dimensional Cartesian grid."""
+
+        # Create a standard Cartesian grid
         n = self.params["num_cells"]
         h = self.params["height"]
         phys_dims = np.array([h, h])
@@ -200,12 +206,14 @@ class Terzaghi(pp.ContactMechanicsBiot):
         self.box = pp.geometry.bounding_box.from_points(np.array([[0, 0], phys_dims]).T)
         sd: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         sd.compute_geometry()
+        self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
+        self.domain_sides = self._domain_boundary_sides(sd)
+
+        # Perturb physical nodes to avoid singular matrices with roller bc and MPSA.
         np.random.seed(35)  # this seed is fixed but completely arbitrary
-        # Perturb the y-coordinate of the physical nodes to avoid singular matrices with
-        # roller bc and MPSA. For Terzaghi's problem, perturb only the vertical coordinates,
-        # NOT the horizontal coordinates.
         perturbation_factor = self.params["perturbation_factor"]
         perturbation = np.random.rand(sd.num_nodes) * perturbation_factor
+        sd.nodes[0] += perturbation
         sd.nodes[1] += perturbation
         sd.compute_geometry()
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
@@ -242,14 +250,14 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         """
         # Define boundary regions
-        all_bc, _, _, north, *_ = self._domain_boundary_sides(sd)
-        north_bc = np.isin(all_bc, np.where(north)).nonzero()
+        all_bf, _, _, north, *_ = self.domain_sides
+        north_bc = np.isin(all_bf, np.where(north)).nonzero()
 
         # All sides Neumann, except the North which is Dirichlet
-        bc_type = np.asarray(all_bc.size * ["neu"])
+        bc_type = np.asarray(all_bf.size * ["neu"])
         bc_type[north_bc] = "dir"
 
-        bc = pp.BoundaryCondition(sd, faces=all_bc, cond=list(bc_type))
+        bc = pp.BoundaryCondition(sd, faces=all_bf, cond=list(bc_type))
 
         return bc
 
@@ -267,7 +275,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         super()._bc_type_mechanics(sd=sd)
 
         # Get boundary sides, retrieve data dict, and bc object
-        _, east, west, north, south, *_ = self._domain_boundary_sides(sd)
+        _, east, west, north, south, *_ = self.domain_sides
         data = self.mdg.subdomain_data(sd)
         bc = data[pp.PARAMETERS][self.mechanics_parameter_key]["bc"]
 
@@ -283,9 +291,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         bc.is_neu[:, north] = True
         bc.is_dir[:, north] = False
 
-        # South side: Roller
-        bc.is_neu[0, south] = True
-        bc.is_dir[0, south] = False
+        # South side: Dirichlet (already set thanks to inheritance)
 
         return bc
 
@@ -301,7 +307,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         """
 
         # Retrieve boundary sides
-        _, _, _, north, *_ = self._domain_boundary_sides(sd)
+        _, _, _, north, *_ = self.domain_sides
 
         # All zeros except vertical component of the north side
         vertical_load = self.params["vertical_load"]
@@ -476,7 +482,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
             t: Time in seconds.
 
         Returns:
-            Exact pressure profile for the given time `t`.
+            Exact pressure profile for the given time ``t``.
 
         """
         F = self.params["vertical_load"]
@@ -764,3 +770,32 @@ class Terzaghi(pp.ContactMechanicsBiot):
         l2_error = numerator / denominator
 
         return l2_error
+
+
+#%% Runner
+# Import modules
+from time import time
+
+# Run Terzaghi's setup
+tic = time()
+print("Simulation started...")
+params = {
+        "alpha_biot": 1.0,  # [-]
+        "height": 1.0,  # [m]
+        "lambda_lame": 1.65e9,  # [Pa]
+        "mu_lame": 1.475e9,  # [Pa]
+        "num_cells": 10,
+        "permeability": 9.86e-14,  # [m^2]
+        "perturbation_factor": 1e-6,
+        "plot_results": False,
+        "specific_weight": 9.943e3,  # [Pa * m^-1]
+        "time_manager": pp.TimeManager([0, 0.05, 0.1, 0.3], 0.05, constant_dt=True),
+        "upper_limit_summation": 1000,
+        "use_ad": True,
+        "vertical_load": 6e8,  # [N * m^-1]
+        "viscosity": 1e-3,  # [Pa * s]
+    }
+setup = Terzaghi(params)
+pp.run_time_dependent_model(setup, params)
+toc = time()
+print(f"Simulation finished in {round(toc - tic)} seconds.")
