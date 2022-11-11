@@ -230,18 +230,35 @@ class UnitSolid(Material):
         return self.convert_and_expand(self.NORMAL_PERMEABILITY, "m^2", interfaces)
 
     def porosity(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Porosity [-].
+
+        Note:
+            One may very reasonably include sd dependency (e.g. 1 for fractures).
+            This should be done in the constitutive relation, which has access to
+            geometric information, not here.
+
+        Parameters:
+            subdomains: List of grids where the porosity is defined.
+
+        Returns:
+            Cell-wise porosity.
+
+        """
         return self.convert_and_expand(self.POROSITY, "-", subdomains)
 
-    def permeability(self, sd: pp.Grid) -> np.ndarray:
+    def permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Permeability [m^2].
 
         Parameters:
-            sd: Subdomain where the permeability is defined.
+            subdomains: List of subdomain where the permeability is defined.
+                Will usually be a single grid, since permeability is used inside
+                discretizations, thus assigned to individual subdomain data dictionaries.
+
 
         Returns:
             Cell-wise permeability.
         """
-        return self.convert_and_expand(self.PERMEABILITY, "m^2", [sd])
+        return self.convert_and_expand(self.PERMEABILITY, "m^2", subdomains)
 
     def shear_modulus(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Young's modulus [Pa].
