@@ -91,7 +91,7 @@ class Parameters(Dict):
     def __init__(
         self,
         grid: Optional[Union[pp.Grid, pp.MortarGrid]] = None,
-        keywords: list[str] = None,
+        keywords: Optional[list[str]] = None,
         dictionaries: Optional[list[dict]] = None,
     ):
         """Initialize Data object.

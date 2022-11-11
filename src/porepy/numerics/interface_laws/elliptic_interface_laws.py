@@ -99,7 +99,7 @@ class RobinCoupling(AbstractInterfaceLaw):
         edge data.
 
         Args:
-            sd_primary: Grid of the primary domanin.
+            sd_primary: Grid of the primary domain.
             sd_secondary: Grid of the secondary domain.
             intf (pp.MortarGrid): Mortar grid on the interface between the subdomains.
             sd_data_primary: Data dictionary for the primary domain.
@@ -219,7 +219,7 @@ class RobinCoupling(AbstractInterfaceLaw):
         intf_data,
         matrix,
     ):
-        """Assemble the dicretization of the interface law, and its impact on
+        """Assemble the discretization of the interface law, and its impact on
         the neighboring domains. Assemble only matrix, not rhs terms.
 
         Parameters:
@@ -688,7 +688,7 @@ class FluxPressureContinuity(RobinCoupling):
         rhs_secondary[2] = np.zeros_like(rhs_primary[2])
 
         # If primary and secondary is the same grid, they should contribute to the same
-        # row and coloumn. When the assembler assigns matrix[idx] it will only add
+        # row and column. When the assembler assigns matrix[idx] it will only add
         # the secondary information because of duplicate indices (primary and secondary
         # is the same). We therefore write the both primary and secondary info to the
         # secondary index.
@@ -780,7 +780,7 @@ class FluxPressureContinuity(RobinCoupling):
         Parameters:
             sd_primary: Grid on one neighboring subdomain.
             sd_secondary: Grid on the other neighboring subdomain.
-            sd_data_primary: Data dictionary for the primary suddomain
+            sd_data_primary: Data dictionary for the primary subdomain
             sd_data_secondary: Data dictionary for the secondary subdomain.
             intf_data: Data dictionary for the edge between the subdomains
             matrix_primary: original discretization for the primary subdomain
@@ -1064,7 +1064,7 @@ class WellCoupling(AbstractInterfaceLaw):
         # IMPLEMENTATION NOTE: The default value is needed to avoid that
         # ambient_dimension becomes a required parameter. If neither ambient dimension,
         # nor the actual vector_source is specified, there will be no problems (in the
-        # assembly, a zero vector soucre of a size that fits with the discretization is
+        # assembly, a zero vector source of a size that fits with the discretization is
         # created). If a vector_source is specified, but the ambient dimension is not,
         # a dimension mismatch will result unless the ambient dimension implied by
         # the size of the vector source matches sd_primary.dim. This is okay for domains with
@@ -1116,8 +1116,10 @@ class WellCoupling(AbstractInterfaceLaw):
         sd_data_secondary: Dict,
         intf_data: Dict,
         matrix: sps.spmatrix,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        pass
+    ) -> Tuple[np.ndarray, np.ndarray]:  # type:ignore
+        raise NotImplementedError(
+            "Wells are not compatible with the Assembler framework"
+        )
 
     def __repr__(self) -> str:
         return f"Interface coupling of Well type, with keyword {self.keyword}"

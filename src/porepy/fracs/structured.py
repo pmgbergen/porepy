@@ -3,7 +3,9 @@ Module for creating fractured cartesian grids in 2- and 3-dimensions.
 
 The functions in this module can be accessed through the meshing wrapper module.
 """
-from typing import List
+from __future__ import annotations
+
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -15,8 +17,8 @@ from .gmsh_interface import Tags
 
 
 def _cart_grid_3d(
-    fracs: List[np.ndarray], nx: np.ndarray, physdims: np.ndarray = None
-) -> List[pp.Grid]:
+    fracs: list[np.ndarray], nx: np.ndarray, physdims: Optional[np.ndarray] = None
+) -> list[pp.Grid]:
     """
     Create grids for a domain with possibly intersecting fractures in 3d.
 
@@ -61,8 +63,8 @@ def _cart_grid_3d(
 
 
 def _tensor_grid_3d(
-    fracs: List[np.ndarray], x: np.ndarray, y: np.ndarray, z: np.ndarray
-) -> List[List[pp.Grid]]:
+    fracs: list[np.ndarray], x: np.ndarray, y: np.ndarray, z: np.ndarray
+) -> list[list[pp.Grid]]:
     """
     Create a grids for a domain with possibly intersecting fractures in 3d.
 
@@ -140,8 +142,8 @@ def _cart_grid_2d(fracs, nx, physdims=None):
 
 
 def _tensor_grid_2d(
-    fracs: List[np.ndarray], x: np.ndarray, y: np.ndarray
-) -> List[List[pp.Grid]]:
+    fracs: list[np.ndarray], x: np.ndarray, y: np.ndarray
+) -> list[list[pp.Grid]]:
     """
     Create a grids for a domain with possibly intersecting fractures in 2d.
 

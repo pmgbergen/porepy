@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import abc
 from functools import partial
-from typing import Callable, List, Type, Union
+from typing import Callable, List, Optional, Type, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -391,7 +391,13 @@ class InterpolatedFunction(AbstractFunction):
             if self._prevaluated:
                 self._table = pp.InterpolationTable(min_val, max_val, npt, func)
             else:
-                self._table = pp.AdaptiveInterpolationTable(min_val, max_val, npt, func)
+                # Find a grid resolution from the provided minimum and maximum values.
+                # TODO: This will get an overhaul once we start using the adaptive
+                # interpolation tables in actual computations.
+                dx = (max_val - min_val) / npt
+                self._table = pp.AdaptiveInterpolationTable(
+                    dx, base_point=min_val, function=func, dim=1
+                )
         else:
             raise NotImplementedError(
                 f"Interpolation of order {self.order} not implemented."
@@ -414,7 +420,7 @@ class InterpolatedFunction(AbstractFunction):
             partial_jac = arg.jac
             # replace the ones with actual values
             # Since csr, we can simply replace the data array with the values of the derivative
-            partial_jac.data = self._table.diff(X, axis)[0]
+            partial_jac.data = self._table.gradient(X, axis)[0]
 
             # add blocks to complete Jacobian
             jac += partial_jac
@@ -460,7 +466,7 @@ class ADmethod:
 
     def __init__(
         self,
-        func: Callable = None,
+        func: Optional[Callable] = None,
         ad_function_type: Type["AbstractFunction"] = Function,
         operator_kwargs: dict = {},
     ) -> None:

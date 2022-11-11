@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import warnings
 from enum import Enum
+from itertools import count
 from typing import Generator, Optional, Union
 
 import numpy as np
@@ -54,6 +55,20 @@ class MortarGrid:
 
     """
 
+    _counter = count(0)
+    """Counter of instantiated grids. See __new__ and id."""
+
+    def __new__(cls, *args, **kwargs):
+        """Make object and set id according to class counter.
+
+        Args:
+            *args:
+            **kwargs:
+        """
+        obj = object.__new__(cls)
+        obj.__id = next(cls._counter)
+        return obj
+
     def __init__(
         self,
         dim: int,
@@ -90,6 +105,7 @@ class MortarGrid:
             raise ValueError("A mortar grid cannot be 3d")
         if not np.all([g.dim == dim for g in side_grids.values()]):
             raise ValueError("All the mortar grids have to have the same dimension")
+
         self.dim = dim
         self.codim = codim
         self.side_grids: dict[MortarSides, pp.Grid] = side_grids.copy()
@@ -98,7 +114,7 @@ class MortarGrid:
         if not (self.num_sides() == 1 or self.num_sides() == 2):
             raise ValueError("The number of sides have to be 1 or 2")
         if face_duplicate_ind is not None and codim == 2:
-            raise ValueError("Codim 2 interfaces have no faces to duplicate")
+            raise ValueError("Co-dimension 2 interfaces have no faces to duplicate")
 
         if isinstance(name, list):
             self.name = name
@@ -121,6 +137,19 @@ class MortarGrid:
         if not (primary_secondary is None):
             self._init_projections(primary_secondary, face_duplicate_ind)
             self._set_projections()
+
+    @property
+    def id(self):
+        """Grid ID.
+
+        Returns:
+            Integer id.
+
+        The returned attribute should not be changed. This may severely compromise other parts
+        of the code, such as sorting in md grids.
+        The attribute is set in __new__. This avoids calls to super().__init__ in subclasses.
+        """
+        return self.__id
 
     def __repr__(self) -> str:
         """
@@ -183,7 +212,7 @@ class MortarGrid:
     ### Methods to update the mortar grid, or the neighboring grids.
 
     def update_mortar(
-        self, new_side_grids: dict[MortarSides, pp.Grid], tol: float = None
+        self, new_side_grids: dict[MortarSides, pp.Grid], tol: Optional[float] = None
     ) -> None:
         """
         Update the low_to_mortar_int and high_to_mortar_int maps when the mortar grids
@@ -290,7 +319,7 @@ class MortarGrid:
 
         self._check_mappings()
 
-    def update_secondary(self, new_g: pp.Grid, tol: float = None) -> None:
+    def update_secondary(self, new_g: pp.Grid, tol: Optional[float] = None) -> None:
         """Update the mappings between Mortar and secondary grid when the latter is changed.
 
         NOTE: This function assumes that the secondary grid is only updated once: A change
@@ -366,7 +395,9 @@ class MortarGrid:
 
         self._check_mappings()
 
-    def update_primary(self, g_new: pp.Grid, g_old: pp.Grid, tol: float = None) -> None:
+    def update_primary(
+        self, g_new: pp.Grid, g_old: pp.Grid, tol: Optional[float] = None
+    ) -> None:
         """
 
         Update the _primary_to_mortar_int map when the primary (higher-dimensional) grid is

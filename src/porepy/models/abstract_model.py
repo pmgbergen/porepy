@@ -12,11 +12,16 @@ after_newton_convergence/after_newton_divergence, (only NewtonSolver:) before_ne
 after_newton_iteration. The name "newton" is there for legacy reasons, a more fitting
 and general name would be something like "equation_solve".
 """
+from __future__ import annotations
+
 import abc
 import logging
+import time
+import warnings
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 
@@ -47,15 +52,18 @@ class AbstractModel:
             "folder_name": "visualization",
             "file_name": "data",
             "use_ad": False,
-            "linear_solver": "direct",
+            # Set the default linear solver to Pardiso; this can be overridden by
+            # user choices. If Pardiso is not available, backup solvers will automatically be
+            # invoked.
+            "linear_solver": "pypardiso",
         }
+
         default_params.update(params)
         self.params = default_params
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
         self.convergence_status: bool = False
-        self.linear_solver = self.params["linear_solver"]
 
         self._nonlinear_iteration: int = 0
         assert isinstance(self.params["use_ad"], bool)
@@ -66,6 +74,7 @@ class AbstractModel:
         self.dof_manager: pp.DofManager
         self.mdg: pp.MixedDimensionalGrid
         self.box: dict
+        self.linear_system: tuple[sps.spmatrix, np.ndarray]
 
     def create_grid(self) -> None:
         """Create the grid bucket.
@@ -201,28 +210,97 @@ class AbstractModel:
 
             # We normalize by the size of the solution vector
             # Enforce float to make mypy happy
-            error = float(np.linalg.norm(solution)) / solution.size
-            logger.debug(f"Normalized error: {error:.2e}")
+            error = float(np.linalg.norm(solution)) / np.sqrt(solution.size)
+            logger.info(f"Normalized residual norm: {error:.2e}")
             converged = error < nl_params["nl_convergence_tol"]
             diverged = False
             return error, converged, diverged
         else:
             raise NotImplementedError
 
-    @abc.abstractmethod
-    def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-        """Assemble the linearized system, described by the current state of the model,
-        solve and return the new solution vector.
+    def _initialize_linear_solver(self) -> None:
+        """Initialize linear solver.
 
-        Parameters:
-            tol (double): Target tolerance for the linear solver. May be used for
-                inexact approaches.
+        Raises:
+            ValueError if the chosen solver is not among the three currently
+            supported, see linear_solve.
 
-        Returns:
-            np.array: Solution vector.
+            To use a custom solver in a model, override this method (and
+            linear_solve).
 
         """
-        pass
+        solver = self.params["linear_solver"]
+        self.linear_solver = solver
+
+        if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
+            raise ValueError(f"Unknown linear solver {solver}")
+
+    def assemble_linear_system(self) -> None:
+        """Assemble the linearized system.
+
+        The linear system is defined by the current state of the model.
+
+        Attributes:
+            linear_system is assigned.
+
+        """
+        t_0 = time.time()
+        if self._use_ad:
+            A, b = self._eq_manager.assemble()
+        else:
+            A, b = self.assembler.assemble_matrix_rhs()  # type: ignore
+        self.linear_system = (A, b)
+        logger.debug(f"Assembled linear system in {t_0-time.time():.2e} seconds.")
+
+    def solve_linear_system(self) -> np.ndarray:
+        """Solve linear system.
+
+        Default method is a direct solver. The linear solver is chosen in the
+        initialize_linear_solver of this model. Implemented options are
+            scipy.sparse.spsolve
+                with and without call to umfpack
+            pypardiso.spsolve
+
+        Returns:
+            np.ndarray: Solution vector.
+
+        """
+        A, b = self.linear_system
+        t_0 = time.time()
+        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
+        logger.debug(
+            f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
+            {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
+        )
+
+        solver = self.linear_solver
+        if solver == "pypardiso":
+            # This is the default option which is invoked unless explicitly overridden by the
+            # user. We need to check if the pypardiso package is available.
+            try:
+                from pypardiso import spsolve as sparse_solver  # type: ignore
+            except ImportError:
+                # Fall back on the standard scipy sparse solver.
+                sparse_solver = sps.linalg.spsolve
+                warnings.warn(
+                    """PyPardiso could not be imported,
+                    falling back on scipy.sparse.linalg.spsolve"""
+                )
+            x = sparse_solver(A, b)
+        elif solver == "umfpack":
+            # Following may be needed:
+            # A.indices = A.indices.astype(np.int64)
+            # A.indptr = A.indptr.astype(np.int64)
+            x = sps.linalg.spsolve(A, b, use_umfpack=True)
+        elif solver == "scipy_sparse":
+            x = sps.linalg.spsolve(A, b)
+        else:
+            raise ValueError(
+                f"AbstractModel does not know how to apply the linear solver {solver}"
+            )
+        logger.debug(f"Solved linear system in {t_0-time.time():.2e} seconds.")
+
+        return np.atleast_1d(x)
 
     @abc.abstractmethod
     def _is_nonlinear_problem(self) -> bool:
@@ -268,8 +346,10 @@ class AbstractModel:
         pass
 
     def _domain_boundary_sides(
-        self, g: pp.Grid
-    ) -> Tuple[
+        self,
+        sd: pp.Grid,
+        tol: float = 1e-10,
+    ) -> tuple[
         np.ndarray,
         np.ndarray,
         np.ndarray,
@@ -278,24 +358,36 @@ class AbstractModel:
         np.ndarray,
         np.ndarray,
     ]:
-        """Obtain indices of the faces of a grid that lie on each side of the domain
-        boundaries. It is assumed the domain is box shaped.
+        """Obtain indices of the faces lying on the sides of the domain boundaries.
+
+        The method is primarily intended for box-shaped domains. However, it can also be
+        applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)
+        provided `tol` is tuned accordingly.
+
+        Args:
+            sd: Subdomain grid.
+            tol: Tolerance used to determine whether a face center lies on a boundary side.
+
+        Returns:
+            Tuple of boolean arrays, each one of size sd.num_faces. For a given array,
+                a True element indicates that the face lies on the side of the domain.
+                Otherwise, the element is set to False.
+
         """
-        tol = 1e-10
         box = self.box
-        east = g.face_centers[0] > box["xmax"] - tol
-        west = g.face_centers[0] < box["xmin"] + tol
+        east = sd.face_centers[0] > box["xmax"] - tol
+        west = sd.face_centers[0] < box["xmin"] + tol
         if self.mdg.dim_max() == 1:
-            north = np.zeros(g.num_faces, dtype=bool)
+            north = np.zeros(sd.num_faces, dtype=bool)
             south = north.copy()
         else:
-            north = g.face_centers[1] > box["ymax"] - tol
-            south = g.face_centers[1] < box["ymin"] + tol
+            north = sd.face_centers[1] > box["ymax"] - tol
+            south = sd.face_centers[1] < box["ymin"] + tol
         if self.mdg.dim_max() < 3:
-            top = np.zeros(g.num_faces, dtype=bool)
+            top = np.zeros(sd.num_faces, dtype=bool)
             bottom = top.copy()
         else:
-            top = g.face_centers[2] > box["zmax"] - tol
-            bottom = g.face_centers[2] < box["zmin"] + tol
-        all_bf = g.get_boundary_faces()
+            top = sd.face_centers[2] > box["zmax"] - tol
+            bottom = sd.face_centers[2] < box["zmin"] + tol
+        all_bf = sd.get_boundary_faces()
         return all_bf, east, west, north, south, top, bottom

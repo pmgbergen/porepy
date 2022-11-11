@@ -8,7 +8,6 @@ import time
 from typing import Dict, List, Optional, Union
 
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 
@@ -70,7 +69,12 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         self.create_grid()
         # Exporter initialization must be done after grid creation.
         self.exporter = pp.Exporter(
-            self.mdg, self.params["file_name"], folder_name=self.params["folder_name"]
+            self.mdg,
+            self.params["file_name"],
+            folder_name=self.params["folder_name"],
+            export_constants_separately=self.params.get(
+                "export_constants_separately", False
+            ),
         )
 
         self._assign_variables()
@@ -84,6 +88,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
 
         self._export()
         self._discretize()
+        self._initialize_linear_solver()
 
     def _set_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
@@ -283,7 +288,7 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         interfaces = [intf for intf in self.mdg.interfaces() if intf.codim < 2]
 
         self._ad.mortar_proj = pp.ad.MortarProjections(
-            interfaces=interfaces, subdomains=subdomains, mdg=self.mdg, nd=1
+            interfaces=interfaces, subdomains=subdomains, mdg=self.mdg, dim=1
         )
 
         # Ad representation of discretizations
@@ -399,19 +404,6 @@ class IncompressibleFlow(pp.models.abstract_model.AbstractModel):
         )
         flux.set_name("Fluid flux")
         return flux
-
-    def assemble_and_solve_linear_system(self, tol: float) -> np.ndarray:
-        """Use a direct solver for the linear system."""
-        A, b = self._eq_manager.assemble()
-        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
-        logger.debug(
-            f"Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min"
-            + f" {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."
-        )
-        tic = time.time()
-        x = sps.linalg.spsolve(A, b)
-        logger.info("Solved linear system in {} seconds".format(time.time() - tic))
-        return x
 
     def _discretize(self) -> None:
         """Discretize all terms"""

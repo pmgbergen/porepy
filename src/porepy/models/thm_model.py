@@ -60,9 +60,7 @@ class THM(pp.ContactMechanicsBiot):
     adjustment needed is to specify the method create_grid().
 
     Attributes:
-        time (float): Current time.
-        time_step (float): Size of an individual time step
-        end_time (float): Time at which the simulation should stop.
+        time_manager : Time-stepping control manager.
 
         displacement_variable (str): Name assigned to the displacement variable in the
             highest-dimensional subdomain. Will be used throughout the simulations,
@@ -242,7 +240,7 @@ class THM(pp.ContactMechanicsBiot):
                 sd,
                 data,
                 self.t2s_parameter_key,
-                {"mass_weight": t2s_coupling, "time_step": self.time_step},
+                {"mass_weight": t2s_coupling, "time_step": self.time_manager.dt},
             )
 
     def _set_temperature_parameters(self) -> None:
@@ -291,14 +289,14 @@ class THM(pp.ContactMechanicsBiot):
                     "advection_weight": advection_weight,  # TODO: remove on ad purge
                     "advection_weight_boundary": advection_weight_faces,
                     "heat_capacity": heat_capacity,
-                    "time_step": self.time_step,
+                    "time_step": self.time_manager.dt,
                 },
             )
             pp.initialize_data(
                 sd,
                 data,
                 self.s2t_parameter_key,
-                {"mass_weight": s2t_coupling, "time_step": self.time_step},
+                {"mass_weight": s2t_coupling, "time_step": self.time_manager.dt},
             )
 
         # Assign diffusivity in the normal direction of the fractures.
@@ -357,7 +355,7 @@ class THM(pp.ContactMechanicsBiot):
             sd: Grid representing a subdomain
 
         Returns:
-            values: cell-wise array.
+            values: face-wise array.
 
         Note that currently, Neumann values are collected by both advection
         and convection discretization. Consider dividing by two.
@@ -366,6 +364,14 @@ class THM(pp.ContactMechanicsBiot):
         return values
 
     def _source_temperature(self, sd: pp.Grid) -> np.ndarray:
+        """Zero source term.
+
+        Args:
+            sd: Grid representing a subdomain
+
+        Returns:
+            values: cell-wise array.
+        """
         return np.zeros(sd.num_cells)
 
     def _biot_beta(self, sd: pp.Grid) -> Union[float, np.ndarray]:
@@ -400,7 +406,7 @@ class THM(pp.ContactMechanicsBiot):
                 }
             )
 
-    def _assign_ad_variables(self) -> None:
+    def _create_ad_variables(self) -> None:
         """Assign variables to self._ad
 
 
@@ -415,7 +421,7 @@ class THM(pp.ContactMechanicsBiot):
         None
 
         """
-        super()._assign_ad_variables()
+        super()._create_ad_variables()
 
         interfaces = self._ad.codim_one_interfaces
         # Primary variables on Ad form

@@ -213,7 +213,7 @@ class UpwindCoupling(AbstractInterfaceLaw):
         # Recover the information for the grid-grid mapping
         cc[2, 2] = -mortar_discr
 
-        if data_primary["node_number"] == data_secondary["node_number"]:
+        if sd_primary == sd_secondary:
             # All contributions to be returned to the same block of the
             # global matrix in this case
             cc = np.array([np.sum(cc, axis=(0, 1))])

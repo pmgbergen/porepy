@@ -16,7 +16,7 @@ However, the following may serve as a general suggestion:
 
 More specific tutorials are also available:
 
-6. [flux_discretizations](./flow_discretizations.ipynb) shows different discretization methods available for diffusive fluxes, which are used for Darcy's law for fluid fluxes in a mass balance equation. 
+6. [flux_discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes, which are used for Darcy's law for fluid fluxes in a mass balance equation. 
 7. [stress_discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of 6. arising in the stress-strain relationship of Hooke's law.
 8. [contact_mechanics_with_AD](./contact_mechanics_with_AD.ipynb) delves deeper into the model classes and their use of the ad framework.
 9. [exporter](./exporter.ipynb) documents how to export data from PorePy for external visualization (e.g. ParaView).

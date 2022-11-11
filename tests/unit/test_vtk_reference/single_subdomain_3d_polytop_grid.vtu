@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+<!--This file was created by meshio v5.3.4-->
+<UnstructuredGrid>
+<Piece NumberOfPoints="48" NumberOfCells="5">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="binary">
+AQAAAACAAACABAAAjwAAAA==eJyNk7ENgDAMBLNZpmB0ejfuGQEJFCTf+4FvUA5xhI8Zo892ZZ89T+F3DsNX4rlf/eQpvPrJ9f3VT57C69p/x/Kyn8rz5z7Yb8zeT57C2U/vP4yfPIWzn6/56PtJ04+eRz9nMXs/Ofuhn5z90E/OfugnZ1x/7jk3l1yHOR9y/l/0k+s+3udC+3DXE/tp1ik=
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int32" Name="connectivity" format="binary">
+AQAAAACAAABYAQAAggAAAA==eJyNz9kOgjAQQNGioIKgqKCIKK4oi/D/f8dNnEn6aJPzUEJ6Z2JjzAYJUhQ444obJpjCwwxz+AiwxApreWOLnbyzxwHRH/8ckeMk7QtK6d/xML/jyDyuNc9C5gmtVmy1dK9MOrqf3rWr37Wt+2v/iRcqvPFBjQYtOnzRY8AISXQHow==
+</DataArray>
+<DataArray type="Int32" Name="offsets" format="binary">
+AQAAAACAAAAUAAAAFgAAAA==eJzjYGBgkABiLSC2A+IwIAYAB3QA3w==
+</DataArray>
+<DataArray type="Int32" Name="types" format="binary">
+AQAAAACAAAAUAAAADgAAAA==eJzTYmBg0ELDAAnsANM=
+</DataArray>
+<DataArray type="Int32" Name="faces" format="binary">
+AQAAAACAAAAEBgAAgwEAAA==eJyllOtOwkAQhQdYKiAWyq0i14KiFcT3fztnwzfphFCi8cdJs2fPnrnsbBMRCYqhYqLYKpZwmWKqKBQrp1uyzuDsXIHedHZ+AmfnCvQpfFORKEaOaykeFGPFAK6t6OJpsaPmUZGjNb+Ucy13NiNGAmdeM0UPrsc6x9f8LJ/E+SXou3CJy8f8LI8xsa2vI+JYv0Zocvgh/BP62Lc5nPltFIs7d2V+e7TmF31eXK9T1gvXa/PakU/gu8Mvd34p+Wfyv5qDy23t6rDcNvCBvTX5FHBrNHt4iy1SzWRf6mcuoiOXebX+35q5vlTv4PnOPQnauNeAa7ieNV2M69m0PKZSzVefeHM86t6jEKft6mq4mj1v9XXu3Oett2x5rIg/c3xcfyhe4ezujop3qf4FW8UJbXB3943W/KLPm+vrnPVBLrNhM3LA396E+X9JNSMF67NcZiTwPRN3X1PfX2bz+j/323kNrtbS9cVq/YQPrtYjfEBfUt8JrmT/DB9YH6k38j8maxx9
+</DataArray>
+<DataArray type="Int32" Name="faceoffsets" format="binary">
+AQAAAACAAAAUAAAAFwAAAA==eJyTZ2BgSAPi7UAsxMjA0AjEABQSAdI=
+</DataArray>
+</Cells>
+<CellData>
+<DataArray type="Int32" Name="cell_id" format="binary">
+AQAAAACAAAAUAAAAFAAAAA==eJxjZmBgYARiJgYIYAFiAACIAAs=
+</DataArray>
+<DataArray type="Float64" Name="dummy_scalar" format="binary">
+AQAAAACAAAAoAAAAEAAAAA==eJxjYAABDgcGAjQAGDgBaQ==
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="binary">
+AQAAAACAAAB4AAAAEAAAAA==eJxjYAABDgcGOtMA8WgEOQ==
+</DataArray>
+<DataArray type="Int32" Name="grid_dim" format="binary">
+AQAAAACAAAAUAAAADgAAAA==eJxjZmBgYEbDAADIABA=
+</DataArray>
+<DataArray type="Int32" Name="is_mortar" format="binary">
+AQAAAACAAAAUAAAACwAAAA==eJxjYMAEAAAUAAE=
+</DataArray>
+<DataArray type="Int32" Name="mortar_side" format="binary">
+AQAAAACAAAAUAAAACwAAAA==eJxjYMAEAAAUAAE=
+</DataArray>
+<DataArray type="Int32" Name="subdomain_id" format="binary">
+AQAAAACAAAAUAAAADgAAAA==eJzTZmBg0EbDAAooANg=
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>
