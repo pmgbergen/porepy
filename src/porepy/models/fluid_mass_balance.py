@@ -125,9 +125,26 @@ class MassBalanceEquations(ScalarBalanceEquation):
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid mass.
 
-        density = self.fluid_density(subdomains) * self.porosity(subdomains)
-        mass = self.volume_integral(density, subdomains)
+        This implementation assumes constant porosity and must be overridden for
+        variable porosity. This has to do with wrapping of scalars as vectors or
+        matrices and will hopefully be improved in the future.
+        Extension to variable density is straightforward.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the fluid mass.
+        """
+
+        porosity_vector = self.solid.porosity(subdomains)
+
+        mass_density = self.fluid_density(subdomains) * pp.ad.Array(
+            porosity_vector, "constant_porosity"
+        )
+        mass = self.volume_integral(mass_density, subdomains)
         mass.set_name("fluid_mass")
         return mass
 
