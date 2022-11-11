@@ -152,14 +152,4 @@ def test_parse_equations(setup, equation_name, domain_inds):
 
     # Pick out the relevant domains
     domains = [domains[i] for i in domain_inds if i < len(domains)]
-    evaluation = setup.equation_system.assemble_subsystem({equation_name: domains})
-
-    # Check that value and Jacobian are of the correct shape
-    sz_tot = setup.equation_system.num_dofs()
-    sz_var = sum([d.num_cells for d in domains])
-    assert evaluation[1].size == sz_var
-    assert evaluation[0].shape == (sz_var, sz_tot)
-
-# ob = IncompressibleCombined({})
-# ob.prepare_simulation()
-# test_parse_equations(ob, "fluid_mass_balance_equation", [0, 1])
+    setup.equation_system.assemble_subsystem({equation_name: domains})
