@@ -769,36 +769,109 @@ def test_parse_variable_like():
     )
 
 
-def test_parse_single_equation_like():
+def test_parse_single_equation():
     """Test the helper function for parsing single equations.
 
     We consider only the equation posed on all subdomains, parsing of other equations
     should be identical.
 
+    The test considers restrictions of the equation to subsets of its domains,
+    and verifies that the returned index sets are correctly ordered.
+
     """
     setup = EquationSystemSetup()
     eq_system = setup.sys_man
 
+    # Represent the equation both by its string and its operator form.
+    # This could have been parametrized to the price of higher cost.
     for eq in [setup.eq_all_subdomains, setup.eq_all_subdomains.name]:
-        restriction_1 = eq_system._parse_single_equation_like(eq)
-        assert len(restriction_1) == 1
+        # The equation name.
         name = eq if isinstance(eq, str) else eq.name
+
+        # First parse the equation as it is, without any restriction.
+        # This should give back the full equation with no restriction.
+        restriction_1 = eq_system._parse_single_equation(eq)
+        assert len(restriction_1) == 1
 
         assert name in restriction_1
         assert restriction_1[name] is None
 
-        restriction_2 = eq_system._parse_single_equation_like({eq: [setup.sd_top]})
+        # Next, restrict the equation to a single subdomain.
+        restriction_2 = eq_system._parse_single_equation({eq: [setup.sd_top]})
         assert len(restriction_2) == 1
+        # The numbering of the subdomanis in the EquationSystem is the same as that of
+        # the MixedDimensionalGrid, thus the indices associated with this subdomain
+        # will be 0-offset.
         assert np.allclose(restriction_2[name], np.arange(setup.sd_top.num_cells))
 
+        # Next, permute the subdomains before sending them in. All subdomains are
+        # present, thus the indices should cover all cells in the md-grid. Moreover,
+        # the EquationSystem will sort the subdomains according in the same order as
+        # the MixedDimensionalGrid.subdomains() method, thus the indices should again
+        # be linear.
         eq_def = {eq: setup.subdomains[::-1]}
-        restriction_3 = eq_system._parse_single_equation_like(eq_def)
+        restriction_3 = eq_system._parse_single_equation(eq_def)
         assert np.allclose(
             restriction_3[name], np.arange(setup.mdg.num_subdomain_cells())
         )
 
 
-test_parse_single_equation_like()
+def test_parse_equations():
+    """Test the helper function for parsing equations.
+
+    The test focuses on the functionality of EquationSystem._parse_equation_like()
+    beyond the parsing of individual equations, which is tested in the method
+    test_parse_single_equation_like(). That is, we test the parsing of multiple
+    equations and check that the order of the returned equations is correct.
+
+    """
+    setup = EquationSystemSetup()
+    eq_system = setup.sys_man
+
+    # All equations. The order is the same as that in the helper class
+    # EquationSystemSetup.
+    all_equation_names = [
+        "eq_all_subdomains",
+        "eq_single_subdomain",
+        "eq_all_interfaces",
+        "eq_single_interface",
+        "eq_combined",
+    ]
+
+    # First pass None. This should give as all equations on all subdomains.
+    received_equations_1 = eq_system._parse_equations(None)
+    received_keys_1 = list(received_equations_1.keys())
+
+    # We expect to receive all equations, thus the length of the dictionary should be
+    # the same as the number of equations.
+    assert len(received_equations_1) == len(all_equation_names)
+
+    for eq, key in zip(all_equation_names, received_keys_1):
+        # The keys of the received dictionary should be the same as the names of the
+        # equations as they were set in the setup, and the order should be preserved.
+        assert eq == key
+        # There should be no restriction on indices.
+        assert received_equations_1[eq] is None
+
+    # Next, pass the single subdomain and all subdomains, in that order. We should
+    # receive the same keys, but in reverse order.
+    received_equations_2 = eq_system._parse_equations(
+        [all_equation_names[1], all_equation_names[0]]
+    )
+    received_keys_2 = list(received_equations_2.keys())
+    assert len(received_keys_2) == 2
+    assert received_keys_2[0] == all_equation_names[0]
+    assert received_keys_2[1] == all_equation_names[1]
+
+    # Send in the all_subdomains equation in both unrestricted and restricted form.
+    # The restriction should override the unrestricted form.
+    received_equations_3 = eq_system._parse_equations(
+        {all_equation_names[0]: None, all_equation_names[0]: [setup.sd_top]}
+    )
+    assert len(received_equations_3) == 1
+    assert np.allclose(
+        received_equations_3[all_equation_names[0]], np.arange(setup.sd_top.num_cells)
+    )
 
 
 @pytest.mark.parametrize(
@@ -867,7 +940,7 @@ def test_secondary_variable_assembly(setup, var_names):
         ["eq_single_subdomain", "eq_all_subdomains"],  # Combination of two equations
         [
             "eq_all_subdomains",
-            "eq_single_subdomains",
+            "eq_single_subdomain",
         ],  # The combination in reverse order
         ["eq_combined", "eq_single_subdomain"],  # Different combination
         ["eq_single_interface", "eq_all_interfaces"],  # Interface equations

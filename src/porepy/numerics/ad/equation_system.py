@@ -20,10 +20,12 @@ __all__ = ["EquationSystem"]
 GridLike = Union[pp.Grid, pp.MortarGrid]
 """A union type representing a domain either by a grid or mortar grid.
 FIXME: Rename to Domain? Or GridLikeList/GridList below?"""
+
 DomainList = Union[list[pp.Grid], list[pp.MortarGrid]]
 """A union type representing a list of grids or mortar grids.
 This is *not* a list of GridLike, as that would allow a list of mixed grids and
 mortar grids."""
+
 VariableList = Union[list[str], list[Variable], list[MixedDimensionalVariable]]
 """A union type representing variables through either names (:class:`str`), multiple
 :class:`~porepy.numerics.ad.operators.Variable` or
@@ -32,76 +34,48 @@ VariableList = Union[list[str], list[Variable], list[MixedDimensionalVariable]]
 This type is accepted as input to various methods and parsed to a list of
 :class:`~porepy.numerics.ad.operators.Variable` using
 :meth:`~porepy.numerics.ad.equation_system.EquationSystem._parse_variable_list`.
-"""
-
-EquationLike = Union[
-    list[str],
-    list[Operator],
-    dict[str, DomainList],
-    dict[Operator, DomainList],
-    list[Union[str, dict[str, DomainList], dict[Operator, DomainList]]],
-]
-# TODO: We should probably remove the list, and rather use list[EquationType] where
-# needed. Or rename to EquationList (see also VariableList). Also clean up the
-# docstring.
-"""A union type representing equations by names (:class:`str`),
-:class:`~porepy.numerics.ad.operators.Operator`,
-or a dictionary containing equation domains (:data:`GridLike`) per equation
-(:key:name or Operator).
-
-If an equation is defined on multiple grids, the dictionary can be used to represent a
-restriction of that equation on respective grids.
-
-During parsing, restrictions to grids defined by dictionaries will be prioritized.
-
-Examples:
-    An equation given by the operator ``e1``, defined on subdomains ``sd1, f1``, representing
-    matrix and fracture respectively, has two row blocks. The equation-like structure
-
-    >>> [e1, {e1: sd1}]
-
-    will result only in the row block belonging to ``sd1``.
-
-    Similar to variable-like structures, note that if the operator ``e1`` is named
-    ``'mass_balance'`` for example, the following is equivalent
-
-    >>> [e1, {e1: sd1}]
-    >>> ['mass_balance', {e1: sd1}]
-    >>> ['mass_balance', {'mass_balance': sd1}]
-    >>> [e1, {'mass_balance': sd1}]
-    >>> {e1: sd1}
-    >>> {'mass_balance': sd1}
-
-    Additionally, if only the assembly of one equation is requested by the user, the list can
-    be omitted, i.e. the following equation-like structures are equivalent
-
-    >>> e1
-    >>> 'mass_balance'
-    >>> [e1]
-    >>> ['mass_balance']
-
-    If the equation is defined on an additional fracture ``f2``, the following structure
-    represents the equation only on the fractures
-
-    >>> {e1: [f1, f2]}
-
-    i.e. it will consist of two row blocks belonging to respective fractures.
-
-    If multiple restrictions are passed for a single equation, the last one will be used,
-    i.e.
-
-    >>> [{e1: [f1, f2]}, {e1: [sd1]}]
-
-    will result in
-
-    >>> {e1: [sd1]}
-
-    For consistency reasons, the ordering inside dictionary values, or general sequential
-    equation-like structures with multiple equations, does not influence the resulting order of
-    blocks since the AD framework always imposes its internally defined order of rows.
-    No restrictions are imposed on the user on how to assemble the equation-like structure.
 
 """
+
+EquationList = Union[list[str], list[Operator]]
+"""A union type representing equations through either names (:class:`str`), or
+:class:`~porepy.numerics.ad.operators.Operator`.
+
+This type is accepted as input to various methods and parsed to a list of
+:class:`~porepy.numerics.ad.operators.Operator` using
+:meth:`~porepy.numerics.ad.equation_system.EquationSystem._parse_equations`.
+
+"""
+
+EquationRestriction = dict[Union[str, Operator], DomainList]
+"""A dictionary mapping equations to a list of domains on which the equation should be
+applied.
+
+The keys of the dictionary can be either the name of the equation, or the equation
+itself represented as an :class:`~porepy.numerics.ad.operators.Operator`. The values of
+the dictionary are DomainList, i.e., a list of grids or mortar grids.
+ 
+This type is accepted as input to various methods and parsed to an index set
+representing a restricted image of the equation by
+:meth:`~porepy.numerics.ad.equation_system.EquationSystem._parse_equations`.
+
+"""
+# IMPLEMENTATION NOTE: EK could not find an elegant way to represent all types of
+# equation input in a single type. The problem is that, while strings and Operators
+# are naturally wrapped in lists, even if there is only one item, restrictions of
+# equations are most naturally represented as a dictionary. This means iteration over
+# equations and restrictions must be handled separately, as is now done in
+#  _parse_equations(). To avoid this, we could have introduced
+#
+#   EquationType = Union[str, Operator, dict[Union[str, Operator], DomainList]]
+#
+# and allowed for list[EquationType] as input to various methods. This does however
+# require passing a list of dictionaries to _parse_equations(), which was very
+# awkward from the user side when EK tried it. The current solution seems like a fair
+# compromise, and it has the positive side of being explicit on the difference between
+# equations and restrictions of equations, but it does not feel like a fully
+# satisfactory solution.
+
 GridEntity = Literal["cells", "faces", "nodes"]
 """A union type representing a grid entity, either a cell, face or node.
 This is used to define the domain of a variable or an equation,
@@ -1131,18 +1105,21 @@ class EquationSystem:
 
         return discr
 
-    def _parse_equation_like(
-        self, equations: Optional[EquationLike] = None
+    def _parse_equations(
+        self, equations: Optional[EquationList | EquationRestriction] = None
     ) -> dict[str, None | np.ndarray]:
-        """Helper method to parse equation-like inputs into a properly ordered structure.
+        """Helper method to parse equations into a properly ordered structure.
 
         The equations will be ordered according to the order in self._equations (which
-        is the order in which they were added to the equation system manager and which also
-        is fixed since iteration of dictionaries is so).
+        is the order in which they were added to the equation system manager and which
+        alsois fixed since iteration of dictionaries is so).
 
-        Raises a type error if the input or part of the input is not equation-like.
-        If an equation is requested for a grid on which it is not defined, a value error
-        will be raised.
+        Parameters:
+            equations: A list of equations or a dictionary of equation restrictions.
+
+        Returns:
+            A dictionary with the index set of the restricted equations (referring to
+            equation rows) as values. If no restriction is given, the value is None.
 
         """
         # The default return value is all equations with no grid restrictions.
@@ -1155,25 +1132,25 @@ class EquationSystem:
         # Storage for restricted equations.
         restricted_equations = dict()
 
-        for equation in equations:
-            # Get the row indices (in the global system) associated with this equation.
-            # If the equation is restricted (the user has provided a dictionary with
-            # grids on which the equation should be evaluated), the variable blocks
-            # will contain only the row indices associated with the restricted grids.
-            block = self._parse_single_equation_like(equation)
+        # Get the row indices (in the global system) associated with this equation.
+        # If the equation is restricted (the user has provided a dictionary with
+        # grids on which the equation should be evaluated), the variable blocks
+        # will contain only the row indices associated with the restricted grids.
 
+        for equation in equations:
             # Store restrictions, using different storage for restricted and
             # unrestricted equations.
-            if isinstance(equation, dict):
+            if isinstance(equations, dict):
+                block = self._parse_single_equation({equation: equations[equation]})
                 # A dictionary means the equation is restricted to a subset of grids.
                 restricted_equations.update(block)
             else:
                 # This equation is not restricted to a subset of grids.
+                block = self._parse_single_equation(equation)
                 requested_row_blocks.update(block)
 
         # Update the requested blocks with the restricted to overwrite the indices if
         # an equation was passed in both restricted and unrestricted structure.
-        # TODO: Should we rather raise an error if this happens?
         requested_row_blocks.update(restricted_equations)
 
         # Build the restricted set of equations, using the order in self._equations.
@@ -1186,17 +1163,24 @@ class EquationSystem:
 
         return ordered_blocks
 
-    def _parse_single_equation_like(
-        self, equation: str | Operator | dict[str | Operator, DomainList]
+    def _parse_single_equation(
+        self, equation: str | Operator | EquationRestriction
     ) -> dict[str, None | np.ndarray]:
-        """Helper method to identify possible restrictions of a single equation-like.
+        """Helper method to identify possible restrictions of a single equation.
 
-        Args:
-            equation: Equation-like to be parsed.
+        Parameters:
+            equation: Equation to be parsed.
 
         Returns:
             A dictionary with the name of the equation as key and the corresponding
             restricted indices as values. If no restriction is given, the value is None.
+
+        Raises:
+            ValueError: If an unknown equation name is requested.
+            ValueError: If an unknown operator is requested.
+            ValueError: If an equation is requested restricted to a grid on which it is
+                not defined.
+            TypeError: If the input is not an equation.
 
         """
         # If the equation is a dictionary, the dictionary values are grids (subdomains
@@ -1237,7 +1221,7 @@ class EquationSystem:
                         raise ValueError(f"Unknown equation operator {equation}.")
                 else:
                     raise TypeError(
-                        f"Item ({type(equ)}, {type(grids)}) not parsable as equation-like."
+                        f"Item ({type(equ)}, {type(grids)}) not parsable as equation."
                     )
 
                 # Get the indices associated with this equation.
@@ -1270,14 +1254,16 @@ class EquationSystem:
                     block.update({name: np.concatenate(block_idx, dtype=int)})
                 # indices should by logic always be found, if not alert the user.
                 else:
+                    # TODO: Should this not be permissible, say, due to a filtering of
+                    # the grids? However, it may lead to errors downstream.
                     raise TypeError(
                         f"Equation-like item ({type(equ)}, {type(grids)}) yielded no rows."
                     )
             return block
         else:
             # Getting an error here means the user has passed a type that is not
-            # an equation-like.
-            raise TypeError(f"Type {type(equation)} not parsable as equation-like.")
+            # an equation.
+            raise TypeError(f"Type {type(equation)} not parsable as an equation.")
 
     def _gridbased_equation_complement(
         self, equations: dict[str, None | np.ndarray]
@@ -1326,7 +1312,7 @@ class EquationSystem:
                 If not provided (None), all known equations will be discretized.
 
         """
-        equation_names = list(self._parse_equation_like(equations).keys())
+        equation_names = list(self._parse_equations(equations).keys())
 
         # List containing all discretizations
         discr: list = []
@@ -1416,7 +1402,7 @@ class EquationSystem:
         # row indices of the equations. If the user has requested that equations are
         # restricted to a subset of grids, the row indices are restricted accordingly.
         # If no such request has been made, the value is None.
-        equ_blocks: dict[str, np.ndarray | None] = self._parse_equation_like(equations)
+        equ_blocks: dict[str, np.ndarray | None] = self._parse_equations(equations)
 
         # Data structures for building matrix and residual vector
         mat: list[sps.spmatrix] = []
@@ -1528,7 +1514,7 @@ class EquationSystem:
                 column-sense.
                 By default, the complement of the primary columns is used.
             excl_loc_prim_to_sec (optional): If True, primary local blocks which are excluded
-                by the variable- and equation-like structure, are added to the secondary block.
+                by the variable- and equation structure, are added to the secondary block.
 
                 I.e. if a variable ``p`` is defined on two grids ``sd1, sd2``, and the user
                 defines the primary (column) block to be only given by ``p`` on ``sd1``,
@@ -1560,7 +1546,7 @@ class EquationSystem:
         # on their full image, and equations specified on a subset of grids.
         # The variable primary_rows will contain the indices in the global system
         # corresponding to the primary block.
-        primary_rows = self._parse_equation_like(primary_equations)
+        primary_rows = self._parse_equations(primary_equations)
         # Find indices of equations involved in the primary block, but on grids that
         # were filtered out.
         excl_prim_rows = self._gridbased_equation_complement(primary_rows)
@@ -1659,7 +1645,7 @@ class EquationSystem:
                 shape=shape,
             ).tocsr()
         if secondary_equations:
-            secondary_rows = self._parse_equation_like(secondary_equations)
+            secondary_rows = self._parse_equations(secondary_equations)
             sec_equ_names = list(secondary_rows.keys())
         else:
             secondary_rows = None
