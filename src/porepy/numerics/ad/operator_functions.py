@@ -586,7 +586,7 @@ class ADmethod:
         # This will trigger the function evaluation.
         return partial(self.__call__, binding_instance)
 
-    def ad_wrapper(self, *args, **kwargs) -> AbstractFunction:
+    def ad_wrapper(self, *args, **kwargs) -> Operator:
         """Actual wrapper function.
         Constructs the necessary AD-Operator class wrapping the decorated callable
         and performs the evaluation/call.
