@@ -33,6 +33,7 @@ class Material:
 
         Returns:
             Units object.
+
         """
         return self._units
 
@@ -40,8 +41,9 @@ class Material:
     def units(self, units: pp.Units) -> None:
         """Set units of the material.
 
-        Args:
+        Parameters:
             units: Units object.
+
         """
         self._units = units
 
@@ -52,7 +54,7 @@ class Material:
         the user has defined the unit for pressure to be 1 MPa, then a value of 1e6 will be
         converted to 1e6 / 1e6 = 1 and a value of 1e8 will be converted to 1e8 / 1e6 = 1e2.
 
-        Args:
+        Parameters:
             value: Value to be converted.
             units: Units of value defined as a string in the form of "unit1*unit2/unit3",
                 e.g., "Pa*m^3/kg". Valid units are the attributes and properties of the Units
@@ -88,7 +90,7 @@ class Material:
     ):
         """Convert value to SI units, and expand to all grids.
 
-        Args:
+        Parameters:
             value: Value to be converted and expanded
             units: Units of value.
             grids: List of grids (subdomains or interfaces) where the property is defined.
@@ -121,6 +123,7 @@ class UnitFluid(Material):
     THERMAL_EXPANSION: number = 1.0 / pp.KELVIN
     DENSITY: number = 1.0 * pp.KILOGRAM / pp.METER**3
     VISCOSITY: number = 1.0 * pp.PASCAL * pp.SECOND
+    COMPRESSIBILITY: number = 1.0 / pp.PASCAL
 
     def __init__(self, units: pp.Units):
         super().__init__(units)
@@ -128,7 +131,7 @@ class UnitFluid(Material):
     def density(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Density [kg/m^3].
 
-        Args:
+        Parameters:
             subdomains: List of subdomains.
 
         Returns:
@@ -139,7 +142,7 @@ class UnitFluid(Material):
     def thermal_expansion(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Thermal expansion coefficient [1/K].
 
-        Args:
+        Parameters:
             subdomains:
 
         Returns:
@@ -151,9 +154,6 @@ class UnitFluid(Material):
                 class CombinedConstit(DensityFromPressure, UnitFluid, UnitSolid):
                     pass
 
-            See also fluid_density.
-
-
         """
         return self.convert_and_expand(self.THERMAL_EXPANSION, "K^-1", subdomains)
 
@@ -161,7 +161,7 @@ class UnitFluid(Material):
     def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Viscosity [Pa s].
 
-        Args:
+        Parameters:
             subdomains:
 
         Returns:
@@ -169,11 +169,24 @@ class UnitFluid(Material):
         """
         return self.convert_and_expand(self.VISCOSITY, "Pa*s", subdomains)
 
+    def compressibility(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Compressibility [1/Pa].
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise compressibility array.
+
+        """
+        return self.convert_and_expand(self.COMPRESSIBILITY, "Pa^-1", subdomains)
+
 
 class UnitSolid(Material):
     """Solid material with unit values.
 
     See UnitFluid.
+
     """
 
     THERMAL_EXPANSION: number = 1.0 / pp.KELVIN
@@ -196,7 +209,7 @@ class UnitSolid(Material):
     def thermal_expansion(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Thermal expansion coefficient [1/K].
 
-        Args:
+        Parameters:
             subdomains: List of grids where the expansion coefficient is defined.
 
         Returns:
@@ -204,16 +217,25 @@ class UnitSolid(Material):
         """
         return self.convert_and_expand(self.THERMAL_EXPANSION, "K^-1", subdomains)
 
-    def normal_permeability(self, interfaces: list[pp.MortarGrid]):
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> np.ndarray:
+        """Normal permeability [m^2].
+
+        Parameters:
+            interfaces: List of interfaces where the normal permeability is defined.
+
+        Returns:
+            Face-wise normal permeability.
+
+        """
         return self.convert_and_expand(self.NORMAL_PERMEABILITY, "m^2", interfaces)
 
-    def porosity(self, subdomains: list[pp.Grid]):
+    def porosity(self, subdomains: list[pp.Grid]) -> np.ndarray:
         return self.convert_and_expand(self.POROSITY, "-", subdomains)
 
     def permeability(self, sd: pp.Grid) -> np.ndarray:
         """Permeability [m^2].
 
-        Args:
+        Parameters:
             sd: Subdomain where the permeability is defined.
 
         Returns:
@@ -224,7 +246,7 @@ class UnitSolid(Material):
     def shear_modulus(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Young's modulus [Pa].
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
@@ -235,7 +257,7 @@ class UnitSolid(Material):
     def lame_lambda(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Lame's first parameter [Pa].
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
@@ -246,7 +268,7 @@ class UnitSolid(Material):
     def fracture_gap(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Fracture gap [m].
 
-        Args:
+        Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
@@ -257,7 +279,7 @@ class UnitSolid(Material):
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Friction coefficient [-].
 
-        Args:
+        Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
