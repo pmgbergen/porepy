@@ -331,10 +331,20 @@ class EquationSystem:
             variables = [var for var in self._variables if var.name == name]
             # We don't allow combinations of variables with different domain types
             # in a md variable.
-            domains = set(var.domain for var in variables)
-            if len(domains) > 1:
+            heterogeneous_domain = False
+            if isinstance(variables[0].domain, pp.Grid):
+                heterogeneous_domain = any(
+                    [isinstance(var.domain, pp.MortarGrid) for var in variables]
+                )
+            elif isinstance(variables[0].domain, pp.MortarGrid):
+                heterogeneous_domain = any(
+                    [isinstance(var.domain, pp.Grid) for var in variables]
+                )
+            else:
+                raise ValueError("Unknown domain type for variable")
+            if heterogeneous_domain:
                 raise ValueError(
-                    f"Variable {name} is defined on multiple domain types: {domains}."
+                    f"Variable {name} is defined on multiple domain types."
                 )
         else:
             variables = [
