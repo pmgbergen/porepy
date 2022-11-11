@@ -223,6 +223,7 @@ class Function(AbstractFunction):
     def __init__(self, func: Callable, name: str, array_compatible: bool = True):
         super().__init__(func, name, array_compatible)
         self._operation = Operator.Operations.evaluate
+        self.ad_compatible = True
 
     def get_values(self, *args: Ad_array) -> np.ndarray:
         result = self.func(*args)
