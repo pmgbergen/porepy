@@ -36,10 +36,24 @@ class IncompressibleCombined(
     pass
 
 
-@pytest.fixture
-def setup():
+class CompressibleCombined(
+    FracGeom,
+    fmb.MassBalanceEquations,
+    fmb.ConstitutiveEquationsCompressibleFlow,
+    fmb.VariablesSinglePhaseFlow,
+    fmb.SolutionStrategyCompressibleFlow,
+    pp.DataSavingMixin,
+):
+    ...
 
-    ob = IncompressibleCombined({})
+
+def model(compressible: bool) -> IncompressibleCombined:
+    """Setup for tests."""
+    params = {"suppress_export": True}
+    if compressible:
+        ob = CompressibleCombined(params)
+    else:
+        ob = IncompressibleCombined(params)
     ob.prepare_simulation()
     return ob
 
@@ -63,8 +77,10 @@ def setup():
         "reference_pressure",
     ],
 )
-def test_ad_parsing_constitutive_laws(setup, method_name):
+@pytest.mark.parametrize("compressible", [True, False])
+def test_parsing_constitutive_laws(compressible, method_name):
     """Test that the ad parsing works as expected."""
+    setup = model(compressible)
     method = getattr(setup, method_name)
     sig = signature(method)
     assert len(sig.parameters) == 1
@@ -77,12 +93,15 @@ def test_ad_parsing_constitutive_laws(setup, method_name):
     op.evaluate(setup.equation_system)
 
 
-def test_special_signatures(setup) -> None:
+@pytest.mark.parametrize("compressible", [True, False])
+def test_special_signatures(compressible):
     """Test that the ad parsing works as expected.
 
     This test is for methods with special signatures:
     - vector_source
     """
+    setup = setup(compressible)
+
     op0 = setup.vector_source(grids=setup.mdg.subdomains(), material="fluid")
     op1 = setup.vector_source(grids=setup.mdg.interfaces(), material="fluid")
     op0.evaluate(setup.equation_system)
@@ -96,6 +115,7 @@ def test_special_signatures(setup) -> None:
         "interface_darcy_flux",
     ],
 )
+@pytest.mark.parametrize("compressible", [True, False])
 @pytest.mark.parametrize(
     "variable_inds",
     [
@@ -103,8 +123,9 @@ def test_special_signatures(setup) -> None:
         [0, 1],
     ],
 )
-def test_ad_parsing_variables(setup, variable_name, variable_inds):
+def test_ad_parsing_variables(compressible, variable_name, variable_inds):
     """Test that the ad parsing works as expected."""
+    setup = model(compressible)
     variable = getattr(setup, variable_name)
     sig = signature(variable)
     assert len(sig.parameters) == 1
@@ -141,8 +162,10 @@ def test_ad_parsing_variables(setup, variable_name, variable_inds):
         [0, 1],
     ],
 )
-def test_parse_equations(setup, equation_name, domain_inds):
+@pytest.mark.parametrize("compressible", [True, False])
+def test_parse_equations(compressible, equation_name, domain_inds):
     """Test that equation parsing works as expected."""
+    setup = model(compressible)
     if "balance" in equation_name:
         domains = setup.mdg.subdomains()
     elif "flux" in equation_name:
@@ -153,3 +176,15 @@ def test_parse_equations(setup, equation_name, domain_inds):
     # Pick out the relevant domains
     domains = [domains[i] for i in domain_inds if i < len(domains)]
     setup.equation_system.assemble_subsystem({equation_name: domains})
+
+
+# ob = IncompressibleCombined({})
+# ob.prepare_simulation()
+# test_parse_equations(ob, "fluid_mass_balance_equation", [0, 1])
+# test_ad_parsing_constitutive_laws(ob, "fluid_mass")
+# acc = ob.fluid_mass(subdomains=ob.mdg.subdomains())
+# akkove=acc.evaluate(ob.equation_system)
+# dt =  pp.ad.time_derivatives.dt(acc, ob.time_manager.dt)
+# dm_dt = dt.evaluate(ob.equation_system)
+# print(dm_dt)
+# print(ob.equation_system)

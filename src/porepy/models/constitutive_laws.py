@@ -149,12 +149,18 @@ class FluidDensityFromPressure:
         dp = self.pressure(subdomains) - self.reference_pressure(self, subdomains)
         # I suggest using the fluid's constant density as the reference value. While not
         # explicit, this saves us from defining reference properties i hytt og pine.
+        # Wrap compressibility from fluid class as matrix (left multiplication with dp)
+        c = ad_wrapper(
+            self.fluid.compressibility(subdomains), False, name="compressibility"
+        )
         # We could consider letting this class inherit from ConstantDensity (and call super
         # to obtain reference value), but I don't see what the benefit would be.
         rho_ref = self.fluid.density(subdomains)
         rho = rho_ref * exp(dp / self.fluid.compressibility(subdomains))
-        return rho
-
+        rho_ref = ad_wrapper(
+            self.fluid.density(subdomains), array=False, name="reference_fluid_density"
+            )
+        rho = rho_ref * exp(c * dp)
 
 class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
     """Extend previous case"""
