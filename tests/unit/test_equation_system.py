@@ -774,7 +774,7 @@ def test_parse_single_equation_like():
 
     We consider only the equation posed on all subdomains, parsing of other equations
     should be identical.
-    
+
     """
     setup = EquationSystemSetup()
     eq_system = setup.sys_man
@@ -793,7 +793,9 @@ def test_parse_single_equation_like():
 
         eq_def = {eq: setup.subdomains[::-1]}
         restriction_3 = eq_system._parse_single_equation_like(eq_def)
-        assert np.allclose(restriction_3[name], np.arange(setup.mdg.num_subdomain_cells()))
+        assert np.allclose(
+            restriction_3[name], np.arange(setup.mdg.num_subdomain_cells())
+        )
 
 
 test_parse_single_equation_like()
