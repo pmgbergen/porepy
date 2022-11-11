@@ -93,6 +93,9 @@ def test_parsing_constitutive_laws(compressible, method_name):
     op.evaluate(setup.equation_system)
 
 
+# test_parsing_constitutive_laws(True, "fluid_density")
+
+
 @pytest.mark.parametrize("compressible", [True, False])
 def test_special_signatures(compressible):
     """Test that the ad parsing works as expected.
@@ -100,7 +103,7 @@ def test_special_signatures(compressible):
     This test is for methods with special signatures:
     - vector_source
     """
-    setup = setup(compressible)
+    setup = model(compressible)
 
     op0 = setup.vector_source(grids=setup.mdg.subdomains(), material="fluid")
     op1 = setup.vector_source(grids=setup.mdg.interfaces(), material="fluid")

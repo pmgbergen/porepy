@@ -476,7 +476,7 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
             # Check that the matrix is actually diagonal.
             assert np.all(np.isclose(specific_volume, specific_volume_mat.data))
 
-            kappa = self.permeability(sd)
+            kappa = self.permeability([sd])
             diffusivity = pp.SecondOrderTensor(kappa * specific_volume)
 
             pp.initialize_data(

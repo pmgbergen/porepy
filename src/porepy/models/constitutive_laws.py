@@ -143,24 +143,26 @@ class ConstantFluidDensity:
 
 
 class FluidDensityFromPressure:
+    """Fluid density as a function of pressure."""
+
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
         # Reference variables are defined in Variables class.
-        dp = self.pressure(subdomains) - self.reference_pressure(self, subdomains)
-        # I suggest using the fluid's constant density as the reference value. While not
-        # explicit, this saves us from defining reference properties i hytt og pine.
+        dp = self.pressure(subdomains) - self.reference_pressure(subdomains)
         # Wrap compressibility from fluid class as matrix (left multiplication with dp)
         c = ad_wrapper(
             self.fluid.compressibility(subdomains), False, name="compressibility"
         )
+        # I suggest using the fluid's constant density as the reference value. While not
+        # explicit, this saves us from defining reference properties i hytt og pine.
         # We could consider letting this class inherit from ConstantDensity (and call super
         # to obtain reference value), but I don't see what the benefit would be.
-        rho_ref = self.fluid.density(subdomains)
-        rho = rho_ref * exp(dp / self.fluid.compressibility(subdomains))
         rho_ref = ad_wrapper(
             self.fluid.density(subdomains), array=False, name="reference_fluid_density"
             )
         rho = rho_ref * exp(c * dp)
+        return rho
+
 
 class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
     """Extend previous case"""
@@ -616,22 +618,24 @@ class FrictionBound:
 
 
 class ConstantPorousMedium:
-    def permeability(self, subdomain: pp.Grid) -> pp.SecondOrderTensor:
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
         """Permeability [m^2].
 
-        This will be set as before (pp.PARAMETERS) since it is a discretization parameter.
-        Hence not list[subdomains].
+        This will be set as before (pp.PARAMETERS) since it
 
         Parameters:
             subdomain: Subdomain where the permeability is defined.
+                Permeability is a discretization parameter and is assigned to individual
+                subdomain data dictionaries. Hence, the list will usually contain only one
+                element.
 
         Returns:
             Cell-wise permeability tensor.
         """
-        return self.solid.permeability(subdomain)
+        return self.solid.permeability(subdomains)
 
-    def normal_permeability(self, subdomain: pp.Grid) -> pp.ad.Operator:
-        return self.solid.normal_permeability(subdomain)
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        return self.solid.normal_permeability(interfaces)
 
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         poro = self.solid.porosity(subdomains)
