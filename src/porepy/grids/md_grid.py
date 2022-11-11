@@ -651,6 +651,30 @@ class MixedDimensionalGrid:
         return np.sum(  # type: ignore
             [grid.num_cells for grid in self.subdomains() if cond(grid)], dtype=int
         )
+    
+    def num_subdomain_faces(
+            self, cond: Optional[Callable[[pp.Grid], bool]] = None
+            ) -> int:
+        """ Compute the number of faces in the mixed-dimensional grid.
+            
+            A function can be passed to filter subdomains and/or interfaces.
+
+            Args:
+                cond: optional, predicate with a grid as input.
+
+            Return:
+                int: the total number of cells of the grid bucket.
+                
+            TODO: add suitable tests
+        """
+        
+        if cond is None:
+            cond = lambda g: True
+        # end if
+        
+        return np.sum(
+            [grid.num_faces for grid in self.subdomains() if cond(grid)], dtype=int
+            )
 
     def num_interface_cells(
         self, cond: Optional[Callable[[pp.MortarGrid], bool]] = None
