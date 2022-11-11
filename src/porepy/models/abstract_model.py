@@ -376,7 +376,10 @@ class AbstractModel:
                 model.prepare_simulation()
                 sd = model.mdg.subdomains()[0]
                 sides = model._domain_boundary_sides(sd)
-                print(sides.north)
+                # Access north faces using index or name is equivalent:
+                north_by_index = sides[3]
+                north_by_name = sides.north
+                assert all(north_by_index == north_by_name)
 
         """
 
