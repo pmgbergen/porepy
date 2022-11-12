@@ -780,21 +780,21 @@ from time import time
 tic = time()
 print("Simulation started...")
 params = {
-        "alpha_biot": 1.0,  # [-]
-        "height": 1.0,  # [m]
-        "lambda_lame": 1.65e9,  # [Pa]
-        "mu_lame": 1.475e9,  # [Pa]
-        "num_cells": 10,
-        "permeability": 9.86e-14,  # [m^2]
-        "perturbation_factor": 1e-6,
-        "plot_results": False,
-        "specific_weight": 9.943e3,  # [Pa * m^-1]
-        "time_manager": pp.TimeManager([0, 0.05, 0.1, 0.3], 0.05, constant_dt=True),
-        "upper_limit_summation": 1000,
-        "use_ad": True,
-        "vertical_load": 6e8,  # [N * m^-1]
-        "viscosity": 1e-3,  # [Pa * s]
-    }
+    "alpha_biot": 1.0,  # [-]
+    "height": 1.0,  # [m]
+    "lambda_lame": 1.65e9,  # [Pa]
+    "mu_lame": 1.475e9,  # [Pa]
+    "num_cells": 10,
+    "permeability": 9.86e-14,  # [m^2]
+    "perturbation_factor": 1e-6,
+    "plot_results": False,
+    "specific_weight": 9.943e3,  # [Pa * m^-1]
+    "time_manager": pp.TimeManager([0, 0.05, 0.1, 0.3], 0.05, constant_dt=True),
+    "upper_limit_summation": 1000,
+    "use_ad": True,
+    "vertical_load": 6e8,  # [N * m^-1]
+    "viscosity": 1e-3,  # [Pa * s]
+}
 setup = Terzaghi(params)
 pp.run_time_dependent_model(setup, params)
 toc = time()
