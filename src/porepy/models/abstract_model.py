@@ -18,7 +18,6 @@ import abc
 import logging
 import time
 import warnings
-from collections import namedtuple
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 import numpy as np
@@ -27,6 +26,18 @@ import scipy.sparse as sps
 import porepy as pp
 
 logger = logging.getLogger(__name__)
+
+
+class DomainSides(NamedTuple):
+    """Named tuple to store domain boundary sides."""
+
+    all_bf: np.ndarray  # indices of the boundary of the domain. Shape is (sd.num_faces, ).
+    east: np.ndarray  # boolean flags for the East side. Shape is (sd.num_faces, ).
+    west: np.ndarray  # boolean flags for the West side. Shape is (sd.num_faces, ).
+    north: np.ndarray  # boolean flags for the North side. Shape is (sd.num_faces, ).
+    south: np.ndarray  # boolean flags for the South side. Shape is (sd.num_faces, ).
+    top: np.ndarray  # boolean flags for the Top side.  Shape is (sd.num_faces, ).
+    bottom: np.ndarray  # boolean flags for the Bottom side. Shape is (sd.num_faces, ).
 
 
 class AbstractModel:
@@ -346,7 +357,7 @@ class AbstractModel:
         """
         pass
 
-    def _domain_boundary_sides(self, sd: pp.Grid, tol: float = 1e-10) -> NamedTuple:
+    def _domain_boundary_sides(self, sd: pp.Grid, tol: float = 1e-10) -> DomainSides:
         """Obtain indices of the faces lying on the sides of the domain boundaries.
 
         The method is primarily intended for box-shaped domains. However, it can also be
@@ -401,10 +412,4 @@ class AbstractModel:
             bottom = np.abs(box["zmin"] - sd.face_centers[2]) <= tol
         all_bf = sd.get_boundary_faces()
 
-        # Create a namedtuple to store the arrays
-        DomainSides = namedtuple(
-            "DomainSides", "all_bf east west north south top bottom"
-        )
-        domain_sides = DomainSides(all_bf, east, west, north, south, top, bottom)
-
-        return domain_sides
+        return DomainSides(all_bf, east, west, north, south, top, bottom)
