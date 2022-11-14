@@ -121,7 +121,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
     def __init__(self, params: dict):
         """Constructor of the Terzaghi class.
 
-        Args:
+        Parameters:
             params: Model setup parameters.
 
                 Default physical parameters were adapted from
@@ -207,13 +207,13 @@ class Terzaghi(pp.ContactMechanicsBiot):
         sd: pp.Grid = pp.CartGrid(n_cells, phys_dims)
         sd.compute_geometry()
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
-        self.domain_sides = self._domain_boundary_sides(sd)
 
         # Perturb physical nodes to avoid singular matrices with roller bc and MPSA.
+        # Here, we only perturb the vertical nodes, although nothing stop us from perturbing
+        # the horizontal nodes too.
         np.random.seed(35)  # this seed is fixed but completely arbitrary
         perturbation_factor = self.params["perturbation_factor"]
         perturbation = np.random.rand(sd.num_nodes) * perturbation_factor
-        sd.nodes[0] += perturbation
         sd.nodes[1] += perturbation
         sd.compute_geometry()
         self.mdg = pp.meshing.subdomains_to_mdg([[sd]])
@@ -228,7 +228,7 @@ class Terzaghi(pp.ContactMechanicsBiot):
         super()._initial_condition()
 
         # Since the parent class sets zero initial displacement, we only need to modify the
-        # intial conditions for the flow subproblem.
+        # initial conditions for the flow subproblem.
         sd = self.mdg.subdomains()[0]
         data = self.mdg.subdomain_data(sd)
         vertical_load = self.params["vertical_load"]
@@ -250,19 +250,20 @@ class Terzaghi(pp.ContactMechanicsBiot):
 
         """
         # Define boundary regions
-        all_bf, _, _, north, *_ = self.domain_sides
-        north_bc = np.isin(all_bf, np.where(north)).nonzero()
+        tol = self.params["perturbation_factor"]
+        sides = self._domain_boundary_sides(sd, tol)
+        north_bc = np.isin(sides.all_bf, np.where(sides.north)).nonzero()
 
         # All sides Neumann, except the North which is Dirichlet
-        bc_type = np.asarray(all_bf.size * ["neu"])
+        bc_type = np.asarray(sides.all_bf.size * ["neu"])
         bc_type[north_bc] = "dir"
 
-        bc = pp.BoundaryCondition(sd, faces=all_bf, cond=list(bc_type))
+        bc = pp.BoundaryCondition(sd, faces=sides.all_bf, cond=list(bc_type))
 
         return bc
 
     def _bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Define boundary condition types for the mechanics subproblem
+        """Define boundary condition types for the mechanics subproblem.
 
         Args:
             sd: Subdomain grid.
@@ -275,21 +276,22 @@ class Terzaghi(pp.ContactMechanicsBiot):
         super()._bc_type_mechanics(sd=sd)
 
         # Get boundary sides, retrieve data dict, and bc object
-        _, east, west, north, south, *_ = self.domain_sides
+        tol = self.params["perturbation_factor"]
+        sides = self._domain_boundary_sides(sd, tol)
         data = self.mdg.subdomain_data(sd)
         bc = data[pp.PARAMETERS][self.mechanics_parameter_key]["bc"]
 
         # East side: Roller
-        bc.is_neu[1, east] = True
-        bc.is_dir[1, east] = False
+        bc.is_neu[1, sides.east] = True
+        bc.is_dir[1, sides.east] = False
 
         # West side: Roller
-        bc.is_neu[1, west] = True
-        bc.is_dir[1, west] = False
+        bc.is_neu[1, sides.west] = True
+        bc.is_dir[1, sides.west] = False
 
         # North side: Neumann
-        bc.is_neu[:, north] = True
-        bc.is_dir[:, north] = False
+        bc.is_neu[:, sides.north] = True
+        bc.is_dir[:, sides.north] = False
 
         # South side: Dirichlet (already set thanks to inheritance)
 
@@ -307,12 +309,13 @@ class Terzaghi(pp.ContactMechanicsBiot):
         """
 
         # Retrieve boundary sides
-        _, _, _, north, *_ = self.domain_sides
+        tol = self.params["perturbation_factor"]
+        sides = self._domain_boundary_sides(sd, tol)
 
         # All zeros except vertical component of the north side
         vertical_load = self.params["vertical_load"]
         bc_values = np.array([np.zeros(sd.num_faces), np.zeros(sd.num_faces)])
-        bc_values[1, north] = -vertical_load * sd.face_areas[north]
+        bc_values[1, sides.north] = -vertical_load * sd.face_areas[sides.north]
         bc_values = bc_values.ravel("F")
 
         return bc_values
@@ -770,32 +773,3 @@ class Terzaghi(pp.ContactMechanicsBiot):
         l2_error = numerator / denominator
 
         return l2_error
-
-
-#%% Runner
-# Import modules
-from time import time
-
-# Run Terzaghi's setup
-tic = time()
-print("Simulation started...")
-params = {
-    "alpha_biot": 1.0,  # [-]
-    "height": 1.0,  # [m]
-    "lambda_lame": 1.65e9,  # [Pa]
-    "mu_lame": 1.475e9,  # [Pa]
-    "num_cells": 10,
-    "permeability": 9.86e-14,  # [m^2]
-    "perturbation_factor": 1e-6,
-    "plot_results": False,
-    "specific_weight": 9.943e3,  # [Pa * m^-1]
-    "time_manager": pp.TimeManager([0, 0.05, 0.1, 0.3], 0.05, constant_dt=True),
-    "upper_limit_summation": 1000,
-    "use_ad": True,
-    "vertical_load": 6e8,  # [N * m^-1]
-    "viscosity": 1e-3,  # [Pa * s]
-}
-setup = Terzaghi(params)
-pp.run_time_dependent_model(setup, params)
-toc = time()
-print(f"Simulation finished in {round(toc - tic)} seconds.")
