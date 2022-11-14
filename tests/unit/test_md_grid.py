@@ -383,6 +383,19 @@ class TestMixedDimensionalGrid(unittest.TestCase):
 
         l = lambda g: g.dim == 1
         self.assertTrue(mdg.num_subdomain_cells(l) == sd_1.num_cells)
+        
+        
+    def test_num_faces(self):
+
+        sd_1 = MockGrid(dim=1, num_cells=1, num_faces=3, num_nodes=3)
+        sd_2 = MockGrid(dim=2, num_cells=3, num_faces=7, num_nodes=3)
+        mdg = pp.MixedDimensionalGrid()
+        mdg.add_subdomains([sd_1, sd_2])
+
+        self.assertTrue(mdg.num_subdomain_faces() == (sd_1.num_faces + sd_2.num_faces))
+
+        l = lambda g: g.dim == 1
+        self.assertTrue(mdg.num_subdomain_faces(l) == sd_1.num_faces)
 
     def test_num_subdomains_and_interfaces(self):
         mdg = pp.MixedDimensionalGrid()

@@ -663,9 +663,7 @@ class MixedDimensionalGrid:
                 cond: optional, predicate with a grid as input.
 
             Return:
-                int: the total number of cells of the grid bucket.
-                
-            TODO: add suitable tests
+                int: the total number of cells of the grid bucket.                
         """
         
         if cond is None:
