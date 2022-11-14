@@ -184,70 +184,71 @@ class EquationSystem:
 
     def SubSystem(
         self,
-        equation_names: Optional[str | list[str]] = None,
-        variable_names: Optional[str | list[str]] = None,
+        equation_names: Optional[EquationList] = None,
+        variable_names: Optional[VariableList] = None,
     ) -> EquationSystem:
         """Creates a ``EquationSystem`` for a given subset of equations and variables.
 
         Currently only subsystems containing *whole* equations and variables in the
-        mixed-dimensional sense can be created. Chopping into grid variables and restricting
-        equations to certain grids is as of now not supported (hence the signature).
+        mixed-dimensional sense can be created. Restrictions of equations to subdomains
+        is not supported.
 
         Parameters:
-            equation_names (optional): names of known equation for the new subsystem.
-                If None (default), the whole set of known equations is used.
-            variable_names (optional): names of known mixed-dimensional variables for the new
-                subsystem. If None (default), the whole set of known md variables is used.
+            equation_names: Names of equation for the new subsystem. If None, all
+                equations known to the EquationSystem is used.
+            variable_names: Names of known variables for the new subsystem. If None, all
+                variables known to the EquationSystem is used.
 
         Returns:
-            a new instance of ``EquationSystem``. The subsystem equations and variables
+            A new instance of ``EquationSystem``. The subsystem equations and variables
                 are ordered as imposed by this systems's order.
 
         Raises:
-            ValueError: if passed names are not among created variables and set equations.
+            ValueError: if passed names are not among created variables and set
+            equations.
 
         """
-        assert False  # Not updated after atomization of variables
-        # parsing input arguments
-        if isinstance(equation_names, str):
-            equation_names = [equation_names]
-        elif equation_names is None:
-            equation_names = list(self._equations.keys())
+        # Parsing of input arguments.
+        equations = list(self._parse_equations(equation_names).keys())
         variables = self._parse_variable_type(variable_names)
 
-        # checking input, if subsystem is well-defined
+        # Check that the requested equations and variables are known to the system.
         known_equations = set(self._equations.keys())
-        unknown_equations = set(equation_names).difference(known_equations)
+        unknown_equations = set(equations).difference(known_equations)
         if len(unknown_equations) > 0:
             raise ValueError(f"Unknown variable(s) {unknown_equations}.")
-
-        unknown_variables = variables.difference(self._variables)
+        unknown_variables = set(variables).difference(self._variables)
         if len(unknown_variables) > 0:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
-        # creating a new manager
+        # Create the new subsystem.
         new_manager = EquationSystem(self.mdg)
 
-        # this method imitates the variable creation and equation setting procedures by
-        # calling private methods and accessing private attributes.
-        # This should be acceptable since this is a factory method.
+        # IMPLEMENTATION NOTE: This method imitates the variable creation and equation
+        # setting procedures by calling private methods and accessing private
+        # attributes. This should be acceptable since this is a factory method.
 
-        # loop over known variables to preserve DOF order
+        # Loop over known variables to preserve DOF order.
         for variable in self._variables:
             if variable in variables:
-                # updating variables in subsystem
-                new_manager._variables.update(variable)
+                # Update variables in subsystem.
+                new_manager._variables.append(variable)
 
-                # creating dofs in subsystem
+                # Update variable numbers in subsystem.
+                new_manager._variable_dof_type[variable] = self._variable_dof_type[
+                    variable
+                ]
+
+                # Create dofs in subsystem.
                 new_manager._append_dofs(variable)
 
-        # loop over known equations to preserve row order
+        # Loop over known equations to preserve row order.
         for name in known_equations:
-            if name in equation_names:
+            if name in equations:
                 equation = self._equations[name]
                 image_info = self._equation_image_size_info[name]
                 image_composition = self._equation_image_space_composition[name]
-                # set the information produced in set_equations directly
+                # et the information produced in set_equations directly.
                 new_manager._equation_image_space_composition.update(
                     {name: image_composition}
                 )

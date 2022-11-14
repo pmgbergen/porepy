@@ -1021,88 +1021,72 @@ def test_assemble_subsystem(setup, var_names, eq_names):
 
 
 @pytest.mark.parametrize(
-    "var_names",
+    "equation_variables",
     [
-        None,  # Should give all variables by default
-        [],  # Empty list (as opposed to None) should give a system with zero columns
-        ["x"],  # md variable
-        ["y"],  # single variable
-        ["x", "y"],  # Combination of single and md
-        ["y", "x"],  # Combination reversed - check just to be sure
-        ["x", "w"],  # Subdomain and interface
-    ],
-)
-@pytest.mark.parametrize(
-    "eq_names",
-    [
-        None,  # should give all equations by default
-        [],  # Empty list should give a system with zero rows
-        ["eq_single_subdomain"],  # Single equation
-        ["eq_single_subdomain", "eq_all_subdomains"],  # Combination of two equations
-        ["eq_combined", "eq_single_subdomain"],  # Different combination
-        ["eq_single_interface", "eq_all_interfaces"],  # Interface equations
-        ["eq_single_interface", "eq_all_interfaces", "eq_single_subdomain"],  # Mixed
+        [None, None],  # Two Nones will give the full system
+        [[], []],  # Two empty lists will give a system with zero rows and columns
+        [["eq_single_subdomain"], None],  # A single equation, all variables
+        [None, ["x"]],  # All equations, a single variable
         [
+            [
+                "eq_single_interface",
+                "eq_all_subdomains",
+            ],  # Combination of two equations
+            ["x", "w"],  # Combination of two variables
+    ],
+    [
+        [
+                "eq_all_subdomains",
             "eq_single_interface",
-            "eq_all_interfaces",
-            "eq_single_subdomain",
-            "eq_all_subdomains",
-            "eq_combined",
-        ],  # All
+            ],  # The combination in reverse order
+            ["w", "x"],  # The combination in reverse order
+        ],
     ],
 )
-def test_extract_subsystem(setup, eq_names, var_names):
-    # Check functionality to extract subsystems from the EquationManager.
-    # The tests check that the expected variables and equations are present in
-    # the subsystem.
+def test_extract_subsystem(setup, equation_variables):
+    """
+    Check functionality to extract subsystems from the EquationManager.
+
+    The tests check that the expected variables and equations are present in
+    the subsystem.
+
+    We test combinations of one or more equations, together with one or more variables.
+    Variables are only defined by strings; the alternative format of a variables is
+    not considered, since the variables are only passed to EquationSystem.dofs_of()
+    (via the method projection_to()) which is tested elsewhere.
+
+    This test is run on a relatively limited set of equation-variable combinations
+    (in particular compared to how the test was set up in the past). The reason is that
+    parsing of variable and equation input is tested in separate tests, thus what
+    remains is to test that given a set of equations and variables, the correct rows
+    and columns are extracted from the full system.
+
+    """
+    eq_names, var_names = equation_variables
 
     sys_man = setup.sys_man
 
-    # Get Ad variables from strings
-    variables = [getattr(setup, var) for var in var_names]
+    # Convert variable names into variables
+    if var_names is None:
+        var_names = []
+    variables = [var for var in setup.sys_man.variables if var.name in var_names]
 
-    # Secondary variables are constructed as atomic. The number of these is found by
-    # the number of variables + the number of mixed-dimensional variables (known to be defined
-    # on exactly two grids)
-    num_atomic_vars = len(var_names) + sum(["merged" in var for var in var_names])
-    # The number of secondary variables is also known
-    num_secondary = 5 - num_atomic_vars
+    new_manager = sys_man.SubSystem(eq_names, var_names)
 
-    new_manager = sys_man.SubSystem(eq_names, variables)
+    if eq_names is None:
+        eq_names = setup.all_equation_names
 
     # Check that the number of variables and equations are as expected
-    assert len(new_manager.secondary_variables) == num_secondary
     assert len(new_manager.equations) == len(eq_names)
 
     # Check that the active / primary equations are present in the new manager
     for eq in new_manager.equations:
         assert eq in eq_names
 
-    # Check that the secondary variables are not among the active (primary) variables.
-    for sec_var in new_manager.secondary_variables:
-
-        # Check that the secondary variable has a representation in a form known to the
-        # new EquationManager.
-        assert sec_var in new_manager._variables_as_list()
-
-        sec_name = sec_var._name
-        for vi, active_name in enumerate(var_names):
-            if sec_name[0] != active_name[0]:
-                # Okay, this secondary variable has nothing in common with this active var
-                continue
-            else:
-                # With the setup of the tests, this is acceptable only if the active
-                # variable is x1, and the secondary variable has name 'x', is active on
-                # grid sd_1.
-
-                # Get the active variable
-                active_var = variables[vi]
-                assert active_var.domain == setup.sd_2
-                assert active_var.name == "x"
-
-                # Check the secondary variable
-                assert sec_var._g == setup.sd_1
-                assert sec_name == "x"
+    # Check that all variables were transferred to the new manager
+    assert len(new_manager.variables) == len(variables)
+    for var in new_manager.variables:
+        assert var in variables
 
 
 @pytest.mark.parametrize(
