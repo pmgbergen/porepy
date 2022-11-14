@@ -1808,7 +1808,7 @@ class EquationSystem:
             " interfaces.\n"
         )
         # Sort variables alphabetically, not case-sensitive
-        all_variables = self.get_variable_names()
+        all_variables = set([var.name for var in self.variables])
         s += "Variables present on at least one grid or interface:\n\t"
         s += ", ".join(all_variables) + "\n"
 
@@ -1827,22 +1827,29 @@ class EquationSystem:
             " interfaces.\n"
         )
 
-        all_variables = self.get_variable_names()
-        variable_grid = [
-            (sub_var.name, sub_var.domain)
-            for var in self._variables.values()
-            for sub_var in var.sub_vars
-        ]
-        # make combinations unique
-        variable_grid = list(set(variable_grid))
+        all_variables = set([var.name for var in self.variables])
+        variable_grid = {var: [] for var in all_variables}
+        for var in self.variables:
+            variable_grid[var.name].append(var.domain)
 
-        s += f"There are in total {len(all_variables)} variables, distributed as follows:\n"
+        s += (
+            f"There are in total {len(all_variables)} variables,"
+            + " distributed as follows:\n"
+        )
 
         # Sort variables alphabetically, not case-sensitive
-        for var, grid in variable_grid:
+        for var, grids in variable_grid:
             s += "\t" + f"{var} is present on"
-            s += " subdomain" if isinstance(grid, pp.Grid) else " interface(s)"
-            s += "\n"
+            if isinstance(grids[0], pp.Grid):
+                sorted_grids = self.mdg.sort_subdomains(grids)
+                s += " subdomains with id: " + ", ".join(
+                    [str(g.id) for g in sorted_grids]
+                )
+            else:
+                sorted_grids = self.mdg.sort_interfaces(grids)
+                s += " interfaces with id: " + ", ".join(
+                    [str(g.id) for g in sorted_grids]
+                )
 
         s += "\n"
         if self._equations is not None:
