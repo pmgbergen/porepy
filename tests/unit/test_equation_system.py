@@ -342,6 +342,7 @@ class EquationSystemSetup:
                 mdg.interfaces()[0].num_cells * 2,
             ]
         )
+
         if not square_system:
             # One equation combining top and all subdomains.
             # Assigned last to avoid mess if omitted
@@ -351,6 +352,15 @@ class EquationSystemSetup:
                 self.eq_combined, grids=[sd_top], equations_per_grid_entity=dof_combined
             )
             self.eq_inds = np.append(self.eq_inds, mdg.subdomains()[0].num_cells)
+
+        self.all_equation_names = [
+            "eq_all_subdomains",
+            "eq_single_subdomain",
+            "eq_all_interfaces",
+            "eq_single_interface",
+            "eq_combined",
+        ]
+        self.all_variable_names = ["x", "y", "z", "w"]
 
         self.A, self.b = sys_man.assemble()
         self.sys_man = sys_man
@@ -830,13 +840,7 @@ def test_parse_equations():
 
     # All equations. The order is the same as that in the helper class
     # EquationSystemSetup.
-    all_equation_names = [
-        "eq_all_subdomains",
-        "eq_single_subdomain",
-        "eq_all_interfaces",
-        "eq_single_interface",
-        "eq_combined",
-    ]
+    all_equation_names = setup.all_equation_names
 
     # First pass None. This should give as all equations on all subdomains.
     received_equations_1 = eq_system._parse_equations(None)
@@ -920,41 +924,29 @@ def test_secondary_variable_assembly(setup, var_names):
 
 
 @pytest.mark.parametrize(
-    "var_names",
+    "equation_variables",
     [
-        None,  # Should give all variables by default
-        [],  # Empty list (as opposed to None) should give a system with zero columns
-        ["x"],  # md variable
-        ["y"],  # single variable
-        ["x", "y"],  # Combination of single and md
-        ["y", "x"],  # Combination reversed - check just to be sure
-        ["x", "w"],  # Subdomain and interface
+        [None, None],  # Two Nones will give the full system
+        [[], []],  # Two empty lists will give a system with zero rows and columns
+        [["eq_single_subdomain"], None],  # A single equation, all variables
+        [None, ["x"]],  # All equations, a single variable
+        [
+            [
+                "eq_single_interface",
+                "eq_all_subdomains",
+            ],  # Combination of two equations
+            ["x", "w"],  # Combination of two variables
+        ],
+        [
+            [
+                "eq_all_subdomains",
+                "eq_single_interface",
+            ],  # The combination in reverse order
+            ["w", "x"],  # The combination in reverse order
+        ],
     ],
 )
-@pytest.mark.parametrize(
-    "eq_names",
-    [
-        None,  # should give all equations by default
-        [],  # Empty list should give a system with zero rows
-        ["eq_single_subdomain"],  # Single equation
-        ["eq_single_subdomain", "eq_all_subdomains"],  # Combination of two equations
-        [
-            "eq_all_subdomains",
-            "eq_single_subdomain",
-        ],  # The combination in reverse order
-        ["eq_combined", "eq_single_subdomain"],  # Different combination
-        ["eq_single_interface", "eq_all_interfaces"],  # Interface equations
-        ["eq_single_interface", "eq_all_interfaces", "eq_single_subdomain"],  # Mixed
-        [
-            "eq_single_interface",
-            "eq_all_interfaces",
-            "eq_single_subdomain",
-            "eq_all_subdomains",
-            "eq_combined",
-        ],  # All
-    ],
-)
-def test_assemble_subsystem(setup, var_names, eq_names):
+def test_assemble_subsystem(setup, equation_variables):
     """Test of functionality to assemble subsystems from an EquationSystem.
 
     The test is based on assembly of a subsystem and comparing this to a truth
@@ -963,16 +955,25 @@ def test_assemble_subsystem(setup, var_names, eq_names):
     We test combinations of one or more equations, together with one or more variables.
     Variables are only defined by strings; the alternative format of a variables is
     not considered, since the variables are only passed to EquationSystem.dofs_of()
-    (via the method projection_to()).
+    (via the method projection_to()), which is tested elsewhere.
+
+    This test is run on a relatively limited set of equation-variable combinations
+    (in particular compared to how the test was set up in the past). The reason is that
+    parsing of variable and equation input is tested in separate tests, thus what
+    remains is to test that given a set of equations and variables, the correct rows
+    and columns are extracted from the full system.
+
     """
+    eq_names, var_names = equation_variables
+
     sys_man = setup.sys_man
 
     # Convert variable names into variables
     if var_names is None:
         var_names = []
-    variables = [var for var in setup.sys_man.variables if var.name not in var_names]
+    variables = [var for var in setup.sys_man.variables if var.name in var_names]
 
-    A_sub, b_sub = sys_man.assemble_subsystem(equations=eq_names, variables=variables)
+    A_sub, b_sub = sys_man.assemble_subsystem(equations=eq_names, variables=var_names)
 
     # Get active rows and columns. If eq_names is None, all rows should be included.
     # If equation list is set to empty list, no indices are included.
@@ -988,9 +989,9 @@ def test_assemble_subsystem(setup, var_names, eq_names):
         # Equations are set to empty
         rows = []
 
-    if variables is None:
+    if var_names is None:
         # If no variables are specified, all should be included.
-        cols = np.arange(18)
+        cols = np.arange(setup.A.shape[1])
     elif len(variables) > 0:
         # Sort variable indices
         cols = np.sort(np.hstack([setup.dof_ind(var) for var in variables]))
@@ -1033,11 +1034,11 @@ def test_assemble_subsystem(setup, var_names, eq_names):
                 "eq_all_subdomains",
             ],  # Combination of two equations
             ["x", "w"],  # Combination of two variables
-    ],
-    [
+        ],
         [
+            [
                 "eq_all_subdomains",
-            "eq_single_interface",
+                "eq_single_interface",
             ],  # The combination in reverse order
             ["w", "x"],  # The combination in reverse order
         ],
