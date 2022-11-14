@@ -411,8 +411,10 @@ class EquationSystem:
                 # check if the grid is known to the system
 
                 if subdomains:
+                    assert isinstance(grid, pp.Grid)  # mypy
                     data = self.mdg.subdomain_data(grid)
                 else:
+                    assert isinstance(grid, pp.MortarGrid)  # mypy
                     data = self.mdg.interface_data(grid)
 
                 # prepare data dictionary if this was not done already
@@ -831,7 +833,6 @@ class EquationSystem:
         """Create a projection matrix from the global vector of unknowns to a specified
         subspace.
 
-
         The transpose of the returned matrix can be used to slice respective columns out
         of the global Jacobian.
 
@@ -851,8 +852,9 @@ class EquationSystem:
         # current number of total dofs
         num_dofs = self.num_dofs()
         if variables:
-            # Array for the indices associated with argument
-            indices = self.dofs_of(variables)
+            # Array for the indices associated with argument.
+            # The sort is needed so as not to permute the columns of the projection.
+            indices = np.sort(self.dofs_of(variables))
             # case where no dofs where found for the VariableType input
             if len(indices) == 0:
                 return sps.csr_matrix((0, num_dofs))
@@ -1354,7 +1356,7 @@ class EquationSystem:
 
     def assemble_subsystem(
         self,
-        equations: Optional[EquationLike] = None,
+        equations: Optional[EquationList | EquationRestriction] = None,
         variables: Optional[VariableList] = None,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
@@ -1365,14 +1367,15 @@ class EquationSystem:
         included will simply be sliced out.
 
         Notes:
-            The ordering of columns in the returned system are defined by the global DOF.
-            The row blocks are in the same order as equations were added to this system.
-            If an equation is defined on multiple grids, the respective row-block is internally
-            ordered as given by the mixed-dimensional grid
+            The ordering of columns in the returned system are defined by the global
+            DOF. The row blocks are in the same order as equations were added to this
+            system. If an equation is defined on multiple grids, the respective
+            row-block is internally ordered as given by the mixed-dimensional grid
             (for sd in subdomains, for intf in interfaces).
 
-            The columns of the subsystem are assumed to be properly defined by ``variables``,
-            otherwise a matrix of shape ``(M,)`` is returned. This happens if grid variables
+            The columns of hthe subsystem are assumed to be properly defined by
+            ``variables``, otherwise a matrix of shape ``(M,)`` is returned. This
+            happens if grid variables
             are passed which are unknown to this EquationSystem.
 
         Parameters:
@@ -1452,7 +1455,7 @@ class EquationSystem:
         # Slice out the columns belonging to the requested subsets of variables and
         # grid-related column blocks by using the transposed projection to respective
         # subspace.
-        # Multiply rhs by -1 to move to the rhs
+        # Multiply rhs by -1 to move to the rhs.
         column_projection = self.projection_to(variables).transpose()
         return A * column_projection, -rhs_cat
 
@@ -1799,7 +1802,7 @@ class EquationSystem:
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
 
-    ### special methods -----------------------------------------------------------------------
+    ### Special methods ----------------------------------------------------------------
 
     def __repr__(self) -> str:
         s = (
