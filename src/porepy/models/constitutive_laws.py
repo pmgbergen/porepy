@@ -9,6 +9,7 @@ Consists of three types of classes
 
 See usage_example.py
 """
+from functools import partial
 from typing import Callable, Optional, Union
 
 import numpy as np
@@ -29,7 +30,7 @@ def ad_wrapper(
 
     Utility method.
 
-    Args:
+    Parameters:
         vals: Values to be wrapped. Floats are broadcast to an np array.
         array: Whether to return a matrix or vector.
         size: Size of the array or matrix. If not set, the size is inferred from vals.
@@ -94,11 +95,18 @@ class DimensionReduction:
         return apertures
 
     def specific_volume(self, subdomains: list[pp.Grid]) -> np.ndarray:
-        """
+        """Specific volume [m^(nd-d)]
+
         Aperture is a characteristic thickness of a cell, with units [m].
         1 in matrix, thickness of fractures and "side length" of cross-sectional
         area/volume (or "specific volume") for intersections of dimension 1 and 0.
         See also specific_volume.
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Specific volume for each cell.
         """
         # Compute specific volume as the cross-sectional area/volume
         # of the cell, i.e. raise to the power nd-dim
@@ -120,9 +128,7 @@ class DimensionReduction:
             else:
                 v = v + v_glob
         v.set_name("specific_volume")
-        # sz = sum([sd.num_cells for sd in subdomains])
-        # vals = np.ones(sz)
-        # vol = ad_wrapper(vals, array=False)
+
         return v
 
 
@@ -146,6 +152,21 @@ class FluidDensityFromPressure:
     """Fluid density as a function of pressure."""
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid density as a function of pressure.
+
+        .. math::
+            \\rho = \\rho_0 \\exp \\left[ c_p \\left(p - p_0\\right) \\right]
+
+        with :math:`\\rho_0` the reference density, :math:`p_0` the reference pressure,
+        :math:`c_p` the compressibility and :math:`p` the pressure.
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Fluid density as a function of pressure.
+
+        """
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
         # Reference variables are defined in Variables class.
         dp = self.pressure(subdomains) - self.reference_pressure(subdomains)
@@ -159,7 +180,7 @@ class FluidDensityFromPressure:
         # to obtain reference value), but I don't see what the benefit would be.
         rho_ref = ad_wrapper(
             self.fluid.density(subdomains), array=False, name="reference_fluid_density"
-            )
+        )
         rho = rho_ref * exp(c * dp)
         return rho
 
@@ -168,6 +189,7 @@ class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
     """Extend previous case"""
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid density as a function of pressure and temperature."""
         rho = super().fluid_density(subdomains)
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
         dtemp = self.temperature(subdomains) - self.reference_temperature(
@@ -193,7 +215,7 @@ class DarcyFlux:
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the pressure is defined.
 
         Returns:
@@ -216,7 +238,7 @@ class DarcyFlux:
     def darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Darcy flux.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the Darcy flux is defined.
 
         Returns:
@@ -248,7 +270,7 @@ class DarcyFlux:
             arrays and collect them in a block matrix. This similarity could possibly be
             exploited. Revisit at some point.
 
-        Args:
+        Parameters:
             subdomains:
 
         Returns:
@@ -264,7 +286,7 @@ class DarcyFlux:
         Represents gravity effects. EK: Let's discuss how to name/think about this term. Note
         that it appears slightly differently in a flux and a force/momentum balance.
 
-        Args:
+        Parameters:
             grids: List of subdomain or interface grids where the vector source is defined.
             material: Name of the material. Could be either "fluid" or "solid".
 
@@ -283,7 +305,7 @@ class DarcyFlux:
         The term is the product of unit normals and vector source values. Normalization is
         needed to balance the integration done in the interface flux law.
 
-        Args:
+        Parameters:
             interfaces: List of interfaces where the vector source is defined.
 
         Returns:
@@ -312,7 +334,7 @@ class AdvectiveFlux:
     ) -> pp.ad.Operator:
         """Advective flux.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains.
             advected_entity: Operator representing the advected entity.
             discr: Discretization of the advective flux.
@@ -347,7 +369,7 @@ class AdvectiveFlux:
     ) -> pp.ad.Operator:
         """Advective flux on interfaces.
 
-        Args:
+        Parameters:
             interfaces: List of interface grids.
 
         Returns:
@@ -400,7 +422,7 @@ class GravityForce:
         Represents gravity effects. EK: Let's discuss how to name/think about this term. Note
         that it appears slightly differently in a flux and a force/momentum balance.
 
-        Args:
+        Parameters:
             grids: List of subdomain or interface grids where the vector source is defined.
             material: Name of the material. Could be either "fluid" or "solid".
 
@@ -430,17 +452,16 @@ class LinearElasticMechanicalStress:
         """Linear elastic mechanical stress."""
         for sd in subdomains:
             assert sd.dim == self.nd
-        discr = pp.ad.MpsaAd(subdomains, nd=self.nd)
+        discr = pp.ad.MpsaAd(self.mechanics_discretization_parameter_key, subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains)
         bc = self.bc_values_mechanics(subdomains)
-        proj = pp.ad.MortarProjections(subdomains, interfaces, nd=self.nd)
+        proj = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=self.nd)
         stress = (
             discr.stress * self.displacement(subdomains)
             + discr.bound_stress * bc
             + discr.bound_stress
-            * self.subdomain_projections(self.nd).face_restriction(subdomains)
             * proj.mortar_to_primary_avg
-            * self.displacement(interfaces)
+            * self.interface_displacement(interfaces)
         )
         stress.set_name("mechanical_stress")
         return stress
@@ -465,7 +486,7 @@ class PressureStress:
     def pressure_stress(self, subdomains):
         """Pressure contribution to stress tensor.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the stress is defined.
 
         Returns:
@@ -484,7 +505,14 @@ class PressureStress:
         return stress
 
 
-class LinearElasticSolid(LinearElasticMechanicalStress):
+class ConstantSolidDensity:
+    def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
+        val = self.solid.density(subdomains)
+        num_cells = sum([sd.num_cells for sd in subdomains])
+        return ad_wrapper(val, False, num_cells, "solid_density")
+
+
+class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
     """Linear elastic properties of a solid.
 
     Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
@@ -495,7 +523,7 @@ class LinearElasticSolid(LinearElasticMechanicalStress):
     def shear_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Shear modulus [Pa].
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
@@ -508,7 +536,7 @@ class LinearElasticSolid(LinearElasticMechanicalStress):
     def lame_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Lame's first parameter [Pa].
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
@@ -519,7 +547,7 @@ class LinearElasticSolid(LinearElasticMechanicalStress):
     def youngs_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Young's modulus [Pa].
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the Young's modulus is defined.
 
         Returns:
@@ -538,10 +566,18 @@ class LinearElasticSolid(LinearElasticMechanicalStress):
         )
         return ad_wrapper(val, False, name="youngs_modulus")
 
+    def bulk_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Bulk modulus [Pa]."""
+        val = (
+            self.solid.lame_lambda(subdomains)
+            + 2 * self.solid.shear_modulus(subdomains)
+        ) / 3
+        return ad_wrapper(val, False, name="bulk_modulus")
+
     def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:
         """Stiffness tensor [Pa].
 
-        Args:
+        Parameters:
             subdomain: Subdomain where the stiffness tensor is defined.
 
         Returns:
@@ -558,10 +594,33 @@ class FracturedSolid:
     This class is intended for use with fracture deformation models.
     """
 
+    def gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fracture gap [m].
+
+        Parameters:
+            subdomains: List of subdomains where the gap is defined.
+
+        Returns:
+            Cell-wise fracture gap operator [m].
+        """
+        reference_gap: pp.ad.Operator = self.reference_gap(subdomains)
+        angle: pp.ad.Operator = self.dilation_angle(subdomains)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.functions.l2_norm, self.nd - 1), "norm_function"
+        )
+        f_tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
+        shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
+            self.tangential_component(subdomains) * self.displacement_jump(subdomains)
+        )
+
+        gap = reference_gap + shear_dilation
+        gap.set_name("gap_with_shear_dilation")
+        return gap
+
     def reference_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Reference gap [m].
 
-        Args:
+        Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
@@ -572,7 +631,7 @@ class FracturedSolid:
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction coefficient.
 
-        Args:
+        Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
@@ -582,6 +641,19 @@ class FracturedSolid:
             self.solid.friction_coefficient(subdomains),
             False,
             name="friction_coefficient",
+        )
+
+    def dilation_angle(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Dilation angle [rad].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise dilation angle operator [rad].
+        """
+        return ad_wrapper(
+            self.solid.dilation_angle(subdomains), False, name="dilation_angle"
         )
 
 
@@ -602,14 +674,14 @@ class FrictionBound:
     def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction bound [m].
 
-        Args:
+        Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
             Cell-wise friction bound operator [Pa].
 
         """
-        t_n: pp.ad.Operator = self.normal_component(subdomains) * self.traction(
+        t_n: pp.ad.Operator = self.normal_component(subdomains) * self.contact_traction(
             subdomains
         )
         bound: pp.ad.Operator = (-1) * self.friction_coefficient(subdomains) * t_n

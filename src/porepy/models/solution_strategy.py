@@ -107,9 +107,29 @@ class SolutionStrategy(abc.ABC):
         vals = np.zeros(self.equation_system.num_dofs())
         self.equation_system.set_variable_values(vals, to_iterate=True, to_state=True)
 
+    def set_materials(self):
+        """Sketch approach of setting materials. Works for now.
+
+        Should probably go in AbstractModel.
+        May want to use more refined approach (setter method, protect attribute names...)
+        FIXME: Move to AbstractModel/AbstractSolutionStrategy.
+        """
+        # Default values
+        materials = {"fluid": pp.UnitFluid, "solid": pp.UnitSolid}
+        materials.update(self.params.get("materials", {}))
+        for name, material in materials.items():
+            assert issubclass(material, pp.models.materials.Material)
+            setattr(self, name, material(self.units))
+
     def before_newton_loop(self) -> None:
         """Wrap for legacy reasons. To be removed."""
         self.before_nonlinear_loop()  # or before_linearization?
+
+    def discretize(self) -> None:
+        """Discretize all terms."""
+        tic = time.time()
+        self.equation_system.discretize()
+        logger.info("Discretized in {} seconds".format(time.time() - tic))
 
     def before_nonlinear_loop(self) -> None:
         """Method to be called before entering the non-linear solver, thus at the start
