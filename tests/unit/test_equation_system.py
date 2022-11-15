@@ -1095,9 +1095,15 @@ def test_extract_subsystem(setup, equation_variables):
     # Combinations of variables and variables. These cannot be set independently, since
     # the block to be eliminated should be square and invertible.
     [
-        [["eq_single_interface"], ["w"]],  # Single equation, atomic variable
-        [["eq_all_subdomains"], ["x"]],  # MD variable
-        [["eq_single_subdomain"], ["z"]],  # variable is both merged and atomic
+        [["eq_single_interface"], ["w"]],  # Single equation, variable on one interface
+        [["eq_all_interfaces"], ["y"]],  # Multiple interfaces
+        [  # Set of equations and variable on all subdomains. NOTE: This will be modified
+            # so that the equation and variable are partly included among the primary
+            # quantities, but only on one subdomani. See
+            # 'if eq_to_exclude[0] == "eq_all_subdomains"' below.
+            ["eq_all_subdomains"],
+            ["x"],
+        ],
         [
             ["eq_all_interfaces", "eq_single_subdomain"],
             ["z", "y"],
@@ -1105,42 +1111,80 @@ def test_extract_subsystem(setup, equation_variables):
     ],
 )
 def test_schur_complement(eq_var_to_exclude):
-    # Test assembly by a Schur complement.
-    # The test constructs the Schur complement 'manually', using known information on
-    # the ordering of equations and unknowns, and compares with the method in EquationManager.
+    """Test assembly by a Schur complement.
 
-    # NOTE: Input parameters to this test are interpreted as equations and variables to be
-    # eliminated (this makes interpretation of test results easier), while the method in
-    # EquationManager expects equations and variables to be kept. Some work is needed to invert
-    # the sets.
+    The test constructs the Schur complement 'manually', using known information on
+    the ordering of equations and unknowns, and compares with the method in
+    EquationSystem.
+
+    Input parameters to this test are interpreted as equations and variables to be
+    eliminated (this makes interpretation of test results easier), while the method in
+    EquationSystem expects equations and variables to be kept. Some work is needed to
+    invert the sets.
+
+    Note that for the test run for 'eq_all_subdomains' and 'x', we do some extra work
+    to test the ability to exclude specific grids, rather than full equations.
+
+    """
+
+    # Parse the input parameters.
+    eq_to_exclude, var_to_exclude = eq_var_to_exclude
 
     # Ensure the system is square by leaving out eq_combined
     setup = EquationSystemSetup(square_system=True)
-    eq_to_exclude, var_to_exclude = eq_var_to_exclude
     sys_man = setup.sys_man
+    # Always exclude eq_combined to get a square system.
+    eq_to_exclude.append("eq_combined")
+
     # Equations to keep
     # This construction preserves the order
-    eq_name = [eq for eq in sys_man.equations if eq not in eq_to_exclude]
+    eq_names = [eq for eq in setup.all_equation_names if eq not in eq_to_exclude]
 
-    # Set of all variables. z and y are only given in one form as input to this test.
-    all_variables = ["x", "w", "z", "y"]
+    if eq_to_exclude[0] == "eq_all_subdomains":
+        # In this case, we use a dictionary to define the equations to keep.
+        # For all equations not to be eliminated (e.g., present in eq_names), they are
+        # kept on all subdomains (which we somewhat cumbersomely obtain from a private
+        # variable of EquationSystem).
+        equations = {
+            eq: list(sys_man._equation_image_space_composition[eq].keys())
+            for eq in eq_names
+        }
+        # In addition, we keep 'eq_all_subdomains' on the top subdomain.
+        equations["eq_all_subdomains"] = [setup.sd_top]
 
-    # Names of variables to keep
-    var_name = list(set(all_variables).difference(set(var_to_exclude)))
-
-    # Convert from variable names to actual variables
-    # variables = [var for var in sys_man.]
-    variables = var_name
+        # Next, variables to keep: We keep all of them, expect for the one to be
+        # excluded, which is kept on the top subdomain only.
+        domain_to_exclude = setup.subdomains[1:]
+        variables = []
+        for var in sys_man.variables:
+            if not (var.name in var_to_exclude and var.domain in domain_to_exclude):
+                variables.append(var)
+    else:
+        # Simply use a list of string to define the equations.
+        equations = eq_names
+        variables = [
+            var for var in setup.all_variable_names if var not in var_to_exclude
+        ]
 
     inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
 
     # Rows and columns to keep
-    rows_keep = np.sort(np.hstack([setup.eq_ind(name) for name in eq_name]))
+    rows_keep = np.sort(np.hstack([setup.eq_ind(name) for name in eq_names]))
     cols_keep = np.sort(np.hstack([setup.dof_ind(var) for var in variables]))
 
     # Rows and columns to eliminate
     rows_elim = np.setdiff1d(np.arange(sum(setup.eq_inds)), rows_keep)
     cols_elim = np.setdiff1d(np.arange(setup.sys_man.num_dofs()), cols_keep)
+
+    if eq_to_exclude[0] == "eq_all_subdomains":
+        # If we have let the all-subdomanis equation be present on the top subdomain,
+        # we need to remove the corresponding rows and columns from the elimination.
+        # We know that the indices of the top subdomain are the first ones (since this
+        # is the order in which the equations are added to the system).
+        sd_top = setup.sd_top
+        rows_to_transfer = np.arange(sd_top.num_cells)
+        rows_keep = np.sort(np.hstack([rows_keep, rows_to_transfer]))
+        rows_elim = np.sort(np.setdiff1d(rows_elim, rows_to_transfer))
 
     # Split the full matrix into [[A, B], [C, D]], where D is to be eliminated
     A = setup.A[rows_keep][:, cols_keep]
@@ -1156,16 +1200,17 @@ def test_schur_complement(eq_var_to_exclude):
 
     # Compute Schur complement with method to be tested
     S, bS = sys_man.assemble_schur_complement_system(
-        eq_name, variables, inverter=inverter
+        equations, variables, inverter=inverter
     )
 
     assert np.allclose(bS, b_known)
     assert _compare_matrices(S, S_known)
-    # Also check that the equation row sizes were correctly recorded.
-    expected_blocks = np.cumsum(
-        np.hstack([0, [setup.block_size(eq) for eq in eq_name]])
-    )
-    # Fixme: I don't think we have this attribute anymore. Purge or update
-    # assert np.allclose(
-    #     expected_blocks, setup.sys_man.row_block_indices_last_assembled
-    # )
+
+    # Finally, test that the solution computed from a Schur complement and then
+    # expanded to the full system (using the relevant method in EquationSystem) is
+    # the same as the solution computed directly from the full system.
+    x_schur = sps.linalg.spsolve(S, bS)
+    x_expected = sps.linalg.spsolve(setup.A, setup.b)
+    x_reconstructed = sys_man.expand_schur_complement_solution(x_schur)
+
+    assert np.allclose(x_reconstructed, x_expected)
