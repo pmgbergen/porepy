@@ -1,4 +1,4 @@
-import warnings
+import numpy as np
 
 import porepy as pp
 
@@ -34,14 +34,12 @@ class Units:
     """Temperature unit, defaults to 1 K."""
     mol: number = 1
     """Mole unit, defaults to 1 mol."""
+    rad: number = 1
+    """Angle unit, defaults to 1 rad."""
 
     def __init__(
         self,
-        m: number = 1,
-        s: number = 1,
-        kg: number = 1,
-        K: number = 1,
-        mol: number = 1,
+        **kwargs: number,
     ):
         """Initialize the units.
 
@@ -54,18 +52,29 @@ class Units:
                 or, equivalently,
                     dict(m=pp.KILO * pp.METER, s=pp.HOUR, mol=pp.MILLI * pp.MOLE)
         """
-        # Check that all units are numbers and assign them as attributes
-        for unit in ["m", "s", "kg", "K", "mol"]:
-            val = locals()[unit]
-            if not isinstance(val, number):
-                raise ValueError(
-                    f"All units must be numbers. Parameter {unit} is {type(val)}"
-                )
-            if val <= 0:
-                warnings.warn(
-                    "Expected positive value for " + unit + ", got " + str(val)
-                )
-            setattr(self, unit, val)
+        # Sanity check on input values
+        for key, value in kwargs.items():
+            if not isinstance(value, number):
+                raise ValueError("Input values must be of type number.")
+            if key not in ["m", "s", "kg", "K", "mol", "rad"]:
+                # If for some reason the user wants to change the base units, this can be
+                # done by assigning to the attributes directly or overwriting the __init__.
+                # Since we do not recommend this, we do not allow it here.
+                raise ValueError("Input keys must be valid base units.")
+
+        # Set known base units
+        self.m: number = kwargs.get("m", 1)
+        """Length unit in meters."""
+        self.s: number = kwargs.get("s", 1)
+        """Time unit in seconds."""
+        self.kg: number = kwargs.get("kg", 1)
+        """Mass unit in kilograms."""
+        self.K: number = kwargs.get("K", 1)
+        """Temperature unit in Kelvin."""
+        self.mol: number = kwargs.get("mol", 1)
+        """Mole unit in moles."""
+        self.rad: number = kwargs.get("rad", 1)
+        """Angle unit in radians."""
 
     @property
     def Pa(self):
@@ -86,3 +95,13 @@ class Units:
     def W(self):
         """Power unit, derived from m, kg and s."""
         return self.kg * self.m**2 / self.s**3
+
+    @property
+    def Celsius(self):
+        """Temperature unit, derived from K."""
+        return self.K - 273.15
+
+    @property
+    def degree(self):
+        """Angle unit, derived from rad."""
+        return self.rad * 180 / np.PI

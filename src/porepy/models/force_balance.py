@@ -17,25 +17,32 @@ Notes:
 from __future__ import annotations
 
 import logging
-import time
 from functools import partial
 from typing import Dict, Optional, Union
 
-import constitutive_laws
 import numpy as np
 
 import porepy as pp
 from porepy import ModelGeometry
 
+from . import constitutive_laws
+
 logger = logging.getLogger(__name__)
 
 
 class VectorBalanceEquation:
-    """Generic class for scalar balance equations on the form
+    """Generic class for vector balance equations.
 
-    d_t(accumulation) + div(flux) - source = 0
+    In the only known use case, the balance equation is the momentum
+    balance equation,
+
+        d_t(momentum) + div(stress) - source = 0,
+
+    which reduces to a force balance if the momentum/inertia term is neglected.
 
     All terms need to be specified in order to define an equation.
+
+    See also ScalarBalanceEquation.
     """
 
     def balance_equation(
@@ -43,7 +50,7 @@ class VectorBalanceEquation:
     ) -> pp.ad.Operator:
         """Balance equation for a vector variable.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the balance equation is defined.
             accumulation: Operator for the accumulation term.
             stress: Operator for the stress term.
@@ -51,11 +58,13 @@ class VectorBalanceEquation:
 
         Returns:
             Operator for the balance equation.
+
         """
 
-        dt = self.time_increment_method
-        div = pp.ad.Divergence(subdomains, nd=self.nd)
-        return dt(accumulation) + div * stress - source
+        dt_operator = pp.ad.time_derivatives.dt
+        dt = self.time_manager.dt
+        div = pp.ad.Divergence(subdomains, dim=self.nd)
+        return dt_operator(accumulation, dt) + div * stress - source
 
     def volume_integral(
         self,
@@ -66,7 +75,7 @@ class VectorBalanceEquation:
 
         Includes cell volumes and specific volume.
 
-        Args:
+        Parameters:
             integrand: Operator for the integrand.
             grids: List of subdomain or interface grids over which the integral is to be
                 computed.
@@ -108,23 +117,23 @@ class ForceBalanceEquations(VectorBalanceEquation):
             fracture_subdomains
         )
         intf_eq = self.interface_force_balance_equation(interfaces)
-        self.system_manager.set_equation(
-            matrix_eq, (matrix_subdomains, "cells", self.nd)
+        self.equation_system.set_equation(
+            matrix_eq, matrix_subdomains, {"cells": self.nd}
         )
-        self.system_manager.set_equation(
-            fracture_eq_normal, (fracture_subdomains, "cells", 1)
+        self.equation_system.set_equation(
+            fracture_eq_normal, fracture_subdomains, {"cells": 1}
         )
-        self.system_manager.set_equation(
-            fracture_eq_tangential, (fracture_subdomains, "cells", self.nd - 1)
+        self.equation_system.set_equation(
+            fracture_eq_tangential, fracture_subdomains, {"cells": self.nd - 1}
         )
-        self.system_manager.set_equation(intf_eq, (interfaces, "cells", self.nd))
+        self.equation_system.set_equation(intf_eq, interfaces, {"cells": self.nd})
 
     def matrix_force_balance_equation(self, subdomains: list[pp.Grid]):
         """Force balance equation in the matrix.
 
         Inertial term is not included.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the force balance is defined. Only known usage
                 is for the matrix domain(s).
 
@@ -132,10 +141,24 @@ class ForceBalanceEquations(VectorBalanceEquation):
             Operator for the force balance equation in the matrix.
 
         """
-        accumulation = 0
+        accumulation = self.inertia(subdomains)
         stress = self.stress(subdomains)
         body_force = self.body_force(subdomains)
-        return self.balance_equation(subdomains, accumulation, stress, body_force)
+        equation = self.balance_equation(subdomains, accumulation, stress, body_force)
+        equation.set_name("matrix_force_balance_equation")
+        return equation
+
+    def inertia(self, subdomains: list[pp.Grid]):
+        """Inertial term [m^2/s].
+
+        Parameters:
+            subdomains: List of subdomains where the inertial term is defined.
+
+        Returns:
+            Operator for the inertial term.
+
+        """
+        return pp.ad.Scalar(0)
 
     def interface_force_balance_equation(
         self,
@@ -143,7 +166,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
     ) -> pp.ad.Operator:
         """Force balance equation at matrix-fracture interfaces.
 
-        Args:
+        Parameters:
             interfaces: Fracture-matrix interfaces.
 
         Returns:
@@ -154,7 +177,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         for interface in interfaces:
             if interface.dim != self.nd - 1:
                 raise ValueError("Interface must be a fracture-matrix interface.")
-        subdomains = self.subdomains_from_interfaces(interfaces)
+        subdomains = self.interfaces_to_subdomains(interfaces)
         # Split into matrix and fractures. Sort on dimension to allow for multiple matrix
         # domains. Otherwise, we could have picked the first element.
         matrix_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
@@ -164,7 +187,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
-        geometry = pp.ad.Geometry(interfaces, nd=self.nd)
+        geometry = pp.ad.Geometry(interfaces, nd=self.nd, matrix_names=["cell_volumes"])
         volume_int = geometry.scalar_to_nd_cell * geometry.cell_volumes
         # Contact traction from primary grid and mortar displacements (via primary grid)
         contact_from_primary_mortar = (
@@ -179,13 +202,16 @@ class ForceBalanceEquations(VectorBalanceEquation):
             * mortar_projection.sign_of_mortar_sides
             * mortar_projection.secondary_to_mortar_int
             * self.subdomain_projections(self.nd).cell_prolongation(fracture_subdomains)
-            * self.local_coordinates(subdomains).transpose()
-            * self.traction(subdomains)  # Using traction instead of force. Compensating
-            # by including volume integral (on interfaces, as I think is proper).
+            * self.local_coordinates(fracture_subdomains).transpose()
+            * self.contact_traction(
+                fracture_subdomains
+            )  # Using traction instead of force.
+            # Compensating by including volume integral (on interfaces, as I think is proper).
         )
         force_balance_eq: pp.ad.Operator = (
             contact_from_primary_mortar + contact_from_secondary
         )
+        force_balance_eq.set_name("interface_force_balance_equation")
         return force_balance_eq
 
     def normal_fracture_deformation_equation(self, subdomains: list[pp.Grid]):
@@ -194,7 +220,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         This constraint equation enforces non-penetration of opposing fracture interfaces.
 
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the normal deformation equation is defined.
 
         Returns:
@@ -203,7 +229,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         """
         # Variables
         nd_vec_to_normal = self.normal_component(subdomains)
-        t_n: pp.ad.Operator = nd_vec_to_normal * self.traction(subdomains)
+        t_n: pp.ad.Operator = nd_vec_to_normal * self.contact_traction(subdomains)
         u_n: pp.ad.Operator = nd_vec_to_normal * self.displacement_jump(subdomains)
 
         # Maximum function
@@ -216,9 +242,10 @@ class ForceBalanceEquations(VectorBalanceEquation):
             - self.numerical_constant(subdomains) * (u_n - self.gap(subdomains)),
             zeros_frac,
         )
+        equation.set_name("normal_fracture_deformation_equation")
         return equation
 
-    def contact_mechanics_tangential_equation(
+    def tangential_fracture_deformation_equation(
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
@@ -250,12 +277,12 @@ class ForceBalanceEquations(VectorBalanceEquation):
         nd_vec_to_tangential = self.tangential_component(subdomains)
         scalar_to_tangential = sum([geometry.e_i(i) for i in range(self.nd - 1)])
         # Variables
-        t_t: pp.ad.Operator = nd_vec_to_tangential * self.traction(subdomains)
+        t_t: pp.ad.Operator = nd_vec_to_tangential * self.contact_traction(subdomains)
         u_t: pp.ad.Operator = nd_vec_to_tangential * self.displacement_jump(subdomains)
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
-        ones_frac = pp.ad.Array(np.ones(self._num_frac_cells * (self.nd - 1)))
-        zeros_frac = pp.ad.Array(np.zeros(self._num_frac_cells))
+        ones_frac = pp.ad.Array(np.ones(geometry.num_cells * (self.nd - 1)))
+        zeros_frac = pp.ad.Array(np.zeros(geometry.num_cells))
 
         # Functions
         # EK: Should we try to agree on a name convention for ad functions?
@@ -291,15 +318,16 @@ class ForceBalanceEquations(VectorBalanceEquation):
         # be deduced from the standard version of the complementary function
         # (i.e. without the characteristic function). Filter out the other terms
         # in this case to improve convergence
-        complementary_eq: pp.ad.Operator = (ones_frac - characteristic) * (
+        equation: pp.ad.Operator = (ones_frac - characteristic) * (
             bp_tang - maxbp_abs * t_t
         ) + characteristic * t_t
-        return complementary_eq
+        equation.set_name("tangential_fracture_deformation_equation")
+        return equation
 
     def body_force(self, subdomains: list[pp.Grid]):
         """Body force.
         FIXME: See FluidMassBalanceEquations.fluid_source.
-        Args:
+        Parameters:
             subdomains: List of subdomains where the body force is defined.
 
         Returns:
@@ -312,13 +340,17 @@ class ForceBalanceEquations(VectorBalanceEquation):
         return source
 
 
-class ConstitutiveEquationsForceBalance(constitutive_laws.LinearElasticRock):
+class ConstitutiveEquationsForceBalance(
+    constitutive_laws.LinearElasticSolid,
+    constitutive_laws.FracturedSolid,
+    constitutive_laws.FrictionBound,
+):
     """Class for constitutive equations for force balance equations."""
 
     def stress(self, subdomains: list[pp.Grid]):
         """Stress operator.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the stress is defined.
 
         Returns:
@@ -328,11 +360,11 @@ class ConstitutiveEquationsForceBalance(constitutive_laws.LinearElasticRock):
         # Method from constitutive library's LinearElasticRock.
         return self.mechanical_stress(subdomains)
 
-    def bc_vals_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
         Not sure where this one should reside.
 
-        Args:
+        Parameters:
             subdomains:
 
         Returns:
@@ -355,7 +387,7 @@ class VariablesForceBalance:
 
     """
 
-    def set_variables(self):
+    def create_variables(self):
         """Set variables for the subdomains and interfaces.
 
         The following variables are set:
@@ -364,22 +396,27 @@ class VariablesForceBalance:
             - Fracture contact traction.
         See individual variable methods for details.
         """
-        matrix_subdomains = self.mdg.subdomains(dim=self.nd)
-        fracture_subdomains = self.mdg.subdomains(dim=self.nd - 1)
-        interfaces = self.mdg.interfaces(dim=self.nd - 1)
-        u_matrix = self.matrix_displacement(matrix_subdomains)
-        u_intf = self.interface_displacement(interfaces)
-        contact_var = self.fracture_contact_traction(fracture_subdomains)
-        self.system_manager.set_variable(
-            u_matrix, (matrix_subdomains, "cells", self.nd)
-        )
-        self.system_manager.set_variable(u_intf, (interfaces, "cells", self.nd))
-        self.system_manager.set_variable(contact_var, (interfaces, "cells", self.nd))
 
-    def displacement(self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]):
+        self.equation_system.create_variables(
+            dof_info={"cells": self.nd},
+            name=self.displacement_variable,
+            subdomains=self.mdg.subdomains(dim=self.nd),
+        )
+        self.equation_system.create_variables(
+            dof_info={"cells": self.nd},
+            name=self.interface_displacement_variable,
+            interfaces=self.mdg.interfaces(dim=self.nd - 1),
+        )
+        self.equation_system.create_variables(
+            dof_info={"cells": self.nd},
+            name=self.contact_traction_variable,
+            interfaces=self.mdg.subdomains(dim=self.nd - 1),
+        )
+
+    def displacement(self, subdomains: list[pp.Grid]):
         """Displacement in the matrix.
 
-        Args:
+        Parameters:
             grids: List of subdomains or interface grids where the displacement is
             defined. Only known usage is for the matrix subdomain(s) and matrix-fracture
             interfaces.
@@ -388,15 +425,30 @@ class VariablesForceBalance:
             Variable for the displacement.
 
         """
-        displacement = self._eq_manager.merge_variables(
-            [(sd, "displacement") for sd in grids]
+        assert all([sd.dim == self.nd for sd in subdomains])
+
+        return self.equation_system.md_variable(self.displacement_variable, subdomains)
+
+    def interface_displacement(self, interfaces: list[pp.MortarGrid]):
+        """Displacement on fracture-matrix interfaces.
+
+        Parameters:
+            interfaces: List of interface grids where the displacement is defined.
+
+        Returns:
+            Variable for the displacement.
+
+        """
+        assert all([intf.dim == self.nd - 1 for intf in interfaces])
+
+        return self.equation_system.md_variable(
+            self.interface_displacement_variable, interfaces
         )
-        return displacement
 
     def contact_traction(self, subdomains: list[pp.Grid]):
         """Fracture contact traction.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the contact traction is defined. Only known
             usage is for the fracture subdomains.
 
@@ -404,16 +456,17 @@ class VariablesForceBalance:
             Variable for fracture contact traction.
 
         """
-        contact_traction = self._eq_manager.merge_variables(
-            [(sd, "traction") for sd in subdomains]
+        # Check that the subdomains are fractures
+        for sd in subdomains:
+            assert sd.dim == self.nd - 1, "Contact traction only defined on fractures"
+        return self.equation_system.md_variable(
+            self.contact_traction_variable, subdomains
         )
-
-        return contact_traction
 
     def displacement_jump(self, subdomains):
         """Displacement jump on fracture-matrix interfaces.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains where the displacement jump is defined. Only known
             usage is for fractures.
 
@@ -434,13 +487,13 @@ class VariablesForceBalance:
             * self.subdomain_projections(dim=self.nd).cell_restriction(subdomains)
             * mortar_projection.mortar_to_secondary_avg
             * mortar_projection.sign_of_mortar_sides
-            * self.displacement(interfaces)
+            * self.interface_displacement(interfaces)
         )
         rotated_jumps.set_name("Rotated_displacement_jump")
         return rotated_jumps
 
 
-class SolutionStrategyForceBalance(pp.models.abstract_model.AbstractModel):
+class SolutionStrategyForceBalance(pp.SolutionStrategy):
     """This is whatever is left of pp.ContactMechanics.
 
     At some point, this will be refined to be a more sophisticated (modularised) solution
@@ -454,32 +507,9 @@ class SolutionStrategyForceBalance(pp.models.abstract_model.AbstractModel):
         # Variables
         self.mechanics_discretization_parameter_key: str = "mechanics"
         self.exporter: pp.Exporter
-
-    def prepare_simulation(self) -> None:
-        self.set_geometry()
-        # Exporter initialization must be done after grid creation.
-        self.exporter = pp.Exporter(
-            self.mdg,
-            self.params["file_name"],
-            folder_name=self.params["folder_name"],
-            export_constants_separately=self.params.get(
-                "export_constants_separately", False
-            ),
-        )
-
-        self._assign_variables()
-        self._create_dof_and_eq_manager()
-        self._initial_condition()
-        # New: Set material components. Could be moved to init:
-        self.set_materials()
-        # New: renamed from _set_parameters
-        self.set_discretization_parameters()
-
-        self.set_equations()
-
-        self._export()
-        self._discretize()
-        self._initialize_linear_solver()
+        self.displacement_variable: str = "u"
+        self.interface_displacement_variable: str = "u_interface"
+        self.contact_traction_variable: str = "t"
 
     def initial_condition(self) -> None:
         """Set initial guess for the variables.
@@ -492,21 +522,21 @@ class SolutionStrategyForceBalance(pp.models.abstract_model.AbstractModel):
 
         """
         # Zero for displacement and initial bc values for Biot
-        super()._initial_condition()
-
-        for sd, data in self.mdg.subdomains(return_data=True):
-            if sd.dim == self.nd - 1:
-                # Contact as initial guess. Ensure traction is consistent with
-                # zero jump, which follows from the default zeros set for all
-                # variables, specifically interface displacement, by super method.
-                vals = np.zeros((self.nd, sd.num_cells))
-                vals[-1] = -1
-                vals = vals.ravel("F")
-                data[pp.STATE].update({self.contact_traction_variable: vals})
-
-                data[pp.STATE][pp.ITERATE].update(
-                    {self.contact_traction_variable: vals.copy()}
-                )
+        super().initial_condition()
+        # Contact as initial guess. Ensure traction is consistent with
+        # zero jump, which follows from the default zeros set for all
+        # variables, specifically interface displacement, by super method.
+        num_frac_cells = sum(
+            sd.num_cells for sd in self.mdg.subdomains(dim=self.nd - 1)
+        )
+        traction_vals = np.zeros((self.nd, num_frac_cells))
+        traction_vals[-1] = -1
+        self.equation_system.set_variable_values(
+            traction_vals.ravel("F"),
+            self.contact_traction_variable,
+            to_state=True,
+            to_iterate=True,
+        )
 
     def set_discretization_parameters(self) -> None:
         """Set discretization parameters for the simulation."""
@@ -516,7 +546,7 @@ class SolutionStrategyForceBalance(pp.models.abstract_model.AbstractModel):
                 pp.initialize_data(
                     sd,
                     data,
-                    self.mechanics_parameter_key,
+                    self.mechanics_discretization_parameter_key,
                     {
                         "bc": self.bc_type_mechanics(sd),
                         "fourth_order_tensor": self.stiffness_tensor(sd),
@@ -528,13 +558,14 @@ class SolutionStrategyForceBalance(pp.models.abstract_model.AbstractModel):
         Dirichlet also on fracture faces.
 
 
-        Args:
+        Parameters:
             sd: Subdomain grid.
 
         Returns:
             bc: Boundary condition representation.
 
         FIXME: Move to different class?
+
         """
         all_bf = sd.get_boundary_faces()
         bc = pp.BoundaryConditionVectorial(sd, all_bf, "dir")
@@ -555,66 +586,16 @@ class SolutionStrategyForceBalance(pp.models.abstract_model.AbstractModel):
         Not sure about method location, but it is a property of the contact problem,
         and more solution strategy than material property or constitutive law.
 
-        Args:
+        Parameters:
             subdomains: List of subdomains. Only the first is used.
 
         Returns:
             c_num: Numerical constant, as a matrix.
 
         """
-        vals = self.rock.convert_and_expand(1, "-", subdomains)
+        vals = self.solid.convert_and_expand(1, "-", subdomains)
         c_num = constitutive_laws.ad_wrapper(vals, False, name="c_num")
         return c_num
-
-    def before_newton_loop(self) -> None:
-        """Actions to be performed before the Newton loop."""
-        pass
-        # self.convergence_status = False
-        # self._nonlinear_iteration = 0
-
-    def after_newton_iteration(self, solution_vector: np.ndarray) -> None:
-        """
-        Extract parts of the solution for current iterate.
-
-        The iterate solutions in d[pp.STATE][pp.ITERATE] are updated for the
-        mortar displacements and contact traction are updated.
-        Method is a tailored copy from assembler.distribute_variable.
-
-        Parameters:
-            solution_vector (np.array): solution vector for the current iterate.
-
-        """
-        self._nonlinear_iteration += 1
-        self.dof_manager.distribute_variable(
-            values=solution_vector, additive=self._use_ad, to_iterate=True
-        )
-
-    def after_newton_convergence(
-        self, solution: np.ndarray, errors: float, iteration_counter: int
-    ) -> None:
-        if self._use_ad:
-            # Fetch iterate solution, which was updated in after_newton_iteration
-            solution = self.dof_manager.assemble_variable(from_iterate=True)
-            # Distribute to pp.STATE
-            self.dof_manager.distribute_variable(values=solution, additive=False)
-        else:
-            self.assembler.distribute_variable(solution)
-        self.convergence_status = True
-        self._export()
-
-    def after_simulation(self) -> None:
-        """Called after a time-dependent problem"""
-        pass
-
-    def _discretize(self) -> None:
-        """Discretize all terms"""
-        tic = time.time()
-        logger.info("Discretize")
-        if self._use_ad:
-            self._eq_manager.discretize(self.mdg)
-        else:
-            self.assembler.discretize()
-        logger.info("Done. Elapsed time {}".format(time.time() - tic))
 
     def _is_nonlinear_problem(self) -> bool:
         """

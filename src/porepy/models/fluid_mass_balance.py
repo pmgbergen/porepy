@@ -18,7 +18,6 @@ Notes:
 from __future__ import annotations
 
 import logging
-import time
 from typing import Dict, Optional
 
 import numpy as np
@@ -101,14 +100,12 @@ class MassBalanceEquations(ScalarBalanceEquation):
         """
         subdomains = self.mdg.subdomains()
         interfaces = self.mdg.interfaces()
-        sd_eq = self.subdomain_mass_balance_equation(subdomains)
+        sd_eq = self.mass_balance_equation(subdomains)
         intf_eq = self.interface_darcy_flux_equation(interfaces)
         self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
         self.equation_system.set_equation(intf_eq, interfaces, {"cells": 1})
 
-    def subdomain_mass_balance_equation(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
+    def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mass balance equation for subdomains.
 
         Parameters:
@@ -121,7 +118,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
         flux = self.fluid_flux(subdomains)
         source = self.fluid_source(subdomains)
         eq = self.balance_equation(subdomains, accumulation, flux, source)
-        eq.set_name("fluid_mass_balance_equation")
+        eq.set_name("mass_balance_equation")
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -425,20 +422,6 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
         self.darcy_discretization_parameter_key: str = "flow"
         self.mobility_discretization_parameter_key: str = "mobility"
 
-    def set_materials(self):
-        """Sketch approach of setting materials. Works for now.
-
-        Should probably go in AbstractModel.
-        May want to use more refined approach (setter method, protect attribute names...)
-        FIXME: Move to AbstractModel/AbstractSolutionStrategy.
-        """
-        # Default values
-        materials = {"fluid": pp.UnitFluid, "solid": pp.UnitSolid}
-        materials.update(self.params.get("materials", {}))
-        for name, material in materials.items():
-            assert issubclass(material, pp.models.materials.Material)
-            setattr(self, name, material(self.units))
-
     def initial_condition(self) -> None:
         """New formulation requires darcy flux (the flux is "advective" with mobilities
         included).
@@ -539,16 +522,11 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, all_bf, "dir")
 
-    def discretize(self) -> None:
-        """Discretize all terms"""
-        tic = time.time()
-        self.equation_system.discretize()
-        logger.info("Discretized in {} seconds".format(time.time() - tic))
-
     def before_nonlinear_iteration(self):
         """
         Evaluate Darcy flux for each subdomain and interface and store in the
         data dictionary for use in upstream weighting.
+
         """
         for sd, data in self.mdg.subdomains(return_data=True):
             vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
