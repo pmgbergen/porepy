@@ -9,14 +9,17 @@ from . import (
     composition,
     model_fluids,
     model_solids,
+    pr_eos,
 )
 from ._composite_utils import *
 from .component import *
 from .composition import *
 from .model_fluids import *
 from .model_solids import *
+from .pr_eos import *
 
 __all__.extend(component.__all__)
 __all__.extend(composition.__all__)
 __all__.extend(model_fluids.__all__)
 __all__.extend(model_solids.__all__)
+__all__.extend(pr_eos.__all__)
