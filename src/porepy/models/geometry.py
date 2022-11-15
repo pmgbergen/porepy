@@ -208,7 +208,10 @@ class ModelGeometry:
         # right to left:
         # v will be hit by first e_i.T (row vector) and secondly t_i (column vector).
         op = sum(
-            [geom.e_i(i, self.nd - 1) * geom.e_i(i, self.nd).T for i in range(self.nd)]
+            [
+                geom.e_i(i, self.nd - 1) * geom.e_i(i, self.nd).T
+                for i in range(self.nd - 1)
+            ]
         )
         return op
 
@@ -224,9 +227,7 @@ class ModelGeometry:
         """
         geometry = pp.ad.Geometry(grids, self.nd)
         e_n = geometry.e_i(self.nd - 1, self.nd)
-        t_n = geometry.e_i(self.nd - 1, self.nd - 1)
-        op = t_n * e_n.T
-        return op
+        return e_n.T
 
     def internal_boundary_normal_to_outwards(
         self, interfaces: list[pp.Grid]

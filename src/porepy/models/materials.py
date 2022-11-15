@@ -197,7 +197,8 @@ class UnitSolid(Material):
     LAME_LAMBDA: number = 1.0 * pp.PASCAL
     SHEAR_MODULUS: number = 1.0 * pp.PASCAL
     FRICTION_COEFFICIENT: number = 1.0
-    FRACTURE_GAP: number = 1.0 * pp.METER
+    FRACTURE_GAP: number = 0.0 * pp.METER
+    DILATION_ANGLE: number = 0.0 * pp.RADIAN
 
     def __init__(self, units):
         super().__init__(units)
@@ -282,7 +283,7 @@ class UnitSolid(Material):
         """
         return self.convert_and_expand(self.LAME_LAMBDA, "Pa", subdomains)
 
-    def fracture_gap(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def gap(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Fracture gap [m].
 
         Parameters:
@@ -303,3 +304,14 @@ class UnitSolid(Material):
             Cell-wise friction coefficient.
         """
         return self.convert_and_expand(self.FRICTION_COEFFICIENT, "-", subdomains)
+
+    def dilation_angle(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Dilation angle [rad].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise dilation angle in radians.
+        """
+        return self.convert_and_expand(self.DILATION_ANGLE, "rad", subdomains)
