@@ -832,9 +832,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # two upwinding classes for energy balance
         self.advective_upwind_energy.upwind.discretize(self.mdg)
         self.conductive_upwind.upwind.discretize(self.mdg)
-        
-        # for eq in self.ad_system._equations.values():
-        #     eq.discretize(self.mdg)
 
         if not self._monolithic:
             print(f".. .. isenthalpic flash at iteration {self._nonlinear_iteration}.")
