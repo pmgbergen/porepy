@@ -397,6 +397,9 @@ class Operator:
                 if isinstance(results[1], pp.ad.Ad_array):
                     # See remarks by EK in case ndarray / Ad_array
                     return (results[0] * results[1] ** -1)[0]
+                elif isinstance(results[1], numbers.Real):
+                    # Both items are scalars, everything is fine.
+                    return results[0] / results[1]
                 else:
                     # In case above argument, that the divisor can only be an Ad_array,
                     # is wrong
@@ -935,8 +938,10 @@ class Matrix(Operator):
     def transpose(self) -> "Matrix":
         return Matrix(self._mat.transpose())
 
-    # Alias
-    T = transpose
+    @property
+    def T(self) -> "Matrix":
+        """Shorthand for transpose."""
+        return self.transpose()
 
 
 class Array(Operator):
