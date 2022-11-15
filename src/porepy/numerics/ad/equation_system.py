@@ -207,6 +207,12 @@ class EquationSystem:
         """
 
         self._variable_dof_type: dict[Variable, dict[str, int]] = dict()
+        """Dictionary containing the type of DOFs per variable.
+
+        The type is given as a dictionary with keys 'cells', 'faces' or 'nodes',
+        and integer values denoting the number of DOFs per grid entity.
+
+        """
 
     def SubSystem(
         self,
