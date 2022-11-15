@@ -1,6 +1,14 @@
 """Tests of the EquationSystem used in the Ad machinery.
 
 The tests focus on various assembly methods:
+    * tets_variable_creation: Test that variable creation from a EquationSystem works.
+    * test_variable_tags: Tagging of variables, used for filtering in an EquationSystem.
+    * test_get_set_methods: Get and set methods for variables.
+    * test_projection_matrix: Projection from a global vector to one defined on a subset
+        of variables.
+    * test_parse_variable_like, test_parse_single_equation, test_parse_equations:
+        Parsing of equations, and the methods used to do so. Thorough testing here means
+        other tests can get away with fewer parameter checks.
     * test_secondary_variable_assembly: Test of assembly when secondary variables are
         present.
     * test_assemble_subsystem: Assemble blocks of the full set of equations.
@@ -13,7 +21,6 @@ To be tested:
 
 
 """
-import random
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -1132,7 +1139,7 @@ def test_schur_complement(eq_var_to_exclude):
 
     # Ensure the system is square by leaving out eq_combined
     setup = EquationSystemSetup(square_system=True)
-    sys_man = setup.sys_man
+    eq_system = setup.sys_man
     # Always exclude eq_combined to get a square system.
     eq_to_exclude.append("eq_combined")
 
@@ -1146,7 +1153,7 @@ def test_schur_complement(eq_var_to_exclude):
         # kept on all subdomains (which we somewhat cumbersomely obtain from a private
         # variable of EquationSystem).
         equations = {
-            eq: list(sys_man._equation_image_space_composition[eq].keys())
+            eq: list(eq_system._equation_image_space_composition[eq].keys())
             for eq in eq_names
         }
         # In addition, we keep 'eq_all_subdomains' on the top subdomain.
@@ -1156,7 +1163,7 @@ def test_schur_complement(eq_var_to_exclude):
         # excluded, which is kept on the top subdomain only.
         domain_to_exclude = setup.subdomains[1:]
         variables = []
-        for var in sys_man.variables:
+        for var in eq_system.variables:
             if not (var.name in var_to_exclude and var.domain in domain_to_exclude):
                 variables.append(var)
     else:
@@ -1199,7 +1206,7 @@ def test_schur_complement(eq_var_to_exclude):
     b_known = b_2 - B * inverter(D) * b_1
 
     # Compute Schur complement with method to be tested
-    S, bS = sys_man.assemble_schur_complement_system(
+    S, bS = eq_system.assemble_schur_complement_system(
         equations, variables, inverter=inverter
     )
 
@@ -1211,6 +1218,6 @@ def test_schur_complement(eq_var_to_exclude):
     # the same as the solution computed directly from the full system.
     x_schur = sps.linalg.spsolve(S, bS)
     x_expected = sps.linalg.spsolve(setup.A, setup.b)
-    x_reconstructed = sys_man.expand_schur_complement_solution(x_schur)
+    x_reconstructed = eq_system.expand_schur_complement_solution(x_schur)
 
     assert np.allclose(x_reconstructed, x_expected)
