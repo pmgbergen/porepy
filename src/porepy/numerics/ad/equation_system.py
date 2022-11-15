@@ -1286,7 +1286,7 @@ class EquationSystem:
             # If indices where filtered based on grids, we find the complementing
             # indices.
             # If idx is None, this means no filtering was done.
-            if idx:
+            if idx is not None:
                 # Get the indices associated with this equation.
                 img_info = self._equation_image_space_composition[name]
 
@@ -1302,7 +1302,9 @@ class EquationSystem:
                 complement.update({name: None})
         return complement
 
-    def discretize(self, equations: Optional[EquationLike] = None) -> None:
+    def discretize(
+        self, equations: Optional[EquationList | EquationRestriction] = None
+    ) -> None:
         """Find and loop over all discretizations in the equation operators, extract
         unique references and discretize.
 
@@ -1443,7 +1445,7 @@ class EquationSystem:
             ind_start = block_indices[-1] + 1
             self.assembled_equation_indices.update({equ_name: block_indices})
 
-        # Concatenate results equation-wise
+        # Concatenate results equation-wise.
         if len(mat) > 0:
             A = sps.vstack(mat, format="csr")
             rhs_cat = np.concatenate(rhs)
@@ -1461,12 +1463,9 @@ class EquationSystem:
 
     def assemble_schur_complement_system(
         self,
-        primary_equations: EquationLike,
+        primary_equations: EquationList | EquationRestriction,
         primary_variables: VariableList,
-        secondary_equations: Optional[EquationLike] = None,
-        secondary_variables: Optional[VariableList] = None,
-        excl_loc_prim_to_sec: bool = False,
-        inverter: Callable[[sps.spmatrix], sps.spmatrix] = sps.linalg.inv,
+        inverter: Optional[Callable[[sps.spmatrix], sps.spmatrix]] = None,
         state: Optional[np.ndarray] = None,
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Assemble Jacobian matrix and residual vector using a Schur complement
@@ -1511,24 +1510,6 @@ class EquationSystem:
                 row-sense.
             primary_variables: VariableType input specifying the primary subspace in
                 column-sense.
-            secondary_equations: a subset of equations specifying the secondary subspace in
-                row-sense.
-                By default, the complement of the primary rows is used.
-            secondary_variables: VariableType input specifying the secondary subspace in
-                column-sense.
-                By default, the complement of the primary columns is used.
-            excl_loc_prim_to_sec (optional): If True, primary local blocks which are excluded
-                by the variable- and equation structure, are added to the secondary block.
-
-                I.e. if a variable ``p`` is defined on two grids ``sd1, sd2``, and the user
-                defines the primary (column) block to be only given by ``p`` on ``sd1``,
-                then the (column) block corresponding to ``p`` on ``sd2`` will be added to the
-                secondary block.
-                Analogously for equations (row blocks), which are defined on multiple grids.
-                The flag acts in both column and row sense.
-
-                If False (default), they will not be included and the union of primary and
-                secondary blocks will **not** constitute the whole system.
             inverter (optional): callable object to compute the inverse of the matrix A_ss.
                 By default, the scipy direct sparse inverter is used.
             state (optional): see :meth:`assemble_subsystem`. Defaults to None.
@@ -1545,157 +1526,79 @@ class EquationSystem:
                 - if the secondary block would have 0 rows or columns
                 - if the secondary block is not square
             ValueError: if primary and secondary columns overlap
+
         """
+        if inverter is None:
+            inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
+
         # Find the rows of the primary block. This can include both equations defined
         # on their full image, and equations specified on a subset of grids.
         # The variable primary_rows will contain the indices in the global system
         # corresponding to the primary block.
         primary_rows = self._parse_equations(primary_equations)
         # Find indices of equations involved in the primary block, but on grids that
-        # were filtered out.
-        excl_prim_rows = self._gridbased_equation_complement(primary_rows)
+        # were filtered out. These will be added to the secondary block.
+        excluded_primary_rows = self._gridbased_equation_complement(primary_rows)
 
         # Names of equations that form the primary block.
-        prim_equ_names = list(primary_rows.keys())
+        primary_equation_names = list(primary_rows.keys())
+
+        # Get the primary variables, represented as Ad variables.
+        active_variables = self._parse_variable_type(primary_variables)
 
         # Projection of variables to the set of primary blocks.
-        # TODO: If the user has specified a subset of grids, the variables must be
-        # adjusted accordingly. EK thinks this is not implemented, but it should be
-        # straightforward if we implement a method variables_on_subset_of_grids().
-        # UPDATE: Something like this is done below (see if on excl_loc_prim_to_sec).
-        # It seems this will do the trick, but it should be included in tests.
-        primary_projection = self.projection_to(primary_variables)
-        num_dofs = primary_projection.shape[1]
+        primary_projection = self.projection_to(active_variables)
 
         # Assert non-emptiness of primary block.
         assert len(primary_rows) > 0
         assert primary_projection.shape[0] > 0
 
-        # Finding secondary column indices and respective projection.
-        if secondary_variables:
-            # Default projection to secondaries.
-            # TODO: This must likely be supplemented with primary variables defined on
-            # excluded grids, see comment regarding primary variables.
-            secondary_projection = self.projection_to(secondary_variables)
-            # Assert primary and secondary columns do not overlap
-            common_column_indices: np.ndarray = np.intersect1d(
-                primary_projection.indices, secondary_projection.indices
-            )
-            if common_column_indices.size > 0:
-                raise ValueError("Primary and secondary columns overlap.")
-
-            # find indices of excluded primary columns and change the secondary projection
-            if excl_loc_prim_to_sec:
-                # finding grid variables, who are primary in terms of name, but excluded by the
-                # filter the VariableType structure imposes
-                # TODO: The workings of the below function is unclear to EK.
-                # TODO: We need to revisit this whole if-block after having decided how
-                # variables should be represented.
-                excluded_grid_variables = self._gridbased_variable_complement(
-                    primary_variables
-                )
-                excl_projection = self.projection_to(excluded_grid_variables)
-                # take the indices of the excluded local prims and all secs
-                idx_s = np.unique(
-                    np.hstack([excl_projection.indices, secondary_projection.indices])
-                )
-                shape = (idx_s.size, num_dofs)
-                # re-compute the secondary projection including new indices
-                secondary_projection = sps.coo_matrix(
-                    (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
-                    shape=shape,
-                ).tocsr()
-        else:
-            # we use the complement of the indices in the primary projection
-            pass
-
-        # finding secondary row indices
-        secondary_rows: dict[str, None | np.ndarray] | None
-        sec_equ_names: list[str]
-        shape = (
-            primary_projection.shape[1] - primary_projection.shape[0],
-            num_dofs,
+        # Equations that are not part of the primary block. These will form parts of the
+        # secondary block, as will the equations that are defined on grids that were
+        # excluded.
+        secondary_equation_names: list[str] = list(
+            set(self._equations.keys()).difference(set(primary_rows.keys()))
         )
-        if excl_loc_prim_to_sec:
+        secondary_variables = list(set(self.variables).difference(active_variables))
+        secondary_projection = self.projection_to(secondary_variables)
 
-            # remove indices found in primary projection
-            # csr sparse projections have only one entry per column
-            idx_s = np.delete(
-                np.arange(shape[1], dtype=int), primary_projection.indices
-            )
-            assert len(idx_s) == shape[0]
-            # TODO EK: Why is the projection defined above overwritten here?
-            secondary_projection = sps.coo_matrix(
-                (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
-                shape=shape,
-            ).tocsr()
-        else:
-            # finding grid vars, who are primary in terms of name, but excluded by the
-            # filter the VariableType structure imposes
-            excluded_grid_variables = self._gridbased_variable_complement(
-                primary_variables
-            )
-            excl_projection = self.projection_to(excluded_grid_variables)
-            # take the indices of the excluded local prims and included prims
-            idx_excl = np.unique(
-                np.hstack([excl_projection.indices, primary_projection.indices])
-            )
-            # the secondary indices are computed by the complement of above
-            # FIXME: Define shape
-            idx_s = np.delete(np.arange(shape[1], dtype=int), idx_excl)
-            shape = (idx_s.size, num_dofs)
-            secondary_projection = sps.coo_matrix(
-                (np.ones(shape[0]), (np.arange(shape[0]), idx_s)),
-                shape=shape,
-            ).tocsr()
-        if secondary_equations:
-            secondary_rows = self._parse_equations(secondary_equations)
-            sec_equ_names = list(secondary_rows.keys())
-        else:
-            secondary_rows = None
-            sec_equ_names = list(
-                set(self._equations.keys()).difference(set(primary_rows.keys()))
-            )
-
-        # check the primary and secondary system are not overlapping in terms of equations
-        if len(set(prim_equ_names).intersection(set(sec_equ_names))) > 0:
-            raise ValueError("Primary and secondary rows overlap.")
-        # assert non-emptiness of secondary block
+        # Assert non-emptiness of secondary block. We do not check the length of
+        # sequandary_equation_names, since this can empty if the secondary block is
+        # defined by a subset of grids.
         assert secondary_projection.shape[0] > 0
-        assert len(sec_equ_names) > 0
 
-        # storage of primary and secondary row blocks
+        # Storage of primary and secondary row blocks.
         A_sec: list[sps.csr_matrix] = list()
         b_sec: list[np.ndarray] = list()
         A_prim: list[sps.csr_matrix] = list()
         b_prim: list[np.ndarray] = list()
-        # keep track of indices or primary block
+
+        # Keep track of indices or primary block.
         ind_start = 0
         assembled_equation_indices = dict()
 
-        # we loop over stored equations to ensure the correct order
-        # but process only primary equations
-        # excluded local primary blocks are stored as top rows in the secondary block
+        # We loop over stored equations to ensure the correct order but process only
+        # primary equations.
+        # Excluded local primary blocks are stored as top rows in the secondary block.
         for name in self._equations:
-            if name in prim_equ_names:
-                A_temp, b_temp = self.assemble_subsystem([name], state=state)
+            if name in primary_equation_names:
+                A_temp, b_temp = self.assemble_subsystem(equations=[name], state=state)
                 idx_p = primary_rows[name]
-                # check if a grid filter was applied for that equation
-                if idx_p:
-                    # append the respective rows
+                # Check if a grid filter was applied for that equation
+                if idx_p is not None:
+                    # Append the respective rows.
                     A_prim.append(A_temp[idx_p])
                     b_prim.append(b_temp[idx_p])
-                    # if requested, the excluded primary rows are appended as secondary
-                    if excl_loc_prim_to_sec:
-                        idx_excl_p = excl_prim_rows[name]
-                        A_sec.append(A_temp[idx_excl_p])
-                        b_sec.append(b_temp[idx_excl_p])
-                # if no filter was applied, the whole row block is appended
+                    # If requested, the excluded primary rows are appended as secondary.
+                    idx_excl_p = excluded_primary_rows[name]
+                    A_sec.append(A_temp[idx_excl_p])
+                    b_sec.append(b_temp[idx_excl_p])
                 else:
+                    # If no filter was applied, the whole row block is appended.
                     A_prim.append(A_temp)
                     b_prim.append(b_temp)
 
-                # track indices of block rows
+                # Track indices of block rows. Only primary equations are included.
                 row_idx = np.arange(b_prim[-1].size, dtype=int)
                 indices = row_idx + ind_start
                 ind_start += row_idx.size
@@ -1704,26 +1607,15 @@ class EquationSystem:
         # store the assembled row indices for the primary block only (Schur)
         self.assembled_equation_indices = assembled_equation_indices
 
-        # we loop again over stored equation to ensure a correct order
-        # but process only secondary equations
+        # We loop again over stored equation to ensure a correct order
+        # but process only secondary equations.
         for name in self._equations:
-            if name in sec_equ_names:
-                A_temp, b_temp = self.assemble_subsystem([name], state=state)
-                # if secondary equations were defined, we check if we have to restrict
-                # them
-                if secondary_rows:
-                    idx_s = secondary_rows[name]
-                    # slice or no slice
-                    if idx_s:
-                        A_sec.append(A_temp[idx_s])
-                        b_sec.append(b_temp[idx_s])
-                    else:
-                        A_sec.append(A_temp)
-                        b_sec.append(b_temp)
-                # no slicing of secondary equations at all
-                else:
-                    A_sec.append(A_temp)
-                    b_sec.append(b_temp)
+            # Secondary equations (those not explicitly given as being primary) are
+            # assembled wholesale to the secondary block.
+            if name in secondary_equation_names:
+                A_temp, b_temp = self.assemble_subsystem(equations=[name], state=state)
+                A_sec.append(A_temp)
+                b_sec.append(b_temp)
 
         # stack the results
         A_p = sps.vstack(A_prim, format="csr")
@@ -1741,16 +1633,16 @@ class EquationSystem:
         A_sp = A_s * primary_projection
         A_ss = A_s * secondary_projection
 
-        # last sanity check, if A_ss is square
+        # Last sanity check, if A_ss is square.
         assert A_ss.shape[0] == A_ss.shape[1]
 
-        # compute the inverse of A_ss using the passed inverter
+        # Compute the inverse of A_ss using the passed inverter.
         inv_A_ss = inverter(A_ss)
 
         S = A_pp - A_ps * inv_A_ss * A_sp
         rhs_S = b_p - A_ps * inv_A_ss * b_s
 
-        # storing necessary information for Schur complement expansion
+        # Store information necessary for expanding the Schur complement later.
         self._Schur_complement = (
             inv_A_ss,
             b_s,
@@ -1777,28 +1669,32 @@ class EquationSystem:
             x_s = inv(A_ss) * (b_s - A_sp * x_p)
 
         Notes:
-            Independent of how the primary and secondary blocks were chosen, this method always
-            returns a vector of size ``num_dofs``.
-            Especially when the primary and secondary variables did not constitute the whole
-            vector of unknowns, the result is still of size ``num_dofs``.
+            Independent of how the primary and secondary blocks were chosen, this method
+            always returns a vector of size ``num_dofs``.
+            Especially when the primary and secondary variables did not constitute the
+            whole vector of unknowns, the result is still of size ``num_dofs``.
             The entries corresponding to the excluded grid variables are zero.
 
         Parameters:
             reduced_solution: Solution to the linear system returned by
-                :meth:`assemble_schur_complement_system`
+                :meth:`assemble_schur_complement_system`.
 
         Returns: the expanded Schur solution in global size.
 
         Raises:
-            AssertionError: if the Schur complement system was not assembled before.
+            ValueError: if the Schur complement system was not assembled before.
 
         """
-        assert self._Schur_complement is not None
-        # get data stored from last complement
+        if self._Schur_complement is None:
+            raise ValueError("Schur complement system was not assembled before.")
+
+        # Get data stored from last constructed Schur complement.
         inv_A_ss, b_s, A_sp, prolong_p, prolong_s = self._Schur_complement
-        # calculate the complement solution
+
+        # Calculate the complement solution.
         x_s = inv_A_ss * (b_s - A_sp * reduced_solution)
-        # prolong primary and secondary block to global-sized arrays
+
+        # Prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
 
