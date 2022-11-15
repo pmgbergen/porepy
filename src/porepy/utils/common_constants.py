@@ -89,6 +89,9 @@ JOULE = 1.0
 # Substance amount
 MOLE = 1.0
 
+# Angle
+RADIAN = 1.0
+
 
 # IS: These should be moved and renamed using lower case
 def CELSIUS_to_KELVIN(celsius: float) -> float:
