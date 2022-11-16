@@ -18,6 +18,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 number = pp.number
+Scalar = pp.ad.Scalar
 
 
 def ad_wrapper(
@@ -117,7 +118,7 @@ class DimensionReduction:
             if len(sd_dim) == 0:
                 continue
             a_loc = self.aperture(sd_dim)
-            v_loc = a_loc ** pp.ad.Scalar(self.nd + 1 - dim)
+            v_loc = a_loc ** Scalar(self.nd + 1 - dim)
             v_glob = (
                 projection.cell_prolongation(sd_dim)
                 * v_loc
@@ -142,14 +143,15 @@ class ConstantFluidDensity:
     eller tilsvarende. Se SolutionStrategiesIncompressibleFlow.
     """
 
-    def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
-        val = self.fluid.density(subdomains)
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        return ad_wrapper(val, False, num_cells, "fluid_density")
+    def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        return Scalar(self.fluid.density(), "fluid_density")
 
 
 class FluidDensityFromPressure:
     """Fluid density as a function of pressure."""
+
+    def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        return Scalar(self.fluid.compressibility(), "fluid_compressibility")
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid density as a function of pressure.
@@ -171,16 +173,12 @@ class FluidDensityFromPressure:
         # Reference variables are defined in Variables class.
         dp = self.pressure(subdomains) - self.reference_pressure(subdomains)
         # Wrap compressibility from fluid class as matrix (left multiplication with dp)
-        c = ad_wrapper(
-            self.fluid.compressibility(subdomains), False, name="compressibility"
-        )
+        c = self.fluid_compressibility(subdomains)
         # I suggest using the fluid's constant density as the reference value. While not
         # explicit, this saves us from defining reference properties i hytt og pine.
         # We could consider letting this class inherit from ConstantDensity (and call super
         # to obtain reference value), but I don't see what the benefit would be.
-        rho_ref = ad_wrapper(
-            self.fluid.density(subdomains), array=False, name="reference_fluid_density"
-        )
+        rho_ref = Scalar(self.fluid.density(), "reference_fluid_density")
         rho = rho_ref * exp(c * dp)
         return rho
 
@@ -195,15 +193,13 @@ class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
         dtemp = self.temperature(subdomains) - self.reference_temperature(
             self, subdomains
         )
-        rho = rho * exp(-dtemp / self.fluid.thermal_expansion(subdomains))
+        rho = rho * exp(-dtemp / self.fluid.thermal_expansion())
         return rho
 
 
 class ConstantViscosity:
-    def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        return ad_wrapper(
-            self.fluid.viscosity(subdomains), array=False, name="viscosity"
-        )
+    def fluid_viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        return Scalar(self.fluid.viscosity(), "viscosity")
 
 
 class DarcyFlux:
@@ -293,10 +289,11 @@ class DarcyFlux:
         Returns:
             Cell-wise nd-vector source term operator
         """
-        vals: np.ndarray = self.fluid.convert_and_expand(
-            0, "m*s^-2", grids, dim=self.nd
+        val: np.ndarray = self.fluid.convert_units(0, "m*s^-2")
+        size = np.sum([g.num_cells for g in grids]) * self.nd
+        source: pp.ad.Array = ad_wrapper(
+            val, array=True, size=size, name="zero_vector_source"
         )
-        source: pp.ad.Matrix = ad_wrapper(vals, array=True, name="zero_vector_source")
         return source
 
     def interface_vector_source(self, interfaces):
@@ -431,12 +428,11 @@ class GravityForce:
         """
         # Geometry needed for basis vector.
         geometry = pp.ad.Geometry(grids, nd=self.nd)
-        val: np.ndarray = self.fluid.convert_and_expand(
-            pp.GRAVITY_ACCELERATION, "m*s^-2", grids
-        )
-        gravity: pp.ad.Matrix = ad_wrapper(val, array=False, name="gravity")
+        val: np.ndarray = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
+        size = np.sum([g.num_cells for g in grids])
+        gravity: pp.ad.Array = ad_wrapper(val, array=True, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
-        source = (-1) * geometry.e_i(i=self.nd - 1) * gravity * rho
+        source = (-1) * rho * geometry.e_i(i=self.nd - 1) * gravity
         source.set_name("gravity_force")
         return source
 
@@ -506,10 +502,8 @@ class PressureStress:
 
 
 class ConstantSolidDensity:
-    def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
-        val = self.solid.density(subdomains)
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        return ad_wrapper(val, False, num_cells, "solid_density")
+    def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        return Scalar(self.solid.density(), "solid_density")
 
 
 class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
@@ -529,9 +523,7 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
         Returns:
             Cell-wise shear modulus operator [Pa].
         """
-        return ad_wrapper(
-            self.solid.shear_modulus(subdomains), False, name="shear_modulus"
-        )
+        return Scalar(self.solid.shear_modulus(), "shear_modulus")
 
     def lame_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Lame's first parameter [Pa].
@@ -542,7 +534,7 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
         Returns:
             Cell-wise Lame's first parameter operator [Pa].
         """
-        return ad_wrapper(self.solid.lame_lambda(subdomains), False, name="lame_lambda")
+        return Scalar(self.solid.lame_lambda(), "lame_lambda")
 
     def youngs_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Young's modulus [Pa].
@@ -554,25 +546,16 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
             Cell-wise Young's modulus in Pascal.
         """
         val = (
-            self.solid.shear_modulus(subdomains)
-            * (
-                3 * self.solid.lame_lambda(subdomains)
-                + 2 * self.solid.shear_modulus(subdomains)
-            )
-            / (
-                self.solid.lame_lambda(subdomains)
-                + self.solid.shear_modulus(subdomains)
-            )
+            self.solid.shear_modulus()
+            * (3 * self.solid.lame_lambda() + 2 * self.solid.shear_modulus())
+            / (self.solid.lame_lambda() + self.solid.shear_modulus())
         )
-        return ad_wrapper(val, False, name="youngs_modulus")
+        return Scalar(val, "youngs_modulus")
 
     def bulk_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Bulk modulus [Pa]."""
-        val = (
-            self.solid.lame_lambda(subdomains)
-            + 2 * self.solid.shear_modulus(subdomains)
-        ) / 3
-        return ad_wrapper(val, False, name="bulk_modulus")
+        val = (self.solid.lame_lambda() + 2 * self.solid.shear_modulus()) / 3
+        return Scalar(val, "bulk_modulus")
 
     def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:
         """Stiffness tensor [Pa].
@@ -583,8 +566,8 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
         Returns:
             Cell-wise stiffness tensor in SI units.
         """
-        lmbda = self.solid.lame_lambda([subdomain])
-        mu = self.solid.shear_modulus([subdomain])
+        lmbda = self.solid.lame_lambda() * np.ones(subdomain.num_cells)
+        mu = self.solid.shear_modulus() * np.ones(subdomain.num_cells)
         return pp.FourthOrderTensor(mu, lmbda)
 
 
@@ -603,7 +586,6 @@ class FracturedSolid:
         Returns:
             Cell-wise fracture gap operator [m].
         """
-        reference_gap: pp.ad.Operator = self.reference_gap(subdomains)
         angle: pp.ad.Operator = self.dilation_angle(subdomains)
         f_norm = pp.ad.Function(
             partial(pp.ad.functions.l2_norm, self.nd - 1), "norm_function"
@@ -613,7 +595,7 @@ class FracturedSolid:
             self.tangential_component(subdomains) * self.displacement_jump(subdomains)
         )
 
-        gap = reference_gap + shear_dilation
+        gap = self.reference_gap(subdomains) + shear_dilation
         gap.set_name("gap_with_shear_dilation")
         return gap
 
@@ -626,7 +608,7 @@ class FracturedSolid:
         Returns:
             Cell-wise reference gap operator [m].
         """
-        return ad_wrapper(self.solid.gap(subdomains), True, name="reference_gap")
+        return Scalar(self.solid.gap(), "reference_gap")
 
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction coefficient.
@@ -637,10 +619,9 @@ class FracturedSolid:
         Returns:
             Cell-wise friction coefficient operator.
         """
-        return ad_wrapper(
-            self.solid.friction_coefficient(subdomains),
-            False,
-            name="friction_coefficient",
+        return Scalar(
+            self.solid.friction_coefficient(),
+            "friction_coefficient",
         )
 
     def dilation_angle(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -652,9 +633,7 @@ class FracturedSolid:
         Returns:
             Cell-wise dilation angle operator [rad].
         """
-        return ad_wrapper(
-            self.solid.dilation_angle(subdomains), False, name="dilation_angle"
-        )
+        return Scalar(self.solid.dilation_angle(), "dilation_angle")
 
 
 class FrictionBound:
@@ -704,15 +683,15 @@ class ConstantPorousMedium:
         Returns:
             Cell-wise permeability tensor.
         """
-        return self.solid.permeability(subdomains)
+        assert len(subdomains) == 1, "Only one subdomain is allowed."
+        size = subdomains[0].num_cells
+        return self.solid.permeability() * np.ones(size)
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        return self.solid.normal_permeability(interfaces)
+        return self.solid.normal_permeability()
 
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        poro = self.solid.porosity(subdomains)
-
-        return ad_wrapper(poro, False, name="porosity")
+        return Scalar(self.solid.porosity(), "porosity")
 
 
 class ConstantSinglePhaseFluid(ConstantFluidDensity, ConstantViscosity):
