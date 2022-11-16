@@ -350,7 +350,8 @@ def maximum(
     max_val = vals[0].copy()
     max_val[inds] = vals[1][inds]
     max_jac = jacs[0].copy()
-    max_jac[inds] = jacs[1][inds].copy()
+    if any(inds):
+        max_jac[inds] = jacs[1][inds]
     return pp.ad.Ad_array(max_val, max_jac)
 
 
