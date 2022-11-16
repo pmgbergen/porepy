@@ -105,8 +105,13 @@ class PengRobinsonComposition(Composition):
         ## defining the attraction value
         ## defining the co-volume
         ## setting callables representing the phase densities
+        self._assign_phase_densities()
         ## setting callables representing the specific phase enthalpies
         ## setting callables defining the dynamic viscosity and heat conductivity of phases
+        self._assign_phase_viscosities()
+        self._assign_phase_conductivities()
+
+        # super call to initialize p-h and p-T subsystems
         super().initialize()
 
     ### EoS parameters ------------------------------------------------------------------------
@@ -193,7 +198,7 @@ class PengRobinsonComposition(Composition):
         return self._Z_L
 
     @property
-    def Z_V(self) -> np.ndarray:
+    def Z_G(self) -> np.ndarray:
         """An array representing cell-wise the extended root of the characteristic polynomial
         associated with the gaseous phase.
 
@@ -278,3 +283,55 @@ class PengRobinsonComposition(Composition):
 
         """
         pass
+
+    def _assign_phase_densities(self) -> None:
+        """Constructs callable objects representing phase densities and assigns them to the
+        ``PR_Phase``-classes."""
+
+        # constructing callable objects with references to the roots
+        # densities in cubic EoS are given as inverse of specific molar volume v_e
+        # rho_e = 1/ v_e
+        # Z_e = p * v_e / (R * T)
+        # as of now, the composition X does not influence the density
+        def _rho_L(p, T, *X):
+            return p / (R_IDEAL * T * self.Z_L)
+
+        def _rho_G(p, T, *X):
+            return p / (R_IDEAL * T * self.Z_G)
+
+        # assigning the callable to respective thermodynamic property of the PR_Phase
+        self._phases[0]._rho = _rho_L
+        self._phases[1]._rho = _rho_G
+    
+    def _assign_phase_viscosities(self) -> None:
+        """Constructs callable objects representing phase dynamic viscosities and assigns them
+        to the ``PR_Phase``-classes.
+        
+        WIP: Assigns currently only unity TODO
+        """
+
+        def _mu_L(p, T, *X):
+            return pp.ad.Scalar(1.)
+
+        def _mu_G(p, T, *X):
+            return pp.ad.Scalar(1.)
+
+        self._phases[0]._mu = _mu_L
+        self._phases[1]._mu = _mu_G
+
+    def _assign_phase_conductivities(self) -> None:
+        """Constructs callable objects representing phase conductivities and assigns them
+        to the ``PR_Phase``-classes.
+        
+        WIP: Assigns currently only unity TODO
+        """
+
+        def _kappa_L(p, T, *X):
+            return pp.ad.Scalar(1.)
+
+        self._phases[0]._kappa = _kappa_L
+
+        def _kappa_G(p, T, *X):
+            return pp.ad.Scalar(1.)
+        
+        self._phases[1]._kappa = _kappa_G
