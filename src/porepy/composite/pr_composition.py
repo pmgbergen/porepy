@@ -9,6 +9,7 @@ import porepy as pp
 
 from ._composite_utils import R_IDEAL
 from .composition import Composition
+from .component import Component
 from .phase import Phase
 
 __all__ = ["PengRobinsonComposition"]
@@ -28,26 +29,26 @@ class PR_Phase(Phase):
     def __init__(self, name: str, ad_system: pp.ad.ADSystem) -> None:
         super().__init__(name, ad_system)
 
-        self._h_reference: Callable
-        self._rho_reference: Callable
-        self._mu_reference: Callable
-        self._kappa_reference: Callable
+        self._h: Callable
+        self._rho: Callable
+        self._mu: Callable
+        self._kappa: Callable
     
     def density(self, p, T):
         X = (self.ext_fraction_of_component(component) for component in self)
-        return self._rho_reference(p, T, *X)
+        return self._rho(p, T, *X)
 
     def specific_enthalpy(self, p, T):
         X = (self.ext_fraction_of_component(component) for component in self)
-        return self._h_reference(p, T, *X)
+        return self._h(p, T, *X)
 
     def dynamic_viscosity(self, p, T):
         X = (self.ext_fraction_of_component(component) for component in self)
-        return self._mu_reference(p, T, *X)
+        return self._mu(p, T, *X)
 
     def thermal_conductivity(self, p, T):
         X = (self.ext_fraction_of_component(component) for component in self)
-        return self._kappa_reference(p, T, *X)
+        return self._kappa(p, T, *X)
 
 
 class PengRobinsonComposition(Composition):
@@ -98,6 +99,12 @@ class PengRobinsonComposition(Composition):
         """Before initializing the p-h and p-T subsystems, this method additionally assigns
         callables for thermodynamic properties of phases, according to the equation of state
         and present components."""
+
+        ## defining the attraction value
+        ## defining the co-volume
+        ## setting callables representing the phase densities
+        ## setting callables representing the specific phase enthalpies
+        ## setting callables defining the dynamic viscosity and heat conductivity of phases
         super().initialize()
 
     ### EoS parameters ------------------------------------------------------------------------
@@ -194,12 +201,12 @@ class PengRobinsonComposition(Composition):
     @property
     def _Q(self) -> pp.ad.Operator:
         """Intermediate coefficient for the cubic formula."""
-        return (3 * self.c1 - self.c2**2) / 9.0
+        return (3 * self.c1 - self.c2**2) / 9
 
     @property
     def _R(self) -> pp.ad.Operator:
         """Intermediate coefficient for the cubic formula."""
-        return (9 * self.c2 * self.c1 - 27 * self.c0 - 2 * self.c2**3) / 54.0
+        return (9 * self.c2 * self.c1 - 27 * self.c0 - 2 * self.c2**3) / 54
 
     @property
     def _D(self) -> pp.ad.Operator:
@@ -219,18 +226,31 @@ class PengRobinsonComposition(Composition):
         R = self._R.evaluate(self.ad_system.dof_manager).val
         D = self._D.evaluate(self.ad_system.dof_manager).val
         c2 = self.c2.evaluate(self.ad_system.dof_manager).val
-        S = np.power(R + np.power(D, 0.5, dtype=complex), 1 / 3, dtype=complex)
-        T = np.power(R - np.power(D, 0.5, dtype=complex), 1 / 3, dtype=complex)
+        S = np.power(R + np.power(D, .5, dtype=complex), 1 / 3, dtype=complex)
+        T = np.power(R - np.power(D, .5, dtype=complex), 1 / 3, dtype=complex)
 
-        three_root_region = D < 0.0
-        one_root_region = D > 0.0
+        three_root_region = D < 0
+        one_root_region = D > 0
 
         # regular (unextended) roots of the polynomial
-        Z1 = -c2 / 3.0 + S + T
-        Z2 = -c2 / 3.0 - (S + T) / 2 + 1j * np.sqrt(3) / 2 * (S - T)
-        Z3 = -c2 / 3.0 - (S + T) / 2 - 1j * np.sqrt(3) / 2 * (S - T)
+        Z1 = -c2 / 3 + S + T
+        Z2 = -c2 / 3 - (S + T) / 2 + 1j * np.sqrt(3) / 2 * (S - T)
+        Z3 = -c2 / 3 - (S + T) / 2 - 1j * np.sqrt(3) / 2 * (S - T)
 
         if np.any(np.isclose(D, 0.0)):
             raise RuntimeError(
                 "Encountered real double-root in characteristic polynomial."
             )
+
+    ### Model equations -----------------------------------------------------------------------
+
+    def get_equilibrium_equation(self, component: Component) -> pp.ad.Operator:
+        """The equilibrium equation for the Peng-Robinson EoS is defined using fugacities
+        
+            ``f_cG(p,T,X) * xi_cG - f_cL(p,T,X) * xi_cR = 0``,
+        
+        where ``f_cG, f_cR`` are fugacities for component ``c`` in gaseous and liquid phase
+        respectively.
+
+        """
+        pass
