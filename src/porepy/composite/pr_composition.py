@@ -316,6 +316,7 @@ class PengRobinsonComposition(Composition):
         def _mu_G(p, T, *X):
             return pp.ad.Scalar(1.)
 
+        # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._mu = _mu_L
         self._phases[1]._mu = _mu_G
 
@@ -329,9 +330,9 @@ class PengRobinsonComposition(Composition):
         def _kappa_L(p, T, *X):
             return pp.ad.Scalar(1.)
 
-        self._phases[0]._kappa = _kappa_L
-
         def _kappa_G(p, T, *X):
             return pp.ad.Scalar(1.)
-        
+
+        # assigning the callable to respective thermodynamic property of the PR_Phase
+        self._phases[0]._kappa = _kappa_L
         self._phases[1]._kappa = _kappa_G
