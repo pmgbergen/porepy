@@ -6,6 +6,8 @@ from units set by the user (standard SI units) to those specified by the Units o
 are the ones used internally in the simulation. The conversion hopefully reduces problems with
 scaling/rounding errors and condition numbers.
 """
+from typing import Optional
+
 import numpy as np
 
 import porepy as pp
@@ -80,30 +82,6 @@ class Material:
                 value /= getattr(self._units, sub_unit)
         return value
 
-    def convert_and_expand(
-        self,
-        value: number,
-        units: str,
-        grids: list[pp.GridLike],
-        grid_field: str = "num_cells",
-        dim: int = 1,
-    ):
-        """Convert value to SI units, and expand to all grids.
-
-        Parameters:
-            value: Value to be converted and expanded
-            units: Units of value.
-            grids: List of grids (subdomains or interfaces) where the property is defined.
-            grid_field: Name of field in grid defining how to expand. Default is num_cells,
-                other obvious choice is num_faces.
-            dim: Dimension of the property. Default is 1, but can be 2 or 3 for vectors.
-
-        Returns:
-            Array of values, one for each cell or face in all grids.
-        """
-        size = sum([getattr(g, grid_field) for g in grids]) * dim
-        return self.convert_units(value, units) * np.ones(size)
-
 
 class UnitFluid(Material):
     """
@@ -128,7 +106,7 @@ class UnitFluid(Material):
     def __init__(self, units: pp.Units):
         super().__init__(units)
 
-    def density(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def density(self) -> np.ndarray:
         """Density [kg/m^3].
 
         Parameters:
@@ -137,9 +115,9 @@ class UnitFluid(Material):
         Returns:
             Cell-wise density array.
         """
-        return self.convert_and_expand(self.DENSITY, "kg * m^-3", subdomains)
+        return self.convert_units(self.DENSITY, "kg * m^-3")
 
-    def thermal_expansion(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def thermal_expansion(self) -> np.ndarray:
         """Thermal expansion coefficient [1/K].
 
         Parameters:
@@ -155,10 +133,10 @@ class UnitFluid(Material):
                     pass
 
         """
-        return self.convert_and_expand(self.THERMAL_EXPANSION, "K^-1", subdomains)
+        return self.convert_units(self.THERMAL_EXPANSION, "K^-1")
 
     # The below method needs rewriting after choosing between the above shown alternatives.
-    def viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def viscosity(self) -> pp.ad.Operator:
         """Viscosity [Pa s].
 
         Parameters:
@@ -167,9 +145,9 @@ class UnitFluid(Material):
         Returns:
             Cell-wise viscosity array.
         """
-        return self.convert_and_expand(self.VISCOSITY, "Pa*s", subdomains)
+        return self.convert_units(self.VISCOSITY, "Pa*s")
 
-    def compressibility(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def compressibility(self) -> np.ndarray:
         """Compressibility [1/Pa].
 
         Parameters:
@@ -179,7 +157,7 @@ class UnitFluid(Material):
             Cell-wise compressibility array.
 
         """
-        return self.convert_and_expand(self.COMPRESSIBILITY, "Pa^-1", subdomains)
+        return self.convert_units(self.COMPRESSIBILITY, "Pa^-1")
 
 
 class UnitSolid(Material):
@@ -203,11 +181,11 @@ class UnitSolid(Material):
     def __init__(self, units):
         super().__init__(units)
 
-    def density(self, subdomains: list[pp.Grid]):
+    def density(self):
         """Density [kg/m^3]."""
-        return self.convert_and_expand(self.DENSITY, "kg * m^-3", subdomains)
+        return self.convert_units(self.DENSITY, "kg * m^-3")
 
-    def thermal_expansion(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def thermal_expansion(self) -> np.ndarray:
         """Thermal expansion coefficient [1/K].
 
         Parameters:
@@ -216,21 +194,20 @@ class UnitSolid(Material):
         Returns:
             Cell-wise thermal expansion coefficient.
         """
-        return self.convert_and_expand(self.THERMAL_EXPANSION, "K^-1", subdomains)
+        return self.convert_units(self.THERMAL_EXPANSION, "K^-1")
 
-    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> np.ndarray:
+    def normal_permeability(self) -> np.ndarray:
         """Normal permeability [m^2].
 
-        Parameters:
-            interfaces: List of interfaces where the normal permeability is defined.
+
 
         Returns:
             Face-wise normal permeability.
 
         """
-        return self.convert_and_expand(self.NORMAL_PERMEABILITY, "m^2", interfaces)
+        return self.convert_units(self.NORMAL_PERMEABILITY, "m^2")
 
-    def porosity(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def porosity(self) -> np.ndarray:
         """Porosity [-].
 
         Note:
@@ -245,9 +222,9 @@ class UnitSolid(Material):
             Cell-wise porosity.
 
         """
-        return self.convert_and_expand(self.POROSITY, "-", subdomains)
+        return self.convert_units(self.POROSITY, "-")
 
-    def permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def permeability(self) -> np.ndarray:
         """Permeability [m^2].
 
         Parameters:
@@ -259,9 +236,9 @@ class UnitSolid(Material):
         Returns:
             Cell-wise permeability.
         """
-        return self.convert_and_expand(self.PERMEABILITY, "m^2", subdomains)
+        return self.convert_units(self.PERMEABILITY, "m^2")
 
-    def shear_modulus(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def shear_modulus(self) -> np.ndarray:
         """Young's modulus [Pa].
 
         Parameters:
@@ -270,9 +247,9 @@ class UnitSolid(Material):
         Returns:
             Cell-wise shear modulus in Pascal.
         """
-        return self.convert_and_expand(self.SHEAR_MODULUS, "Pa", subdomains)
+        return self.convert_units(self.SHEAR_MODULUS, "Pa")
 
-    def lame_lambda(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def lame_lambda(self) -> np.ndarray:
         """Lame's first parameter [Pa].
 
         Parameters:
@@ -281,9 +258,9 @@ class UnitSolid(Material):
         Returns:
             Cell-wise Lame's first parameter in Pascal.
         """
-        return self.convert_and_expand(self.LAME_LAMBDA, "Pa", subdomains)
+        return self.convert_units(self.LAME_LAMBDA, "Pa")
 
-    def gap(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def gap(self) -> np.ndarray:
         """Fracture gap [m].
 
         Parameters:
@@ -292,9 +269,9 @@ class UnitSolid(Material):
         Returns:
             Cell-wise fracture gap in meters.
         """
-        return self.convert_and_expand(self.FRACTURE_GAP, "m", subdomains)
+        return self.convert_units(self.FRACTURE_GAP, "m")
 
-    def friction_coefficient(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def friction_coefficient(self) -> np.ndarray:
         """Friction coefficient [-].
 
         Parameters:
@@ -303,9 +280,9 @@ class UnitSolid(Material):
         Returns:
             Cell-wise friction coefficient.
         """
-        return self.convert_and_expand(self.FRICTION_COEFFICIENT, "-", subdomains)
+        return self.convert_units(self.FRICTION_COEFFICIENT, "-")
 
-    def dilation_angle(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def dilation_angle(self) -> np.ndarray:
         """Dilation angle [rad].
 
         Parameters:
@@ -314,4 +291,4 @@ class UnitSolid(Material):
         Returns:
             Cell-wise dilation angle in radians.
         """
-        return self.convert_and_expand(self.DILATION_ANGLE, "rad", subdomains)
+        return self.convert_units(self.DILATION_ANGLE, "rad")

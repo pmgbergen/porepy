@@ -84,12 +84,15 @@ class VectorBalanceEquation:
             Operator for the volume integral.
 
         """
-        geometry = pp.ad.Geometry(grids, nd=self.nd)
-        # First factor expands from scalar to vector.
-        vol = geometry.scalar_to_nd_cell * (
-            geometry.cell_volumes * self.specific_volume(grids)
-        )
-        return vol * integrand
+        geometry = pp.ad.Geometry(grids, nd=self.nd, matrix_names=["cell_volumes"])
+        volumes = geometry.cell_volumes * self.specific_volume(grids)
+
+        # Expand from cell scalar to vector by left and right multiplication with e_i
+        # and e_i.T
+        basis = geometry.basis()
+        volumes_nd = sum([e * volumes * e.T for e in basis])
+
+        return volumes_nd * integrand
 
 
 class ForceBalanceEquations(VectorBalanceEquation):
@@ -187,8 +190,13 @@ class ForceBalanceEquations(VectorBalanceEquation):
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
+
+        # Expand cell volumes to cell-wise vector. See volume_integral for details.
+        # TODO: Extend that method to interfaces
         geometry = pp.ad.Geometry(interfaces, nd=self.nd, matrix_names=["cell_volumes"])
-        volume_int = geometry.scalar_to_nd_cell * geometry.cell_volumes
+        basis = geometry.basis()
+        volume_int = sum([e * geometry.cell_volumes * e.T for e in basis])
+
         # Contact traction from primary grid and mortar displacements (via primary grid)
         contact_from_primary_mortar = (
             mortar_projection.primary_to_mortar_int
@@ -410,7 +418,7 @@ class VariablesForceBalance:
         self.equation_system.create_variables(
             dof_info={"cells": self.nd},
             name=self.contact_traction_variable,
-            interfaces=self.mdg.subdomains(dim=self.nd - 1),
+            subdomains=self.mdg.subdomains(dim=self.nd - 1),
         )
 
     def displacement(self, subdomains: list[pp.Grid]):
@@ -484,7 +492,6 @@ class VariablesForceBalance:
         )
         rotated_jumps: pp.ad.Operator = (
             self.local_coordinates(subdomains)
-            * self.subdomain_projections(dim=self.nd).cell_restriction(subdomains)
             * mortar_projection.mortar_to_secondary_avg
             * mortar_projection.sign_of_mortar_sides
             * self.interface_displacement(interfaces)
@@ -593,9 +600,9 @@ class SolutionStrategyForceBalance(pp.SolutionStrategy):
             c_num: Numerical constant, as a matrix.
 
         """
-        vals = self.solid.convert_and_expand(1, "-", subdomains)
-        c_num = constitutive_laws.ad_wrapper(vals, False, name="c_num")
-        return c_num
+        # Conversion unnecessary for dimensionless parameters, but included as good practice.
+        val = self.solid.convert_units(1, "-")
+        return pp.ad.Scalar(val, name="c_num")
 
     def _is_nonlinear_problem(self) -> bool:
         """

@@ -18,6 +18,7 @@ Notes:
 from __future__ import annotations
 
 import logging
+from numbers import Number
 from typing import Dict, Optional
 
 import numpy as np
@@ -136,11 +137,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
             Operator representing the fluid mass.
         """
 
-        porosity_vector = self.solid.porosity(subdomains)
-
-        mass_density = self.fluid_density(subdomains) * pp.ad.Array(
-            porosity_vector, "constant_porosity"
-        )
+        mass_density = self.fluid_density(subdomains) * self.porosity(subdomains)
         mass = self.volume_integral(mass_density, subdomains)
         mass.set_name("fluid_mass")
         return mass
@@ -246,8 +243,7 @@ class ConstitutiveEquationsIncompressibleFlow(
         Returns:
             Operator representing the mobility.
         """
-        val = 1 / self.fluid.viscosity(subdomains)
-        return ad_wrapper(val, array=True, name="viscosity")
+        return pp.ad.Scalar(1) / self.fluid_viscosity(subdomains)
 
     def mobility_discretization(
         self, subdomains: list[pp.Grid]
@@ -308,16 +304,36 @@ class ConstitutiveEquationsIncompressibleFlow(
             Array with boundary values for the mobility.
 
         """
+        # List for all subdomains
         bc_values = []
+
+        # Loop over subdomains to collect boundary values
         for sd in subdomains:
-            rho_by_mu = self.fluid.density([sd]) / self.fluid.viscosity([sd])
-            trace = np.abs(sd.cell_faces)
+            rho_by_mu = (
+                self.fluid_density([sd]) / self.fluid_viscosity([sd])
+            ).evaluate(self.equation_system)
+            # Unlike Operators, wrapped constants (Scalar, Array) do not have val
+            # attribute.
+            if hasattr(rho_by_mu, "val"):
+                rho_by_mu = rho_by_mu.val
+
             vals = np.zeros(sd.num_faces)
             all_bf, *_ = self.domain_boundary_sides(sd)
-            vals[all_bf] = (trace * rho_by_mu)[all_bf]
+            if isinstance(rho_by_mu, Number):
+                # Scalar value, simple assignment
+                vals[all_bf] = rho_by_mu
+            else:
+                # Array value, assumed to be cell-wise
+                assert isinstance(rho_by_mu, np.ndarray)
+                assert rho_by_mu.shape == (sd.num_cells,)
+                trace = np.abs(sd.cell_faces)
+                vals[all_bf] = (trace * rho_by_mu)[all_bf]
+            # Append to list of boundary values
             bc_values.append(vals)
-        bc_values = np.hstack(bc_values)
-        return ad_wrapper(bc_values, True, name="bc_values_mobility")
+
+        # Concatenate to single array and wrap as ad.Array
+        bc_values = ad_wrapper(np.hstack(bc_values), True, name="bc_values_mobility")
+        return bc_values
 
 
 class ConstitutiveEquationsCompressibleFlow(
@@ -398,8 +414,9 @@ class VariablesSinglePhaseFlow:
         # Could have values in the init and methods returning operators just as
         # this method.
         """
-        p_ref = self.fluid.convert_and_expand(0, "Pa", subdomains)
-        return ad_wrapper(p_ref, True, name="reference_pressure")
+        p_ref = self.fluid.convert_units(0, "Pa")
+        size = sum([sd.num_cells for sd in subdomains])
+        return ad_wrapper(p_ref, True, size, name="reference_pressure")
 
 
 class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
@@ -455,7 +472,7 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
                 self.equation_system
             )
             # Extract diagonal of the specific volume matrix.
-            specific_volume = specific_volume_mat.diagonal()
+            specific_volume = specific_volume_mat * np.ones(sd.num_cells)
             # Check that the matrix is actually diagonal.
             assert np.all(np.isclose(specific_volume, specific_volume_mat.data))
 
