@@ -16,7 +16,7 @@ number = pp.number
 
 
 class Material:
-    """Sketch of abstract Material class. Functionality for now related to units.
+    """Material property container and conversion class.
 
     Modifications to parameter values should be done by subclassing. To set a different
     constant value, simply define a new class attribute with the same name. If a different
@@ -49,12 +49,13 @@ class Material:
         """
         self._units = units
 
-    def convert_units(self, value: number, units: str) -> number:
-        """Convert value to SI units.
+    def convert_units(self, value: number, units: str, to_si: Optional[bool]=False) -> number:
+        """Convert value between SI and user specified units.
 
         The method divides the value by the units as defined by the user. As an example, if
-        the user has defined the unit for pressure to be 1 MPa, then a value of 1e6 will be
-        converted to 1e6 / 1e6 = 1 and a value of 1e8 will be converted to 1e8 / 1e6 = 1e2.
+        the user has defined the unit for pressure to be 1 MPa, then a value of  1e8 will be
+        converted to 1e8 / 1e6 = 1e2. Conversely, if to_si is True, the value will be converted
+        to SI units, i.e. a value of 1e-2 results in 1e-2 * 1e6 = 1e4.
 
         Parameters:
             value: Value to be converted.
@@ -62,8 +63,12 @@ class Material:
                 e.g., "Pa*m^3/kg". Valid units are the attributes and properties of the Units
                 class. Valid operators are * and ^, including negative powers (e.g. m^-2).
                 A dimensionless value can be specified by setting units to "", "1" or "-".
+            to_si: If True, the value is converted to SI units. If False, the value is
+                converted to the units specified by the user, which are the ones used in the
+
+
         Returns:
-            Value in SI units.
+            Value in the user specified units to be used in the simulation.
 
         """
         # Trim any spaces
@@ -77,9 +82,13 @@ class Material:
         for sub_unit in units.split("*"):
             if "^" in sub_unit:
                 sub_unit, power = sub_unit.split("^")
-                value /= getattr(self._units, sub_unit) ** float(power)
+                factor = getattr(self._units, sub_unit) ** float(power)
             else:
-                value /= getattr(self._units, sub_unit)
+                factor = getattr(self._units, sub_unit)
+            if to_si:
+                value *= factor
+            else:
+                value /= factor
         return value
 
 
@@ -91,7 +100,7 @@ class UnitFluid(Material):
     subdomains or interfaces.
 
 
-    .. note::
+    Note:
         Return types are discussed in fluid_density and fluid_thermal_expansion.
 
         Prefix fluid must be included if we decide for inheritance and not composition for
@@ -106,52 +115,35 @@ class UnitFluid(Material):
     def __init__(self, units: pp.Units):
         super().__init__(units)
 
-    def density(self) -> np.ndarray:
+    def density(self)-> number:
         """Density [kg/m^3].
-
-        Parameters:
-            subdomains: List of subdomains.
 
         Returns:
             Cell-wise density array.
+
         """
         return self.convert_units(self.DENSITY, "kg * m^-3")
 
-    def thermal_expansion(self) -> np.ndarray:
+    def thermal_expansion(self)-> number:
         """Thermal expansion coefficient [1/K].
 
-        Parameters:
-            subdomains:
-
         Returns:
-            This return allows the implementation in this class to serve directly as the
-            default constant fluid thermal expansion constitutive. This may require some care
-            in ordering of mixins: More advanced constitutive relations must have priority
-            over the material, e.g.
-
-                class CombinedConstit(DensityFromPressure, UnitFluid, UnitSolid):
-                    pass
+            Cell-wise thermal expansion coefficient array.
 
         """
         return self.convert_units(self.THERMAL_EXPANSION, "K^-1")
 
-    # The below method needs rewriting after choosing between the above shown alternatives.
     def viscosity(self) -> pp.ad.Operator:
         """Viscosity [Pa s].
 
-        Parameters:
-            subdomains:
-
         Returns:
             Cell-wise viscosity array.
+
         """
         return self.convert_units(self.VISCOSITY, "Pa*s")
 
-    def compressibility(self) -> np.ndarray:
+    def compressibility(self)-> number:
         """Compressibility [1/Pa].
-
-        Parameters:
-            subdomains: List of subdomains.
 
         Returns:
             Cell-wise compressibility array.
@@ -182,24 +174,24 @@ class UnitSolid(Material):
         super().__init__(units)
 
     def density(self):
-        """Density [kg/m^3]."""
+        """Density [kg/m^3].
+
+        Returns:
+            Cell-wise density array.
+
+        """
         return self.convert_units(self.DENSITY, "kg * m^-3")
 
-    def thermal_expansion(self) -> np.ndarray:
+    def thermal_expansion(self)-> number:
         """Thermal expansion coefficient [1/K].
-
-        Parameters:
-            subdomains: List of grids where the expansion coefficient is defined.
 
         Returns:
             Cell-wise thermal expansion coefficient.
         """
         return self.convert_units(self.THERMAL_EXPANSION, "K^-1")
 
-    def normal_permeability(self) -> np.ndarray:
+    def normal_permeability(self)-> number:
         """Normal permeability [m^2].
-
-
 
         Returns:
             Face-wise normal permeability.
@@ -207,16 +199,8 @@ class UnitSolid(Material):
         """
         return self.convert_units(self.NORMAL_PERMEABILITY, "m^2")
 
-    def porosity(self) -> np.ndarray:
+    def porosity(self)-> number:
         """Porosity [-].
-
-        Note:
-            One may very reasonably include sd dependency (e.g. 1 for fractures).
-            This should be done in the constitutive relation, which has access to
-            geometric information, not here.
-
-        Parameters:
-            subdomains: List of grids where the porosity is defined.
 
         Returns:
             Cell-wise porosity.
@@ -224,71 +208,55 @@ class UnitSolid(Material):
         """
         return self.convert_units(self.POROSITY, "-")
 
-    def permeability(self) -> np.ndarray:
+    def permeability(self)-> number:
         """Permeability [m^2].
-
-        Parameters:
-            subdomains: List of subdomain where the permeability is defined.
-                Will usually be a single grid, since permeability is used inside
-                discretizations, thus assigned to individual subdomain data dictionaries.
-
 
         Returns:
             Cell-wise permeability.
+
         """
         return self.convert_units(self.PERMEABILITY, "m^2")
 
-    def shear_modulus(self) -> np.ndarray:
+    def shear_modulus(self)-> number:
         """Young's modulus [Pa].
 
-        Parameters:
-            subdomains: List of subdomains where the shear modulus is defined.
-
         Returns:
-            Cell-wise shear modulus in Pascal.
+            Cell-wise shear modulus.
+
         """
         return self.convert_units(self.SHEAR_MODULUS, "Pa")
 
-    def lame_lambda(self) -> np.ndarray:
+    def lame_lambda(self)-> number:
         """Lame's first parameter [Pa].
-
-        Parameters:
-            subdomains: List of subdomains where the shear modulus is defined.
-
+s
         Returns:
-            Cell-wise Lame's first parameter in Pascal.
+            Cell-wise Lame's first parameter.
         """
         return self.convert_units(self.LAME_LAMBDA, "Pa")
 
-    def gap(self) -> np.ndarray:
+    def gap(self)-> number:
         """Fracture gap [m].
 
-        Parameters:
-            subdomains: List of fracture subdomains.
-
         Returns:
-            Cell-wise fracture gap in meters.
+            Cell-wise fracture gap.
+
         """
         return self.convert_units(self.FRACTURE_GAP, "m")
 
-    def friction_coefficient(self) -> np.ndarray:
+    def friction_coefficient(self)-> number:
         """Friction coefficient [-].
-
-        Parameters:
-            subdomains: List of fracture subdomains.
 
         Returns:
             Cell-wise friction coefficient.
+
         """
         return self.convert_units(self.FRICTION_COEFFICIENT, "-")
 
-    def dilation_angle(self) -> np.ndarray:
+    def dilation_angle(self)-> number:
         """Dilation angle [rad].
 
-        Parameters:
-            subdomains: List of fracture subdomains.
-
         Returns:
-            Cell-wise dilation angle in radians.
+            Cell-wise dilation angle.
+
         """
         return self.convert_units(self.DILATION_ANGLE, "rad")
