@@ -10,13 +10,12 @@ import abc
 from typing import Generator
 
 import numpy as np
+
 import porepy as pp
 
 from .component import Component, VarLike
-from ._composite_utils import R_IDEAL, T_REF, P_REF, CP_REF, V_REF, H_REF
-from .model_fluids import H2O
 
-__all__ = ["Phase", "IncompressibleFluid", "IdealGas"]
+__all__ = ["Phase"]
 
 
 class Phase(abc.ABC):
@@ -80,7 +79,9 @@ class Phase(abc.ABC):
 
         # Instantiate saturation and molar phase fraction (secondary variables)
         self._s: pp.ad.MergedVariable = ad_system.create_variable(self.saturation_name)
-        self._fraction: pp.ad.MergedVariable = ad_system.create_variable(self.fraction_name)
+        self._fraction: pp.ad.MergedVariable = ad_system.create_variable(
+            self.fraction_name
+        )
         nc = ad_system.dof_manager.mdg.num_subdomain_cells()
         ad_system.set_var_values(self.saturation_name, np.zeros(nc), True)
         ad_system.set_var_values(self.fraction_name, np.zeros(nc), True)
@@ -153,9 +154,7 @@ class Phase(abc.ABC):
         """
         return self._fraction
 
-    def ext_fraction_of_component(
-        self, component: Component
-    ) -> pp.ad.MergedVariable:
+    def ext_fraction_of_component(self, component: Component) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -183,7 +182,9 @@ class Phase(abc.ABC):
             Returns always zero if a component is not modelled (added) to this phase.
 
         """
-        return self._ext_composition.get(self.ext_component_fraction_name(component), 0.0)
+        return self._ext_composition.get(
+            self.ext_component_fraction_name(component), 0.0
+        )
 
     def ext_component_fraction_name(self, component: Component) -> str:
         """
@@ -368,55 +369,3 @@ class Phase(abc.ABC):
 
         """
         pass
-
-
-class IncompressibleFluid(Phase):
-    """Ideal, Incompressible fluid with constant density of 1e2 mol water per V_REF.
-    
-    The EOS is reduced to
-    
-    const rho = 1 / V_REF ( = 1 / V )
-    V = V_REF
-    
-    """
-    
-    rho0: float = 1e2 / V_REF
-
-    def density(self, p, T):
-        return pp.ad.Array(
-            np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells())
-            * self.rho0
-        )
-
-    def specific_enthalpy(self, p, T):
-        return H_REF + CP_REF * (T - T_REF) + V_REF * (p - P_REF)
-
-    def dynamic_viscosity(self, p, T):
-        return pp.ad.Array(np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells())) 
-
-    def thermal_conductivity(self, p, T):
-        return pp.ad.Array(np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells()))
-
-
-class IdealGas(Phase):
-    """Ideal water vapor phase with EoS:
-    
-     rho = n / V  = p / (R * T)
-
-    """
-
-    def density(self, p, T):
-        return p / (T * R_IDEAL)
-
-    def specific_enthalpy(self, p, T):
-        # enthalpy at reference state is
-        # h = u + p / rho(p,T)
-        # which due to the ideal gas law simplifies to
-        # h = u + R * T
-        return H_REF + CP_REF * (T - T_REF) # + V_REF * (p - P_REF)
-
-    def dynamic_viscosity(self, p, T):
-        return pp.ad.Array(np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells()))
-
-    def thermal_conductivity(self, p, T):
-        return pp.ad.Array(np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells()))

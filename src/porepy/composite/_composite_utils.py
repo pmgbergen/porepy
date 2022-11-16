@@ -67,7 +67,7 @@ References:
 
 """
 
-V_REF: float = 1.
+V_REF: float = 1.0
 """The reference volume is set to 1.
 
 Computations in porous media, where densities are usually
@@ -87,7 +87,7 @@ reference temperature, reference volume and universal gas constant.
 
 """
 
-U_REF: float = 0.
+U_REF: float = 0.0
 """The reference value for the specific internal energy.
 
 The composite submodule assumes the specific internal energy of the ideal gas at given
@@ -103,14 +103,14 @@ H_REF: float = U_REF + P_REF / RHO_REF
 
 based on other reference values it holds:
 
-H_REF = U_REF + P_REF / RHO_REF 
+H_REF = U_REF + P_REF / RHO_REF
 
 | Math. Dimension:      scalar
 | Phys. Dimension:      [kJ / mol]
 
 """
 
-_heat_capacity_ratio: float = 8./6.
+_heat_capacity_ratio: float = 8.0 / 6.0
 """Heat capacity ratio for ideal, triatomic gases."""
 
 # CP_REF: float = _heat_capacity_ratio / (_heat_capacity_ratio - 1) * R_IDEAL
@@ -129,7 +129,7 @@ where g (heat capacity ratio) is set to 8/6 for triatomic molecules.
 
 """
 
-CV_REF: float = 1. / (_heat_capacity_ratio - 1) * R_IDEAL
+CV_REF: float = 1.0 / (_heat_capacity_ratio - 1) * R_IDEAL
 """The specific heat capacity at constant volume for ideal water vapor.
 
 Water is tri-atomic and hence

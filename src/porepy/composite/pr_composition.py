@@ -1,0 +1,236 @@
+"""Composition class for the Peng-Robinson equation of state."""
+from __future__ import annotations
+
+from typing import Callable, Optional
+
+import numpy as np
+
+import porepy as pp
+
+from ._composite_utils import R_IDEAL
+from .composition import Composition
+from .phase import Phase
+
+__all__ = ["PengRobinsonComposition"]
+
+
+class PR_Phase(Phase):
+    """Representation of a phase using the Peng-Robinson EoS.
+    
+    Thermodynamic properties are represented by references to callables, which are set by the
+    Peng-Robinson composition class.
+
+    This class is not intended to be used or instantiated except by the respective composition
+    class.
+
+    """
+
+    def __init__(self, name: str, ad_system: pp.ad.ADSystem) -> None:
+        super().__init__(name, ad_system)
+
+        self._h_reference: Callable
+        self._rho_reference: Callable
+        self._mu_reference: Callable
+        self._kappa_reference: Callable
+    
+    def density(self, p, T):
+        X = (self.ext_fraction_of_component(component) for component in self)
+        return self._rho_reference(p, T, *X)
+
+    def specific_enthalpy(self, p, T):
+        X = (self.ext_fraction_of_component(component) for component in self)
+        return self._h_reference(p, T, *X)
+
+    def dynamic_viscosity(self, p, T):
+        X = (self.ext_fraction_of_component(component) for component in self)
+        return self._mu_reference(p, T, *X)
+
+    def thermal_conductivity(self, p, T):
+        X = (self.ext_fraction_of_component(component) for component in self)
+        return self._kappa_reference(p, T, *X)
+
+
+class PengRobinsonComposition(Composition):
+    """A composition modelled using the Peng-Robinson equation of state
+
+        ``p = R * T / (v - b) - a / (b**2 + 2 * v * b - b**2)``,
+
+    with the characteristic polynomial
+
+        ``Z**3 + (B - 1) * Z**2 + (A - 2 * B - 3 * B**2) * Z + (B**3 + B**2 - A * B) = 0``,
+
+    where
+
+        ``Z = p * v / (R * T)``,
+        ``A = p * a / (R * T)**2``,
+        ``B = P * b / (R * T)``.
+
+    Mixing rules according to [1] are applied to ``a`` and ``b``.
+
+    Note:
+        This class currently supports only a liquid and a gaseous phase.
+
+    References:
+        [1]: `Peng, Robinson (1976) <https://doi.org/10.1021/i160057a011>`_
+
+    """
+
+    def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
+        super().__init__(ad_system)
+
+        # setting of currently supported phases
+        self._phases: list[Phase] = [
+            PR_Phase("L", self.ad_system),
+            PR_Phase("G", self.ad_system),
+        ]
+
+        ### PRIVATE
+        # (extended) liquid and vapor root of the characteristic polynomial
+        self._Z_L_vals: np.ndarray
+        self._Z_V_vals: np.ndarray
+
+        # attraction and co-volume, assembled during initialization
+        # (based on mixing-rule and present components)
+        self._a: pp.ad.Operator
+        self._b: pp.ad.Operator
+    
+    def initialize(self) -> None:
+        """Before initializing the p-h and p-T subsystems, this method additionally assigns
+        callables for thermodynamic properties of phases, according to the equation of state
+        and present components."""
+        super().initialize()
+
+    ### EoS parameters ------------------------------------------------------------------------
+
+    @property
+    def attraction(self) -> pp.ad.Operator:
+        """An operator representing ``a`` in the Peng-Robinson EoS."""
+        return self._a
+
+    @property
+    def covolume(self) -> pp.ad.Operator:
+        """An operator representing ``b`` in the Peng-Robinson EoS."""
+        return self._b
+
+    @property
+    def A(self) -> pp.ad.Operator:
+        """An operator representing ``A`` in the characteristic polynomial of the EoS."""
+        return (self.attraction * self.p) / (R_IDEAL**2 * self.T * self.T)
+
+    @property
+    def B(self) -> pp.ad.Operator:
+        """An operator representing ``B`` in the characteristic polynomial of the EoS."""
+        return (self.covolume * self.p) / (R_IDEAL * self.T)
+
+    ### EoS root finding methods --------------------------------------------------------------
+
+    @property
+    def c2(self) -> pp.ad.Operator:
+        """An operator representing the coefficient of the monomial ``Z**2`` in the
+        characteristic polynomial."""
+        return self.B - 1
+
+    @property
+    def c1(self) -> pp.ad.Operator:
+        """An operator representing the coefficient of the monomial ``Z`` in the
+        characteristic polynomial."""
+        return self.A - 3 * self.B * self.B - 2 * self.B
+
+    @property
+    def c0(self) -> pp.ad.Operator:
+        """An operator representing the coefficient of the monomial ``Z**0`` in the
+        characteristic polynomial."""
+        return self.B * self.B * self.B + self.B * self.B - self.A * self.B
+
+    @property
+    def discriminant(self) -> np.ndarray:
+        """An operator representing the discriminant of the characteristic polynomial, based
+        on the current thermodynamic state.
+
+        The sign of the discriminant can be used to distinguish between 1 and 2-phase regions:
+
+        - ``< 0``: single-phase region
+        - ``> 0``: 2-phase region
+
+        Warning:
+            The case where the discriminant is zero (or close) is not covered. This corresponds
+            to the case where there are 3 real roots and two are equal.
+            That can happen mathematically, but the thermodynamic literature is scars on that
+            topic.
+
+        """
+        return (
+            (
+                self.c2 * self.c2 * self.c1 * self.c1
+                - 4 * self.c1 * self.c1 * self.c1
+                - 4 * self.c2 * self.c2 * self.c2 * self.c0
+                - 27 * self.c0 * self.c0
+                + 18 * self.c2 * self.c1 * self.c0
+            )
+            .evaluate(self.ad_system.dof_manager)
+            .val
+        )
+
+    @property
+    def Z_L(self) -> np.ndarray:
+        """An array representing cell-wise the extended root of the characteristic polynomial
+        associated with the liquid phase.
+
+        The values depend on the thermodynamic state and are recomputed internally.
+
+        """
+        return self._Z_L_vals
+
+    @property
+    def Z_V(self) -> np.ndarray:
+        """An array representing cell-wise the extended root of the characteristic polynomial
+        associated with the gaseous phase.
+
+        The values depend on the thermodynamic state and are recomputed internally.
+
+        """
+        return self._Z_V_vals
+
+    @property
+    def _Q(self) -> pp.ad.Operator:
+        """Intermediate coefficient for the cubic formula."""
+        return (3 * self.c1 - self.c2**2) / 9.0
+
+    @property
+    def _R(self) -> pp.ad.Operator:
+        """Intermediate coefficient for the cubic formula."""
+        return (9 * self.c2 * self.c1 - 27 * self.c0 - 2 * self.c2**3) / 54.0
+
+    @property
+    def _D(self) -> pp.ad.Operator:
+        """Modified version of the discriminant for the cubic formula
+        (including sign-convention)."""
+        return self._Q**3 + self._R**2
+
+    def _compute_roots(self) -> None:
+        """(Re-) compute the extended roots based on the current thermodynamic state using
+        the cubic formula.
+
+        References:
+            [1]: `Cubic formula <https://mathworld.wolfram.com/CubicFormula.html>`_
+            [2]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
+
+        """
+        R = self._R.evaluate(self.ad_system.dof_manager).val
+        D = self._D.evaluate(self.ad_system.dof_manager).val
+        c2 = self.c2.evaluate(self.ad_system.dof_manager).val
+        S = np.power(R + np.power(D, 0.5, dtype=complex), 1 / 3, dtype=complex)
+        T = np.power(R - np.power(D, 0.5, dtype=complex), 1 / 3, dtype=complex)
+
+        three_root_region = D < 0.0
+        one_root_region = D > 0.0
+
+        # regular (unextended) roots of the polynomial
+        Z1 = -c2 / 3.0 + S + T
+        Z2 = -c2 / 3.0 - (S + T) / 2 + 1j * np.sqrt(3) / 2 * (S - T)
+        Z3 = -c2 / 3.0 - (S + T) / 2 - 1j * np.sqrt(3) / 2 * (S - T)
+
+        if np.any(np.isclose(D, 0.0)):
+            raise RuntimeError(
+                "Encountered real double-root in characteristic polynomial."
+            )
