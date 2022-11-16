@@ -69,7 +69,9 @@ class PengRobinsonComposition(Composition):
     Mixing rules according to [1] are applied to ``a`` and ``b``.
 
     Note:
-        This class currently supports only a liquid and a gaseous phase.
+        - This class currently supports only a liquid and a gaseous phase.
+        - The various properties of this class depend on the thermodynamic state. They are
+          continuously re-computed and must therefore be accessed by reference.
 
     References:
         [1]: `Peng, Robinson (1976) <https://doi.org/10.1021/i160057a011>`_
@@ -86,9 +88,9 @@ class PengRobinsonComposition(Composition):
         ]
 
         ### PRIVATE
-        # (extended) liquid and vapor root of the characteristic polynomial
-        self._Z_L_vals: np.ndarray
-        self._Z_V_vals: np.ndarray
+        # (extended) liquid and gas root of the characteristic polynomial
+        self._Z_L: np.ndarray
+        self._Z_G: np.ndarray
 
         # attraction and co-volume, assembled during initialization
         # (based on mixing-rule and present components)
@@ -99,7 +101,7 @@ class PengRobinsonComposition(Composition):
         """Before initializing the p-h and p-T subsystems, this method additionally assigns
         callables for thermodynamic properties of phases, according to the equation of state
         and present components."""
-
+        ## TODO
         ## defining the attraction value
         ## defining the co-volume
         ## setting callables representing the phase densities
@@ -147,6 +149,8 @@ class PengRobinsonComposition(Composition):
     def c0(self) -> pp.ad.Operator:
         """An operator representing the coefficient of the monomial ``Z**0`` in the
         characteristic polynomial."""
+        # TODO as soon as power overload is available for operators, this needs to change
+        # at multiple points in this class
         return self.B * self.B * self.B + self.B * self.B - self.A * self.B
 
     @property
@@ -186,7 +190,7 @@ class PengRobinsonComposition(Composition):
         The values depend on the thermodynamic state and are recomputed internally.
 
         """
-        return self._Z_L_vals
+        return self._Z_L
 
     @property
     def Z_V(self) -> np.ndarray:
@@ -196,23 +200,23 @@ class PengRobinsonComposition(Composition):
         The values depend on the thermodynamic state and are recomputed internally.
 
         """
-        return self._Z_V_vals
+        return self._Z_G
 
     @property
     def _Q(self) -> pp.ad.Operator:
         """Intermediate coefficient for the cubic formula."""
-        return (3 * self.c1 - self.c2**2) / 9
+        return (3 * self.c1 - self.c2 * self.c2) / 9
 
     @property
     def _R(self) -> pp.ad.Operator:
         """Intermediate coefficient for the cubic formula."""
-        return (9 * self.c2 * self.c1 - 27 * self.c0 - 2 * self.c2**3) / 54
+        return (9 * self.c2 * self.c1 - 27 * self.c0 - 2 * self.c2 * self.c2 * self.c2) / 54
 
     @property
     def _D(self) -> pp.ad.Operator:
         """Modified version of the discriminant for the cubic formula
         (including sign-convention)."""
-        return self._Q**3 + self._R**2
+        return self._Q * self._Q * self._Q + self._R * self._R
 
     def _compute_roots(self) -> None:
         """(Re-) compute the extended roots based on the current thermodynamic state using
@@ -229,6 +233,8 @@ class PengRobinsonComposition(Composition):
         S = np.power(R + np.power(D, .5, dtype=complex), 1 / 3, dtype=complex)
         T = np.power(R - np.power(D, .5, dtype=complex), 1 / 3, dtype=complex)
 
+        # based on the sign of the discriminant, we distinguish the regions
+        # note that this discriminant uses a different sign convention than the standard one.
         three_root_region = D < 0
         one_root_region = D > 0
 
@@ -237,10 +243,28 @@ class PengRobinsonComposition(Composition):
         Z2 = -c2 / 3 - (S + T) / 2 + 1j * np.sqrt(3) / 2 * (S - T)
         Z3 = -c2 / 3 - (S + T) / 2 - 1j * np.sqrt(3) / 2 * (S - T)
 
+        nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
+        # (extended) roots of the liquid and gas phase (per cell)
+        Z_L = np.zeros(nc)
+        Z_G = np.zeros(nc)
+
+        # this case is not covered by the thermodynamic literature (to my knowing)
+        # if it happens, we have to alert the user
         if np.any(np.isclose(D, 0.0)):
             raise RuntimeError(
                 "Encountered real double-root in characteristic polynomial."
             )
+
+        # in the three-root-region, the largest root (Z1) corresponds to the gaseous phase
+        # the smallest root (Z2) corresponds to the liquid phase
+        Z_L[three_root_region] = np.real(Z2[three_root_region])
+        Z_G[three_root_region] = np.real(Z1[three_root_region])
+
+        ## Domain extension outside of three-root-region (Ben Gharbia et al.) TODO
+
+        # storing the extended roots for further computations
+        self._Z_L = Z_L
+        self._Z_G = Z_G
 
     ### Model equations -----------------------------------------------------------------------
 
