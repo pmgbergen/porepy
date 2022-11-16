@@ -241,11 +241,10 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         """
         ## creating composition
-        self.composition = pp.composite.Composition(self.ad_system)
+        self.composition = pp.composite.SimpleComposition(self.ad_system)
         water = pp.composite.H2O(self.ad_system)
         salt = pp.composite.NaCl(self.ad_system)
-        L = self.composition._phases[0]
-        G = self.composition._phases[1]
+        L, G = (phase for phase in self.composition.phases)
         self.composition.add_component(water)
         self.composition.add_component(salt)
         self.reference_component = water

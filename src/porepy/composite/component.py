@@ -74,7 +74,9 @@ class Component(abc.ABC):
         #### PRIVATE
 
         # creating the overall molar fraction variable
-        self._fraction: pp.ad.MergedVariable = ad_system.create_variable(self.fraction_name)
+        self._fraction: pp.ad.MergedVariable = ad_system.create_variable(
+            self.fraction_name
+        )
 
     @property
     def name(self) -> str:

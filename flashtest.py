@@ -17,7 +17,7 @@ k_salt = 0.1
 k_water = 2.
 
 ### CALCULATION
-c = pp.composite.Composition()
+c = pp.composite.SimpleComposition()
 ad_system = c.ad_system
 dm = ad_system.dof_manager
 mdg = dm.mdg
