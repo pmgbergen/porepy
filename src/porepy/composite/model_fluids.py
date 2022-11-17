@@ -39,3 +39,11 @@ class H2O(FluidComponent):
     def triple_point_temperature():
         """`Source <https://en.wikipedia.org/wiki/Water_(data_page)>`_."""
         return 273.1600
+
+    ## Peng-Robinson parameters ---------------------------------------------------------------
+
+    @property
+    def acentric_factor(self) -> float:
+        """`Source
+         <https://ebookcentral.proquest.com/lib/bergen-ebooks/detail.action?docID=317176>`_."""
+        return 0.3449

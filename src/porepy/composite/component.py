@@ -8,7 +8,9 @@ import abc
 
 import porepy as pp
 
-__all__ = ["Component", "FluidComponent", "SolidComponent"]
+from ._composite_utils import R_IDEAL
+
+__all__ = ["Component", "FluidComponent", "SoluteComponent"]
 
 
 class Component(abc.ABC):
@@ -24,6 +26,11 @@ class Component(abc.ABC):
     identifier.
     Ambiguities and uniqueness must be assured due to central storage of the fractional values
     in the grid data dictionaries.
+
+    The Peng-Robinson parameters are taken from:
+
+    - `Peng, Robinson (1976) <https://doi.org/10.1016/j.gca.2006.01.033>`_
+    - `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
 
     Parameters:
         ad_system: AD system in which this component is present cell-wise in each subdomain.
@@ -102,6 +109,37 @@ class Component(abc.ABC):
         return self._fraction
 
     ### PHYSICAL PROPERTIES -------------------------------------------------------------------
+    ## Peng-Robinson parameters ---------------------------------------------------------------
+
+    @property
+    def covolume(self) -> float:
+        """Returns the constant co-volume ``b`` in the Peng-Robinson EoS:
+
+            ``b = 0.077796072 * (R_IDEAL * T_critical) / p_critical
+
+        """
+        return (
+            0.077796072
+            * (R_IDEAL * self.critical_temperature())
+            / self.critical_pressure()
+        )
+
+    @property
+    def attraction_critical(self) -> float:
+        """Returns the critical attraction parameter
+        ``a = a_critical * alpha(T_reduced, omega)``
+        in the Peng-Robinson EoS,
+        without the scaling by acentric factor and reduced temperature:
+
+            ``a_critical = 0.457235529 * (R_IDEAL**2 * T_critical**2) / p_critical``
+
+        """
+        return (
+            0.457235529
+            * (R_IDEAL**2 * self.critical_temperature()**2)
+            / self.critical_pressure()
+        )
+
     ## constants ------------------------------------------------------------------------------
 
     @staticmethod
@@ -240,7 +278,18 @@ class FluidComponent(Component):
 
     """
 
-    pass
+    @property
+    @abc.abstractmethod
+    def acentric_factor(self) -> float:
+        """This is a constant value, hence to be a static function.
+
+        | Math. Dimension:        scalar
+        | Phys. Dimension:        [-]
+
+        Returns: acentric factor.
+
+        """
+        pass
 
     # @abc.abstractmethod
     # def dynamic_viscosity(self, p: VarLike, T: VarLike) -> VarLike:
@@ -258,9 +307,9 @@ class FluidComponent(Component):
     #     pass
 
 
-class SolidComponent(Component):
-    """Intermediate abstraction layer for components which are only expected as solutes or
-    elements of the porous medium.
+class SoluteComponent(Component):
+    """Intermediate abstraction layer for components which are only expected as solutes in a
+    fluid phase.
 
     Serves for the abstraction of properties which are usually only associated with this type
     of component.

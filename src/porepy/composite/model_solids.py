@@ -2,12 +2,12 @@
 but also possibly in the porous medium.
 """
 
-from .component import SolidComponent
+from .component import SoluteComponent
 
 __all__ = ["NaCl"]
 
 
-class NaCl(SolidComponent):
+class NaCl(SoluteComponent):
     """Solute component representing sodium chloride.
 
     The physical properties and parameters are found in respective references.
