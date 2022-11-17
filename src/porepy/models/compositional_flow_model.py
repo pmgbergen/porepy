@@ -1191,7 +1191,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
                 scalar_part = (
                     phase.density(cp.p, cp.T)
-                    * phase.ext_fraction_of_component(component)
+                    * phase.fraction_of_component(component)
                     * k_re
                     / phase.dynamic_viscosity(cp.p, cp.T)
                 )

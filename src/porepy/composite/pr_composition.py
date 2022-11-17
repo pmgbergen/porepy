@@ -35,19 +35,19 @@ class PR_Phase(Phase):
         self._kappa: Callable
 
     def density(self, p, T):
-        X = (self.ext_fraction_of_component(component) for component in self)
+        X = (self.fraction_of_component(component) for component in self)
         return self._rho(p, T, *X)
 
     def specific_enthalpy(self, p, T):
-        X = (self.ext_fraction_of_component(component) for component in self)
+        X = (self.fraction_of_component(component) for component in self)
         return self._h(p, T, *X)
 
     def dynamic_viscosity(self, p, T):
-        X = (self.ext_fraction_of_component(component) for component in self)
+        X = (self.fraction_of_component(component) for component in self)
         return self._mu(p, T, *X)
 
     def thermal_conductivity(self, p, T):
-        X = (self.ext_fraction_of_component(component) for component in self)
+        X = (self.fraction_of_component(component) for component in self)
         return self._kappa(p, T, *X)
 
 

@@ -156,7 +156,7 @@ class Phase(abc.ABC):
         """
         return self._fraction
 
-    def ext_fraction_of_component(self, component: Component) -> pp.ad.MergedVariable:
+    def fraction_of_component(self, component: Component) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
@@ -185,10 +185,10 @@ class Phase(abc.ABC):
 
         """
         return self._ext_composition.get(
-            self.ext_component_fraction_name(component), 0.0
+            self.component_fraction_name(component), 0.0
         )
 
-    def ext_component_fraction_name(self, component: Component) -> str:
+    def component_fraction_name(self, component: Component) -> str:
         """
         Parameters:
             component: component for which the respective name is requested.
@@ -200,14 +200,14 @@ class Phase(abc.ABC):
         """
         return f"xi_{component.name}_{self.name}"
 
-    def fraction_of_component(self, component: Component) -> pp.ad.MergedVariable:
+    def normalized_fraction_of_component(self, component: Component) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
 
         If a phase is present (phase fraction is strictly positive), the regular component
-        fraction coincides with the extended component fraction.
-        If a phase vanishes (phase fraction is zero), the regular component fraction (this one)
+        fraction (this one) coincides with the extended component fraction.
+        If a phase vanishes (phase fraction is zero), the regular component fraction
         is obtained by re-normalizing the extended component fraction.
 
         Notes:
@@ -225,9 +225,9 @@ class Phase(abc.ABC):
             Returns always zero if a component is not modelled (added) to this phase.
 
         """
-        return self._composition.get(self.ext_component_fraction_name(component), 0.0)
+        return self._composition.get(self.component_fraction_name(component), 0.0)
 
-    def component_fraction_name(self, component: Component) -> str:
+    def normalized_component_fraction_name(self, component: Component) -> str:
         """
         Parameters:
             component: component for which the respective name is requested.
@@ -274,8 +274,8 @@ class Phase(abc.ABC):
                 continue
 
             # create compositional variables for the component in this phase
-            ext_fraction_name = self.ext_component_fraction_name(comp)
-            fraction_name = self.component_fraction_name(comp)
+            ext_fraction_name = self.component_fraction_name(comp)
+            fraction_name = self.normalized_component_fraction_name(comp)
             ext_comp_fraction = self.ad_system.create_variable(ext_fraction_name)
             comp_fraction = self.ad_system.create_variable(fraction_name)
 
