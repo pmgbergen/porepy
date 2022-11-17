@@ -767,17 +767,24 @@ class Operator:
                 # Is this equivalent to the test in previous function?
                 # Loop over all subvariables for the mixed-dimensional variable
                 for i, sub_var in enumerate(variable.sub_vars):
+
                     if sub_var.prev_time or sub_var.prev_iter:
                         # If this is a variable representing a previous time step or
-                        # iteration, we need to get the original variable.
-                        sub_var = sub_var.original_variable
+                        # iteration, we need to use the original variable to get hold of
+                        # the correct dof indices, since this is the variable that was
+                        # created by the EquationSystem. However, we will tie the
+                        # indices to the id of this variable, since this is the one that
+                        # will be used for lookup later on.
+                        sub_var_known_to_eq_system = sub_var.original_variable
+                    else:
+                        sub_var_known_to_eq_system = sub_var
 
                     # Get the index of this sub variable in the global numbering of the
                     # EquationSystem. If an error message is raised that the variable is
                     # not present in the EquationSystem, it is likely that this operator
                     # contains a variable that is not known to the EquationSystem (it
                     # has not passed through EquationSystem.create_variable()).
-                    ind_var.append(system_manager.dofs_of([sub_var]))
+                    ind_var.append(system_manager.dofs_of([sub_var_known_to_eq_system]))
                     if i == 0:
                         # Store id of variable, but only for the first one; we will
                         # concatenate the arrays in ind_var into one array
@@ -791,10 +798,16 @@ class Operator:
                 # This is a variable that lives on a single grid
                 if variable.prev_iter or variable.prev_time:
                     # If this is a variable representing a previous time step or
-                    # iteration, we need to get the original variable.
-                    variable = variable.original_variable
+                    # iteration, we need to use the original variable to get hold of
+                    # the correct dof indices, since this is the variable that was
+                    # created by the EquationSystem. However, we will tie the
+                    # indices to the id of this variable, since this is the one that
+                    # will be used for lookup later on.
+                    variable_known_to_eq_system = variable.original_variable
+                else:
+                    variable_known_to_eq_system = variable
 
-                ind_var.append(system_manager.dofs_of([variable]))
+                ind_var.append(system_manager.dofs_of([variable_known_to_eq_system]))
                 variable_ids.append(variable.id)
 
             # Gather all indices for this variable
