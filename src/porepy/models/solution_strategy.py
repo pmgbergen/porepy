@@ -108,18 +108,24 @@ class SolutionStrategy(abc.ABC):
         self.equation_system.set_variable_values(vals, to_iterate=True, to_state=True)
 
     def set_materials(self):
-        """Sketch approach of setting materials. Works for now.
+        """Set material parameters.
 
-        Should probably go in AbstractModel.
-        May want to use more refined approach (setter method, protect attribute names...)
-        FIXME: Move to AbstractModel/AbstractSolutionStrategy.
+        In addition to adjusting the units (see ::method::set_units), materials
+        are defined through ::class::pp.Material and the constants passed when
+        initializing the materials. For most purposes, a user needs only pass the
+        desired parameter values in params["material_constants"] and should not
+        need to modify the material classes. However, if a user wishes to modify
+        to e.g. provide additional material parameters, this can be done by passing
+        modified material classes in params["fluid"] and params["solid"].
+
         """
         # Default values
         materials = {"fluid": pp.UnitFluid, "solid": pp.UnitSolid}
         materials.update(self.params.get("materials", {}))
+        material_constants = self.params.get("material_constants", {})
         for name, material in materials.items():
             assert issubclass(material, pp.models.materials.Material)
-            setattr(self, name, material(self.units))
+            setattr(self, name, material(material_constants, self.units))
 
     def before_newton_loop(self) -> None:
         """Wrap for legacy reasons. To be removed."""

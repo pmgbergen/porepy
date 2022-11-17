@@ -97,11 +97,6 @@ class Units:
         return self.kg * self.m**2 / self.s**3
 
     @property
-    def Celsius(self):
-        """Temperature unit, derived from K."""
-        return self.K - 273.15
-
-    @property
     def degree(self):
         """Angle unit, derived from rad."""
-        return self.rad * 180 / np.PI
+        return self.rad * 180 / np.pi
