@@ -7,7 +7,7 @@ __all__ = ["H2O", "NaCl"]
 
 
 class H2O(PR_FluidComponent):
-    """Fluid component representing water.
+    """Fluid component representing water as a fluid for the Peng-Robinson EoS.
 
     The physical properties and parameters are found in respective references.
 
@@ -21,7 +21,7 @@ class H2O(PR_FluidComponent):
     @staticmethod
     def critical_pressure():
         """`Source <https://doi.org/10.1016/j.gca.2006.01.033>`_."""
-        return 22060
+        return 22.060
 
     @staticmethod
     def critical_temperature():
@@ -31,7 +31,7 @@ class H2O(PR_FluidComponent):
     @staticmethod
     def triple_point_pressure():
         """`Source <https://en.wikipedia.org/wiki/Water_(data_page)>`_."""
-        return 0.61173
+        return 0.00061173
 
     @staticmethod
     def triple_point_temperature():
@@ -46,7 +46,8 @@ class H2O(PR_FluidComponent):
 
 
 class NaCl(PR_SoluteComponent):
-    """Solute component representing sodium chloride.
+    """Solute component representing sodium chloride for the Peng-Robinson EoS with adaptions
+    for solutes.
 
     The physical properties and parameters are found in respective references.
 
@@ -60,7 +61,7 @@ class NaCl(PR_SoluteComponent):
     @staticmethod
     def critical_pressure():
         """`Source <https://doi.org/10.1016/j.gca.2006.01.033>`_."""
-        return 18200
+        return 18.200
 
     @staticmethod
     def critical_temperature():
@@ -70,7 +71,7 @@ class NaCl(PR_SoluteComponent):
     @staticmethod
     def triple_point_pressure():
         """`Source <https://en.wikipedia.org/wiki/Sodium_chloride_(data_page)>`_."""
-        return 0.03
+        return 0.00003
 
     @staticmethod
     def triple_point_temperature():
