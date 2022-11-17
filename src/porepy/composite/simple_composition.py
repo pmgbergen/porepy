@@ -16,14 +16,14 @@ __all__ = ["SimpleWater", "SimpleSalt", "SimpleComposition"]
 
 
 class IncompressibleFluid(Phase):
-    """Ideal, Incompressible fluid with constant density of 1e2 mol water per ``V_REF``:
+    """Ideal, Incompressible fluid with constant density of 1e6 mol water per ``V_REF``:
 
-    ``rho = 1e2 / V_REF``
+    ``rho = 1e6 / V_REF``
     ``V = V_REF``
 
     """
 
-    rho0: float = 1e2 / V_REF
+    rho0: float = 1e6 / V_REF
 
     def density(self, p, T):
         return pp.ad.Array(
@@ -48,14 +48,16 @@ class IdealGas(Phase):
     """
 
     def density(self, p, T):
-        return p / (T * R_IDEAL)
+        # pressure needs to be scaled from MPa to Pa -> *1e6
+        # R_IDEAL needs to be rescaled from kJ to J -> * 1e-3
+        return p / (T * R_IDEAL) * 1e3
 
     def specific_enthalpy(self, p, T):
         # enthalpy at reference state is
         # h = u + p / rho(p,T)
         # which due to the ideal gas law simplifies to
         # h = u + R * T
-        return H_REF + CP_REF * (T - T_REF)  # + V_REF * (p - P_REF)
+        return H_REF + CP_REF * (T - T_REF)
 
     def dynamic_viscosity(self, p, T):
         return pp.ad.Scalar(0.1)
