@@ -12,7 +12,7 @@ from .component import Component
 from .composition import Composition
 from .phase import Phase
 
-__all__ = ["SimpleComposition"]
+__all__ = ["SimpleWater", "SimpleSalt", "SimpleComposition"]
 
 
 class IncompressibleFluid(Phase):
@@ -62,6 +62,24 @@ class IdealGas(Phase):
 
     def thermal_conductivity(self, p, T):
         return pp.ad.Scalar(1.0)
+
+
+class SimpleWater(Component):
+    """Simple representation of water involving its molar mass."""
+
+    @staticmethod
+    def molar_mass():
+        """`Source <https://en.wikipedia.org/wiki/Water_vapor>`_."""
+        return 0.0180152833
+
+
+class SimpleSalt(Component):
+    """Simple representation of Sodium Chloride involving its molar mass."""
+
+    @staticmethod
+    def molar_mass():
+        """`Source <https://en.wikipedia.org/wiki/Sodium_chloride>`_."""
+        return 0.058443
 
 
 class SimpleComposition(Composition):

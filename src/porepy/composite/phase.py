@@ -184,9 +184,7 @@ class Phase(abc.ABC):
             Returns always zero if a component is not modelled (added) to this phase.
 
         """
-        return self._ext_composition.get(
-            self.component_fraction_name(component), 0.0
-        )
+        return self._ext_composition.get(self.component_fraction_name(component), 0.0)
 
     def component_fraction_name(self, component: Component) -> str:
         """
@@ -200,7 +198,9 @@ class Phase(abc.ABC):
         """
         return f"xi_{component.name}_{self.name}"
 
-    def normalized_fraction_of_component(self, component: Component) -> pp.ad.MergedVariable:
+    def normalized_fraction_of_component(
+        self, component: Component
+    ) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional

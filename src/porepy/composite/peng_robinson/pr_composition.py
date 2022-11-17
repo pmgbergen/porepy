@@ -7,51 +7,15 @@ import numpy as np
 
 import porepy as pp
 
-from ._composite_utils import R_IDEAL
-from .component import Component
-from .composition import Composition
-from .phase import Phase
+from .._composite_utils import R_IDEAL
+from ..composition import Composition
+from .pr_component import PR_Component
+from .pr_phase import PR_Phase
 
-__all__ = ["PengRobinsonComposition"]
-
-
-class PR_Phase(Phase):
-    """Representation of a phase using the Peng-Robinson EoS.
-
-    Thermodynamic properties are represented by references to callables, which are set by the
-    Peng-Robinson composition class.
-
-    This class is not intended to be used or instantiated except by the respective composition
-    class.
-
-    """
-
-    def __init__(self, name: str, ad_system: pp.ad.ADSystem) -> None:
-        super().__init__(name, ad_system)
-
-        self._h: Callable
-        self._rho: Callable
-        self._mu: Callable
-        self._kappa: Callable
-
-    def density(self, p, T):
-        X = (self.fraction_of_component(component) for component in self)
-        return self._rho(p, T, *X)
-
-    def specific_enthalpy(self, p, T):
-        X = (self.fraction_of_component(component) for component in self)
-        return self._h(p, T, *X)
-
-    def dynamic_viscosity(self, p, T):
-        X = (self.fraction_of_component(component) for component in self)
-        return self._mu(p, T, *X)
-
-    def thermal_conductivity(self, p, T):
-        X = (self.fraction_of_component(component) for component in self)
-        return self._kappa(p, T, *X)
+__all__ = ["PR_Composition"]
 
 
-class PengRobinsonComposition(Composition):
+class PR_Composition(Composition):
     """A composition modelled using the Peng-Robinson equation of state
 
         ``p = R * T / (v - b) - a / (b**2 + 2 * v * b - b**2)``,
@@ -82,7 +46,7 @@ class PengRobinsonComposition(Composition):
         super().__init__(ad_system)
 
         # setting of currently supported phases
-        self._phases: list[Phase] = [
+        self._phases: list[PR_Phase] = [
             PR_Phase("L", self.ad_system),
             PR_Phase("G", self.ad_system),
         ]
@@ -100,7 +64,7 @@ class PengRobinsonComposition(Composition):
         # name of equilibrium equation
         self._fugacity_equation: str = "flash_fugacity"
         # dictionary containing fugacity functions per component per phase
-        self._fugacities: dict[Component, dict[Phase, Callable]] = dict()
+        self._fugacities: dict[PR_Component, dict[PR_Phase, Callable]] = dict()
 
     def initialize(self) -> None:
         """Before initializing the p-h and p-T subsystems, this method additionally assigns
@@ -301,7 +265,7 @@ class PengRobinsonComposition(Composition):
 
     ### Model equations -----------------------------------------------------------------------
 
-    def get_equilibrium_equation(self, component: Component) -> pp.ad.Operator:
+    def get_equilibrium_equation(self, component: PR_Component) -> pp.ad.Operator:
         """The equilibrium equation for the Peng-Robinson EoS is defined using fugacities
 
             ``f_cG(p,T,X) * xi_cG - f_cL(p,T,X) * xi_cR = 0``,
