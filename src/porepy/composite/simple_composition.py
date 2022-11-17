@@ -94,13 +94,13 @@ class SimpleComposition(Composition):
 
         # name of equilibrium equation
         self._equilibrium: str = "flash_k-value"
-    
+
     def initialize(self) -> None:
         """Sets the equilibrium equations using constant k-values, after the super-call to the
         parent-method."""
 
         super().initialize()
-        
+
         ### equilibrium equations
         equations = dict()
         for component in self.components:
