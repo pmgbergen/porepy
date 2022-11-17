@@ -54,7 +54,7 @@ applied.
 The keys of the dictionary can be either the name of the equation, or the equation
 itself represented as an :class:`~porepy.numerics.ad.operators.Operator`. The values of
 the dictionary are DomainList, i.e., a list of grids or mortar grids.
- 
+
 This type is accepted as input to various methods and parsed to an index set
 representing a restricted image of the equation by
 :meth:`~porepy.numerics.ad.equation_system.EquationSystem._parse_equations`.
@@ -902,7 +902,7 @@ class EquationSystem:
             indices.append(var_indices)
 
         # Concatenate indices, if any
-        if indices:
+        if len(indices) > 0:
             return np.concatenate(indices, dtype=int)
         else:
             return np.array([], dtype=int)
@@ -1434,8 +1434,8 @@ class EquationSystem:
 
             # If restriction to grid-related row blocks was made,
             # perform row slicing based on information we have obtained from parsing.
-            if rows:
-                mat.append(ad.jac[rows])
+            if rows is not None:
+                mat.append(ad.jac.tocsr()[rows])
                 rhs.append(ad.val[rows])
                 block_length = len(rhs[-1])
             # If no grid-related row restriction was made, append the whole thing.
