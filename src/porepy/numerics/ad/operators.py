@@ -767,7 +767,16 @@ class Operator:
                 # Is this equivalent to the test in previous function?
                 # Loop over all subvariables for the mixed-dimensional variable
                 for i, sub_var in enumerate(variable.sub_vars):
-                    # Store dofs
+                    if sub_var.prev_time or sub_var.prev_iter:
+                        # If this is a variable representing a previous time step or
+                        # iteration, we need to get the original variable.
+                        sub_var = sub_var.original_variable
+
+                    # Get the index of this sub variable in the global numbering of the
+                    # EquationSystem. If an error message is raised that the variable is
+                    # not present in the EquationSystem, it is likely that this operator
+                    # contains a variable that is not known to the EquationSystem (it
+                    # has not passed through EquationSystem.create_variable()).
                     ind_var.append(system_manager.dofs_of([sub_var]))
                     if i == 0:
                         # Store id of variable, but only for the first one; we will
@@ -780,6 +789,11 @@ class Operator:
                     variable_ids.append(variable.id)
             else:
                 # This is a variable that lives on a single grid
+                if variable.prev_iter or variable.prev_time:
+                    # If this is a variable representing a previous time step or
+                    # iteration, we need to get the original variable.
+                    variable = variable.original_variable
+
                 ind_var.append(system_manager.dofs_of([variable]))
                 variable_ids.append(variable.id)
 
@@ -1224,8 +1238,15 @@ class Variable(Operator):
         self.prev_iter: bool = previous_iteration
         """Flag indicating if the variable represents the state at the previous iteration."""
 
-        self.id = next(Variable._ids)
+        self.id: int = next(Variable._ids)
         """ID counter. Used to identify variables during operator parsing."""
+
+        self.original_variable: Variable = None
+        """The original variable, if this variable is a copy of another variable.
+        
+        This attribute is used by the methods :meth:`Variable.previous_timestep` and
+        :meth:`Variable.previous_iteration` to keep a link to the original variable.
+        """
 
         # overwrite properties set by the parent constructor
         if isinstance(domain, pp.MortarGrid):
@@ -1286,7 +1307,10 @@ class Variable(Operator):
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
-        return Variable(self.name, ndof, self.domain, previous_timestep=True)
+        new_var = Variable(self.name, ndof, self.domain, previous_timestep=True)
+        # Assign self as the original variable.
+        new_var.original_variable = self
+        return new_var
 
     def previous_iteration(self) -> Variable:
         """Return a representation of this variable on the previous time iteration.
@@ -1296,7 +1320,10 @@ class Variable(Operator):
 
         """
         ndof = {"cells": self._cells, "faces": self._faces, "nodes": self._nodes}
-        return Variable(self.name, ndof, self.domain, previous_iteration=True)
+        new_var = Variable(self.name, ndof, self.domain, previous_iteration=True)
+        # Assign self as the original variable.
+        new_var.original_variable = self
+        return new_var
 
     def __repr__(self) -> str:
         s = f"Variable {self.name} with id {self.id}"
@@ -1348,6 +1375,13 @@ class MixedDimensionalVariable(Variable):
 
         self.prev_iter: bool = False
         """Flag indicating if the variable represents the state at the previous iteration."""
+
+        self.original_variable: MixedDimensionalVariable = None
+        """The original variable, if this variable is a copy of another variable.
+        
+        This attribute is used by the methods :meth:`Variable.previous_timestep` and
+        :meth:`Variable.previous_iteration` to keep a link to the original variable.
+        """
 
         ### PRIVATE
 
@@ -1422,6 +1456,8 @@ class MixedDimensionalVariable(Variable):
         new_subs = [var.previous_timestep() for var in self.sub_vars]
         new_var = MixedDimensionalVariable(new_subs)
         new_var.prev_time = True
+        # Assign self as the original variable.
+        new_var.original_variable = self
         return new_var
 
     def previous_iteration(self) -> MixedDimensionalVariable:
@@ -1435,6 +1471,8 @@ class MixedDimensionalVariable(Variable):
         new_subs = [var.previous_iteration() for var in self.sub_vars]
         new_var = MixedDimensionalVariable(new_subs)
         new_var.prev_iter = True
+        # Assign self as the original variable.
+        new_var.original_variable = self
         return new_var
 
     def copy(self) -> "MixedDimensionalVariable":
