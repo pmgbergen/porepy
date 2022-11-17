@@ -39,7 +39,7 @@ class PhysicalSubdomain:
     def __init__(
         self,
         grid: pp.Grid,
-        substances: pp.composite.SolidComponent,
+        substances: pp.composite.SoluteComponent,
         rel_perm_law: str,
     ) -> None:
         """Constructor using geometrical and substance information.
@@ -52,7 +52,7 @@ class PhysicalSubdomain:
         """
 
         self.grid: pp.Grid = grid
-        self.substance: pp.composite.SolidComponent = substances
+        self.substance: pp.composite.SoluteComponent = substances
 
         self.rel_perm_law = str(rel_perm_law)
 
