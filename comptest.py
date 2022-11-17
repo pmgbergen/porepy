@@ -1,7 +1,4 @@
-import sys
 from datetime import datetime
-
-sys.path.append("/mnt/c/Users/vl-work/Desktop/github/porepy/src")
 
 import porepy as pp
 
