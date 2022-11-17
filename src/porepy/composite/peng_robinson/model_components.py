@@ -3,7 +3,13 @@ from __future__ import annotations
 
 from .pr_component import PR_FluidComponent, PR_SoluteComponent
 
-__all__ = ["H2O", "NaCl"]
+__all__ = ["BINARY_INTERACTION_PARAMETERS", "H2O", "NaCl"]
+
+
+BINARY_INTERACTION_PARAMETERS: dict[tuple[str, str], float] = {
+    ("H2O", "NaCl"): 1.
+}
+"""Contains for a pair of component names (key) the respective binary interaction parameter."""
 
 
 class H2O(PR_FluidComponent):
