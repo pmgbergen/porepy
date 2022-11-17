@@ -1,7 +1,3 @@
-import sys
-
-sys.path.append("/mnt/c/Users/vl-work/Desktop/github/porepy/src")
-
 import numpy as np
 from matplotlib import pyplot as plt
 
