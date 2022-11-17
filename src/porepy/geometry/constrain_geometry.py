@@ -6,25 +6,34 @@ import numpy as np
 
 import porepy as pp
 
+from typing import Union
 
-def lines_by_polygon(poly_pts, pts, edges):
+def lines_by_polygon(
+    poly_pts: np.ndarray, pts: np.ndarray, edges: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute the intersections between a polygon (also not convex) and a set of lines.
-    The computation is done line by line to avoid the splitting of edges caused by other
-    edges. The implementation assume that the polygon and lines are on the plane (x, y).
+
+    The computation is done line by line to avoid the splitting of edges caused by
+    other edges. The implementation assumes that the polygon and lines are on the plane
+    (x, y).
 
     Parameters:
-    poly_pts (np.ndarray, 3xn or 2xn): the points that define the polygon
-    pts (np.ndarray, 3xn or 2xn): the points associated to the lines
-    edges (np.ndarray, 2xn): for each column the id of the points for the line
+        poly_pts: points defining the polygon. Shape is (3, num_points) or
+            (2, num_points).
+        pts: points associated to the lines. Shape is (3, num_points) or
+            (2, num_points).
+        edges: for each column the id of the points for the line. Shape is
+            (2, num_points).
 
     Returns:
-    int_pts (np.ndarray, 2xn): the point associated to the lines after the intersection
-    int_edges (np.ndarray, 2xn): for each column the id of the points for the line after
-        the intersection. If the input edges have tags, stored in rows [2:], these will
-        be preserved.
-    edges_kept (np.ndarray, n): Column index of the kept edges. This will have recurring
-        values if an edge is cut by a non-convex domain.
+        - Points associated to the lines after the intersection. Shape is
+          (2, num_points).
+        - For each column the id of the points for the line after the intersection.
+          If the input edges have tags, stored in rows [2:], these will be
+          preserved. Shape is (2, num_points).
+        - Column index of the kept edges. This will have recurring values if an
+          edge is cut by a non-convex domain. Shape is (num_points, ).
 
     """
     import shapely.geometry as shapely_geometry
@@ -40,7 +49,7 @@ def lines_by_polygon(poly_pts, pts, edges):
     poly = shapely_geometry.Polygon(poly_pts[:2, :].T)
 
     # Kept edges
-    edges_kept = []
+    edges_kept_aslist = []
 
     # we do the computation for each edge once at time, to avoid the splitting
     # caused by other edges.
@@ -58,28 +67,30 @@ def lines_by_polygon(poly_pts, pts, edges):
             # lines on the boundary of the polygon
             if not int_lines.touches(poly) and int_lines.length > 0:
                 int_pts = np.c_[int_pts, np.array(int_lines.xy)]
-                edges_kept.append(ei)
+                edges_kept_aslist.append(ei)
         elif type(int_lines) is shapely_geometry.MultiLineString:
             # consider the case of multiple intersections by avoiding considering
             # lines on the boundary of the polygon
             for int_line in int_lines:
                 if not int_line.touches(poly) and int_line.length > 0:
                     int_pts = np.c_[int_pts, np.array(int_line.xy)]
-                    edges_kept.append(ei)
+                    edges_kept_aslist.append(ei)
 
     # define the list of edges
     int_edges = np.arange(int_pts.shape[1]).reshape((2, -1), order="F")
 
     # Also preserve tags, if any
-    if len(edges_kept) > 0:
-        edges_kept = np.array(edges_kept)
-        edges_kept.sort()
-        int_edges = np.vstack((int_edges, edges[2:, edges_kept]))
+    if len(edges_kept_aslist) > 0:
+        edges_kept_asarray = np.array(edges_kept_aslist)
+        edges_kept_asarray.sort()
+        int_edges = np.vstack((int_edges, edges[2:, edges_kept_asarray]))
+        edges_kept = np.array(edges_kept_asarray, dtype=int)
     else:
         # If no edges are kept, return an empty array with the right dimensions
         int_edges = np.empty((edges.shape[0], 0), dtype=int)
+        edges_kept = np.array(edges_kept_aslist, dtype=int)
 
-    return int_pts, int_edges, np.array(edges_kept, dtype=int)
+    return int_pts, int_edges, edges_kept
 
 
 def polygons_by_polyhedron(polygons, polyhedron, tol=1e-8):
