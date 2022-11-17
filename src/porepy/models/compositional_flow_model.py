@@ -15,6 +15,7 @@ import scipy.sparse.linalg as spla
 
 import porepy as pp
 from porepy.composite.phase import Phase
+from porepy.composite.component import Component
 
 
 class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
@@ -54,13 +55,13 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """Timestep size."""
 
         ## Initial Conditions
-        self.initial_pressure: float = 100.
-        """Initial pressure in the domain in kPa."""
+        self.initial_pressure: float = 1.
+        """Initial pressure in the domain in MPa."""
 
         self.initial_temperature: float = 343.15  # 50 dec Celsius
-        """Initial temperature in the domain in kPa."""
+        """Initial temperature in the domain in MPa."""
 
-        self.initial_component_fractions: dict[pp.composite.Component, float] = dict()
+        self.initial_component_fractions: dict[Component, float] = dict()
         """Contains per component (key) the initial feed fraction.
 
         To be set in :meth:`set_composition`.
@@ -68,14 +69,14 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
 
         ## Injection parameters
-        self.mass_sources: dict[pp.composite.Component, float] = dict()
+        self.mass_sources: dict[Component, float] = dict()
         """Contains per component (key) the amount of injected moles.
 
         To be set in :meth:`set_composition`.
 
         """
 
-        self.enthalpy_sources: dict[pp.composite.Component, float] = dict()
+        self.enthalpy_sources: dict[Component, float] = dict()
         """Contains per component (key) the amount of injected extensive enthalpy.
 
         To be set in :meth:`set_composition`.
@@ -85,27 +86,27 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.injection_temperature = 303.16
         """Temperature of injected mass for source terms in Kelvin."""
 
-        self.injection_pressure = 150.
-        """Pressure at injection in kPA."""
+        self.injection_pressure = 2.
+        """Pressure at injection in MPA."""
         
         ## Boundary conditions
         self.boundary_temperature = 423.15  # 150 Celsius
         """Dirichlet boundary temperature in Kelvin for the conductive flux."""
-        self.outflow_boundary_pressure: float = 100.
-        """Dirichlet boundary pressure for the outflow in kPA for the advective flux."""
-        self.inflow_boundary_pressure: float = 130.
-        """Dirichlet boundary pressure for the inflow in kPa for the advective flux."""
+        self.outflow_boundary_pressure: float = 1.
+        """Dirichlet boundary pressure for the outflow in MPA for the advective flux."""
+        self.inflow_boundary_pressure: float = 2.
+        """Dirichlet boundary pressure for the inflow in MPa for the advective flux."""
         self.inflow_boundary_temperature: float = self.injection_temperature
         """Temperature at the inflow boundary for computing influxing densities."""
         self.inflow_boundary_saturations: dict[Phase, float] = dict()
         """Saturations per phase (key) at inflow boundary to computing influxing moles.
         To be set in :meth:`set_composition`.
         """
-        self.inflow_boundary_composition: dict[Phase, dict[pp.composite.Component, float]] = {}
+        self.inflow_boundary_composition: dict[Phase, dict[Component, float]] = {}
         """Composition per phase (key) to compute influxing moles.
         To be set in :meth:`set_composition`.
         """
-        self.inflow_boundary_advective_component: dict[pp.composite.Component, float] = dict()
+        self.inflow_boundary_advective_component: dict[Component, float] = dict()
         """Contains per component (key) the scalar part of the advective flux on the
         inflow boundary.
         To be set in :meth:`set_composition`.
@@ -164,8 +165,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.advective_flux: pp.ad.MpfaAd
         self.advective_upwind: pp.ad.UpwindAd
         self.advective_upwind_bc: pp.ad.BoundaryCondition
-        self.advective_upwind_component: dict[pp.composite.Component, pp.ad.UpwindAd] = dict()
-        self.advective_upwind_component_bc: dict[pp.composite.Component, pp.ad.BoundaryCondition] = dict()
+        self.advective_upwind_component: dict[Component, pp.ad.UpwindAd] = dict()
+        self.advective_upwind_component_bc: dict[Component, pp.ad.BoundaryCondition] = dict()
         self.conductive_flux: pp.ad.MpfaAd
         self.conductive_upwind: pp.ad.UpwindAd
         self.conductive_upwind_bc: pp.ad.BoundaryCondition
@@ -174,7 +175,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         ### COMPOSITION SETUP
         self.composition: pp.composite.Composition
-        self.reference_component: pp.composite.Component
+        self.reference_component: Component
         self.set_composition()
 
         ### PRIVATE
@@ -354,23 +355,6 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.composition.evaluate_saturations()
         # This corrects the initial values
         self.composition.evaluate_specific_enthalpy()
-
-    def _P_vap(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
-        """Implements vapor pressure using the Buck equation
-        
-        P_vap = 0.061121 * exp( (18.678 - T / 234.5) * ( T / (257.14 + T)) )
-        
-        where P_vap is returned in [kPa] and T given in Celsius
-        """
-        T_celsius = T - 272.15
-
-        arg = (18.678 - T_celsius / 234.5) * (T_celsius / (257.14 + T_celsius))
-
-        ad_exp = pp.ad.Function(pp.ad.exp, name="exp")
-
-        P_vap = 0.61121 * ad_exp(arg)
-        P_vap.set_name("p_vap_Buck")
-        return P_vap
 
     def prepare_simulation(self) -> None:
         """Preparing essential simulation configurations.
@@ -659,7 +643,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         Phys. Dimensions of ADVECTIVE FLUX:
 
-            - Dirichlet conditions: [kPa]
+            - Dirichlet conditions: [MPa]
             - Neumann conditions: [m^3 / m^2 s]
 
         """
@@ -686,7 +670,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         return vals
 
     def _bc_advective_weight_component(
-        self, sd: pp.Grid, component: pp.composite.Component
+        self, sd: pp.Grid, component: Component
     ) -> np.ndarray:
         """BC values for the scalar part in the advective flux in component mass balance."""
         _, _, idx_west, *_ = self._domain_boundary_sides(sd)

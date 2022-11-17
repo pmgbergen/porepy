@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 import porepy as pp
 
 ### PARAMETRIZATION
-p = 100.  # 101 kPa
+p = 0.100  # 101 kPa
 T = 343.15  # 100 deg C
 h = T + p
 salt_fraction = 0.1

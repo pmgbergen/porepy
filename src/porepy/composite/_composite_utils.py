@@ -1,20 +1,5 @@
-""" Utility functions and data for the composite submodule. The module is built around the
-assumptions made here.
-
-The composite module works (for now) with the following units as base units:
-
-| Pressure:     MPa (Mega Pascal)
-| Temperature:  K (Kelvin)
-| Mass:         mol (mol)
-| Energy:       kJ (Kilo Joule)
-| Volume:       m^3 (Cubic Meter)
-
-For the reference state, an ideal tri-atomic gas (like water), with internal energy at the
-triple point of water set to zero, was chosen.
-
-All modelled phases and components are to be modelled with respect to this reference.
-
-"""
+"""Utility functions and data for the composite submodule. The module is built around the
+assumptions made here."""
 from __future__ import annotations
 
 __all__ = [
@@ -37,18 +22,15 @@ R_IDEAL: float = 0.00831446261815324
 
 """
 
-P_REF: float = 0.611657
+P_REF: float = 0.000611657
 """The reference pressure for the composite module is set to the triple point pressure
 of pure water.
 
 This value must be used to calculate the reference state when dealing with thermodynamic
 properties.
 
-References:
-    [1] http://iapws.org/relguide/IF97-Rev.html page 7
-
 | Math. Dimension:      scalar
-| Phys. Dimension:      [kPa]
+| Phys. Dimension:      [MPa]
 
 """
 
@@ -58,9 +40,6 @@ of pure water.
 
 This value must be used to calculate the reference state when dealing with thermodynamic
 properties.
-
-References:
-    [1] http://iapws.org/relguide/IF97-Rev.html page 7
 
 | Math. Dimension:      scalar
 | Phys. Dimension:      [K]
@@ -113,8 +92,7 @@ H_REF = U_REF + P_REF / RHO_REF
 _heat_capacity_ratio: float = 8.0 / 6.0
 """Heat capacity ratio for ideal, triatomic gases."""
 
-# CP_REF: float = _heat_capacity_ratio / (_heat_capacity_ratio - 1) * R_IDEAL
-CP_REF: float = 1
+CP_REF: float = _heat_capacity_ratio / (_heat_capacity_ratio - 1) * R_IDEAL
 """The specific heat capacity at constant pressure for ideal water vapor.
 
 Water is tri-atomic and hence
@@ -122,7 +100,7 @@ Water is tri-atomic and hence
 C_P = g / (g-1) * R
 
 where g (heat capacity ratio) is set to 8/6 for triatomic molecules.
-(see https://en.wikipedia.org/wiki/Heat_capacity_ratio)
+(`see here <https://en.wikipedia.org/wiki/Heat_capacity_ratio>`_)
 
 | Math. Dimension:      scalar
 | Phys. Dimension:      [kJ / K mol]
@@ -137,7 +115,7 @@ Water is tri-atomic and hence
 C_V = 1 / (g-1) * R
 
 where g (heat capacity ratio) is set to 8/6 for triatomic molecules.
-(see https://en.wikipedia.org/wiki/Heat_capacity_ratio)
+(`see here <https://en.wikipedia.org/wiki/Heat_capacity_ratio>`_)
 
 | Math. Dimension:      scalar
 | Phys. Dimension:      [kJ / K mol]
