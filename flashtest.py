@@ -3,7 +3,6 @@ import sys
 sys.path.append("/mnt/c/Users/vl-work/Desktop/github/porepy/src")
 
 import numpy as np
-from iapws import IAPWS95
 from matplotlib import pyplot as plt
 
 import porepy as pp
@@ -23,8 +22,8 @@ dm = ad_system.dof_manager
 mdg = dm.mdg
 nc = mdg.num_subdomain_cells()
 
-water = pp.composite.H2O(ad_system)
-salt = pp.composite.NaCl(ad_system)
+water = pp.composite.SimpleWater(ad_system)
+salt = pp.composite.SimpleSalt(ad_system)
 c.add_component(water)
 c.add_component(salt)
 

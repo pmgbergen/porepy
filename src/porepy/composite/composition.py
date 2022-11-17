@@ -284,8 +284,13 @@ class Composition(abc.ABC):
 
     @property
     def num_phases(self) -> int:
-        """Number of **modelled** phases in the composition. As of now always 2."""
+        """Number of **modelled** phases in the composition."""
         return len(self._phases)
+
+    @property
+    def num_equilibrium_equations(self) -> int:
+        """Number of necessary equilibrium equations for this composition."""
+        return self.num_components * (self.num_phases - 1)
 
     @property
     def components(self) -> Generator[Component, None, None]:

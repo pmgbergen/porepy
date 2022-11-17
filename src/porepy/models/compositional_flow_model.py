@@ -242,8 +242,8 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         """
         ## creating composition
         self.composition = pp.composite.SimpleComposition(self.ad_system)
-        water = pp.composite.H2O(self.ad_system)
-        salt = pp.composite.NaCl(self.ad_system)
+        water = pp.composite.SimpleWater(self.ad_system)
+        salt = pp.composite.SimpleSalt(self.ad_system)
         L, G = (phase for phase in self.composition.phases)
         self.composition.add_component(water)
         self.composition.add_component(salt)
@@ -253,7 +253,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         initial_salt_concentration = 0.1
         k_water = 2.
         k_salt = 0.1
-        injected_moles_water = 7000.0 / pp.composite.H2O.molar_mass()
+        injected_moles_water = 7000.0 / water.molar_mass()
         # initial fractions
         self.initial_component_fractions.update({
             water: 1. - initial_salt_concentration,
