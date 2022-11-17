@@ -96,6 +96,11 @@ class PengRobinsonComposition(Composition):
         # (based on mixing-rule and present components)
         self._a: pp.ad.Operator
         self._b: pp.ad.Operator
+
+        # name of equilibrium equation
+        self._fugacity_equation: str = "flash_fugacity"
+        # dictionary containing fugacity functions per component per phase
+        self._fugacities: dict[Component, dict[Phase, Callable]] = dict()
     
     def initialize(self) -> None:
         """Before initializing the p-h and p-T subsystems, this method additionally assigns
@@ -110,9 +115,30 @@ class PengRobinsonComposition(Composition):
         ## setting callables defining the dynamic viscosity and heat conductivity of phases
         self._assign_phase_viscosities()
         self._assign_phase_conductivities()
+        ### settings callables for fugacities
+        self._assign_fugacities()
 
         # super call to initialize p-h and p-T subsystems
         super().initialize()
+
+        ### equilibrium equations
+        equations = dict()
+        for component in self.components:
+            name = f"{self._fugacity_equation}_{component.name}"
+            equ = self.get_equilibrium_equation(component)
+            equations.update({name: equ})
+
+        # append equation names to both subsystems
+        for name in equations.keys():
+            self.pT_subsystem["equations"].append(name)
+            self.ph_subsystem["equations"].append(name)
+
+        # adding equations to AD system
+        image_info = dict()
+        for sd in self.ad_system.dof_manager.mdg.subdomains():
+            image_info.update({sd: {"cells": 1}})
+        for name, equ in equations.items():
+            self.ad_system.set_equation(name, equ, num_equ_per_dof=image_info)
 
     ### EoS parameters ------------------------------------------------------------------------
 
@@ -282,6 +308,11 @@ class PengRobinsonComposition(Composition):
         respectively.
 
         """
+        pass
+
+    def _assign_fugacities(self) -> None:
+        """Creates and stores callables representing fugacities ``f_ce(p,T,X)`` per component
+        per phase."""
         pass
 
     def _assign_phase_densities(self) -> None:
