@@ -43,7 +43,7 @@ class Composition(abc.ABC):
         - feed fractions per component.
         - volumetric phase fractions (saturations)
 
-    Primary variables are fractions, i.e.
+    Primary variables are:
 
         - molar phase fractions,
         - molar component fractions in a phase,
@@ -51,7 +51,7 @@ class Composition(abc.ABC):
 
     Warning:
         The phase fraction of the reference phase,
-        as well as the regular phase composition variables
+        as well as the normalized phase composition variables
         are neither primary nor secondary. They are evaluated once the procedure converges.
         Keep this in mind when using the composition in other models, e.g. flow.
 
@@ -64,15 +64,10 @@ class Composition(abc.ABC):
 
     The specific enthalpy can be evaluated directly after a p-T flash.
 
-    References:
-        [1]: `Lauser et al. (2011) <https://doi.org/10.1016/j.advwatres.2011.04.021>`_
-        [2]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_5
-
     Parameters:
         ad_system (optional): If given, this class will use this AD system and the respective
             mixed-dimensional domain to represent all involved variables cell-wise in each
             subdomain.
-
             If not given (None), a single-cell domain and respective AD system are created.
 
     """
@@ -289,7 +284,8 @@ class Composition(abc.ABC):
 
     @property
     def num_equilibrium_equations(self) -> int:
-        """Number of necessary equilibrium equations for this composition."""
+        """Number of necessary equilibrium equations for this composition, based on the number
+        of added components and modelled phases."""
         return self.num_components * (self.num_phases - 1)
 
     @property
