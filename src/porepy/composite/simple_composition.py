@@ -58,10 +58,10 @@ class IdealGas(Phase):
         return H_REF + CP_REF * (T - T_REF)  # + V_REF * (p - P_REF)
 
     def dynamic_viscosity(self, p, T):
-        return pp.ad.Scalar(1.0)
+        return pp.ad.Scalar(0.1)
 
     def thermal_conductivity(self, p, T):
-        return pp.ad.Scalar(1.0)
+        return pp.ad.Scalar(0.1)
 
 
 class SimpleWater(Component):
