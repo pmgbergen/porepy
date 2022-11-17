@@ -8,8 +8,8 @@ import numpy as np
 import porepy as pp
 
 from ._composite_utils import R_IDEAL
-from .composition import Composition
 from .component import Component
+from .composition import Composition
 from .phase import Phase
 
 __all__ = ["PengRobinsonComposition"]
@@ -17,7 +17,7 @@ __all__ = ["PengRobinsonComposition"]
 
 class PR_Phase(Phase):
     """Representation of a phase using the Peng-Robinson EoS.
-    
+
     Thermodynamic properties are represented by references to callables, which are set by the
     Peng-Robinson composition class.
 
@@ -33,7 +33,7 @@ class PR_Phase(Phase):
         self._rho: Callable
         self._mu: Callable
         self._kappa: Callable
-    
+
     def density(self, p, T):
         X = (self.ext_fraction_of_component(component) for component in self)
         return self._rho(p, T, *X)
@@ -101,7 +101,7 @@ class PengRobinsonComposition(Composition):
         self._fugacity_equation: str = "flash_fugacity"
         # dictionary containing fugacity functions per component per phase
         self._fugacities: dict[Component, dict[Phase, Callable]] = dict()
-    
+
     def initialize(self) -> None:
         """Before initializing the p-h and p-T subsystems, this method additionally assigns
         callables for thermodynamic properties of phases, according to the equation of state
@@ -241,7 +241,9 @@ class PengRobinsonComposition(Composition):
     @property
     def _R(self) -> pp.ad.Operator:
         """Intermediate coefficient for the cubic formula."""
-        return (9 * self.c2 * self.c1 - 27 * self.c0 - 2 * self.c2 * self.c2 * self.c2) / 54
+        return (
+            9 * self.c2 * self.c1 - 27 * self.c0 - 2 * self.c2 * self.c2 * self.c2
+        ) / 54
 
     @property
     def _D(self) -> pp.ad.Operator:
@@ -261,8 +263,8 @@ class PengRobinsonComposition(Composition):
         R = self._R.evaluate(self.ad_system.dof_manager).val
         D = self._D.evaluate(self.ad_system.dof_manager).val
         c2 = self.c2.evaluate(self.ad_system.dof_manager).val
-        S = np.power(R + np.power(D, .5, dtype=complex), 1 / 3, dtype=complex)
-        T = np.power(R - np.power(D, .5, dtype=complex), 1 / 3, dtype=complex)
+        S = np.power(R + np.power(D, 0.5, dtype=complex), 1 / 3, dtype=complex)
+        T = np.power(R - np.power(D, 0.5, dtype=complex), 1 / 3, dtype=complex)
 
         # based on the sign of the discriminant, we distinguish the regions
         # note that this discriminant uses a different sign convention than the standard one.
@@ -301,9 +303,9 @@ class PengRobinsonComposition(Composition):
 
     def get_equilibrium_equation(self, component: Component) -> pp.ad.Operator:
         """The equilibrium equation for the Peng-Robinson EoS is defined using fugacities
-        
+
             ``f_cG(p,T,X) * xi_cG - f_cL(p,T,X) * xi_cR = 0``,
-        
+
         where ``f_cG, f_cR`` are fugacities for component ``c`` in gaseous and liquid phase
         respectively.
 
@@ -333,19 +335,19 @@ class PengRobinsonComposition(Composition):
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._rho = _rho_L
         self._phases[1]._rho = _rho_G
-    
+
     def _assign_phase_viscosities(self) -> None:
         """Constructs callable objects representing phase dynamic viscosities and assigns them
         to the ``PR_Phase``-classes.
-        
+
         WIP: Assigns currently only unity TODO
         """
 
         def _mu_L(p, T, *X):
-            return pp.ad.Scalar(1.)
+            return pp.ad.Scalar(1.0)
 
         def _mu_G(p, T, *X):
-            return pp.ad.Scalar(1.)
+            return pp.ad.Scalar(1.0)
 
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._mu = _mu_L
@@ -354,15 +356,15 @@ class PengRobinsonComposition(Composition):
     def _assign_phase_conductivities(self) -> None:
         """Constructs callable objects representing phase conductivities and assigns them
         to the ``PR_Phase``-classes.
-        
+
         WIP: Assigns currently only unity TODO
         """
 
         def _kappa_L(p, T, *X):
-            return pp.ad.Scalar(1.)
+            return pp.ad.Scalar(1.0)
 
         def _kappa_G(p, T, *X):
-            return pp.ad.Scalar(1.)
+            return pp.ad.Scalar(1.0)
 
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._kappa = _kappa_L

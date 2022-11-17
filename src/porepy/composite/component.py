@@ -247,6 +247,7 @@ class Component(abc.ABC):
         pass
 
     ## thd-dependent properties ---------------------------------------------------------------
+
     # NOTE: In a mixture, it makes little sense to talk about these properties,
     # since they are part of a phase.
     # The phase must have representations of these properties, depending on the applied EoS.
@@ -303,6 +304,7 @@ class Component(abc.ABC):
     #     """
     #     pass
 
+
 class FluidComponent(Component):
     """Intermediate abstraction layer for components which are only expected in the fluid.
 
@@ -310,6 +312,7 @@ class FluidComponent(Component):
     of component.
 
     """
+
     pass
 
     # @abc.abstractmethod
@@ -336,6 +339,7 @@ class SolidComponent(Component):
     of component.
 
     """
+
     pass
 
     # @staticmethod

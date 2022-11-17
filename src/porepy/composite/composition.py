@@ -366,7 +366,7 @@ class Composition(abc.ABC):
 
         Every derived composition class has to override this method and implement the setting
         of class-specific equilibrium equations.
-        
+
         After a a super-call to ``initialize``, the equations must be set in the AD system
         and stored in respective subsystem dictionaries using the keyword ``'equations'``
 

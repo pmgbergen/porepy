@@ -125,8 +125,7 @@ class Phase(abc.ABC):
 
     @property
     def fraction_name(self) -> str:
-        """Name for the molar fraction variable, given by the general symbol and :meth:`name`.
-        """
+        """Name for the molar fraction variable, given by the general symbol and phase name."""
         return f"y_{self.name}"
 
     @property
