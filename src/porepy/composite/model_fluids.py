@@ -22,20 +22,20 @@ class H2O(FluidComponent):
 
     @staticmethod
     def critical_pressure():
-        """`Source <https://en.wikipedia.org/wiki/Critical_point_(thermodynamics)>`_."""
-        return 22.064
+        """`Source <https://doi.org/10.1016/j.gca.2006.01.033>`_."""
+        return 22060
 
     @staticmethod
     def critical_temperature():
-        """`Source <https://en.wikipedia.org/wiki/Critical_point_(thermodynamics)>`_."""
+        """`Source <https://doi.org/10.1016/j.gca.2006.01.033>`_."""
         return 647.096
 
     @staticmethod
     def triple_point_pressure():
-        """`Source <https://en.wikipedia.org/wiki/Triple_point#Triple_point_of_water>`_."""
-        return 0.611657
+        """`Source <https://en.wikipedia.org/wiki/Water_(data_page)>`_."""
+        return 0.61173
 
     @staticmethod
     def triple_point_temperature():
-        """`Source <https://en.wikipedia.org/wiki/Triple_point#Triple_point_of_water>`_."""
+        """`Source <https://en.wikipedia.org/wiki/Water_(data_page)>`_."""
         return 273.1600
