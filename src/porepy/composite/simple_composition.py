@@ -132,9 +132,9 @@ class SimpleComposition(Composition):
             AD operator representing the left-hand side of the equation (rhs=0).
 
         """
-        equation = self._phases[1].ext_fraction_of_component(component) - self.k_values[
+        equation = self._phases[1].fraction_of_component(component) - self.k_values[
             component
-        ] * self._phases[0].ext_fraction_of_component(component)
+        ] * self._phases[0].fraction_of_component(component)
         return equation
 
     def _set_initial_guess(self, initial_guess: str) -> None:
@@ -155,11 +155,11 @@ class SimpleComposition(Composition):
                 xi_c_V = k_val * xi_c_L
 
                 self.ad_system.set_var_values(
-                    liquid.ext_component_fraction_name(component),
+                    liquid.component_fraction_name(component),
                     xi_c_L,
                 )
                 self.ad_system.set_var_values(
-                    gas.ext_component_fraction_name(component),
+                    gas.component_fraction_name(component),
                     xi_c_V,
                 )
             # for an initial guess for gas fraction we take the feed of the reference component
@@ -213,16 +213,16 @@ class SimpleComposition(Composition):
         )
         print("---")
         for C in self.components:
-            name = L.ext_component_fraction_name(C)
-            print(name, self.ad_system.get_var_values(name, from_iterate))
-        for C in self.components:
-            name = G.ext_component_fraction_name(C)
-            print(name, self.ad_system.get_var_values(name, from_iterate))
-        print("---")
-        for C in self.components:
             name = L.component_fraction_name(C)
             print(name, self.ad_system.get_var_values(name, from_iterate))
         for C in self.components:
             name = G.component_fraction_name(C)
+            print(name, self.ad_system.get_var_values(name, from_iterate))
+        print("---")
+        for C in self.components:
+            name = L.normalized_component_fraction_name(C)
+            print(name, self.ad_system.get_var_values(name, from_iterate))
+        for C in self.components:
+            name = G.normalized_component_fraction_name(C)
             print(name, self.ad_system.get_var_values(name, from_iterate))
         print("---")

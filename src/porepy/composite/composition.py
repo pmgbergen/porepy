@@ -467,7 +467,7 @@ class Composition(abc.ABC):
                 ph_subsystem["secondary_vars"].append(phase.fraction_name)
             # phase composition
             for component in phase:
-                var_name = phase.ext_component_fraction_name(component)
+                var_name = phase.component_fraction_name(component)
                 pT_subsystem["primary_vars"].append(var_name)
                 ph_subsystem["primary_vars"].append(var_name)
         # for the p-h flash, T is an additional var
@@ -694,7 +694,7 @@ class Composition(abc.ABC):
             xi_e = list()
             for comp_c in phase_e:
                 xi_ce = self.ad_system.get_var_values(
-                    phase_e.ext_component_fraction_name(comp_c)
+                    phase_e.component_fraction_name(comp_c)
                 )
                 xi_e.append(xi_ce)
             sum_xi_e = sum(xi_e)
@@ -710,12 +710,12 @@ class Composition(abc.ABC):
                 chi_ce[chi_ce > 1.0] = 1.0
                 # write values
                 self.ad_system.set_var_values(
-                    phase_e.ext_component_fraction_name(comp_c),
+                    phase_e.component_fraction_name(comp_c),
                     xi_ce,
                     copy_to_state,
                 )
                 self.ad_system.set_var_values(
-                    phase_e.component_fraction_name(comp_c),
+                    phase_e.normalized_component_fraction_name(comp_c),
                     chi_ce,
                     copy_to_state,
                 )
@@ -746,17 +746,17 @@ class Composition(abc.ABC):
         # z_c
         equation = component.fraction
         if eliminate_ref_phase:
-            chi_cR = self.reference_phase.ext_fraction_of_component(component)
+            chi_cR = self.reference_phase.fraction_of_component(component)
             # z_c  - chi_cR
             equation -= chi_cR
             # - sum_{e != R} y_e * (chi_ce - chi_cR)
             for phase in self.phases:
                 if phase != self.reference_phase:
-                    chi_ce = phase.ext_fraction_of_component(component)
+                    chi_ce = phase.fraction_of_component(component)
                     equation -= phase.fraction * (chi_ce - chi_cR)
         else:
             for phase in self.phases:
-                chi_ce = phase.ext_fraction_of_component(component)
+                chi_ce = phase.fraction_of_component(component)
                 equation -= phase.fraction * chi_ce
 
         return equation
@@ -924,7 +924,7 @@ class Composition(abc.ABC):
         equation = pp.ad.Scalar(1.0)
 
         for component in phase:
-            equation -= phase.ext_fraction_of_component(component)
+            equation -= phase.fraction_of_component(component)
 
         return equation
 
@@ -1066,7 +1066,7 @@ class Composition(abc.ABC):
                 val = 1.0 / phase.num_components
                 for component in self.components:
                     self.ad_system.set_var_values(
-                        phase.ext_component_fraction_name(component),
+                        phase.component_fraction_name(component),
                         val * np.ones(nc),
                     )
 
