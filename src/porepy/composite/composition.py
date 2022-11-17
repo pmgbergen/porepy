@@ -140,7 +140,6 @@ class Composition(abc.ABC):
         self._phase_fraction_unity: str = "flash_phase_unity"
         self._complementary: str = "flash_KKT"  # complementary conditions
         self._enthalpy_constraint: str = "flash_h_constraint"  # for p-h flash
-        self._equilibrium: str = "flash_equilibrium"  # equilibrium equations
 
         # semi-smooth min operator for KKT condition
         self._ss_min: pp.ad.Operator = pp.ad.SemiSmoothMin()
@@ -365,6 +364,12 @@ class Composition(abc.ABC):
         This is the last step before a flash method should be called.
         It creates the system of equations and the two subsystems for the p-T and p-h flash.
 
+        Every derived composition class has to override this method and implement the setting
+        of class-specific equilibrium equations.
+        
+        After a a super-call to ``initialize``, the equations must be set in the AD system
+        and stored in respective subsystem dictionaries using the keyword ``'equations'``
+
         """
         # allocating place for the subsystem
         equations = dict()
@@ -387,14 +392,6 @@ class Composition(abc.ABC):
                 equations.update({name: equation})
                 pT_subsystem["equations"].append(name)
                 ph_subsystem["equations"].append(name)
-
-        ### equilibrium equations
-        for component in self.components:
-            name = f"{self._equilibrium}_{component.name}"
-            equ = self.get_equilibrium_equation(component)
-            equations.update({name: equ})
-            pT_subsystem["equations"].append(name)
-            ph_subsystem["equations"].append(name)
 
         ### enthalpy constraint for p-H flash
         equation = self.get_enthalpy_constraint(True)

@@ -92,6 +92,34 @@ class SimpleComposition(Composition):
 
         """
 
+        # name of equilibrium equation
+        self._equilibrium: str = "flash_k-value"
+    
+    def initialize(self) -> None:
+        """Sets the equilibrium equations using constant k-values, after the super-call to the
+        parent-method."""
+
+        super().initialize()
+        
+        ### equilibrium equations
+        equations = dict()
+        for component in self.components:
+            name = f"{self._equilibrium}_{component.name}"
+            equ = self.get_equilibrium_equation(component)
+            equations.update({name: equ})
+
+        # append equation names to both subsystems
+        for name in equations.keys():
+            self.pT_subsystem["equations"].append(name)
+            self.ph_subsystem["equations"].append(name)
+
+        # adding equations to AD system
+        image_info = dict()
+        for sd in self.ad_system.dof_manager.mdg.subdomains():
+            image_info.update({sd: {"cells": 1}})
+        for name, equ in equations.items():
+            self.ad_system.set_equation(name, equ, num_equ_per_dof=image_info)
+
     def get_equilibrium_equation(self, component: Component) -> pp.ad.Operator:
         """Constant k-value equations for a given component.
 
