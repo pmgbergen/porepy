@@ -7,15 +7,18 @@ since the user is not supposed to be able to create phase classes, only the comp
 from __future__ import annotations
 
 import abc
-from typing import Generator
+from typing import Generator, Union
 
 import numpy as np
 
 import porepy as pp
 
-from .component import Component, VarLike
+from .component import Component
 
 __all__ = ["Phase"]
+
+VarLike = Union[pp.ad.MergedVariable, pp.ad.Variable, pp.ad.Operator, float, int]
+"""Union type representing variable input for thermodynamic properties."""
 
 
 class Phase(abc.ABC):
@@ -245,6 +248,9 @@ class Phase(abc.ABC):
 
         If a component was already added, nothing happens. Components appear uniquely in a
         phase.
+
+        This design choice enables the association 'component in phase', as well as proper
+        storage of related, fractional variables.
 
         Parameters:
             a component, or list of components, which are expected in this phase.

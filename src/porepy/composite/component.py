@@ -5,13 +5,10 @@ used in this framework.
 from __future__ import annotations
 
 import abc
-from typing import Union
 
 import porepy as pp
 
 __all__ = ["Component", "FluidComponent", "SolidComponent"]
-
-VarLike = Union[pp.ad.MergedVariable, pp.ad.Variable, pp.ad.Operator, float, int]
 
 
 class Component(abc.ABC):
@@ -105,21 +102,7 @@ class Component(abc.ABC):
         return self._fraction
 
     ### PHYSICAL PROPERTIES -------------------------------------------------------------------
-
-    def mass_density(self, p: VarLike, T: VarLike) -> VarLike:
-        """Uses the molar mass and molar density to compute the mass density.
-
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [kg / REV]
-
-        Parameters:
-            p: pressure
-            T: temperature
-
-        Returns: mass density.
-
-        """
-        return self.molar_mass() * self.density(p, T)
+    ## constants ------------------------------------------------------------------------------
 
     @staticmethod
     @abc.abstractmethod
@@ -133,64 +116,6 @@ class Component(abc.ABC):
 
         """
         pass
-
-    @abc.abstractmethod
-    def density(self, p: VarLike, T: VarLike) -> VarLike:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [mol / REV]
-
-        Parameters:
-            p: pressure
-            T: temperature
-
-        Returns: molar density.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def Fick_diffusivity(self, p: VarLike, T: VarLike) -> VarLike:
-        """
-        Notes:
-            This can also be a tensor and will be submitted respective changes in the future.
-
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        m^2 / s
-
-        Parameters:
-            p: pressure
-            T: temperature
-
-        Returns: Fick diffusivity coefficient.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def thermal_conductivity(self, p: VarLike, T: VarLike) -> VarLike:
-        """
-        Notes:
-            This can also be a tensor and will be submitted respective changes in the future.
-
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [W / m / K]
-
-        Parameters:
-            p: pressure
-            T: temperature
-
-        Returns: thermal conductivity for Fourier's law.
-
-        """
-        pass
-
-
-class FluidComponent(Component):
-    """Extends the list of necessary physical attributes for components by those which are
-    usually used for fluids in flow problems.
-
-    """
 
     @staticmethod
     @abc.abstractmethod
@@ -248,51 +173,193 @@ class FluidComponent(Component):
         """
         pass
 
-    @abc.abstractmethod
-    def dynamic_viscosity(self, p: VarLike, T: VarLike) -> VarLike:
-        """
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [Pa s] = [kg / m / s]
+    ## thd-dependent properties ---------------------------------------------------------------
 
-        Args:
+    # NOTE: In a mixture, it makes no sense to talk about these properties per sense. They are
+    # usually given per phase using a specific EoS and mixing rule. Also, in all flash and flow
+    # models these properties usually appear only per phase. We nevertheless leave them here
+    # for the future, just in case.
+
+    # def mass_density(self, p: VarLike, T: VarLike) -> VarLike:
+    #     """Uses the molar mass and molar density to compute the mass density.
+
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        [kg / REV]
+
+    #     Parameters:
+    #         p: pressure
+    #         T: temperature
+
+    #     Returns: mass density.
+
+    #     """
+    #     return self.molar_mass() * self.density(p, T)
+
+    # @abc.abstractmethod
+    # def density(self, p: VarLike, T: VarLike) -> VarLike:
+    #     """
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        [mol / REV]
+
+    #     Parameters:
+    #         p: pressure
+    #         T: temperature
+
+    #     Returns: molar density.
+
+    #     """
+    #     pass
+
+    # @abc.abstractmethod
+    # def Fick_diffusivity(self, p: VarLike, T: VarLike) -> VarLike:
+    #     """
+    #     Notes:
+    #         This can also be a tensor and will be submitted respective changes in the future.
+
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        m^2 / s
+
+    #     Parameters:
+    #         p: pressure
+    #         T: temperature
+
+    #     Returns: Fick diffusivity coefficient.
+
+    #     """
+    #     pass
+
+    # @abc.abstractmethod
+    # def thermal_conductivity(self, p: VarLike, T: VarLike) -> VarLike:
+        """
+        Notes:
+            This can also be a tensor and will be submitted respective changes in the future.
+
+        | Math. Dimension:        scalar
+        | Phys. Dimension:        [W / m / K]
+
+        Parameters:
             p: pressure
             T: temperature
 
-        Returns: dynamic viscosity.
+        Returns: thermal conductivity for Fourier's law.
 
         """
         pass
+
+    ## thd-dependent properties ---------------------------------------------------------------
+    # NOTE: In a mixture, it makes little sense to talk about these properties,
+    # since they are part of a phase.
+    # The phase must have representations of these properties, depending on the applied EoS.
+    # We nevertheless leave them here, for legacy reasons.
+
+    # def mass_density(self, p: VarLike, T: VarLike) -> VarLike:
+    #     """Uses the molar mass and molar density to compute the mass density.
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        [kg / REV]
+    #     Parameters:
+    #         p: pressure
+    #         T: temperature
+    #     Returns: mass density.
+    #     """
+    #     return self.molar_mass() * self.density(p, T)
+
+    # @abc.abstractmethod
+    # def density(self, p: VarLike, T: VarLike) -> VarLike:
+    #     """
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        [mol / REV]
+    #     Parameters:
+    #         p: pressure
+    #         T: temperature
+    #     Returns: molar density.
+    #     """
+    #     pass
+
+    # @abc.abstractmethod
+    # def Fick_diffusivity(self, p: VarLike, T: VarLike) -> VarLike:
+    #     """
+    #     Notes:
+    #         This can also be a tensor and will be submitted respective changes in the future.
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        m^2 / s
+    #     Parameters:
+    #         p: pressure
+    #         T: temperature
+    #     Returns: Fick diffusivity coefficient.
+    #     """
+    #     pass
+
+    # @abc.abstractmethod
+    # def thermal_conductivity(self, p: VarLike, T: VarLike) -> VarLike:
+    #     """
+    #     Notes:
+    #         This can also be a tensor and will be submitted respective changes in the future.
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        [W / m / K]
+    #     Parameters:
+    #         p: pressure
+    #         T: temperature
+    #     Returns: thermal conductivity for Fourier's law.
+    #     """
+    #     pass
+
+class FluidComponent(Component):
+    """Intermediate abstraction layer for components which are only expected in the fluid.
+
+    Serves for the abstraction of properties which are usually only associated with this type
+    of component.
+
+    """
+    pass
+
+    # @abc.abstractmethod
+    # def dynamic_viscosity(self, p: VarLike, T: VarLike) -> VarLike:
+    #     """
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        [Pa s] = [kg / m / s]
+
+    #     Args:
+    #         p: pressure
+    #         T: temperature
+
+    #     Returns: dynamic viscosity.
+
+    #     """
+    #     pass
 
 
 class SolidComponent(Component):
-    """Extends the list of necessary physical attributes for components by those which are
-    usually used for solids in elasticity and plasticity problems, or which are used to
-    for the porous medium.
+    """Intermediate abstraction layer for components which are only expected as solutes or
+    elements of the porous medium.
+
+    Serves for the abstraction of properties which are usually only associated with this type
+    of component.
 
     """
+    pass
 
-    @staticmethod
-    @abc.abstractmethod
-    def base_porosity() -> float:
-        """Constant value, hence to be a static function.
+    # @staticmethod
+    # @abc.abstractmethod
+    # def base_porosity() -> float:
+    #     """Constant value, hence to be a static function.
 
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [-] fractional
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        [-] fractional
 
-        Returns: base porosity of the material.
+    #     Returns: base porosity of the material.
 
-        """
-        pass
+    #     """
+    #     pass
 
-    @staticmethod
-    @abc.abstractmethod
-    def base_permeability() -> float:
-        """Constant value, hence to be a static function.
+    # @staticmethod
+    # @abc.abstractmethod
+    # def base_permeability() -> float:
+    #     """Constant value, hence to be a static function.
 
-        | Math. Dimension:        scalar
-        | Phys. Dimension:        [m^2] ( [Darcy] not official SI unit)
+    #     | Math. Dimension:        scalar
+    #     | Phys. Dimension:        [m^2] ( [Darcy] not official SI unit)
 
-        Returns: base permeability of the material.
+    #     Returns: base permeability of the material.
 
-        """
-        pass
+    #     """
+    #     pass
