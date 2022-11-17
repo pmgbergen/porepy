@@ -8,8 +8,6 @@ scaling/rounding errors and condition numbers.
 """
 from typing import Optional
 
-import numpy as np
-
 import porepy as pp
 
 number = pp.number
@@ -25,9 +23,13 @@ class Material:
     solids.
     """
 
-    def __init__(self, units: pp.Units) -> None:
+    def __init__(self, constants: dict, units: Optional[pp.Units] = None) -> None:
+        # Default units are SI
+        if units is None:
+            units = pp.Units()
         self._units = units
         """Units of the material."""
+        self._constants = constants
 
     @property
     def units(self):
@@ -49,7 +51,19 @@ class Material:
         """
         self._units = units
 
-    def convert_units(self, value: number, units: str, to_si: Optional[bool]=False) -> number:
+    @property
+    def constants(self):
+        """Constants of the material.
+
+        Returns:
+            Dictionary of constants.
+
+        """
+        return self._constants
+
+    def convert_units(
+        self, value: number, units: str, to_si: Optional[bool] = False
+    ) -> number:
         """Convert value between SI and user specified units.
 
         The method divides the value by the units as defined by the user. As an example, if
@@ -107,31 +121,36 @@ class UnitFluid(Material):
         the material classes.
     """
 
-    THERMAL_EXPANSION: number = 1.0 / pp.KELVIN
-    DENSITY: number = 1.0 * pp.KILOGRAM / pp.METER**3
-    VISCOSITY: number = 1.0 * pp.PASCAL * pp.SECOND
-    COMPRESSIBILITY: number = 1.0 / pp.PASCAL
+    def __init__(
+        self, constants: Optional[dict] = None, units: Optional[pp.Units] = None
+    ):
+        default_constants = {
+            "thermal_expansion": 1,
+            "density": 1,
+            "viscosity": 1,
+            "compressibility": 1,
+        }
+        if constants is not None:
+            default_constants.update(constants)
+        super().__init__(default_constants, units)
 
-    def __init__(self, units: pp.Units):
-        super().__init__(units)
-
-    def density(self)-> number:
+    def density(self) -> number:
         """Density [kg/m^3].
 
         Returns:
             Cell-wise density array.
 
         """
-        return self.convert_units(self.DENSITY, "kg * m^-3")
+        return self.convert_units(self.constants["density"], "kg * m^-3")
 
-    def thermal_expansion(self)-> number:
+    def thermal_expansion(self) -> number:
         """Thermal expansion coefficient [1/K].
 
         Returns:
             Cell-wise thermal expansion coefficient array.
 
         """
-        return self.convert_units(self.THERMAL_EXPANSION, "K^-1")
+        return self.convert_units(self.constants["thermal_expansion"], "K^-1")
 
     def viscosity(self) -> pp.ad.Operator:
         """Viscosity [Pa s].
@@ -140,16 +159,16 @@ class UnitFluid(Material):
             Cell-wise viscosity array.
 
         """
-        return self.convert_units(self.VISCOSITY, "Pa*s")
+        return self.convert_units(self.constants["viscosity"], "Pa*s")
 
-    def compressibility(self)-> number:
+    def compressibility(self) -> number:
         """Compressibility [1/Pa].
 
         Returns:
             Cell-wise compressibility array.
 
         """
-        return self.convert_units(self.COMPRESSIBILITY, "Pa^-1")
+        return self.convert_units(self.constants["compressibility"], "Pa^-1")
 
 
 class UnitSolid(Material):
@@ -159,19 +178,24 @@ class UnitSolid(Material):
 
     """
 
-    THERMAL_EXPANSION: number = 1.0 / pp.KELVIN
-    DENSITY: number = 1.0 * pp.KILOGRAM / pp.METER**3
-    POROSITY: number = 0.2
-    PERMEABILITY: number = 1.0 * pp.METER**2
-    NORMAL_PERMEABILITY: number = 1.0 * pp.METER**2
-    LAME_LAMBDA: number = 1.0 * pp.PASCAL
-    SHEAR_MODULUS: number = 1.0 * pp.PASCAL
-    FRICTION_COEFFICIENT: number = 1.0
-    FRACTURE_GAP: number = 0.0 * pp.METER
-    DILATION_ANGLE: number = 0.0 * pp.RADIAN
-
-    def __init__(self, units):
-        super().__init__(units)
+    def __init__(
+        self, constants: Optional[dict] = None, units: Optional[pp.Units] = None
+    ):
+        default_constants = {
+            "thermal_expansion": 1,
+            "density": 1,
+            "porosity": 0.2,
+            "permeability": 1,
+            "normal_permeability": 1,
+            "lame_lambda": 1,
+            "shear_modulus": 1,
+            "friction_coefficient": 1,
+            "fracture_gap": 0,
+            "dilation_angle": 0,
+        }
+        if constants is not None:
+            default_constants.update(constants)
+        super().__init__(default_constants, units)
 
     def density(self):
         """Density [kg/m^3].
@@ -180,83 +204,83 @@ class UnitSolid(Material):
             Cell-wise density array.
 
         """
-        return self.convert_units(self.DENSITY, "kg * m^-3")
+        return self.convert_units(self.constants["density"], "kg * m^-3")
 
-    def thermal_expansion(self)-> number:
+    def thermal_expansion(self) -> number:
         """Thermal expansion coefficient [1/K].
 
         Returns:
             Cell-wise thermal expansion coefficient.
         """
-        return self.convert_units(self.THERMAL_EXPANSION, "K^-1")
+        return self.convert_units(self.constants["thermal_expansion"], "K^-1")
 
-    def normal_permeability(self)-> number:
+    def normal_permeability(self) -> number:
         """Normal permeability [m^2].
 
         Returns:
             Face-wise normal permeability.
 
         """
-        return self.convert_units(self.NORMAL_PERMEABILITY, "m^2")
+        return self.convert_units(self.constants["normal_permeability"], "m^2")
 
-    def porosity(self)-> number:
+    def porosity(self) -> number:
         """Porosity [-].
 
         Returns:
             Cell-wise porosity.
 
         """
-        return self.convert_units(self.POROSITY, "-")
+        return self.convert_units(self.constants["porosity"], "-")
 
-    def permeability(self)-> number:
+    def permeability(self) -> number:
         """Permeability [m^2].
 
         Returns:
             Cell-wise permeability.
 
         """
-        return self.convert_units(self.PERMEABILITY, "m^2")
+        return self.convert_units(self.constants["permeability"], "m^2")
 
-    def shear_modulus(self)-> number:
+    def shear_modulus(self) -> number:
         """Young's modulus [Pa].
 
         Returns:
             Cell-wise shear modulus.
 
         """
-        return self.convert_units(self.SHEAR_MODULUS, "Pa")
+        return self.convert_units(self.constants["shear_modulus"], "Pa")
 
-    def lame_lambda(self)-> number:
+    def lame_lambda(self) -> number:
         """Lame's first parameter [Pa].
-s
-        Returns:
-            Cell-wise Lame's first parameter.
+        s
+                Returns:
+                    Cell-wise Lame's first parameter.
         """
-        return self.convert_units(self.LAME_LAMBDA, "Pa")
+        return self.convert_units(self.constants["lame_lambda"], "Pa")
 
-    def gap(self)-> number:
+    def gap(self) -> number:
         """Fracture gap [m].
 
         Returns:
             Cell-wise fracture gap.
 
         """
-        return self.convert_units(self.FRACTURE_GAP, "m")
+        return self.convert_units(self.constants["fracture_gap"], "m")
 
-    def friction_coefficient(self)-> number:
+    def friction_coefficient(self) -> number:
         """Friction coefficient [-].
 
         Returns:
             Cell-wise friction coefficient.
 
         """
-        return self.convert_units(self.FRICTION_COEFFICIENT, "-")
+        return self.convert_units(self.constants["friction_coefficient"], "-")
 
-    def dilation_angle(self)-> number:
+    def dilation_angle(self) -> number:
         """Dilation angle [rad].
 
         Returns:
             Cell-wise dilation angle.
 
         """
-        return self.convert_units(self.DILATION_ANGLE, "rad")
+        return self.convert_units(self.constants["dilation_angle"], "rad")

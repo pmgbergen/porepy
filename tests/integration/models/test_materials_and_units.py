@@ -3,10 +3,10 @@ Constitutive library tests.
     - Units
        - Setting default and modified unit objects
        - Relationships between base and derived units
-    - Constitutive models TODO
     - Material properties
         - Unit conversion
-        - Value expansion TODO
+        - Default values
+        - Setting modified values TODO
 """
 import numpy as np
 import pytest
@@ -29,13 +29,13 @@ def subdomains() -> list[pp.Grid]:
 @pytest.fixture
 def base_units() -> list[str]:
     """Create a list of base units defined in Units."""
-    return ["m", "kg", "s", "K", "mol"]
+    return ["m", "kg", "s", "K", "mol", "rad"]
 
 
 @pytest.fixture
 def derived_units() -> list[str]:
     """Create a list of derived units defined in Units."""
-    return ["Pa", "N", "J", "W"]
+    return ["Pa", "N", "J", "W", "degree"]
 
 
 def test_default_units(base_units, derived_units):
@@ -50,7 +50,11 @@ def test_default_units(base_units, derived_units):
     units = pp.Units()
     for unit in base_units + derived_units:
         assert hasattr(units, unit)
-        assert np.isclose(getattr(units, unit), 1)
+        if unit == "degree":
+            # Only one derived unit with a different default value
+            assert np.isclose(getattr(units, unit), 180 / np.pi)
+        else:
+            assert np.isclose(getattr(units, unit), 1)
 
     # Get list of all public attributes
     attributes = [attr for attr in dir(units) if not attr.startswith("_")]
@@ -59,7 +63,7 @@ def test_default_units(base_units, derived_units):
         assert attr in base_units + derived_units
 
     # Check that instantiating with invalid unit name raises an error
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         pp.Units(invalid_unit=1)
     # Check that instantiating with invalid unit value raises an error
     with pytest.raises(ValueError):
@@ -98,7 +102,9 @@ def test_modified_units(modify_dict, derived_units, base_units):
     assert np.isclose(units.W, units.kg * units.m**2 / units.s**3)
     # And in derived units
     assert np.isclose(units.W, units.J / units.s)
-    units_covered = ["Pa", "N", "J", "W"]
+    # Test degree in base units
+    assert np.isclose(units.degree, units.rad * 180 / np.pi)
+    units_covered = ["Pa", "N", "J", "W", "degree"]
     # Check that all derived units are covered. Note that check_default_units asserts that all
     # derived units are included in the fixtures in this test.
     assert set(units_covered) == set(derived_units)
@@ -114,7 +120,7 @@ def test_convert_units(modify_dict, base_units, derived_units):
     # Set up a unit class with modified units passed as keyword arguments
     units = pp.Units(**modify_dict)
     # Assign the units to a material, which has a conversion method
-    material = pp.UnitFluid(units)
+    material = pp.UnitFluid(units=units)
 
     # Test that the conversion works for base units
     for unit in base_units:
