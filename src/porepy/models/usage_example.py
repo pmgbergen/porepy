@@ -33,7 +33,7 @@ class CompressibleCombined(
 
 
 """
-Assuming a setting of rock and fluid components (defaulting to pp.UnitRock and pp.UnitFluid),
+Assuming a setting of rock and fluid components,
 usage is:
 """
 
