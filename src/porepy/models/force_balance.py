@@ -283,7 +283,8 @@ class ForceBalanceEquations(VectorBalanceEquation):
         # Basis vector combinations
         geometry = pp.ad.Geometry(subdomains, nd=self.nd)
         nd_vec_to_tangential = self.tangential_component(subdomains)
-        scalar_to_tangential = sum([geometry.e_i(i) for i in range(self.nd - 1)])
+        tangential_basis = geometry.basis(dim=self.nd - 1)
+        scalar_to_tangential = sum([e_i for e_i in tangential_basis])
         # Variables
         t_t: pp.ad.Operator = nd_vec_to_tangential * self.contact_traction(subdomains)
         u_t: pp.ad.Operator = nd_vec_to_tangential * self.displacement_jump(subdomains)
