@@ -302,7 +302,9 @@ class DarcyFlux:
             Face-wise vector source term.
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=self.nd)
+        projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=self.nd
+        )
         # Expand cell volumes to nd
         # Fixme: Do we need right multiplication with transpose as well?
         cell_volumes = self.wrap_grid_attribute(interfaces, "cell_volumes")

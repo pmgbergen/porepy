@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -83,18 +83,20 @@ class ModelGeometry:
             self.box = self.fracture_network.domain
 
     def subdomains_to_interfaces(
-        self, subdomains: list[pp.Grid], codims=[1]
+        self, subdomains: list[pp.Grid], codims: Optional[list] = None
     ) -> list[pp.MortarGrid]:
         """Interfaces neighbouring any of the subdomains.
 
         Args:
-            subdomains (list[pp.Grid]): Subdomains for which to find interfaces. codims
-            (list, optional): Codimension of interfaces to return. Defaults to [1], i.e.
-            only interfaces between one dimension apart.
+            subdomains: Subdomains for which to find interfaces.
+            codims: Codimension of interfaces to return. Defaults to [1], i.e.
+                only interfaces between one dimension apart.
 
         Returns:
             list[pp.MortarGrid]: Unique, sorted list of interfaces.
         """
+        if codims is None:
+            codims = [1]
         interfaces = list()
         for sd in subdomains:
             for intf in self.mdg.subdomain_to_interfaces(sd):
@@ -105,7 +107,15 @@ class ModelGeometry:
     def interfaces_to_subdomains(
         self, interfaces: list[pp.MortarGrid]
     ) -> list[pp.Grid]:
-        """Unique sorted list of all subdomains neighbouring any of the interfaces."""
+        """Subdomain neighbours of interfaces.
+
+        Parameters:
+            interfaces: List of interfaces for which to find subdomains.
+
+        Returns:
+            Unique sorted list of all subdomains neighbouring any of the interfaces.
+
+        """
         subdomains = list()
         for interface in interfaces:
             for sd in self.mdg.interface_to_subdomain_pair(interface):
@@ -238,6 +248,8 @@ class ModelGeometry:
     ]:
         """Obtain indices of the faces of a grid that lie on each side of the domain
         boundaries. It is assumed the domain is box shaped.
+
+        TODO: Update this from develop before merging.
         """
         tol = 1e-10
         box = self.box

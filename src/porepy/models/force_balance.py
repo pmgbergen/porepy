@@ -84,11 +84,16 @@ class VectorBalanceEquation:
 
         """
         volumes = self.wrap_grid_attribute(grids, "cell_volumes")
+        # TODO: Extend specific volume to mortar grids.
         if all(isinstance(g, pp.Grid) for g in grids):
-            # TODO: Extend specific volume to mortar grids.
             volumes = volumes * self.specific_volume(grids)
         elif not all(isinstance(g, pp.MortarGrid) for g in grids):
             raise ValueError("Grids must be either all subdomains or all interfaces.")
+        elif not all(g.dim == self.nd - 1 for g in grids):
+            # If dim is nd-1, specific volume is 1.
+            raise NotImplementedError(
+                "Only implemented for interfaces of dimension nd-1."
+            )
 
         # Expand from cell scalar to vector by left and right multiplication with e_i
         # and e_i.T
@@ -209,9 +214,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
             * mortar_projection.secondary_to_mortar_int
             * self.subdomain_projections(self.nd).cell_prolongation(fracture_subdomains)
             * self.local_coordinates(fracture_subdomains).transpose()
-            * self.contact_traction(
-                fracture_subdomains
-            )
+            * self.contact_traction(fracture_subdomains)
         )
 
         force_balance_eq: pp.ad.Operator = (
