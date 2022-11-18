@@ -75,6 +75,11 @@ class SolutionStrategy(abc.ABC):
         )
         """Time manager for the simulation."""
 
+        self.rock: pp.models.material_constants.RockConstants
+        """Rock material."""
+        self.fluid: pp.models.material_constants.FluidConstants
+        """Fluid material."""
+
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the geometry of the problem. This is a method that must be implemented
@@ -120,12 +125,16 @@ class SolutionStrategy(abc.ABC):
 
         """
         # Default values
-        materials = {"fluid": pp.UnitFluid, "solid": pp.UnitSolid}
-        materials.update(self.params.get("materials", {}))
-        material_constants = self.params.get("material_constants", {})
-        for name, material in materials.items():
-            assert issubclass(material, pp.models.materials.Material)
-            setattr(self, name, material(material_constants, self.units))
+        constants = {}
+        constants.update(self.params.get("material_constants", {}))
+        if "fluid" not in constants:
+            constants["fluid"] = pp.FluidConstants()
+        if "solid" not in constants:
+            constants["solid"] = pp.SolidConstants()
+        for name, const in constants.items():
+            assert isinstance(const, pp.models.material_constants.MaterialConstants)
+            const.set_units(self.units)
+            setattr(self, name, const)
 
     def before_newton_loop(self) -> None:
         """Wrap for legacy reasons. To be removed."""

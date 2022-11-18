@@ -188,7 +188,11 @@ from porepy.numerics.ad.equation_system import EquationSystem
 from porepy import models
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
-from porepy.models.materials import UnitFluid, UnitSolid, Material
+from porepy.models.material_constants import (
+    FluidConstants,
+    SolidConstants,
+    MaterialConstants,
+)
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models import constitutive_laws
 from porepy.models import fluid_mass_balance

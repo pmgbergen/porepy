@@ -16,7 +16,7 @@ import porepy as pp
 number = pp.number
 
 
-class Material:
+class MaterialConstants:
     """Material property container and conversion class.
 
     Modifications to parameter values should be done by subclassing. To set a different
@@ -26,7 +26,7 @@ class Material:
     be most relevant for solids.
     """
 
-    def __init__(self, constants: dict, units: Optional[pp.Units] = None) -> None:
+    def __init__(self, constants: dict) -> None:
         # Default units are SI
         self._units: pp.Units
 
@@ -43,8 +43,7 @@ class Material:
         """
         return self._units
 
-    @units.setter
-    def units(self, units: pp.Units) -> None:
+    def set_units(self, units: pp.Units) -> None:
         """Set units of the material.
 
         Parameters:
@@ -108,7 +107,7 @@ class Material:
         return value
 
 
-class UnitFluid(Material):
+class FluidConstants(MaterialConstants):
     """
     Class giving scaled values of fluid parameters.
 
@@ -181,7 +180,7 @@ class UnitFluid(Material):
         return self.convert_units(self.constants["compressibility"], "Pa^-1")
 
 
-class UnitSolid(Material):
+class SolidConstants(MaterialConstants):
     """Solid material with unit values.
 
     Each constant (class attribute) typically corresponds to exactly one method which

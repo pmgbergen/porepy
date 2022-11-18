@@ -1256,7 +1256,7 @@ class Variable(Operator):
 
         self.original_variable: Variable = None
         """The original variable, if this variable is a copy of another variable.
-        
+
         This attribute is used by the methods :meth:`Variable.previous_timestep` and
         :meth:`Variable.previous_iteration` to keep a link to the original variable.
         """
@@ -1391,7 +1391,7 @@ class MixedDimensionalVariable(Variable):
 
         self.original_variable: MixedDimensionalVariable = None
         """The original variable, if this variable is a copy of another variable.
-        
+
         This attribute is used by the methods :meth:`Variable.previous_timestep` and
         :meth:`Variable.previous_iteration` to keep a link to the original variable.
         """
