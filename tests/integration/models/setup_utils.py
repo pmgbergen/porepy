@@ -8,7 +8,7 @@ from porepy.models import fluid_mass_balance as fmb
 from porepy.models import force_balance as fb
 
 
-class FracGeom(pp.ModelGeometry):
+class GeometrySingleFracture2d(pp.ModelGeometry):
     def set_fracture_network(self) -> None:
         p = np.array([[0, 1], [0.5, 0.5]])
         e = np.array([[0], [1]])
@@ -20,23 +20,8 @@ class FracGeom(pp.ModelGeometry):
         return {"mesh_size_frac": 0.5, "mesh_size_bound": 0.5}
 
 
-class IncompressibleCombined(
-    FracGeom,
-    fmb.MassBalanceEquations,
-    fmb.ConstitutiveEquationsIncompressibleFlow,
-    fmb.VariablesSinglePhaseFlow,
-    fmb.SolutionStrategyIncompressibleFlow,
-    pp.DataSavingMixin,
-):
-    """Demonstration of how to combine in a class which can be used with
-    pp.run_stationary_problem (once cleanup has been done).
-    """
-
-    pass
-
-
 class MassBalanceCombined(
-    FracGeom,
+    GeometrySingleFracture2d,
     fmb.MassBalanceEquations,
     fmb.ConstitutiveEquationsCompressibleFlow,
     fmb.VariablesSinglePhaseFlow,
@@ -47,7 +32,7 @@ class MassBalanceCombined(
 
 
 class ForceBalanceCombined(
-    FracGeom,
+    GeometrySingleFracture2d,
     fb.ForceBalanceEquations,
     fb.ConstitutiveEquationsForceBalance,
     fb.VariablesForceBalance,

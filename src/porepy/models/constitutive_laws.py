@@ -1,14 +1,4 @@
-"""Library of constitutive equations.
-
-Consists of three types of classes
-    Units for scaling
-    Materials for constants (Solid, Fluid). These are envisioned as components/attributes of
-        model classes, see fluid_mass_balance.SolutionStrategyIncompressibleFlow.set_materials
-    Constitutive equations on ad form. This will eventually become the most important part,
-        from which a model is assembled based on mixin/inheritance.
-
-See usage_example.py
-"""
+"""Library of constitutive equations."""
 from functools import partial
 from typing import Callable, Optional, Union
 
@@ -54,12 +44,13 @@ def ad_wrapper(
 
 
 """
-Below are some examples of Mixins which are low-level components of a set of constitutive
-equations. First three different versions of fluid density, then one for permeability.
+Below are some examples of Mixins which are low-level components of a set of
+constitutive equations. First three different versions of fluid density, then one for
+permeability.
 
-FIXME: Choose whether materials or the classes below are responsible for expanding to number
-of cells. Probably safest to do that below in case of issues with vector values or cell/face
-ambiguity.
+FIXME: Choose whether materials or the classes below are responsible for expanding to
+number of cells. Probably safest to do that below in case of issues with vector values
+or cell/face ambiguity.
 """
 
 
@@ -175,8 +166,8 @@ class FluidDensityFromPressure:
         # Wrap compressibility from fluid class as matrix (left multiplication with dp)
         c = self.fluid_compressibility(subdomains)
         # I suggest using the fluid's constant density as the reference value. While not
-        # explicit, this saves us from defining reference properties i hytt og pine.
-        # We could consider letting this class inherit from ConstantDensity (and call super
+        # explicit, this saves us from defining reference properties i hytt og pine. We
+        # could consider letting this class inherit from ConstantDensity (and call super
         # to obtain reference value), but I don't see what the benefit would be.
         rho_ref = Scalar(self.fluid.density(), "reference_fluid_density")
         rho = rho_ref * exp(c * dp)
@@ -260,16 +251,17 @@ class DarcyFlux:
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Discretization:
         """
-        .. note::
-            The ad.Discretizations may be purged altogether. Their current function is very
-            similar to the ad.Geometry in that both basically wrap numpy/scipy arrays in ad
-            arrays and collect them in a block matrix. This similarity could possibly be
-            exploited. Revisit at some point.
+        Note:
+            The ad.Discretizations may be purged altogether. Their current function is
+            very similar to the ad.Geometry in that both basically wrap numpy/scipy
+            arrays in ad arrays and collect them in a block matrix. This similarity
+            could possibly be exploited. Revisit at some point.
 
         Parameters:
-            subdomains:
+            subdomains: List of subdomains where the Darcy flux is defined.
 
         Returns:
+            Discretization of the Darcy flux.
 
         """
         return pp.ad.MpfaAd(self.darcy_discretization_parameter_key, subdomains)
@@ -279,12 +271,13 @@ class DarcyFlux:
     ) -> pp.ad.Operator:
         """Vector source term.
 
-        Represents gravity effects. EK: Let's discuss how to name/think about this term. Note
-        that it appears slightly differently in a flux and a force/momentum balance.
+        Represents gravity effects. EK: Let's discuss how to name/think about this term.
+        Note that it appears slightly differently in a flux and a force/momentum
+        balance.
 
         Parameters:
-            grids: List of subdomain or interface grids where the vector source is defined.
-            material: Name of the material. Could be either "fluid" or "solid".
+            grids: List of subdomain or interface grids where the vector source is
+            defined. material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
             Cell-wise nd-vector source term operator
@@ -299,8 +292,8 @@ class DarcyFlux:
     def interface_vector_source(self, interfaces):
         """Interface vector source term.
 
-        The term is the product of unit normals and vector source values. Normalization is
-        needed to balance the integration done in the interface flux law.
+        The term is the product of unit normals and vector source values. Normalization
+        is needed to balance the integration done in the interface flux law.
 
         Parameters:
             interfaces: List of interfaces where the vector source is defined.
@@ -308,14 +301,20 @@ class DarcyFlux:
         Returns:
             Face-wise vector source term.
         """
-        geometry = pp.ad.Geometry(interfaces, nd=self.nd, matrix_names=["cell_volumes"])
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=self.nd)
         # Expand cell volumes to nd
         # Fixme: Do we need right multiplication with transpose as well?
-        cell_volumes_inv = geometry.scalar_to_nd_cell * geometry.cell_volumes ** (-1)
+        cell_volumes = self.wrap_grid_attribute(interfaces, "cell_volumes")
+        face_normals = self.wrap_grid_attribute(subdomains, "face_normals")
+
+        # Expand cell volumes to nd
+        scalar_to_nd = sum(self.basis(subdomains))
+        cell_volumes_inv = scalar_to_nd * cell_volumes ** (-1)
         # Account for sign of boundary face normals
         flip = self.internal_boundary_normal_to_outwards(interfaces)
         unit_outwards_normals = (
-            flip * cell_volumes_inv * geometry.wrap_grid_vector("face_normals")
+            flip * cell_volumes_inv * projection.primary_to_mortar_avg * face_normals
         )
         return unit_outwards_normals * self.vector_source(interfaces)
 
@@ -372,7 +371,8 @@ class AdvectiveFlux:
         Returns:
             Operator representing the advective flux on the interfaces.
         """
-        # If no interfaces are given, make sure to proceed with a non-empty subdomain list.
+        # If no interfaces are given, make sure to proceed with a non-empty subdomain
+        # list.
         if not interfaces:
             subdomains = self.mdg.subdomains(dim=self.nd)
         else:
@@ -381,8 +381,8 @@ class AdvectiveFlux:
             self.mdg, subdomains, interfaces, dim=1
         )
         trace = pp.ad.Trace(subdomains)
-        # Project the two advected entities to the interface and multiply with upstream weights
-        # and the interface Darcy flux.
+        # Project the two advected entities to the interface and multiply with upstream
+        # weights and the interface Darcy flux.
         interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
             discr.upwind_primary
             * mortar_projection.primary_to_mortar_avg
@@ -398,13 +398,14 @@ class AdvectiveFlux:
 class GravityForce:
     """Gravity force.
 
-    The gravity force is defined as the product of the fluid density and the gravity vector:
+    The gravity force is defined as the product of the fluid density and the gravity
+    vector:
 
     .. math::
         g = -\\rho \\mathbf{g}= -\\rho \\begin{bmatrix} 0 \\\\ 0 \\\\ G \\end{bmatrix}
 
-    where :math:`\\rho` is the fluid density, and :math:`G` is the magnitude of the gravity
-    acceleration.
+    where :math:`\\rho` is the fluid density, and :math:`G` is the magnitude of the
+    gravity acceleration.
 
     To be used in fluid fluxes and as body force in the force/momentum balance equation.
 
@@ -416,23 +417,24 @@ class GravityForce:
     ) -> pp.ad.Operator:
         """Vector source term.
 
-        Represents gravity effects. EK: Let's discuss how to name/think about this term. Note
-        that it appears slightly differently in a flux and a force/momentum balance.
+        Represents gravity effects. EK: Let's discuss how to name/think about this term.
+        Note that it appears slightly differently in a flux and a force/momentum
+        balance.
 
         Parameters:
-            grids: List of subdomain or interface grids where the vector source is defined.
-            material: Name of the material. Could be either "fluid" or "solid".
+            grids: List of subdomain or interface grids where the vector source is
+            defined. material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
             Cell-wise nd-vector source term operator
         """
-        # Geometry needed for basis vector.
-        geometry = pp.ad.Geometry(grids, nd=self.nd)
         val: np.ndarray = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
         size = np.sum([g.num_cells for g in grids])
         gravity: pp.ad.Array = ad_wrapper(val, array=True, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
-        source = (-1) * rho * geometry.e_i(i=self.nd - 1) * gravity
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
+        e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
+        source = (-1) * rho * e_n * gravity
         source.set_name("gravity_force")
         return source
 
@@ -677,8 +679,8 @@ class ConstantPorousMedium:
         Parameters:
             subdomain: Subdomain where the permeability is defined.
                 Permeability is a discretization parameter and is assigned to individual
-                subdomain data dictionaries. Hence, the list will usually contain only one
-                element.
+                subdomain data dictionaries. Hence, the list will usually contain only
+                one element.
 
         Returns:
             Cell-wise permeability tensor.
