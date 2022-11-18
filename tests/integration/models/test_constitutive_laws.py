@@ -15,7 +15,7 @@ from .setup_utils import model
     [  # Fluid mass balance
         ("mass_balance", "bc_values_darcy_flux", []),
         ("mass_balance", "bc_values_mobrho", []),
-        ("mass_balance", "viscosity", []),
+        ("mass_balance", "fluid_viscosity", []),
         ("mass_balance", "fluid_source", []),
         ("mass_balance", "mobility", []),
         ("mass_balance", "fluid_density", []),
