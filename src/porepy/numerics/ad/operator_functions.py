@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import abc
 from functools import partial
-from typing import Callable, List, Optional, Type, Union
+from typing import Callable, Optional, Type, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -88,7 +88,7 @@ class AbstractFunction(Operator):
         self._operation: Operation = Operation.evaluate
         self._set_tree()
 
-    def __call__(self, *args: pp.ad.Operator | Ad_array):
+    def __call__(self, *args: pp.ad.Operator | Ad_array) -> pp.ad.Operator:
         """Renders this function operator callable, fulfilling its notion as 'function'.
 
         Parameters:
@@ -321,7 +321,7 @@ class DiagonalJacobianFunction(AbstractJacobianFunction):
         self,
         func: Callable,
         name: str,
-        multipliers: Union[List[float], float],
+        multipliers: float | list[float],
         array_compatible: bool = False,
     ):
         super().__init__(func, name, array_compatible)
@@ -586,7 +586,7 @@ class ADmethod:
         # This will trigger the function evaluation.
         return partial(self.__call__, binding_instance)
 
-    def ad_wrapper(self, *args, **kwargs) -> AbstractFunction:
+    def ad_wrapper(self, *args, **kwargs) -> Operator:
         """Actual wrapper function.
         Constructs the necessary AD-Operator class wrapping the decorated callable
         and performs the evaluation/call.

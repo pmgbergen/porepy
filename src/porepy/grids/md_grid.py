@@ -589,7 +589,7 @@ class MixedDimensionalGrid:
     # ---- Methods for getting information on the bucket, or its components ----
 
     def diameter(
-        self, cond: Callable[[Union[pp.Grid, pp.MortarGrid]], bool] = None
+        self, cond: Optional[Callable[[Union[pp.Grid, pp.MortarGrid]], bool]] = None
     ) -> float:
         """Compute the cell diameter (mesh size) of the mixed-dimensional grid.
 
@@ -632,7 +632,9 @@ class MixedDimensionalGrid:
         # lead to a recursion error.
         return np.max([sd.dim for sd in self._subdomain_data.keys()])
 
-    def num_subdomain_cells(self, cond: Callable[[pp.Grid], bool] = None) -> int:
+    def num_subdomain_cells(
+        self, cond: Optional[Callable[[pp.Grid], bool]] = None
+    ) -> int:
         """Compute the total number of cells of the mixed-dimensional grid.
 
         A function can be passed to filter subdomains and/or interfaces.
@@ -650,7 +652,9 @@ class MixedDimensionalGrid:
             [grid.num_cells for grid in self.subdomains() if cond(grid)], dtype=int
         )
 
-    def num_interface_cells(self, cond: Callable[[pp.MortarGrid], bool] = None) -> int:
+    def num_interface_cells(
+        self, cond: Optional[Callable[[pp.MortarGrid], bool]] = None
+    ) -> int:
         """
         Compute the total number of mortar cells of the mixed-dimensional grid.
 

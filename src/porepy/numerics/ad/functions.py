@@ -262,8 +262,15 @@ def heaviside(var, zerovalue: float = 0.5):
 
 
 def heaviside_smooth(var, eps: float = 1e-3):
-    """
-    Smooth (regularized) version of the Heaviside function.
+    """Smooth (regularized) version of the Heaviside function.
+
+    Note:
+        The analytical expression for the smooth version Heaviside function reads:
+            ``H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps))``,
+        with its derivative smoothly approximating the Dirac delta function:
+            ``d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2))``.
+
+        Reference: https://ieeexplore.ieee.org/document/902291
 
     Parameters:
         var: Input array.
@@ -273,14 +280,6 @@ def heaviside_smooth(var, eps: float = 1e-3):
     Returns:
         Regularized heaviside function (and its Jacobian if applicable) in form of a
         Ad_array or ndarray (depending on the input).
-
-    Note:
-        The analytical expression for the smooth version Heaviside function reads:
-            ``H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps))``,
-        with its derivative smoothly approximating the Dirac delta function:
-            ``d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2))``.
-
-        Reference: https://ieeexplore.ieee.org/document/902291
 
     """
     if isinstance(var, Ad_array):
@@ -314,7 +313,7 @@ def maximum(var0: pp.ad.Ad_array, var1: pp.ad.Ad_array | np.ndarray) -> pp.ad.Ad
     wrapped in a pp.ad.Array, whereas the first argument is expected to be an
     Ad_array originating from a pp.ad.Operator.
 
-    Args:
+    Parameters:
         var0: First argument to the maximum function.
         var1: Second argument.
 
@@ -345,10 +344,10 @@ def characteristic_function(tol: float, var: pp.ad.Ad_array):
     Returns 1 if ``var.val`` is within absolute tolerance = ``tol`` of zero.
     The derivative is set to zero independent of ``var.val``.
 
-    Notes:
+    Note:
         See module level documentation on how to wrap functions like this in ``ad.Function``.
 
-    Args:
+    Parameters:
         tol: Absolute tolerance for comparison with 0 using np.isclose.
         var: Ad operator (variable or expression).
 
