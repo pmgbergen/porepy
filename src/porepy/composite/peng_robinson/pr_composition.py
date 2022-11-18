@@ -39,6 +39,7 @@ class PR_Composition(Composition):
 
     References:
         [1]: `Peng, Robinson (1976) <https://doi.org/10.1021/i160057a011>`_
+        [2]: `Soereide, Whitson (1992) <https://doi.org/10.1016/0378-3812(92)85105-H>`_
 
     """
 
@@ -69,7 +70,12 @@ class PR_Composition(Composition):
     def initialize(self) -> None:
         """Before initializing the p-h and p-T subsystems, this method additionally assigns
         callables for thermodynamic properties of phases, according to the equation of state
-        and present components."""
+        and present components, and constructs the attraction and co-volume factors in the EoS.
+
+        After that, it performs a super-call to :meth:`~Composition.initialize` and as a third
+        and final step it assigns equilibrium equations in the form of equality of fugacities.
+
+        """
         ## TODO
         ## defining the attraction value
         ## defining the co-volume
@@ -177,7 +183,7 @@ class PR_Composition(Composition):
             .val
         )
 
-    @property
+    @property  # TODO Z_L and Z_G to Ad_array? Derivatives might be needed for flash
     def Z_L(self) -> np.ndarray:
         """An array representing cell-wise the extended root of the characteristic polynomial
         associated with the liquid phase.
