@@ -1,15 +1,16 @@
 """
 Class types:
-    Generic ScalarBalanceEquation
-    Specific MassBalanceEquations defines subdomain and interface equations through the
+    Generic ScalarBalanceEquation Specific MassBalanceEquations defines subdomain and
+    interface equations through the
         terms entering. Darcy type interface relation is assumed.
-    Specific ConstitutiveEquations and
-    specific SolutionStrategy for both incompressible and compressible case.
+    Specific ConstitutiveEquations and specific SolutionStrategy for both incompressible
+    and compressible case.
 
 Notes:
     Apertures and specific volumes are not included.
 
-    Refactoring needed for constitutive equations. Modularisation and moving to the library.
+    Refactoring needed for constitutive equations. Modularisation and moving to the
+    library.
 
     Upwind for the mobility of the fluid flux is not complete.
 
@@ -48,10 +49,8 @@ class ScalarBalanceEquation:
         """Define the balance equation.
 
         Parameters:
-            subdomains: List of grids on which the equation is defined.
-            accumulation: Accumulation term.
-            flux: Flux term.
-            source: Source term.
+            subdomains: List of grids on which the equation is defined. accumulation:
+            Accumulation term. flux: Flux term. source: Source term.
 
         Returns:
             Operator representing the balance equation.
@@ -69,25 +68,25 @@ class ScalarBalanceEquation:
     ) -> pp.ad.Operator:
         """Numerical volume integral over subdomain or interface cells.
 
-        Includes cell volumes and specific volume.
-        FIXME: Decide whether to use this on source terms.
+        Includes cell volumes and specific volume. FIXME: Decide whether to use this on
+        source terms.
 
         Parameters:
-            integrand: Operator to be integrated.
-            grids: List of subdomain or interface grids over which to integrate.
+            integrand: Operator to be integrated. grids: List of subdomain or interface
+            grids over which to integrate.
 
         Returns:
             Operator representing the integral.
         """
-        geometry = pp.ad.Geometry(grids, nd=self.nd)
-        return geometry.cell_volumes * self.specific_volume(grids) * integrand
+        cell_volumes = self.wrap_grid_attribute(grids, "cell_volumes")
+        return cell_volumes * self.specific_volume(grids) * integrand
 
 
 class MassBalanceEquations(ScalarBalanceEquation):
     """Mixed-dimensional mass balance equation.
 
-    Balance equation for all subdomains and Darcy-type flux relation on all interfaces of
-    codimension one.
+    Balance equation for all subdomains and Darcy-type flux relation on all interfaces
+    of codimension one.
 
     FIXME: Well equations? Low priority.
 
@@ -127,8 +126,8 @@ class MassBalanceEquations(ScalarBalanceEquation):
 
         This implementation assumes constant porosity and must be overridden for
         variable porosity. This has to do with wrapping of scalars as vectors or
-        matrices and will hopefully be improved in the future.
-        Extension to variable density is straightforward.
+        matrices and will hopefully be improved in the future. Extension to variable
+        density is straightforward.
 
         Parameters:
             subdomains: List of subdomains.
@@ -177,13 +176,12 @@ class MassBalanceEquations(ScalarBalanceEquation):
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        interface_geometry = pp.ad.Geometry(
-            interfaces, nd=1, matrix_names=["cell_volumes"]
-        )
-        # Project the two pressures to the interface and multiply with the normal diffusivity
+        cell_volumes = self.wrap_grid_attribute(interfaces, "cell_volumes")
+        # Project the two pressures to the interface and multiply with the normal
+        # diffusivity
         eq = self.interface_darcy_flux(
             interfaces
-        ) - interface_geometry.cell_volumes * self.normal_permeability(interfaces) * (
+        ) - cell_volumes * self.normal_permeability(interfaces) * (
             projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
             - projection.secondary_to_mortar_avg * self.pressure(subdomains)
             # FIXME: The plan is to remove RoubinCoupling. That requires alternative
@@ -271,10 +269,9 @@ class ConstitutiveEquationsIncompressibleFlow(
 
     def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
-        Not sure where this one should reside.
-        Note that we could remove the grid_operator BC and DirBC, probably also
-        ParameterArray/Matrix (unless needed to get rid of pp.ad.Discretization. I don't see
-        how it would be, though).
+        Not sure where this one should reside. Note that we could remove the
+        grid_operator BC and DirBC, probably also ParameterArray/Matrix (unless needed
+        to get rid of pp.ad.Discretization. I don't see how it would be, though).
         Parameters:
             subdomains:
 
@@ -287,16 +284,14 @@ class ConstitutiveEquationsIncompressibleFlow(
     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
 
-        Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
-        ..note:
-            Value is tricky if
-            ..math:
+        Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1 ..note:
+            Value is tricky if ..math:
                 mobility = \\rho / \\mu
-            with \rho and \mu being functions of p (or other variables), since variables are
-            not defined at the boundary. This may lead to inconsistency between boundary
-            conditions for Darcy flux and mobility.
-            For now, we assume that the mobility is constant.
-            TODO: Better solution. Could involve defining boundary grids.
+            with \rho and \mu being functions of p (or other variables), since variables
+            are not defined at the boundary. This may lead to inconsistency between
+            boundary conditions for Darcy flux and mobility. For now, we assume that the
+            mobility is constant. TODO: Better solution. Could involve defining boundary
+            grids.
         Parameters:
             subdomains: List of subdomains.
 
@@ -350,11 +345,11 @@ class ConstitutiveEquationsCompressibleFlow(
 
 class VariablesSinglePhaseFlow:
     """
-    Creates necessary variables (pressure, interface flux) and provides getter methods for
-    these and their reference values.
-    Getters construct mixed-dimensional variables on the fly, and can be called on any subset
-    of the grids where the variable is defined. Setter method (assig_variables), however, must
-    create on all grids where the variable is to be used.
+    Creates necessary variables (pressure, interface flux) and provides getter methods
+    for these and their reference values. Getters construct mixed-dimensional variables
+    on the fly, and can be called on any subset of the grids where the variable is
+    defined. Setter method (assig_variables), however, must create on all grids where
+    the variable is to be used.
 
     .. note::
         Wrapping in class methods and not calling equation_system directly allows for easier
@@ -366,8 +361,8 @@ class VariablesSinglePhaseFlow:
 
     def create_variables(self) -> None:
         """
-        Assign primary variables to subdomains and interfaces of the mixed-dimensional grid.
-        Old implementation awaiting SystemManager
+        Assign primary variables to subdomains and interfaces of the mixed-dimensional
+        grid. Old implementation awaiting SystemManager
 
         """
         self.equation_system.create_variables(
@@ -408,11 +403,10 @@ class VariablesSinglePhaseFlow:
             Returns:
                 Operator representing the reference pressure.
 
-        TODO: Confirm that this is the right place for this method.
-        # IS: Definitely not a Material. Most closely related to the constitutive laws.
-        # Perhaps create a reference values class that is a mixin to the constitutive laws?
-        # Could have values in the init and methods returning operators just as
-        # this method.
+        TODO: Confirm that this is the right place for this method. # IS: Definitely not
+        a Material. Most closely related to the constitutive laws. # Perhaps create a
+        reference values class that is a mixin to the constitutive laws? # Could have
+        values in the init and methods returning operators just as # this method.
         """
         p_ref = self.fluid.convert_units(0, "Pa")
         size = sum([sd.num_cells for sd in subdomains])
@@ -422,12 +416,11 @@ class VariablesSinglePhaseFlow:
 class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
     """This is whatever is left of pp.IncompressibleFlow.
 
-    At some point, this will be refined to be a more sophisticated (modularised) solution
-    strategy class.
-    More refactoring may be beneficial.
+    At some point, this will be refined to be a more sophisticated (modularised)
+    solution strategy class. More refactoring may be beneficial.
 
-    This is *not* a full-scale model (in the old sense), but must be mixed with
-    balance equations, constitutive laws etc. See user_examples.
+    This is *not* a full-scale model (in the old sense), but must be mixed with balance
+    equations, constitutive laws etc. See user_examples.
 
     """
 
@@ -463,8 +456,8 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
     def set_discretization_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
 
-        The parameter fields of the data dictionaries are updated for all
-        subdomains and interfaces (of codimension 1).
+        The parameter fields of the data dictionaries are updated for all subdomains and
+        interfaces (of codimension 1).
         """
         for sd, data in self.mdg.subdomains(return_data=True):
 
@@ -541,8 +534,8 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
 
     def before_nonlinear_iteration(self):
         """
-        Evaluate Darcy flux for each subdomain and interface and store in the
-        data dictionary for use in upstream weighting.
+        Evaluate Darcy flux for each subdomain and interface and store in the data
+        dictionary for use in upstream weighting.
 
         """
         for sd, data in self.mdg.subdomains(return_data=True):
@@ -562,8 +555,8 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
 """
 Compressible flow below.
 
-Note on time dependency: I'm tempted to suggest assigning time_manager to stationary models
-and partially remove the distinction with transient ones.
+Note on time dependency: I'm tempted to suggest assigning time_manager to stationary
+models and partially remove the distinction with transient ones.
 """
 
 
@@ -584,9 +577,10 @@ class SolutionStrategyCompressibleFlow(SolutionStrategyIncompressibleFlow):
     def __init__(self, params: Optional[Dict] = None) -> None:
         """
         Parameters:
-            params (dict): Dictionary of parameters used to control the solution procedure.
-                Some frequently used entries are file and folder names for export,
-                mesh sizes...
+            params (dict): Dictionary of parameters used to control the solution
+            procedure.
+                Some frequently used entries are file and folder names for export, mesh
+                sizes...
         """
         if params is None:
             params = {}

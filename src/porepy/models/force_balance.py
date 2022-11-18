@@ -1,16 +1,17 @@
 """
 Class types:
-    Generic VectorBalanceEquation
-    Specific ForceBalanceEquations defines subdomain and interface equations through the
+    Generic VectorBalanceEquation Specific ForceBalanceEquations defines subdomain and
+    interface equations through the
         terms entering. Force balance between opposing fracture interfaces is imposed.
-    TODO: Specific ConstitutiveEquations and
-    TODO: specific SolutionStrategy
+    TODO: Specific ConstitutiveEquations and TODO: specific SolutionStrategy
 
 Notes:
-    - The class ForceBalanceEquations is a mixin class, and should be inherited by a class
+    - The class ForceBalanceEquations is a mixin class, and should be inherited by a
+      class
         that defines the variables and discretization.
 
-    - Refactoring needed for constitutive equations. Modularisation and moving to the library.
+    - Refactoring needed for constitutive equations. Modularisation and moving to the
+      library.
 
 """
 
@@ -33,8 +34,7 @@ logger = logging.getLogger(__name__)
 class VectorBalanceEquation:
     """Generic class for vector balance equations.
 
-    In the only known use case, the balance equation is the momentum
-    balance equation,
+    In the only known use case, the balance equation is the momentum balance equation,
 
         d_t(momentum) + div(stress) - source = 0,
 
@@ -52,9 +52,8 @@ class VectorBalanceEquation:
 
         Parameters:
             subdomains: List of subdomains where the balance equation is defined.
-            accumulation: Operator for the accumulation term.
-            stress: Operator for the stress term.
-            source: Operator for the source term.
+            accumulation: Operator for the accumulation term. stress: Operator for the
+            stress term. source: Operator for the source term.
 
         Returns:
             Operator for the balance equation.
@@ -76,20 +75,24 @@ class VectorBalanceEquation:
         Includes cell volumes and specific volume.
 
         Parameters:
-            integrand: Operator for the integrand.
-            grids: List of subdomain or interface grids over which the integral is to be
+            integrand: Operator for the integrand. grids: List of subdomain or interface
+            grids over which the integral is to be
                 computed.
 
         Returns:
             Operator for the volume integral.
 
         """
-        geometry = pp.ad.Geometry(grids, nd=self.nd, matrix_names=["cell_volumes"])
-        volumes = geometry.cell_volumes * self.specific_volume(grids)
+        volumes = self.wrap_grid_attribute(grids, "cell_volumes")
+        if all(isinstance(g, pp.Grid) for g in grids):
+            # TODO: Extend specific volume to mortar grids.
+            volumes = volumes * self.specific_volume(grids)
+        elif not all(isinstance(g, pp.MortarGrid) for g in grids):
+            raise ValueError("Grids must be either all subdomains or all interfaces.")
 
         # Expand from cell scalar to vector by left and right multiplication with e_i
         # and e_i.T
-        basis = geometry.basis()
+        basis = self.basis(grids)
         volumes_nd = sum([e * volumes * e.T for e in basis])
 
         return volumes_nd * integrand
@@ -104,7 +107,8 @@ class ForceBalanceEquations(VectorBalanceEquation):
         The following equations are set:
             - Force balance in the matrix.
             - Force balance between fracture interfaces.
-            - Deformation constraints for fractures, split into normal and tangential part.
+            - Deformation constraints for fractures, split into normal and tangential
+              part.
         See individual equation methods for details.
         """
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
@@ -137,7 +141,8 @@ class ForceBalanceEquations(VectorBalanceEquation):
         Inertial term is not included.
 
         Parameters:
-            subdomains: List of subdomains where the force balance is defined. Only known usage
+            subdomains: List of subdomains where the force balance is defined. Only
+            known usage
                 is for the matrix domain(s).
 
         Returns:
@@ -181,8 +186,8 @@ class ForceBalanceEquations(VectorBalanceEquation):
             if interface.dim != self.nd - 1:
                 raise ValueError("Interface must be a fracture-matrix interface.")
         subdomains = self.interfaces_to_subdomains(interfaces)
-        # Split into matrix and fractures. Sort on dimension to allow for multiple matrix
-        # domains. Otherwise, we could have picked the first element.
+        # Split into matrix and fractures. Sort on dimension to allow for multiple
+        # matrix domains. Otherwise, we could have picked the first element.
         matrix_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
         fracture_subdomains = [sd for sd in subdomains if sd.dim == self.nd - 1]
 
@@ -190,12 +195,6 @@ class ForceBalanceEquations(VectorBalanceEquation):
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
-
-        # Expand cell volumes to cell-wise vector. See volume_integral for details.
-        # TODO: Extend that method to interfaces
-        geometry = pp.ad.Geometry(interfaces, nd=self.nd, matrix_names=["cell_volumes"])
-        basis = geometry.basis()
-        volume_int = sum([e * geometry.cell_volumes * e.T for e in basis])
 
         # Contact traction from primary grid and mortar displacements (via primary grid)
         contact_from_primary_mortar = (
@@ -206,18 +205,18 @@ class ForceBalanceEquations(VectorBalanceEquation):
         )
         # Traction from the actual contact force.
         contact_from_secondary = (
-            volume_int
-            * mortar_projection.sign_of_mortar_sides
+            mortar_projection.sign_of_mortar_sides
             * mortar_projection.secondary_to_mortar_int
             * self.subdomain_projections(self.nd).cell_prolongation(fracture_subdomains)
             * self.local_coordinates(fracture_subdomains).transpose()
             * self.contact_traction(
                 fracture_subdomains
-            )  # Using traction instead of force.
-            # Compensating by including volume integral (on interfaces, as I think is proper).
+            )
         )
+
         force_balance_eq: pp.ad.Operator = (
-            contact_from_primary_mortar + contact_from_secondary
+            contact_from_primary_mortar
+            + self.volume_integral(contact_from_secondary, interfaces)
         )
         force_balance_eq.set_name("interface_force_balance_equation")
         return force_balance_eq
@@ -225,11 +224,13 @@ class ForceBalanceEquations(VectorBalanceEquation):
     def normal_fracture_deformation_equation(self, subdomains: list[pp.Grid]):
         """Equation for the normal component of the fracture deformation.
 
-        This constraint equation enforces non-penetration of opposing fracture interfaces.
+        This constraint equation enforces non-penetration of opposing fracture
+        interfaces.
 
 
         Parameters:
-            subdomains: List of subdomains where the normal deformation equation is defined.
+            subdomains: List of subdomains where the normal deformation equation is
+            defined.
 
         Returns:
             Operator for the normal deformation equation.
@@ -262,12 +263,12 @@ class ForceBalanceEquations(VectorBalanceEquation):
 
         The function reads
             C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
-        with u being displacement jump increments, t denoting tangential
-        component and b_p the friction bound.
+        with u being displacement jump increments, t denoting tangential component and
+        b_p the friction bound.
 
-        For b_p = 0, the equation C_t = 0 does not in itself imply T_t = 0,
-        which is what the contact conditions require. The case is handled
-        through the use of a characteristic function.
+        For b_p = 0, the equation C_t = 0 does not in itself imply T_t = 0, which is
+        what the contact conditions require. The case is handled through the use of a
+        characteristic function.
 
         Parameters
         ----------
@@ -281,20 +282,19 @@ class ForceBalanceEquations(VectorBalanceEquation):
 
         """
         # Basis vector combinations
-        geometry = pp.ad.Geometry(subdomains, nd=self.nd)
+        num_cells = sum([sd.num_cells for sd in subdomains])
         nd_vec_to_tangential = self.tangential_component(subdomains)
-        tangential_basis = geometry.basis(dim=self.nd - 1)
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
         scalar_to_tangential = sum([e_i for e_i in tangential_basis])
         # Variables
         t_t: pp.ad.Operator = nd_vec_to_tangential * self.contact_traction(subdomains)
         u_t: pp.ad.Operator = nd_vec_to_tangential * self.displacement_jump(subdomains)
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
-        ones_frac = pp.ad.Array(np.ones(geometry.num_cells * (self.nd - 1)))
-        zeros_frac = pp.ad.Array(np.zeros(geometry.num_cells))
+        ones_frac = pp.ad.Array(np.ones(num_cells * (self.nd - 1)))
+        zeros_frac = pp.ad.Array(np.zeros(num_cells))
 
-        # Functions
-        # EK: Should we try to agree on a name convention for ad functions?
+        # Functions EK: Should we try to agree on a name convention for ad functions?
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
         tol = 1e-5  # FIXME: Revisit this tolerance!
@@ -322,11 +322,10 @@ class ForceBalanceEquations(VectorBalanceEquation):
         characteristic: pp.ad.Operator = scalar_to_tangential * f_characteristic(b_p)
         characteristic.set_name("characteristic_function_of_b_p")
 
-        # Compose the equation itself.
-        # The last term handles the case bound=0, in which case t_t = 0 cannot
-        # be deduced from the standard version of the complementary function
-        # (i.e. without the characteristic function). Filter out the other terms
-        # in this case to improve convergence
+        # Compose the equation itself. The last term handles the case bound=0, in which
+        # case t_t = 0 cannot be deduced from the standard version of the complementary
+        # function (i.e. without the characteristic function). Filter out the other
+        # terms in this case to improve convergence
         equation: pp.ad.Operator = (ones_frac - characteristic) * (
             bp_tang - maxbp_abs * t_t
         ) + characteristic * t_t
@@ -335,8 +334,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
 
     def body_force(self, subdomains: list[pp.Grid]):
         """Body force.
-        FIXME: See FluidMassBalanceEquations.fluid_source.
-        Parameters:
+        FIXME: See FluidMassBalanceEquations.fluid_source. Parameters:
             subdomains: List of subdomains where the body force is defined.
 
         Returns:
@@ -388,8 +386,8 @@ class ConstitutiveEquationsForceBalance(
 class VariablesForceBalance:
     """
     Variables for mixed-dimensional force balance and fracture deformation:
-        Displacement in matrix and on fracture-matrix interfaces.
-        Fracture contact traction.
+        Displacement in matrix and on fracture-matrix interfaces. Fracture contact
+        traction.
 
     .. note::
         Implementation postponed till Veljko's more convenient SystemManager is available.
@@ -458,8 +456,8 @@ class VariablesForceBalance:
         """Fracture contact traction.
 
         Parameters:
-            subdomains: List of subdomains where the contact traction is defined. Only known
-            usage is for the fracture subdomains.
+            subdomains: List of subdomains where the contact traction is defined. Only
+            known usage is for the fracture subdomains.
 
         Returns:
             Variable for fracture contact traction.
@@ -476,8 +474,8 @@ class VariablesForceBalance:
         """Displacement jump on fracture-matrix interfaces.
 
         Parameters:
-            subdomains: List of subdomains where the displacement jump is defined. Only known
-            usage is for fractures.
+            subdomains: List of subdomains where the displacement jump is defined. Only
+            known usage is for fractures.
 
         Returns:
             Operator for the displacement jump.
@@ -504,9 +502,8 @@ class VariablesForceBalance:
 class SolutionStrategyForceBalance(pp.SolutionStrategy):
     """This is whatever is left of pp.ContactMechanics.
 
-    At some point, this will be refined to be a more sophisticated (modularised) solution
-    strategy class.
-    More refactoring may be beneficial.
+    At some point, this will be refined to be a more sophisticated (modularised)
+    solution strategy class. More refactoring may be beneficial.
 
     """
 
@@ -525,15 +522,15 @@ class SolutionStrategyForceBalance(pp.SolutionStrategy):
         The displacement is set to zero in the Nd-domain, and at the fracture interfaces
         The displacement jump is thereby also zero.
 
-        The contact pressure is set to zero in the tangential direction,
-        and -1 (that is, in contact) in the normal direction.
+        The contact pressure is set to zero in the tangential direction, and -1 (that
+        is, in contact) in the normal direction.
 
         """
         # Zero for displacement and initial bc values for Biot
         super().initial_condition()
-        # Contact as initial guess. Ensure traction is consistent with
-        # zero jump, which follows from the default zeros set for all
-        # variables, specifically interface displacement, by super method.
+        # Contact as initial guess. Ensure traction is consistent with zero jump, which
+        # follows from the default zeros set for all variables, specifically interface
+        # displacement, by super method.
         num_frac_cells = sum(
             sd.num_cells for sd in self.mdg.subdomains(dim=self.nd - 1)
         )
@@ -578,8 +575,8 @@ class SolutionStrategyForceBalance(pp.SolutionStrategy):
         all_bf = sd.get_boundary_faces()
         bc = pp.BoundaryConditionVectorial(sd, all_bf, "dir")
         # Default internal BC is Neumann. We change to Dirichlet for the contact
-        # problem. I.e., the mortar variable represents the displacement on the
-        # fracture faces.
+        # problem. I.e., the mortar variable represents the displacement on the fracture
+        # faces.
         frac_face = sd.tags["fracture_faces"]
         bc.is_neu[:, frac_face] = False
         bc.is_dir[:, frac_face] = True
@@ -588,11 +585,11 @@ class SolutionStrategyForceBalance(pp.SolutionStrategy):
     def numerical_constant(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
         """Numerical constant for the contact problem.
 
-        The numerical constant is a cell-wise scalar, but we return a matrix to allow for
-        automatic differentiation and left multiplication.
+        The numerical constant is a cell-wise scalar, but we return a matrix to allow
+        for automatic differentiation and left multiplication.
 
-        Not sure about method location, but it is a property of the contact problem,
-        and more solution strategy than material property or constitutive law.
+        Not sure about method location, but it is a property of the contact problem, and
+        more solution strategy than material property or constitutive law.
 
         Parameters:
             subdomains: List of subdomains. Only the first is used.
@@ -601,14 +598,15 @@ class SolutionStrategyForceBalance(pp.SolutionStrategy):
             c_num: Numerical constant, as a matrix.
 
         """
-        # Conversion unnecessary for dimensionless parameters, but included as good practice.
+        # Conversion unnecessary for dimensionless parameters, but included as good
+        # practice.
         val = self.solid.convert_units(1, "-")
         return pp.ad.Scalar(val, name="c_num")
 
     def _is_nonlinear_problem(self) -> bool:
         """
-        If there is no fracture, the problem is usually linear.
-        Overwrite this function if e.g. parameter nonlinearities are included.
+        If there is no fracture, the problem is usually linear. Overwrite this function
+        if e.g. parameter nonlinearities are included.
         """
         return self.mdg.dim_min() < self.nd
 

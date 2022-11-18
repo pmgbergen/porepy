@@ -11,14 +11,15 @@ class Units:
     This is a sketch of a class for scaling material properties. The idea is that the
     material properties should be stored in SI units, but that the user may want to
     specify them in other units. These are defined in init.
-    Example:
-        Running a simulation in km, days and  MPa is achieved by setting
-        my_material = Units(m=1e3, s=86400, Pa=1e6)
 
-    Base units are attributes of the class, and can be accessed as e.g. my_material.length
-    Derived units are properties computed from the base units, and can be accessed as e.g.
-    my_material.Pa. This ensures consistency between the base and derived units while allowing
-    reference to derived units in usage of the class.
+    Example:
+        Running a simulation in km, days and  MPa is achieved by setting my_material =
+        Units(m=1e3, s=86400, Pa=1e6)
+
+    Base units are attributes of the class, and can be accessed as e.g.
+    my_material.length Derived units are properties computed from the base units, and
+    can be accessed as e.g. my_material.Pa. This ensures consistency between the base
+    and derived units while allowing reference to derived units in usage of the class.
 
     TODO: Consider whether this needs to be incorporated in TimeStepManager.
 
@@ -44,10 +45,11 @@ class Units:
         """Initialize the units.
 
         Parameters:
-            kwargs (dict): Dictionary of units. The keys are the name of the unit, and the
+            kwargs (dict): Dictionary of units. The keys are the name of the unit, and
+            the
                 values are the scaling factor. For example, if the user wants to specify
-                length in kilometers, time in hours and substance amount in millimolar, the
-                dictionary should be
+                length in kilometers, time in hours and substance amount in millimolar,
+                the dictionary should be
                     dict(m=1e3, s=3600, mol=1e-3)
                 or, equivalently,
                     dict(m=pp.KILO * pp.METER, s=pp.HOUR, mol=pp.MILLI * pp.MOLE)
@@ -57,9 +59,9 @@ class Units:
             if not isinstance(value, number):
                 raise ValueError("Input values must be of type number.")
             if key not in ["m", "s", "kg", "K", "mol", "rad"]:
-                # If for some reason the user wants to change the base units, this can be
-                # done by assigning to the attributes directly or overwriting the __init__.
-                # Since we do not recommend this, we do not allow it here.
+                # If for some reason the user wants to change the base units, this can
+                # be done by assigning to the attributes directly or overwriting the
+                # __init__. Since we do not recommend this, we do not allow it here.
                 raise ValueError("Input keys must be valid base units.")
 
         # Set known base units

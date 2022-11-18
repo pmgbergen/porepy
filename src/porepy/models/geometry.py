@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class ModelGeometry:
-    """This class provides geometry related methods and information for a simulation model."""
+    """This class provides geometry related methods and information for a simulation
+    model."""
 
     # Define attributes to be assigned later
     fracture_network: Union[pp.FractureNetwork2d, pp.FractureNetwork3d]
@@ -46,7 +47,8 @@ class ModelGeometry:
         """Mesh arguments for md-grid creation.
 
         Returns:
-            mesh_args: Dictionary of meshing arguments compatible with FractureNetwork.mesh()
+            mesh_args: Dictionary of meshing arguments compatible with
+            FractureNetwork.mesh()
                 method.
 
         """
@@ -56,12 +58,13 @@ class ModelGeometry:
     def set_md_grid(self) -> None:
         """Create the mixed-dimensional grid.
 
-        A unit square grid with no fractures is assigned by default if self.fracture_network
-        contains no fractures. Otherwise, the network's mesh method is used.
+        A unit square grid with no fractures is assigned by default if
+        self.fracture_network contains no fractures. Otherwise, the network's mesh
+        method is used.
 
         The method assigns the following attributes to self:
-            mdg (pp.MixedDimensionalGrid): The produced grid bucket.
-            box (dict): The bounding box of the domain, defined through minimum and
+            mdg (pp.MixedDimensionalGrid): The produced grid bucket. box (dict): The
+            bounding box of the domain, defined through minimum and
                 maximum values in each dimension.
         """
 
@@ -85,9 +88,9 @@ class ModelGeometry:
         """Interfaces neighbouring any of the subdomains.
 
         Args:
-            subdomains (list[pp.Grid]): Subdomains for which to find interfaces.
-            codims (list, optional): Codimension of interfaces to return. Defaults to [1],
-            i.e. only interfaces between one dimension apart.
+            subdomains (list[pp.Grid]): Subdomains for which to find interfaces. codims
+            (list, optional): Codimension of interfaces to return. Defaults to [1], i.e.
+            only interfaces between one dimension apart.
 
         Returns:
             list[pp.MortarGrid]: Unique, sorted list of interfaces.
@@ -109,6 +112,72 @@ class ModelGeometry:
                 if sd not in subdomains:
                     subdomains.append(sd)
         return self.mdg.sort_subdomains(subdomains)
+
+    def wrap_grid_attribute(self, grids: list[pp.GridLike], attr: str) -> pp.ad.Matrix:
+        """Wrap a grid attribute as an ad matrix.
+
+        Parameters:
+            grids: List of grids on which the property is defined. prop: Grid attribute
+                to wrap. The attribute should be a ndarray and will be flattened if it
+                is not already a vector.
+
+        Returns:
+            ad_matrix: The property wrapped as an ad matrix.
+
+        TODO: Test the method (and other methods in this class).
+
+        """
+        ad_matrix = pp.ad.Matrix(
+            sps.diags(np.hstack([getattr(g, attr).ravel("F") for g in grids]))
+        )
+        return ad_matrix
+
+    def basis(self, grids: list[pp.GridLike], dim: int = None) -> np.ndarray:
+        """Return a cell-wise basis for all subdomains.
+
+        Parameters:
+            grids: List of grids on which the basis is defined. dim: Dimension of the
+            base. Defaults to self.nd.
+
+        Returns:
+            Array (dim) of pp.ad.Matrix, each of which represents a basis function.
+
+        """
+        if dim is None:
+            dim = self.nd
+
+        assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
+        # Collect the basis functions for each dimension
+        basis = []
+        for i in range(dim):
+            basis.append(self.e_i(grids, i, dim))
+        # Stack the basis functions horizontally
+        return np.hstack(basis)
+
+    def e_i(self, grids: list[pp.GridLike], i: int, dim: int = None) -> np.ndarray:
+        """Return a cell-wise basis function.
+
+        Parameters:
+            grids: List of grids on which the basis vector is defined. dim (int):
+            Dimension of the functions. i (int): Index of the basis function. Note:
+            Counts from 0.
+
+        Returns:
+            pp.ad.Matrix: Ad representation of a matrix with the basis functions as
+                columns.
+
+        """
+        if dim is None:
+            dim = self.nd
+        assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
+        assert i < dim, "Basis function index out of range"
+        # Collect the basis functions for each dimension
+        e_i = np.zeros(dim).reshape(-1, 1)
+        e_i[i] = 1
+        # expand to cell-wise column vectors.
+        num_cells = sum([g.num_cells for g in grids])
+        mat = sps.kron(sps.eye(num_cells), e_i)
+        return pp.ad.Matrix(mat)
 
     def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
         """Ad wrapper around tangential_normal_projections for fractures.
@@ -135,11 +204,11 @@ class ModelGeometry:
     def subdomain_projections(self, dim: int):
         """Return the projection operators for all subdomains in md-grid.
 
-        The projection operators restrict or prolong a dim-dimensional quantity from the full
-        set of subdomains to any subset.
-        Projection operators are constructed once and then stored. If you need to use
-        projection operators based on a different set of subdomains, please construct
-        them yourself. Alternatively, compose a projection from subset A to subset B as
+        The projection operators restrict or prolong a dim-dimensional quantity from the
+        full set of subdomains to any subset. Projection operators are constructed once
+        and then stored. If you need to use projection operators based on a different
+        set of subdomains, please construct them yourself. Alternatively, compose a
+        projection from subset A to subset B as
             P_A_to_B = P_full_to_B * P_A_to_full.
 
         Parameters:
@@ -200,19 +269,18 @@ class ModelGeometry:
             tangential: Operator extracting tangential component of the vector field and
             expressing it in tangential basis.
         """
-        geom = pp.ad.Geometry(grids, self.nd)
-
         # We first need an inner product (or dot product), i.e. extract the tangential
-        # component of the cell-wise vector v to be transformed. Then we want to express it in
-        # the tangential basis. The two operations are combined in a single operator composed
-        # right to left:
-        # v will be hit by first e_i.T (row vector) and secondly t_i (column vector).
+        # component of the cell-wise vector v to be transformed. Then we want to express
+        # it in the tangential basis. The two operations are combined in a single
+        # operator composed right to left: v will be hit by first e_i.T (row vector) and
+        # secondly t_i (column vector).
         op = sum(
             [
-                geom.e_i(i, self.nd - 1) * geom.e_i(i, self.nd).T
+                self.e_i(grids, i, self.nd - 1) * self.e_i(grids, i, self.nd).T
                 for i in range(self.nd - 1)
             ]
         )
+        op.set_name("tangential_component")
         return op
 
     def normal_component(self, grids: list[pp.Grid]) -> pp.ad.Operator:
@@ -225,8 +293,8 @@ class ModelGeometry:
             normal: Operator extracting normal component of the vector field and
             expressing it in normal basis.
         """
-        geometry = pp.ad.Geometry(grids, self.nd)
-        e_n = geometry.e_i(self.nd - 1, self.nd)
+        e_n = self.e_i(grids, self.nd - 1, self.nd)
+        e_n.set_name("normal_component")
         return e_n.T
 
     def internal_boundary_normal_to_outwards(

@@ -246,17 +246,17 @@ class MortarProjections(Operator):
         """Construct mortar projection object.
 
         The projections will be ordered according to the ordering in grids, or the order
-        of the MixedDimensionalGrid iteration over grids. It is critical that the same ordering
-        is used by other operators.
+        of the MixedDimensionalGrid iteration over grids. It is critical that the same
+        ordering is used by other operators.
 
         Parameters:
-            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid.
-            subdomains (List of pp.Grid): List of grids for which the projections
-                should apply. The order of the grids in the list establishes the ordering of
-                the subdomain projections.
+            mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid. subdomains (List of
+            pp.Grid): List of grids for which the projections
+                should apply. The order of the grids in the list establishes the
+                ordering of the subdomain projections.
             interfaces (List of edges): List of edges for which the projections
-                should apply. The order of the grids in the list establishes the ordering of
-                the subdomain projections.
+                should apply. The order of the grids in the list establishes the
+                ordering of the subdomain projections.
             dim (int, optional): Dimension of the quantities to be projected.
 
         """
