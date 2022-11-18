@@ -1,3 +1,8 @@
+"""
+Utility class for conversion between different units.
+
+This is part of a system for setting the units of measurement of a problem.
+"""
 import numpy as np
 
 import porepy as pp
@@ -13,8 +18,11 @@ class Units:
     specify them in other units. These are defined in init.
 
     Example:
-        Running a simulation in km, days and  MPa is achieved by setting my_material =
-        Units(m=1e3, s=86400, Pa=1e6)
+        Running a simulation in km, days and  MPa is achieved by setting
+
+        .. code-block:: Python
+
+            my_material = Units(m=1e3, s=86400, Pa=1e6)
 
     Base units are attributes of the class, and can be accessed as e.g.
     my_material.length Derived units are properties computed from the base units, and
@@ -22,6 +30,30 @@ class Units:
     and derived units while allowing reference to derived units in usage of the class.
 
     TODO: Consider whether this needs to be incorporated in TimeStepManager.
+
+    Parameters:
+        **kwargs: Dictionary of units. The keys are the name of the unit, and the
+            values are the scaling factor. For example, if the user wants to specify
+            length in kilometers, time in hours and substance amount in millimolar,
+            the dictionary should be
+
+            .. code-block:: Python
+
+                {'m': 1e3, 's': 3600, 'mol': 1e-3}
+
+            or, equivalently,
+
+            .. code-block:: Python
+
+                {'m':pp.KILO * pp.METER, 's': pp.HOUR, 'mol':pp.MILLI * pp.MOLE}
+
+            Permitted keys are:
+                - ``m``: Length unit.
+                - ``s``: Time unit.
+                - ``kg``: Mass unit.
+                - ``K``: Temperature unit.
+                - ``mol``: Mole unit.
+                - ``rad``: Angle unit.
 
     """
 
@@ -38,25 +70,11 @@ class Units:
     rad: number = 1
     """Angle unit, defaults to 1 rad."""
 
-    def __init__(
-        self,
-        **kwargs: number,
-    ):
-        """Initialize the units.
-
-        Parameters:
-            kwargs (dict): Dictionary of units. The keys are the name of the unit, and
-            the
-                values are the scaling factor. For example, if the user wants to specify
-                length in kilometers, time in hours and substance amount in millimolar,
-                the dictionary should be
-                    dict(m=1e3, s=3600, mol=1e-3)
-                or, equivalently,
-                    dict(m=pp.KILO * pp.METER, s=pp.HOUR, mol=pp.MILLI * pp.MOLE)
-        """
+    def __init__(self, **kwargs):
+        """Initialize the units."""
         # Sanity check on input values
         for key, value in kwargs.items():
-            if not isinstance(value, number):
+            if not isinstance(value, (float, int)):
                 raise ValueError("Input values must be of type number.")
             if key not in ["m", "s", "kg", "K", "mol", "rad"]:
                 # If for some reason the user wants to change the base units, this can
@@ -79,26 +97,26 @@ class Units:
         """Angle unit in radians."""
 
     @property
-    def Pa(self):
+    def Pa(self) -> number:
         """Pressure (or stress) unit, derived from kg, m and s."""
         return self.kg / (self.m * self.s**2)
 
     @property
-    def J(self):
+    def J(self) -> number:
         """Energy unit, derived from m, kg and s."""
         return self.kg * self.m**2 / self.s**2
 
     @property
-    def N(self):
+    def N(self) -> number:
         """Force unit, derived from m, kg and s."""
         return self.kg * self.m / self.s**2
 
     @property
-    def W(self):
+    def W(self) -> number:
         """Power unit, derived from m, kg and s."""
         return self.kg * self.m**2 / self.s**3
 
     @property
-    def degree(self):
+    def degree(self) -> number:
         """Angle unit, derived from rad."""
         return self.rad * 180 / np.pi
