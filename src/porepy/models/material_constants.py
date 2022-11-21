@@ -50,6 +50,7 @@ class MaterialConstants:
             units: Units object.
 
         """
+        # TODO: Should we use a @property setter here?
         self._units = units
 
     @property
@@ -134,7 +135,7 @@ class FluidConstants(MaterialConstants):
 
     def __init__(self, constants: Optional[dict[str, number]] = None):
         # Default values, sorted alphabetically
-        default_constants = {
+        default_constants: dict[str, number] = {
             "compressibility": 0,
             "density": 1,
             "specific_heat_capacity": 1,
@@ -249,6 +250,7 @@ class SolidConstants(MaterialConstants):
 
         Returns:
             Thermal expansion coefficient in converted temperature units.
+
         """
         return self.convert_units(self.constants["thermal_expansion"], "K^-1")
 
@@ -322,7 +324,7 @@ class SolidConstants(MaterialConstants):
         return self.convert_units(self.constants["shear_modulus"], "Pa")
 
     def lame_lambda(self) -> number:
-        """Lame's first parameter.
+        """Lame's first parameter [Pa].
 
         Returns:
             Lame's first parameter in converted pressure units.
