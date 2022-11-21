@@ -218,14 +218,16 @@ class SolidConstants(MaterialConstants):
         # Default values, sorted alphabetically
         default_constants = {
             "density": 1,
-            "dilation_angle": 1,
-            "fracture_gap": 1,
+            "dilation_angle": 0,
+            "fracture_gap": 0,
             "friction_coefficient": 1,
             "lame_lambda": 1,
             "normal_permeability": 1,
+            "normal_thermal_conductivity": 1,
             "permeability": 1,
-            "porosity": 1,
+            "porosity": 0.1,
             "shear_modulus": 1,
+            "thermal_conductivity": 1,
             "thermal_expansion": 1,
         }
 
@@ -269,6 +271,28 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["normal_permeability"], "m^2")
+
+    def normal_thermal_conductivity(self) -> number:
+        """Normal thermal conductivity [W/m/K].
+
+        Returns:
+            Normal thermal conductivity in converted energy, length and temperature units.
+
+        """
+        return self.convert_units(
+            self.constants["normal_thermal_conductivity"], "W * m^-1 * K^-1"
+        )
+
+    def thermal_conductivity(self) -> number:
+        """Thermal conductivity [W/m/K].
+
+        Returns:
+            Thermal conductivity in converted energy, length and temperature units.
+
+        """
+        return self.convert_units(
+            self.constants["thermal_conductivity"], "W * m^-1 * K^-1"
+        )
 
     def porosity(self) -> number:
         """Porosity [-].
