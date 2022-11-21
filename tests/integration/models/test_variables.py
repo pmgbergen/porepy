@@ -3,7 +3,6 @@
 """
 from inspect import signature
 
-import numpy as np
 import pytest
 
 import porepy as pp
@@ -14,9 +13,9 @@ from .setup_utils import model
 @pytest.mark.parametrize(
     "model_type,variable_name,domain_inds",
     [
-        ("force_balance", "displacement", [0]),
-        ("force_balance", "interface_displacement", []),
-        ("force_balance", "contact_traction", [1]),
+        ("momentum_balance", "displacement", [0]),
+        ("momentum_balance", "interface_displacement", []),
+        ("momentum_balance", "contact_traction", [1]),
         ("mass_balance", "pressure", [0]),
         ("mass_balance", "pressure", []),
         ("mass_balance", "interface_darcy_flux", []),

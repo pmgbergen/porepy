@@ -4,6 +4,7 @@
 from inspect import signature
 
 import pytest
+
 from .setup_utils import model
 
 
@@ -12,10 +13,10 @@ from .setup_utils import model
     [
         ("mass_balance", "mass_balance_equation", []),
         ("mass_balance", "interface_darcy_flux_equation", []),
-        ("force_balance", "matrix_force_balance_equation", [0]),
-        ("force_balance", "interface_force_balance_equation", [0]),
-        ("force_balance", "normal_fracture_deformation_equation", [1]),
-        ("force_balance", "tangential_fracture_deformation_equation", [1]),
+        ("momentum_balance", "momentum_balance_equation", [0]),
+        ("momentum_balance", "interface_force_balance_equation", [0]),
+        ("momentum_balance", "normal_fracture_deformation_equation", [1]),
+        ("momentum_balance", "tangential_fracture_deformation_equation", [1]),
     ],
 )
 def test_parse_equations(model_type, equation_name, domain_inds):
@@ -34,7 +35,3 @@ def test_parse_equations(model_type, equation_name, domain_inds):
     if len(domain_inds) > 0:
         domains = [domains[i] for i in domain_inds if i <= len(domains)]
     setup.equation_system.assemble_subsystem({equation_name: domains})
-
-
-# if __name__ == "__main__":
-#     test_parse_equations("force_balance", "tangential_fracture_deformation_equation", [1])

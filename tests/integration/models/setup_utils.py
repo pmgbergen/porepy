@@ -5,7 +5,7 @@ import numpy as np
 
 import porepy as pp
 from porepy.models import fluid_mass_balance as fmb
-from porepy.models import force_balance as fb
+from porepy.models import momentum_balance as fb
 
 
 class GeometrySingleFracture2d(pp.ModelGeometry):
@@ -31,12 +31,12 @@ class MassBalanceCombined(
     ...
 
 
-class ForceBalanceCombined(
+class MomentumBalanceCombined(
     GeometrySingleFracture2d,
-    fb.ForceBalanceEquations,
-    fb.ConstitutiveEquationsForceBalance,
-    fb.VariablesForceBalance,
-    fb.SolutionStrategyForceBalance,
+    fb.MomentumBalanceEquations,
+    fb.ConstitutiveEquationsMomentumBalance,
+    fb.VariablesMomentumBalance,
+    fb.SolutionStrategyMomentumBalance,
     pp.DataSavingMixin,
 ):
     """Combine components needed for force balance simulation."""
@@ -44,7 +44,7 @@ class ForceBalanceCombined(
     pass
 
 
-def model(type: str) -> ForceBalanceCombined:
+def model(type: str) -> MomentumBalanceCombined:
     """Setup for tests."""
     # Suppress output for tests
     params = {"suppress_export": True}
@@ -52,12 +52,12 @@ def model(type: str) -> ForceBalanceCombined:
     # Choose model and create setup object
     if type == "mass_balance":
         ob = MassBalanceCombined(params)
-    elif type == "force_balance":
-        ob = ForceBalanceCombined(params)
+    elif type == "momentum_balance":
+        ob = MomentumBalanceCombined(params)
     else:
         raise ValueError("Unknown type")
 
     # Prepare the simulation
-    # (create gridsm, variables, equations, discretize, etc.)
+    # (create grids, variables, equations, discretize, etc.)
     ob.prepare_simulation()
     return ob
