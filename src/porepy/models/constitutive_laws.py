@@ -193,7 +193,7 @@ class ConstantViscosity:
         return Scalar(self.fluid.viscosity(), "viscosity")
 
 
-class DarcyFlux:
+class DarcysLawFV:
     """This class could be refactored to reuse for other diffusive fluxes, such as
     heat conduction. It's somewhat cumbersome, though, since potential, discretization,
     and boundary conditions all need to be passed around.
@@ -247,6 +247,33 @@ class DarcyFlux:
         flux.set_name("Darcy_flux")
         return flux
 
+    def interface_darcy_flux_equation(self, interfaces: list[pp.MortarGrid]):
+        """Darcy flux on interfaces.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the Darcy flux equation on the interfaces.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        cell_volumes = self.wrap_grid_attribute(interfaces, "cell_volumes")
+        # Project the two pressures to the interface and multiply with the normal
+        # diffusivity
+        eq = self.interface_darcy_flux(
+            interfaces
+        ) - cell_volumes * self.normal_permeability(interfaces) * (
+            projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
+            - projection.secondary_to_mortar_avg * self.pressure(subdomains)
+            # + self.interface_vector_source(interfaces, material="fluid")
+        )
+        eq.set_name("interface_darcy_flux_equation")
+        return eq
+
     def darcy_flux_discretization(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Discretization:
@@ -289,7 +316,9 @@ class DarcyFlux:
         )
         return source
 
-    def interface_vector_source(self, interfaces):
+    def interface_vector_source(
+        self, interfaces: list[pp.MortarGrid], material: str
+    ) -> pp.ad.Operator:
         """Interface vector source term.
 
         The term is the product of unit normals and vector source values. Normalization
@@ -318,7 +347,105 @@ class DarcyFlux:
         unit_outwards_normals = (
             flip * cell_volumes_inv * projection.primary_to_mortar_avg * face_normals
         )
-        return unit_outwards_normals * self.vector_source(interfaces)
+        return unit_outwards_normals * self.vector_source(interfaces, material=material)
+
+
+class FouriersLawFV:
+    """This class could be refactored to reuse for other diffusive fluxes, such as
+    heat conduction. It's somewhat cumbersome, though, since potential, discretization,
+    and boundary conditions all need to be passed around. Also, gravity effects are
+    not included, as opposed to the Darcy flux (see that class).
+    """
+
+    def temperature_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Temperature on the subdomain boundaries.
+
+        Parameters:
+            subdomains: List of subdomains where the temperature is defined.
+
+        Returns:
+            Temperature on the subdomain boundaries. Parsing the operator will return a
+            face-wise array
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr = self.darcy_flux_discretization(subdomains)
+        t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
+        temperature_trace = (
+            discr.bound_pressure_cell * t  # "pressure" is a legacy misnomer
+            + discr.bound_pressure_face
+            * (
+                projection.mortar_to_primary_int
+                * self.interface_fourier_flux(interfaces)
+            )
+            + discr.bound_pressure_face * self.bc_values_darcy_flux(subdomains)
+            + discr.vector_source * self.vector_source(subdomains, material="fluid")
+        )
+        return temperature_trace
+
+    def fourier_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fourier flux.
+
+        Parameters:
+            subdomains: List of subdomains where the Fourier flux is defined.
+
+        Returns:
+            Face-wise Fourier flux in cubic meters per second.
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr: pp.ad.Discretization = self.fourier_flux_discretization(subdomains)
+
+        # As opposed to darcy_flux in :class:`DarcyFluxFV`, the gravity term is not
+        # included here.
+        flux: pp.ad.Operator = discr.flux * self.temperature(
+            subdomains
+        ) + discr.bound_flux * (
+            self.bc_values_fourier_flux(subdomains)
+            + projection.mortar_to_primary_int * self.interface_fourier_flux(interfaces)
+        )
+        flux.set_name("Darcy_flux")
+        return flux
+
+    def interface_fourier_flux_equation(self, interfaces: list[pp.MortarGrid]):
+        """Fourier flux on interfaces.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the Fourier flux equation on the interfaces.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        cell_volumes = self.wrap_grid_attribute(interfaces, "cell_volumes")
+        # Project the two pressures to the interface and multiply with the normal
+        # diffusivity
+        eq = self.interface_fourier_flux(
+            interfaces
+        ) - cell_volumes * self.normal_heat_conductivity(interfaces) * (
+            projection.primary_to_mortar_avg * self.temperature_trace(subdomains)
+            - projection.secondary_to_mortar_avg * self.temperature(subdomains)
+        )
+        eq.set_name("interface_fourier_flux_equation")
+        return eq
+
+    def fourier_flux_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Discretization:
+        """Fourier flux discretization.
+
+        Parameters:
+            subdomains: List of subdomains where the Fourier flux is defined.
+
+        Returns:
+            Discretization of the Fourier flux.
+
+        """
+        return pp.ad.MpfaAd(self.fourier_discretization_parameter_key, subdomains)
 
 
 class AdvectiveFlux:

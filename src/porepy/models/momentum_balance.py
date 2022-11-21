@@ -29,8 +29,6 @@ from . import constitutive_laws
 logger = logging.getLogger(__name__)
 
 
-
-
 class MomentumBalanceEquations(pp.VectorBalanceEquation):
     """Class for momentum balance equations and fracture deformation equations."""
 
@@ -265,6 +263,7 @@ class MomentumBalanceEquations(pp.VectorBalanceEquation):
 
     def body_force(self, subdomains: list[pp.Grid]):
         """Body force.
+
         FIXME: See FluidMassBalanceEquations.fluid_source. Parameters:
             subdomains: List of subdomains where the body force is defined.
 

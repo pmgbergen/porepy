@@ -61,6 +61,7 @@ class MassBalanceEquations(pp.ScalarBalanceEquation):
 
         Returns:
             Operator representing the mass balance equation.
+
         """
         accumulation = self.fluid_mass(subdomains)
         flux = self.fluid_flux(subdomains)
@@ -92,7 +93,7 @@ class MassBalanceEquations(pp.ScalarBalanceEquation):
     def fluid_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid flux.
 
-        Given a Darcy flux, this is an advective flux.
+        Darcy flux times density and mobility.
 
         Parameters:
             subdomains: List of subdomains.
@@ -104,41 +105,25 @@ class MassBalanceEquations(pp.ScalarBalanceEquation):
         mob_rho = self.fluid_density(subdomains) * self.mobility(subdomains)
 
         bc_values = self.bc_values_mobrho(subdomains)
-        # Signature of method should allow reuse for e.g. enthalpy flux
         flux = self.advective_flux(
             subdomains, mob_rho, discr, bc_values, self.interface_fluid_flux
         )
         flux.set_name("fluid_flux")
         return flux
 
-    def interface_darcy_flux_equation(self, interfaces: list[pp.MortarGrid]):
-        """Darcy flux on interfaces.
+    def interface_flux_equation(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Interface flux equation.
 
         Parameters:
             interfaces: List of interface grids.
 
         Returns:
-            Operator representing the Darcy flux equation on the interfaces.
+            Operator representing the interface flux equation.
 
         """
-        subdomains = self.interfaces_to_subdomains(interfaces)
-
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-
-        cell_volumes = self.wrap_grid_attribute(interfaces, "cell_volumes")
-        # Project the two pressures to the interface and multiply with the normal
-        # diffusivity
-        eq = self.interface_darcy_flux(
-            interfaces
-        ) - cell_volumes * self.normal_permeability(interfaces) * (
-            projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
-            - projection.secondary_to_mortar_avg * self.pressure(subdomains)
-            # FIXME: The plan is to remove RoubinCoupling. That requires alternative
-            #  implementation of the below
-            # + self.interface_vector_source(interfaces)
-        )
-        eq.set_name("interface_darcy_flux_equation")
-        return eq
+        return self.interface_darcy_flux_equation(interfaces)
 
     def interface_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Interface fluid flux.
@@ -148,6 +133,7 @@ class MassBalanceEquations(pp.ScalarBalanceEquation):
 
         Returns:
             Operator representing the interface fluid flux.
+
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
@@ -165,6 +151,7 @@ class MassBalanceEquations(pp.ScalarBalanceEquation):
 
         Returns:
             Operator representing the source term.
+
         """
         num_cells = sum([sd.num_cells for sd in subdomains])
         vals = np.zeros(num_cells)
@@ -173,7 +160,7 @@ class MassBalanceEquations(pp.ScalarBalanceEquation):
 
 
 class ConstitutiveEquationsIncompressibleFlow(
-    pp.constitutive_laws.DarcyFlux,
+    pp.constitutive_laws.DarcysLawFV,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.ConstantPorousMedium,
@@ -212,9 +199,6 @@ class ConstitutiveEquationsIncompressibleFlow(
         return pp.ad.UpwindCouplingAd(
             self.mobility_discretization_parameter_key, interfaces
         )
-
-    def interface_darcy_flux_equation(self, interfaces: list[pp.MortarGrid]):
-        return self.gradient_interface_flux(interfaces, "pressure")
 
     def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
