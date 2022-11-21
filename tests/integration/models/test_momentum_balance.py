@@ -55,7 +55,7 @@ class BoundaryConditionsDirNorthSouth:
             val_loc[1, north] = self.params.get("north_displacement", 0)
             val_loc[1, south] = self.params.get("south_displacement", 0)
             values.append(val_loc.ravel("F"))
-        return ad_wrapper(np.hstack(values), True, name="bc_values_darcy")
+        return ad_wrapper(np.hstack(values), True, name="bc_values_mechnics")
 
 
 class LinearModel(BoundaryConditionsDirNorthSouth, MomentumBalanceCombined):
