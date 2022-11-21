@@ -8,8 +8,10 @@ import abc
 
 import porepy as pp
 
+from ._composite_utils import CompositionalSingleton
 
-class Component(abc.ABC):
+
+class Component(abc.ABC, metaclass=CompositionalSingleton):
     """Abstract base class for chemical components modelled inside a mixture.
 
     Provides and manages component-related physical quantities and properties.
@@ -27,36 +29,7 @@ class Component(abc.ABC):
 
     """
 
-    # contains per mdg the singleton, using the class name as a unique identifier
-    __ad_singletons: dict[pp.MixedDimensionalGrid, dict[str, Component]] = dict()
-    # flag if a singleton has recently been accessed, to skip re-instantiation
-    __singleton_accessed: bool = False
-
-    def __new__(cls, ad_system: pp.ad.ADSystem) -> Component:
-        # class name is used as unique identifier
-        name = str(cls.__name__)
-        # check for AD singletons per grid
-        mdg = ad_system.dof_manager.mdg
-        if mdg in Component.__ad_singletons:
-            if name in Component.__ad_singletons[mdg]:
-                # flag that the singleton has been accessed and return it.
-                Component.__singleton_accessed = True
-                return Component.__ad_singletons[mdg][name]
-        else:
-            Component.__ad_singletons.update({mdg: dict()})
-
-        # create a new instance and store it, if no previous instantiations were found
-        new_instance = super().__new__(cls)
-        Component.__ad_singletons[mdg].update({name: new_instance})
-
-        return new_instance
-
     def __init__(self, ad_system: pp.ad.ADSystem) -> None:
-
-        # skipping re-instantiation if class if __new__ returned the previous reference
-        if Component.__singleton_accessed:
-            Component.__singleton_accessed = False
-            return
 
         super().__init__()
 
@@ -112,38 +85,58 @@ class Component(abc.ABC):
         pass
 
 
-class PseudoComponent(abc.ABC):
+class Compound(Component):
+    """Abstract base class for all compounds in a mixture.
+
+    A compound is a simplified, but meaningfully generalized component inside a mixture, for
+    which it makes sense to treat it as a single component.
+
+    A compound can appear in multiple phases and it can have multiple pseudo-components, whose
+    presence influence the thermodynamic behavior.
+
+    An example would be brine with a pseudo-component representing salt, where it is
+    sufficient to calculate how much brine is in vapor or liquid form,
+    and the information about how the salt distributes across phases is irrelevant.
+    The salt in this case is a **transportable** quantity,
+    whose concentration acts as a parameter in the flash.
+
+    Another example would be the black-oil model, where black-oil is treated as a component
+    with various hydrocarbons as pseudo-components.
+
+    Parameters:
+        ad_system: AD system in which this component is present cell-wise in each subdomain.
+
+    """
+    pass
+
+
+class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
     """Abstract base class for components inside a mixture, which influence the properties of
-    the mixture, but more more similar to parameters, then to actual unknowns.
-    
+    the mixture, but are more similar to parameters than to actual unknowns for the flash.
+
     Pseudo-components can be used to provide simplified surrogate models, which sufficiently
-    enough approximate the reality. An example would be salt, which influences the phase
+    enough approximate reality.
+
+    An example would be salt, which influences the phase
     behavior of a compound 'brine' with its concentration, but for which it is not meaningful
     to model salt alone as a component in vapor and liquid phase.
+
+    Note:
+        When pairing the equilibrium problem with a flow problem, the pseudo-component might
+        need nevertheless a transport equation! Take above example. If the amount of salt
+        entering the system is unequal to the amount leaving it, one needs to formulate the
+        respective transport. If that is not the case, i.e. the amount of salt is constant
+        at all times, this is not necessary.
+
+        Keep this in mind when formulating a model, its equations and variables.
     
+    Note:
+        For above reasons, the pseudo-component does not inherit from component.
+        Its mathematical implications are fundamentally different.
+
     Parameters:
         ad_system: AD system in which this pseud-component is present,
             cell-wise in each subdomain.
 
     """
     pass
-
-
-class Compound(abc.ABC):
-    """Abstract base class for all compounds in a mixture.
-    
-    A compound is a simplified, but meaningful generalized component inside a mixture, for
-    which it is meaningful to treat it as a component.
-    
-    A compound can appear in multiple phases and it can have multiple pseudo-components, whose
-    presence influence the thermodynamic behavior.
-    
-    An example would be brine with a pseudo-component representing a salt, where it is
-    sufficient to calculate how much brine is vapor or liquid form, but the information about
-    how the salt distributes across phases is irrelevant for a model. The salt in this case is
-    a transportable quantity, whose concentration acts as a parameter in the flash.
-
-    Parameters:
-        ad_system: AD system in which this component is present cell-wise in each subdomain.
-
-    """

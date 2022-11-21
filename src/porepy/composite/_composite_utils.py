@@ -2,6 +2,10 @@
 assumptions made here."""
 from __future__ import annotations
 
+import abc
+
+import porepy as pp
+
 __all__ = [
     "R_IDEAL",
     "P_REF",
@@ -121,3 +125,56 @@ where g (heat capacity ratio) is set to 8/6 for triatomic molecules.
 | Phys. Dimension:      [kJ / K mol]
 
 """
+
+
+class CompositionalSingleton(abc.ABCMeta):
+    """Abstract Meta class for name- and AD system based singletons.
+    
+    This ensures that only a single object per AD System is instantiated with that name.
+    (and returned in successive instantiations).
+
+    If name is not given as a keyword argument, the class name is used and the whole class
+    becomes a singleton.
+
+    The intended use is for classes which represent for example variables with specific names.
+    This approach ensures a conflict-free usage of the central storage of values in the
+    AD system.
+
+    Note:
+        As of now, the implications of having to use ``abc.ABCMeta`` is not clear.
+        Python demands that custom meta-classes must be derived from other meta classes.
+
+        For now we demand that objects in the compositional framework are this type of
+        singleton to avoid nonphysical conflicts like 2 times the same phase or component.
+
+        This strict enforcement can be omitted by logic or proper tutoring though...
+
+    ParametersL
+        ad_system: A reference to respective AD system.
+        name (optional): Given name of this object. By default, the class name will be used.
+
+    """
+
+    # contains per AD system the singleton, using the given name as a unique identifier
+    __ad_singletons: dict[pp.ad.ADSystem, dict[str, object]] = dict()
+
+    def __call__(
+        cls, ad_system: pp.ad.ADSystem, *args, **kwargs
+    ) -> object:
+        # search for name, use class name if not given
+        name = kwargs.get("name", str(cls.__name__))
+
+        if ad_system in CompositionalSingleton.__ad_singletons:
+            if name in CompositionalSingleton.__ad_singletons[ad_system]:
+                # If there already is an object with this name instantiated
+                # using this ad system, return it
+                return CompositionalSingleton.__ad_singletons[ad_system][name]
+        # prepare storage
+        else:
+            CompositionalSingleton.__ad_singletons.update({ad_system: dict()})
+
+        # create a new object and store it
+        new_instance = super(CompositionalSingleton, cls).__call__(ad_system, *args, **kwargs)
+        CompositionalSingleton.__ad_singletons[ad_system].update({name: new_instance})
+        # return new instance
+        return new_instance

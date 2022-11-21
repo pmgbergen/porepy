@@ -48,8 +48,8 @@ class PR_Composition(Composition):
 
         # setting of currently supported phases
         self._phases: list[PR_Phase] = [
-            PR_Phase("L", self.ad_system),
-            PR_Phase("G", self.ad_system),
+            PR_Phase(self.ad_system, name="L"),
+            PR_Phase(self.ad_system, name="G"),
         ]
 
         ### PRIVATE

@@ -19,8 +19,8 @@ class PR_Phase(Phase):
 
     """
 
-    def __init__(self, name: str, ad_system: pp.ad.ADSystem) -> None:
-        super().__init__(name, ad_system)
+    def __init__(self, ad_system: pp.ad.ADSystem, name: str = "") -> None:
+        super().__init__(ad_system, name=name)
 
         self._h: Callable
         self._rho: Callable
