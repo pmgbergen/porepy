@@ -1,7 +1,6 @@
 """
 Class types:
-    Generic ScalarBalanceEquation Specific MassBalanceEquations defines subdomain and
-    interface equations through the
+    MassBalanceEquations defines subdomain and interface equations through the
         terms entering. Darcy type interface relation is assumed.
     Specific ConstitutiveEquations and specific SolutionStrategy for both incompressible
     and compressible case.
@@ -31,58 +30,7 @@ from .constitutive_laws import ad_wrapper
 logger = logging.getLogger(__name__)
 
 
-class ScalarBalanceEquation:
-    """Generic class for scalar balance equations on the form
-
-    d_t(accumulation) + div(flux) - source = 0
-
-    All terms need to be specified in order to define an equation.
-    """
-
-    def balance_equation(
-        self,
-        subdomains: list[pp.Grid],
-        accumulation: pp.ad.Operator,
-        flux: pp.ad.Operator,
-        source: pp.ad.Operator,
-    ) -> pp.ad.Operator:
-        """Define the balance equation.
-
-        Parameters:
-            subdomains: List of grids on which the equation is defined. accumulation:
-            Accumulation term. flux: Flux term. source: Source term.
-
-        Returns:
-            Operator representing the balance equation.
-        """
-
-        dt_operator = pp.ad.time_derivatives.dt
-        dt = self.time_manager.dt
-        div = pp.ad.Divergence(subdomains)
-        return dt_operator(accumulation, dt) + div * flux - source
-
-    def volume_integral(
-        self,
-        integrand: pp.ad.Operator,
-        grids: list[pp.GridLike],
-    ) -> pp.ad.Operator:
-        """Numerical volume integral over subdomain or interface cells.
-
-        Includes cell volumes and specific volume. FIXME: Decide whether to use this on
-        source terms.
-
-        Parameters:
-            integrand: Operator to be integrated. grids: List of subdomain or interface
-            grids over which to integrate.
-
-        Returns:
-            Operator representing the integral.
-        """
-        cell_volumes = self.wrap_grid_attribute(grids, "cell_volumes")
-        return cell_volumes * self.specific_volume(grids) * integrand
-
-
-class MassBalanceEquations(ScalarBalanceEquation):
+class MassBalanceEquations(pp.ScalarBalanceEquation):
     """Mixed-dimensional mass balance equation.
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces
