@@ -120,7 +120,8 @@ def test_convert_units(modify_dict, base_units, derived_units):
     # Set up a unit class with modified units passed as keyword arguments
     units = pp.Units(**modify_dict)
     # Assign the units to a material, which has a conversion method
-    material = pp.UnitFluid(units=units)
+    material = pp.FluidConstants()
+    material.set_units(units)
 
     # Test that the conversion works for base units
     for unit in base_units:

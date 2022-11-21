@@ -1,14 +1,12 @@
 """
 Class types:
-    Generic VectorBalanceEquation Specific ForceBalanceEquations defines subdomain and
-    interface equations through the
-        terms entering. Force balance between opposing fracture interfaces is imposed.
-    TODO: Specific ConstitutiveEquations and TODO: specific SolutionStrategy
+    - Generic VectorBalanceEquation
+    - Specific MomentumBalanceEquations defines subdomain and interface equations through the
+    terms entering. Momentum balance between opposing fracture interfaces is imposed.
 
 Notes:
-    - The class ForceBalanceEquations is a mixin class, and should be inherited by a
-      class
-        that defines the variables and discretization.
+    - The class MomentumBalanceEquations is a mixin class, and should be inherited by a
+      class that defines the variables and discretization.
 
     - Refactoring needed for constitutive equations. Modularisation and moving to the
       library.
@@ -36,9 +34,7 @@ class VectorBalanceEquation:
 
     In the only known use case, the balance equation is the momentum balance equation,
 
-        d_t(momentum) + div(stress) - source = 0,
-
-    which reduces to a force balance if the momentum/inertia term is neglected.
+        d_t(momentum) + div(stress) - source = 0.
 
     All terms need to be specified in order to define an equation.
 
@@ -103,14 +99,14 @@ class VectorBalanceEquation:
         return volumes_nd * integrand
 
 
-class ForceBalanceEquations(VectorBalanceEquation):
-    """Class for force balance equations and fracture deformation equations."""
+class MomentumBalanceEquations(VectorBalanceEquation):
+    """Class for momentum balance equations and fracture deformation equations."""
 
     def set_equations(self):
         """Set equations for the subdomains and interfaces.
 
         The following equations are set:
-            - Force balance in the matrix.
+            - Momentum balance in the matrix.
             - Force balance between fracture interfaces.
             - Deformation constraints for fractures, split into normal and tangential
               part.
@@ -119,7 +115,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
         fracture_subdomains = self.mdg.subdomains(dim=self.nd - 1)
         interfaces = self.mdg.interfaces(dim=self.nd - 1)
-        matrix_eq = self.matrix_force_balance_equation(matrix_subdomains)
+        matrix_eq = self.momentum_balance_equation(matrix_subdomains)
         # We split the fracture deformation equations into two parts, for the normal and
         # tangential components for convenience.
         fracture_eq_normal = self.normal_fracture_deformation_equation(
@@ -140,8 +136,8 @@ class ForceBalanceEquations(VectorBalanceEquation):
         )
         self.equation_system.set_equation(intf_eq, interfaces, {"cells": self.nd})
 
-    def matrix_force_balance_equation(self, subdomains: list[pp.Grid]):
-        """Force balance equation in the matrix.
+    def momentum_balance_equation(self, subdomains: list[pp.Grid]):
+        """Momentum balance equation in the matrix.
 
         Inertial term is not included.
 
@@ -158,7 +154,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         stress = self.stress(subdomains)
         body_force = self.body_force(subdomains)
         equation = self.balance_equation(subdomains, accumulation, stress, body_force)
-        equation.set_name("matrix_force_balance_equation")
+        equation.set_name("momentum_balance_equation")
         return equation
 
     def inertia(self, subdomains: list[pp.Grid]):
@@ -177,7 +173,7 @@ class ForceBalanceEquations(VectorBalanceEquation):
         self,
         interfaces: list[pp.MortarGrid],
     ) -> pp.ad.Operator:
-        """Force balance equation at matrix-fracture interfaces.
+        """Momentum balance equation at matrix-fracture interfaces.
 
         Parameters:
             interfaces: Fracture-matrix interfaces.
@@ -350,12 +346,12 @@ class ForceBalanceEquations(VectorBalanceEquation):
         return source
 
 
-class ConstitutiveEquationsForceBalance(
+class ConstitutiveEquationsMomentumBalance(
     constitutive_laws.LinearElasticSolid,
     constitutive_laws.FracturedSolid,
     constitutive_laws.FrictionBound,
 ):
-    """Class for constitutive equations for force balance equations."""
+    """Class for constitutive equations for momentum balance equations."""
 
     def stress(self, subdomains: list[pp.Grid]):
         """Stress operator.
@@ -386,9 +382,9 @@ class ConstitutiveEquationsForceBalance(
         )
 
 
-class VariablesForceBalance:
+class VariablesMomentumBalance:
     """
-    Variables for mixed-dimensional force balance and fracture deformation:
+    Variables for mixed-dimensional deformation:
         Displacement in matrix and on fracture-matrix interfaces. Fracture contact
         traction.
 
@@ -502,7 +498,7 @@ class VariablesForceBalance:
         return rotated_jumps
 
 
-class SolutionStrategyForceBalance(pp.SolutionStrategy):
+class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     """This is whatever is left of pp.ContactMechanics.
 
     At some point, this will be refined to be a more sophisticated (modularised)
@@ -580,9 +576,7 @@ class SolutionStrategyForceBalance(pp.SolutionStrategy):
         # Default internal BC is Neumann. We change to Dirichlet for the contact
         # problem. I.e., the mortar variable represents the displacement on the fracture
         # faces.
-        frac_face = sd.tags["fracture_faces"]
-        bc.is_neu[:, frac_face] = False
-        bc.is_dir[:, frac_face] = True
+        bc.internal_to_dirichlet(sd)
         return bc
 
     def numerical_constant(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
@@ -614,12 +608,12 @@ class SolutionStrategyForceBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class MdForceBalanceCombined(
+class MdMomentumBalanceCombined(
     ModelGeometry,
-    ForceBalanceEquations,
-    ConstitutiveEquationsForceBalance,
-    VariablesForceBalance,
-    SolutionStrategyForceBalance,
+    MomentumBalanceEquations,
+    ConstitutiveEquationsMomentumBalance,
+    VariablesMomentumBalance,
+    SolutionStrategyMomentumBalance,
 ):
     """Demonstration of how to combine in a class which can be used with
     pp.run_stationary_problem (once cleanup has been done).
