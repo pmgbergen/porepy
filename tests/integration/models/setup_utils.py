@@ -1,5 +1,5 @@
 """Utility methods for setting up models for testing."""
-
+from __future__ import annotations
 
 import numpy as np
 
@@ -44,18 +44,21 @@ class MomentumBalanceCombined(
     pass
 
 
-def model(type: str) -> MomentumBalanceCombined:
+def model(model_type: str) -> MassBalanceCombined | MomentumBalanceCombined:
     """Setup for tests."""
     # Suppress output for tests
     params = {"suppress_export": True}
 
+    ob: MassBalanceCombined | MomentumBalanceCombined
+
     # Choose model and create setup object
-    if type == "mass_balance":
+    if model_type == "mass_balance":
         ob = MassBalanceCombined(params)
-    elif type == "momentum_balance":
+    elif model_type == "momentum_balance":
         ob = MomentumBalanceCombined(params)
     else:
-        raise ValueError("Unknown type")
+        # To add a new model, a an elif clause here, and a new class above.
+        raise ValueError(f"Unknown model type {model_type}")
 
     # Prepare the simulation
     # (create grids, variables, equations, discretize, etc.)

@@ -101,6 +101,7 @@ def test_linear_pressure(fluid_vals, solid_vals):
         var = setup.equation_system.get_variables(["pressure"], [sd])
         vals = setup.equation_system.get_variable_values(var)
         assert np.allclose(vals, 1 - sd.cell_centers[0])
+
     # Check that the flux over each face is equal to the x component of the
     # normal vector
     for sd in setup.mdg.subdomains():

@@ -307,7 +307,7 @@ class VariablesSinglePhaseFlow:
             interfaces=self.mdg.interfaces(),
         )
 
-    def pressure(self, subdomains) -> pp.ad.MixedDimensionalVariable:
+    def pressure(self, subdomains: list[pp.Grid]) -> pp.ad.MixedDimensionalVariable:
         p = self.equation_system.md_variable(self.pressure_variable, subdomains)
         return p
 

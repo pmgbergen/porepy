@@ -19,10 +19,12 @@ def subdomains() -> list[pp.Grid]:
     """Create a list of grids for the test."""
     g1 = pp.CartGrid(np.array([1, 1]), np.array([1, 1]))
     g1.compute_geometry()
+    # 2d grid
     g2 = pp.CartGrid(np.array([2, 1]), np.array([1, 1]))
     g2.compute_geometry()
     # 3d
     g3 = pp.CartGrid(np.array([3, 1, 1]), np.array([1, 1, 1]))
+    g3.compute_geometry()
     return [g1, g2, g3]
 
 
@@ -58,7 +60,11 @@ def test_default_units(base_units, derived_units):
 
     # Get list of all public attributes
     attributes = [attr for attr in dir(units) if not attr.startswith("_")]
-    # Check that all attributes are base or derived units
+
+    # Check that all attributes are base or derived units.
+    # An error in this test likely means a new unit has been added, but is not covered
+    # by the test. Consider updating the test (both the present one and other tests
+    # in this file).
     for attr in attributes:
         assert attr in base_units + derived_units
 
@@ -71,6 +77,9 @@ def test_default_units(base_units, derived_units):
         pp.Units(m="invalid")
 
 
+# Two sets of units to be used in the tests below. All basic units are modified in at
+# least one of the two sets, except the radian, which is not expected to be rescaled
+# in a manner similar to the other units.
 modification_dictionaries = [dict(m=2, kg=3.7, s=4), dict(m=3, mol=2.5)]
 
 
@@ -104,9 +113,18 @@ def test_modified_units(modify_dict, derived_units, base_units):
     assert np.isclose(units.W, units.J / units.s)
     # Test degree in base units
     assert np.isclose(units.degree, units.rad * 180 / np.pi)
+
+    # Check that all derived units are covered. Note that check_default_units asserts
+    # that all derived units are included in the fixtures in this test. A failure below
+    # would likely indicate that a new unit has been added to pp.Units, and to the set
+    # of derived units, as returned by the fixture derived_units, but not to the present
+    # test.
+    # Note that if a unit is added to pp.Units, but not to the set of derived units,
+    # the present test will not fail, but the test_default_units will, see comments
+    # towards the end of that test.
+
+    # These are the units figuring in the above assertions.
     units_covered = ["Pa", "N", "J", "W", "degree"]
-    # Check that all derived units are covered. Note that check_default_units asserts that all
-    # derived units are included in the fixtures in this test.
     assert set(units_covered) == set(derived_units)
 
 
@@ -119,13 +137,16 @@ def test_convert_units(modify_dict, base_units, derived_units):
     """
     # Set up a unit class with modified units passed as keyword arguments
     units = pp.Units(**modify_dict)
-    # Assign the units to a material, which has a conversion method
-    material = pp.FluidConstants()
+    # Assign the units to a material, which has a conversion method.
+    # We need to pass a dictionary to the __init__ of the the MaterialConstant class,
+    # but the values are not used in the test, so make the dict empty.
+    material = pp.MaterialConstants({})
     material.set_units(units)
 
     # Test that the conversion works for base units
     for unit in base_units:
-        # Retrieve the value of the unit. If the unit is not modified, the default value is 1.
+        # Retrieve the value of the unit. If the unit is not modified, the default value
+        # is 1.
         val = modify_dict.get(unit, 1)
         # Assert that scaling 1 * unit returns the inverse of the scale set for unit
         assert np.isclose(material.convert_units(1, unit), 1 / val)
@@ -135,7 +156,11 @@ def test_convert_units(modify_dict, base_units, derived_units):
     # Test that the conversion works for combinations of units
     # Get pascal from modified base units
     pascal = units.kg / units.m / units.s**2
+
+    # Combine the Pascal with other units (somewhat randomly chosen)
     expected = pascal / units.m**2
+    # The conversion method in the material class should be equivalent to manual scaling
+    # as done above.
     assert np.isclose(material.convert_units(1, "m^2 *Pa^-1"), expected)
     expected = pascal * units.s / units.m**2
     assert np.isclose(material.convert_units(1, "m^2*Pa^-1*s^-1"), expected)

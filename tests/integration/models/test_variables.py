@@ -23,18 +23,27 @@ from .setup_utils import model
 )
 def test_parse_variables(model_type, variable_name, domain_inds):
     """Test that the ad parsing works as expected."""
+    # Set up an object of the prescribed model
     setup = model(model_type)
+    # Fetch the relevant method to get the variable from this model.
     variable = getattr(setup, variable_name)
+    # Fetch the signature of the method.
     sig = signature(variable)
+
+    # The assumption is that the method to be tested takes as input only its domain
+    # of definition, that is a list of subdomains or interfaces. The test framework is
+    # not compatible with methods that take other arguments (and such a method would also
+    # break the implicit contract of the constitutive laws).
     assert len(sig.parameters) == 1
+
+    # The domain is a list of either subdomains or interfaces.
     if "subdomains" in sig.parameters:
-        # Fracture contact traction
         domains = setup.mdg.subdomains()
     elif "interfaces" in sig.parameters:
-        # Displacement in matrix and matrix-fracture interfaces
         domains = setup.mdg.interfaces()
-    else:
-        raise ValueError
+    # If relevant, filter out the domains that are not to be tested.
+    if len(domain_inds) > 0:
+        domains = [domains[i] for i in domain_inds]
 
     # Pick out the relevant domains
     if len(domain_inds) > 0:
@@ -42,6 +51,7 @@ def test_parse_variables(model_type, variable_name, domain_inds):
     op = variable(domains)
 
     assert isinstance(op, pp.ad.Operator)
+
     # The operator should be evaluateable
     evaluation = op.evaluate(setup.equation_system)
     # Check that value and Jacobian are of the correct shape
