@@ -43,6 +43,20 @@ class AbstractBoundaryCondition(object):
         bc.bf = self.bf
         return bc
 
+    def internal_to_dirichlet(self, sd: pp.Grid) -> None:
+        """Change the boundary condition to Dirichlet on all internal faces.
+
+        Useful for mixed-dimensional deformation problems, where the interface variable
+        is displacement, corresponding to a Dirichlet condition on the internal faces.
+
+        Parameters:
+            sd: Subdomain grid on which ``self`` is defined.
+
+        """
+        frac_face = sd.tags["fracture_faces"]
+        self.is_neu[:, frac_face] = False
+        self.is_dir[:, frac_face] = True
+
 
 class BoundaryCondition(AbstractBoundaryCondition):
     """Class to store information on boundary conditions for problems of a single

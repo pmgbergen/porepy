@@ -171,6 +171,7 @@ class MassBalanceEquations(ScalarBalanceEquation):
 
         Returns:
             Operator representing the Darcy flux equation on the interfaces.
+
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
 
