@@ -186,7 +186,10 @@ from porepy.numerics import ad
 from porepy.numerics.ad.equation_system import EquationSystem
 
 from porepy import models
-from models.abstract_equations import ScalarBalanceEquation, VectorBalanceEquation
+from porepy.models.abstract_equations import (
+    ScalarBalanceEquation,
+    VectorBalanceEquation,
+)
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
 from porepy.models.material_constants import (
