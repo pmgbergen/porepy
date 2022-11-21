@@ -7,9 +7,9 @@ import porepy as pp
 p = 0.100  # 101 kPa
 T = 343.15  # 100 deg C
 h = T + p
-salt_fraction = 0.1
+salt_fraction = 0.
 k_salt = 0.1
-k_water = 2.
+k_water = 0.8
 
 ### CALCULATION
 c = pp.composite.SimpleComposition()
@@ -19,28 +19,28 @@ mdg = dm.mdg
 nc = mdg.num_subdomain_cells()
 
 water = pp.composite.SimpleWater(ad_system)
-salt = pp.composite.SimpleSalt(ad_system)
+# salt = pp.composite.SimpleSalt(ad_system)
 c.add_component(water)
-c.add_component(salt)
+# c.add_component(salt)
 
 ad_system.set_var_values(water.fraction_name, (1-salt_fraction) * np.ones(nc), True)
-ad_system.set_var_values(salt.fraction_name, salt_fraction * np.ones(nc), True)
+# ad_system.set_var_values(salt.fraction_name, salt_fraction * np.ones(nc), True)
 ad_system.set_var_values(c._p_var, p * np.ones(nc), True)
 ad_system.set_var_values(c._T_var, T * np.ones(nc), True)
 ad_system.set_var_values(c._h_var, np.zeros(nc), True)
 
 c.k_values = {
     water: k_water,
-    salt: k_salt
+    # salt: k_salt
 }
 
 c.initialize()
 
 success = c.isothermal_flash(copy_to_state=False, initial_guess="feed")
+print("Success: ", success)
 c.evaluate_saturations(False)
 c.evaluate_specific_enthalpy(False)
 
-c.print_state()
 c.print_state(True)
 
 print("Done")

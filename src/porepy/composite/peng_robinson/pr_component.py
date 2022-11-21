@@ -6,8 +6,11 @@ from __future__ import annotations
 
 import abc
 
+import porepy as pp
+
 from .._composite_utils import R_IDEAL
 from ..component import Component
+from ..phase import VarLike
 
 
 class PR_Component(Component):
@@ -74,6 +77,10 @@ class PR_FluidComponent(PR_Component):
             * (R_IDEAL * self.critical_temperature())
             / self.critical_pressure()
         )
+    
+    def attraction(self, T: VarLike) -> VarLike:
+        """Returns an expression for ``a`` in the EoS for this component."""
+        return self.attraction_critical * self._attraction_alpha(T)
 
     @property
     def attraction_critical(self) -> float:
@@ -90,6 +97,27 @@ class PR_FluidComponent(PR_Component):
             * (R_IDEAL**2 * self.critical_temperature() ** 2)
             / self.critical_pressure()
         )
+
+    @property
+    def _attracion_alpha_weight(self) -> float:
+        """Weight ``kappa`` of the linearized alpha-correction of the attraction parameter in
+        the Peng-Robinson EoS:
+
+            ``a = a_cricital * alpha``,
+            ``alpha = 1 + kappa * (1 - sqrt(T_reduced))``.
+
+        """
+        return 0.37464 + 1.54226 * self.acentric_factor - 0.26992 * self.acentric_factor**2
+
+    def _attraction_alpha(self, T: VarLike) -> VarLike:
+        """Returns the linearized alpha-correction for the attraction parameter"""
+        sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
+
+        alpha_root = 1 + self._attracion_alpha_weight * (
+            1 - sqrt(T / self.critical_temperature)
+        )
+
+        return alpha_root * alpha_root
 
 
 class PR_SoluteComponent(PR_Component):

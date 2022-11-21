@@ -27,6 +27,8 @@ from porepy.numerics.ad.forward_mode import Ad_array
 __all__ = [
     "exp",
     "log",
+    "sqrt",
+    "cbrt",
     "sign",
     "abs",
     "l2_norm",
@@ -50,7 +52,7 @@ __all__ = [
 ]
 
 
-# %% Exponential and logarithmic functions
+# %% Exponential, logarithmic and root functions
 def exp(var):
     if isinstance(var, Ad_array):
         val = np.exp(var.val)
@@ -67,6 +69,22 @@ def log(var):
         return Ad_array(val, der)
     else:
         return np.log(var)
+
+def sqrt(var):
+    if isinstance(var, Ad_array):
+        val = np.sqrt(var.val)
+        der = var.diagvec_mul_jac(.5 * (1 / val))
+        return Ad_array(val, der)
+    else:
+        return np.sqrt(var)
+
+def cbrt(var):
+    if isinstance(var, Ad_array):
+        val = np.cbrt(var.val)
+        der = var.diagvec_mul_jac(1 / (3 * val**2))
+        return Ad_array(val, der)
+    else:
+        return np.cbrt(var)
 
 
 # %% Sign and absolute value functions and l2_norm

@@ -14,6 +14,9 @@ class Component(abc.ABC):
 
     Provides and manages component-related physical quantities and properties.
 
+    Components are chemical species which possibly go through phase transitions and appear in
+    multiple phases.
+
     The component is a Singleton per AD system, using the class name as a unique identifier.
     A component class with name ``X`` can only be present once in a system.
     Ambiguities must be avoided due to central storage of the fractional values in the
@@ -107,3 +110,40 @@ class Component(abc.ABC):
 
         """
         pass
+
+
+class PseudoComponent(abc.ABC):
+    """Abstract base class for components inside a mixture, which influence the properties of
+    the mixture, but more more similar to parameters, then to actual unknowns.
+    
+    Pseudo-components can be used to provide simplified surrogate models, which sufficiently
+    enough approximate the reality. An example would be salt, which influences the phase
+    behavior of a compound 'brine' with its concentration, but for which it is not meaningful
+    to model salt alone as a component in vapor and liquid phase.
+    
+    Parameters:
+        ad_system: AD system in which this pseud-component is present,
+            cell-wise in each subdomain.
+
+    """
+    pass
+
+
+class Compound(abc.ABC):
+    """Abstract base class for all compounds in a mixture.
+    
+    A compound is a simplified, but meaningful generalized component inside a mixture, for
+    which it is meaningful to treat it as a component.
+    
+    A compound can appear in multiple phases and it can have multiple pseudo-components, whose
+    presence influence the thermodynamic behavior.
+    
+    An example would be brine with a pseudo-component representing a salt, where it is
+    sufficient to calculate how much brine is vapor or liquid form, but the information about
+    how the salt distributes across phases is irrelevant for a model. The salt in this case is
+    a transportable quantity, whose concentration acts as a parameter in the flash.
+
+    Parameters:
+        ad_system: AD system in which this component is present cell-wise in each subdomain.
+
+    """
