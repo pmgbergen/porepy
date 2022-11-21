@@ -14,61 +14,41 @@ import numpy as np
 import porepy as pp
 
 from .component import Component
+from ._composite_utils import CompositionalSingleton
 
-__all__ = ["Phase"]
 
 VarLike = Union[pp.ad.MergedVariable, pp.ad.Variable, pp.ad.Operator, float, int]
 """Union type representing variable input for thermodynamic properties."""
 
 
-class Phase(abc.ABC):
-    """Private base class for phases in a multiphase multicomponent mixture.
+class Phase(abc.ABC, metaclass=CompositionalSingleton):
+    """Abstract base class for phases in a multiphase multicomponent mixture.
 
     The term 'phase' includes both, states of matter and general fields.
     A phase is identified by the (time-dependent) region/volume it occupies and a
     respective velocity field (or flux) in that region.
 
-    This class is only meant to be instantiated by a Composition, since the number of phases
-    is an unknown in the thermodynamic equilibrium problem.
-
     Phases have physical properties, dependent on the thermodynamic state and the composition.
     The composition variables (molar fractions of present components)
     can be accessed by internal reference.
 
+    Warning:
+        This class is only meant to be instantiated by a Composition,
+        since the number of phases is an unknown in the thermodynamic equilibrium problem.
+
+    The Phase is a Singleton per AD system, using the **given** name as a unique identifier.
+    A Phase class with name ``X`` can only be present once in a system.
+    Ambiguities must be avoided due to central storage of the fractional values in the
+    grid data dictionaries.
+
     Parameters:
-        name: given name for this phase. Used as an unique identifier for singletons.
         ad_system: AD system in which this phase is present cell-wise in each subdomain.
+        name (optional): given name for this phase.
+            Used as an unique identifier for singletons.
 
     """
 
-    # contains per mdg the singleton, using the given name as a unique identifier
-    __ad_singletons: dict[pp.MixedDimensionalGrid, dict[str, Phase]] = dict()
-    # flag if a singleton has recently been accessed, to skip re-instantiation
-    __singleton_accessed: bool = False
-
-    def __new__(cls, name: str, ad_system: pp.ad.ADSystem) -> Phase:
-        # check for AD singletons per grid
-        mdg = ad_system.dof_manager.mdg
-        if mdg in Phase.__ad_singletons:
-            if name in Phase.__ad_singletons[mdg]:
-                # flag that the singleton has been accessed and return it.
-                Phase.__singleton_accessed = True
-                return Phase.__ad_singletons[mdg][name]
-        else:
-            Phase.__ad_singletons.update({mdg: dict()})
-
-        # create a new instance and store it
-        new_instance = super().__new__(cls)
-        Phase.__ad_singletons[mdg].update({name: new_instance})
-
-        return new_instance
-
-    def __init__(self, name: str, ad_system: pp.ad.ADSystem) -> None:
-        # skipping re-instantiation if class if __new__ returned the previous reference
-        if Phase.__singleton_accessed:
-            Phase.__singleton_accessed = False
-            return
-
+    def __init__(self, ad_system: pp.ad.ADSystem, name: str = "") -> None:
         super().__init__()
 
         ### PUBLIC

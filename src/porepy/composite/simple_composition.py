@@ -98,8 +98,8 @@ class SimpleComposition(Composition):
         super().__init__(ad_system)
 
         self._phases: list[Phase] = [
-            IncompressibleFluid("L", self.ad_system),
-            IdealGas("G", self.ad_system),
+            IncompressibleFluid(self.ad_system, name="L"),
+            IdealGas(self.ad_system, name="G"),
         ]
 
         ### PUBLIC
