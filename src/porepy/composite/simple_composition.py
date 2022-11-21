@@ -183,7 +183,11 @@ class SimpleComposition(Composition):
                     xi_c_V,
                 )
             # for an initial guess for gas fraction we take the feed of the reference component
-            y_V = feed[self.reference_component]
+            # if its only one component, we use 0.5
+            if self.num_components == 1:
+                y_V = feed[self.reference_component] * 0.5
+            else:
+                y_V = feed[self.reference_component]
             y_L = 1 - y_V
             self.ad_system.set_var_values(
                 liquid.fraction_name,

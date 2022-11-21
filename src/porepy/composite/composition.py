@@ -394,25 +394,46 @@ class Composition(abc.ABC):
                 pT_subsystem["equations"].append(name)
                 ph_subsystem["equations"].append(name)
 
-        ### enthalpy constraint for p-H flash
-        equation = self.get_enthalpy_constraint(True)
-        equations.update({self._enthalpy_constraint: equation})
-        ph_subsystem["equations"].append(self._enthalpy_constraint)
+        # if only a single component is present, we have to use its mass balance
+        if self.num_components == 1:
+            name = f"{self._mass_conservation}_{self.reference_component.name}"
+            equation = self.get_mass_conservation_for(self.reference_component, True)
+            equations.update({name: equation})
+            pT_subsystem["equations"].append(name)
+            ph_subsystem["equations"].append(name)
+        # else we use the whole set of KKT, including reference phase.
+        else:
+            # setting the KKT condition for the reference phase
+            name = f"{self._complementary}_{self.reference_phase}"
+            _, lagrange = self.get_complementary_condition_for(phase)
+            constraint = self.get_reference_phase_fraction_by_unity()
+
+            equation = self._ss_min(constraint, lagrange)
+            equations.update({name: equation})
+            pT_subsystem["equations"].append(name)
+            ph_subsystem["equations"].append(name)
+
+        # NOTE: The Unified flash procedure is not meant for mixtures with one component.
+        # Due to the phase rule, the thermodynamic degrees of freedom reduce to one and the
+        # whole system becomes tricky to solve. TODO document and explain.
 
         ### Semi-smooth complementary conditions per phase
         for phase in self.phases:
+            if phase == self.reference_phase:
+                continue
             name = f"{self._complementary}_{phase.name}"
             constraint, lagrange = self.get_complementary_condition_for(phase)
-
-            # replace the reference phase fraction by unity
-            if phase == self.reference_phase:
-                constraint = self.get_reference_phase_fraction_by_unity()
 
             # instantiate semi-smooth min in AD form with skewing factor
             equation = self._ss_min(constraint, lagrange)
             equations.update({name: equation})
             pT_subsystem["equations"].append(name)
             ph_subsystem["equations"].append(name)
+
+        ### enthalpy constraint for p-H flash
+        equation = self.get_enthalpy_constraint(True)
+        equations.update({self._enthalpy_constraint: equation})
+        ph_subsystem["equations"].append(self._enthalpy_constraint)
 
         # adding equations to AD system
         image_info = dict()
