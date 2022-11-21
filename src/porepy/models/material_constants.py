@@ -133,11 +133,13 @@ class FluidConstants(MaterialConstants):
     """
 
     def __init__(self, constants: Optional[dict[str, number]] = None):
+        # Default values, sorted alphabetically
         default_constants = {
-            "thermal_expansion": 1,
+            "compressibility": 0,
             "density": 1,
+            "specific_heat_capacity": 1,
+            "thermal_expansion": 0,
             "viscosity": 1,
-            "compressibility": 1,
         }
         if constants is not None:
             default_constants.update(constants)
@@ -147,7 +149,7 @@ class FluidConstants(MaterialConstants):
         """Density [kg/m^3].
 
         Returns:
-            Cell-wise density array.
+            Density in converted mass and length units.
 
         """
         return self.convert_units(self.constants["density"], "kg * m^-3")
@@ -156,16 +158,25 @@ class FluidConstants(MaterialConstants):
         """Thermal expansion coefficient [1/K].
 
         Returns:
-            Cell-wise thermal expansion coefficient array.
+            Thermal expansion coefficient in converted temperature units.
 
         """
         return self.convert_units(self.constants["thermal_expansion"], "K^-1")
+
+    def specific_heat_capacity(self) -> number:
+        """Specific heat [J/kg/K].
+
+        Returns:
+            Specific heat in converted mass, temperature and time units.
+
+        """
+        return self.convert_units(self.constants["specific_heat_capacity"], "J/kg/K")
 
     def viscosity(self) -> number:
         """Viscosity [Pa s].
 
         Returns:
-            Cell-wise viscosity array.
+            Viscosity array in converted pressure and time units.
 
         """
         return self.convert_units(self.constants["viscosity"], "Pa*s")
@@ -174,7 +185,7 @@ class FluidConstants(MaterialConstants):
         """Compressibility [1/Pa].
 
         Returns:
-            Cell-wise compressibility array.
+            Compressibility array in converted pressure units.
 
         """
         return self.convert_units(self.constants["compressibility"], "Pa^-1")
@@ -204,18 +215,20 @@ class SolidConstants(MaterialConstants):
     """
 
     def __init__(self, constants: Optional[dict] = None):
+        # Default values, sorted alphabetically
         default_constants = {
-            "thermal_expansion": 1,
             "density": 1,
-            "porosity": 0.2,
-            "permeability": 1,
-            "normal_permeability": 1,
-            "lame_lambda": 1,
-            "shear_modulus": 1,
+            "dilation_angle": 1,
+            "fracture_gap": 1,
             "friction_coefficient": 1,
-            "fracture_gap": 0,
-            "dilation_angle": 0,
+            "lame_lambda": 1,
+            "normal_permeability": 1,
+            "permeability": 1,
+            "porosity": 1,
+            "shear_modulus": 1,
+            "thermal_expansion": 1,
         }
+
         if constants is not None:
             default_constants.update(constants)
         super().__init__(default_constants)
@@ -224,7 +237,7 @@ class SolidConstants(MaterialConstants):
         """Density [kg/m^3].
 
         Returns:
-            Cell-wise density array.
+            Density in converted mass and length units.
 
         """
         return self.convert_units(self.constants["density"], "kg * m^-3")
@@ -233,15 +246,26 @@ class SolidConstants(MaterialConstants):
         """Thermal expansion coefficient [1/K].
 
         Returns:
-            Cell-wise thermal expansion coefficient.
+            Thermal expansion coefficient in converted temperature units.
         """
         return self.convert_units(self.constants["thermal_expansion"], "K^-1")
+
+    def specific_heat_capacity(self) -> number:
+        """Specific heat [energy / (mass * temperature)].
+
+        Returns:
+            Specific heat in converted energy, mass and temperature units.
+
+        """
+        return self.convert_units(
+            self.constants["specific_heat_capacity"], "J * kg^-1 * K^-1"
+        )
 
     def normal_permeability(self) -> number:
         """Normal permeability [m^2].
 
         Returns:
-            Face-wise normal permeability.
+            Normal permeability in converted length units.
 
         """
         return self.convert_units(self.constants["normal_permeability"], "m^2")
@@ -250,7 +274,7 @@ class SolidConstants(MaterialConstants):
         """Porosity [-].
 
         Returns:
-            Cell-wise porosity.
+            Porosity.
 
         """
         return self.convert_units(self.constants["porosity"], "-")
@@ -259,7 +283,7 @@ class SolidConstants(MaterialConstants):
         """Permeability [m^2].
 
         Returns:
-            Cell-wise permeability.
+            Permeability in converted length units.
 
         """
         return self.convert_units(self.constants["permeability"], "m^2")
@@ -268,16 +292,17 @@ class SolidConstants(MaterialConstants):
         """Young's modulus [Pa].
 
         Returns:
-            Cell-wise shear modulus.
+            Shear modulus in converted pressure units.
 
         """
         return self.convert_units(self.constants["shear_modulus"], "Pa")
 
     def lame_lambda(self) -> number:
-        """Lame's first parameter [Pa].
-        s
-                Returns:
-                    Cell-wise Lame's first parameter.
+        """Lame's first parameter.
+
+        Returns:
+            Lame's first parameter in converted pressure units.
+
         """
         return self.convert_units(self.constants["lame_lambda"], "Pa")
 
@@ -285,7 +310,7 @@ class SolidConstants(MaterialConstants):
         """Fracture gap [m].
 
         Returns:
-            Cell-wise fracture gap.
+            Fracture gap in converted length units.
 
         """
         return self.convert_units(self.constants["fracture_gap"], "m")
@@ -294,16 +319,16 @@ class SolidConstants(MaterialConstants):
         """Friction coefficient [-].
 
         Returns:
-            Cell-wise friction coefficient.
+            Friction coefficient.
 
         """
         return self.convert_units(self.constants["friction_coefficient"], "-")
 
     def dilation_angle(self) -> number:
-        """Dilation angle [rad].
+        """Dilation angle.
 
         Returns:
-            Cell-wise dilation angle.
+            Dilation angle in converted angle units.
 
         """
         return self.convert_units(self.constants["dilation_angle"], "rad")
