@@ -105,11 +105,6 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         return f"{VARIABLE_SYMBOLS['phase_saturation']}_{self.name}"
 
     @property
-    def fraction_name(self) -> str:
-        """Name for the molar fraction variable, given by the general symbol and phase name."""
-        return f"{VARIABLE_SYMBOLS['phase_fraction']}_{self.name}"
-
-    @property
     def saturation(self) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
@@ -124,6 +119,11 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         return self._s
 
     @property
+    def fraction_name(self) -> str:
+        """Name for the molar fraction variable, given by the general symbol and phase name."""
+        return f"{VARIABLE_SYMBOLS['phase_fraction']}_{self.name}"
+
+    @property
     def fraction(self) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
@@ -136,6 +136,18 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
         """
         return self._fraction
+
+    def fraction_of_component_name(self, component: Component) -> str:
+        """
+        Parameters:
+            component: component for which the respective name is requested.
+
+        Returns:
+            name of the respective variable, given by the general symbol, the
+            component name and the phase name.
+
+        """
+        return f"{VARIABLE_SYMBOLS['phase_composition']}_{component.name}_{self.name}"
 
     def fraction_of_component(
         self, component: Component
@@ -169,7 +181,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         else:
             return pp.ad.Scalar(0.0)
 
-    def component_fraction_name(self, component: Component) -> str:
+    def normalized_fraction_of_component_name(self, component: Component) -> str:
         """
         Parameters:
             component: component for which the respective name is requested.
@@ -179,7 +191,10 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             component name and the phase name.
 
         """
-        return f"{VARIABLE_SYMBOLS['phase_composition']}_{component.name}_{self.name}"
+        return (
+            f"{VARIABLE_SYMBOLS['normalized_phase_composition']}_"
+            f"{component.name}_{self.name}"
+        )
 
     def normalized_fraction_of_component(
         self, component: Component
@@ -209,21 +224,6 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             return self._composition[component]
         else:
             return pp.ad.Scalar(0.0)
-
-    def normalized_component_fraction_name(self, component: Component) -> str:
-        """
-        Parameters:
-            component: component for which the respective name is requested.
-
-        Returns:
-            name of the respective variable, given by the general symbol, the
-            component name and the phase name.
-
-        """
-        return (
-            f"{VARIABLE_SYMBOLS['normalized_phase_composition']}_"
-            f"{component.name}_{self.name}"
-        )
 
     def add_component(
         self,
@@ -260,8 +260,8 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
                 continue
 
             # create compositional variables for the component in this phase
-            ext_fraction_name = self.component_fraction_name(comp)
-            fraction_name = self.normalized_component_fraction_name(comp)
+            ext_fraction_name = self.fraction_of_component_name(comp)
+            fraction_name = self.normalized_fraction_of_component_name(comp)
             ext_comp_fraction = self.ad_system.create_variable(ext_fraction_name)
             comp_fraction = self.ad_system.create_variable(fraction_name)
 

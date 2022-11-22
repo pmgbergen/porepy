@@ -175,11 +175,11 @@ class SimpleComposition(Composition):
                 xi_c_V = k_val * xi_c_L
 
                 self.ad_system.set_var_values(
-                    liquid.component_fraction_name(component),
+                    liquid.fraction_of_component_name(component),
                     xi_c_L,
                 )
                 self.ad_system.set_var_values(
-                    gas.component_fraction_name(component),
+                    gas.fraction_of_component_name(component),
                     xi_c_V,
                 )
             # for an initial guess for gas fraction we take the feed of the reference component
@@ -237,16 +237,16 @@ class SimpleComposition(Composition):
         )
         print("---")
         for C in self.components:
-            name = L.component_fraction_name(C)
+            name = L.fraction_of_component_name(C)
             print(name, self.ad_system.get_var_values(name, from_iterate))
         for C in self.components:
-            name = G.component_fraction_name(C)
+            name = G.fraction_of_component_name(C)
             print(name, self.ad_system.get_var_values(name, from_iterate))
         print("---")
         for C in self.components:
-            name = L.normalized_component_fraction_name(C)
+            name = L.normalized_fraction_of_component_name(C)
             print(name, self.ad_system.get_var_values(name, from_iterate))
         for C in self.components:
-            name = G.normalized_component_fraction_name(C)
+            name = G.normalized_fraction_of_component_name(C)
             print(name, self.ad_system.get_var_values(name, from_iterate))
         print("---")

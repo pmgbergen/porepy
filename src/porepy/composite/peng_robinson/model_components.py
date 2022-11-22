@@ -1,20 +1,18 @@
 """Contains concrete implementations of modelled components for the Peng-Robinson EoS."""
 from __future__ import annotations
 
-from .pr_component import PR_FluidComponent, PR_SoluteComponent
+from .pr_component import PR_Component, PR_Compound
+from ..component import PseudoComponent
 
-__all__ = ["BINARY_INTERACTION_PARAMETERS", "H2O", "NaCl"]
+__all__ = ["BINARY_INTERACTION_PARAMETERS", "H2O_ps", "NaCl_ps", "H2O"]
 
 
 BINARY_INTERACTION_PARAMETERS: dict[tuple[str, str], float] = {("H2O", "NaCl"): 1.0}
 """Contains for a pair of component names (key) the respective binary interaction parameter."""
 
 
-class H2O(PR_FluidComponent):
-    """Fluid component representing water as a fluid for the Peng-Robinson EoS.
-
-    The physical properties and parameters are found in respective references.
-
+class H2O_ps(PseudoComponent):
+    """Pseud-representation of water involving its molar mass and some additional parameters.
     """
 
     @staticmethod
@@ -42,20 +40,9 @@ class H2O(PR_FluidComponent):
         """`Source <https://en.wikipedia.org/wiki/Water_(data_page)>`_."""
         return 273.1600
 
-    @property
-    def acentric_factor(self) -> float:
-        """`Source
-        <https://ebookcentral.proquest.com/lib/bergen-ebooks/detail.action?docID=317176>`_."""
-        return 0.3449
-
-
-class NaCl(PR_SoluteComponent):
-    """Solute component representing sodium chloride for the Peng-Robinson EoS with adaptions
-    for solutes.
-
-    The physical properties and parameters are found in respective references.
-
-    """
+class NaCl_ps(PseudoComponent):
+    """Pseudo-representation of Sodium Chloride involving its molar mass and some additional
+    parameters."""
 
     @staticmethod
     def molar_mass():
@@ -81,3 +68,17 @@ class NaCl(PR_SoluteComponent):
     def triple_point_temperature():
         """`Source <https://en.wikipedia.org/wiki/Sodium_chloride_(data_page)>`_."""
         return 1074
+
+
+class H2O(PR_Component, H2O_ps):
+    """Fluid component representing water as a fluid for the Peng-Robinson EoS.
+
+    Constant physical properties are inherited from respective pseudo-component.
+
+    """
+
+    @property
+    def acentric_factor(self) -> float:
+        """`Source
+        <https://ebookcentral.proquest.com/lib/bergen-ebooks/detail.action?docID=317176>`_."""
+        return 0.3449

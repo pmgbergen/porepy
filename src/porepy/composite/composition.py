@@ -142,6 +142,11 @@ class Composition(abc.ABC):
     ### Thermodynamic State -------------------------------------------------------------------
 
     @property
+    def p_name(self) -> str:
+        """Returns the name of the pressure variable."""
+        return VARIABLE_SYMBOLS["pressure"]
+
+    @property
     def p(self) -> pp.ad.MergedVariable:
         """
         The values are assumed to represent values at equilibrium and are therefore constant
@@ -158,9 +163,9 @@ class Composition(abc.ABC):
         return self._p
 
     @property
-    def p_name(self) -> str:
-        """Returns the name of the pressure variable."""
-        return VARIABLE_SYMBOLS["pressure"]
+    def h_name(self) -> str:
+        """Returns the name of the enthalpy variable."""
+        return VARIABLE_SYMBOLS["enthalpy"]
 
     @property
     def h(self) -> pp.ad.MergedVariable:
@@ -178,9 +183,9 @@ class Composition(abc.ABC):
         return self._h
 
     @property
-    def h_name(self) -> str:
-        """Returns the name of the enthalpy variable."""
-        return VARIABLE_SYMBOLS["enthalpy"]
+    def T_name(self) -> str:
+        """Returns the name of the temperature variable."""
+        return VARIABLE_SYMBOLS["temperature"]
 
     @property
     def T(self) -> pp.ad.MergedVariable:
@@ -198,11 +203,6 @@ class Composition(abc.ABC):
 
         """
         return self._T
-
-    @property
-    def T_name(self) -> str:
-        """Returns the name of the temperature variable."""
-        return VARIABLE_SYMBOLS["temperature"]
 
     def density(
         self, prev_time: bool = False, eliminate_ref_phase: bool = True
@@ -487,7 +487,7 @@ class Composition(abc.ABC):
                 ph_subsystem["secondary_vars"].append(phase.fraction_name)
             # phase composition
             for component in phase:
-                var_name = phase.component_fraction_name(component)
+                var_name = phase.fraction_of_component_name(component)
                 pT_subsystem["primary_vars"].append(var_name)
                 ph_subsystem["primary_vars"].append(var_name)
         # for the p-h flash, T is an additional var
@@ -714,7 +714,7 @@ class Composition(abc.ABC):
             xi_e = list()
             for comp_c in phase_e:
                 xi_ce = self.ad_system.get_var_values(
-                    phase_e.component_fraction_name(comp_c)
+                    phase_e.fraction_of_component_name(comp_c)
                 )
                 xi_e.append(xi_ce)
             sum_xi_e = sum(xi_e)
@@ -730,12 +730,12 @@ class Composition(abc.ABC):
                 chi_ce[chi_ce > 1.0] = 1.0
                 # write values
                 self.ad_system.set_var_values(
-                    phase_e.component_fraction_name(comp_c),
+                    phase_e.fraction_of_component_name(comp_c),
                     xi_ce,
                     copy_to_state,
                 )
                 self.ad_system.set_var_values(
-                    phase_e.normalized_component_fraction_name(comp_c),
+                    phase_e.normalized_fraction_of_component_name(comp_c),
                     chi_ce,
                     copy_to_state,
                 )
@@ -1086,7 +1086,7 @@ class Composition(abc.ABC):
                 val = 1.0 / phase.num_components
                 for component in self.components:
                     self.ad_system.set_var_values(
-                        phase.component_fraction_name(component),
+                        phase.fraction_of_component_name(component),
                         val * np.ones(nc),
                     )
 
