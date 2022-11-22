@@ -7,8 +7,9 @@ from __future__ import annotations
 import abc
 from typing import Generator
 
-import porepy as pp
 import numpy as np
+
+import porepy as pp
 
 from ._composite_utils import VARIABLE_SYMBOLS, CompositionalSingleton
 
@@ -239,10 +240,10 @@ class Compound(Component):
 
         """
         M = self.solvent.molar_mass() * self.solution_fraction_of(self.solvent)
-        
+
         for solute in self.solutes:
             M += solute.molar_mass() * self.solution_fraction_of(solute)
-        
+
         return M
 
     def solute_fraction_name(self, solute: PseudoComponent) -> str:
@@ -286,7 +287,7 @@ class Compound(Component):
             return self._solute_fractions[pseudo_component]
         else:
             return pp.ad.Scalar(0.0)
-        
+
     def molality_of(self, solute: PseudoComponent) -> pp.ad.Operator | pp.ad.Scalar:
         """
         | Math. Dimension:        scalar
@@ -298,7 +299,7 @@ class Compound(Component):
             ``n_compound = n * fraction_compound``
             ``m_solute = (n * fraction_compound * solute_fraction) ``
             ``/ (n * fraction_compound * solvent_fraction * molar_mass*solvent)``
-            
+
             ``m_solute = solute_fraction / (solvent_fraction * molar_mass*solvent)``
 
         Note:
@@ -312,7 +313,7 @@ class Compound(Component):
 
         """
         if solute == self.solvent:
-            return pp.ad.Scalar(1. / self.solvent.molar_mass())
+            return pp.ad.Scalar(1.0 / self.solvent.molar_mass())
         elif solute in self.solutes:
             # get fractions of solute and solvent
             fraction_solute = self.solution_fraction_of(solute)
@@ -320,7 +321,7 @@ class Compound(Component):
             # apply above formula
             return fraction_solute / (fraction_solvent * self.solvent.molar_mass())
         else:
-            return pp.ad.Scalar(0.)
+            return pp.ad.Scalar(0.0)
 
     def add_solute(self, solutes: PseudoComponent | list[PseudoComponent]) -> None:
         """Adds a solute to the compound.
@@ -358,7 +359,7 @@ class Compound(Component):
         self, fractions: dict[PseudoComponent, np.ndarray | float]
     ) -> None:
         """Set the solute fractions per solute in this component.
-        
+
         The fraction can either be given as an array with entries per cell in the domain,
         or as float for a homogenous distribution.
 
@@ -385,7 +386,7 @@ class Compound(Component):
     ) -> None:
         """Uses the formula given in :meth:`molality_of` to set solute fractions using
         values for molality per solute.
-        
+
         After computing respective, :meth:`set_solute_fractions` is called to set the
         fraction, i.e. the the same restrictions apply and errors will be raised if molality
         values violate the restrictions on respective fractions.
@@ -396,6 +397,6 @@ class Compound(Component):
         Parameters:
             molalities: a dictionary containing per solute (key) the respective molality
                 values.
-        
+
         """
         pass

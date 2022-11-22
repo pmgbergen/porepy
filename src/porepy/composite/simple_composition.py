@@ -10,9 +10,10 @@ import porepy as pp
 from ._composite_utils import CP_REF, H_REF, P_REF, R_IDEAL, T_REF, V_REF
 from .component import Component
 from .composition import Composition
+from .peng_robinson import CO2_ps, H2O_ps
 from .phase import Phase
 
-__all__ = ["SimpleWater", "SimpleSalt", "SimpleComposition"]
+__all__ = ["SimpleWater", "SimpleCO2", "SimpleComposition"]
 
 
 class IncompressibleFluid(Phase):
@@ -66,22 +67,16 @@ class IdealGas(Phase):
         return pp.ad.Scalar(0.1)
 
 
-class SimpleWater(Component):
+class SimpleWater(Component, H2O_ps):
     """Simple representation of water involving its molar mass."""
 
-    @staticmethod
-    def molar_mass():
-        """`Source <https://en.wikipedia.org/wiki/Water_vapor>`_."""
-        return 0.0180152833
+    pass
 
 
-class SimpleSalt(Component):
+class SimpleCO2(Component, CO2_ps):
     """Simple representation of Sodium Chloride involving its molar mass."""
 
-    @staticmethod
-    def molar_mass():
-        """`Source <https://en.wikipedia.org/wiki/Sodium_chloride>`_."""
-        return 0.058443
+    pass
 
 
 class SimpleComposition(Composition):

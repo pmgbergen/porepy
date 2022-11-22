@@ -49,7 +49,7 @@ class PR_Component(Component):
             * (R_IDEAL**2 * self.critical_temperature() ** 2)
             / self.critical_pressure()
         )
-    
+
     @property
     def attraction_correction_weight(self) -> float:
         """Weight ``kappa`` of the linearized alpha-correction of the attraction parameter in
@@ -64,7 +64,7 @@ class PR_Component(Component):
             + 1.54226 * self.acentric_factor
             - 0.26992 * self.acentric_factor**2
         )
-    
+
     def attraction_correction(self, T: VarLike) -> VarLike:
         """Returns the linearized alpha-correction for the attraction parameter"""
         sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
