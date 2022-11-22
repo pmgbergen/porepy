@@ -7,8 +7,8 @@ import porepy as pp
 p = 0.100  # 101 kPa
 T = 343.15  # 100 deg C
 h = T + p
-salt_fraction = 0.
-k_salt = 0.1
+co2_fraction = 0.
+k_co2 = 0.1
 k_water = 0.8
 
 ### CALCULATION
@@ -19,19 +19,19 @@ mdg = dm.mdg
 nc = mdg.num_subdomain_cells()
 
 water = pp.composite.SimpleWater(ad_system)
-# salt = pp.composite.SimpleSalt(ad_system)
+# co2 = pp.composite.SimpleCO2(ad_system)
 c.add_component(water)
-# c.add_component(salt)
+# c.add_component(co2)
 
-ad_system.set_var_values(water.fraction_name, (1-salt_fraction) * np.ones(nc), True)
-# ad_system.set_var_values(salt.fraction_name, salt_fraction * np.ones(nc), True)
+ad_system.set_var_values(water.fraction_name, (1-co2_fraction) * np.ones(nc), True)
+# ad_system.set_var_values(co2.fraction_name, co2_fraction * np.ones(nc), True)
 ad_system.set_var_values(c.p_name, p * np.ones(nc), True)
 ad_system.set_var_values(c.T_name, T * np.ones(nc), True)
 ad_system.set_var_values(c.h_name, np.zeros(nc), True)
 
 c.k_values = {
     water: k_water,
-    # salt: k_salt
+    # co2: k_co2
 }
 
 c.initialize()
@@ -76,7 +76,7 @@ print("Done")
 #     s_v.append(X[c.ad_system.dof_manager.dof_var([vapor.saturation_name])])
 #     y_l.append(X[c.ad_system.dof_manager.dof_var([brine.fraction_name])])
 #     y_v.append(X[c.ad_system.dof_manager.dof_var([vapor.fraction_name])])
-#     x_s_l.append(X[c.ad_system.dof_manager.dof_var([brine.component_fraction_name(salt)])])
+#     x_s_l.append(X[c.ad_system.dof_manager.dof_var([brine.component_fraction_name(co2)])])
 #     x_w_l.append(X[c.ad_system.dof_manager.dof_var([brine.component_fraction_name(water)])])
 #     x_w_v.append(X[c.ad_system.dof_manager.dof_var([vapor.component_fraction_name(water)])])
 
@@ -100,7 +100,7 @@ print("Done")
 # plt.xlabel("k-value")
 # plt.ylabel("fractions")
 # plt.grid(True, "both")
-# plt.title(f"Unified p-T-flash; p={p} Pa, T={T} K, salt={salt_fraction} %")
+# plt.title(f"Unified p-T-flash; p={p} Pa, T={T} K, co2={co2_fraction} %")
 # # plt.xticks(k_vals)
 # plt.legend(loc="upper right", framealpha=1.)
 

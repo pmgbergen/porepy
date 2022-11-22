@@ -19,8 +19,7 @@ from porepy.composite.component import Component
 
 
 class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
-    """Non-isothermal flow consisting of water in liquid and vapor phase
-    and salt in liquid phase.
+    """Non-isothermal flow with gas and liquid phase.
 
     The phase equilibria equations for water are given using k-values. The composition class is
     instantiated in the constructor using a sub-routine which can be inherited and overwritten.
@@ -244,36 +243,36 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ## creating composition
         self.composition = pp.composite.SimpleComposition(self.ad_system)
         water = pp.composite.SimpleWater(self.ad_system)
-        salt = pp.composite.SimpleSalt(self.ad_system)
+        co2 = pp.composite.SimpleCO2(self.ad_system)
         L, G = (phase for phase in self.composition.phases)
         self.composition.add_component(water)
-        self.composition.add_component(salt)
+        self.composition.add_component(co2)
         self.reference_component = water
         
         ## configuration
-        initial_salt_concentration = 0.1
+        initial_co2_concentration = 0.1
         k_water = 2.
-        k_salt = 0.1
+        k_co2 = 0.1
         injected_moles_water = 7000.0 / water.molar_mass()
         # initial fractions
         self.initial_component_fractions.update({
-            water: 1. - initial_salt_concentration,
-            salt: initial_salt_concentration,
+            water: 1. - initial_co2_concentration,
+            co2: initial_co2_concentration,
         })
         # saturate only liquid phase at boundary
         self.inflow_boundary_saturations.update({
             L: 1.,
             G: 0.,
         })
-        # inflow of water AND salt to avoid washing out
+        # inflow of water AND co2 to avoid washing out
         self.inflow_boundary_composition.update({
             L: {
                 water: 0.99,
-                salt: 0.01,
+                co2: 0.01,
             },
             G: {  # not so relevant since we feed only liquid
                 water: 1.,
-                salt: 0.,
+                co2: 0.,
             },
         })
         # TODO this needs to be ADified properly
@@ -308,13 +307,13 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         # constant k-values
         self.composition.k_values = {
             water: k_water,
-            salt: k_salt
+            co2: k_co2
         }
 
         # mass sources
         self.mass_sources.update({
             water : 0. * injected_moles_water,  
-            salt : 0. * injected_moles_water,  # trace amounts to avoid washing out
+            co2 : 0. * injected_moles_water,  # trace amounts to avoid washing out
         })
 
         # source is extensive, multiply with injected moles (kJ)
@@ -324,7 +323,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         ) * injected_moles_water
         self.enthalpy_sources = {
             water: 0. * h_water,
-            salt: 0. * h_water,
+            co2: 0. * h_water,
         }
 
         ## setting of initial values
@@ -334,9 +333,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         water_frac = self.initial_component_fractions[water] * np.ones(nc)
         self.ad_system.set_var_values(water.fraction_name, water_frac, True)
 
-        # setting salt feed fraction
-        salt_frac = self.initial_component_fractions[salt] * np.ones(nc)
-        self.ad_system.set_var_values(salt.fraction_name, salt_frac, True)
+        # setting co2 feed fraction
+        co2_frac = self.initial_component_fractions[co2] * np.ones(nc)
+        self.ad_system.set_var_values(co2.fraction_name, co2_frac, True)
 
         # setting initial pressure
         p_vals = self.initial_pressure * np.ones(nc)
