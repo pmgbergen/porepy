@@ -16,6 +16,8 @@ __all__ = [
     "H_REF",
     "CP_REF",
     "CV_REF",
+    "CompositionalSingleton",
+    "VARIABLE_SYMBOLS",
 ]
 
 R_IDEAL: float = 0.00831446261815324
@@ -126,10 +128,30 @@ where g (heat capacity ratio) is set to 8/6 for triatomic molecules.
 
 """
 
+VARIABLE_SYMBOLS = {
+    "pressure": "p",
+    "enthalpy": "h",
+    "temperature": "T",
+    "component_fraction": "z",
+    "phase_fraction": "y",
+    "phase_saturation": "s",
+    "phase_composition": "xi",
+    "normalized_phase_composition": "x",
+    "solute_fraction": "chi",
+}
+"""A dictionary mapping names of variables (key) to their symbol, which is used in the
+composite framework.
+
+Note:
+    When using the composite framework, it is important to **not** name any other variable
+    using the symbols here.
+
+"""
+
 
 class CompositionalSingleton(abc.ABCMeta):
     """Abstract Meta class for name- and AD system based singletons.
-    
+
     This ensures that only a single object per AD System is instantiated with that name.
     (and returned in successive instantiations).
 
@@ -141,8 +163,9 @@ class CompositionalSingleton(abc.ABCMeta):
     AD system.
 
     Note:
-        As of now, the implications of having to use ``abc.ABCMeta`` is not clear.
-        Python demands that custom meta-classes must be derived from other meta classes.
+        As of now, the implications of having to use ``abc.ABCMeta`` are not clear.
+        Python demands that custom meta-classes must be derived from meta classes used in other
+        base classes.
 
         For now we demand that objects in the compositional framework are this type of
         singleton to avoid nonphysical conflicts like 2 times the same phase or component.
@@ -158,9 +181,7 @@ class CompositionalSingleton(abc.ABCMeta):
     # contains per AD system the singleton, using the given name as a unique identifier
     __ad_singletons: dict[pp.ad.ADSystem, dict[str, object]] = dict()
 
-    def __call__(
-        cls, ad_system: pp.ad.ADSystem, *args, **kwargs
-    ) -> object:
+    def __call__(cls, ad_system: pp.ad.ADSystem, *args, **kwargs) -> object:
         # search for name, use class name if not given
         name = kwargs.get("name", str(cls.__name__))
 
@@ -174,7 +195,9 @@ class CompositionalSingleton(abc.ABCMeta):
             CompositionalSingleton.__ad_singletons.update({ad_system: dict()})
 
         # create a new object and store it
-        new_instance = super(CompositionalSingleton, cls).__call__(ad_system, *args, **kwargs)
+        new_instance = super(CompositionalSingleton, cls).__call__(
+            ad_system, *args, **kwargs
+        )
         CompositionalSingleton.__ad_singletons[ad_system].update({name: new_instance})
         # return new instance
         return new_instance

@@ -9,6 +9,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+from ._composite_utils import VARIABLE_SYMBOLS
 from .component import Component
 from .phase import Phase
 
@@ -110,12 +111,9 @@ class Composition(abc.ABC):
 
         ### PRIVATE
         # primary variables
-        self._p_var: str = "p"
-        self._h_var: str = "h"
-        self._T_var: str = "T"
-        self._p: pp.ad.MergedVariable = ad_system.create_variable(self._p_var)
-        self._h: pp.ad.MergedVariable = ad_system.create_variable(self._h_var)
-        self._T: pp.ad.MergedVariable = ad_system.create_variable(self._T_var)
+        self._p: pp.ad.MergedVariable = ad_system.create_variable(self.p_name)
+        self._h: pp.ad.MergedVariable = ad_system.create_variable(self.h_name)
+        self._T: pp.ad.MergedVariable = ad_system.create_variable(self.T_name)
 
         # composition
         self._components: list[Component] = list()
@@ -162,7 +160,7 @@ class Composition(abc.ABC):
     @property
     def p_name(self) -> str:
         """Returns the name of the pressure variable."""
-        return self._p_var
+        return VARIABLE_SYMBOLS["pressure"]
 
     @property
     def h(self) -> pp.ad.MergedVariable:
@@ -182,7 +180,7 @@ class Composition(abc.ABC):
     @property
     def h_name(self) -> str:
         """Returns the name of the enthalpy variable."""
-        return self._h_var
+        return VARIABLE_SYMBOLS["enthalpy"]
 
     @property
     def T(self) -> pp.ad.MergedVariable:
@@ -204,7 +202,7 @@ class Composition(abc.ABC):
     @property
     def T_name(self) -> str:
         """Returns the name of the temperature variable."""
-        return self._T_var
+        return VARIABLE_SYMBOLS["temperature"]
 
     def density(
         self, prev_time: bool = False, eliminate_ref_phase: bool = True
@@ -405,7 +403,7 @@ class Composition(abc.ABC):
         else:
             # setting the KKT condition for the reference phase
             name = f"{self._complementary}_{self.reference_phase}"
-            _, lagrange = self.get_complementary_condition_for(phase)
+            _, lagrange = self.get_complementary_condition_for(self.reference_phase)
             constraint = self.get_reference_phase_fraction_by_unity()
 
             equation = self._ss_min(constraint, lagrange)
@@ -460,14 +458,14 @@ class Composition(abc.ABC):
 
         ### FLASH SECONDARY VARIABLES
         # pressure is always a secondary var in the flash
-        pT_subsystem["secondary_vars"].append(self._p_var)
-        ph_subsystem["secondary_vars"].append(self._p_var)
+        pT_subsystem["secondary_vars"].append(self.p_name)
+        ph_subsystem["secondary_vars"].append(self.p_name)
         # for the p-H flash, enthalpy is a secondary var
-        ph_subsystem["secondary_vars"].append(self._h_var)
+        ph_subsystem["secondary_vars"].append(self.h_name)
         # for the p-T flash, temperature AND enthalpy are secondary vars,
         # because h can be evaluated for given T and fractions
-        pT_subsystem["secondary_vars"].append(self._h_var)
-        pT_subsystem["secondary_vars"].append(self._T_var)
+        pT_subsystem["secondary_vars"].append(self.h_name)
+        pT_subsystem["secondary_vars"].append(self.T_name)
         # feed fractions are always secondary vars
         for component in self.components:
             pT_subsystem["secondary_vars"].append(component.fraction_name)
@@ -493,7 +491,7 @@ class Composition(abc.ABC):
                 pT_subsystem["primary_vars"].append(var_name)
                 ph_subsystem["primary_vars"].append(var_name)
         # for the p-h flash, T is an additional var
-        ph_subsystem["primary_vars"].append(self._T_var)
+        ph_subsystem["primary_vars"].append(self.T_name)
 
     ### other ---------------------------------------------------------------------------------
 
@@ -678,7 +676,7 @@ class Composition(abc.ABC):
         else:
             raise RuntimeError("Something went terribly wrong.")
         # write values in local var form
-        self.ad_system.set_var_values(self._h_var, h, copy_to_state)
+        self.ad_system.set_var_values(self.h_name, h, copy_to_state)
 
     def post_process_fractions(self, copy_to_state: bool = True) -> None:
         """Re-normalizes phase compositions and removes numerical artifacts
@@ -1059,7 +1057,7 @@ class Composition(abc.ABC):
 
         # append history entry
         self._history_entry(
-            flash="isenthalpic" if self._T_var in var_names else "isothermal",
+            flash="isenthalpic" if self.T_name in var_names else "isothermal",
             method="Newton-min",
             iterations=iter_final,
             success=success,

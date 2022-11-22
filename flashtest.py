@@ -25,9 +25,9 @@ c.add_component(water)
 
 ad_system.set_var_values(water.fraction_name, (1-salt_fraction) * np.ones(nc), True)
 # ad_system.set_var_values(salt.fraction_name, salt_fraction * np.ones(nc), True)
-ad_system.set_var_values(c._p_var, p * np.ones(nc), True)
-ad_system.set_var_values(c._T_var, T * np.ones(nc), True)
-ad_system.set_var_values(c._h_var, np.zeros(nc), True)
+ad_system.set_var_values(c.p_name, p * np.ones(nc), True)
+ad_system.set_var_values(c.T_name, T * np.ones(nc), True)
+ad_system.set_var_values(c.h_name, np.zeros(nc), True)
 
 c.k_values = {
     water: k_water,
