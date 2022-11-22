@@ -8,6 +8,7 @@ import abc
 from typing import Generator
 
 import porepy as pp
+import numpy as np
 
 from ._composite_utils import VARIABLE_SYMBOLS, CompositionalSingleton
 
@@ -71,6 +72,32 @@ class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
 
         Returns:
             molar mass.
+
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def critical_pressure() -> float:
+        """This is a constant value, hence to be a static function.
+
+        | Math. Dimension:        scalar
+        | Phys. Dimension:        [kPa]
+
+        Returns: critical pressure for this component (critical point in p-T diagram).
+
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def critical_temperature() -> float:
+        """This is a constant value, hence to be a static function.
+
+        | Math. Dimension:        scalar
+        | Phys. Dimension:        [K]
+
+        Returns: critical temperature for this component (critical point in p-T diagram).
 
         """
         pass
@@ -187,6 +214,7 @@ class Compound(Component):
     @property
     def solvent(self) -> PseudoComponent:
         """The pseudo-component representing the solvent, passed at instantiation"""
+        return self._solvent
 
     @property
     def solutes(self) -> Generator[PseudoComponent, None, None]:
@@ -197,6 +225,25 @@ class Compound(Component):
         """
         for solute in self._solutes:
             yield solute
+
+    @property
+    def molar_mass(self) -> pp.ad.Operator:
+        """The molar mass of a compound depends on how much of the solute is available.
+
+        It is a sum of the molar masses of present pseudo-components, weighed with their
+        respective fraction.
+
+        Returns:
+            An operator representing the molar mass of the compound,
+            depending on solute fractions.
+
+        """
+        M = self.solvent.molar_mass() * self.solution_fraction_of(self.solvent)
+        
+        for solute in self.solutes:
+            M += solute.molar_mass() * self.solution_fraction_of(solute)
+        
+        return M
 
     def solute_fraction_name(self, solute: PseudoComponent) -> str:
         """
@@ -306,3 +353,49 @@ class Compound(Component):
                 # store fraction and solute
                 self._solutes.append(solute)
                 self._solute_fractions[solute] = solute_fraction
+
+    def set_solute_fractions(
+        self, fractions: dict[PseudoComponent, np.ndarray | float]
+    ) -> None:
+        """Set the solute fractions per solute in this component.
+        
+        The fraction can either be given as an array with entries per cell in the domain,
+        or as float for a homogenous distribution.
+
+        Only fractions for solutes are to be passed, since the solvent fraction is represented
+        by unity.
+
+        Note:
+            Per cell, the sum of fractions have to be in ``[0,1)``, where the right interval
+            end is open on purpose. This means the solvent **has** to be always present.
+            As of now, the chemistry when the solvent disappears is not considered.
+
+        Parameters:
+            fractions: a dictionary containing per solute (key) the respective fraction.
+
+        Raises:
+            ValueError: If any value breaches above restriction.
+            ValueError: If the cell-wise sum is greater or equal to 1.
+
+        """
+        pass
+
+    def set_solute_fractions_with_molality(
+        self, molalities: dict[PseudoComponent, np.ndarray | float]
+    ) -> None:
+        """Uses the formula given in :meth:`molality_of` to set solute fractions using
+        values for molality per solute.
+        
+        After computing respective, :meth:`set_solute_fractions` is called to set the
+        fraction, i.e. the the same restrictions apply and errors will be raised if molality
+        values violate the restrictions on respective fractions.
+
+        Analogously to fractions, molal values can be set cell-wise in an array or
+        homogeneously using numbers.
+
+        Parameters:
+            molalities: a dictionary containing per solute (key) the respective molality
+                values.
+        
+        """
+        pass
