@@ -1,7 +1,10 @@
 """Contains concrete implementations of modelled components for the Peng-Robinson EoS."""
 from __future__ import annotations
 
+import porepy as pp
+
 from ..component import PseudoComponent
+from ..phase import VarLike
 from .pr_component import PR_Component, PR_Compound
 
 __all__ = [
@@ -153,3 +156,36 @@ class H2S(PR_Component, H2S_ps):
     def acentric_factor(self) -> float:
         """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
         return 0.1081
+
+
+class NaClBrine(PR_Compound):
+    """A compound representing water - sodium chloride brine, where water is the solvent
+    and NaCl the solute.
+    
+    This class instantiates the H2O and NaCl pseudo-component classes internally and assigns
+    them as solvent and solute.
+    
+    Adaptions to acentric factor and attraction correction are made according to given
+    references.
+
+    """
+
+    def __init__(self, ad_system: pp.ad.ADSystem) -> None:
+
+        # instantiate H2O_ps as the solvent
+        solvent = H2O_ps(ad_system=ad_system)
+
+        # super call to constructor with above solvent
+        super().__init__(ad_system, solvent)
+
+        # instantiate NaCl_ps as a solute
+        solute = NaCl_ps(ad_system=ad_system)
+        # add solute to self
+        self.add_solute(solute)
+    
+    @property
+    def acentric_factor(self) -> float:
+        pass
+
+    def attraction_correction(self, T: VarLike) -> VarLike:
+        pass
