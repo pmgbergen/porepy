@@ -16,6 +16,7 @@ __all__ = [
     "H2O",
     "CO2",
     "H2S",
+    "NaClBrine",
 ]
 
 

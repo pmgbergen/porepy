@@ -142,7 +142,7 @@ VARIABLE_SYMBOLS = {
 """A dictionary mapping names of variables (key) to their symbol, which is used in the
 composite framework.
 
-Note:
+Warning:
     When using the composite framework, it is important to **not** name any other variable
     using the symbols here.
 
@@ -172,7 +172,7 @@ class CompositionalSingleton(abc.ABCMeta):
 
         This strict enforcement can be omitted by logic or proper tutoring though...
 
-    ParametersL
+    Parameters:
         ad_system: A reference to respective AD system.
         name (optional): Given name of this object. By default, the class name will be used.
 
