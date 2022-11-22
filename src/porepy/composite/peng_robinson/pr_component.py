@@ -77,7 +77,7 @@ class PR_FluidComponent(PR_Component):
             * (R_IDEAL * self.critical_temperature())
             / self.critical_pressure()
         )
-    
+
     def attraction(self, T: VarLike) -> VarLike:
         """Returns an expression for ``a`` in the EoS for this component."""
         return self.attraction_critical * self._attraction_alpha(T)
@@ -107,7 +107,11 @@ class PR_FluidComponent(PR_Component):
             ``alpha = 1 + kappa * (1 - sqrt(T_reduced))``.
 
         """
-        return 0.37464 + 1.54226 * self.acentric_factor - 0.26992 * self.acentric_factor**2
+        return (
+            0.37464
+            + 1.54226 * self.acentric_factor
+            - 0.26992 * self.acentric_factor**2
+        )
 
     def _attraction_alpha(self, T: VarLike) -> VarLike:
         """Returns the linearized alpha-correction for the attraction parameter"""
