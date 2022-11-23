@@ -14,8 +14,8 @@ References:
 __all__ = []
 
 from . import model_components, pr_bip, pr_composition
-from .pr_bip import *
 from .model_components import *
+from .pr_bip import *
 from .pr_composition import *
 
 __all__.extend(model_components.__all__)

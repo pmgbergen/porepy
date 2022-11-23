@@ -9,9 +9,9 @@ import porepy as pp
 
 from .._composite_utils import R_IDEAL
 from ..composition import Composition
+from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
 from .pr_phase import PR_Phase
-from .pr_bip import get_PR_BIP
 
 __all__ = ["PR_Composition"]
 
@@ -292,7 +292,11 @@ class PR_Composition(Composition):
         components: list[PR_Component] = [c for c in self.components]  # type: ignore
 
         # First we sum over the diagonal elements of the mixture matrix
-        a = components[0].fraction * components[0].fraction * components[0].attraction(self.T)
+        a = (
+            components[0].fraction
+            * components[0].fraction
+            * components[0].attraction(self.T)
+        )
 
         if len(components) > 1:
             # sqrt AD function
@@ -305,8 +309,12 @@ class PR_Composition(Composition):
             for comp_i in components:
                 for comp_j in components:
                     if comp_i != comp_j:
-                        a_ij = comp_i.fraction * comp_j.fraction * sqrt(
+                        a_ij = (
+                            comp_i.fraction
+                            * comp_j.fraction
+                            * sqrt(
                                 comp_i.attraction(self.T) * comp_j.attraction(self.T)
+                            )
                         )
 
                         bip, order = get_PR_BIP(comp_i.name, comp_j.name)
@@ -315,9 +323,9 @@ class PR_Composition(Composition):
                         assert bip is not None
                         # call to BIP and multiply with a_ij
                         if order:
-                            a_ij *= (1 - bip(comp_i, comp_j))
+                            a_ij *= 1 - bip(comp_i, comp_j)
                         else:
-                            a_ij *= (1 - bip(comp_j, comp_i))
+                            a_ij *= 1 - bip(comp_j, comp_i)
                         # add off-diagonal element
                         a += a_ij
             # store attraction parameter
