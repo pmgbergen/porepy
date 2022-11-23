@@ -1,7 +1,7 @@
 """Composition class for the Peng-Robinson equation of state."""
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -31,7 +31,7 @@ class PR_Composition(Composition):
         ``A = p * a / (R * T)**2``,
         ``B = P * b / (R * T)``.
 
-    Mixing rules according to [1] are applied to ``a`` and ``b``.
+    Mixing rules according to Peng and Robinson are applied to ``a`` and ``b``.
 
     Note:
         - This class currently supports only a liquid and a gaseous phase.
@@ -62,7 +62,7 @@ class PR_Composition(Composition):
         # name of equilibrium equation
         self._fugacity_equation: str = "flash_fugacity"
         # dictionary containing fugacity functions per component per phase
-        self._fugacities: dict[PR_Component, dict[PR_Phase, Callable]] = dict()
+        self._fugacities: dict[PR_Component, dict[PR_Phase, pp.ad.Operator]] = dict()
 
     def initialize(self) -> None:
         """Before initializing the p-h and p-T subsystems, this method additionally assigns
@@ -285,7 +285,14 @@ class PR_Composition(Composition):
         respectively.
 
         """
-        pass
+        L = self._phases[0]
+        G = self._phases[1]
+
+        equation = self._fugacities[component][G] * G.fraction_of_component(
+            component
+        ) - self._fugacities[component][L] * L.fraction_of_component(component)
+
+        return equation
 
     def _assign_attraction(self) -> None:
         """Creates the attraction parameter for a mixture according to PR."""
@@ -398,6 +405,6 @@ class PR_Composition(Composition):
         self._phases[1]._kappa = _kappa_G
 
     def _assign_fugacities(self) -> None:  # TODO
-        """Creates and stores callables representing fugacities ``f_ce(p,T,X)`` per component
+        """Creates and stores operators representing fugacities ``f_ce(p,T,X)`` per component
         per phase."""
         pass
