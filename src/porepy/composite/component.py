@@ -7,9 +7,8 @@ from __future__ import annotations
 import abc
 from typing import Generator
 
-from scipy import sparse as sps
-
 import numpy as np
+from scipy import sparse as sps
 
 import porepy as pp
 
@@ -407,20 +406,20 @@ class Compound(Component):
             # assert enough values are present
             assert len(frac_val) == nc
             # check validity of fraction values
-            if np.any(frac_val < 0.) or np.any(frac_val >= 1.):
-                raise ValueError(
-                    f"Values for solute {solute.name} not in [0,1)."
-                )
+            if np.any(frac_val < 0.0) or np.any(frac_val >= 1.0):
+                raise ValueError(f"Values for solute {solute.name} not in [0,1).")
 
-            # sum values 
+            # sum values
             fraction_sum += frac_val
 
             # set values for fraction
-            frac_name  = self.solute_fraction_name(solute)
-            self.ad_system.set_var_values(frac_name, frac_val, copy_to_state=copy_to_state)
+            frac_name = self.solute_fraction_name(solute)
+            self.ad_system.set_var_values(
+                frac_name, frac_val, copy_to_state=copy_to_state
+            )
 
         # last validity check to ensure the solvent is present everywhere
-        if np.any(fraction_sum >= 1.):
+        if np.any(fraction_sum >= 1.0):
             raise ValueError("Sum of solute fractions is greater or equal to 1.")
 
     def set_solute_fractions_with_molality(
@@ -480,7 +479,10 @@ class Compound(Component):
                 if other_solute != solute:
                     A_block += rhs_[-1] * self.solution_fraction_of(other_solute)
 
-            A_block = A_block.evaluate(self.ad_system.dof_manager).jac * projection.transpose()
+            A_block = (
+                A_block.evaluate(self.ad_system.dof_manager).jac
+                * projection.transpose()
+            )
             A_.append(A_block)
 
         # compute fractions by solving the linear system
@@ -492,7 +494,7 @@ class Compound(Component):
         for i, solute in enumerate(self.solutes):
             idx_start = i * nc
             idx_end = (i + 1) * nc
-            solute_fraction = fractions[idx_start : idx_end]
+            solute_fraction = fractions[idx_start:idx_end]
             fractions[solute] = solute_fraction
 
         # set computed fractions

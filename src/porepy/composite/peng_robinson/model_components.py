@@ -191,10 +191,10 @@ class N2(PR_Component, N2_ps):
 class NaClBrine(PR_Compound, H2O):
     """A compound representing water - sodium chloride brine, where water is the solvent
     and NaCl the solute.
-    
+
     This class instantiates :class:`H2O_ps` and :class:`NaCl_ps` internally and assigns
     them as solvent and solute.
-    
+
     Adaptions to attraction correction are made according to given
     references.
 
@@ -230,7 +230,7 @@ class NaClBrine(PR_Compound, H2O):
         alpha_root = (
             1
             + 0.453 * (1 - T / self.critical_temperature() * (1 - 0.0103 * cw**1.1))
-            + 0.0034 * ((T / self.critical_temperature())**(-3) - 1)
+            + 0.0034 * ((T / self.critical_temperature()) ** (-3) - 1)
         )
 
         return alpha_root * alpha_root
