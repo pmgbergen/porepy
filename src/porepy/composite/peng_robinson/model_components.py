@@ -8,7 +8,6 @@ from ..phase import VarLike
 from .pr_component import PR_Component, PR_Compound
 
 __all__ = [
-    "BINARY_INTERACTION_PARAMETERS",
     "H2O_ps",
     "NaCl_ps",
     "CO2_ps",
@@ -18,10 +17,6 @@ __all__ = [
     "H2S",
     "NaClBrine",
 ]
-
-
-BINARY_INTERACTION_PARAMETERS: dict[tuple[str, str], float] = {("H2O", "NaCl"): 1.0}
-"""Contains for a pair of component names (key) the respective binary interaction parameter."""
 
 
 class H2O_ps(PseudoComponent):
@@ -159,15 +154,18 @@ class H2S(PR_Component, H2S_ps):
         return 0.1081
 
 
-class NaClBrine(PR_Compound):
+class NaClBrine(PR_Compound, H2O):
     """A compound representing water - sodium chloride brine, where water is the solvent
     and NaCl the solute.
     
-    This class instantiates the H2O and NaCl pseudo-component classes internally and assigns
+    This class instantiates :class:`H2O_ps` and :class:`NaCl_ps` internally and assigns
     them as solvent and solute.
     
-    Adaptions to acentric factor and attraction correction are made according to given
+    Adaptions to attraction correction are made according to given
     references.
+
+    The acentric factor is given by inheritance from :class:`H2O`, as well as the critical
+    temperature.
 
     """
 
@@ -183,10 +181,21 @@ class NaClBrine(PR_Compound):
         solute = NaCl_ps(ad_system=ad_system)
         # add solute to self
         self.add_solute(solute)
-    
-    @property
-    def acentric_factor(self) -> float:
-        pass
+        # store NaCl for quick access
+        self.NaCl: PseudoComponent = solute
 
     def attraction_correction(self, T: VarLike) -> VarLike:
-        pass
+        """The attraction correction for NaCl-brine based on molal salinity can be found in
+        `Soereide (1992), equation 9 <https://doi.org/10.1016/0378-3812(92)85105-H>`_
+
+        """
+        # molal salinity
+        cw = self.molality_of(self.NaCl)
+
+        alpha_root = (
+            1
+            + 0.4530 * (1 - T / self.critical_temperature() * (1 - 0.0103 * cw**1.1))
+            + 0.0034 * ((T / self.critical_temperature())**(-3) - 1)
+        )
+
+        return alpha_root * alpha_root
