@@ -153,7 +153,7 @@ class Composition(abc.ABC):
         during any flash procedure.
 
         | Math. Dimension:        scalar
-        | Phys. Dimension:        [kPa] = [kN / m^2]
+        | Phys. Dimension:        [MPa] = [MN / m^2]
 
 
         Returns:
