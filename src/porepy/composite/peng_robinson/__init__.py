@@ -13,11 +13,11 @@ References:
 
 __all__ = []
 
-from . import bip, model_components, pr_composition
-from .bip import *
+from . import model_components, pr_bip, pr_composition
+from .pr_bip import *
 from .model_components import *
 from .pr_composition import *
 
 __all__.extend(model_components.__all__)
 __all__.extend(pr_composition.__all__)
-__all__.extend(bip.__all__)
+__all__.extend(pr_bip.__all__)
