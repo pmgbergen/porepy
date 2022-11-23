@@ -4,6 +4,10 @@ The module contains a setup for testing composition and evaluation (in the Ad se
 constitutive laws for models. The setup is applied to the constitutive laws in the
 models subpackage.
 
+In addition to checking that evaluation is possible, the tests also check that the
+compound classes contain the specified constitutive laws, thus revealing mistakes if
+the classes are refactored.
+
 """
 from inspect import signature
 
@@ -46,6 +50,18 @@ from .setup_utils import model
         ("momentum_balance", "reference_gap", [1]),
         ("momentum_balance", "friction_coefficient", [1]),
         ("momentum_balance", "friction_bound", [1]),
+        # Energy balance
+        ("energy_balance", "bc_values_enthalpy_flux", []),
+        ("energy_balance", "bc_values_fourier_flux", []),
+        ("energy_balance", "energy_source", []),
+        ("energy_balance", "enthalpy_flux", []),
+        ("energy_balance", "fourier_flux", []),
+        ("energy_balance", "interface_enthalpy_flux", []),
+        ("energy_balance", "interface_fourier_flux", []),
+        ("energy_balance", "reference_temperature", []),
+        ("energy_balance", "normal_thermal_conductivity", []),
+        ("energy_balance", "aperture", []),
+        ("energy_balance", "specific_volume", []),
     ],
 )
 def test_parse_constitutive_laws(model_type, method_name, domain_inds):
@@ -76,9 +92,9 @@ def test_parse_constitutive_laws(model_type, method_name, domain_inds):
     # Fetch the signature of the method.
     sig = signature(method)
 
-    # The assumption is that the method to be tested takes as input only its domain
-    # of definition, that is a list of subdomains or interfaces. The test framework is
-    # not compatible with methods that take other arguments (and such a method would also
+    # The assumption is that the method to be tested takes as input only its domain of
+    # definition, that is a list of subdomains or interfaces. The test framework is not
+    # compatible with methods that take other arguments (and such a method would also
     # break the implicit contract of the constitutive laws).
     assert len(sig.parameters) == 1
 
@@ -93,7 +109,7 @@ def test_parse_constitutive_laws(model_type, method_name, domain_inds):
 
     # Call the method with the domain as argument. An error here will indicate that
     # something is wrong with the way the method combines terms and factors (e.g., grids
-    # parameters, variables, other methods etc.) to form an Ad operator object.
+    # parameters, variables, other methods) to form an Ad operator object.
     op = method(domains)
     # The method should return an Ad object.
     assert isinstance(op, pp.ad.Operator)

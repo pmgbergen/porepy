@@ -2,7 +2,7 @@
 
 The tests here considers equations that are present in the global system to be solved,
 as opposed to simpler relations (typically constitutive relations) that are used to
-construct these global equations. 
+construct these global equations.
 
 See also: tests.integration.models.test_constitutive_laws.
 
@@ -23,6 +23,11 @@ from .setup_utils import model
         ("momentum_balance", "interface_force_balance_equation", [0]),
         ("momentum_balance", "normal_fracture_deformation_equation", [1]),
         ("momentum_balance", "tangential_fracture_deformation_equation", [1]),
+        ("energy_balance", "energy_balance_equation", []),
+        ("energy_balance", "interface_enthalpy_flux_equation", []),
+        ("energy_balance", "interface_fourier_flux_equation", []),
+        # Energy balance inherits mass balance equations. Test one of these as well.
+        ("energy_balance", "mass_balance_equation", []),
     ],
 )
 def test_parse_equations(model_type, equation_name, domain_inds):
@@ -60,10 +65,6 @@ def test_parse_equations(model_type, equation_name, domain_inds):
     elif "interfaces" in sig.parameters:
         domains = setup.mdg.interfaces()
     # If relevant, filter out the domains that are not to be tested.
-    if len(domain_inds) > 0:
-        domains = [domains[i] for i in domain_inds]
-
-    # Pick out the relevant domains
     if len(domain_inds) > 0:
         domains = [domains[i] for i in domain_inds if i <= len(domains)]
 
