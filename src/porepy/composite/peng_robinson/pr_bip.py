@@ -131,7 +131,7 @@ def bip_N2_H2S(T: VarLike, n2: N2, h2s: H2S) -> pp.ad.Operator:
     return pp.ad.Scalar(0.1652)
 
 
-def bip_NaClbrine_H2S(T: VarLike, naclbrine: NaClBrine, h2s: H2S) -> pp.ad.Operator:
+def bip_NaClBrine_H2S(T: VarLike, naclbrine: NaClBrine, h2s: H2S) -> pp.ad.Operator:
     """Temperature- and salinity-dependent BIP for NaCl-brine and hydrogen sulfide.
 
     The law is taken from
@@ -144,7 +144,7 @@ def bip_NaClbrine_H2S(T: VarLike, naclbrine: NaClBrine, h2s: H2S) -> pp.ad.Opera
     return -0.20441 + 0.23426 * T / h2s.critical_temperature()
 
 
-def bip_NaClbrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Operator:
+def bip_NaClBrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Operator:
     """Temperature- and salinity-dependent BIP for NaCl-brine and carbon dioxide.
 
     The law is taken from
@@ -165,7 +165,7 @@ def bip_NaClbrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Opera
     )
 
 
-def bip_NaClbrine_N2(T: VarLike, naclbrine: NaClBrine, n2: N2) -> pp.ad.Operator:
+def bip_NaClBrine_N2(T: VarLike, naclbrine: NaClBrine, n2: N2) -> pp.ad.Operator:
     """Temperature- and salinity-dependent BIP for NaCl-brine and nitrogen.
 
     The law is taken from
@@ -191,9 +191,9 @@ PR_BIP_MAP: dict[tuple[str, str], Callable] = {
     ("CO2", "H2S"): bip_CO2_H2S,
     ("CO2", "N2"): bip_CO2_N2,
     ("N2", "H2S"): bip_N2_H2S,
-    ("NaClBrine", "H2S"): bip_NaClbrine_H2S,
-    ("NaClBrine", "CO2"): bip_NaClbrine_CO2,
-    ("NaClBrine", "N2"): bip_NaClbrine_N2,
+    ("NaClBrine", "H2S"): bip_NaClBrine_H2S,
+    ("NaClBrine", "CO2"): bip_NaClBrine_CO2,
+    ("NaClBrine", "N2"): bip_NaClBrine_N2,
 }
 """Contains for a pair of component/compound names (key) the respective
 binary interaction parameter for the Peng-Robinson EoS, in form of a callable.

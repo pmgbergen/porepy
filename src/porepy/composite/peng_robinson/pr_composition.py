@@ -11,7 +11,7 @@ from .._composite_utils import R_IDEAL
 from ..composition import Composition
 from .pr_component import PR_Component
 from .pr_phase import PR_Phase
-from .bip import get_PR_BIP
+from .pr_bip import get_PR_BIP
 
 __all__ = ["PR_Composition"]
 
