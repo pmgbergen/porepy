@@ -2,7 +2,7 @@
 Class types:
     MassBalanceEquations defines subdomain and interface equations through the
         terms entering. Darcy type interface relation is assumed.
-    Specific ConstitutiveEquations and specific SolutionStrategy for both incompressible
+    Specific ConstitutiveLaws and specific SolutionStrategy for both incompressible
     and compressible case.
 
 Notes:
@@ -18,7 +18,6 @@ Notes:
 from __future__ import annotations
 
 import logging
-from numbers import Number
 from typing import Dict, Optional
 
 import numpy as np
@@ -159,14 +158,16 @@ class MassBalanceEquations(pp.ScalarBalanceEquation):
         return source
 
 
-class ConstitutiveEquationsIncompressibleFlow(
+class ConstitutiveLawsSinglePhaseFlow(
     pp.constitutive_laws.DarcysLawFV,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
-    pp.constitutive_laws.ConstantPorousMedium,
-    pp.constitutive_laws.ConstantSinglePhaseFluid,
+    pp.constitutive_laws.ConstantPorosity,
+    pp.constitutive_laws.ConstantPermeability,
+    pp.constitutive_laws.FluidDensityFromPressure,
+    pp.constitutive_laws.ConstantViscosity,
 ):
-    """Constitutive equations for incompressible flow."""
+    """Constitutive equations for single-phase flow."""
 
     def mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mobility of the fluid flux.
@@ -176,13 +177,14 @@ class ConstitutiveEquationsIncompressibleFlow(
 
         Returns:
             Operator representing the mobility.
+
         """
         return pp.ad.Scalar(1) / self.fluid_viscosity(subdomains)
 
     def mobility_discretization(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Discretization:
-        return pp.ad.UpwindAd(self.mobility_discretization_parameter_key, subdomains)
+        return pp.ad.UpwindAd(self.mobility_keyword, subdomains)
 
     def interface_mobility_discretization(
         self, interfaces: list[pp.MortarGrid]
@@ -196,19 +198,19 @@ class ConstitutiveEquationsIncompressibleFlow(
             Discretization for the interface mobility.
 
         """
-        return pp.ad.UpwindCouplingAd(
-            self.mobility_discretization_parameter_key, interfaces
-        )
+        return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
     def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
         Not sure where this one should reside. Note that we could remove the
         grid_operator BC and DirBC, probably also ParameterArray/Matrix (unless needed
         to get rid of pp.ad.Discretization. I don't see how it would be, though).
+
         Parameters:
-            subdomains:
+            subdomains: List of subdomains.
 
         Returns:
+            Ad array representing the boundary condition values for the Darcy flux.
 
         """
         num_faces = sum([sd.num_faces for sd in subdomains])
@@ -217,7 +219,9 @@ class ConstitutiveEquationsIncompressibleFlow(
     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
 
-        Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1 ..note:
+        Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
+
+        Parameters:
             Value is tricky if ..math:
                 mobility = \\rho / \\mu
             with \rho and \mu being functions of p (or other variables), since variables
@@ -225,6 +229,7 @@ class ConstitutiveEquationsIncompressibleFlow(
             boundary conditions for Darcy flux and mobility. For now, we assume that the
             mobility is constant. TODO: Better solution. Could involve defining boundary
             grids.
+
         Parameters:
             subdomains: List of subdomains.
 
@@ -237,26 +242,15 @@ class ConstitutiveEquationsIncompressibleFlow(
 
         # Loop over subdomains to collect boundary values
         for sd in subdomains:
-            rho_by_mu = (
-                self.fluid_density([sd]) / self.fluid_viscosity([sd])
-            ).evaluate(self.equation_system)
-            # Unlike Operators, wrapped constants (Scalar, Array) do not have val
-            # attribute.
-            if hasattr(rho_by_mu, "val"):
-                rho_by_mu = rho_by_mu.val
-
-            vals = np.zeros(sd.num_faces)
+            # Get density and viscosity values on boundary faces applying trace to
+            # interior values.
             all_bf, *_ = self.domain_boundary_sides(sd)
-            if isinstance(rho_by_mu, Number):
-                # Scalar value, simple assignment
-                vals[all_bf] = rho_by_mu
-            else:
-                # Array value, assumed to be cell-wise
-                assert isinstance(rho_by_mu, np.ndarray)
-                assert rho_by_mu.shape == (sd.num_cells,)
-                trace = np.abs(sd.cell_faces)
-                vals[all_bf] = (trace * rho_by_mu)[all_bf]
+            trace = pp.constitutive_laws.boundary_values_from_interior_operator
+            rho_bound = trace(self.fluid_density, sd, all_bf, self.equation_system)
+            visc_bound = trace(self.fluid_viscosity, sd, all_bf, self.equation_system)
             # Append to list of boundary values
+            vals = rho_bound
+            vals[all_bf] /= visc_bound[all_bf]
             bc_values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array
@@ -264,19 +258,7 @@ class ConstitutiveEquationsIncompressibleFlow(
         return bc_values
 
 
-class ConstitutiveEquationsCompressibleFlow(
-    pp.constitutive_laws.FluidDensityFromPressure,
-    ConstitutiveEquationsIncompressibleFlow,
-):
-    """Resolution order is important:
-    Left to right, i.e., DensityFromPressure mixin's method is used when calling
-    self.fluid_density
-    """
-
-    pass
-
-
-class VariablesSinglePhaseFlow:
+class VariablesSinglePhaseFlow(pp.VariableMixin):
     """
     Creates necessary variables (pressure, interface flux) and provides getter methods
     for these and their reference values. Getters construct mixed-dimensional variables
@@ -284,12 +266,13 @@ class VariablesSinglePhaseFlow:
     defined. Setter method (assig_variables), however, must create on all grids where
     the variable is to be used.
 
-    .. note::
-        Wrapping in class methods and not calling equation_system directly allows for easier
-        changes of primary variables. As long as all calls to fluid_flux() accept Operators as
-        return values, we can in theory add it as a primary variable and solved mixed form.
-        Similarly for different formulations of the pressure (e.g. pressure head) or enthalpy/
-        temperature for the energy equation.
+    Note:
+        Wrapping in class methods and not calling equation_system directly allows for
+        easier changes of primary variables. As long as all calls to fluid_flux() accept
+        Operators as return values, we can in theory add it as a primary variable and
+        solved mixed form. Similarly for different formulations of the pressure (e.g.
+        pressure head) or enthalpy/ temperature for the energy equation.
+
     """
 
     def create_variables(self) -> None:
@@ -346,7 +329,7 @@ class VariablesSinglePhaseFlow:
         return ad_wrapper(p_ref, True, size, name="reference_pressure")
 
 
-class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
+class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     """This is whatever is left of pp.IncompressibleFlow.
 
     At some point, this will be refined to be a more sophisticated (modularised)
@@ -361,9 +344,23 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
         super().__init__(params)
         # Variables
         self.pressure_variable: str = "pressure"
+        """Name of the pressure variable."""
         self.interface_darcy_flux_variable: str = "interface_darcy_flux"
-        self.darcy_discretization_parameter_key: str = "flow"
-        self.mobility_discretization_parameter_key: str = "mobility"
+        """Name of the primary variable representing the Darcy flux on the interface."""
+
+        # Discrretization
+        self.darcy_keyword: str = "flow"
+        """Keyword for Darcy flux term.
+
+        Used to access discretization parameters and store discretization matrices.
+
+        """
+        self.mobility_keyword: str = "mobility"
+        """Keyword for mobility factor.
+
+        Used to access discretization parameters and store discretization matrices.
+
+        """
 
     def initial_condition(self) -> None:
         """New formulation requires darcy flux (the flux is "advective" with mobilities
@@ -375,14 +372,14 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
             pp.initialize_data(
                 sd,
                 data,
-                self.mobility_discretization_parameter_key,
+                self.mobility_keyword,
                 {"darcy_flux": np.zeros(sd.num_faces)},
             )
         for intf, data in self.mdg.interfaces(return_data=True):
             pp.initialize_data(
                 intf,
                 data,
-                self.mobility_discretization_parameter_key,
+                self.mobility_keyword,
                 {"darcy_flux": np.zeros(intf.num_cells)},
             )
 
@@ -408,7 +405,7 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
             pp.initialize_data(
                 sd,
                 data,
-                self.darcy_discretization_parameter_key,
+                self.darcy_keyword,
                 {
                     "bc": self.bc_type_darcy(sd),
                     "second_order_tensor": diffusivity,
@@ -418,11 +415,9 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
             pp.initialize_data(
                 sd,
                 data,
-                self.mobility_discretization_parameter_key,
+                self.mobility_keyword,
                 {
                     "bc": self.bc_type_mobrho(sd),
-                    "second_order_tensor": diffusivity,
-                    "ambient_dimension": self.nd,
                 },
             )
 
@@ -431,7 +426,7 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
             pp.initialize_data(
                 intf,
                 intf_data,
-                self.darcy_discretization_parameter_key,
+                self.darcy_keyword,
                 {
                     "ambient_dimension": self.nd,
                 },
@@ -445,6 +440,7 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
 
         Returns:
             Boundary condition object.
+
         """
         # Define boundary regions
         all_bf, *_ = self.domain_boundary_sides(sd)
@@ -459,6 +455,7 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
 
         Returns:
             Boundary condition object.
+
         """
         # Define boundary regions
         all_bf, *_ = self.domain_boundary_sides(sd)
@@ -473,61 +470,10 @@ class SolutionStrategyIncompressibleFlow(pp.SolutionStrategy):
         """
         for sd, data in self.mdg.subdomains(return_data=True):
             vals = self.darcy_flux([sd]).evaluate(self.equation_system).val
-            data[pp.PARAMETERS][self.mobility_discretization_parameter_key].update(
-                {"darcy_flux": vals}
-            )
+            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True):
             vals = self.interface_darcy_flux([intf]).evaluate(self.equation_system).val
-            data[pp.PARAMETERS][self.mobility_discretization_parameter_key].update(
-                {"darcy_flux": vals}
-            )
-        # FIXME: Rediscretize upwind.
-
-
-"""
-Compressible flow below.
-
-Note on time dependency: I'm tempted to suggest assigning time_manager to stationary
-models and partially remove the distinction with transient ones.
-"""
-
-
-class SolutionStrategyCompressibleFlow(SolutionStrategyIncompressibleFlow):
-    """This class extends the Incompressible flow model by including a
-    cumulative term expressed through pressure and a constant compressibility
-    coefficient. For a full documentation refer to the parent class.
-
-    The simulation starts at time t=0.
-
-
-
-    Attributes:
-        time_manager: Time-stepping control manager.
-
-    """
-
-    def __init__(self, params: Optional[Dict] = None) -> None:
-        """
-        Parameters:
-            params (dict): Dictionary of parameters used to control the solution
-            procedure.
-                Some frequently used entries are file and folder names for export, mesh
-                sizes...
-        """
-        if params is None:
-            params = {}
-        super().__init__(params)
-
-        # Time manager
-        self.time_manager = params.get(
-            "time_manager",
-            pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
-        )
-
-    def _export(self):
-        if hasattr(self, "exporter"):
-            self.exporter.write_vtu([self.variable], time_dependent=True)
-
-    def after_simulation(self):
-        self.exporter.write_pvd()
+            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+        # FIXME: Targeted rediscretization of upwind.
+        self.discretize()

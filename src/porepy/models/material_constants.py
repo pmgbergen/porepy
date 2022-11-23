@@ -139,6 +139,7 @@ class FluidConstants(MaterialConstants):
             "compressibility": 0,
             "density": 1,
             "specific_heat_capacity": 1,
+            "thermal_conductivity": 1,
             "thermal_expansion": 0,
             "viscosity": 1,
         }
@@ -164,6 +165,17 @@ class FluidConstants(MaterialConstants):
         """
         return self.convert_units(self.constants["thermal_expansion"], "K^-1")
 
+    def thermal_conductivity(self) -> number:
+        """Thermal conductivity [W/m/K].
+
+        Returns:
+            Thermal conductivity in converted mass, length and temperature units.
+
+        """
+        return self.convert_units(
+            self.constants["thermal_conductivity"], "W * m^-1 * K^-1"
+        )
+
     def specific_heat_capacity(self) -> number:
         """Specific heat [J/kg/K].
 
@@ -171,7 +183,9 @@ class FluidConstants(MaterialConstants):
             Specific heat in converted mass, temperature and time units.
 
         """
-        return self.convert_units(self.constants["specific_heat_capacity"], "J/kg/K")
+        return self.convert_units(
+            self.constants["specific_heat_capacity"], "J * kg^-1 * K^-1"
+        )
 
     def viscosity(self) -> number:
         """Viscosity [Pa s].
@@ -228,8 +242,9 @@ class SolidConstants(MaterialConstants):
             "permeability": 1,
             "porosity": 0.1,
             "shear_modulus": 1,
+            "specific_heat_capacity": 1,
             "thermal_conductivity": 1,
-            "thermal_expansion": 1,
+            "thermal_expansion": 0,
         }
 
         if constants is not None:
