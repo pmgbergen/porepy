@@ -155,8 +155,6 @@ class PR_Composition(Composition):
     def c0(self) -> pp.ad.Operator:
         """An operator representing the coefficient of the monomial ``Z**0`` in the
         characteristic polynomial."""
-        # TODO as soon as power overload is available for operators, this needs to change
-        # at multiple points in this class
         return self.B * self.B * self.B + self.B * self.B - self.A * self.B
 
     @property

@@ -29,6 +29,7 @@ __all__ = [
     "log",
     "sqrt",
     "cbrt",
+    "power",
     "sign",
     "abs",
     "l2_norm",
@@ -52,7 +53,7 @@ __all__ = [
 ]
 
 
-# %% Exponential, logarithmic and root functions
+# %% Exponential, logarithmic, root and power functions
 def exp(var):
     if isinstance(var, Ad_array):
         val = np.exp(var.val)
@@ -85,6 +86,25 @@ def cbrt(var):
         return Ad_array(val, der)
     else:
         return np.cbrt(var)
+    
+def power(var, exponent):
+    if isinstance(var, Ad_array):
+        if exponent >= 0:
+            val = np.power(var.val, exponent)
+        else:
+            val = 1 / np.power(var.val, - exponent)
+        der_exponent = exponent - 1
+        if der_exponent >= 0:
+            vec = np.power(var.val, der_exponent)
+        else:
+            vec = 1 / np.power(var.val, - der_exponent)
+        der = var.diagvec_mul_jac(exponent * vec)
+        return Ad_array(val, der)
+    else:
+        if exponent >= 0.:
+            return np.power(var, exponent)
+        else:
+            return 1 / np.power(var, - exponent)
 
 
 # %% Sign and absolute value functions and l2_norm

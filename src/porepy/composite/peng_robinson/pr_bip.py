@@ -40,6 +40,10 @@ __all__ = [
     "get_PR_BIP",
 ]
 
+# ad functions used here
+power = pp.ad.Function(pp.ad.power, "power")
+exp = pp.ad.Function(pp.ad.exp, "exp")
+
 
 def bip_H2O_CO2(T: VarLike, h2o: H2O, co2: CO2) -> pp.ad.Operator:
     """(Constant) BIP for water and carbon dioxide.
@@ -153,7 +157,8 @@ def bip_NaClBrine_H2S(T: VarLike, naclbrine: NaClBrine, h2s: H2S) -> pp.ad.Opera
         An AD Operator representing the BIP.
 
     """
-    return -0.20441 + 0.23426 * T / h2s.critical_temperature()
+    T_r = T / h2s.critical_temperature()
+    return -0.20441 + 0.23426 * T_r
 
 
 def bip_NaClBrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Operator:
@@ -166,14 +171,15 @@ def bip_NaClBrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Opera
         An AD Operator representing the BIP.
 
     """
-    T_co2_crit = co2.critical_temperature()
+    T_r = T / co2.critical_temperature()
     molality = naclbrine.molality_of(naclbrine.NaCl)
-    exp = pp.ad.Function(pp.ad.exp, "exp")
+    exponent_1 = pp.ad.Scalar(0.7505)
+    exponent_2 = pp.ad.Scalar(0.979)
 
     return (
-        -0.31092 * (1 + 0.15582 * molality**0.7505)
-        + 0.23580 * (1 + 0.17837 * molality**0.979) * T / T_co2_crit
-        - 21.2566 * exp(-6.7222 * T / T_co2_crit - molality)
+        -0.31092 * (1 + 0.15587 * power(molality, exponent_1))
+        + 0.23580 * (1 + 0.17837 * power(molality, exponent_2)) * T_r
+        - 21.2566 * exp(-6.7222 * T_r - molality)
     )
 
 
@@ -187,12 +193,13 @@ def bip_NaClBrine_N2(T: VarLike, naclbrine: NaClBrine, n2: N2) -> pp.ad.Operator
         An AD Operator representing the BIP.
 
     """
-    T_n2_crit = n2.critical_temperature()
+    T_r = T / n2.critical_temperature()
     molality = naclbrine.molality_of(naclbrine.NaCl)
+    exponent = pp.ad.Scalar(0.75)
 
     return (
-        -1.70235 * (1 + 0.25587 * molality**0.75)
-        + 0.44338 * (1 + 0.08126 * molality**0.75) * T / T_n2_crit
+        -1.70235 * (1 + 0.25587 * power(molality, exponent))
+        + 0.44338 * (1 + 0.08126 * power(molality, exponent)) * T_r
     )
 
 
