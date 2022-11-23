@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import Dict, Optional, Union
+from typing import Optional
 
 import numpy as np
 
@@ -277,7 +277,7 @@ class MomentumBalanceEquations(pp.VectorBalanceEquation):
         return source
 
 
-class ConstitutiveEquationsMomentumBalance(
+class ConstitutiveLawsMomentumBalance(
     constitutive_laws.LinearElasticSolid,
     constitutive_laws.FracturedSolid,
     constitutive_laws.FrictionBound,
@@ -437,14 +437,24 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     """
 
-    def __init__(self, params: Optional[Dict] = None) -> None:
+    def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
+
         # Variables
-        self.mechanics_discretization_parameter_key: str = "mechanics"
-        self.exporter: pp.Exporter
         self.displacement_variable: str = "u"
+        """Name of the displacement variable."""
         self.interface_displacement_variable: str = "u_interface"
+        """Name of the displacement variable on fracture-matrix interfaces."""
         self.contact_traction_variable: str = "t"
+        """Name of the contact traction variable."""
+
+        # Discretization
+        self.stress_keyword: str = "mechanics"
+        """Keyword for stress term.
+
+        Used to access discretization parameters and store discretization matrices.
+
+        """
 
     def initial_condition(self) -> None:
         """Set initial guess for the variables.
@@ -481,7 +491,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
                 pp.initialize_data(
                     sd,
                     data,
-                    self.mechanics_discretization_parameter_key,
+                    self.stress_keyword,
                     {
                         "bc": self.bc_type_mechanics(sd),
                         "fourth_order_tensor": self.stiffness_tensor(sd),
@@ -542,7 +552,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 class MdMomentumBalanceCombined(
     ModelGeometry,
     MomentumBalanceEquations,
-    ConstitutiveEquationsMomentumBalance,
+    ConstitutiveLawsMomentumBalance,
     VariablesMomentumBalance,
     SolutionStrategyMomentumBalance,
 ):
