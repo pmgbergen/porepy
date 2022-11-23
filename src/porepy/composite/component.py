@@ -84,7 +84,7 @@ class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
         """This is a constant value, hence to be a static function.
 
         | Math. Dimension:        scalar
-        | Phys. Dimension:        [kPa]
+        | Phys. Dimension:        [MPa]
 
         Returns: critical pressure for this component (critical point in p-T diagram).
 
