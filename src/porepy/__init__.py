@@ -189,6 +189,7 @@ from porepy import models
 from porepy.models.abstract_equations import (
     ScalarBalanceEquation,
     VectorBalanceEquation,
+    VariableMixin,
 )
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units

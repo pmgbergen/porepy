@@ -1,5 +1,6 @@
 """Library of constitutive equations."""
 from functools import partial
+from numbers import Number
 from typing import Callable, Optional, Union
 
 import numpy as np
@@ -41,17 +42,6 @@ def ad_wrapper(
             size = vals.size
         matrix = sps.diags(vals, shape=(size, size))
         return pp.ad.Matrix(matrix, name)
-
-
-"""
-Below are some examples of Mixins which are low-level components of a set of
-constitutive equations. First three different versions of fluid density, then one for
-permeability.
-
-FIXME: Choose whether materials or the classes below are responsible for expanding to
-number of cells. Probably safest to do that below in case of issues with vector values
-or cell/face ambiguity.
-"""
 
 
 class DimensionReduction:
@@ -131,10 +121,19 @@ class ConstantFluidDensity:
     def __init__(self, fluid: UnitFluid):
         self.fluid = ...
 
-    eller tilsvarende. Se SolutionStrategiesIncompressibleFlow.
+    eller tilsvarende. Se SolutionStrategiesSinglePhaseFlow.
     """
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Fluid density [kg/m^3].
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Operator for fluid density.
+
+        """
         return Scalar(self.fluid.density(), "fluid_density")
 
 
@@ -162,7 +161,7 @@ class FluidDensityFromPressure:
         """
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
         # Reference variables are defined in Variables class.
-        dp = self.pressure(subdomains) - self.reference_pressure(subdomains)
+        dp = self.perturbation_from_reference("pressure", subdomains)
         # Wrap compressibility from fluid class as matrix (left multiplication with dp)
         c = self.fluid_compressibility(subdomains)
         # I suggest using the fluid's constant density as the reference value. While not
@@ -181,9 +180,7 @@ class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
         """Fluid density as a function of pressure and temperature."""
         rho = super().fluid_density(subdomains)
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
-        dtemp = self.temperature(subdomains) - self.reference_temperature(
-            self, subdomains
-        )
+        dtemp = self.perturbation_from_reference("temperature", subdomains)
         rho = rho * exp(-dtemp / self.fluid.thermal_expansion())
         return rho
 
@@ -191,6 +188,38 @@ class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
 class ConstantViscosity:
     def fluid_viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return Scalar(self.fluid.viscosity(), "viscosity")
+
+
+class ConstantPermeability:
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
+        """Permeability [m^2].
+
+        This will be set as before (pp.PARAMETERS) since it
+
+        Parameters:
+            subdomain: Subdomain where the permeability is defined.
+                Permeability is a discretization parameter and is assigned to individual
+                subdomain data dictionaries. Hence, the list will usually contain only
+                one element.
+
+        Returns:
+            Cell-wise permeability tensor.
+        """
+        assert len(subdomains) == 1, "Only one subdomain is allowed."
+        size = subdomains[0].num_cells
+        return self.solid.permeability() * np.ones(size)
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Normal permeability.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Scalar normal permeability on the interfaces.
+
+        """
+        return Scalar(self.solid.normal_permeability())
 
 
 class DarcysLawFV:
@@ -291,7 +320,7 @@ class DarcysLawFV:
             Discretization of the Darcy flux.
 
         """
-        return pp.ad.MpfaAd(self.darcy_discretization_parameter_key, subdomains)
+        return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
     def vector_source(
         self, grids: Union[list[pp.Grid], list[pp.MortarGrid]], material: str
@@ -348,6 +377,89 @@ class DarcysLawFV:
             flip * cell_volumes_inv * projection.primary_to_mortar_avg * face_normals
         )
         return unit_outwards_normals * self.vector_source(interfaces, material=material)
+
+
+class ThermalConductivityLTE:
+    """Thermal conductivity in the local thermal equilibrium approximation."""
+
+    def fluid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid thermal conductivity.
+
+        SI units: W / (m K)
+
+        Parameters:
+            grids: List of subdomains where the thermal conductivity is defined.
+
+        Returns:
+            Thermal conductivity of fluid.
+
+        """
+        return Scalar(self.fluid.thermal_conductivity(), "fluid_thermal_conductivity")
+
+    def solid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Solid thermal conductivity.
+
+        SI units: W / (m K)
+
+        Parameters:
+            grids: List of subdomains where the thermal conductivity is defined.
+
+        Returns:
+            Thermal conductivity of solid.
+
+        """
+        return Scalar(self.solid.thermal_conductivity(), "solid_thermal_conductivity")
+
+    def thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
+        """Permeability [m^2].
+
+        This will be set as before (pp.PARAMETERS) since it is used in the
+        discretization of the thermal equation by either the mpfa or the tpfa method.
+
+        Parameters:
+            subdomain: Subdomain where the permeability is defined.
+                Permeability is a discretization parameter and is assigned to individual
+                subdomain data dictionaries. Hence, the list is assumed to contain only
+                one element.
+
+        Returns:
+            Cell-wise permeability tensor.
+
+        """
+        assert len(subdomains) == 1, "Only one subdomain is allowed."
+        size = subdomains[0].num_cells
+        phi = self.porosity(subdomains)
+        conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
+            Scalar(1) - phi
+        ) * self.solid_thermal_conductivity(subdomains)
+        vals = conductivity.evaluate(self.equation_system)
+
+        # In case vals is proper operator, not a combination of Scalars and Arrays,
+        # get the values.
+        if hasattr(vals, "val"):
+            vals = vals.val
+        return vals * np.ones(size)
+
+    def normal_thermal_conductivity(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Normal thermal conductivity.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing normal thermal conductivity on the interfaces.
+
+        """
+        # Porosity weighting inherited from lower-dimensional neighbor
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        phi = self.porosity(subdomains)
+        conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
+            Scalar(1) - phi
+        ) * self.solid_thermal_conductivity(subdomains)
+        return conductivity
 
 
 class FouriersLawFV:
@@ -426,7 +538,7 @@ class FouriersLawFV:
         # diffusivity
         eq = self.interface_fourier_flux(
             interfaces
-        ) - cell_volumes * self.normal_heat_conductivity(interfaces) * (
+        ) - cell_volumes * self.normal_thermal_conductivity(interfaces) * (
             projection.primary_to_mortar_avg * self.temperature_trace(subdomains)
             - projection.secondary_to_mortar_avg * self.temperature(subdomains)
         )
@@ -445,7 +557,7 @@ class FouriersLawFV:
             Discretization of the Fourier flux.
 
         """
-        return pp.ad.MpfaAd(self.fourier_discretization_parameter_key, subdomains)
+        return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
 
 
 class AdvectiveFlux:
@@ -524,6 +636,73 @@ class AdvectiveFlux:
         return interface_flux
 
 
+class SpecificHeatCapacities:
+    def fluid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid specific heat capacity.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the fluid specific heat capacity.
+
+        """
+        return Scalar(
+            self.fluid.specific_heat_capacity(), "fluid_specific_heat_capacity"
+        )
+
+    def solid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Solid specific heat capacity.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the solid specific heat capacity.
+
+        """
+        return Scalar(
+            self.solid.specific_heat_capacity(), "solid_specific_heat_capacity"
+        )
+
+
+class EnthalpyFromTemperature(SpecificHeatCapacities):
+    temperature: pp.ad.Operator
+    reference_temperature: float
+
+    def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid enthalpy.
+
+        SI units: J / m^3.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the fluid enthalpy.
+
+        """
+        c = self.fluid_specific_heat_capacity(subdomains)
+        enthalpy = c * self.perturbation_from_reference("temperature", subdomains)
+        enthalpy.set_name("fluid_enthalpy")
+        return c * enthalpy
+
+    def solid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Solid enthalpy.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the solid enthalpy.
+
+        """
+        c = self.solid_specific_heat_capacity(subdomains)
+        enthalpy = c * self.perturbation_from_reference("temperature", subdomains)
+        enthalpy.set_name("solid_enthalpy")
+        return c * enthalpy
+
+
 class GravityForce:
     """Gravity force.
 
@@ -579,7 +758,7 @@ class LinearElasticMechanicalStress:
         """Linear elastic mechanical stress."""
         for sd in subdomains:
             assert sd.dim == self.nd
-        discr = pp.ad.MpsaAd(self.mechanics_discretization_parameter_key, subdomains)
+        discr = pp.ad.MpsaAd(self.stress_keyword, subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains)
         bc = self.bc_values_mechanics(subdomains)
         proj = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=self.nd)
@@ -799,36 +978,43 @@ class FrictionBound:
         return bound
 
 
-class ConstantPorousMedium:
-    def permeability(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
-        """Permeability [m^2].
-
-        This will be set as before (pp.PARAMETERS) since it
-
-        Parameters:
-            subdomain: Subdomain where the permeability is defined.
-                Permeability is a discretization parameter and is assigned to individual
-                subdomain data dictionaries. Hence, the list will usually contain only
-                one element.
-
-        Returns:
-            Cell-wise permeability tensor.
-        """
-        assert len(subdomains) == 1, "Only one subdomain is allowed."
-        size = subdomains[0].num_cells
-        return self.solid.permeability() * np.ones(size)
-
-    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        return self.solid.normal_permeability()
-
+class ConstantPorosity:
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return Scalar(self.solid.porosity(), "porosity")
 
 
-class ConstantSinglePhaseFluid(ConstantFluidDensity, ConstantViscosity):
-    """Collection of constant fluid properties.
+def boundary_values_from_interior_operator(
+    interior_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
+    subdomain: pp.Grid,
+    faces: np.ndarray,
+    equation_system: pp.ad.EquationSystem,
+) -> np.ndarray:
+    """Extract Dirichlet values from an operator.
 
-    This class is intended for use in single-phase flow models.
+    Parameters:
+        interior_operator: Operator to extract Dirichlet values from.
+        subdomain: Subdomain where the operator is defined.
+        faces: Faces where Dirichlet values are to be extracted.
+        equation_system: Equation system facilitating evaluation of the operator.
+
+    Returns:
+        Dirichlet values (sd.num_faces,).
+
     """
+    # Extract Dirichlet values from the operator
+    vals = np.zeros(subdomain.num_faces)
+    interior_vals = interior_operator([subdomain]).evaluate(equation_system)
+    # Unlike Operators, wrapped constants (Scalar, Array) do not have val attribute.
+    if hasattr(interior_vals, "val"):
+        interior_vals = interior_vals.val
 
-    ...
+    if isinstance(interior_vals, Number):
+        # Scalar value, simple assignment
+        vals[faces] = interior_vals
+    else:
+        # Array value, assumed to be cell-wise
+        assert isinstance(interior_vals, np.ndarray)
+        assert interior_vals.shape == (subdomain.num_cells,)
+        trace = np.abs(subdomain.cell_faces)
+        vals[faces] = (trace * interior_vals)[faces]
+    return vals
