@@ -12,9 +12,11 @@ __all__ = [
     "NaCl_ps",
     "CO2_ps",
     "H2S_ps",
+    "N2_ps",
     "H2O",
     "CO2",
     "H2S",
+    "N2",
     "NaClBrine",
 ]
 
@@ -115,6 +117,25 @@ class H2S_ps(PseudoComponent):
         return 373.2
 
 
+class N2_ps(PseudoComponent):
+    """Pseud-representation of nitrogen."""
+
+    @staticmethod
+    def molar_mass():
+        """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
+        return 0.028
+
+    @staticmethod
+    def critical_pressure():
+        """`Source <https://en.wikipedia.org/wiki/Nitrogen>`_."""
+        return 3.39
+
+    @staticmethod
+    def critical_temperature():
+        """`Source <https://en.wikipedia.org/wiki/Nitrogen>`_."""
+        return 126.21
+
+
 class H2O(PR_Component, H2O_ps):
     """Component representing water as a fluid for the Peng-Robinson EoS.
 
@@ -154,6 +175,19 @@ class H2S(PR_Component, H2S_ps):
         return 0.1081
 
 
+class N2(PR_Component, N2_ps):
+    """Component representing N2 as a fluid for the Peng-Robinson EoS.
+
+    Constant physical properties are inherited from respective pseudo-component.
+
+    """
+
+    @property
+    def acentric_factor(self) -> float:
+        """`Source <https://doi.org/10.1016/0378-3812(92)85105-H>`_."""
+        return 0.0403
+
+
 class NaClBrine(PR_Compound, H2O):
     """A compound representing water - sodium chloride brine, where water is the solvent
     and NaCl the solute.
@@ -183,6 +217,7 @@ class NaClBrine(PR_Compound, H2O):
         self.add_solute(solute)
         # store NaCl for quick access
         self.NaCl: PseudoComponent = solute
+        """Quick reference to the pseudo-component representing NaCl."""
 
     def attraction_correction(self, T: VarLike) -> VarLike:
         """The attraction correction for NaCl-brine based on molal salinity can be found in
@@ -194,7 +229,7 @@ class NaClBrine(PR_Compound, H2O):
 
         alpha_root = (
             1
-            + 0.4530 * (1 - T / self.critical_temperature() * (1 - 0.0103 * cw**1.1))
+            + 0.453 * (1 - T / self.critical_temperature() * (1 - 0.0103 * cw**1.1))
             + 0.0034 * ((T / self.critical_temperature())**(-3) - 1)
         )
 
