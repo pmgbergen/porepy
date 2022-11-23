@@ -11,6 +11,7 @@ from .._composite_utils import R_IDEAL
 from ..composition import Composition
 from .pr_component import PR_Component
 from .pr_phase import PR_Phase
+from .bip import get_PR_BIP
 
 __all__ = ["PR_Composition"]
 
@@ -36,10 +37,6 @@ class PR_Composition(Composition):
         - This class currently supports only a liquid and a gaseous phase.
         - The various properties of this class depend on the thermodynamic state. They are
           continuously re-computed and must therefore be accessed by reference.
-
-    References:
-        [1]: `Peng, Robinson (1976) <https://doi.org/10.1021/i160057a011>`_
-        [2]: `Soereide, Whitson (1992) <https://doi.org/10.1016/0378-3812(92)85105-H>`_
 
     """
 
@@ -75,13 +72,21 @@ class PR_Composition(Composition):
         After that, it performs a super-call to :meth:`~Composition.initialize` and as a third
         and final step it assigns equilibrium equations in the form of equality of fugacities.
 
+        Raises:
+            AssertionError: If the mixture is empty (no components).
+
         """
-        ## TODO
+        # assert non-empty mixture
+        assert self.num_components >= 1
+
         ## defining the attraction value
+        self._assign_attraction()
         ## defining the co-volume
+        self._assign_covolume()
         ## setting callables representing the phase densities
         self._assign_phase_densities()
         ## setting callables representing the specific phase enthalpies
+        self._assign_phase_enthalpies()
         ## setting callables defining the dynamic viscosity and heat conductivity of phases
         self._assign_phase_viscosities()
         self._assign_phase_conductivities()
@@ -282,10 +287,53 @@ class PR_Composition(Composition):
         """
         pass
 
-    def _assign_fugacities(self) -> None:
-        """Creates and stores callables representing fugacities ``f_ce(p,T,X)`` per component
-        per phase."""
-        pass
+    def _assign_attraction(self) -> None:
+        """Creates the attraction parameter for a mixture according to PR."""
+        components: list[PR_Component] = [c for c in self.components]  # type: ignore
+
+        # First we sum over the diagonal elements of the mixture matrix
+        a = components[0].fraction * components[0].fraction * components[0].attraction(self.T)
+
+        if len(components) > 1:
+            # sqrt AD function
+            sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
+            # add remaining diagonal elements
+            for comp in components[1:]:
+                a += comp.fraction * comp.fraction * comp.attraction(self.T)
+
+            # adding off-diagonal elements, including BIPs
+            for comp_i in components:
+                for comp_j in components:
+                    if comp_i != comp_j:
+                        a_ij = comp_i.fraction * comp_j.fraction * sqrt(
+                                comp_i.attraction(self.T) * comp_j.attraction(self.T)
+                        )
+
+                        bip, order = get_PR_BIP(comp_i.name, comp_j.name)
+                        # assert there is a bip, to appease mypy
+                        # this check is performed in add_component though
+                        assert bip is not None
+                        # call to BIP and multiply with a_ij
+                        if order:
+                            a_ij *= (1 - bip(comp_i, comp_j))
+                        else:
+                            a_ij *= (1 - bip(comp_j, comp_i))
+                        # add off-diagonal element
+                        a += a_ij
+            # store attraction parameter
+            self._a = a
+
+    def _assign_covolume(self) -> None:
+        """Creates the co-volume of the mixture according to VdW mixing rule."""
+        components: list[PR_Component] = [c for c in self.components]  # type: ignore
+
+        b = components[0].fraction * components[0].covolume
+
+        if len(components) > 1:
+            for comp in components[1:]:
+                b += comp.fraction * comp.covolume
+
+        self._b = b
 
     def _assign_phase_densities(self) -> None:
         """Constructs callable objects representing phase densities and assigns them to the
@@ -306,11 +354,14 @@ class PR_Composition(Composition):
         self._phases[0]._rho = _rho_L
         self._phases[1]._rho = _rho_G
 
-    def _assign_phase_viscosities(self) -> None:
+    def _assign_phase_enthalpies(self) -> None:  # TODO
+        """Constructs callable objects representing phase enthalpies and assings them to the
+        ``PR_Phase``-classe."""
+        pass
+
+    def _assign_phase_viscosities(self) -> None:  # TODO
         """Constructs callable objects representing phase dynamic viscosities and assigns them
         to the ``PR_Phase``-classes.
-
-        WIP: Assigns currently only unity TODO
         """
 
         def _mu_L(p, T, *X):
@@ -323,11 +374,9 @@ class PR_Composition(Composition):
         self._phases[0]._mu = _mu_L
         self._phases[1]._mu = _mu_G
 
-    def _assign_phase_conductivities(self) -> None:
+    def _assign_phase_conductivities(self) -> None:  # TODO
         """Constructs callable objects representing phase conductivities and assigns them
         to the ``PR_Phase``-classes.
-
-        WIP: Assigns currently only unity TODO
         """
 
         def _kappa_L(p, T, *X):
@@ -339,3 +388,8 @@ class PR_Composition(Composition):
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._kappa = _kappa_L
         self._phases[1]._kappa = _kappa_G
+
+    def _assign_fugacities(self) -> None:  # TODO
+        """Creates and stores callables representing fugacities ``f_ce(p,T,X)`` per component
+        per phase."""
+        pass
