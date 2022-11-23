@@ -481,7 +481,7 @@ class FouriersLawFV:
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr = self.darcy_flux_discretization(subdomains)
+        discr = self.fourier_flux_discretization(subdomains)
         t: pp.ad.MixedDimensionalVariable = self.temperature(subdomains)
         temperature_trace = (
             discr.bound_pressure_cell * t  # "pressure" is a legacy misnomer
@@ -490,8 +490,7 @@ class FouriersLawFV:
                 projection.mortar_to_primary_int
                 * self.interface_fourier_flux(interfaces)
             )
-            + discr.bound_pressure_face * self.bc_values_darcy_flux(subdomains)
-            + discr.vector_source * self.vector_source(subdomains, material="fluid")
+            + discr.bound_pressure_face * self.bc_values_fourier_flux(subdomains)
         )
         return temperature_trace
 
