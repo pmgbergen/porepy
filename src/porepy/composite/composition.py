@@ -637,8 +637,8 @@ class Composition(abc.ABC):
         If no phases are present (e.g. before any flash procedure), this method does nothing.
 
         Parameters:
-            copy_to_state (bool): Copies the values to the STATE of the AD variable,
-                additionally to ITERATE.
+            copy_to_state (optional): Copies the values to the STATE of the AD variable,
+                additionally to ITERATE. Defaults to True.
 
         """
         if self.num_phases == 1:
@@ -657,8 +657,8 @@ class Composition(abc.ABC):
         Use with care, if the equilibrium problem is coupled with e.g., the flow.
 
         Parameters:
-            copy_to_state: if an AD system is used, copies the values to the STATE of the
-                AD variable, additionally to ITERATE.
+            copy_to_state (optional): Copies the values to the STATE of the AD variable,
+                additionally to ITERATE. Defaults to True.
 
         """
         # obtain values by forward evaluation
