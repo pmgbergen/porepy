@@ -63,23 +63,21 @@ def bip_H2O_H2S(T: VarLike, h20: H2O, h2s: H2S) -> pp.ad.Operator:
     return pp.ad.Scalar(0.0394)
 
 
-def bip_H2O_N2(
-    T: VarLike, h2o: H2O, n2: N2
-) -> pp.ad.Operator:  # TODO no results found so far
+def bip_H2O_N2(T: VarLike, h2o: H2O, n2: N2) -> pp.ad.Operator:
     """(Constant) BIP for water and nitrogen.
 
-    The value is taken from
-    `thermo <https://thermo.readthedocs.io/thermo.interaction_parameters.html>`_,
-    ``IPDB.get_ip_automatic`` with CAS numbers:
+    The law is taken from
+    `Haghighi et al. (2009), equation 11 <https://doi.org/10.1016/j.fluid.2008.10.006>`_.
 
-    - H2O: 7732-18-5
-    - N2: 7727-37-9
+    Warning:
+        The validity of this law is highly questionable, since above reference deals with
+        cubic+ EoS, not with the standard Peng-Robinson EoS.
 
     Returns:
         An AD Operator representing the constant scalar BIP.
 
     """
-    return pp.ad.Scalar(0.0)
+    return 0.9909 - 379.9691 / T
 
 
 def bip_CO2_H2S(T: VarLike, co2: CO2, h2s: H2S) -> pp.ad.Operator:
@@ -189,7 +187,7 @@ def bip_NaClbrine_N2(T: VarLike, naclbrine: NaClBrine, n2: N2) -> pp.ad.Operator
 BIP_MAP: dict[tuple[str, str], Callable] = {
     ("H2O", "CO2"): bip_H2O_CO2,
     ("H2O", "H2S"): bip_H2O_H2S,
-    # ("H2O", "N2"): bip_H2O_N2,  # not available, see above TODO
+    ("H2O", "N2"): bip_H2O_N2,
     ("CO2", "H2S"): bip_CO2_H2S,
     ("CO2", "N2"): bip_CO2_N2,
     ("N2", "H2S"): bip_N2_H2S,
