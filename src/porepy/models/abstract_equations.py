@@ -6,6 +6,7 @@ Contains:
 """
 
 from typing import Union
+
 import porepy as pp
 
 
@@ -132,3 +133,33 @@ class VectorBalanceEquation:
         volumes_nd = sum([e * volumes * e.T for e in basis])
 
         return volumes_nd * integrand
+
+
+class VariableMixin:
+    """Mixin class for variables.
+
+    This class is intended to be used together with the other model classes providing
+    generic functionality for variables.
+
+    TODO: Refactor depending on whether other abstract classes are needed. Also, not
+    restricted to variables, but also to operators  (e.g. representing a secondary
+    variable) having a reference value.
+
+    """
+
+    def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
+        """Perturbation of a variable from its reference value.
+
+        Parameters:
+            variable_name: Name of the variable.
+            grids: List of subdomain or interface grids on which the variable is defined.
+
+        Returns:
+            Operator for the perturbation.
+
+        """
+        var = getattr(self, variable_name)
+        var_ref = getattr(self, "reference_" + variable_name)
+        d_var = var(grids) - var_ref(grids)
+        d_var.set_name(variable_name + "_perturbation")
+        return d_var

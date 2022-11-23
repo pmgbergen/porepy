@@ -51,7 +51,7 @@ class SolutionStrategy(abc.ABC):
         """Whether the non-linear iteration has converged."""
 
         self._nonlinear_iteration: int = 0
-        """Number of non-linear iterations performed for the current time step."""
+        """Number of non-linear iterations performed for current time step."""
 
         # Define attributes to be assigned later
         self.equation_system: pp.ad.EquationSystem
@@ -74,11 +74,6 @@ class SolutionStrategy(abc.ABC):
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
         """Time manager for the simulation."""
-
-        self.rock: pp.models.material_constants.RockConstants
-        """Rock material."""
-        self.fluid: pp.models.material_constants.FluidConstants
-        """Fluid material."""
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -137,8 +132,12 @@ class SolutionStrategy(abc.ABC):
             setattr(self, name, const)
 
     def before_newton_loop(self) -> None:
-        """Wrap for legacy reasons. To be removed."""
-        self.before_nonlinear_loop()  # or before_linearization?
+        """Wrap for legacy reasons.
+
+        TODO: Remove and call before_nonlinear_loop directly.
+
+        """
+        self.before_nonlinear_loop()
 
     def discretize(self) -> None:
         """Discretize all terms."""
