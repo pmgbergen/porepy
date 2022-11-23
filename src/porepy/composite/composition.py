@@ -10,7 +10,7 @@ import scipy.sparse as sps
 import porepy as pp
 
 from ._composite_utils import VARIABLE_SYMBOLS
-from .component import Component
+from .component import Component, Compound
 from .phase import Phase
 
 __all__ = ["Composition"]
@@ -97,13 +97,13 @@ class Composition(abc.ABC):
         self.max_iter_flash: int = 1000
         """Maximal number of iterations for the flash algorithms."""
 
-        self.ph_subsystem: dict = dict()
+        self.ph_subsystem: dict[str, list] = dict()
         """A dictionary representing the subsystem for the p-h flash. Contains information on
         relevant variables and equations.
 
         """
 
-        self.pT_subsystem: dict = dict()
+        self.pT_subsystem: dict[str, list] = dict()
         """A dictionary representing the subsystem for the p-T flash. Contains information on
         relevant variables and equations.
 
@@ -369,7 +369,13 @@ class Composition(abc.ABC):
         After a a super-call to ``initialize``, the equations must be set in the AD system
         and stored in respective subsystem dictionaries using the keyword ``'equations'``
 
+        Raises:
+            AssertionError: If the mixture is empty (no components).
+
         """
+        # assert non-empty mixture
+        assert self.num_components >= 1
+
         # allocating place for the subsystem
         equations = dict()
         pT_subsystem: dict[str, list] = self._get_subsystem_dict()
@@ -474,6 +480,13 @@ class Composition(abc.ABC):
         for phase in self.phases:
             pT_subsystem["secondary_vars"].append(phase.saturation_name)
             ph_subsystem["secondary_vars"].append(phase.saturation_name)
+        # solute fractions in compounds are always secondary vars in the flash
+        for component in self.components:
+            if isinstance(component, Compound):
+                for solute in component.solutes:
+                    solute_fraction_name = component.solute_fraction_name(solute)
+                    pT_subsystem["secondary_vars"].append(solute_fraction_name)
+                    ph_subsystem["secondary_vars"].append(solute_fraction_name)
 
         ### FLASH PRIMARY VARIABLES
         # phase fractions

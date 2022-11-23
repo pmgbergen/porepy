@@ -24,8 +24,8 @@ from ..phase import VarLike
 from .model_components import *
 
 __all__ = [
-    "BIP_MAP",
-    "get_BIP",
+    "PR_BIP_MAP",
+    "get_PR_BIP",
 ]
 
 
@@ -184,7 +184,7 @@ def bip_NaClbrine_N2(T: VarLike, naclbrine: NaClBrine, n2: N2) -> pp.ad.Operator
     )
 
 
-BIP_MAP: dict[tuple[str, str], Callable] = {
+PR_BIP_MAP: dict[tuple[str, str], Callable] = {
     ("H2O", "CO2"): bip_H2O_CO2,
     ("H2O", "H2S"): bip_H2O_H2S,
     ("H2O", "N2"): bip_H2O_N2,
@@ -196,7 +196,7 @@ BIP_MAP: dict[tuple[str, str], Callable] = {
     ("NaClBrine", "N2"): bip_NaClbrine_N2,
 }
 """Contains for a pair of component/compound names (key) the respective
-binary interaction parameter in form of a callable.
+binary interaction parameter for the Peng-Robinson EoS, in form of a callable.
 
 This map serves the Peng-Robinson composition to assemble the attraction parameter of the
 mixture and its intended use is only there.
@@ -204,8 +204,9 @@ mixture and its intended use is only there.
 """
 
 
-def get_BIP(component1: str, component2: str) -> tuple[Callable | None, bool]:
-    """Returns the callable representing a BIP for two given component names.
+def get_PR_BIP(component1: str, component2: str) -> tuple[Callable | None, bool]:
+    """Returns the callable representing a BIP for two given component names,
+    in the Peng-Robinson EoS.
 
     This function is a wrapper for accessing :data:`BIP_MAP`, which is not sensitive
     the order in the 2-tuple containing component names.
@@ -227,12 +228,12 @@ def get_BIP(component1: str, component2: str) -> tuple[Callable | None, bool]:
 
     """
     # try input order
-    BIP = BIP_MAP.get((component1, component2), None)
+    BIP = PR_BIP_MAP.get((component1, component2), None)
     order = True
 
     # try reverse order
     if BIP is None:
-        BIP = BIP_MAP.get((component2, component1), None)
+        BIP = PR_BIP_MAP.get((component2, component1), None)
         order = False
 
     # return what is found, possibly None
