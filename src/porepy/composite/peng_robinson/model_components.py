@@ -225,12 +225,16 @@ class NaClBrine(PR_Compound, H2O):
 
         """
         # molal salinity
+        T_r = T / self.critical_temperature()
         cw = self.molality_of(self.NaCl)
+        power = pp.ad.Function(pp.ad.power, "power")
+        exponent_1 = pp.ad.Scalar(1.1)
+        exponent_2 = pp.ad.Scalar(-3)
 
         alpha_root = (
             1
-            + 0.453 * (1 - T / self.critical_temperature() * (1 - 0.0103 * cw**1.1))
-            + 0.0034 * ((T / self.critical_temperature()) ** (-3) - 1)
+            + 0.453 * (1 - T_r * (1 - 0.0103 * power(cw, exponent_1)))
+            + 0.0034 * (power(T_r, exponent_2) - 1)
         )
 
         return alpha_root * alpha_root
