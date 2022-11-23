@@ -7,6 +7,8 @@ from __future__ import annotations
 import abc
 from typing import Generator
 
+from scipy import sparse as sps
+
 import numpy as np
 
 import porepy as pp
@@ -356,7 +358,9 @@ class Compound(Component):
                 self._solute_fractions[solute] = solute_fraction
 
     def set_solute_fractions(
-        self, fractions: dict[PseudoComponent, np.ndarray | float]
+        self,
+        fractions: dict[PseudoComponent, np.ndarray | float],
+        copy_to_state: bool = True,
     ) -> None:
         """Set the solute fractions per solute in this component.
 
@@ -373,13 +377,51 @@ class Compound(Component):
 
         Parameters:
             fractions: a dictionary containing per solute (key) the respective fraction.
+            copy_to_state (optional): Copies the values to the STATE of the AD variable,
+                additionally to ITERATE. Defaults to True.
 
         Raises:
             ValueError: If any value breaches above restriction.
             ValueError: If the cell-wise sum is greater or equal to 1.
+            ValueError: If values are missing for a present solute.
+            AssertionError: If array-like fractions don't have ``num_cells`` values.
 
         """
-        pass
+
+        nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
+        # sum of fractions for validity check
+        fraction_sum = np.zeros(nc)
+
+        # loop over present solutes to ensure we have fractions for every solute.
+        for solute in self.solutes:
+
+            # check if fractions are passed for present solute
+            if solute not in fractions:
+                raise ValueError(f"Missing fraction for solute {solute.name}.")
+
+            frac_val = fractions[solute]
+            # convert to array
+            if not isinstance(frac_val, np.ndarray):
+                frac_val = np.ones(nc) * frac_val
+
+            # assert enough values are present
+            assert len(frac_val) == nc
+            # check validity of fraction values
+            if np.any(frac_val < 0.) or np.any(frac_val >= 1.):
+                raise ValueError(
+                    f"Values for solute {solute.name} not in [0,1)."
+                )
+
+            # sum values 
+            fraction_sum += frac_val
+
+            # set values for fraction
+            frac_name  = self.solute_fraction_name(solute)
+            self.ad_system.set_var_values(frac_name, frac_val, copy_to_state=copy_to_state)
+
+        # last validity check to ensure the solvent is present everywhere
+        if np.any(fraction_sum >= 1.):
+            raise ValueError("Sum of solute fractions is greater or equal to 1.")
 
     def set_solute_fractions_with_molality(
         self, molalities: dict[PseudoComponent, np.ndarray | float]
@@ -387,16 +429,71 @@ class Compound(Component):
         """Uses the formula given in :meth:`molality_of` to set solute fractions using
         values for molality per solute.
 
-        After computing respective, :meth:`set_solute_fractions` is called to set the
-        fraction, i.e. the the same restrictions apply and errors will be raised if molality
+        After computing fractions based on given molalities,
+        :meth:`set_solute_fractions` is called to set the fraction,
+        i.e. the the same restrictions apply and errors will be raised if molality
         values violate the restrictions on respective fractions.
 
         Analogously to fractions, molal values can be set cell-wise in an array or
         homogeneously using numbers.
 
+        It holds for every solute ``c``:
+
+            ``molality_c * (1 - sum_i fraction_i) * molar_M_solvent = fraction_c``
+            ``molality_c * molar_M_solvent = (1 + molality_c * molar_M_solvent)  * fraction_c``
+            ``+ molality_c * molar_M_solvent * (sum_{i != c} fraction_i``
+
         Parameters:
             molalities: a dictionary containing per solute (key) the respective molality
                 values.
 
+        Raises:
+            ValueError: If the molality for a present solute is missing.
+
         """
-        pass
+
+        nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
+
+        # data structure to set resulting fractions
+        fractions: dict[PseudoComponent, np.ndarray] = dict()
+        # rhs and matrix for linear system to convert to fractions
+        rhs_: list[np.ndarray] = list()
+        A_: list[sps.spmatrix] = list()
+        # column slicing to solute fractions
+        fraction_names = [self.solute_fraction_name(solute) for solute in self.solutes]
+        projection = self.ad_system.dof_manager.projection_to(fraction_names)
+
+        # loop over present solutes and construct row-blocks of linear system for conversion
+        for solute in self.solutes:
+            if solute not in molalities:
+                raise ValueError(f"Missing molality for solute {solute.name}.")
+
+            molality = molalities[solute]
+            # convert to array
+            if not isinstance(molality, np.ndarray):
+                molality = np.ones(nc) * molality
+
+            rhs_.append(self.solvent.molar_mass() * molality)
+
+            A_block = (1 + rhs_[-1]) * self.solution_fraction_of(solute)
+            for other_solute in self.solutes:
+                if other_solute != solute:
+                    A_block += rhs_[-1] * self.solution_fraction_of(other_solute)
+
+            A_block = A_block.evaluate(self.ad_system.dof_manager).jac * projection.transpose()
+            A_.append(A_block)
+
+        # compute fractions by solving the linear system
+        A = sps.vstack(A_, format="csr")
+        rhs = np.concatenate(rhs_)
+        fractions = sps.linalg.spsolve(A, rhs)
+
+        # extract computed fractions and assemble dictionary for setting fractions
+        for i, solute in enumerate(self.solutes):
+            idx_start = i * nc
+            idx_end = (i + 1) * nc
+            solute_fraction = fractions[idx_start : idx_end]
+            fractions[solute] = solute_fraction
+
+        # set computed fractions
+        self.set_solute_fractions(fractions)
