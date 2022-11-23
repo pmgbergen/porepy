@@ -19,6 +19,9 @@ from .setup_utils import model
         ("mass_balance", "pressure", [0]),
         ("mass_balance", "pressure", []),
         ("mass_balance", "interface_darcy_flux", []),
+        ("energy_balance", "temperature", []),
+        ("energy_balance", "interface_enthalpy_flux", []),
+        ("energy_balance", "interface_fourier_flux", []),
     ],
 )
 def test_parse_variables(model_type, variable_name, domain_inds):
