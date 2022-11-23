@@ -602,12 +602,6 @@ class Composition(abc.ABC):
 
         """
         success = self._Newton_min(self.pT_subsystem, copy_to_state, initial_guess)
-
-        if success:
-            self.post_process_fractions(copy_to_state)
-        # if not successful, we re-normalize only the iterate
-        else:
-            self.post_process_fractions(False)
         return success
 
     def isenthalpic_flash(
@@ -634,11 +628,6 @@ class Composition(abc.ABC):
 
         """
         success = self._Newton_min(self.ph_subsystem, copy_to_state, initial_guess)
-
-        if success:
-            self.post_process_fractions(copy_to_state)
-        else:  # if not successful, we re-normalize only the iterate
-            self.post_process_fractions(False)
         return success
 
     def evaluate_saturations(self, copy_to_state: bool = True) -> None:
@@ -1102,6 +1091,8 @@ class Composition(abc.ABC):
                         phase.fraction_of_component_name(component),
                         val * np.ones(nc),
                     )
+
+    ### Saturation post-processing ------------------------------------------------------------
 
     def _single_phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
         """If only one phase is present, we assume it occupies the whole pore space."""

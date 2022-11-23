@@ -13,6 +13,18 @@ between two components and their respective BIP.
 
 The BIP between a component/compound and itself is assumed to be 0, and hence not given here.
 
+It is recommended to use the function :meth:`get_PR_BIP` to get a reference to the respective
+callable. This function also provides information on how to use a BIP in terms of argument
+order (component 1 and component 2).
+
+Examples:
+    >>> import porepy as pp
+    >>> composition = pp.composite.PR_Composition()
+    >>> H2O = pp.composite.H2O(composition.ad_system)
+    >>> CO2 = pp.composite.CO2(composition.ad_system)
+    >>> bip, order = pp.composite.get_PR_BIP(H2O.name, CO2.name)
+    >>> bip_co2_h2o = bip(composition.T, H2O, CO2) if order else bip(composition.T, CO2, H2O)
+
 """
 from __future__ import annotations
 
