@@ -22,9 +22,9 @@ def segment_set(start: np.ndarray, end: np.ndarray) -> tuple[np.ndarray, np.ndar
     Returns:
         A tuple of 2 elements.
 
-        ndarray (shape=(num_segments, num_segments)):
+        ndarray ``(shape=(num_segments, num_segments))``:
             Distances between segments.
-        ndarray (shape=(num_segments, num_segments, nd)):
+        ndarray ``(shape=(num_segments, num_segments, nd))``:
             For segment ``i`` and ``j``, element ``[i, j]`` gives the point
             on ``i`` closest to segment ``j``.
 
@@ -69,19 +69,19 @@ def segment_segment_set(
     Parameters:
         start (shape=(nd, 1)): Start point of the main segment.
         end (shape=(nd, 1)): End point of the main segment.
-        start_set (shape=(nd, n_segments)): Start points for the segment set.
-        end_set (shape=(nd, n_segments)): End points for the segment set.
+        start_set (shape=(nd, num_segments)): Start points for the segment set.
+        end_set (shape=(nd, num_segments)): End points for the segment set.
 
     Returns:
         A tuple of 3 elements.
 
-        ndarray (shape=(n_segments,)):
+        ndarray ``(shape=(num_segments,))``:
             The distance from the main segment to each of
             the segments in the set.
-        ndarray (shape=(nd, n_segments)):
+        ndarray ``(shape=(nd, num_segments))``:
             For each segment in the segment set, the
             point closest on the main segment.
-        ndarray (shape=(nd, n_segments)):
+        ndarray ``(shape=(nd, num_segments))``:
             For each segment in the segment set, the
             point closest on the secondary segment.
 
@@ -201,16 +201,17 @@ def points_segments(
     Also return closest points on the segments.
 
     Parameters:
-        p (shape=(nd, n)): Individual points.
-        start (shape=(nd, n_segments)): Start points of segments.
-        end (shape=(nd, n_segments)): End point of segments.
+        p (shape=(nd, num_points)): Individual points.
+        start (shape=(nd, num_segments)): Start points of segments.
+        end (shape=(nd, num_segments)): End point of segments.
 
     Returns:
-        2 elements.
+        A tuple of 2 elements.
 
-        - ndarray (shape=(num_points, num_segments)): Distances.
-        - ndarray (shape=(num_points, num_segments, nd)): Points on the segments
-            closest to the individual points.
+        ndarray ``(shape=(num_points, num_segments))``:
+            Distances.
+        ndarray ``(shape=(num_points, num_segments, nd))``:
+            Points on the segments closest to the individual points.
 
     """
     if start.size < 4:
@@ -304,7 +305,7 @@ def point_pointset(
         exponent (optional): Exponent of the norm used. Defaults to 2.
 
     Returns:
-        Array of distances (shape=(num_points,)).
+        Array of distances ``(shape=(num_points,))``.
 
     """
 
@@ -339,7 +340,7 @@ def pointset(p: np.ndarray, max_diag: bool = False) -> np.ndarray:
             rather than 0. Defaults to ``False``.
 
     Returns:
-        Array of distances between points (shape=(num_points, num_points)).
+        Array of distances between points ``(shape=(num_points, num_points))``.
 
     """
     if p.ndim == 1 or p.ndim == 2 and p.shape[-1] == 1:
@@ -377,11 +378,11 @@ def points_polygon(
     Returns:
         A tuple of 3 elements.
 
-        ndarray (shape=(num_points,)):
+        ndarray ``(shape=(num_points,))``:
             Distance from points to polygon.
-        ndarray (shape=(nd, num_points,)):
+        ndarray ``(shape=(nd, num_points,))``:
             For each point, the closest point on the polygon.
-        ndarray (shape=(num_points)):
+        ndarray ``(shape=(num_points))``:
             ``True`` if the point is found in the interior,
             ``False`` if on a bounding segment.
 
@@ -469,9 +470,9 @@ def segments_polygon(
     Returns:
         A tuple of 2 elements.
 
-        ndarray (dtype=double, shape=(num_segments,)):
+        ndarray ``(dtype=double, shape=(num_segments,))``:
             Distance from segment to polygon.
-        ndarray (shape=(nd, num_segments)):
+        ndarray ``(shape=(nd, num_segments))``:
             Closest point.
 
     """
@@ -625,13 +626,14 @@ def segment_overlap_segment_set(
         tol (optional): Tolerance to be used.
 
     Returns:
-        A tuple of 2 elements.
+        If ``return_indices==True``, we return a tuple of 2 elements.
 
-        ndarray (dtype=bool, shape=(num_segments,)):
+        ndarray ``(dtype=bool, shape=(num_segments,))``:
             Mask array of overlappings.
-        ndarray (shape=(num_overlapping,)):
+        ndarray ``(shape=(num_overlapping,))``:
             Indices of overlappings.
-            Returned only if ``return_indices==True``.
+
+        Otherwise, the 0th element of the tuple is returned.
 
     """
 
