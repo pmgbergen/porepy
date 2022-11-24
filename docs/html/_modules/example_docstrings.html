@@ -6,6 +6,7 @@
   <title>example_docstrings &mdash; PorePy 1.5 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/example_docstrings.html" />
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -25,7 +26,7 @@
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
             <a href="../index.html" class="icon icon-home"> PorePy
           </a>
               <div class="version">
@@ -40,7 +41,10 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../docsrc/porepy/numerics/numerics.html">Numerics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../docsrc/porepy/numerics/numerics.html">Numerics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../docsrc/porepy/numerics/ad/numerics-ad.html">Automatic Differentiation</a></li>
+</ul>
+</li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
@@ -50,13 +54,13 @@
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../index.html">PorePy</a>
       </nav>
 
       <div class="wy-nav-content">
-        <div class="rst-content">
+        <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home"></a></li>
@@ -386,11 +390,8 @@
 <span class="sd">    Their usage is equivalent, indicating only that this is a generator object, not a regular</span>
 <span class="sd">    function.</span>
 
-<span class="sd">    Examples:</span>
-<span class="sd">        The Google Style offers an *Examples:* directives where you can write text but also</span>
-<span class="sd">        include inline examples of code usage, without the special code directive from Sphinx.</span>
-<span class="sd">        An indented block with the content has to follow the directive. Like all for all</span>
-<span class="sd">        directives, a blank line after the indented block signalizes the end of the directive.</span>
+<span class="sd">    Example:</span>
+<span class="sd">        Here we demonstrate the usage of ``example_generator`` using the *Example:* directive:</span>
 
 <span class="sd">        &gt;&gt;&gt; print([i for i in example_generator(4)])</span>
 <span class="sd">        [0, 1, 2, 3]</span>

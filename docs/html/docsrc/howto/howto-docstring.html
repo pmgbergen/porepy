@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>1. How-To docstring &mdash; PorePy 1.5 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/howto/howto-docstring.html" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -27,7 +28,7 @@
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
             <a href="../../index.html" class="icon icon-home"> PorePy
           </a>
               <div class="version">
@@ -42,7 +43,10 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul>
-<li class="toctree-l1"><a class="reference internal" href="../porepy/numerics/numerics.html">Numerics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../porepy/numerics/numerics.html">Numerics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/numerics/ad/numerics-ad.html">Automatic Differentiation</a></li>
+</ul>
+</li>
 </ul>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">1. How-To docstring</a></li>
@@ -52,13 +56,13 @@
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../../index.html">PorePy</a>
       </nav>
 
       <div class="wy-nav-content">
-        <div class="rst-content">
+        <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home"></a></li>
@@ -323,7 +327,7 @@ to the right documentation.</p>
 </pre></div>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
 </dd>
 </dl>
@@ -356,7 +360,7 @@ as well as for every docstring that follows.</p>
 </div>
 <p>The return value must be documented using the Google Style directive <em>Returns:</em>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>arg1</strong> – Description of arg1.</p></li>
 <li><p><strong>arg2</strong> – <p>Description of arg2. If the description of a parameter spans more than one line,
@@ -368,7 +372,7 @@ are no restrictions in this regard.</p>
 Utilize annotations in the signature instead.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Describe the return value here. Multiple lines can be used and you have
 to indent the lines.</p>
 <p><strong>DO NOT</strong> use type hints here as they are present in the signature.</p>
@@ -396,7 +400,7 @@ I.e., we can omit the <em>Returns:</em> directive. However, it is obligatory to 
 specify the None return in the signature.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>optional_arg</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – Description of <code class="docutils literal notranslate"><span class="pre">optional_arg</span></code>.
 The default value is described at the end.
@@ -413,7 +417,7 @@ keywords:</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
 <li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – You can use the the Google Style directive <em>Raises:</em> to describe error
     sources you have programmed. Here for example we can raise a value error
@@ -430,7 +434,7 @@ keywords:</p>
 <span class="sig-name descname"><span class="pre">example_function_3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MixedDimensionalGrid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">option</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'A'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'B'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'C'</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'A'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_3"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_3" title="Permalink to this definition"></a></dt>
 <dd><p>This function demonstrates how to document special requirements for input arguments.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mdg</strong> – A mixed-dimensional grid. Notice the usage of the acronym <code class="docutils literal notranslate"><span class="pre">mdg</span></code>.</p></li>
 <li><p><strong>vector</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">len=num_cells</span></code>) – This vector’s special requirement is a certain length.
@@ -446,7 +450,7 @@ it can only be a string <code class="docutils literal notranslate"><span class="
 Since it has a default value, we mark it with <code class="docutils literal notranslate"><span class="pre">(optional)</span></code>.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Describe the return value here. You can also describe its dependence on the value of
 <code class="docutils literal notranslate"><span class="pre">option</span></code> here, or alternatively in the extended description at the beginning of the
 docstring.</p>
@@ -458,7 +462,7 @@ docstring.</p>
 </ul>
 </p>
 </dd>
-<dt class="field-odd">Raises</dt>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">option</span></code> is not in <code class="docutils literal notranslate"><span class="pre">{'A',</span> <span class="pre">'B',</span> <span class="pre">'C'}</span></code>.</p>
 </dd>
 </dl>
@@ -470,13 +474,13 @@ docstring.</p>
 <dd><p>This function demonstrates how to document multiple return values in the <em>Returns:</em>
 directive.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>vector</strong> – some vector</p></li>
 <li><p><strong>matrix</strong> – some matrix</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Every returned object needs a description. We can use the same structure as for
 the parameters: indented block per returned object or value.</p>
 <dl class="simple">
@@ -497,7 +501,7 @@ is of fixed length and/or contains objects of various types.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="example_docstrings.example_function_5">
-<span class="sig-name descname"><span class="pre">example_function_5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array_like:</span> <span class="pre">:obj:`numpy.typing.ArrayLike`</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array:</span> <span class="pre">~numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ExampleArrayLike</span></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_5" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">example_function_5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array_like</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ArrayLike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ExampleArrayLike</span></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_5" title="Permalink to this definition"></a></dt>
 <dd><p>This function demonstrates type annotations using custom type aliases, including those
 from third-party packages.</p>
 <p>For Sphinx to display type aliases without parsing their complete expression,
@@ -505,14 +509,14 @@ a configuration is needed which maps the type alias to its source.</p>
 <p>When encountering type aliases, which are not already covered by the configuration of
 PorePy’s docs, please contact the core developers.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>array_like</strong> – an argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="(in NumPy v1.23)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ArrayLike</span></code></a></p></li>
 <li><p><strong>ndarray_like</strong> – an argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray" title="(in NumPy v1.23)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">NDArray</span></code></a></p></li>
 <li><p><strong>dtype_like</strong> – an argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.DTypeLike" title="(in NumPy v1.23)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DTypeLike</span></code></a></p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>a value of a custom array type <a class="reference internal" href="#example_docstrings.ExampleArrayLike" title="example_docstrings.ExampleArrayLike"><code class="xref py py-data docutils literal notranslate"><span class="pre">ExampleArrayLike</span></code></a>.</p>
 </dd>
 </dl>
@@ -524,22 +528,19 @@ PorePy’s docs, please contact the core developers.</p>
 <dd><p>When documenting a generator, use the <em>Yields:</em> directive instead of <em>Returns:</em>.
 Their usage is equivalent, indicating only that this is a generator object, not a regular
 function.</p>
-<div class="admonition-examples admonition">
-<p class="admonition-title">Examples</p>
-<p>The Google Style offers an <em>Examples:</em> directives where you can write text but also
-include inline examples of code usage, without the special code directive from Sphinx.
-An indented block with the content has to follow the directive. Like all for all
-directives, a blank line after the indented block signalizes the end of the directive.</p>
+<div class="admonition-example admonition">
+<p class="admonition-title">Example</p>
+<p>Here we demonstrate the usage of <code class="docutils literal notranslate"><span class="pre">example_generator</span></code> using the <em>Example:</em> directive:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">example_generator</span><span class="p">(</span><span class="mi">4</span><span class="p">)])</span>
 <span class="go">[0, 1, 2, 3]</span>
 </pre></div>
 </div>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>n</strong> – Some upper integer limit.</p>
 </dd>
-<dt class="field-even">Yields</dt>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
 <dd class="field-even"><p>numbers until <code class="docutils literal notranslate"><span class="pre">n</span></code> is reached.</p>
 </dd>
 </dl>
@@ -643,7 +644,7 @@ must be placed at the end with no additional text in between.</p>
 <p><a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google">Same, but in different directive</a>.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>arg1</strong> – first argument.</p></li>
 <li><p><strong>arg2</strong> – second argument.</p></li>
@@ -663,10 +664,10 @@ must be placed at the end with no additional text in between.</p>
 <dd><p>A short description of the method must fit in the first line.</p>
 <p>A more elaborate description can follow afterwards.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>arg</strong> – The first argument (even though <code class="docutils literal notranslate"><span class="pre">self</span></code> is technically the first one).</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>True.</p>
 </dd>
 </dl>
@@ -692,7 +693,7 @@ must be placed at the end with no additional text in between.</p>
 type hints in the docstring. The type should only be given by its annotation.
 <strong>DO NOT</strong> use type hints in docstrings (cannot repeat often enough).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></p>
 </dd>
 </dl>
@@ -721,7 +722,7 @@ realizes that.</p>
 in the docstring. The type should only be given by its annotation.
 <strong>DO NOT</strong> use type hints in docstrings.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></p>
 </dd>
 </dl>

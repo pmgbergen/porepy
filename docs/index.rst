@@ -1,5 +1,6 @@
-Welcome to PorePy!
-==================
+====================
+PorePy Documentation
+====================
 
 PorePy is a research code that is mainly developed at the Department of Mathematics at the University of Bergen.
 The code is aimed at simulation of multiphysics processes in fractured porous media.

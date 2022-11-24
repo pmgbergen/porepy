@@ -313,11 +313,8 @@ def example_generator(n: int) -> Generator[int, None, None]:
     Their usage is equivalent, indicating only that this is a generator object, not a regular
     function.
 
-    Examples:
-        The Google Style offers an *Examples:* directives where you can write text but also
-        include inline examples of code usage, without the special code directive from Sphinx.
-        An indented block with the content has to follow the directive. Like all for all
-        directives, a blank line after the indented block signalizes the end of the directive.
+    Example:
+        Here we demonstrate the usage of ``example_generator`` using the *Example:* directive:
 
         >>> print([i for i in example_generator(4)])
         [0, 1, 2, 3]
