@@ -283,9 +283,8 @@ def example_function_4(
 
 def example_function_5(
     array_like: ArrayLike,
-    array: np.ndarray,
-    # ndarray_like: NDArray,
-    # dtype_like: DTypeLike,
+    ndarray_like: NDArray,
+    dtype_like: DTypeLike,
 ) -> ExampleArrayLike:
     """This function demonstrates type annotations using custom type aliases, including those
     from third-party packages.

@@ -107,8 +107,20 @@ autodoc_class_signature = "mixed"  # mixed-separated
 # orders the members of an object group wise, e.g. private, special or public methods
 autodoc_member_order = "groupwise"  # alphabetical-groupwise-bysource
 
+# Avoid double appearance of documentation if child member has no docs
+autodoc_inherit_docstrings = False
+
+# do not evaluate default arguments, leave as is
+autodoc_preserve_defaults = True
+
 # type hints will be shortened: porepy.grids.grid.Grid -> Grid
 autodoc_typehints_format = "short"
+
+# uses type hints in signatures for e.g. linking (default)
+autodoc_typehints = "signature"
+
+# display types in signature which are documented, or all (by default)
+autodoc_typehints_description_target = 'all'  # all-documented
 
 # default configurations for all autodoc directives
 autodoc_default_options = {
@@ -120,13 +132,9 @@ autodoc_default_options = {
     "no-value": False
 }
 
-# uses type hints in signatures for e.g. linking (default)
-autodoc_typehints = "signature"
-
-# Avoid double appearance of documentation if child member has no docs
-autodoc_inherit_docstrings = False
-
 # Used to shorten the parsing of type hint aliases
+# NOTE: As of now, hyperlinking to type aliases is an open issue
+# see https://github.com/sphinx-doc/sphinx/issues/10785
 autodoc_type_aliases = {
     'ArrayLike': 'ArrayLike',
     'NDArray': 'NDArray',
@@ -176,5 +184,3 @@ intersphinx_mapping = {
 todo_include_todos = True
 todo_emit_warnings = False
 todo_link_only = False
-
-# -- Viewcode Settings ------------------------------------------------------------------------
