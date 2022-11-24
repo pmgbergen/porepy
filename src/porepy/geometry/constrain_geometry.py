@@ -2,11 +2,11 @@
 
 Examples are to cut objects to lie within other objects, etc.
 """
+from typing import Union
+
 import numpy as np
 
 import porepy as pp
-
-from typing import Union
 
 
 def lines_by_polygon(
@@ -95,9 +95,10 @@ def lines_by_polygon(
 
 
 def polygons_by_polyhedron(
-        polygons: Union[np.ndarray, list[np.ndarray]],
-        polyhedron: list[np.ndarray],
-        tol: float = 1e-8) -> tuple[list[np.ndarray], np.ndarray]:
+    polygons: Union[np.ndarray, list[np.ndarray]],
+    polyhedron: list[np.ndarray],
+    tol: float = 1e-8,
+) -> tuple[list[np.ndarray], np.ndarray]:
     """Constrain polygons in 3d to lie inside a (generally non-convex) polyhedron.
 
     Polygons not inside the polyhedron will be removed from descriptions. For
