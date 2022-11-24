@@ -293,9 +293,6 @@
         <span class="sd">&quot;&quot;&quot;Perform the ``discretize`` function of all child operators which are discretizations</span>
 <span class="sd">        using data from mdg.</span>
 
-<span class="sd">        IMPLEMENTATION NOTE: The discretizations was identified at initialization of</span>
-<span class="sd">        Expression - it is now done here to accommodate updates (?) and</span>
-
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">unique_discretizations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
             <span class="n">_ad_utils</span><span class="o">.</span><span class="n">MergedOperator</span><span class="p">,</span> <span class="n">GridLike</span>
@@ -781,7 +778,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">dof_manager</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">DofManager</span><span class="p">,</span>
         <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Ad_array</span><span class="p">:</span>
+    <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Evaluate the residual and Jacobian matrix for a given state.</span>
 
 <span class="sd">        Parameters:</span>

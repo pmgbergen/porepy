@@ -301,8 +301,15 @@
 
 
 <div class="viewcode-block" id="heaviside_smooth"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.functions.heaviside_smooth">[docs]</a><span class="k">def</span> <span class="nf">heaviside_smooth</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-3</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Smooth (regularized) version of the Heaviside function.</span>
+    <span class="sd">&quot;&quot;&quot;Smooth (regularized) version of the Heaviside function.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The analytical expression for the smooth version Heaviside function reads:</span>
+<span class="sd">            ``H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps))``,</span>
+<span class="sd">        with its derivative smoothly approximating the Dirac delta function:</span>
+<span class="sd">            ``d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2))``.</span>
+
+<span class="sd">        Reference: https://ieeexplore.ieee.org/document/902291</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        var: Input array.</span>
@@ -312,14 +319,6 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        Regularized heaviside function (and its Jacobian if applicable) in form of a</span>
 <span class="sd">        Ad_array or ndarray (depending on the input).</span>
-
-<span class="sd">    Note:</span>
-<span class="sd">        The analytical expression for the smooth version Heaviside function reads:</span>
-<span class="sd">            ``H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps))``,</span>
-<span class="sd">        with its derivative smoothly approximating the Dirac delta function:</span>
-<span class="sd">            ``d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2))``.</span>
-
-<span class="sd">        Reference: https://ieeexplore.ieee.org/document/902291</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
@@ -353,7 +352,7 @@
 <span class="sd">    wrapped in a pp.ad.Array, whereas the first argument is expected to be an</span>
 <span class="sd">    Ad_array originating from a pp.ad.Operator.</span>
 
-<span class="sd">    Args:</span>
+<span class="sd">    Parameters:</span>
 <span class="sd">        var0: First argument to the maximum function.</span>
 <span class="sd">        var1: Second argument.</span>
 
@@ -384,10 +383,10 @@
 <span class="sd">    Returns 1 if ``var.val`` is within absolute tolerance = ``tol`` of zero.</span>
 <span class="sd">    The derivative is set to zero independent of ``var.val``.</span>
 
-<span class="sd">    Notes:</span>
+<span class="sd">    Note:</span>
 <span class="sd">        See module level documentation on how to wrap functions like this in ``ad.Function``.</span>
 
-<span class="sd">    Args:</span>
+<span class="sd">    Parameters:</span>
 <span class="sd">        tol: Absolute tolerance for comparison with 0 using np.isclose.</span>
 <span class="sd">        var: Ad operator (variable or expression).</span>
 

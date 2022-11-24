@@ -40,6 +40,10 @@ Directives
 Next to plain text, the content of your documentation can be created using *directives*,
 followed by a block of indented text.
 
+Directives are structural blocks inside the text of a documentation.
+They provide specific formatting for sections dedicated to e.g., function parameters,
+return values or exmaple code.
+
 For example, the *note* directive in plain rst code ::
 
     .. note:: Implementation
@@ -142,40 +146,60 @@ As a consequence, **we abstain from including type hints in docstrings** and kee
 This rule does not exclude custom linking and referencing in-text, where a developer feels the
 necessity to do so.
 
+.. rubric:: Google style directives
+
+Google style directives are aliases for standard directives, which simplify the usage and syntax.
+Besides the obligatory declaration of parameters, return values and raised errors,
+the PorePy style encourages the use of other sections to provide notes, example code usage, references, etc.
+
+For a list of all supported Google style directives,
+`see Google style docstring sections <https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#docstring-sections>`_.
+
+The compulsory order of directives inside a docstring is:
+
+    1. Examples, Note, ...
+    2. References, See Also
+    3. Parameters
+    4. Returns/ Yields
+    5. Raises
+
+Other rules:
+
+    * When using Google Style directives do not type additional text **between** and **after** the
+      directives References/See Also, Parameters, Returns/Yields and Raises.
+    * End every docstring with a blank line before \"\"\". This is especially important after
+      the *Returns:* directive and its indented block.
+
+.. note::
+    The Google Style directives are only valid when used inside docstrings,
+    but not so when used in .rst files. Keep this in mind, in case you deal with the .rst
+    structure of the webpage.
 
 Documenting variables
 ---------------------
 
-.. autodata:: example_docstrings.module_level_var_1
+.. autodata:: example_docstrings.example_var_1
 
-.. autodata:: example_docstrings.module_level_var_2
+.. autodata:: example_docstrings.example_var_2
 
-.. autodata:: example_docstrings.module_level_var_3
+.. autodata:: example_docstrings.example_var_3
+
+.. autodata:: example_docstrings.ExampleArrayLike
 
 Documenting functions
 ---------------------
 
-.. autofunction:: example_docstrings.module_level_function_1
+.. autofunction:: example_docstrings.example_function_1
 
-.. autofunction:: example_docstrings.module_level_function_2
+.. autofunction:: example_docstrings.example_function_2
 
-.. autofunction:: example_docstrings.module_level_function_3
+.. autofunction:: example_docstrings.example_function_3
 
-.. autofunction:: example_docstrings.module_level_function_4
+.. autofunction:: example_docstrings.example_function_4
+
+.. autofunction:: example_docstrings.example_function_5
 
 .. autofunction:: example_docstrings.example_generator
-
-.. rubric:: Directives inside docstrings
-
-* Write the directive blocks in the following order
-    1. Examples, Note
-    2. Parameters
-    3. Returns/ Yields
-    4. Raises
-* When using Google Style directives do not type additional text **between** and **after** the
-  directives Parameters, Returns/Yields and Raises.
-* End every docstring with a blank line before \"\"\". This is especially important after
-  the *Returns:* directive and its indented block.
 
 Documenting classes
 -------------------

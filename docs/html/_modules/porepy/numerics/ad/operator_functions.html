@@ -47,7 +47,7 @@
 
 <span class="kn">import</span> <span class="nn">abc</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
@@ -127,7 +127,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_operation</span><span class="p">:</span> <span class="n">Operation</span> <span class="o">=</span> <span class="n">Operation</span><span class="o">.</span><span class="n">evaluate</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
 
-<div class="viewcode-block" id="AbstractFunction.__call__"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractFunction.__call__">[docs]</a>    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span> <span class="o">|</span> <span class="n">Ad_array</span><span class="p">):</span>
+<div class="viewcode-block" id="AbstractFunction.__call__"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractFunction.__call__">[docs]</a>    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span> <span class="o">|</span> <span class="n">Ad_array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Renders this function operator callable, fulfilling its notion as &#39;function&#39;.</span>
 
 <span class="sd">        Parameters:</span>
@@ -360,7 +360,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">multipliers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
+        <span class="n">multipliers</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
         <span class="n">array_compatible</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">array_compatible</span><span class="p">)</span>
@@ -625,7 +625,7 @@
         <span class="c1"># This will trigger the function evaluation.</span>
         <span class="k">return</span> <span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="fm">__call__</span><span class="p">,</span> <span class="n">binding_instance</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ADmethod.ad_wrapper"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operator_functions.ADmethod.ad_wrapper">[docs]</a>    <span class="k">def</span> <span class="nf">ad_wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractFunction</span><span class="p">:</span>
+<div class="viewcode-block" id="ADmethod.ad_wrapper"><a class="viewcode-back" href="../../../../docsrc/porepy/numerics/ad/numerics-ad.html#porepy.numerics.ad.operator_functions.ADmethod.ad_wrapper">[docs]</a>    <span class="k">def</span> <span class="nf">ad_wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Operator</span><span class="p">:</span>
         <span class="sd">&quot;&quot;&quot;Actual wrapper function.</span>
 <span class="sd">        Constructs the necessary AD-Operator class wrapping the decorated callable</span>
 <span class="sd">        and performs the evaluation/call.</span>
