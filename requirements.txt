@@ -10,5 +10,7 @@ scipy
 shapely
 shapely[vectorized]
 six
+sphinx
+sphinx-rtd-theme
 sympy
 typing_extensions

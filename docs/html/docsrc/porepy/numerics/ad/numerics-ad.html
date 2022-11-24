@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Automatic Differentiation &mdash; PorePy 1.5 documentation</title>
@@ -160,7 +160,7 @@ subclasses are combined by operations.</p>
 <p>Contains a tree structure of child operators for the recursive forward evaluation.</p>
 <p>Provides overload functions for basic arithmetic operations.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>name</strong> – Name of this operator. Used for string representations</p></li>
 <li><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – List of subdomains on which the operator is defined.
@@ -185,7 +185,7 @@ using data from mdg.</p>
 <span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dof_manager</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DofManager</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#Operator.evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.evaluate" title="Permalink to this definition"></a></dt>
 <dd><p>Evaluate the residual and Jacobian matrix for a given state.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>dof_manager</strong> – Used to represent the problem. Will be used
 to parse the sub-operators that combine to form this operator.</p></li>
@@ -195,7 +195,7 @@ the previous iterate (if this exists), or alternatively from the state
 at the previous time step.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>A representation of the residual and Jacobian in form of an AD Array.
 Note that the Jacobian matrix need not be invertible, or even square;
 this depends on the operator.</p>
@@ -209,7 +209,7 @@ this depends on the operator.</p>
 <dd><p>Check if this operator is a leaf in the tree-representation of an expression.</p>
 <p>Note that this implies that the method <code class="docutils literal notranslate"><span class="pre">parse()</span></code> is expected to be implemented.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>True if the operator has no children.</p>
 </dd>
 </dl>
@@ -225,10 +225,10 @@ matrix.
 This method should not be called on operators that are formed as combinations
 of atomic operators; such operators should be evaluated by the method <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.evaluate" title="porepy.numerics.ad.operators.Operator.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluate()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>mdg</strong> – Mixed-dimensional grid on which this operator is to be parsed.</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>A numerical format representing this operator;s values on given domain.</p>
 </dd>
 </dl>
@@ -243,7 +243,7 @@ timestep.</p>
 thus be identical to the original operator, except that all time dependent operators
 are evaluated at the previous time step.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A copy of self, with all time dependent operators evaluated at the previous
 time step.</p>
 </dd>
@@ -255,7 +255,7 @@ time step.</p>
 <span class="sig-name descname"><span class="pre">set_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#Operator.set_name"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Operator.set_name" title="Permalink to this definition"></a></dt>
 <dd><p>Reset this object’s name originally passed at instantiation.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>name</strong> – the new name to be assigned.</p>
 </dd>
 </dl>
@@ -356,13 +356,13 @@ The derivative is set to zero independent of <code class="docutils literal notra
 <p>See module level documentation on how to wrap functions like this in <code class="docutils literal notranslate"><span class="pre">ad.Function</span></code>.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tol</strong> – Absolute tolerance for comparison with 0 using np.isclose.</p></li>
 <li><p><strong>var</strong> – Ad operator (variable or expression).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>The characteristic function of var with appropriate val and jac attributes.</p>
 </dd>
 </dl>
@@ -403,14 +403,14 @@ The derivative is set to zero independent of <code class="docutils literal notra
 <p>Reference: <a class="reference external" href="https://ieeexplore.ieee.org/document/902291">https://ieeexplore.ieee.org/document/902291</a></p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>var</strong> – Input array.</p></li>
 <li><p><strong>eps</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – Regularization parameter. The function will converge to the
 Heaviside function in the limit when <code class="docutils literal notranslate"><span class="pre">eps</span> <span class="pre">--&gt;</span> <span class="pre">0</span></code>. The default is <code class="docutils literal notranslate"><span class="pre">1e-3</span></code>.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Regularized heaviside function (and its Jacobian if applicable) in form of a
 Ad_array or ndarray (depending on the input).</p>
 </dd>
@@ -429,13 +429,13 @@ to be <code class="docutils literal notranslate"><span class="pre">[u0,</span> <
 <p>See module level documentation on how to wrap functions like this in ad.Function.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>dim</strong> – Dimension, i.e. number of vector components.</p></li>
 <li><p><strong>var</strong> – Ad operator (variable or expression) which is argument of the norm function.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>The norm of var with appropriate val and jac attributes.</p>
 </dd>
 </dl>
@@ -454,13 +454,13 @@ to be <code class="docutils literal notranslate"><span class="pre">[u0,</span> <
 wrapped in a pp.ad.Array, whereas the first argument is expected to be an
 Ad_array originating from a pp.ad.Operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>var0</strong> – First argument to the maximum function.</p></li>
 <li><p><strong>var1</strong> – Second argument.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>The maximum of <code class="docutils literal notranslate"><span class="pre">var0</span></code> and <code class="docutils literal notranslate"><span class="pre">var1</span></code> with appropriate val and jac attributes.</p>
 </dd>
 </dl>
@@ -510,7 +510,7 @@ Ad objects.</p>
 <span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MixedDimensionalGrid</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#Scalar.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Scalar.parse" title="Permalink to this definition"></a></dt>
 <dd><p>See <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.parse" title="porepy.numerics.ad.operators.Operator.parse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.parse()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The wrapped number.</p>
 </dd>
 </dl>
@@ -543,7 +543,7 @@ For time-dependent arrays see <a class="reference internal" href="#porepy.numeri
 <p>This is a shallow wrapper around the real array; it is needed to combine the array
 with other types of AD operators.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>values</strong> – Numpy array to be represented.</p>
 </dd>
 </dl>
@@ -552,7 +552,7 @@ with other types of AD operators.</p>
 <span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MixedDimensionalGrid</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#Array.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Array.parse" title="Permalink to this definition"></a></dt>
 <dd><p>See <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.parse" title="porepy.numerics.ad.operators.Operator.parse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.parse()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The wrapped array.</p>
 </dd>
 </dl>
@@ -590,7 +590,7 @@ in <code class="docutils literal notranslate"><span class="pre">data[pp.STATE][p
 terms. Future use will also include numerical values of boundary conditions,
 however, this is pending an update to the model classes.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>name</strong> – Name of the variable. Should correspond to items in data[pp.STATE].</p></li>
 <li><p><strong>subdomains</strong> – Subdomains on which the array is defined. Defaults to None.</p></li>
@@ -600,7 +600,7 @@ Exactly one of subdomains and interfaces must be non-empty.</p></li>
 previous time step.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dt class="field-even">Raises</dt>
 <dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If either none of, or both of, subdomains and interfaces are empty.</p>
 </dd>
 </dl>
@@ -613,10 +613,10 @@ previous time step.</p></li>
 or interfaces of this Array), or, if <code class="docutils literal notranslate"><span class="pre">self.prev_time</span> <span class="pre">=</span> <span class="pre">True</span></code>,
 from <code class="docutils literal notranslate"><span class="pre">data[pp.STATE]</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>mdg</strong> – Mixed-dimensional grid.</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>A numpy ndarray containing the numerical values of this array.</p>
 </dd>
 </dl>
@@ -626,7 +626,7 @@ from <code class="docutils literal notranslate"><span class="pre">data[pp.STATE]
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.TimeDependentArray.previous_timestep">
 <span class="sig-name descname"><span class="pre">previous_timestep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#porepy.numerics.ad.operators.TimeDependentArray" title="porepy.numerics.ad.operators.TimeDependentArray"><span class="pre">TimeDependentArray</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#TimeDependentArray.previous_timestep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.TimeDependentArray.previous_timestep" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>This array represented at the previous time step.</p>
 </dd>
 </dl>
@@ -666,7 +666,7 @@ passed at instantiation.</p>
 <p>This is a shallow wrapper around the real matrix; it is needed to combine the matrix
 with other types of Ad objects.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mat</strong> – Sparse matrix to be wrapped as an AD operator.</p></li>
 <li><p><strong>name</strong> – Name of this operator</p></li>
@@ -678,7 +678,7 @@ with other types of Ad objects.</p>
 <span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MixedDimensionalGrid</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#Matrix.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Matrix.parse" title="Permalink to this definition"></a></dt>
 <dd><p>See <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.parse" title="porepy.numerics.ad.operators.Operator.parse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.parse()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The wrapped matrix.</p>
 </dd>
 </dl>
@@ -728,7 +728,7 @@ implement the method <a class="reference internal" href="#porepy.numerics.ad.ope
 <p>A variable is associated with either a grid or an interface. Therefore it is assumed that
 either <code class="docutils literal notranslate"><span class="pre">subdomains</span></code> or <code class="docutils literal notranslate"><span class="pre">interfaces</span></code> is passed as an argument.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>name</strong> – Variable name.</p></li>
 <li><p><strong>ndof</strong> – Number of dofs per grid element.
@@ -744,7 +744,7 @@ Only relevant if this is an interface variable.</p></li>
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.previous_iteration">
 <span class="sig-name descname"><span class="pre">previous_iteration</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><span class="pre">Variable</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#Variable.previous_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.previous_iteration" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A representation of this variable on the previous time iteration,
 with its <code class="docutils literal notranslate"><span class="pre">prev_iter</span></code> attribute set to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
 </dd>
@@ -755,7 +755,7 @@ with its <code class="docutils literal notranslate"><span class="pre">prev_iter<
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.previous_timestep">
 <span class="sig-name descname"><span class="pre">previous_timestep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><span class="pre">Variable</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#Variable.previous_timestep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.previous_timestep" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A representation of this variable at the previous time step,
 with its <code class="docutils literal notranslate"><span class="pre">prev_time</span></code> attribute set to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
 </dd>
@@ -766,7 +766,7 @@ with its <code class="docutils literal notranslate"><span class="pre">prev_time<
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.Variable.size">
 <span class="sig-name descname"><span class="pre">size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#Variable.size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.Variable.size" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The number of dofs of this variable on its grid.</p>
 </dd>
 </dl>
@@ -817,7 +817,7 @@ subdomains or interfaces, but treated jointly in the mixed-dimensional sense.</p
 state of an array; see <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.evaluate" title="porepy.numerics.ad.operators.Operator.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.evaluate()</span></code></a>. Therefore, the MergedVariable does not
 implement the method <a class="reference internal" href="#porepy.numerics.ad.operators.Operator.parse" title="porepy.numerics.ad.operators.Operator.parse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Operator.parse()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>variables</strong> – List of variables to be merged. Should all have the same name.</p>
 </dd>
 </dl>
@@ -825,7 +825,7 @@ implement the method <a class="reference internal" href="#porepy.numerics.ad.ope
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.copy">
 <span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#porepy.numerics.ad.operators.MergedVariable" title="porepy.numerics.ad.operators.MergedVariable"><span class="pre">MergedVariable</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#MergedVariable.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.copy" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A shallow copy should be sufficient here; the attributes are not expected to
 change.</p>
 </dd>
@@ -836,7 +836,7 @@ change.</p>
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.previous_iteration">
 <span class="sig-name descname"><span class="pre">previous_iteration</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#porepy.numerics.ad.operators.MergedVariable" title="porepy.numerics.ad.operators.MergedVariable"><span class="pre">MergedVariable</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#MergedVariable.previous_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.previous_iteration" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A representation of this merged variable on the previous
 iteration, with its <code class="docutils literal notranslate"><span class="pre">prev_iter</span></code> attribute set to <code class="docutils literal notranslate"><span class="pre">True</span></code></p>
 </dd>
@@ -847,7 +847,7 @@ iteration, with its <code class="docutils literal notranslate"><span class="pre"
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.previous_timestep">
 <span class="sig-name descname"><span class="pre">previous_timestep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#porepy.numerics.ad.operators.MergedVariable" title="porepy.numerics.ad.operators.MergedVariable"><span class="pre">MergedVariable</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#MergedVariable.previous_timestep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.previous_timestep" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A representation of this merged variable on the previous time
 iteration, with its <code class="docutils literal notranslate"><span class="pre">prev_iter</span></code> attribute set to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
 </dd>
@@ -858,7 +858,7 @@ iteration, with its <code class="docutils literal notranslate"><span class="pre"
 <dt class="sig sig-object py" id="porepy.numerics.ad.operators.MergedVariable.size">
 <span class="sig-name descname"><span class="pre">size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operators.html#MergedVariable.size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operators.MergedVariable.size" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>Total size of this merged variable (sum of sizes of respective sub-variables).</p>
 </dd>
 </dl>
@@ -923,7 +923,7 @@ abstract methods called, this is as of now <strong>not</strong> supported.</p>
 <p>For now only one child class, porepy.ad.Function, flags itself always as AD compatible.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>func</strong> – callable Python object representing a (numeric) function.
 Expected to take numerical information in some form and return numerical
@@ -949,11 +949,11 @@ correctly by the return value of <code class="docutils literal notranslate"><spa
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pp.ad.Operator</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.operators.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pp.ad.Operator</span></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#AbstractFunction.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.AbstractFunction.__call__" title="Permalink to this definition"></a></dt>
 <dd><p>Renders this function operator callable, fulfilling its notion as ‘function’.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>*args</strong> – AD operators passed as symbolic arguments for the callable passed at
 instantiation.</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Operator with call-arguments as children in the operator tree.
 The assigned operation is <code class="docutils literal notranslate"><span class="pre">evaluate</span></code>.</p>
 </dd>
@@ -975,11 +975,11 @@ this instance.</p>
 of the Jacobians of passed Ad_array instances.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>*args</strong> – Ad_array representation of the operators passed during the call to this
 instance</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Numeric representation of the Jacobian of this function.</p>
 </dd>
 </dl>
@@ -995,11 +995,11 @@ the call to this instance.</p>
 <p>The returned numpy array will be set as ‘val’ argument for the AD array representing
 this instance.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>*args</strong> – Ad_array representation of the operators passed during the call to this
 instance</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Function values in numerical format.</p>
 </dd>
 </dl>
@@ -1012,10 +1012,10 @@ instance</p>
 <p>The real work will be done by combining the function with arguments, during
 parsing of an operator tree.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>md</strong> – Mixed-dimensional grid.</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>The instance itself.</p>
 </dd>
 </dl>
@@ -1034,7 +1034,7 @@ obtain numeric function values.</p>
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.AbstractJacobianFunction.get_values">
 <span class="sig-name descname"><span class="pre">get_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#AbstractJacobianFunction.get_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.AbstractJacobianFunction.get_values" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The direct evaluation of the callable using <code class="docutils literal notranslate"><span class="pre">val</span></code> of passed AD arrays.</p>
 </dd>
 </dl>
@@ -1068,7 +1068,7 @@ are formally implemented but never used by the AD framework (see <code class="do
 zero Jacobian.</p>
 <p>It still has to be called though since it fulfills the notion of a ‘function’.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>values</strong> – constant values per cell.</p>
 </dd>
 </dl>
@@ -1085,7 +1085,7 @@ Since the constant function (most likely) gets no arguments passed,
 we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The trivial derivative of a constant.</p>
 </dd>
 </dl>
@@ -1095,7 +1095,7 @@ we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.</
 <dt class="sig sig-object py" id="porepy.numerics.ad.operator_functions.ConstantFunction.get_values">
 <span class="sig-name descname"><span class="pre">get_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#porepy.numerics.ad.operators.Ad_array" title="porepy.numerics.ad.forward_mode.Ad_array"><span class="pre">Ad_array</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></span><a class="reference internal" href="../../../../_modules/porepy/numerics/ad/operator_functions.html#ConstantFunction.get_values"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.operator_functions.ConstantFunction.get_values" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The values passed at instantiation.</p>
 </dd>
 </dl>
@@ -1110,7 +1110,7 @@ we have no way of knowing the necessary SHAPE for a zero matrix. Hence scalar.</
 <p>Approximates the Jacobian of the function using identities and scalar multipliers
 per dependency.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>multipliers</strong> – scalar multipliers for the identity blocks in the Jacobian,
 per dependency of <code class="docutils literal notranslate"><span class="pre">func</span></code>. The order in <code class="docutils literal notranslate"><span class="pre">multipliers</span></code> is expected to match
 the order of AD operators passed to the call of this function.</p>
@@ -1140,7 +1140,7 @@ Each row-entry represents a value for an argument of <code class="docutils liter
 respective order.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>min_val</strong> – lower bounds for the domain of <code class="docutils literal notranslate"><span class="pre">func</span></code>.</p></li>
 <li><p><strong>max_val</strong> – upper bound for the domain.</p></li>
@@ -1192,7 +1192,7 @@ Analogously, <code class="docutils literal notranslate"><span class="pre">dummy_
 done implicitly with above default arguments (that’s how Python decorators work).</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>func</strong> – decorated function object</p></li>
 <li><p><strong>ad_function_type</strong> – type reference to an AD operator function to be instantiated.
@@ -1241,7 +1241,7 @@ evaluated
 (i.e. they don’t have a reference to the <cite>self</cite> argument, contrary to bound
 methods)</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>binding_instance</strong> – instance, whose method has been decorated by this class.</p></li>
 <li><p><strong>binding_type</strong> – type instance of the decorated method’s class/owner.</p></li>
@@ -1257,7 +1257,7 @@ methods)</p>
 Constructs the necessary AD-Operator class wrapping the decorated callable
 and performs the evaluation/call.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>*args</strong> – arguments for the call to the wrapping AD operator function</p></li>
 <li><p><strong>**kwargs</strong> – keyword argument for the call to the wrapping Ad operator function</p></li>
