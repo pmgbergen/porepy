@@ -138,8 +138,7 @@ def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
         Vertexes of a convex domain 
     
     Raises: 
-        QhullError: If A and b are not set up right (e.g. sign errors that imply that the inequalities do not form a closed domain).
-        
+        QhullError: If A and b are not set up right (e.g. sign errors that imply that the inequalities do not form a closed domain).     
         
     """
     b = b.reshape((-1, 1))
