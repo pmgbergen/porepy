@@ -397,11 +397,11 @@ class BoundaryConditionsEnergyBalance:
         for sd in subdomains:
             # Get enthalpy values on boundary faces applying trace to interior values.
             all_bf, *_ = self.domain_boundary_sides(sd)
-            vals = pp.constitutive_laws.boundary_values_from_interior_operator(
+            vals = pp.constitutive_laws.boundary_values_from_operator(
                 self.fluid_enthalpy,
                 sd,
                 all_bf,
-                self.equation_system,
+                self,
             )
             # Append to list of boundary values
             bc_values.append(vals)

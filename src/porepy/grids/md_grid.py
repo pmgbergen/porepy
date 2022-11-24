@@ -166,6 +166,34 @@ class MixedDimensionalGrid:
         else:
             return [interfaces[i] for i in sort_ind]
 
+    def boundaries(self, dim: Optional[int] = None) -> list[pp.BoundaryGrid]:
+        """Get a sorted list of boundary grids in the mixed-dimensional grid.
+
+        Optionally, the boundary grids can be filtered on dimension.
+
+        Sorting by descending boundary dimension and increasing BoundaryGrid id,
+        see argsort_grids.
+
+        Args:
+            dim (int, optional): If provided, only boundary grids of the specified
+                dimension will be returned.
+
+        Returns:
+            list: List of boundary grids.
+
+        """
+        if self._subdomain_data and not self._boundary_data:
+            raise ValueError(
+                "There are subdomains in the mixed-dimensional grid, but no boundary "
+                "grids. This is probably not intended."
+            )
+        boundaries: list[pp.BoundaryGrid] = list()
+        for bg in self._subdomain_boundary_grids.values():
+            if dim is None or dim == bg.dim:
+                boundaries.append(bg)
+        sort_ind = self.argsort_grids(boundaries)
+        return [boundaries[i] for i in sort_ind]
+
     # ---------- Navigate within the graph --------
 
     def interface_to_subdomain_pair(
@@ -342,9 +370,6 @@ class MixedDimensionalGrid:
             # Add the grid to the dictionary of subdomains with an empty data dictionary.
             self._subdomain_data[sd] = {}
 
-            # Generate a boundary grid for this grid
-            self._subdomain_boundary_grids[sd] = pp.BoundaryGrid(g=sd)
-
     def add_interface(
         self,
         intf: pp.MortarGrid,
@@ -513,6 +538,9 @@ class MixedDimensionalGrid:
         """Compute geometric quantities for the grids."""
         for sd in self.subdomains():
             sd.compute_geometry()
+            if sd.dim > 0:
+                # Generate a boundary grid for this grid
+                self._subdomain_boundary_grids[sd] = pp.BoundaryGrid(g=sd)
 
         for intf in self.interfaces():
             intf.compute_geometry()
