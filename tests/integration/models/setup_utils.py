@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 import porepy as pp
-from porepy.models import energy_balance, fluid_mass_balance, momentum_balance
+from porepy.models import energy_balance, fluid_mass_balance, momentum_balance, poromechanics
 
 
 class GeometrySingleFracture2d(pp.ModelGeometry):
@@ -32,10 +32,10 @@ class MassBalanceCombined(
 
 class MomentumBalanceCombined(
     GeometrySingleFracture2d,
-    momentum_balance.MomentumBalanceEquations,
-    momentum_balance.ConstitutiveLawsMomentumBalance,
-    momentum_balance.VariablesMomentumBalance,
-    momentum_balance.SolutionStrategyMomentumBalance,
+    momentum.MomentumBalanceEquations,
+    momentum.ConstitutiveLawsMomentumBalance,
+    momentum.VariablesMomentumBalance,
+    momentum.SolutionStrategyMomentumBalance,
     pp.DataSavingMixin,
 ):
     """Combine components needed for momentum balance simulation."""
@@ -55,6 +55,16 @@ class EnergyBalanceCombined(
     """Combine components needed for force balance simulation."""
 
     pass
+
+
+class PoromechanicsCombined(
+    GeometrySingleFracture2d,
+    poromechanics.ConstitutiveLawsPoromechanics,
+    poromechanics.VariablesPoromechanics,
+    poromechanics.EquationsPoromechanics,
+    poromechanics.SolutionStrategyPoromechanics,
+    pp.DataSavingMixin,
+):
 
 
 def model(model_type: str) -> MassBalanceCombined | MomentumBalanceCombined:

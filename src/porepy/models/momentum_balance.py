@@ -297,21 +297,6 @@ class ConstitutiveLawsMomentumBalance(
         # Method from constitutive library's LinearElasticRock.
         return self.mechanical_stress(subdomains)
 
-    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """
-        Not sure where this one should reside.
-
-        Parameters:
-            subdomains:
-
-        Returns:
-
-        """
-        num_faces = sum([sd.num_faces for sd in subdomains])
-        return constitutive_laws.ad_wrapper(
-            0, True, num_faces * self.nd, "bc_vals_mechanics"
-        )
-
 
 class VariablesMomentumBalance:
     """
@@ -498,28 +483,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
                     },
                 )
 
-    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Define type of boundary conditions: Dirichlet on all global boundaries,
-        Dirichlet also on fracture faces.
-
-
-        Parameters:
-            sd: Subdomain grid.
-
-        Returns:
-            bc: Boundary condition representation.
-
-        FIXME: Move to different class?
-
-        """
-        all_bf = sd.get_boundary_faces()
-        bc = pp.BoundaryConditionVectorial(sd, all_bf, "dir")
-        # Default internal BC is Neumann. We change to Dirichlet for the contact
-        # problem. I.e., the mortar variable represents the displacement on the fracture
-        # faces.
-        bc.internal_to_dirichlet(sd)
-        return bc
-
     def numerical_constant(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
         """Numerical constant for the contact problem.
 
@@ -547,6 +510,48 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         if e.g. parameter nonlinearities are included.
         """
         return self.mdg.dim_min() < self.nd
+
+
+class BoundaryConditionMomentumBalance(pp.BoundaryCondition):
+    """Boundary conditions for the momentum balance."""
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        """Define type of boundary conditions.
+
+
+        Parameters:
+            sd: Subdomain grid.
+
+        Returns:
+            bc: Boundary condition representation. Dirichlet on all global boundaries,
+            Dirichlet also on fracture faces.
+
+        """
+        all_bf = sd.get_boundary_faces()
+        bc = pp.BoundaryConditionVectorial(sd, all_bf, "dir")
+        # Default internal BC is Neumann. We change to Dirichlet for the contact
+        # problem. I.e., the mortar variable represents the displacement on the fracture
+        # faces.
+        bc.internal_to_dirichlet(sd)
+        return bc
+
+    def bc_values_mechanics(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+        """Boundary values for the momentum balance.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            bc_values: Array of boundary condition values, zero by default. If combined
+            with transient problems in e.g. Biot, this should be a
+            :class:`pp.ad.TimeDependentArray` (or a variable following BoundaryGrid
+            extension).
+
+        """
+        num_faces = sum([sd.num_faces for sd in subdomains])
+        return constitutive_laws.ad_wrapper(
+            0, True, num_faces * self.nd, "bc_vals_mechanics"
+        )
 
 
 class MdMomentumBalanceCombined(

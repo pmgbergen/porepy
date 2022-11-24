@@ -62,6 +62,8 @@ from .setup_utils import model
         ("energy_balance", "normal_thermal_conductivity", []),
         ("energy_balance", "aperture", []),
         ("energy_balance", "specific_volume", []),
+        # Poromechanics
+        ("poromechanics", "biot_alpha", [0]),
     ],
 )
 def test_parse_constitutive_laws(model_type, method_name, domain_inds):
