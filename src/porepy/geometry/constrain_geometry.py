@@ -565,27 +565,29 @@ def polygons_by_polyhedron(
     return constrained_polygons, np.array(orig_poly_ind)
 
 
-def snap_points_to_segments(p_edges, edges, tol, p_to_snap=None):
-    """
-    Snap points in the proximity of lines to the lines.
+def snap_points_to_segments(
+    p_edges: np.ndarray,
+    edges: np.ndarray,
+    tol: float,
+    p_to_snap: np.ndarray | None = None,
+) -> np.ndarray:
+    """Snap points in the proximity of lines to the lines.
 
-    Note that if two vertices of two edges are close, they may effectively
-    be co-located by the snapping. Thus, the modified point set may have
-    duplicate coordinates.
+    Note that if two vertices of two edges are close, they may effectively be
+    co-located by the snapping. Thus, the modified point set may have duplicate
+    coordinates.
 
     Parameters:
-        p_edges (np.ndarray, nd x npt): Points defining endpoints of segments
-        edges (np.ndarray, 2 x nedges): Connection between lines in p_edges.
-            If edges.shape[0] > 2, the extra rows are ignored.
-        tol (double): Tolerance for snapping, points that are closer will be
-            snapped.
-        p_to_snap (np.ndarray, nd x npt_snap, optional): The points to snap. If
-            not provided, p_edges will be snapped, that is, the lines will be
-            modified.
+        p_edges: Points defining endpoints of segments. Shape is (dim, num_points).
+        edges: Connection between lines in ``p_edges``. If ``edges.shape[0] > 2``,
+            the extra rows are ignored. Shape is (2, num_edges).
+        tol: Tolerance for snapping, points that are closer will be snapped.
+        p_to_snap: The points to snap. If not provided, ``p_edges`` will be snapped,
+            that is, the lines will be modified. Shape is (dim, num_points_to_snap).
 
     Returns:
-        np.ndarray (nd x n_pt_snap): A copy of p_to_snap (or p_edges) with
-            modified coordinates.
+        A copy of ``p_to_snap`` (or ``p_edges``) with modified coordinates. Shape is
+        (dim, num_points_to_snap).
 
     """
 
