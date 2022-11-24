@@ -70,21 +70,31 @@ html_theme = "sphinx_rtd_theme"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = []
 
-# Customize the html theme here. Supported  customization depends on the chosen HTML theme,
-# but unknown entries will cause no error when compiling.
-html_theme_options = {
-    # "rightsidebar": "false",
-    # "relbarbgcolor": "black",
-    # "externalrefs": "true",
-    # "bodyfont": "Arial",
-    # "headfont": "Arial",
-}
-
 html_short_title = "PorePy"
 html_split_index = True
 html_copy_source = False
 html_show_sourcelink = False
 html_show_sphinx = False
+html_baseurl = 'https://pmgbergen.github.io/porepy/'
+
+# relative path to project logo, to be displayed on docs webpage
+# html_logo = ''
+
+# theme-specific customization, read the docs of respective theme
+html_theme_options = {
+    'logo_only': False,
+    'display_version': True,
+    'prev_next_buttons_location': 'bottom',
+    'style_external_links': True,
+    'vcs_pageview_mode': '',
+    'style_nav_header_background': '#2980B9',
+    # Toc options
+    'collapse_navigation': False,
+    'sticky_navigation': True,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False
+}
 
 # -- Autodoc Settings -------------------------------------------------------------------------
 
@@ -118,9 +128,9 @@ autodoc_inherit_docstrings = False
 
 # Used to shorten the parsing of type hint aliases
 autodoc_type_aliases = {
-    'ArrayLike': ':obj:`numpy.typing.ArrayLike`',
-    'NDArray': 'numpy.typing.NDArray',
-    'DTypeLike': 'numpy.typing.DTypeLike',
+    'ArrayLike': 'ArrayLike',
+    'NDArray': 'NDArray',
+    'DTypeLike': 'DTypeLike',
     'ExampleArrayLike': 'ExampleArrayLike',
 }
 
@@ -143,13 +153,14 @@ napoleon_type_aliases = {
 }
 napoleon_attr_annotations = True
 
-# -- Napoleon Settings ------------------------------------------------------------------------
-typehints_fully_qualified = False
-always_document_param_types = False
-typehints_document_rtype = True
-typehints_use_rtype = False
-typehints_defaults = 'braces'
-simplify_optional_unions = False
+# -- Autodoc typehints settings ---------------------------------------------------------------
+
+# typehints_fully_qualified = False
+# always_document_param_types = False
+# typehints_document_rtype = True
+# typehints_use_rtype = False
+# typehints_defaults = 'braces'
+# simplify_optional_unions = False
 
 # -- Intersphinx Settings ---------------------------------------------------------------------
 
