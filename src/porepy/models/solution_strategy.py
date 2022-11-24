@@ -100,7 +100,8 @@ class SolutionStrategy(abc.ABC):
 
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
-        self.equation_system = pp.EquationSystem(self.mdg)
+        if not hasattr(self, "equation_system"):
+            self.equation_system = pp.ad.EquationSystem(self.mdg)
 
     def initial_condition(self) -> None:
         """Set the initial condition for the problem."""

@@ -201,7 +201,12 @@ from porepy.models.material_constants import (
 )
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models import constitutive_laws
-from porepy.models import fluid_mass_balance, momentum_balance
+from porepy.models import (
+    fluid_mass_balance,
+    momentum_balance,
+    poromechanics,
+    energy_balance,
+)
 
 from porepy.models.contact_mechanics_model import ContactMechanics
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot

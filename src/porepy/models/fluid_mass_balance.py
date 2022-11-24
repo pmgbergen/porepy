@@ -18,7 +18,7 @@ Notes:
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
+from typing import Optional
 
 import numpy as np
 
@@ -200,6 +200,38 @@ class ConstitutiveLawsSinglePhaseFlow(
         """
         return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
+
+class BoundaryConditionsSinglePhaseFlow(pp.boundary_conditions.BoundaryCondition):
+    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Dirichlet conditions on all external boundaries.
+
+        Parameters:
+            sd: Subdomain grid on which to define boundary conditions.
+
+        Returns:
+            Boundary condition object.
+
+        """
+        # Define boundary regions
+        all_bf, *_ = self.domain_boundary_sides(sd)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(sd, all_bf, "dir")
+
+    def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Dirichlet conditions on all external boundaries.
+
+        Parameters:
+            sd: Subdomain grid on which to define boundary conditions.
+
+        Returns:
+            Boundary condition object.
+
+        """
+        # Define boundary regions
+        all_bf, *_ = self.domain_boundary_sides(sd)
+        # Define boundary condition on faces
+        return pp.BoundaryCondition(sd, all_bf, "dir")
+
     def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
         Not sure where this one should reside. Note that we could remove the
@@ -217,7 +249,7 @@ class ConstitutiveLawsSinglePhaseFlow(
         return ad_wrapper(0, True, num_faces, "bc_values_darcy")
 
     def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """
+        """Boundary condition values for the mobility times density.
 
         Units for Dirichlet: kg * m^-3 * Pa^-1 * s^-1
 
@@ -340,7 +372,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
     """
 
-    def __init__(self, params: Optional[Dict] = None) -> None:
+    def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
         # Variables
         self.pressure_variable: str = "pressure"
@@ -431,36 +463,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                     "ambient_dimension": self.nd,
                 },
             )
-
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
-
-        Parameters:
-            sd: Subdomain grid on which to define boundary conditions.
-
-        Returns:
-            Boundary condition object.
-
-        """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
-
-    def bc_type_mobrho(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
-
-        Parameters:
-            sd: Subdomain grid on which to define boundary conditions.
-
-        Returns:
-            Boundary condition object.
-
-        """
-        # Define boundary regions
-        all_bf, *_ = self.domain_boundary_sides(sd)
-        # Define boundary condition on faces
-        return pp.BoundaryCondition(sd, all_bf, "dir")
 
     def before_nonlinear_iteration(self):
         """
