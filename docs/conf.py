@@ -40,9 +40,10 @@ root_doc = "index"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
+    'sphinx.ext.autodoc',
+    # 'sphinx_autodoc_typehints',  # this moves type links from signature to docstring
+    'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',
 ]
@@ -62,12 +63,12 @@ exclude_patterns = []
 # -- Options for HTML output ------------------------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages. Currently set to theme of Python 2 docs
-html_theme = "nature"
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["static"]
+html_static_path = []
 
 # Customize the html theme here. Supported  customization depends on the chosen HTML theme,
 # but unknown entries will cause no error when compiling.
@@ -116,7 +117,12 @@ autodoc_typehints = "signature"
 autodoc_inherit_docstrings = False
 
 # Used to shorten the parsing of type hint aliases
-autodoc_type_aliases = {}
+autodoc_type_aliases = {
+    'ArrayLike': ':obj:`numpy.typing.ArrayLike`',
+    'NDArray': 'numpy.typing.NDArray',
+    'DTypeLike': 'numpy.typing.DTypeLike',
+    'ExampleArrayLike': 'ExampleArrayLike',
+}
 
 # -- Napoleon Settings ------------------------------------------------------------------------
 
@@ -125,15 +131,25 @@ napoleon_numpy_docstring = False
 # napoleon_include_init_with_doc = False
 # napoleon_include_private_with_doc = False
 # napoleon_include_special_with_doc = False
-napoleon_use_admonition_for_examples = False
-napoleon_use_admonition_for_notes = False
-napoleon_use_admonition_for_references = False
+napoleon_use_admonition_for_examples = True
+napoleon_use_admonition_for_notes = True
+napoleon_use_admonition_for_references = True
 napoleon_use_ivar = False
 napoleon_use_param = True
+napoleon_use_keyword = True
 napoleon_use_rtype = True
-napoleon_preprocess_types = False
-napoleon_type_aliases = None
+napoleon_preprocess_types = True
+napoleon_type_aliases = {
+}
 napoleon_attr_annotations = True
+
+# -- Napoleon Settings ------------------------------------------------------------------------
+typehints_fully_qualified = False
+always_document_param_types = False
+typehints_document_rtype = True
+typehints_use_rtype = False
+typehints_defaults = 'braces'
+simplify_optional_unions = False
 
 # -- Intersphinx Settings ---------------------------------------------------------------------
 
