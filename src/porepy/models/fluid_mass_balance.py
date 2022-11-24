@@ -245,9 +245,9 @@ class ConstitutiveLawsSinglePhaseFlow(
             # Get density and viscosity values on boundary faces applying trace to
             # interior values.
             all_bf, *_ = self.domain_boundary_sides(sd)
-            trace = pp.constitutive_laws.boundary_values_from_interior_operator
-            rho_bound = trace(self.fluid_density, sd, all_bf, self.equation_system)
-            visc_bound = trace(self.fluid_viscosity, sd, all_bf, self.equation_system)
+            trace = pp.constitutive_laws.boundary_values_from_operator
+            rho_bound = trace(self.fluid_density, sd, all_bf, self)
+            visc_bound = trace(self.fluid_viscosity, sd, all_bf, self)
             # Append to list of boundary values
             vals = rho_bound
             vals[all_bf] /= visc_bound[all_bf]

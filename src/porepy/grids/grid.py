@@ -141,7 +141,7 @@ class Grid:
 
         """
         if not (dim >= 0 and dim <= 3):
-            raise ValueError("A grid has to be 0, 1, 2, or 3.")
+            raise ValueError("A grid has to be of dimension 0, 1, 2, or 3.")
 
         self.dim: int = dim
         self.nodes: np.ndarray = nodes

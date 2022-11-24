@@ -1,6 +1,5 @@
 """Library of constitutive equations."""
 from functools import partial
-from numbers import Number
 from typing import Callable, Optional, Union
 
 import numpy as np
@@ -982,11 +981,11 @@ class ConstantPorosity:
         return Scalar(self.solid.porosity(), "porosity")
 
 
-def boundary_values_from_interior_operator(
-    interior_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
+def boundary_values_from_operator(
+    operator: Callable[[list[pp.Grid]], pp.ad.Operator],
     subdomain: pp.Grid,
     faces: np.ndarray,
-    equation_system: pp.ad.EquationSystem,
+    model,
 ) -> np.ndarray:
     """Extract Dirichlet values from an operator.
 
@@ -1000,20 +999,29 @@ def boundary_values_from_interior_operator(
         Dirichlet values (sd.num_faces,).
 
     """
-    # Extract Dirichlet values from the operator
-    vals = np.zeros(subdomain.num_faces)
-    interior_vals = interior_operator([subdomain]).evaluate(equation_system)
-    # Unlike Operators, wrapped constants (Scalar, Array) do not have val attribute.
-    if hasattr(interior_vals, "val"):
-        interior_vals = interior_vals.val
 
-    if isinstance(interior_vals, Number):
-        # Scalar value, simple assignment
-        vals[faces] = interior_vals
-    else:
-        # Array value, assumed to be cell-wise
-        assert isinstance(interior_vals, np.ndarray)
-        assert interior_vals.shape == (subdomain.num_cells,)
-        trace = np.abs(subdomain.cell_faces)
-        vals[faces] = (trace * interior_vals)[faces]
+    # boundary = model.mdg.subdomain_to_boundary_grid(subdomain)
+    # # Extract Dirichlet values from the operator
+    # vals = np.zeros(subdomain.num_faces)
+
+    # boundary_vals = operator([boundary]).evaluate(model.equation_system)
+    # # Unlike Operators, wrapped constants (Scalar, Array) do not have val attribute.
+    # if hasattr(boundary_vals, "val"):
+    #     boundary_vals = boundary_vals.val
+
+    # if isinstance(boundary_vals, Number):
+    #     # Scalar value, simple assignment
+    #     vals[faces] = boundary_vals
+    # else:
+    #     # Array value, assumed to be cell-wise
+    #     assert isinstance(boundary_vals, np.ndarray)
+    #     face_vals = boundary.projection * boundary_vals
+    #     assert face_vals.shape == (subdomain.num_faces,)
+    #     vals[faces] = face_vals[faces]
+
+    # FIXME: Revisit BoundaryGrid. This is a hack to get the code to run.
+    #
+    # TODO: See previous comment! Fare, fare, krigsmann! (Norwegian for "farewell, my
+    # friend"). EK, IS. Which tags have I forgotten to mark this as important?
+    vals = np.zeros(subdomain.num_faces)
     return vals

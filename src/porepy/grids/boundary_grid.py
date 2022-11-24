@@ -1,6 +1,9 @@
-import porepy as pp
+from typing import Optional
+
 import numpy as np
 import scipy.sparse as sps
+
+import porepy as pp
 
 
 class BoundaryGrid(pp.Grid):
@@ -18,9 +21,14 @@ class BoundaryGrid(pp.Grid):
     GridBase, which is inherited by both Grid and BoundaryGrid, and then use GridBase
     in type hints when either a Grid or a BoundaryGrid can be used.
 
+    NOTE:
+        Boundary grids have a id counter, which is shared with the parent class Grid.
+        This may confuse expectations of consecutive numbering of grids, if generation
+        of standard grids is interleaved with generation of boundary grids.
+
     """
 
-    def __init__(self, g: pp.Grid, name: str) -> None:
+    def __init__(self, g: pp.Grid, name: Optional[str] = None) -> None:
         parent_boundary = g.tags["domain_boundary_faces"]
 
         self.num_cells: int = np.sum(parent_boundary)
@@ -29,11 +37,29 @@ class BoundaryGrid(pp.Grid):
 
         """
 
+        if name is None:
+            name = "boundary_grid"
+        self.name: str = name
+        """Name of the grid. """
+
         self._parent = g
+        """Parent grid from which the boundary grid is constructed. """
 
         self.cell_centers = g.face_centers[:, parent_boundary]
+        """Cell centers of the boundary grid.
+
+        Subset of the face centers of the parent grid.
+
+        """
+
+        if g.dim == 0:
+            raise ValueError("Boundary grids are not supported for 0d grids.")
+        self.dim = g.dim - 1
+        """Dimension of the boundary grid. """
 
         sz = self.num_cells
+        """Number of cells in the boundary grid. """
+
         self._proj = sps.coo_matrix(
             (np.ones(sz), (np.arange(sz), np.where(parent_boundary)[0])),
             shape=(self.num_cells, g.num_faces),
@@ -41,4 +67,10 @@ class BoundaryGrid(pp.Grid):
 
     @property
     def projection(self):
+        """Projection matrix from the parent grid to the boundary grid.
+
+        The projection matrix is a sparse matrix, with size num_cells x num_faces_parent,
+        which maps face-wise values on the parent grid to the boundary grid.
+
+        """
         return self._proj

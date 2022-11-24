@@ -27,9 +27,12 @@ This is *not* a list of GridLike, as that would allow a list of mixed grids and
 mortar grids."""
 
 VariableList = Union[list[str], list[Variable], list[MixedDimensionalVariable]]
-"""A union type representing variables through either names (:class:`str`), multiple
-:class:`~porepy.numerics.ad.operators.Variable` or
-:class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`.
+"""A union type representing variables
+
+Variables are defined through either
+    - names (:class:`str`),
+    - multiple :class:`~porepy.numerics.ad.operators.Variable` or
+    - :class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`.
 
 This type is accepted as input to various methods and parsed to a list of
 :class:`~porepy.numerics.ad.operators.Variable` using
@@ -125,8 +128,10 @@ class EquationSystem:
         """Mixed-dimensional domain passed at instantiation."""
 
         self.assembled_equation_indices: dict[str, np.ndarray] = dict()
-        """Contains the row indices in the last assembled (sub-) system for a given equation
-        name (key). This dictionary changes with every call to any assemble-method.
+        """Contains the row indices in the last assembled (sub-) system for a given
+        equation name (key).
+
+        This dictionary changes with every call to any assemble-method.
         """
 
         ### PRIVATE
@@ -279,11 +284,7 @@ class EquationSystem:
     @property
     def variable_domains(self) -> DomainList:
         """List containing all domains where at least one variable is defined."""
-        # EK: There is a nuance here, from the docstring, I expected something like
-        # return self.mdg.subdomains() + self.mdg.interfaces(). I'm fine with having a
-        # method that considers only GridLike where the variables are defined, but I
-        # think we should reconsider the name.
-        # IS: Fair. Done. You might want an equiation_domain method.
+        # IS: We might want an equiation_domain method.
         domains = set()
         for var in self._variables:
             domains.add(var.domain)
@@ -401,18 +402,19 @@ class EquationSystem:
                 "Cannot create variable not defined on any subdomain or interface."
             )
 
-        # check if a md variable was already defined under that name
-        if name in self._variables:
-            raise KeyError(f"Variable with name '{name}' already defined.")
-
-        # container for all grid variables
+        # Container for all grid variables.
         variables = list()
 
         # Merge subdomains and interfaces into a single list
         assert subdomains is not None or interfaces is not None  # for mypy
         grids: DomainList = subdomains if subdomains else interfaces
-        if grids:
 
+        # Check if a md variable was already defined under that name on any of grids.
+        for var in self.variables:
+            if var.name == name and var.domain in grids:
+                raise KeyError(f"Variable {name} already defined on {var.domain}.")
+
+        if grids:
             for grid in grids:
                 # check if the grid is known to the system
 
@@ -478,20 +480,18 @@ class EquationSystem:
     ) -> list[Variable]:
         """Filter variables based on grid, tag name and tag value.
 
-        Particular usage: calling without arguments will return all variables in the system.
-        FIXME: Rename to filter_variables? Remove variables property? The property is covered
-        by this method, which might be renamed to variables if property is removed.
-
-        EK: I kept the name. It seems fair to me to keep the property, it is a simple code.
+        Particular usage: calling without arguments will return all variables in the
+        system.
 
         Parameters:
             variables: list of variables to filter. If None, all variables in the system
                 are included.
             grids: list of grids to filter on. If None, all grids are included.
             tag_name: name of the tag to filter on. If None, no filtering on tags.
-            tag_value: value of the tag to filter on. If None, no filtering on tag values.
-                If tag_name is not None, but tag_value is None, all variables with the given
-                tag_name are returned regardless of value.
+            tag_value: value of the tag to filter on. If None, no filtering on tag
+            values.
+                If tag_name is not None, but tag_value is None, all variables with the
+                given tag_name are returned regardless of value.
 
         Returns:
             list of filtered variables.
