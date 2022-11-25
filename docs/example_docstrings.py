@@ -44,7 +44,8 @@ and their options beforehand.
 """
 from __future__ import annotations
 
-from typing import Generator, Literal, Optional
+from typing import Generator, Literal, Optional, Union
+from numpy.typing import ArrayLike, NDArray, DTypeLike
 
 import numpy as np
 import scipy.sparse as sps
@@ -52,11 +53,11 @@ import scipy.sparse as sps
 import porepy as pp
 
 
-module_level_var_1: str = "var"
+example_var_1: str = "var"
 """Variables at the module level are documented inline after declaration."""
 
 
-module_level_var_2: int = 1
+example_var_2: int = 1
 """Multi-line docstrings are also valid.
 
 You might want to use multiline docstrings when a more detailed description
@@ -96,7 +97,7 @@ blank line.
 """
 
 
-module_level_var_3: int = 42
+example_var_3: int = 42
 """int: **DO NOT** start the docstring with ``int:``, i.e. with type hints.
 
 This will render the below ``Type: int``, which is unnecessary due to the already present
@@ -107,20 +108,24 @@ to the right documentation.
 
 .. code:: Python
 
-    module_level_var_3: int = 1
+    example_var_3: int = 1
     \"\"\"This is var 3.\"\"\"
 
 **DO NOT:**
 
 .. code:: Python
 
-    module_level_var_3 = 1
+    example_var_3 = 1
     \"\"\"int: This is var 3.\"\"\"
 
 """
 
 
-def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
+ExampleArrayLike = Union[list, np.ndarray]
+"""This is a custom type alias, including lists and numpy's ``ndarray``."""
+
+
+def example_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
     """A short description of the functionality must fit in the first line.
 
     Detailed description can be given next if necessary. The extended description
@@ -133,10 +138,10 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
 
     Note:
         You can find the ``[source]`` link in the upper right corner of this function's
-        documentation and take a look at the Python and rst source code of this docstring,
+        signature and inspect the Python and rst source code of this docstring,
         as well as for every docstring that follows.
 
-    The return value can be described using the Google Style directive *Returns:*.
+    The return value must be documented using the Google Style directive *Returns:*.
 
     Parameters:
         arg1: Description of arg1.
@@ -161,21 +166,25 @@ def module_level_function_1(arg1: int, arg2: str, arg3: bool) -> bool:
     return (arg1 > len(arg2)) and arg3
 
 
-def module_level_function_2(
+def example_function_2(
     optional_arg: Optional[int] = None, *args, **kwargs
 ) -> None:
-    """Optional arguments must be type-hinted using :class:`typing.Optional`.
+    """This function demonstrates linking to objects inside docstrings, optional arguments and
+    the *Raises:* directive.
+    
+    Optional arguments must be type-hinted using :obj:`typing.Optional`.
 
     As evident, you can link objects in-text. You can also link functions like
-    :meth:`module_level_function_1`.
+    :meth:`example_function_1`. Note the different usage of ``:obj:`` and ``:class:`` for
+    objects in third-party packages and objects in PorePy.
 
     If ``*args`` or ``**kwargs`` are accepted,
     they must be listed as ``*args`` and ``**kwargs`` in the *Parameters* directive.
 
     Note:
-        We note that this function returns ``None`` as per signature.
-        This is the default return value of Python and as such does not need documentation.
-        I.e., we can omit the *Returns:* directive. However, it is important to explicitly
+        This function returns ``None`` as per signature.
+        It is the default return value of Python and as such does not need documentation.
+        I.e., we can omit the *Returns:* directive. However, it is obligatory to explicitly
         specify the None return in the signature.
 
     Parameters:
@@ -203,15 +212,13 @@ def module_level_function_2(
     pass
 
 
-def module_level_function_3(
+def example_function_3(
     mdg: pp.MixedDimensionalGrid,
     vector: np.ndarray,
     matrix: sps.spmatrix,
     option: Literal["A", "B", "C"] = "A",
 ) -> sps.spmatrix:
-    """We demonstrate here the intra- and inter-doc linking to non-base-type Python objects
-    in the signature,
-    as well as how to document special requirements for the arguments.
+    """This function demonstrates how to document special requirements for input arguments.
 
     Parameters:
         mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``.
@@ -219,13 +226,12 @@ def module_level_function_3(
             We use the type hint brackets to indicate its supposed length.
             The required length is ``num_cells``, the number of cells. If unclear to what the
             number refers, explain.
-
             E.g. where ``num_cells`` denotes the number of cells in ``mdg``.
         matrix (shape=(3, num_cells)): This argument is a sparse matrix with 3 rows and
             ``num_cells`` columns.
         option (optional): This argument has admissible values and a default value.
             it can only be a string ``'A'``, ``'B'`` or ``'C'``. For such admissible values use
-            :class:`typing.literal` to denote them in the signature.
+            :obj:`typing.Literal` to denote them in the signature.
             Since it has a default value, we mark it with ``(optional)``.
 
     Returns:
@@ -246,11 +252,11 @@ def module_level_function_3(
     pass
 
 
-def module_level_function_4(
+def example_function_4(
     vector: np.ndarray,
     matrix: sps.spmatrix,
-) -> tuple[sps.spmatrix, np.ndarray] | None:
-    """Functions with multiple return values need better description in the *Returns:*
+) -> tuple[sps.spmatrix, np.ndarray]:
+    """This function demonstrates how to document multiple return values in the *Returns:*
     directive.
 
     Parameters:
@@ -261,18 +267,41 @@ def module_level_function_4(
         Every returned object needs a description. We can use the same structure as for
         the parameters: indented block per returned object or value.
 
-        spmatrix:
+        spmatrix ``(shape=(3, nd))``:
             Though technically the tuple is a single object, it often is of
-            importance what the tuple contains.
+            importance what the tuple contains. If the returned object has noteworthy
+            characteristic, explain them next to the bullet header, the same way as for
+            parameters.
         ndarray:
-            We therefore use again the definition list structure with indented blocks to
+            Use the definition list structure with indented blocks to
             describe the content individually. This makes of course only sense if the tuple
             is of fixed length and/or contains objects of various types.
-        None:
-            The same rules hold for union return types.
 
-    Raises:
-        ValueError: If ``option`` is not in ``{'A', 'B', 'C'}``.
+    """
+    pass
+
+
+def example_function_5(
+    array_like: ArrayLike,
+    ndarray_like: NDArray,
+    dtype_like: DTypeLike,
+) -> ExampleArrayLike:
+    """This function demonstrates type annotations using custom type aliases, including those
+    from third-party packages.
+
+    For Sphinx to display type aliases without parsing their complete expression,
+    a configuration is needed which maps the type alias to its source.
+
+    When encountering type aliases, which are not already covered by the configuration of
+    PorePy's docs, please contact the core developers.
+
+    Parameters:
+        array_like: an argument of type :obj:`~numpy.typing.ArrayLike`
+        ndarray_like: an argument of type :obj:`~numpy.typing.NDArray`
+        dtype_like: an argument of type :obj:`~numpy.typing.DTypeLike`
+
+    Returns:
+        a value of a custom array type :data:`ExampleArrayLike`.
 
     """
     pass
@@ -283,11 +312,8 @@ def example_generator(n: int) -> Generator[int, None, None]:
     Their usage is equivalent, indicating only that this is a generator object, not a regular
     function.
 
-    Examples:
-        The Google Style offers an *Examples:* directives where you can write text but also
-        include inline examples of code usage, without the special code directive from Sphinx.
-        An indented block with the content has to follow the directive. Like all for all
-        directives, a blank line after the indented block signalizes the end of the directive.
+    Example:
+        Here we demonstrate the usage of ``example_generator`` using the *Example:* directive:
 
         >>> print([i for i in example_generator(4)])
         [0, 1, 2, 3]
@@ -313,8 +339,31 @@ class ExampleClass:
 
     *Note:* directives can be used the same way as for functions.
 
-    At the end follows obligatory the *Parameters:* directive and a *Raises:* directive,
-    if errors are raised in the constructor for some reason.
+    Example:
+        Using the *Example:* directive, you can provide simplified python syntax using ``>>>``
+        on how to instantiate the class for example:
+
+        >>> import example_docstrings as ed
+        >>> A = ed.ExampleClass()
+        >>> print(type(A))
+        <class 'example_docstrings.ExampleClass'>
+
+    Use the *References:* and *See Also:* directives to provide links to sources or
+    inspirations for your implementation.
+
+    For readability reasons, we impose the same rules on the order of directives as for
+    functions. Meaning references/ see also, followed by parameters, return/yield and raises
+    must be placed at the end with no additional text in between.
+
+    References:
+        1. `Basic Google Style 
+           <https://www.sphinx-doc.org/en/master/usage/extensions/
+           example_google.html#example-google>`_.
+
+    See Also:
+        `Same, but in different directive 
+        <https://www.sphinx-doc.org/en/master/usage/extensions/
+        example_google.html#example-google>`_.
 
     Parameters:
         arg1: first argument.

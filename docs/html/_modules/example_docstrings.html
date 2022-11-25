@@ -1,41 +1,79 @@
-
 <!DOCTYPE html>
-
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>example_docstrings &#8212; PorePy 1.5 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../_static/nature.css" />
-    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-    <script src="../_static/jquery.js"></script>
-    <script src="../_static/underscore.js"></script>
-    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-    <script src="../_static/doctools.js"></script>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>example_docstrings &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/example_docstrings.html" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" /> 
-  </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">PorePy</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Module code</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">example_docstrings</a></li> 
-      </ul>
-    </div>  
+</head>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body" role="main">
-            
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../docsrc/porepy/numerics/numerics.html">Numerics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../docsrc/porepy/numerics/ad/numerics-ad.html">Automatic Differentiation</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../docsrc/howto/howto-docstring.html">1. How-To docstring</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">example_docstrings</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
   <h1>Source code for example_docstrings</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Welcome to the *How-To* on creating documentation for your functions, classes and submodules.</span>
@@ -83,7 +121,8 @@
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">NDArray</span><span class="p">,</span> <span class="n">DTypeLike</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
@@ -91,11 +130,11 @@
 <span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
 
 
-<span class="n">module_level_var_1</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;var&quot;</span>
+<span class="n">example_var_1</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;var&quot;</span>
 <span class="sd">&quot;&quot;&quot;Variables at the module level are documented inline after declaration.&quot;&quot;&quot;</span>
 
 
-<span class="n">module_level_var_2</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">example_var_2</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
 <span class="sd">&quot;&quot;&quot;Multi-line docstrings are also valid.</span>
 
 <span class="sd">You might want to use multiline docstrings when a more detailed description</span>
@@ -135,7 +174,7 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 
-<span class="n">module_level_var_3</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="n">example_var_3</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span>
 <span class="sd">&quot;&quot;&quot;int: **DO NOT** start the docstring with ``int:``, i.e. with type hints.</span>
 
 <span class="sd">This will render the below ``Type: int``, which is unnecessary due to the already present</span>
@@ -146,20 +185,24 @@
 
 <span class="sd">.. code:: Python</span>
 
-<span class="sd">    module_level_var_3: int = 1</span>
+<span class="sd">    example_var_3: int = 1</span>
 <span class="sd">    \&quot;\&quot;\&quot;This is var 3.\&quot;\&quot;\&quot;</span>
 
 <span class="sd">**DO NOT:**</span>
 
 <span class="sd">.. code:: Python</span>
 
-<span class="sd">    module_level_var_3 = 1</span>
+<span class="sd">    example_var_3 = 1</span>
 <span class="sd">    \&quot;\&quot;\&quot;int: This is var 3.\&quot;\&quot;\&quot;</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 
 
-<div class="viewcode-block" id="module_level_function_1"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.module_level_function_1">[docs]</a><span class="k">def</span> <span class="nf">module_level_function_1</span><span class="p">(</span><span class="n">arg1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg2</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">arg3</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="n">ExampleArrayLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
+<span class="sd">&quot;&quot;&quot;This is a custom type alias, including lists and numpy&#39;s ``ndarray``.&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="example_function_1"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_1">[docs]</a><span class="k">def</span> <span class="nf">example_function_1</span><span class="p">(</span><span class="n">arg1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg2</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">arg3</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;A short description of the functionality must fit in the first line.</span>
 
 <span class="sd">    Detailed description can be given next if necessary. The extended description</span>
@@ -172,10 +215,10 @@
 
 <span class="sd">    Note:</span>
 <span class="sd">        You can find the ``[source]`` link in the upper right corner of this function&#39;s</span>
-<span class="sd">        documentation and take a look at the Python and rst source code of this docstring,</span>
+<span class="sd">        signature and inspect the Python and rst source code of this docstring,</span>
 <span class="sd">        as well as for every docstring that follows.</span>
 
-<span class="sd">    The return value can be described using the Google Style directive *Returns:*.</span>
+<span class="sd">    The return value must be documented using the Google Style directive *Returns:*.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        arg1: Description of arg1.</span>
@@ -200,21 +243,25 @@
     <span class="k">return</span> <span class="p">(</span><span class="n">arg1</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">arg2</span><span class="p">))</span> <span class="ow">and</span> <span class="n">arg3</span></div>
 
 
-<div class="viewcode-block" id="module_level_function_2"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.module_level_function_2">[docs]</a><span class="k">def</span> <span class="nf">module_level_function_2</span><span class="p">(</span>
+<div class="viewcode-block" id="example_function_2"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_2">[docs]</a><span class="k">def</span> <span class="nf">example_function_2</span><span class="p">(</span>
     <span class="n">optional_arg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Optional arguments must be type-hinted using :class:`typing.Optional`.</span>
+    <span class="sd">&quot;&quot;&quot;This function demonstrates linking to objects inside docstrings, optional arguments and</span>
+<span class="sd">    the *Raises:* directive.</span>
+<span class="sd">    </span>
+<span class="sd">    Optional arguments must be type-hinted using :obj:`typing.Optional`.</span>
 
 <span class="sd">    As evident, you can link objects in-text. You can also link functions like</span>
-<span class="sd">    :meth:`module_level_function_1`.</span>
+<span class="sd">    :meth:`example_function_1`. Note the different usage of ``:obj:`` and ``:class:`` for</span>
+<span class="sd">    objects in third-party packages and objects in PorePy.</span>
 
 <span class="sd">    If ``*args`` or ``**kwargs`` are accepted,</span>
 <span class="sd">    they must be listed as ``*args`` and ``**kwargs`` in the *Parameters* directive.</span>
 
 <span class="sd">    Note:</span>
-<span class="sd">        We note that this function returns ``None`` as per signature.</span>
-<span class="sd">        This is the default return value of Python and as such does not need documentation.</span>
-<span class="sd">        I.e., we can omit the *Returns:* directive. However, it is important to explicitly</span>
+<span class="sd">        This function returns ``None`` as per signature.</span>
+<span class="sd">        It is the default return value of Python and as such does not need documentation.</span>
+<span class="sd">        I.e., we can omit the *Returns:* directive. However, it is obligatory to explicitly</span>
 <span class="sd">        specify the None return in the signature.</span>
 
 <span class="sd">    Parameters:</span>
@@ -242,15 +289,13 @@
     <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="module_level_function_3"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.module_level_function_3">[docs]</a><span class="k">def</span> <span class="nf">module_level_function_3</span><span class="p">(</span>
+<div class="viewcode-block" id="example_function_3"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_3">[docs]</a><span class="k">def</span> <span class="nf">example_function_3</span><span class="p">(</span>
     <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
     <span class="n">vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
     <span class="n">option</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;We demonstrate here the intra- and inter-doc linking to non-base-type Python objects</span>
-<span class="sd">    in the signature,</span>
-<span class="sd">    as well as how to document special requirements for the arguments.</span>
+    <span class="sd">&quot;&quot;&quot;This function demonstrates how to document special requirements for input arguments.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        mdg: A mixed-dimensional grid. Notice the usage of the acronym ``mdg``.</span>
@@ -258,13 +303,12 @@
 <span class="sd">            We use the type hint brackets to indicate its supposed length.</span>
 <span class="sd">            The required length is ``num_cells``, the number of cells. If unclear to what the</span>
 <span class="sd">            number refers, explain.</span>
-
 <span class="sd">            E.g. where ``num_cells`` denotes the number of cells in ``mdg``.</span>
 <span class="sd">        matrix (shape=(3, num_cells)): This argument is a sparse matrix with 3 rows and</span>
 <span class="sd">            ``num_cells`` columns.</span>
 <span class="sd">        option (optional): This argument has admissible values and a default value.</span>
 <span class="sd">            it can only be a string ``&#39;A&#39;``, ``&#39;B&#39;`` or ``&#39;C&#39;``. For such admissible values use</span>
-<span class="sd">            :class:`typing.literal` to denote them in the signature.</span>
+<span class="sd">            :obj:`typing.Literal` to denote them in the signature.</span>
 <span class="sd">            Since it has a default value, we mark it with ``(optional)``.</span>
 
 <span class="sd">    Returns:</span>
@@ -285,11 +329,11 @@
     <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="module_level_function_4"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.module_level_function_4">[docs]</a><span class="k">def</span> <span class="nf">module_level_function_4</span><span class="p">(</span>
+<div class="viewcode-block" id="example_function_4"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_4">[docs]</a><span class="k">def</span> <span class="nf">example_function_4</span><span class="p">(</span>
     <span class="n">vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Functions with multiple return values need better description in the *Returns:*</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;This function demonstrates how to document multiple return values in the *Returns:*</span>
 <span class="sd">    directive.</span>
 
 <span class="sd">    Parameters:</span>
@@ -300,18 +344,41 @@
 <span class="sd">        Every returned object needs a description. We can use the same structure as for</span>
 <span class="sd">        the parameters: indented block per returned object or value.</span>
 
-<span class="sd">        spmatrix:</span>
+<span class="sd">        spmatrix ``(shape=(3, nd))``:</span>
 <span class="sd">            Though technically the tuple is a single object, it often is of</span>
-<span class="sd">            importance what the tuple contains.</span>
+<span class="sd">            importance what the tuple contains. If the returned object has noteworthy</span>
+<span class="sd">            characteristic, explain them next to the bullet header, the same way as for</span>
+<span class="sd">            parameters.</span>
 <span class="sd">        ndarray:</span>
-<span class="sd">            We therefore use again the definition list structure with indented blocks to</span>
+<span class="sd">            Use the definition list structure with indented blocks to</span>
 <span class="sd">            describe the content individually. This makes of course only sense if the tuple</span>
 <span class="sd">            is of fixed length and/or contains objects of various types.</span>
-<span class="sd">        None:</span>
-<span class="sd">            The same rules hold for union return types.</span>
 
-<span class="sd">    Raises:</span>
-<span class="sd">        ValueError: If ``option`` is not in ``{&#39;A&#39;, &#39;B&#39;, &#39;C&#39;}``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="example_function_5"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_5">[docs]</a><span class="k">def</span> <span class="nf">example_function_5</span><span class="p">(</span>
+    <span class="n">array_like</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
+    <span class="n">ndarray_like</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
+    <span class="n">dtype_like</span><span class="p">:</span> <span class="n">DTypeLike</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExampleArrayLike</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;This function demonstrates type annotations using custom type aliases, including those</span>
+<span class="sd">    from third-party packages.</span>
+
+<span class="sd">    For Sphinx to display type aliases without parsing their complete expression,</span>
+<span class="sd">    a configuration is needed which maps the type alias to its source.</span>
+
+<span class="sd">    When encountering type aliases, which are not already covered by the configuration of</span>
+<span class="sd">    PorePy&#39;s docs, please contact the core developers.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        array_like: an argument of type :obj:`~numpy.typing.ArrayLike`</span>
+<span class="sd">        ndarray_like: an argument of type :obj:`~numpy.typing.NDArray`</span>
+<span class="sd">        dtype_like: an argument of type :obj:`~numpy.typing.DTypeLike`</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        a value of a custom array type :data:`ExampleArrayLike`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">pass</span></div>
@@ -322,11 +389,8 @@
 <span class="sd">    Their usage is equivalent, indicating only that this is a generator object, not a regular</span>
 <span class="sd">    function.</span>
 
-<span class="sd">    Examples:</span>
-<span class="sd">        The Google Style offers an *Examples:* directives where you can write text but also</span>
-<span class="sd">        include inline examples of code usage, without the special code directive from Sphinx.</span>
-<span class="sd">        An indented block with the content has to follow the directive. Like all for all</span>
-<span class="sd">        directives, a blank line after the indented block signalizes the end of the directive.</span>
+<span class="sd">    Example:</span>
+<span class="sd">        Here we demonstrate the usage of ``example_generator`` using the *Example:* directive:</span>
 
 <span class="sd">        &gt;&gt;&gt; print([i for i in example_generator(4)])</span>
 <span class="sd">        [0, 1, 2, 3]</span>
@@ -352,8 +416,31 @@
 
 <span class="sd">    *Note:* directives can be used the same way as for functions.</span>
 
-<span class="sd">    At the end follows obligatory the *Parameters:* directive and a *Raises:* directive,</span>
-<span class="sd">    if errors are raised in the constructor for some reason.</span>
+<span class="sd">    Example:</span>
+<span class="sd">        Using the *Example:* directive, you can provide simplified python syntax using ``&gt;&gt;&gt;``</span>
+<span class="sd">        on how to instantiate the class for example:</span>
+
+<span class="sd">        &gt;&gt;&gt; import example_docstrings as ed</span>
+<span class="sd">        &gt;&gt;&gt; A = ed.ExampleClass()</span>
+<span class="sd">        &gt;&gt;&gt; print(type(A))</span>
+<span class="sd">        &lt;class &#39;example_docstrings.ExampleClass&#39;&gt;</span>
+
+<span class="sd">    Use the *References:* and *See Also:* directives to provide links to sources or</span>
+<span class="sd">    inspirations for your implementation.</span>
+
+<span class="sd">    For readability reasons, we impose the same rules on the order of directives as for</span>
+<span class="sd">    functions. Meaning references/ see also, followed by parameters, return/yield and raises</span>
+<span class="sd">    must be placed at the end with no additional text in between.</span>
+
+<span class="sd">    References:</span>
+<span class="sd">        1. `Basic Google Style </span>
+<span class="sd">           &lt;https://www.sphinx-doc.org/en/master/usage/extensions/</span>
+<span class="sd">           example_google.html#example-google&gt;`_.</span>
+
+<span class="sd">    See Also:</span>
+<span class="sd">        `Same, but in different directive </span>
+<span class="sd">        &lt;https://www.sphinx-doc.org/en/master/usage/extensions/</span>
+<span class="sd">        example_google.html#example-google&gt;`_.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        arg1: first argument.</span>
@@ -502,42 +589,28 @@
         <span class="k">pass</span></div>
 </pre></div>
 
-            <div class="clearer"></div>
+           </div>
           </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
+  </div>
+
+   
+
+</footer>
         </div>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper">
-<div id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</div>
-<script>document.getElementById('searchbox').style.display = "block"</script>
-        </div>
-      </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related" role="navigation" aria-label="related navigation">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">PorePy</a> &#187;</li>
-          <li class="nav-item nav-item-1"><a href="index.html" >Module code</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">example_docstrings</a></li> 
-      </ul>
-    </div>
-    <div class="footer" role="contentinfo">
-        &#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..
-    </div>
-  </body>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
 </html>

@@ -1,47 +1,82 @@
-
 <!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
-
-    <title>1. How-To docstring &#8212; PorePy 1.5 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../../_static/nature.css" />
-    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-    <script src="../../_static/jquery.js"></script>
-    <script src="../../_static/underscore.js"></script>
-    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-    <script src="../../_static/doctools.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>1. How-To docstring &mdash; PorePy 1.5 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/howto/howto-docstring.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="prev" title="Automatic Differentiation" href="../porepy/numerics/ad/numerics-ad.html" /> 
-  </head><body>
-    <div class="related" role="navigation" aria-label="related navigation">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
-          <a href="../porepy/numerics/ad/numerics-ad.html" title="Automatic Differentiation"
-             accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">PorePy</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href=""><span class="section-number">1. </span>How-To docstring</a></li> 
-      </ul>
-    </div>  
+</head>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body" role="main">
-            
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+            <a href="../../index.html" class="icon icon-home"> PorePy
+          </a>
+              <div class="version">
+                docs/alpha
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../porepy/numerics/numerics.html">Numerics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../porepy/numerics/ad/numerics-ad.html">Automatic Differentiation</a></li>
+</ul>
+</li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">1. How-To docstring</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PorePy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content style-external-links">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active"><span class="section-number">1. </span>How-To docstring</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
   <section id="module-example_docstrings">
-<span id="how-to-docstring"></span><h1><span class="section-number">1. </span>How-To docstring<a class="headerlink" href="#module-example_docstrings" title="Permalink to this heading">¶</a></h1>
+<span id="how-to-docstring"></span><h1><span class="section-number">1. </span>How-To docstring<a class="headerlink" href="#module-example_docstrings" title="Permalink to this heading"></a></h1>
 <p>Welcome to the <em>How-To</em> on creating documentation for your functions, classes and submodules.
 Here we explain shortly how the documentation works and give examples for how to write proper
 docstrings.</p>
@@ -75,7 +110,7 @@ into the global structure of the PorePy documentation.
 This will be done in a next step. Before that, familiarize yourself with the various directives
 and their options beforehand.</p>
 <section id="docstring-basics">
-<h2><span class="section-number">1.1. </span>Docstring-Basics<a class="headerlink" href="#docstring-basics" title="Permalink to this heading">¶</a></h2>
+<h2><span class="section-number">1.1. </span>Docstring-Basics<a class="headerlink" href="#docstring-basics" title="Permalink to this heading"></a></h2>
 <ol class="arabic">
 <li><p>Python docstrings are started and ended using a triple &quot;&quot;&quot;, and are placed <em>below</em> the
 declaration of an object.</p>
@@ -103,9 +138,12 @@ after the 88th character column.</p>
 documenting.</p></li>
 </ol>
 <section id="directives">
-<h3><span class="section-number">1.1.1. </span>Directives<a class="headerlink" href="#directives" title="Permalink to this heading">¶</a></h3>
+<h3><span class="section-number">1.1.1. </span>Directives<a class="headerlink" href="#directives" title="Permalink to this heading"></a></h3>
 <p>Next to plain text, the content of your documentation can be created using <em>directives</em>,
 followed by a block of indented text.</p>
+<p>Directives are structural blocks inside the text of a documentation.
+They provide specific formatting for sections dedicated to e.g., function parameters,
+return values or exmaple code.</p>
 <p>For example, the <em>note</em> directive in plain rst code</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">note</span><span class="p">::</span> <span class="n">Implementation</span>
 
@@ -170,7 +208,7 @@ Some need blank lines before and after the directive and its indented block. Etc
 </section>
 </section>
 <section id="porepy-style">
-<h2><span class="section-number">1.2. </span>PorePy style<a class="headerlink" href="#porepy-style" title="Permalink to this heading">¶</a></h2>
+<h2><span class="section-number">1.2. </span>PorePy style<a class="headerlink" href="#porepy-style" title="Permalink to this heading"></a></h2>
 <p>As mentioned above, the PorePy style is Google Style with minor changes. These changes involve
 the developer team’s principles of good code and aesthetics. They also involve the project’s
 style guide, especially naming conventions. For more information check out the
@@ -199,17 +237,48 @@ the annotations.</p>
 <p>As a consequence, <strong>we abstain from including type hints in docstrings</strong> and keep them light.</p>
 <p>This rule does not exclude custom linking and referencing in-text, where a developer feels the
 necessity to do so.</p>
+<p class="rubric">Google style directives</p>
+<p>Google style directives are aliases for standard directives, which simplify the usage and syntax.
+Besides the obligatory declaration of parameters, return values and raised errors,
+the PorePy style encourages the use of other sections to provide notes, example code usage, references, etc.</p>
+<p>For a list of all supported Google style directives,
+<a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#docstring-sections">see Google style docstring sections</a>.</p>
+<p>The compulsory order of directives inside a docstring is:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Examples, Note, …</p></li>
+<li><p>References, See Also</p></li>
+<li><p>Parameters</p></li>
+<li><p>Returns/ Yields</p></li>
+<li><p>Raises</p></li>
+</ol>
+</div></blockquote>
+<p>Other rules:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>When using Google Style directives do not type additional text <strong>between</strong> and <strong>after</strong> the
+directives References/See Also, Parameters, Returns/Yields and Raises.</p></li>
+<li><p>End every docstring with a blank line before &quot;&quot;&quot;. This is especially important after
+the <em>Returns:</em> directive and its indented block.</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The Google Style directives are only valid when used inside docstrings,
+but not so when used in .rst files. Keep this in mind, in case you deal with the .rst
+structure of the webpage.</p>
+</div>
 <section id="documenting-variables">
-<h3><span class="section-number">1.2.1. </span>Documenting variables<a class="headerlink" href="#documenting-variables" title="Permalink to this heading">¶</a></h3>
+<h3><span class="section-number">1.2.1. </span>Documenting variables<a class="headerlink" href="#documenting-variables" title="Permalink to this heading"></a></h3>
 <dl class="py data">
-<dt class="sig sig-object py" id="example_docstrings.module_level_var_1">
-<span class="sig-name descname"><span class="pre">module_level_var_1</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#example_docstrings.module_level_var_1" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="example_docstrings.example_var_1">
+<span class="sig-name descname"><span class="pre">example_var_1</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#example_docstrings.example_var_1" title="Permalink to this definition"></a></dt>
 <dd><p>Variables at the module level are documented inline after declaration.</p>
 </dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="example_docstrings.module_level_var_2">
-<span class="sig-name descname"><span class="pre">module_level_var_2</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#example_docstrings.module_level_var_2" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="example_docstrings.example_var_2">
+<span class="sig-name descname"><span class="pre">example_var_2</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#example_docstrings.example_var_2" title="Permalink to this definition"></a></dt>
 <dd><p>Multi-line docstrings are also valid.</p>
 <p>You might want to use multiline docstrings when a more detailed description
 of the variable is required.</p>
@@ -241,35 +310,42 @@ blank line.</p>
 </dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="example_docstrings.module_level_var_3">
-<span class="sig-name descname"><span class="pre">module_level_var_3</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#example_docstrings.module_level_var_3" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="example_docstrings.example_var_3">
+<span class="sig-name descname"><span class="pre">example_var_3</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#example_docstrings.example_var_3" title="Permalink to this definition"></a></dt>
 <dd><p><strong>DO NOT</strong> start the docstring with <code class="docutils literal notranslate"><span class="pre">int:</span></code>, i.e. with type hints.</p>
 <p>This will render the below <code class="docutils literal notranslate"><span class="pre">Type:</span> <span class="pre">int</span></code>, which is unnecessary due to the already present
 annotation after the variable name. As you can test above, clicking on <em>int</em> will forward you
 to the right documentation.</p>
 <p><strong>DO:</strong></p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">module_level_var_3</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">example_var_3</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
 <span class="sd">&quot;&quot;&quot;This is var 3.&quot;&quot;&quot;</span>
 </pre></div>
 </div>
 <p><strong>DO NOT:</strong></p>
-<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">module_level_var_3</span> <span class="o">=</span> <span class="mi">1</span>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">example_var_3</span> <span class="o">=</span> <span class="mi">1</span>
 <span class="sd">&quot;&quot;&quot;int: This is var 3.&quot;&quot;&quot;</span>
 </pre></div>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dt class="field-odd">Type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
+<dl class="py data">
+<dt class="sig sig-object py" id="example_docstrings.ExampleArrayLike">
+<span class="sig-name descname"><span class="pre">ExampleArrayLike</span></span><a class="headerlink" href="#example_docstrings.ExampleArrayLike" title="Permalink to this definition"></a></dt>
+<dd><p>This is a custom type alias, including lists and numpy’s <code class="docutils literal notranslate"><span class="pre">ndarray</span></code>.</p>
+<p>alias of <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></a>]</p>
+</dd></dl>
+
 </section>
 <section id="documenting-functions">
-<h3><span class="section-number">1.2.2. </span>Documenting functions<a class="headerlink" href="#documenting-functions" title="Permalink to this heading">¶</a></h3>
+<h3><span class="section-number">1.2.2. </span>Documenting functions<a class="headerlink" href="#documenting-functions" title="Permalink to this heading"></a></h3>
 <dl class="py function">
-<dt class="sig sig-object py" id="example_docstrings.module_level_function_1">
-<span class="sig-name descname"><span class="pre">module_level_function_1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arg1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#module_level_function_1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.module_level_function_1" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="example_docstrings.example_function_1">
+<span class="sig-name descname"><span class="pre">example_function_1</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arg1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg3</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_1"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_1" title="Permalink to this definition"></a></dt>
 <dd><p>A short description of the functionality must fit in the first line.</p>
 <p>Detailed description can be given next if necessary. The extended description
 can of course span several lines.</p>
@@ -279,12 +355,12 @@ without indentation.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>You can find the <code class="docutils literal notranslate"><span class="pre">[source]</span></code> link in the upper right corner of this function’s
-documentation and take a look at the Python and rst source code of this docstring,
+signature and inspect the Python and rst source code of this docstring,
 as well as for every docstring that follows.</p>
 </div>
-<p>The return value can be described using the Google Style directive <em>Returns:</em>.</p>
+<p>The return value must be documented using the Google Style directive <em>Returns:</em>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>arg1</strong> – Description of arg1.</p></li>
 <li><p><strong>arg2</strong> – <p>Description of arg2. If the description of a parameter spans more than one line,
@@ -292,11 +368,11 @@ the lines must be indented.</p>
 <p>You can even use multiple paragraphs for describing a parameter. There
 are no restrictions in this regard.</p>
 </p></li>
-<li><p><strong>arg3</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <strong>DO NOT</strong> include type hints in the <em>Parameters</em> directive.
+<li><p><strong>arg3</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – <strong>DO NOT</strong> include type hints in the <em>Parameters</em> directive.
 Utilize annotations in the signature instead.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p><p>Describe the return value here. Multiple lines can be used and you have
 to indent the lines.</p>
 <p><strong>DO NOT</strong> use type hints here as they are present in the signature.</p>
@@ -306,24 +382,27 @@ to indent the lines.</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="example_docstrings.module_level_function_2">
-<span class="sig-name descname"><span class="pre">module_level_function_2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optional_arg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#module_level_function_2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.module_level_function_2" title="Permalink to this definition">¶</a></dt>
-<dd><p>Optional arguments must be type-hinted using <code class="xref py py-class docutils literal notranslate"><span class="pre">typing.Optional</span></code>.</p>
+<dt class="sig sig-object py" id="example_docstrings.example_function_2">
+<span class="sig-name descname"><span class="pre">example_function_2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optional_arg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_2" title="Permalink to this definition"></a></dt>
+<dd><p>This function demonstrates linking to objects inside docstrings, optional arguments and
+the <em>Raises:</em> directive.</p>
+<p>Optional arguments must be type-hinted using <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">typing.Optional</span></code></a>.</p>
 <p>As evident, you can link objects in-text. You can also link functions like
-<a class="reference internal" href="#example_docstrings.module_level_function_1" title="example_docstrings.module_level_function_1"><code class="xref py py-meth docutils literal notranslate"><span class="pre">module_level_function_1()</span></code></a>.</p>
+<a class="reference internal" href="#example_docstrings.example_function_1" title="example_docstrings.example_function_1"><code class="xref py py-meth docutils literal notranslate"><span class="pre">example_function_1()</span></code></a>. Note the different usage of <code class="docutils literal notranslate"><span class="pre">:obj:</span></code> and <code class="docutils literal notranslate"><span class="pre">:class:</span></code> for
+objects in third-party packages and objects in PorePy.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">*args</span></code> or <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> are accepted,
 they must be listed as <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> in the <em>Parameters</em> directive.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>We note that this function returns <code class="docutils literal notranslate"><span class="pre">None</span></code> as per signature.
-This is the default return value of Python and as such does not need documentation.
-I.e., we can omit the <em>Returns:</em> directive. However, it is important to explicitly
+<p>This function returns <code class="docutils literal notranslate"><span class="pre">None</span></code> as per signature.
+It is the default return value of Python and as such does not need documentation.
+I.e., we can omit the <em>Returns:</em> directive. However, it is obligatory to explicitly
 specify the None return in the signature.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>optional_arg</strong> (<em>optional</em>) – Description of <code class="docutils literal notranslate"><span class="pre">optional_arg</span></code>.
+<li><p><strong>optional_arg</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – Description of <code class="docutils literal notranslate"><span class="pre">optional_arg</span></code>.
 The default value is described at the end.
 Use easily spottable wording like ‘Defaults to None.’ and mark the argument using
 <code class="docutils literal notranslate"><span class="pre">(optional)</span></code> after the name.</p></li>
@@ -338,7 +417,7 @@ keywords:</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dt class="field-even">Raises</dt>
 <dd class="field-even"><ul class="simple">
 <li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – You can use the the Google Style directive <em>Raises:</em> to describe error
     sources you have programmed. Here for example we can raise a value error
@@ -351,30 +430,27 @@ keywords:</p>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="example_docstrings.module_level_function_3">
-<span class="sig-name descname"><span class="pre">module_level_function_3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MixedDimensionalGrid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">option</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'A'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'B'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'C'</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'A'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#module_level_function_3"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.module_level_function_3" title="Permalink to this definition">¶</a></dt>
-<dd><p>We demonstrate here the intra- and inter-doc linking to non-base-type Python objects
-in the signature,
-as well as how to document special requirements for the arguments.</p>
+<dt class="sig sig-object py" id="example_docstrings.example_function_3">
+<span class="sig-name descname"><span class="pre">example_function_3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MixedDimensionalGrid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">option</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'A'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'B'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'C'</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'A'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_3"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_3" title="Permalink to this definition"></a></dt>
+<dd><p>This function demonstrates how to document special requirements for input arguments.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mdg</strong> – A mixed-dimensional grid. Notice the usage of the acronym <code class="docutils literal notranslate"><span class="pre">mdg</span></code>.</p></li>
-<li><p><strong>vector</strong> (<em>len=num_cells</em>) – <p>This vector’s special requirement is a certain length.
+<li><p><strong>vector</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">len=num_cells</span></code>) – This vector’s special requirement is a certain length.
 We use the type hint brackets to indicate its supposed length.
 The required length is <code class="docutils literal notranslate"><span class="pre">num_cells</span></code>, the number of cells. If unclear to what the
-number refers, explain.</p>
-<p>E.g. where <code class="docutils literal notranslate"><span class="pre">num_cells</span></code> denotes the number of cells in <code class="docutils literal notranslate"><span class="pre">mdg</span></code>.</p>
-</p></li>
-<li><p><strong>matrix</strong> (<em>shape=</em><em>(</em><em>3</em><em>, </em><em>num_cells</em><em>)</em>) – This argument is a sparse matrix with 3 rows and
+number refers, explain.
+E.g. where <code class="docutils literal notranslate"><span class="pre">num_cells</span></code> denotes the number of cells in <code class="docutils literal notranslate"><span class="pre">mdg</span></code>.</p></li>
+<li><p><strong>matrix</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_cells)</span></code>) – This argument is a sparse matrix with 3 rows and
 <code class="docutils literal notranslate"><span class="pre">num_cells</span></code> columns.</p></li>
-<li><p><strong>option</strong> (<em>optional</em>) – This argument has admissible values and a default value.
+<li><p><strong>option</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – This argument has admissible values and a default value.
 it can only be a string <code class="docutils literal notranslate"><span class="pre">'A'</span></code>, <code class="docutils literal notranslate"><span class="pre">'B'</span></code> or <code class="docutils literal notranslate"><span class="pre">'C'</span></code>. For such admissible values use
-<code class="xref py py-class docutils literal notranslate"><span class="pre">typing.literal</span></code> to denote them in the signature.
+<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">typing.Literal</span></code></a> to denote them in the signature.
 Since it has a default value, we mark it with <code class="docutils literal notranslate"><span class="pre">(optional)</span></code>.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p><p>Describe the return value here. You can also describe its dependence on the value of
 <code class="docutils literal notranslate"><span class="pre">option</span></code> here, or alternatively in the extended description at the beginning of the
 docstring.</p>
@@ -386,91 +462,93 @@ docstring.</p>
 </ul>
 </p>
 </dd>
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dt class="field-odd">Raises</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">option</span></code> is not in <code class="docutils literal notranslate"><span class="pre">{'A',</span> <span class="pre">'B',</span> <span class="pre">'C'}</span></code>.</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="example_docstrings.module_level_function_4">
-<span class="sig-name descname"><span class="pre">module_level_function_4</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">np.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">sps.spmatrix</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><span class="pre">sps.spmatrix</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">np.ndarray</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#module_level_function_4"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.module_level_function_4" title="Permalink to this definition">¶</a></dt>
-<dd><p>Functions with multiple return values need better description in the <em>Returns:</em>
+<dt class="sig sig-object py" id="example_docstrings.example_function_4">
+<span class="sig-name descname"><span class="pre">example_function_4</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">spmatrix</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.9.3)"><span class="pre">scipy.sparse._base.spmatrix</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.23)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_4"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_4" title="Permalink to this definition"></a></dt>
+<dd><p>This function demonstrates how to document multiple return values in the <em>Returns:</em>
 directive.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>vector</strong> – some vector</p></li>
 <li><p><strong>matrix</strong> – some matrix</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p><p>Every returned object needs a description. We can use the same structure as for
 the parameters: indented block per returned object or value.</p>
 <dl class="simple">
-<dt>spmatrix:</dt><dd><p>Though technically the tuple is a single object, it often is of
-importance what the tuple contains.</p>
+<dt>spmatrix <code class="docutils literal notranslate"><span class="pre">(shape=(3,</span> <span class="pre">nd))</span></code>:</dt><dd><p>Though technically the tuple is a single object, it often is of
+importance what the tuple contains. If the returned object has noteworthy
+characteristic, explain them next to the bullet header, the same way as for
+parameters.</p>
 </dd>
-<dt>ndarray:</dt><dd><p>We therefore use again the definition list structure with indented blocks to
+<dt>ndarray:</dt><dd><p>Use the definition list structure with indented blocks to
 describe the content individually. This makes of course only sense if the tuple
 is of fixed length and/or contains objects of various types.</p>
-</dd>
-<dt>None:</dt><dd><p>The same rules hold for union return types.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">option</span></code> is not in <code class="docutils literal notranslate"><span class="pre">{'A',</span> <span class="pre">'B',</span> <span class="pre">'C'}</span></code>.</p>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="example_docstrings.example_function_5">
+<span class="sig-name descname"><span class="pre">example_function_5</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array_like</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ArrayLike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndarray_like</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype_like</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DTypeLike</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ExampleArrayLike</span></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_function_5"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_function_5" title="Permalink to this definition"></a></dt>
+<dd><p>This function demonstrates type annotations using custom type aliases, including those
+from third-party packages.</p>
+<p>For Sphinx to display type aliases without parsing their complete expression,
+a configuration is needed which maps the type alias to its source.</p>
+<p>When encountering type aliases, which are not already covered by the configuration of
+PorePy’s docs, please contact the core developers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>array_like</strong> – an argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike" title="(in NumPy v1.23)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ArrayLike</span></code></a></p></li>
+<li><p><strong>ndarray_like</strong> – an argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray" title="(in NumPy v1.23)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">NDArray</span></code></a></p></li>
+<li><p><strong>dtype_like</strong> – an argument of type <a class="reference external" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.DTypeLike" title="(in NumPy v1.23)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DTypeLike</span></code></a></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>a value of a custom array type <a class="reference internal" href="#example_docstrings.ExampleArrayLike" title="example_docstrings.ExampleArrayLike"><code class="xref py py-data docutils literal notranslate"><span class="pre">ExampleArrayLike</span></code></a>.</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="example_docstrings.example_generator">
-<span class="sig-name descname"><span class="pre">example_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.11)"><span class="pre">Generator</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_generator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_generator" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">example_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.11)"><span class="pre">Generator</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#example_generator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.example_generator" title="Permalink to this definition"></a></dt>
 <dd><p>When documenting a generator, use the <em>Yields:</em> directive instead of <em>Returns:</em>.
 Their usage is equivalent, indicating only that this is a generator object, not a regular
 function.</p>
-<p class="rubric">Examples</p>
-<p>The Google Style offers an <em>Examples:</em> directives where you can write text but also
-include inline examples of code usage, without the special code directive from Sphinx.
-An indented block with the content has to follow the directive. Like all for all
-directives, a blank line after the indented block signalizes the end of the directive.</p>
+<div class="admonition-example admonition">
+<p class="admonition-title">Example</p>
+<p>Here we demonstrate the usage of <code class="docutils literal notranslate"><span class="pre">example_generator</span></code> using the <em>Example:</em> directive:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">example_generator</span><span class="p">(</span><span class="mi">4</span><span class="p">)])</span>
 <span class="go">[0, 1, 2, 3]</span>
 </pre></div>
 </div>
+</div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>n</strong> – Some upper integer limit.</p>
 </dd>
-<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dt class="field-even">Yields</dt>
 <dd class="field-even"><p>numbers until <code class="docutils literal notranslate"><span class="pre">n</span></code> is reached.</p>
 </dd>
 </dl>
 </dd></dl>
 
-<p class="rubric">Directives inside docstrings</p>
-<ul class="simple">
-<li><dl class="simple">
-<dt>Write the directive blocks in the following order</dt><dd><ol class="arabic simple">
-<li><p>Examples, Note</p></li>
-<li><p>Parameters</p></li>
-<li><p>Returns/ Yields</p></li>
-<li><p>Raises</p></li>
-</ol>
-</dd>
-</dl>
-</li>
-<li><p>When using Google Style directives do not type additional text <strong>between</strong> and <strong>after</strong> the
-directives Parameters, Returns/Yields and Raises.</p></li>
-<li><p>End every docstring with a blank line before &quot;&quot;&quot;. This is especially important after
-the <em>Returns:</em> directive and its indented block.</p></li>
-</ul>
 </section>
 <section id="documenting-classes">
-<h3><span class="section-number">1.2.3. </span>Documenting classes<a class="headerlink" href="#documenting-classes" title="Permalink to this heading">¶</a></h3>
+<h3><span class="section-number">1.2.3. </span>Documenting classes<a class="headerlink" href="#documenting-classes" title="Permalink to this heading"></a></h3>
 <p>When documenting classes, three aspects have to be considered.</p>
 <p class="rubric">Documenting Constructor Arguments</p>
 <p>In PorePy, the constructor description is to be included in the class-docstring, <strong>not</strong> in the
@@ -532,17 +610,41 @@ and static methods and sorts them alphabetically inside each group.</p>
 <p class="rubric">Example class documentation</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ExampleClass</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arg1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ExampleClass</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arg1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>A quick purpose of the class is to be provided in the first line.</p>
 <p>After the first line, a broader, multi-line description of the class can follow. It can
 contain multiple paragraphs as well as elements like code snippets.</p>
 <p><em>Example:</em> directives are encouraged to demonstrate the usage of a class.</p>
 <p><em>Note:</em> directives can be used the same way as for functions.</p>
-<p>At the end follows obligatory the <em>Parameters:</em> directive and a <em>Raises:</em> directive,
-if errors are raised in the constructor for some reason.</p>
+<div class="admonition-example admonition">
+<p class="admonition-title">Example</p>
+<p>Using the <em>Example:</em> directive, you can provide simplified python syntax using <code class="docutils literal notranslate"><span class="pre">&gt;&gt;&gt;</span></code>
+on how to instantiate the class for example:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">example_docstrings</span> <span class="k">as</span> <span class="nn">ed</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="n">ed</span><span class="o">.</span><span class="n">ExampleClass</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">A</span><span class="p">))</span>
+<span class="go">&lt;class &#39;example_docstrings.ExampleClass&#39;&gt;</span>
+</pre></div>
+</div>
+</div>
+<p>Use the <em>References:</em> and <em>See Also:</em> directives to provide links to sources or
+inspirations for your implementation.</p>
+<p>For readability reasons, we impose the same rules on the order of directives as for
+functions. Meaning references/ see also, followed by parameters, return/yield and raises
+must be placed at the end with no additional text in between.</p>
+<div class="admonition-references admonition">
+<p class="admonition-title">References</p>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google">Basic Google Style</a>.</p></li>
+</ol>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference external" href="https://www.sphinx-doc.org/en/master/usage/extensions/example_google.html#example-google">Same, but in different directive</a>.</p>
+</div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>arg1</strong> – first argument.</p></li>
 <li><p><strong>arg2</strong> – second argument.</p></li>
@@ -551,21 +653,21 @@ if errors are raised in the constructor for some reason.</p>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.example_class_method">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">example_class_method</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass.example_class_method"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass.example_class_method" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">example_class_method</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass.example_class_method"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass.example_class_method" title="Permalink to this definition"></a></dt>
 <dd><p>This is the docstring of a class method.</p>
 <p>Note that the <code class="docutils literal notranslate"><span class="pre">self</span></code> argument is replaced by the <code class="docutils literal notranslate"><span class="pre">cls</span></code> argument.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.example_method">
-<span class="sig-name descname"><span class="pre">example_method</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass.example_method"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass.example_method" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">example_method</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass.example_method"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass.example_method" title="Permalink to this definition"></a></dt>
 <dd><p>A short description of the method must fit in the first line.</p>
 <p>A more elaborate description can follow afterwards.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>arg</strong> – The first argument (even though <code class="docutils literal notranslate"><span class="pre">self</span></code> is technically the first one).</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>True.</p>
 </dd>
 </dl>
@@ -573,25 +675,25 @@ if errors are raised in the constructor for some reason.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.example_static_method">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">example_static_method</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass.example_static_method"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass.example_static_method" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">example_static_method</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/example_docstrings.html#ExampleClass.example_static_method"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#example_docstrings.ExampleClass.example_static_method" title="Permalink to this definition"></a></dt>
 <dd><p>This is the docstring of a static method.</p>
 <p>Note the absence of <code class="docutils literal notranslate"><span class="pre">self</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.attribute_1">
-<span class="sig-name descname"><span class="pre">attribute_1</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.attribute_1" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">attribute_1</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.attribute_1" title="Permalink to this definition"></a></dt>
 <dd><p>This is how to properly document an instance-level attribute in the constructor.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.attribute_2">
-<span class="sig-name descname"><span class="pre">attribute_2</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.attribute_2" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">attribute_2</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.attribute_2" title="Permalink to this definition"></a></dt>
 <dd><p>This is an instance-level attribute with a redundant field ‘Type:’ caused by
 type hints in the docstring. The type should only be given by its annotation.
 <strong>DO NOT</strong> use type hints in docstrings (cannot repeat often enough).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dt class="field-odd">Type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></p>
 </dd>
 </dl>
@@ -599,7 +701,7 @@ type hints in the docstring. The type should only be given by its annotation.
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.attribute_3">
-<span class="sig-name descname"><span class="pre">attribute_3</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#example_docstrings.ExampleClass.attribute_3" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">attribute_3</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#example_docstrings.ExampleClass.attribute_3" title="Permalink to this definition"></a></dt>
 <dd><p>Some attributes are calculated during construction, possibly in a separate method.</p>
 <p>Document nevertheless what the attribute contains and what it is used for etc.,
 but leave the documentation of how it is calculated to the separate method.</p>
@@ -607,7 +709,7 @@ but leave the documentation of how it is calculated to the separate method.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.class_attribute_1">
-<span class="sig-name descname"><span class="pre">class_attribute_1</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#example_docstrings.ExampleClass.class_attribute_1" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">class_attribute_1</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#example_docstrings.ExampleClass.class_attribute_1" title="Permalink to this definition"></a></dt>
 <dd><p>This is how to properly document a class-level attribute.</p>
 <p>The value 1 is shown in the docs, because it is static upon class type creation and Sphinx
 realizes that.</p>
@@ -615,12 +717,12 @@ realizes that.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.class_attribute_2">
-<span class="sig-name descname"><span class="pre">class_attribute_2</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'A'</span></em><a class="headerlink" href="#example_docstrings.ExampleClass.class_attribute_2" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">class_attribute_2</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'A'</span></em><a class="headerlink" href="#example_docstrings.ExampleClass.class_attribute_2" title="Permalink to this definition"></a></dt>
 <dd><p>This is a class attribute with a redundant field ‘Type:’ caused by type hints
 in the docstring. The type should only be given by its annotation.
 <strong>DO NOT</strong> use type hints in docstrings.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dt class="field-odd">Type</dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></p>
 </dd>
 </dl>
@@ -628,13 +730,13 @@ in the docstring. The type should only be given by its annotation.
 
 <dl class="py property">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.readonly_property">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">readonly_property</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.readonly_property" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">readonly_property</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.readonly_property" title="Permalink to this definition"></a></dt>
 <dd><p>Document properties only in their getter-methods.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="example_docstrings.ExampleClass.readwrite_property">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">readwrite_property</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.readwrite_property" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">readwrite_property</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#example_docstrings.ExampleClass.readwrite_property" title="Permalink to this definition"></a></dt>
 <dd><p>Properties with both a getter and setter should only be documented in their
 getter method.</p>
 <p>If the setter method contains notable behavior, it should be
@@ -645,7 +747,7 @@ mentioned here in the getter documentation.</p>
 
 </section>
 <section id="module-level-documentation">
-<h3><span class="section-number">1.2.4. </span>Module-level documentation<a class="headerlink" href="#module-level-documentation" title="Permalink to this heading">¶</a></h3>
+<h3><span class="section-number">1.2.4. </span>Module-level documentation<a class="headerlink" href="#module-level-documentation" title="Permalink to this heading"></a></h3>
 <p>Module level documentation can be achieved by writing a docstring at the very top of a file.
 Subpackages i.e., folders containing an <code class="docutils literal notranslate"><span class="pre">__init__</span></code> file and multiple modules, have their
 docstring at the top of the <code class="docutils literal notranslate"><span class="pre">__init__</span></code> file.
@@ -662,69 +764,30 @@ integration of a module’s documentation with the core developers.</p>
 </section>
 
 
-            <div class="clearer"></div>
+           </div>
           </div>
-        </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper">
-  <div>
-    <h3><a href="../../index.html">Table of Contents</a></h3>
-    <ul>
-<li><a class="reference internal" href="#">1. How-To docstring</a><ul>
-<li><a class="reference internal" href="#docstring-basics">1.1. Docstring-Basics</a><ul>
-<li><a class="reference internal" href="#directives">1.1.1. Directives</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#porepy-style">1.2. PorePy style</a><ul>
-<li><a class="reference internal" href="#documenting-variables">1.2.1. Documenting variables</a></li>
-<li><a class="reference internal" href="#documenting-functions">1.2.2. Documenting functions</a></li>
-<li><a class="reference internal" href="#documenting-classes">1.2.3. Documenting classes</a></li>
-<li><a class="reference internal" href="#module-level-documentation">1.2.4. Module-level documentation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../porepy/numerics/ad/numerics-ad.html" class="btn btn-neutral float-left" title="Automatic Differentiation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
 
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..</p>
   </div>
-  <div>
-    <h4>Previous topic</h4>
-    <p class="topless"><a href="../porepy/numerics/ad/numerics-ad.html"
-                          title="previous chapter">Automatic Differentiation</a></p>
-  </div>
-<div id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="../../search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</div>
-<script>document.getElementById('searchbox').style.display = "block"</script>
+
+   
+
+</footer>
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related" role="navigation" aria-label="related navigation">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
-          <a href="../porepy/numerics/ad/numerics-ad.html" title="Automatic Differentiation"
-             >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../../index.html">PorePy</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href=""><span class="section-number">1. </span>How-To docstring</a></li> 
-      </ul>
-    </div>
-    <div class="footer" role="contentinfo">
-        &#169; Copyright 2022 UiB Center for Modeling of Coupled Subsurface Dynamics, GNU LESSER GENERAL PUBLIC LICENSE Version 3, 29 June 2007..
-    </div>
-  </body>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
 </html>
