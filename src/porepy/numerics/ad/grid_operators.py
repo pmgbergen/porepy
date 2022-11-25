@@ -428,7 +428,7 @@ class MortarProjections(Operator):
             # secondary subdomains to project to. If the mortar projection is constructed
             # for a different case (hard to imagine what, but who knows), it is not
             # clear what to do, so we'll raise an error.
-            assert len(subdomains) == 1
+            # assert len(subdomains) == 1
 
             num_cells_lower_dimension = sum([g.num_cells for g in subdomains]) * dim
             num_faces_higher_dimension = sum([g.num_faces for g in subdomains]) * dim
@@ -585,22 +585,26 @@ class Trace(Operator):
         trace: list[sps.spmatrix] = []
         inv_trace: list[sps.spmatrix] = []
 
-        for sd in subdomains:
-            if self._is_scalar:
+        if len(subdomains) > 0:
+            for sd in subdomains:
+                if self._is_scalar:
 
-                # TEMPORARY CONSTRUCT: Use the divergence operator as a trace.
-                # It would be better to define a dedicated function for this,
-                # perhaps in the grid itself.
-                div = np.abs(pp.fvutils.scalar_divergence(sd))
+                    # TEMPORARY CONSTRUCT: Use the divergence operator as a trace.
+                    # It would be better to define a dedicated function for this,
+                    # perhaps in the grid itself.
+                    div = np.abs(pp.fvutils.scalar_divergence(sd))
 
-                # Restrict global cell values to the local grid, use transpose of div
-                # to map cell values to faces.
-                trace.append(div.T * cell_projections[sd].T)
-                # Similarly restrict a global face quantity to the local grid, then
-                # map back to cells.
-                inv_trace.append(div * face_projections[sd].T)
-            else:
-                raise NotImplementedError("kronecker")
+                    # Restrict global cell values to the local grid, use transpose of div
+                    # to map cell values to faces.
+                    trace.append(div.T * cell_projections[sd].T)
+                    # Similarly restrict a global face quantity to the local grid, then
+                    # map back to cells.
+                    inv_trace.append(div * face_projections[sd].T)
+                else:
+                    raise NotImplementedError("kronecker")
+        else:
+            trace = [sps.csr_matrix((0, 0))]
+            inv_trace = [sps.csr_matrix((0, 0))]
         # Stack both trace and inv_trace vertically to make them into mappings to
         # global quantities.
         # Wrap the stacked matrices into an Ad object
@@ -1066,9 +1070,10 @@ def _subgrid_projections(
     """
     face_projection: dict[pp.Grid, np.ndarray] = {}
     cell_projection: dict[pp.Grid, np.ndarray] = {}
-    are_interfaces = isinstance(subdomains[0], pp.MortarGrid)
-    if not are_interfaces:
-        tot_num_faces = np.sum([g.num_faces for g in subdomains]) * dim
+    if len(subdomains) == 0:
+        return cell_projection, face_projection
+
+    tot_num_faces = np.sum([g.num_faces for g in subdomains]) * dim
     tot_num_cells = np.sum([g.num_cells for g in subdomains]) * dim
 
     face_offset = 0
@@ -1089,19 +1094,18 @@ def _subgrid_projections(
         ).tocsc()
         cell_offset = cell_ind[-1] + 1
 
-        if not are_interfaces:
-            face_ind = face_offset + pp.fvutils.expand_indices_nd(
-                np.arange(sd.num_faces), dim
-            )
-            face_sz, cell_sz = sd.num_faces * dim, sd.num_cells * dim
-            face_projection[sd] = sps.coo_matrix(
-                (np.ones(face_sz), (face_ind, np.arange(face_sz))),
-                shape=(tot_num_faces, face_sz),
-            ).tocsc()  # Again use csc storage, since num_cols < num_rows
+        face_ind = face_offset + pp.fvutils.expand_indices_nd(
+            np.arange(sd.num_faces), dim
+        )
+        face_sz, cell_sz = sd.num_faces * dim, sd.num_cells * dim
+        face_projection[sd] = sps.coo_matrix(
+            (np.ones(face_sz), (face_ind, np.arange(face_sz))),
+            shape=(tot_num_faces, face_sz),
+        ).tocsc()  # Again use csc storage, since num_cols < num_rows
 
-            # Correct start of the numbering for the next grid
-            if sd.dim > 0:
-                # Point subdomains have no faces
-                face_offset = face_ind[-1] + 1
+        # Correct start of the numbering for the next grid
+        if sd.dim > 0:
+            # Point subdomains have no faces
+            face_offset = face_ind[-1] + 1
 
     return cell_projection, face_projection

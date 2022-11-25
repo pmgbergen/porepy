@@ -338,7 +338,7 @@ class DarcysLawFV:
             Cell-wise nd-vector source term operator
         """
         val: np.ndarray = self.fluid.convert_units(0, "m*s^-2")
-        size = np.sum([g.num_cells for g in grids]) * self.nd
+        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
         source: pp.ad.Array = ad_wrapper(
             val, array=True, size=size, name="zero_vector_source"
         )
@@ -611,11 +611,8 @@ class AdvectiveFlux:
             Operator representing the advective flux on the interfaces.
         """
         # If no interfaces are given, make sure to proceed with a non-empty subdomain
-        # list.
-        if not interfaces:
-            subdomains = self.mdg.subdomains(dim=self.nd)
-        else:
-            subdomains = self.interfaces_to_subdomains(interfaces)
+        # list if relevant.
+        subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=1
         )
