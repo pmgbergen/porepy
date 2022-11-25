@@ -232,6 +232,7 @@ class SolidConstants(MaterialConstants):
     def __init__(self, constants: Optional[dict] = None):
         # Default values, sorted alphabetically
         default_constants = {
+            "biot_coefficient": 0,
             "density": 1,
             "dilation_angle": 0,
             "fracture_gap": 0,
@@ -250,6 +251,15 @@ class SolidConstants(MaterialConstants):
         if constants is not None:
             default_constants.update(constants)
         super().__init__(default_constants)
+
+    def biot_coefficient(self) -> number:
+        """Biot coefficient [-].
+
+        Returns:
+            Biot coefficient.
+
+        """
+        return self.constants["biot_coefficient"]
 
     def density(self) -> number:
         """Density [kg/m^3].

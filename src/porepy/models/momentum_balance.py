@@ -512,7 +512,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class BoundaryConditionMomentumBalance(pp.BoundaryCondition):
+class BoundaryConditionsMomentumBalance(pp.BoundaryCondition):
     """Boundary conditions for the momentum balance."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:

@@ -63,7 +63,13 @@ from .setup_utils import model
         ("energy_balance", "aperture", []),
         ("energy_balance", "specific_volume", []),
         # Poromechanics
+        ("poromechanics", "reference_porosity", []),
         ("poromechanics", "biot_alpha", [0]),
+        ("poromechanics", "matrix_porosity", [0]),
+        ("poromechanics", "porosity", [1]),
+        ("poromechanics", "porosity", []),
+        ("poromechanics", "pressure_stress", [0]),
+        ("poromechanics", "stress", [0]),
     ],
 )
 def test_parse_constitutive_laws(model_type, method_name, domain_inds):
