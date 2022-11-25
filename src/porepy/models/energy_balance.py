@@ -59,7 +59,7 @@ class EnergyBalanceEquations(pp.fluid_mass_balance.MassBalanceEquations):
         accumulation = self.total_internal_energy(subdomains)
         flux = self.energy_flux(subdomains)
         source = self.energy_source(subdomains)
-        eq = self.balance_equation(subdomains, accumulation, flux, source)
+        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name("energy_balance_equation")
         return eq
 
@@ -76,7 +76,7 @@ class EnergyBalanceEquations(pp.fluid_mass_balance.MassBalanceEquations):
         energy_density = self.fluid_density(subdomains) * self.fluid_enthalpy(
             subdomains
         ) - self.pressure(subdomains)
-        energy = self.volume_integral(energy_density, subdomains)
+        energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("fluid_internal_energy")
         return energy
 
@@ -93,7 +93,7 @@ class EnergyBalanceEquations(pp.fluid_mass_balance.MassBalanceEquations):
         energy_density = self.solid_enthalpy(subdomains) * (
             1 - self.porosity(subdomains)
         )
-        energy = self.volume_integral(energy_density, subdomains)
+        energy = self.volume_integral(energy_density, subdomains, dim=1)
         energy.set_name("solid_internal_energy")
         return energy
 

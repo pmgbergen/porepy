@@ -245,7 +245,7 @@ class Operator:
         if isinstance(op, pp.ad.Variable) or isinstance(op, Variable):
             # Case 1: Variable
 
-            # How to access the array of (Ad representation of) states depends on weather
+            # How to access the array of (Ad representation of) states depends on whether
             # this is a single or combined variable; see self.__init__, definition of
             # self._variable_ids.
             # TODO: no difference between merged or no mixed-dimensional variables!?
