@@ -4,7 +4,6 @@ from __future__ import annotations
 import numpy as np
 
 import porepy as pp
-from porepy.models import energy_balance, fluid_mass_balance, momentum_balance, poromechanics
 
 
 class GeometrySingleFracture2d(pp.ModelGeometry):
@@ -21,10 +20,11 @@ class GeometrySingleFracture2d(pp.ModelGeometry):
 
 class MassBalanceCombined(
     GeometrySingleFracture2d,
-    fluid_mass_balance.MassBalanceEquations,
-    fluid_mass_balance.ConstitutiveLawsSinglePhaseFlow,
-    fluid_mass_balance.VariablesSinglePhaseFlow,
-    fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.fluid_mass_balance.MassBalanceEquations,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.fluid_mass_balance.ConstitutiveLawsSinglePhaseFlow,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
     pp.DataSavingMixin,
 ):
     ...
@@ -32,10 +32,11 @@ class MassBalanceCombined(
 
 class MomentumBalanceCombined(
     GeometrySingleFracture2d,
-    momentum.MomentumBalanceEquations,
-    momentum.ConstitutiveLawsMomentumBalance,
-    momentum.VariablesMomentumBalance,
-    momentum.SolutionStrategyMomentumBalance,
+    pp.momentum_balance.MomentumBalanceEquations,
+    pp.momentum_balance.ConstitutiveLawsMomentumBalance,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
+    pp.momentum_balance.VariablesMomentumBalance,
+    pp.momentum_balance.SolutionStrategyMomentumBalance,
     pp.DataSavingMixin,
 ):
     """Combine components needed for momentum balance simulation."""
@@ -45,11 +46,11 @@ class MomentumBalanceCombined(
 
 class EnergyBalanceCombined(
     GeometrySingleFracture2d,
-    energy_balance.EnergyBalanceEquations,
-    energy_balance.ConstitutiveLawsEnergyBalance,
-    energy_balance.VariablesEnergyBalance,
-    energy_balance.SolutionStrategyEnergyBalance,
-    energy_balance.BoundaryConditionsEnergyBalance,
+    pp.energy_balance.EnergyBalanceEquations,
+    pp.energy_balance.ConstitutiveLawsEnergyBalance,
+    pp.energy_balance.VariablesEnergyBalance,
+    pp.energy_balance.SolutionStrategyEnergyBalance,
+    pp.energy_balance.BoundaryConditionsEnergyBalance,
     pp.DataSavingMixin,
 ):
     """Combine components needed for force balance simulation."""
@@ -59,12 +60,16 @@ class EnergyBalanceCombined(
 
 class PoromechanicsCombined(
     GeometrySingleFracture2d,
-    poromechanics.ConstitutiveLawsPoromechanics,
-    poromechanics.VariablesPoromechanics,
-    poromechanics.EquationsPoromechanics,
-    poromechanics.SolutionStrategyPoromechanics,
+    pp.poromechanics.ConstitutiveLawsPoromechanics,
+    pp.poromechanics.VariablesPoromechanics,
+    pp.poromechanics.EquationsPoromechanics,
+    pp.poromechanics.SolutionStrategyPoromechanics,
+    pp.poromechanics.BoundaryConditionPoromechanics,
     pp.DataSavingMixin,
 ):
+    """Combine components needed for poromechanics simulation."""
+
+    pass
 
 
 def model(model_type: str) -> MassBalanceCombined | MomentumBalanceCombined:
