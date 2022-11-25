@@ -86,6 +86,8 @@ def model(model_type: str) -> MassBalanceCombined | MomentumBalanceCombined:
         ob = MomentumBalanceCombined(params)
     elif model_type == "energy_balance":
         ob = EnergyBalanceCombined(params)
+    elif model_type == "poromechanics":
+        ob = PoromechanicsCombined(params)
     else:
         # To add a new model, a an elif clause here, and a new class above.
         raise ValueError(f"Unknown model type {model_type}")
