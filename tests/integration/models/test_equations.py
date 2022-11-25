@@ -28,6 +28,9 @@ from .setup_utils import model
         ("energy_balance", "interface_fourier_flux_equation", []),
         # Energy balance inherits mass balance equations. Test one of these as well.
         ("energy_balance", "mass_balance_equation", []),
+        ("poromechanics", "mass_balance_equation", []),
+        ("poromechanics", "momentum_balance_equation", [0]),
+        ("poromechanics", "interface_force_balance_equation", [0]),
     ],
 )
 def test_parse_equations(model_type, equation_name, domain_inds):
