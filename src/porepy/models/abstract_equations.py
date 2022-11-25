@@ -117,7 +117,10 @@ class VectorBalanceEquation:
         """
         volumes = self.wrap_grid_attribute(grids, "cell_volumes")
         # TODO: Extend specific volume to mortar grids.
-        if all(isinstance(g, pp.Grid) for g in grids):
+        if len(grids) == 0:
+            # No need for a scaling here
+            pass
+        elif all(isinstance(g, pp.Grid) for g in grids):
             volumes = volumes * self.specific_volume(grids)
         elif not all(isinstance(g, pp.MortarGrid) for g in grids):
             raise ValueError("Grids must be either all subdomains or all interfaces.")

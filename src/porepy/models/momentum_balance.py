@@ -385,7 +385,7 @@ class VariablesMomentumBalance:
             self.contact_traction_variable, subdomains
         )
 
-    def displacement_jump(self, subdomains):
+    def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Displacement jump on fracture-matrix interfaces.
 
         Parameters:
@@ -399,7 +399,7 @@ class VariablesMomentumBalance:
              AssertionError: If the subdomains are not fractures, i.e. have dimension
                 nd - 1.
         """
-        assert [sd.dim == self.nd - 1 for sd in subdomains]
+        assert all([sd.dim == self.nd - 1 for sd in subdomains])
         interfaces = self.subdomains_to_interfaces(subdomains)
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd

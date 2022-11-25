@@ -137,9 +137,11 @@ class ModelGeometry:
         TODO: Test the method (and other methods in this class).
 
         """
-        ad_matrix = pp.ad.Matrix(
-            sps.diags(np.hstack([getattr(g, attr).ravel("F") for g in grids]))
-        )
+        if len(grids) > 0:
+            mat = sps.diags(np.hstack([getattr(g, attr).ravel("F") for g in grids]))
+        else:
+            mat = sps.csr_matrix((0, 0))
+        ad_matrix = pp.ad.Matrix(mat)
         return ad_matrix
 
     def basis(self, grids: list[pp.GridLike], dim: int = None) -> np.ndarray:
@@ -203,13 +205,17 @@ class ModelGeometry:
         """
         # For now, assert all subdomains are fractures, i.e. dim == nd - 1
         assert all([sd.dim == self.nd - 1 for sd in subdomains])
-        local_coord_proj_list = [
-            self.mdg.subdomain_data(sd)[
-                "tangential_normal_projection"
-            ].project_tangential_normal(sd.num_cells)
-            for sd in subdomains
-        ]
-        return pp.ad.Matrix(sps.block_diag(local_coord_proj_list))
+        if len(subdomains) > 0:
+            local_coord_proj_list = [
+                self.mdg.subdomain_data(sd)[
+                    "tangential_normal_projection"
+                ].project_tangential_normal(sd.num_cells)
+                for sd in subdomains
+            ]
+            local_coord_proj = sps.block_diag(local_coord_proj_list)
+        else:
+            local_coord_proj = sps.csr_matrix((0, 0))
+        return pp.ad.Matrix(local_coord_proj)
 
     def subdomain_projections(self, dim: int):
         """Return the projection operators for all subdomains in md-grid.
@@ -324,19 +330,22 @@ class ModelGeometry:
         """
         if hasattr(self, "_internal_boundary_vector_to_outwards_operator"):
             return self._internal_boundary_vector_to_outwards_operator
-        mat = None
-        for intf in interfaces:
-            # Extracting matrix for each interface should in theory allow for multiple
-            # matrix subdomains, but this is not tested.
-            matrix_subdomain = self.mdg.interface_to_subdomain_pair(intf)[0]
-            faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
-            switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
-                matrix_subdomain, self.nd, faces_on_fracture_surface
-            )
-            if mat is None:
-                mat = switcher_int
-            else:
-                mat += switcher_int
+        if len(interfaces) == 0:
+            mat = sps.csr_matrix((0, 0))
+        else:
+            mat = None
+            for intf in interfaces:
+                # Extracting matrix for each interface should in theory allow for multiple
+                # matrix subdomains, but this is not tested.
+                matrix_subdomain = self.mdg.interface_to_subdomain_pair(intf)[0]
+                faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
+                switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
+                    matrix_subdomain, self.nd, faces_on_fracture_surface
+                )
+                if mat is None:
+                    mat = switcher_int
+                else:
+                    mat += switcher_int
 
         outwards_mat = pp.ad.Matrix(mat)
         self._internal_boundary_vector_to_outwards_operator = outwards_mat
