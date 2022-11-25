@@ -18,15 +18,7 @@ import porepy as pp
 from . import _ad_utils
 from .forward_mode import Ad_array, initAdArrays
 
-__all__ = [
-    "Operator",
-    "Matrix",
-    "Array",
-    "TimeDependentArray",
-    "Scalar",
-    "Variable",
-    "MergedVariable",
-]
+__all__ = ["Operator", "Matrix", "Array", "Scalar", "Variable", "MergedVariable", "Tree"]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
 
@@ -53,15 +45,17 @@ class Operator:
 
     Provides overload functions for basic arithmetic operations.
 
-    Parameters:
-        name: Name of this operator. Used for string representations
-        subdomains (optional): List of subdomains on which the operator is defined.
-            Will be empty for operators not associated with any subdomains.
-            Defaults to None (converted to empty list).
-        interfaces (optional): List of interfaces in the mixed-dimensional grid on which the
-            operator is defined.
-            Will be empty for operators not associated with any interface.
-            Defaults to None (converted to empty list).
+    Args:
+        name (str): Name of this operator. Used for string representations
+        subdomains (Grid, default=None): List of subdomains on which the operator is
+            defined. Will be empty for operators not associated with specific subdomains.
+        interfaces (MortarGrid, default=None): List of edges (tuple of subdomains) in the
+            mixed-dimensional grid on which the operator is defined.
+            Will be empty for operators not associated with specific subdomains.
+
+    Attributes:
+        interfaces: See description of argument ``interfaces``.
+        subdomains: See description of argument ``subdomains``.
 
     """
 
@@ -253,6 +247,9 @@ class Operator:
     def discretize(self, mdg: pp.MixedDimensionalGrid) -> None:
         """Perform the ``discretize`` function of all child operators which are discretizations
         using data from mdg.
+
+        IMPLEMENTATION NOTE: The discretizations was identified at initialization of
+        Expression - it is now done here to accommodate updates (?) and
 
         """
         unique_discretizations: dict[
