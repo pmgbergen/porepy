@@ -54,6 +54,28 @@ class BoundaryConditionLinearPressure:
             values.append(val_loc)
         return ad_wrapper(np.hstack(values), True, name="bc_values_darcy")
 
+    def bc_values_mobrho(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
+        """
+        Not sure where this one should reside.
+        Note that we could remove the grid_operator BC and DirBC, probably also
+        ParameterArray/Matrix (unless needed to get rid of pp.ad.Discretization. I don't see
+        how it would be, though).
+        Parameters:
+            subdomains: List of subdomains on which to define boundary conditions.
+
+        Returns:
+            Array of boundary values.
+
+        """
+        # Define boundary regions
+        values = []
+        for sd in subdomains:
+            all_bf, *_ = self.domain_boundary_sides(sd)
+            val_loc = np.zeros(sd.num_faces)
+            val_loc[all_bf] = self.fluid.density() / self.fluid.viscosity()
+            values.append(val_loc)
+        return ad_wrapper(np.hstack(values), True, name="bc_values_mobrho")
+
 
 class LinearModel(BoundaryConditionLinearPressure, MassBalanceCombined):
     pass
