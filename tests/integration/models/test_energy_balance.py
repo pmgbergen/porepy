@@ -8,51 +8,10 @@ import porepy as pp
 from porepy.models.constitutive_laws import ad_wrapper
 
 from .setup_utils import EnergyBalanceCombined, MassBalanceCombined
+from .test_mass_balance import BoundaryConditionLinearPressure
 
 
-class BoundaryConditionLinearPressure:
-    """Overload the boundary condition to give a linear pressure profile.
-
-    Homogeneous Neumann conditions on top and bottom, Dirichlet 1 and 0 on the left and
-    right boundaries, respectively.
-
-    """
-
-    def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Dirichlet conditions on all external boundaries.
-
-        Parameters:
-            sd: Subdomain grid on which to define boundary conditions.
-
-        Returns:
-            Boundary condition object.
-        """
-        # Define boundary regions
-        all_bf, east, west, *_ = self.domain_boundary_sides(sd)
-        # Define Dirichlet conditions on the left and right boundaries
-        return pp.BoundaryCondition(sd, east + west, "dir")
-
-    def bc_values_darcy_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
-        """
-        Not sure where this one should reside. Note that we could remove the
-        grid_operator BC and DirBC, probably also ParameterArray/Matrix (unless needed
-        to get rid of pp.ad.Discretization. I don't see how it would be, though).
-        Parameters:
-            subdomains: List of subdomains on which to define boundary conditions.
-
-        Returns:
-            Array of boundary values.
-
-        """
-        # Define boundary regions
-        values = []
-        for sd in subdomains:
-            _, _, west, *_ = self.domain_boundary_sides(sd)
-            val_loc = np.zeros(sd.num_faces)
-            val_loc[west] = 1
-            values.append(val_loc)
-        return ad_wrapper(np.hstack(values), True, name="bc_values_darcy")
-
+class BoundaryCondition(BoundaryConditionLinearPressure):
     def bc_values_fourier_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Array:
         """
 
