@@ -18,7 +18,15 @@ import porepy as pp
 from . import _ad_utils
 from .forward_mode import Ad_array, initAdArrays
 
-__all__ = ["Operator", "Matrix", "Array", "Scalar", "Variable", "MergedVariable", "Tree"]
+__all__ = [
+    "Operator",
+    "Matrix",
+    "Array",
+    "TimeDependentArray",
+    "Scalar",
+    "Variable",
+    "MergedVariable",
+]
 
 GridLike = Union[pp.Grid, pp.MortarGrid]
 
@@ -1219,6 +1227,7 @@ class Variable(Operator):
                 raise ValueError("Variable must be associated with exactly one edge.")
             self._g = self.interfaces[0]
             self._is_edge_var = True
+
         # The number of cells in the grid. Will only be used if grid_like is a tuple
         # that is, if this is a mortar variable
         self._num_cells = num_cells
