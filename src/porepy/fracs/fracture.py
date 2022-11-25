@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Generator, Optional, Tuple, Union
+from typing import Generator, Optional, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -18,9 +18,9 @@ class Fracture(abc.ABC):
     fracture and the ambient dimension. It contains various utility methods, mainly
     intended for the use together with the FractureNetwork class.
 
-    A fracture is defined by its `npt` vertices, stored in an `nd x npt` numpy-array,
-    where `nd` is the assumed ambient dimension. The order/sorting of vertices has to be
-    implemented explicitly.
+    A fracture is defined by its `num_points` vertices, stored in an `nd x num_points`
+    numpy-array, where `nd` is the assumed ambient dimension. The order/sorting of
+    vertices has to be implemented explicitly.
 
     Dimension-dependent routines are implemented as abstract methods.
 
@@ -36,9 +36,9 @@ class Fracture(abc.ABC):
         sort_points: bool = True,
     ):
         self.pts: np.ndarray = np.asarray(points, dtype=np.float64)
-        """Fracture vertices (shape=(nd, npt)), stored in the implemented order.
+        """Fracture vertices (shape=(nd, num_points)), stored in the implemented order.
 
-        Note that ``points`` will mutate.
+        Note that the ``points`` passed to init will mutate.
 
         """
         self._check_pts()
@@ -52,7 +52,7 @@ class Fracture(abc.ABC):
         self.center: np.ndarray = self.compute_centroid()
         """Centroid of the fracture (shape=(nd, ))."""
         self.orig_pts: np.ndarray = self.pts.copy()
-        """Original fracture vertices (shape=(nd, npt)).
+        """Original fracture vertices (shape=(nd, num_points)).
 
          The original points are kept in case the fracture geometry is modified.
 
@@ -61,8 +61,8 @@ class Fracture(abc.ABC):
         self.index: Optional[int] = index
         """Index of fracture.
 
-        Intended use in FractureNetwork. Exact use is not clear (several fractures can
-        be given same index), use it with care.
+        Intended use in :class:`FractureNetwork`. Exact use is not clear (several
+        fractures can be given same index), use with care.
 
         """
 
@@ -127,22 +127,21 @@ class Fracture(abc.ABC):
 
     def is_vertex(
         self, p: np.ndarray, tol: float = 1e-4
-    ) -> Tuple[bool, Union[int, None]]:
+    ) -> tuple[bool, Union[int, None]]:
         """Check whether a given point is a vertex of the fracture.
 
         Parameters:
-            p (shape=(nd, )): Point to be checked. tol: Tolerance of point accuracy.
-                Default is 1e-4.
+            p (shape=(nd, )): Point to be checked.
+            tol: Tolerance of point accuracy. Default is 1e-4.
 
         Returns:
             A tuple containing ``is_vertex`` and ``index``, where ``is_vertex`` is a
             boolean indicating whether the point is a vertex. If the point is a vertex,
-            ``index`` gives the position of ``p`` in ``self.pts``.
+            ``index`` gives the position of ``p`` in :attr:`pts`.
 
         """
         p = p.reshape((-1, 1))
         ap = np.hstack((p, self.pts))
-        # TODO check if sqrt(3) is too much for other fractures than planes
         up, _, ind = setmembership.unique_columns_tol(ap, tol=tol * np.sqrt(3))
 
         # If the unique-operation did not remove any points, it is not a vertex.
@@ -181,11 +180,11 @@ class Fracture(abc.ABC):
         """Abstract method for computing the local coordinates.
 
         The compuation is performed on the vertex coordinates in a local system and its
-        local dimension ``d`` is assumed to be ``d = nd - 1``, i.e. the fracture has
-        co-dimension 1.
+        local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e. the fracture
+        has co-dimension 1.
 
         Returns:
-            Coordinates of the vertices in local dimensions, shape (d, npt).
+            Coordinates of the vertices in local dimensions `(shape=(d, num_points)`.
 
         """
         pass
@@ -206,7 +205,7 @@ class Fracture(abc.ABC):
 
     @abc.abstractmethod
     def _check_pts(self) -> None:
-        """Abstract method for checking consistency of `self.pts`.
+        """Abstract method for checking consistency of :attr:`pts`.
 
         Raises:
             ValueError if self.pts violates some assumptions (e.g. shape).

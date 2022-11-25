@@ -9,34 +9,27 @@ def point_inside_half_space_intersection(
     n: np.ndarray, x0: np.ndarray, pts: np.ndarray
 ) -> np.ndarray:
     """
-    Find the points that lie in the intersection of half spaces (3D)
+    Find the points that lie in the intersection of half spaces (3D).
+    
+    Examples:
+        >>> import numpy as np
+        >>> n = np.array([[0, 1], [1, 0], [0, 0]])
+        >>> x0 = np.array([[0, -1], [0, 0], [0, 0]])
+        >>> pts = np.array([[-1 ,-1 ,4], [2, -2, -2], [0, 0, 0]])
+        >>> half_space_int(n,x0,pts)
+        array([False,  True, False], dtype=bool)
 
-    Parameters
-    ----------
-    n : np.ndarray, size 3 x num_planes
-        This is the normal vectors of the half planes. The normal
-        vectors is assumed to point out of the half spaces.
-    x0 : np.ndarray, size 3 x num_planes
-        Point on the boundary of the half-spaces. Half space i is given
-        by all points satisfying (x - x0[:,i])*n[:,i]<=0
-    pts : np.ndarray, size 3 x num_points
-        The points to be tested if they are in the intersection of all
-        half-spaces or not.
+    Parameters:
+        n (shape = (3, num_planes)): This is the normal vectors of the half planes. The normal
+            vectors is assumed to point out of the half spaces. 
+        x0 (shape = (3, num_planes)): Point on the boundary of the half-spaces. Half space i is given
+            by all points satisfying (x - x0[:,i])*n[:,i]<=0
+        pts (shape = (3, num_points)): The points to be tested if they are in the intersection of all
+            half-spaces or not.
 
-    Returns
-    -------
-    out : np.ndarray, size num_points
+    Returns:
         A logical array with length equal number of pts.
         out[i] is True if pts[:,i] is in all half-spaces
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> n = np.array([[0, 1], [1, 0], [0, 0]])
-    >>> x0 = np.array([[0, -1], [0, 0], [0, 0]])
-    >>> pts = np.array([[-1 ,-1 ,4], [2, -2, -2], [0, 0, 0]])
-    >>> half_space_int(n,x0,pts)
-    array([False,  True, False], dtype=bool)
 
     """
     assert n.shape[0] == 3, " only 3D supported"
@@ -61,47 +54,41 @@ def half_space_interior_point(
 ) -> np.ndarray:
     """
     Find an interior point for the halfspaces.
+    
+    Note: 
+        We use linear programming to find one interior point for the half spaces.
+        Assume, num_planes halfspaces defined by
 
-    We use linear programming to find one interior point for the half spaces.
-    Assume, num_planes halfspaces defined by
+            aj*x1+bj*x2+cj*x3+dj<=0, j=1..num_planes.
 
-        aj*x1+bj*x2+cj*x3+dj<=0, j=1..num_planes.
+        Perform the following linear program:
 
-    Perform the following linear program:
+            max(x5) aj*x1+bj*x2+cj*x3+dj*x4+x5<=0, j=1..num_planes
 
-        max(x5) aj*x1+bj*x2+cj*x3+dj*x4+x5<=0, j=1..num_planes
+        Then, if [x1,x2,x3,x4,x5] is an optimal solution with x4>0 and x5>0 we get:
 
-    Then, if [x1,x2,x3,x4,x5] is an optimal solution with x4>0 and x5>0 we get:
+            aj*(x1/x4)+bj*(x2/x4)+cj*(x3/x4)+dj<=(-x5/x4) j=1..num_planes
 
-        aj*(x1/x4)+bj*(x2/x4)+cj*(x3/x4)+dj<=(-x5/x4) j=1..num_planes
+        and
+             (-x5/x4)<0,
 
-    and
-         (-x5/x4)<0,
+        and conclude that the point [x1/x4,x2/x4,x3/x4] is in the interior of all
+        the halfspaces. Since x5 is optimal, this point is "way in" the interior
+        (good for precision errors).
+        http://www.qhull.org/html/qhalf.htm#notes
 
-    and conclude that the point [x1/x4,x2/x4,x3/x4] is in the interior of all
-    the halfspaces. Since x5 is optimal, this point is "way in" the interior
-    (good for precision errors).
-    http://www.qhull.org/html/qhalf.htm#notes
+    Parameters:
+        n (shape = (3, num_planes)): This is the normal vectors of the half planes. The normal vectors
+            are assumed to be coherently oriented for all the half spaces
+            (inward or outward).
+        x0 (shape = (3, num_planes)): Point on the boundary of the half-spaces. Half space i is given
+            by all points satisfying (x - x0[:, i]) * n[:, i] <= 0
+        pts (shape = (3, num_points)): Points used to bound the search space for interior point. The optimum
+            solution will be sought within (pts.min(axis=1), pts.max(axis=1)).
+        recompute (bool): If the algorithm fails try again with flipped normals.
 
-    Parameters
-    ----------
-    n : np.ndarray, size 3 x num_planes
-        This is the normal vectors of the half planes. The normal vectors
-        are assumed to be coherently oriented for all the half spaces
-        (inward or outward).
-    x0 : np.ndarray, size 3 x num_planes
-        Point on the boundary of the half-spaces. Half space i is given
-        by all points satisfying (x - x0[:, i]) * n[:, i] <= 0
-    pts : np.ndarray, size 3 x num_points
-        Points used to bound the search space for interior point. The optimum
-        solution will be sought within (pts.min(axis=1), pts.max(axis=1)).
-    recompute: bool
-        If the algorithm fails try again with flipped normals.
-
-    Returns
-    -------
-    out: np.ndarray, size num_points
-        Interior point of the halfspaces.
+    Returns:
+        Interior point of the halfspaces with length equal number of pts
 
     """
     import scipy.optimize as opt
@@ -132,27 +119,27 @@ def half_space_interior_point(
 def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Find the vertexes of a convex domain specified as an intersection of half spaces.
 
-    The function assumes the domain is defined by inequalities on the form
+    Note:     
+        The function assumes the domain is defined by inequalities on the form
 
-        A * x + b <= 0
+            A * x + b <= 0
 
-    For more information, see scipy.spatial functions HalfspaceIntersection.
+        For more information, see scipy.spatial functions HalfspaceIntersection.
 
-    The function has been tested for 2d and 3d domains.
+        The function has been tested for 2d and 3d domains.
 
-    Error messages from HalfspaceIntersection are quite possibly from qhull.
-    These will often reflect errors in the way the matrix A and b are set up
-    (e.g. sign errors that imply that the inequalities do not form a closed domain).
-
-    Parameters
-    ----------
-    A : np.ndarray, size num_planes x num_dim
-        Matrix of normal vectors (in rows) for the half planes. Should be oriented
-        so that A * x + b < 0
-    b : np.ndarray, size num_planes
-        Constants used to define inequalities of the half spaces. Should be scaled
-        so that A * x + b < 0.
-
+    Parameters:
+        A (shape = (num_planes, num_dim)): Matrix of normal vectors (in rows) for the half planes. Should be oriented
+            so that A * x + b < 0
+        b (len = num_planes): Constants used to define inequalities of the half spaces. Should be scaled
+            so that A * x + b < 0.
+            
+    Returns:
+        Vertexes of a convex domain 
+    
+    Raises: 
+        QhullError: If A and b are not set up right (e.g. sign errors that imply that the inequalities do not form a closed domain).     
+        
     """
     b = b.reshape((-1, 1))
 
