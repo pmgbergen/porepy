@@ -365,12 +365,11 @@ class Operator:
         This method should not be called on operators that are formed as combinations
         of atomic operators; such operators should be evaluated by the method :meth:`evaluate`.
 
-        Parameters:
+        Args:
             mdg: Mixed-dimensional grid on which this operator is to be parsed.
 
         Returns:
-            A numerical format representing this operator;s values on given domain.
-
+            A numerical format representing this operators value on given domain.
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
