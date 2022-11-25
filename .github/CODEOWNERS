@@ -2,4 +2,4 @@
 * @keileg @IvarStefansson @OmarDuran
 
 # Make vlipovac code owner of the docs folder
-docs/* @vlipovac
+/docs/* @vlipovac
