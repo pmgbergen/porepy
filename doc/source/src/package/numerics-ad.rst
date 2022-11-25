@@ -39,11 +39,12 @@ PorePy AD provides objects for
 
     - `Elemental AD data structures`_
     - `Common mathematical functions`_
-    - `Representation of constant scalars, vectors and matrices`_
+    - `AD-representation of constant scalars, vectors and matrices`_
     - `Variables on single and mixed-dimensional domains`_
     - `Operator functions`_
     - `Grid operators`_
     - `Numerical discretization schemes`_
+    - `AD Equation Manager`_
 
 Elemental AD data structures
 ============================
@@ -63,10 +64,13 @@ Elemental AD data structures
 Common mathematical functions
 =============================
 
-qwer
+.. automodule:: porepy.numerics.ad.functions
+    :members:
+    :undoc-members:
 
-Representation of constant scalars, vectors and matrices
-========================================================
+AD-representation of constant scalars, vectors and matrices
+===========================================================
+.. currentmodule:: porepy.ad
 
 .. autoclass:: Scalar
     :members:
@@ -93,8 +97,16 @@ Variables on single and mixed-dimensional domains
 
 Operator functions
 ==================
+.. currentmodule:: porepy.numerics.ad.operator_functions
 
-qwer
+.. autoclass:: AbstractFunction
+    :members:
+
+.. autoclass:: AbstractJacobianFunction
+    :members:
+
+.. automodule:: porepy.numerics.ad.operator_functions
+    :members:
 
 Grid operators
 ==============
@@ -103,5 +115,10 @@ qwer
 
 Numerical discretization schemes
 ================================
+
+qwer
+
+AD Equation Manager
+===================
 
 qwer

@@ -69,6 +69,7 @@ def module_level_function(param1: int, param2: str) -> bool:
 
     Returns: 
         bool: True if param1 is bigger than the length of param2, False otherwise. 
+
     """   
     return param1 > len(param2) 
 

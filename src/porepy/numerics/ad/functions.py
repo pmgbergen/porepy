@@ -101,12 +101,25 @@ def l2_norm(dim: int, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
     Note:
         See module level documentation on how to wrap functions like this in ad.Function.
 
+<<<<<<< HEAD
     Parameters:
         dim: Dimension, i.e. number of vector components.
         var: Ad operator (variable or expression) which is argument of the norm function.
 
     Returns:
         The norm of var with appropriate val and jac attributes.
+=======
+    Args:
+        dim : int
+            Dimension, i.e. number of vector components.
+        var : pp.ad.Ad_array
+            Ad operator (variable or expression) which is argument of the norm
+            function.
+
+    Returns:
+        pp.ad.Ad_array
+            The norm of var with appropriate val and jac attributes.
+>>>>>>> f6c70575 (DOC: Added documentation of ad array functions and operator functions.)
 
     """
 
@@ -264,6 +277,7 @@ def heaviside(var, zerovalue: float = 0.5):
 def heaviside_smooth(var, eps: float = 1e-3):
     """Smooth (regularized) version of the Heaviside function.
 
+<<<<<<< HEAD
     Note:
         The analytical expression for the smooth version Heaviside function reads:
             ``H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps))``,
@@ -280,6 +294,26 @@ def heaviside_smooth(var, eps: float = 1e-3):
     Returns:
         Regularized heaviside function (and its Jacobian if applicable) in form of a
         Ad_array or ndarray (depending on the input).
+=======
+    Args:
+        var : Ad_array or ndarray
+            Input array.
+        eps : float, optional
+            Regularization parameter. The default is 1E-3. The function will
+            convergence to the Heaviside function in the limit when eps --> 0
+
+    Returns:
+        Ad_array or ndarray (depending on the input)
+            Regularized heaviside function (and its Jacobian if applicable).
+
+    Note:
+        The analytical expression for the smooth version Heaviside function reads:
+            H_eps(x) = (1/2) * (1 + (2/pi) * arctan(x/eps)),
+        with its derivative smoothly approximating the Dirac delta function:
+            d(H(x))/dx = delta_eps = (1/pi) * (eps / (eps^2 + x^2)).
+
+        Reference: https://ieeexplore.ieee.org/document/902291
+>>>>>>> f6c70575 (DOC: Added documentation of ad array functions and operator functions.)
 
     """
     if isinstance(var, Ad_array):
@@ -313,12 +347,24 @@ def maximum(var0: pp.ad.Ad_array, var1: pp.ad.Ad_array | np.ndarray) -> pp.ad.Ad
     wrapped in a pp.ad.Array, whereas the first argument is expected to be an
     Ad_array originating from a pp.ad.Operator.
 
+<<<<<<< HEAD
     Parameters:
         var0: First argument to the maximum function.
         var1: Second argument.
 
     Returns:
         The maximum of ``var0`` and ``var1`` with appropriate val and jac attributes.
+=======
+    Args:
+        var0 : pp.ad.Ad_array
+            Ad operator (variable or expression).
+        var1 : Union[pp.ad.Ad_array, pp.ad.Array]
+            Ad operator (variable or expression) OR ad Array.
+
+    Returns:
+        pp.ad.Ad_array
+            The maximum of var0 and var1 with appropriate val and jac attributes.
+>>>>>>> f6c70575 (DOC: Added documentation of ad array functions and operator functions.)
 
     """
     vals = [var0.val.copy()]
@@ -347,12 +393,24 @@ def characteristic_function(tol: float, var: pp.ad.Ad_array):
     Note:
         See module level documentation on how to wrap functions like this in ``ad.Function``.
 
+<<<<<<< HEAD
     Parameters:
         tol: Absolute tolerance for comparison with 0 using np.isclose.
         var: Ad operator (variable or expression).
 
     Returns:
         The characteristic function of var with appropriate val and jac attributes.
+=======
+    Args:
+        tol : float
+            Absolute tolerance for comparison with 0 using np.isclose.
+        var : pp.ad.Ad_array
+            Ad operator (variable or expression).
+
+    Returns:
+        pp.ad.Ad_array
+            The characteristic function of var with appropriate val and jac attributes.
+>>>>>>> f6c70575 (DOC: Added documentation of ad array functions and operator functions.)
 
     """
     vals = np.zeros(var.val.size)
