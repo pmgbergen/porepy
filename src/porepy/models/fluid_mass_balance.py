@@ -201,7 +201,7 @@ class ConstitutiveLawsSinglePhaseFlow(
         return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
 
-class BoundaryConditionsSinglePhaseFlow(pp.boundary_conditions.BoundaryCondition):
+class BoundaryConditionsSinglePhaseFlow:
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Dirichlet conditions on all external boundaries.
 

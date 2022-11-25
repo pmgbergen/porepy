@@ -976,9 +976,119 @@ class FrictionBound:
         return bound
 
 
+class BiotCoefficient:
+    """Biot coefficient."""
+
+    def biot_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Biot coefficient.
+
+        Parameters:
+            subdomains: List of subdomains where the Biot coefficient is defined.
+
+        Returns:
+            Biot coefficient operator.
+        """
+        return Scalar(self.solid.biot_coefficient(), "biot_coefficient")
+
+
 class ConstantPorosity:
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return Scalar(self.solid.porosity(), "porosity")
+
+
+class PoroMechanicsPorosity:
+    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        return Scalar(self.solid.porosity(), "reference_porosity")
+
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity.
+
+        Pressure and displacement dependent porosity in the matrix. Unitary in fractures
+        and intersections.
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Porosity operator.
+
+        """
+        subdomains_nd = [sd for sd in subdomains if sd.dim == self.nd]
+        subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+
+        one = Scalar(1, "unitary_porosity")
+        rho = (
+            projection.cell_prolongation(subdomains_nd)
+            * self.matrix_porosity(subdomains_nd)
+            + projection.cell_prolongation(subdomains_lower) * one
+        )
+        rho.set_name("porosity")
+        return rho
+
+    def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise porosity operator [-].
+        """
+        if not all([sd.dim == self.nd for sd in subdomains]):
+            raise ValueError("Subdomains must be of dimension nd.")
+        phi_ref = self.reference_porosity(subdomains)
+        dp = self.perturbation_from_reference("pressure", subdomains)
+        alpha = self.biot_coefficient(subdomains)
+        bulk = self.bulk_modulus(subdomains)
+
+        # 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
+        n_inv = (alpha - phi_ref) * (1 - alpha) / bulk
+
+        phi = phi_ref + n_inv * dp + alpha * self.displacement_divergence(subdomains)
+        return phi
+
+    def displacement_divergence(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Divergence of displacement [-].
+
+        This is div(u). Note that opposed to old implementation, the temporal is not
+        included here. Rather, it is handled by :meth:`pp.ad.dt`.
+
+        Parameters:
+            subdomains: List of subdomains where the divergence is defined.
+
+        Returns:
+            Divergence operator accounting from contributions from interior of the domain
+            and from internal and external boundaries.
+
+        """
+        # Sanity check on dimension
+        if not all(sd.dim == self.nd for sd in subdomains):
+            raise ValueError("Displacement divergence only defined in nd.")
+
+        # Obtain neighbouring interfaces
+        interfaces = self.interfaces_from_subdomains(subdomains)
+        # Mock discretization (empty `discretize` method).
+        discr = pp.ad.DivUAd(self.stress_keyword, subdomains, self.darcy_keyword)
+        # Projections
+        sd_projection = pp.ad.SubdomainProjections(subdomains, dim=self.nd)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=self.nd
+        )
+        bc_values = self.bc_values_mechanics(subdomains)
+
+        # Compose operator.
+        div_u = discr.div_u * self.displacement(subdomains) + discr.bound_div_u * (
+            bc_values
+            + sd_projection.face_restriction(subdomains)
+            * mortar_projection.mortar_to_primary_avg
+            * self.interface_displacement(interfaces)
+        )
+        div_u.set_name("div_u")
+        return div_u
 
 
 def boundary_values_from_operator(

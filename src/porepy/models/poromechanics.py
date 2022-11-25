@@ -3,16 +3,25 @@
 The module only contains what is needed for the coupling, the two individual subproblems
 are defined elsewhere.
 
+The main changes to the equations are achieved by changing the constitutive laws for
+porosity and stress. The former aquires a pressure dependency and an additional
+:math:`\alpha`\nabla\cdot\mathbf{u} term, while the latter is modified to include a
+isotropic pressure term :math:`\alpha p \mathbf{I}`.
+
+Suggested references (TODO: add more, e.g. Inga's in prep):
+    - Coussy, 2004, https://doi.org/10.1002/0470092718.
+    - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
+
 """
 from typing import Optional
 
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
-from porepy.models import momentum
+import porepy.models.momentum_balance as momentum
 
 
 class ConstitutiveLawsPoromechanicsCoupling(
-    pp.constitutive_laws.BiotWillisCoefficient,
+    pp.constitutive_laws.BiotCoefficient,
     pp.constitutive_laws.PressureStress,
 ):
     """Class for the coupling of mass and momentum balance to obtain poromechanics
@@ -51,8 +60,8 @@ class VariablesPoromechanics(
 
 
 class BoundaryConditionPoromechanics(
-    mass.BoundaryConditionSinglePhaseFlow,
-    momentum.BoundaryConditionMomentumBalance,
+    mass.BoundaryConditionsSinglePhaseFlow,
+    momentum.BoundaryConditionsMomentumBalance,
 ):
     """Combines mass and momentum balance boundary conditions.
 
@@ -60,6 +69,7 @@ class BoundaryConditionPoromechanics(
         The mechanical boundary conditions are differentiated wrt time in the div_u term.
         Thus, time dependent values must be defined using
         :class:pp.ad.TimeDependentArray. This is as of yet untested.
+
     """
 
     pass
@@ -75,6 +85,7 @@ class SolutionStrategyPoromechanics(
     and take method resolution order into account when defining new methods.
 
     TODO: More targeted (re-)discretization.
+
     """
 
     def __init__(self, params: Optional[dict] = None) -> None:
@@ -110,7 +121,7 @@ class SolutionStrategyPoromechanics(
 
 class ConstitutiveLawsPoromechanics(
     ConstitutiveLawsPoromechanicsCoupling,
-    mass.ConstitutiveLawsMassBalance,
+    mass.ConstitutiveLawsSinglePhaseFlow,
     momentum.ConstitutiveLawsMomentumBalance,
 ):
     pass
