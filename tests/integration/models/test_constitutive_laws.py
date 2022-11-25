@@ -64,7 +64,7 @@ from .setup_utils import model
         ("energy_balance", "specific_volume", []),
         # Poromechanics
         ("poromechanics", "reference_porosity", []),
-        ("poromechanics", "biot_alpha", [0]),
+        ("poromechanics", "biot_coefficient", [0]),
         ("poromechanics", "matrix_porosity", [0]),
         ("poromechanics", "porosity", [1]),
         ("poromechanics", "porosity", []),
