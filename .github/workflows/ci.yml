@@ -27,7 +27,7 @@ jobs:
     # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
     strategy:
       matrix:
-        python-version:  ["3.8", "3.9", "3.10"]  # TODO: Change 3.10.6 to 3.10 when mypy error is fixed
+        python-version:  ["3.8", "3.9", "3.10"]
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
@@ -53,9 +53,8 @@ jobs:
         # Cache the full python environment, this is more efficient than just caching pip
         # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         path: ${{ env.pythonLocation }}
-        key: ${{ env.pythonLocation }}-pip-${{ hashFiles('**/requirements-dev.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        # Hash both ordinary requirements and those specific for developmnet.
+        key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt', '**/requirements-dev.txt') }}
 
     - name: Cache mypy
       uses: actions/cache@v3
@@ -66,7 +65,10 @@ jobs:
 
     - name: Install external libraries
       run: |
-        sudo apt-get install libglu1-mesa libgeos-dev
+        # Various packages that must be installed 
+        # Install libffi v7. This was (seemed to be) necessary in Nov 2022. The reason could be that
+        # ubuntu-latest was updated, libffi was removed, and scipy complained.
+        sudo apt-get install libglu1-mesa libgeos-dev libffi7
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
 
     - name: Install requirements
@@ -97,13 +99,13 @@ jobs:
       if: ${{ always() }}
       run: flake8 src 
 
-    - name: mypy
-      if: ${{ always() }}
-      run: mypy src --cache-dir mypy-cache-${{ matrix.python-version}}
-
     - name: unit tests
       if: ${{always()}}
       run: pytest tests/unit
+
+    - name: mypy
+      if: ${{ always() }}
+      run: mypy src --cache-dir mypy-cache-${{ matrix.python-version}}
 
     - name: integration tests
       if: ${{always()}}
