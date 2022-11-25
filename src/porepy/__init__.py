@@ -188,8 +188,7 @@ from porepy.numerics.ad.equation_system import EquationSystem
 
 from porepy import models
 from porepy.models.abstract_equations import (
-    ScalarBalanceEquation,
-    VectorBalanceEquation,
+    BalanceEquation,
     VariableMixin,
 )
 from porepy.models.geometry import ModelGeometry

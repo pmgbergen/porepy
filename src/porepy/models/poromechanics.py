@@ -23,6 +23,7 @@ import porepy.models.momentum_balance as momentum
 class ConstitutiveLawsPoromechanicsCoupling(
     pp.constitutive_laws.BiotCoefficient,
     pp.constitutive_laws.PressureStress,
+    pp.constitutive_laws.PoroMechanicsPorosity,
 ):
     """Class for the coupling of mass and momentum balance to obtain poromechanics
     equations.
@@ -49,6 +50,15 @@ class EquationsPoromechanics(
 ):
     """Combines mass and momentum balance equations."""
 
+    def set_equations(self):
+        """Set the equations for the poromechanics problem.
+
+        Call both parent classes' set_equations methods.
+
+        """
+        super().set_equations()
+        momentum.MomentumBalanceEquations.set_equations(self)
+
 
 class VariablesPoromechanics(
     mass.VariablesSinglePhaseFlow,
@@ -56,7 +66,14 @@ class VariablesPoromechanics(
 ):
     """Combines mass and momentum balance variables."""
 
-    pass
+    def create_variables(self):
+        """Set the variables for the poromechanics problem.
+
+        Call both parent classes' set_variables methods.
+
+        """
+        super().create_variables()
+        momentum.VariablesMomentumBalance.create_variables(self)
 
 
 class BoundaryConditionPoromechanics(
@@ -96,12 +113,16 @@ class SolutionStrategyPoromechanics(
 
     def initial_condition(self) -> None:
         """Set initial condition for both subproblems."""
+        # Set initial condition for the subproblems. Mass balance calls super, so this
+        # call also sets the initial condition for the momentum balance.
         super().initial_condition()
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
-        # Set parameters for the subproblems
+        # Set parameters for the subproblems.
         super().set_discretization_parameters()
+        # Mass balance method does not call super, so we need to call it explicitly.
+        momentum.SolutionStrategyMomentumBalance.set_discretization_parameters(self)
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
 
@@ -110,7 +131,7 @@ class SolutionStrategyPoromechanics(
                 data,
                 self.stress_keyword,
                 {
-                    "biot_alpha": self.solid.biot_alpha(),
+                    "biot_alpha": self.solid.biot_coefficient(),  # TODO: Rename in Biot
                 },
             )
 

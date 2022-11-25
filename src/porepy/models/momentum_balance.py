@@ -1,7 +1,6 @@
 """
 Class types:
-    - Generic VectorBalanceEquation
-    - Specific MomentumBalanceEquations defines subdomain and interface equations through the
+    - MomentumBalanceEquations defines subdomain and interface equations through the
     terms entering. Momentum balance between opposing fracture interfaces is imposed.
 
 Notes:
@@ -29,7 +28,7 @@ from . import constitutive_laws
 logger = logging.getLogger(__name__)
 
 
-class MomentumBalanceEquations(pp.VectorBalanceEquation):
+class MomentumBalanceEquations(pp.BalanceEquation):
     """Class for momentum balance equations and fracture deformation equations."""
 
     def set_equations(self):
@@ -83,7 +82,9 @@ class MomentumBalanceEquations(pp.VectorBalanceEquation):
         accumulation = self.inertia(subdomains)
         stress = self.stress(subdomains)
         body_force = self.body_force(subdomains)
-        equation = self.balance_equation(subdomains, accumulation, stress, body_force)
+        equation = self.balance_equation(
+            subdomains, accumulation, stress, body_force, dim=self.nd
+        )
         equation.set_name("momentum_balance_equation")
         return equation
 
@@ -145,7 +146,7 @@ class MomentumBalanceEquations(pp.VectorBalanceEquation):
 
         force_balance_eq: pp.ad.Operator = (
             contact_from_primary_mortar
-            + self.volume_integral(contact_from_secondary, interfaces)
+            + self.volume_integral(contact_from_secondary, interfaces, dim=self.nd)
         )
         force_balance_eq.set_name("interface_force_balance_equation")
         return force_balance_eq

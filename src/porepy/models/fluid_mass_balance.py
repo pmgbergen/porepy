@@ -29,7 +29,7 @@ from .constitutive_laws import ad_wrapper
 logger = logging.getLogger(__name__)
 
 
-class MassBalanceEquations(pp.ScalarBalanceEquation):
+class MassBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional mass balance equation.
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces
@@ -65,7 +65,7 @@ class MassBalanceEquations(pp.ScalarBalanceEquation):
         accumulation = self.fluid_mass(subdomains)
         flux = self.fluid_flux(subdomains)
         source = self.fluid_source(subdomains)
-        eq = self.balance_equation(subdomains, accumulation, flux, source)
+        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name("mass_balance_equation")
         return eq
 
@@ -85,7 +85,7 @@ class MassBalanceEquations(pp.ScalarBalanceEquation):
         """
 
         mass_density = self.fluid_density(subdomains) * self.porosity(subdomains)
-        mass = self.volume_integral(mass_density, subdomains)
+        mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name("fluid_mass")
         return mass
 

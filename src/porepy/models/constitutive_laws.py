@@ -795,7 +795,7 @@ class PressureStress:
         """
         for sd in subdomains:
             assert sd.dim == self.nd
-        discr = pp.ad.BiotAd(self.mechanics_parameter_key, subdomains)
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         stress: pp.ad.Operator = (
             discr.grad_p * self.pressure(subdomains)
             # The reference pressure is only defined on sd_primary, thus there is no need
@@ -1013,13 +1013,13 @@ class PoroMechanicsPorosity:
         subdomains_nd = [sd for sd in subdomains if sd.dim == self.nd]
         subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-
-        one = Scalar(1, "unitary_porosity")
-        rho = (
-            projection.cell_prolongation(subdomains_nd)
-            * self.matrix_porosity(subdomains_nd)
-            + projection.cell_prolongation(subdomains_lower) * one
+        # Constant unitary porosity in fractures and intersections
+        one = ad_wrapper(1, True, size=2, name="one")
+        rho_nd = projection.cell_prolongation(subdomains_nd) * self.matrix_porosity(
+            subdomains_nd
         )
+        rho_lower = projection.cell_prolongation(subdomains_lower) * one
+        rho = rho_nd + rho_lower
         rho.set_name("porosity")
         return rho
 
@@ -1067,8 +1067,9 @@ class PoroMechanicsPorosity:
             raise ValueError("Displacement divergence only defined in nd.")
 
         # Obtain neighbouring interfaces
-        interfaces = self.interfaces_from_subdomains(subdomains)
-        # Mock discretization (empty `discretize` method).
+        interfaces = self.subdomains_to_interfaces(subdomains)
+        # Mock discretization (empty `discretize` method), used to access discretization
+        # matrices computed by Biot discretization.
         discr = pp.ad.DivUAd(self.stress_keyword, subdomains, self.darcy_keyword)
         # Projections
         sd_projection = pp.ad.SubdomainProjections(subdomains, dim=self.nd)
