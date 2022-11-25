@@ -67,6 +67,8 @@
       <ul>
         <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ADmethod.__init__">(ADmethod method)</a>
 </li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Array.__init__">(Array method)</a>
+</li>
         <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ConstantFunction.__init__">(ConstantFunction method)</a>
 </li>
         <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.DiagonalJacobianFunction.__init__">(DiagonalJacobianFunction method)</a>
@@ -90,16 +92,14 @@
 </li>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ADmethod.ad_wrapper">ad_wrapper() (ADmethod method)</a>
 </li>
-      <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Tree.add_child">add_child() (Tree method)</a>
-</li>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ADmethod">ADmethod (class in porepy.numerics.ad.operator_functions)</a>
 </li>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arccos">arccos() (in module porepy.numerics.ad.functions)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arccosh">arccosh() (in module porepy.numerics.ad.functions)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arcsin">arcsin() (in module porepy.numerics.ad.functions)</a>
 </li>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.arcsinh">arcsinh() (in module porepy.numerics.ad.functions)</a>
@@ -247,15 +247,33 @@
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.MergedVariable.id">id (MergedVariable attribute)</a>
-
-      <ul>
-        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Variable.id">(Variable attribute)</a>
+      <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Variable.id">id (Variable attribute)</a>
 </li>
-      </ul></li>
-      <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Operator.interfaces">interfaces (Operator attribute)</a>
+      <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractFunction.interfaces">interfaces (AbstractFunction attribute)</a>
 
       <ul>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractJacobianFunction.interfaces">(AbstractJacobianFunction attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Array.interfaces">(Array attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ConstantFunction.interfaces">(ConstantFunction attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.DiagonalJacobianFunction.interfaces">(DiagonalJacobianFunction attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.Function.interfaces">(Function attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.InterpolatedFunction.interfaces">(InterpolatedFunction attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Matrix.interfaces">(Matrix attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.MergedVariable.interfaces">(MergedVariable attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Operator.interfaces">(Operator attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Scalar.interfaces">(Scalar attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.TimeDependentArray.interfaces">(TimeDependentArray attribute)</a>
+</li>
         <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Variable.interfaces">(Variable attribute)</a>
 </li>
       </ul></li>
@@ -349,6 +367,8 @@
 </li>
         <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Scalar.parse">(Scalar method)</a>
 </li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.TimeDependentArray.parse">(TimeDependentArray method)</a>
+</li>
       </ul></li>
       <li>
     porepy.numerics.ad.functions
@@ -375,6 +395,8 @@
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.MergedVariable.prev_time">prev_time (MergedVariable attribute)</a>
 
       <ul>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.TimeDependentArray.prev_time">(TimeDependentArray attribute)</a>
+</li>
         <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Variable.prev_time">(Variable attribute)</a>
 </li>
       </ul></li>
@@ -387,6 +409,10 @@
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.MergedVariable.previous_timestep">previous_timestep() (MergedVariable method)</a>
 
       <ul>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Operator.previous_timestep">(Operator method)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.TimeDependentArray.previous_timestep">(TimeDependentArray method)</a>
+</li>
         <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Variable.previous_timestep">(Variable method)</a>
 </li>
       </ul></li>
@@ -420,8 +446,6 @@
 </li>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.sin">sin() (in module porepy.numerics.ad.functions)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.functions.sinh">sinh() (in module porepy.numerics.ad.functions)</a>
 </li>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.MergedVariable.size">size() (MergedVariable method)</a>
@@ -432,9 +456,31 @@
       </ul></li>
       <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.MergedVariable.sub_vars">sub_vars (MergedVariable attribute)</a>
 </li>
-      <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Operator.subdomains">subdomains (Operator attribute)</a>
+      <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractFunction.subdomains">subdomains (AbstractFunction attribute)</a>
 
       <ul>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.AbstractJacobianFunction.subdomains">(AbstractJacobianFunction attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Array.subdomains">(Array attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.ConstantFunction.subdomains">(ConstantFunction attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.DiagonalJacobianFunction.subdomains">(DiagonalJacobianFunction attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.Function.subdomains">(Function attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.numerics.ad.operator_functions.InterpolatedFunction.subdomains">(InterpolatedFunction attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Matrix.subdomains">(Matrix attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.MergedVariable.subdomains">(MergedVariable attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Operator.subdomains">(Operator attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Scalar.subdomains">(Scalar attribute)</a>
+</li>
+        <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.TimeDependentArray.subdomains">(TimeDependentArray attribute)</a>
+</li>
         <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Variable.subdomains">(Variable attribute)</a>
 </li>
       </ul></li>
@@ -450,9 +496,9 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Matrix.transpose">transpose() (Matrix method)</a>
+      <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.TimeDependentArray">TimeDependentArray (class in porepy.ad)</a>
 </li>
-      <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Tree">Tree (class in porepy.ad)</a>
+      <li><a href="docsrc/porepy/numerics-ad.html#porepy.ad.Matrix.transpose">transpose() (Matrix method)</a>
 </li>
   </ul></td>
 </tr></table>

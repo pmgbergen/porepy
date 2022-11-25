@@ -430,7 +430,13 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prevaluated</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_table</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">InterpolationTable</span><span class="p">(</span><span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">,</span> <span class="n">npt</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_table</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">AdaptiveInterpolationTable</span><span class="p">(</span><span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">,</span> <span class="n">npt</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span>
+                <span class="c1"># Find a grid resolution from the provided minimum and maximum values.</span>
+                <span class="c1"># TODO: This will get an overhaul once we start using the adaptive</span>
+                <span class="c1"># interpolation tables in actual computations.</span>
+                <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">max_val</span> <span class="o">-</span> <span class="n">min_val</span><span class="p">)</span> <span class="o">/</span> <span class="n">npt</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_table</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">AdaptiveInterpolationTable</span><span class="p">(</span>
+                    <span class="n">dx</span><span class="p">,</span> <span class="n">base_point</span><span class="o">=</span><span class="n">min_val</span><span class="p">,</span> <span class="n">function</span><span class="o">=</span><span class="n">func</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span>
+                <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Interpolation of order </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">order</span><span class="si">}</span><span class="s2"> not implemented.&quot;</span>
@@ -453,7 +459,7 @@
             <span class="n">partial_jac</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">jac</span>
             <span class="c1"># replace the ones with actual values</span>
             <span class="c1"># Since csr, we can simply replace the data array with the values of the derivative</span>
-            <span class="n">partial_jac</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">axis</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">partial_jac</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_table</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">axis</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
 
             <span class="c1"># add blocks to complete Jacobian</span>
             <span class="n">jac</span> <span class="o">+=</span> <span class="n">partial_jac</span>

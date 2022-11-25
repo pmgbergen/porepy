@@ -45,17 +45,15 @@ class Operator:
 
     Provides overload functions for basic arithmetic operations.
 
-    Args:
-        name (str): Name of this operator. Used for string representations
-        subdomains (Grid, default=None): List of subdomains on which the operator is
-            defined. Will be empty for operators not associated with specific subdomains.
-        interfaces (MortarGrid, default=None): List of edges (tuple of subdomains) in the
-            mixed-dimensional grid on which the operator is defined.
+    Parameters:
+        name: Name of this operator. Used for string representations
+        subdomains (optional): List of subdomains on which the operator is defined.
             Will be empty for operators not associated with specific subdomains.
-
-    Attributes:
-        interfaces: See description of argument ``interfaces``.
-        subdomains: See description of argument ``subdomains``.
+            Defaults to None (converted to empty list).
+        interfaces (optional): List of interfaces in the mixed-dimensional grid on which the
+            operator is defined.
+            Will be empty for operators not associated with specific interface.
+            Defaults to None (converted to empty list).
 
     """
 
@@ -365,11 +363,12 @@ class Operator:
         This method should not be called on operators that are formed as combinations
         of atomic operators; such operators should be evaluated by the method :meth:`evaluate`.
 
-        Args:
+        Parameters:
             mdg: Mixed-dimensional grid on which this operator is to be parsed.
 
         Returns:
             A numerical format representing this operators value on given domain.
+
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
@@ -1223,7 +1222,6 @@ class Variable(Operator):
                 raise ValueError("Variable must be associated with exactly one edge.")
             self._g = self.interfaces[0]
             self._is_edge_var = True
-
         # The number of cells in the grid. Will only be used if grid_like is a tuple
         # that is, if this is a mortar variable
         self._num_cells = num_cells
