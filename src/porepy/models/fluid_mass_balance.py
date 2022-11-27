@@ -277,12 +277,9 @@ class BoundaryConditionsSinglePhaseFlow:
             # Get density and viscosity values on boundary faces applying trace to
             # interior values.
             all_bf, *_ = self.domain_boundary_sides(sd)
-            trace = pp.constitutive_laws.boundary_values_from_operator
-            rho_bound = trace(self.fluid_density, sd, all_bf, self)
-            visc_bound = trace(self.fluid_viscosity, sd, all_bf, self)
             # Append to list of boundary values
-            vals = rho_bound
-            vals[all_bf] /= visc_bound[all_bf]
+            vals = np.zeros(sd.num_faces)
+            vals[all_bf] = self.fluid.density() / self.fluid.viscosity()
             bc_values.append(vals)
 
         # Concatenate to single array and wrap as ad.Array
@@ -426,6 +423,8 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             specific_volume_mat = self.specific_volume([sd]).evaluate(
                 self.equation_system
             )
+            if hasattr(specific_volume_mat, "val"):
+                specific_volume_mat = specific_volume_mat.val
             # Extract diagonal of the specific volume matrix.
             specific_volume = specific_volume_mat * np.ones(sd.num_cells)
             # Check that the matrix is actually diagonal.
