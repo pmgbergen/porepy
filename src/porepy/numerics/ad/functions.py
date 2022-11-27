@@ -337,18 +337,51 @@ def maximum(
         The maximum of var0 and var1 with appropriate val and jac attributes.
 
     """
-    vals = [var0.val.copy()]
-    jacs = [var0.jac.copy()]
-    if isinstance(var1, np.ndarray):
-        vals.append(var1.copy())
-        jacs.append(sps.csr_matrix(var0.jac.shape))
-    else:
-        vals.append(var1.val.copy())
-        jacs.append(var1.jac.copy())
-    inds = vals[1] >= vals[0]
+    # Make a fall-back zero Jacobian for constant arguments
+    zero_jac = 0
+    if hasattr(var0, "jac"):
+        zero_jac = sps.csr_matrix(var0.jac.shape)
+    elif hasattr(var1, "jac"):
+        zero_jac = sps.csr_matrix(var1.jac.shape)
 
+    # Collect values and Jacobians.
+    vals = []
+    jacs = []
+    for var in [var0, var1]:
+        if hasattr(var, "val"):
+            v = var.val
+            j = var.jac
+        else:
+            v = var
+            j = zero_jac
+        vals.append(v)
+        jacs.append(j)
+
+
+    # If both are scalar, return same. If one is scalar, broadcast explicitly
+    if isinstance(vals[0], pp.number):
+        if isinstance(vals[1], pp.number):
+            val = np.max(vals)
+            return pp.ad.Ad_array(val, 0)
+        else:
+            # Broadcast to shape of var1
+            vals[0] = np.ones_like(vals[1]) * vals[0]
+    if isinstance(vals[1], pp.number):
+        # Broadcast to shape of var0
+        vals[1] = np.ones_like(vals[0]) * vals[1]
+
+    # Maximum of the two arrays
+    inds = vals[1] >= vals[0]
     max_val = vals[0].copy()
     max_val[inds] = vals[1][inds]
+    # If both arrays are constant, a 0 matrix has been assigned to jacs.
+    # Return here to avoid calling copy on a number (immutable, no copy method) below.
+    if isinstance(jacs[0], pp.number):
+        assert np.isclose(jacs[0], 0)
+        assert np.isclose(jacs[1], 0)
+        return pp.ad.Ad_array(max_val, 0)
+
+    # Start from var0, then change entries corresponding to inds.
     max_jac = jacs[0].copy()
 
     if isinstance(max_jac, sps.spmatrix):
@@ -359,6 +392,7 @@ def maximum(
         pp.matrix_operations.merge_matrices(max_jac, lines, inds, max_jac.getformat())
     else:
         max_jac[inds] = jacs[1][inds]
+
     return pp.ad.Ad_array(max_val, max_jac)
 
 

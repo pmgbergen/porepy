@@ -21,6 +21,7 @@ import porepy.models.momentum_balance as momentum
 
 
 class ConstitutiveLawsPoromechanicsCoupling(
+    pp.constitutive_laws.DisplacementJumpAperture,
     pp.constitutive_laws.BiotCoefficient,
     pp.constitutive_laws.PressureStress,
     pp.constitutive_laws.PoroMechanicsPorosity,

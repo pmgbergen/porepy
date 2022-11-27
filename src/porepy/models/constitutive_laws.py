@@ -62,12 +62,8 @@ class DimensionReduction:
         """
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         for i, sd in enumerate(subdomains):
-            a_loc = ad_wrapper(self.grid_aperture(sd), array=False)
-            a_glob = (
-                projection.cell_prolongation([sd])
-                * a_loc
-                * projection.cell_restriction([sd])
-            )
+            a_loc = ad_wrapper(self.grid_aperture(sd), array=True)
+            a_glob = projection.cell_prolongation([sd]) * a_loc
             if i == 0:
                 apertures = a_glob
             else:
@@ -99,11 +95,7 @@ class DimensionReduction:
                 continue
             a_loc = self.aperture(sd_dim)
             v_loc = a_loc ** Scalar(self.nd + 1 - dim)
-            v_glob = (
-                projection.cell_prolongation(sd_dim)
-                * v_loc
-                * projection.cell_restriction(sd_dim)
-            )
+            v_glob = projection.cell_prolongation(sd_dim) * v_loc
             if v is None:
                 v = v_glob
             else:
@@ -111,6 +103,73 @@ class DimensionReduction:
         v.set_name("specific_volume")
 
         return v
+
+
+class DisplacementJumpAperture:
+    """Fracture aperture from displacement jump."""
+
+    def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Aperture [m].
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Operator representing apertures.
+
+        """
+        # For now, assume no intersections
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        nd_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
+        size = sum([sd.num_cells for sd in nd_subdomains])
+        one = ad_wrapper(1, True, size=size, name="one")
+        # Start with nd, where aperture is one.
+        apertures = projection.cell_prolongation(nd_subdomains) * one
+
+        for dim in range(self.nd):
+            subdomains_dim = [sd for sd in subdomains if sd.dim == dim]
+            if len(subdomains_dim) == 0:
+                continue
+            if dim == self.nd - 1:
+                # Fractures. Get displacement jump
+                normal_jump = self.normal_component(
+                    subdomains_dim
+                ) * self.displacement_jump(subdomains_dim)
+                # The jump should be bounded below by gap function. This is not guaranteed
+                # in the non-converged state. As this (especially non-positive values)
+                # may give significant trouble in the aperture. Insert safeguard:
+                f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
+                # size = np.sum([sd.num_cells for sd in subdomains_dim])
+                # g_ref = ad_wrapper(self.solid.gap(), True, size, name="reference_gap")
+                g_ref = self.reference_gap(subdomains_dim)
+                apertures_dim = f_max(normal_jump, g_ref)
+                apertures = (
+                    apertures
+                    + projection.cell_prolongation(subdomains_dim) * apertures_dim
+                )
+            else:
+                # Intersection aperture is average of apertures of intersecting
+                # fractures.
+                interfaces_dim = self.subdomains_to_interfaces(subdomains_dim)
+                parent_fractures = self.interfaces_to_subdomains(interfaces_dim)
+                mortar_projection = pp.ad.MortarProjections(
+                    self.mdg, subdomains_dim + parent_fractures, interfaces_dim
+                )
+                parent_apertures = self.aperture(parent_fractures)
+                parent_to_intersection = (
+                    mortar_projection.mortar_to_secondary_avg
+                    * mortar_projection.primary_to_mortar_avg
+                )
+                average_weights = parent_to_intersection.evaluate(
+                    self.system_manager
+                ).sum(axis=1)
+                average_mat = ad_wrapper(average_weights, False, name="average_weights")
+                apertures_dim = average_mat * parent_to_intersection * parent_apertures
+                apertures += (
+                    projection.cell_prolongation(subdomains_dim) * apertures_dim
+                )
+
+        return apertures
 
 
 class ConstantFluidDensity:
@@ -1014,7 +1073,8 @@ class PoroMechanicsPorosity:
         subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         # Constant unitary porosity in fractures and intersections
-        one = ad_wrapper(1, True, size=2, name="one")
+        size = sum([sd.num_cells for sd in subdomains_lower])
+        one = ad_wrapper(1, True, size=size, name="one")
         rho_nd = projection.cell_prolongation(subdomains_nd) * self.matrix_porosity(
             subdomains_nd
         )

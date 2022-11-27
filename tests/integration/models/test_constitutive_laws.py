@@ -70,6 +70,8 @@ from .setup_utils import model
         ("poromechanics", "porosity", []),
         ("poromechanics", "pressure_stress", [0]),
         ("poromechanics", "stress", [0]),
+        ("poromechanics", "specific_volume", []),
+        ("poromechanics", "aperture", []),
     ],
 )
 def test_parse_constitutive_laws(model_type, method_name, domain_inds):
