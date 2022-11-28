@@ -316,39 +316,49 @@ class RegularizedHeaviside:
 
 
 def maximum(
-    var0: pp.ad.Ad_array, var1: Union[pp.ad.Ad_array, np.ndarray]
-) -> pp.ad.Ad_array:
+    var_0: Union[pp.ad.Ad_array, np.ndarray], var_1: Union[pp.ad.Ad_array, np.ndarray]
+) -> Union[pp.ad.Ad_array, np.ndarray]:
     """Ad maximum function represented as an Ad_array.
 
-    The second argument is allowed to be constant, with a numpy array originally
-    wrapped in a pp.ad.Array, whereas the first argument is expected to be an
-    Ad_array originating from a pp.ad.Operator.
+    The arguments can be either Ad_arrays or ndarrays, this duality is needed to allow
+    for parsing of operators that can be taken at the current iteration (in which case
+    it will parse as an Ad_array) or at the previous iteration or time step (in which
+    case it will parse as a numpy array).
 
-    Parameters
-    ----------
-    var0 : pp.ad.Ad_array
-        Ad operator (variable or expression).
-    var1 : Union[pp.ad.Ad_array, pp.ad.Array]
-        Ad operator (variable or expression) OR ad Array.
+    Parameters:
+        var_0: Array to be compared.
+        var_1: Array to be compared.
 
-    Returns
-    -------
-    pp.ad.Ad_array
-        The maximum of var0 and var1 with appropriate val and jac attributes.
+        If one of the input arguments is scalar, broadcasting will be used.
+
+    Returns:
+        The maximum of the two arguments, taken element-wise in the arrays. The return
+        type is Ad_array if at least one of the arguments is an Ad_array, otherwise it
+        is an ndarray. If an Ad_array is returned, the Jacobian is computed according to
+        the maximum values of the Ad_arrays (so if element ``i`` of the maximum is
+        picked from ``var_0``, row ``i`` of the Jacobian is also picked from the
+        Jacobian of ``var_0``). If ``var_0`` is a ndarray, its Jacobian is set to zero.
 
     """
-    # Make a fall-back zero Jacobian for constant arguments
+    # If neither var_0 or var_1 are Ad_arrays, return the numpy maximum function.
+    if not isinstance(var_0, Ad_array) and not isinstance(var_1, Ad_array):
+        return np.maximum(var_0, var_1)
+
+    # Make a fall-back zero Jacobian for constant arguments.
+    # EK: It is not clear if this is relevant, or if we filter out these cases with the
+    # above parsing of numpy arrays. Keep it for now, but we should revisit once we
+    # know clearer how the Ad-machinery should be used.
     zero_jac = 0
-    if hasattr(var0, "jac"):
-        zero_jac = sps.csr_matrix(var0.jac.shape)
-    elif hasattr(var1, "jac"):
-        zero_jac = sps.csr_matrix(var1.jac.shape)
+    if isinstance(var_0, Ad_array):
+        zero_jac = sps.csr_matrix(var_0.jac.shape)
+    elif isinstance(var_1, Ad_array):
+        zero_jac = sps.csr_matrix(var_1.jac.shape)
 
     # Collect values and Jacobians.
     vals = []
     jacs = []
-    for var in [var0, var1]:
-        if hasattr(var, "val"):
+    for var in [var_0, var_1]:
+        if isinstance(var, Ad_array):
             v = var.val
             j = var.jac
         else:
@@ -359,14 +369,14 @@ def maximum(
 
     # If both are scalar, return same. If one is scalar, broadcast explicitly
     if isinstance(vals[0], (float, int)):
-        if isinstance(vals[1], pp.number):
+        if isinstance(vals[1], (float, int)):
             val = np.max(vals)
             return pp.ad.Ad_array(val, 0)
         else:
-            # Broadcast to shape of var1
+            # Broadcast to shape of var_1
             vals[0] = np.ones_like(vals[1]) * vals[0]
     if isinstance(vals[1], (float, int)):
-        # Broadcast to shape of var0
+        # Broadcast to shape of var_0
         vals[1] = np.ones_like(vals[0]) * vals[1]
 
     # Maximum of the two arrays
@@ -380,7 +390,7 @@ def maximum(
         assert np.isclose(jacs[1], 0)
         return pp.ad.Ad_array(max_val, 0)
 
-    # Start from var0, then change entries corresponding to inds.
+    # Start from var_0, then change entries corresponding to inds.
     max_jac = jacs[0].copy()
 
     if isinstance(max_jac, sps.spmatrix):
@@ -395,7 +405,7 @@ def maximum(
     return pp.ad.Ad_array(max_val, max_jac)
 
 
-def characteristic_function(tol: float, var: pp.ad.Ad_array):
+def characteristic_function(tol: float, var: pp.ad.Ad_array) -> pp.ad.Ad_array:
     """Characteristic function of an ad variable.
 
     Returns 1 if var.val is within absolute tolerance = tol of zero. The derivative is set to
