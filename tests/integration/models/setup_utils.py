@@ -8,10 +8,20 @@ import porepy as pp
 
 class GeometrySingleFracture2d(pp.ModelGeometry):
     def set_fracture_network(self) -> None:
-        p = np.array([[0, 1], [0.5, 0.5]])
-        e = np.array([[0], [1]])
-        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
 
+        num_fracs = self.params.get("num_fracs", 1)
+        domain = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1}
+        if num_fracs == 0:
+            p = np.zeros((2, 0), dtype=float)
+            e = np.zeros((2, 0), dtype=int)
+        elif num_fracs == 1:
+            p = np.array([[0, 1], [0.5, 0.5]])
+            e = np.array([[0], [1]])
+        elif num_fracs == 2:
+            p = np.array([[0, 1, 0.5, 0.5], [0.5, 0.5, 0, 1]])
+            e = np.array([[0, 2], [1, 3]])
+        else:
+            raise ValueError("Only 0, 1 or 2 fractures supported")
         self.fracture_network = pp.FractureNetwork2d(p, e, domain)
 
     def mesh_arguments(self) -> dict:
@@ -72,10 +82,12 @@ class PoromechanicsCombined(
     pass
 
 
-def model(model_type: str) -> MassBalanceCombined | MomentumBalanceCombined:
+def model(
+    model_type: str, num_fracs: int = 1
+) -> MassBalanceCombined | MomentumBalanceCombined:
     """Setup for tests."""
     # Suppress output for tests
-    params = {"suppress_export": True}
+    params = {"suppress_export": True, num_fracs: num_fracs}
 
     ob: MassBalanceCombined | MomentumBalanceCombined
 

@@ -15,12 +15,12 @@ from .setup_utils import model
 
 
 @pytest.mark.parametrize(
-    "model_type,equation_name,domain_inds",
+    "model_type,equation_name,domain_dimension",
     [
         ("mass_balance", "mass_balance_equation", []),
         ("mass_balance", "interface_darcy_flux_equation", []),
-        ("momentum_balance", "momentum_balance_equation", [0]),
-        ("momentum_balance", "interface_force_balance_equation", [0]),
+        ("momentum_balance", "momentum_balance_equation", [2]),
+        ("momentum_balance", "interface_force_balance_equation", [1]),
         ("momentum_balance", "normal_fracture_deformation_equation", [1]),
         ("momentum_balance", "tangential_fracture_deformation_equation", [1]),
         ("energy_balance", "energy_balance_equation", []),
@@ -33,7 +33,8 @@ from .setup_utils import model
         ("poromechanics", "interface_force_balance_equation", [0]),
     ],
 )
-def test_parse_equations(model_type, equation_name, domain_inds):
+@pytest.mark.parametrize("num_fracs", [0, 1, 2])
+def test_parse_equations(model_type, equation_name, domain_dimension, num_fracs):
     """Test that equation parsing works as expected.
 
     Currently tested are the relevant equations in the mass balance and momentum balance
@@ -49,8 +50,14 @@ def test_parse_equations(model_type, equation_name, domain_inds):
             domains.
 
     """
+    if len(domain_dimension) > 0:
+        if domain_dimension[0] == 2 and num_fracs > 0:
+            return
+        elif domain_dimension[0] == 1 and num_fracs == 0:
+            return
+
     # Set up an object of the prescribed model
-    setup = model(model_type)
+    setup = model(model_type, num_fracs=num_fracs)
     # Fetch the relevant equation of this model.
     method = getattr(setup, equation_name)
     # Fetch the signature of the method.
@@ -64,18 +71,30 @@ def test_parse_equations(model_type, equation_name, domain_inds):
 
     # The domain is a list of either subdomains or interfaces.
     if "subdomains" in sig.parameters:
-        domains = setup.mdg.subdomains()
+        # If relevant, filter out the domains that are not to be tested.
+        if len(domain_dimension) > 0:
+            domains = setup.mdg.subdomains(dim=domain_dimension[0])
+        else:
+            domains = setup.mdg.subdomains()
     elif "interfaces" in sig.parameters:
-        domains = setup.mdg.interfaces()
-    # If relevant, filter out the domains that are not to be tested.
-    if len(domain_inds) > 0:
-        domains = [domains[i] for i in domain_inds if i <= len(domains)]
-
+        if len(domain_dimension) > 0:
+            domains = setup.mdg.interfaces(dim=domain_dimension[0])
+        else:
+            domains = setup.mdg.interfaces()
     # Call the discretization method.
     setup.equation_system.discretize()
+    print(setup.mdg)
 
     # Assemble the matrix and right hand side for the given equation. An error here will
     # indicate that something is wrong with the way the conservation law combines
     # terms and factors (e.g., grids, parameters, variables, other methods etc.) to form
     # an Ad operator object.
     setup.equation_system.assemble_subsystem({equation_name: domains})
+
+
+test_parse_equations(
+    model_type="mass_balance",
+    equation_name="mass_balance_equation",
+    domain_dimension=[],
+    num_fracs=0,
+)

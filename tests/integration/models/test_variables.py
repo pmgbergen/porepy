@@ -62,3 +62,10 @@ def test_parse_variables(model_type, variable_name, domain_inds):
     sz_var = setup.equation_system.dofs_of(op.sub_vars).size
     assert evaluation.val.size == sz_var
     assert evaluation.jac.shape == (sz_var, sz_tot)
+
+    scalar = pp.ad.Scalar(1)
+    op_2 = scalar * op
+    op_2.evaluate(setup.equation_system)
+
+
+test_parse_variables("mass_balance", "pressure", [0])
