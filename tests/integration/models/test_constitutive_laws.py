@@ -15,7 +15,7 @@ import pytest
 
 import porepy as pp
 
-from setup_utils import model
+from .setup_utils import model
 
 
 @pytest.mark.parametrize(
@@ -38,8 +38,8 @@ from setup_utils import model
         # Momentum balance
         ("momentum_balance", "bc_values_mechanics", []),
         # The body force and stress are only meaningful in the top dimension
-        ("momentum_balance", "body_force", [0]),
-        ("momentum_balance", "stress", [0]),
+        ("momentum_balance", "body_force", [2]),
+        ("momentum_balance", "stress", [2]),
         ("momentum_balance", "solid_density", []),
         ("momentum_balance", "lame_lambda", []),
         ("momentum_balance", "shear_modulus", []),
@@ -64,12 +64,12 @@ from setup_utils import model
         ("energy_balance", "specific_volume", []),
         # Poromechanics
         ("poromechanics", "reference_porosity", []),
-        ("poromechanics", "biot_coefficient", [0]),
-        ("poromechanics", "matrix_porosity", [0]),
+        ("poromechanics", "biot_coefficient", [2]),
+        ("poromechanics", "matrix_porosity", [2]),
         ("poromechanics", "porosity", [1]),
         ("poromechanics", "porosity", []),
-        ("poromechanics", "pressure_stress", [0]),
-        ("poromechanics", "stress", [0]),
+        ("poromechanics", "pressure_stress", [2]),
+        ("poromechanics", "stress", [2]),
         ("poromechanics", "specific_volume", []),
         ("poromechanics", "aperture", []),
     ],

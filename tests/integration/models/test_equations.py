@@ -29,8 +29,8 @@ from .setup_utils import model
         # Energy balance inherits mass balance equations. Test one of these as well.
         ("energy_balance", "mass_balance_equation", []),
         ("poromechanics", "mass_balance_equation", []),
-        ("poromechanics", "momentum_balance_equation", [0]),
-        ("poromechanics", "interface_force_balance_equation", [0]),
+        ("poromechanics", "momentum_balance_equation", [2]),
+        ("poromechanics", "interface_force_balance_equation", [1]),
     ],
 )
 @pytest.mark.parametrize("num_fracs", [0, 1, 2])
@@ -93,7 +93,7 @@ def test_parse_equations(model_type, equation_name, domain_dimension, num_fracs)
 
 
 test_parse_equations(
-    model_type="mass_balance",
+    model_type="poromechanics",
     equation_name="mass_balance_equation",
     domain_dimension=[],
     num_fracs=0,
