@@ -33,6 +33,8 @@ def ad_wrapper(
     if type(vals) is not np.ndarray:
         assert size is not None, "Size must be set if vals is not an array"
         value_array: np.ndarray = vals * np.ones(size)
+    else:
+        value_array = vals
 
     if array:
         return pp.ad.Array(value_array, name)
