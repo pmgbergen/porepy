@@ -15,11 +15,11 @@ import pytest
 
 import porepy as pp
 
-from .setup_utils import model
+from setup_utils import model
 
 
 @pytest.mark.parametrize(
-    "model_type,method_name,domain_inds",
+    "model_type,method_name,domain_dimension",
     [  # Fluid mass balance
         ("mass_balance", "bc_values_darcy_flux", []),
         ("mass_balance", "bc_values_mobrho", []),
@@ -74,7 +74,8 @@ from .setup_utils import model
         ("poromechanics", "aperture", []),
     ],
 )
-def test_parse_constitutive_laws(model_type, method_name, domain_inds):
+@pytest.mark.parametrize("num_fracs", [0, 1, 2])
+def test_parse_constitutive_laws(model_type, method_name, domain_dimension, num_fracs):
     """Test that the ad parsing of constitutive laws works as intended.
 
     The workflow in the test is as follows: An object of the prescribed model is
@@ -95,8 +96,14 @@ def test_parse_constitutive_laws(model_type, method_name, domain_inds):
             domains.
 
     """
+    if len(domain_dimension) > 0:
+        if domain_dimension[0] == 2 and num_fracs > 0:
+            return
+        elif domain_dimension[0] == 1 and num_fracs == 0:
+            return
+
     # Set up an object of the prescribed model
-    setup = model(model_type)
+    setup = model(model_type, num_fracs=num_fracs)
     # Fetch the relevant method of this model.
     method = getattr(setup, method_name)
     # Fetch the signature of the method.
@@ -110,12 +117,16 @@ def test_parse_constitutive_laws(model_type, method_name, domain_inds):
 
     # The domain is a list of either subdomains or interfaces.
     if "subdomains" in sig.parameters:
-        domains = setup.mdg.subdomains()
+        # If relevant, filter out the domains that are not to be tested.
+        if len(domain_dimension) > 0:
+            domains = setup.mdg.subdomains(dim=domain_dimension[0])
+        else:
+            domains = setup.mdg.subdomains()
     elif "interfaces" in sig.parameters:
-        domains = setup.mdg.interfaces()
-    # If relevant, filter out the domains that are not to be tested.
-    if len(domain_inds) > 0:
-        domains = [domains[i] for i in domain_inds]
+        if len(domain_dimension) > 0:
+            domains = setup.mdg.interfaces(dim=domain_dimension[0])
+        else:
+            domains = setup.mdg.interfaces()
 
     # Call the method with the domain as argument. An error here will indicate that
     # something is wrong with the way the method combines terms and factors (e.g., grids
@@ -131,3 +142,6 @@ def test_parse_constitutive_laws(model_type, method_name, domain_inds):
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
     op.evaluate(setup.equation_system)
+
+
+test_parse_constitutive_laws("momentum_balance", "bc_values_mechanics", [], 0)
