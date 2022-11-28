@@ -32,13 +32,13 @@ def ad_wrapper(
     """
     if type(vals) is not np.ndarray:
         assert size is not None, "Size must be set if vals is not an array"
-        vals: np.ndarray = vals * np.ones(size)
+        value_array: np.ndarray = vals * np.ones(size)
 
     if array:
-        return pp.ad.Array(vals, name)
+        return pp.ad.Array(value_array, name)
     else:
         if size is None:
-            size = vals.size
+            size = value_array.size
         matrix = sps.diags(vals, shape=(size, size))
         return pp.ad.Matrix(matrix, name)
 
@@ -46,14 +46,16 @@ def ad_wrapper(
 class DimensionReduction:
     """Apertures and specific volumes."""
 
-    def grid_aperture(self, grid: pp.Grid):
+    nd: int
+
+    def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
         """FIXME: Decide on how to treat interfaces."""
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
             aperture *= 0.1
         return aperture
 
-    def aperture(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """
         Aperture is a characteristic thickness of a cell, with units [m].
         1 in matrix, thickness of fractures and "side length" of cross-sectional
@@ -71,7 +73,7 @@ class DimensionReduction:
         apertures.set_name("aperture")
         return apertures
 
-    def specific_volume(self, subdomains: list[pp.Grid]) -> np.ndarray:
+    def specific_volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Specific volume [m^(nd-d)]
 
         Aperture is a characteristic thickness of a cell, with units [m].
@@ -108,6 +110,20 @@ class DimensionReduction:
 class DisplacementJumpAperture:
     """Fracture aperture from displacement jump."""
 
+    nd: int
+
+    subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+
+    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    reference_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    mdg: pp.MixedDimensionalGrid
+
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
 
@@ -127,33 +143,33 @@ class DisplacementJumpAperture:
         apertures = projection.cell_prolongation(nd_subdomains) * one
 
         for dim in range(self.nd):
-            subdomains_dim = [sd for sd in subdomains if sd.dim == dim]
-            if len(subdomains_dim) == 0:
+            subdomains_of_dim = [sd for sd in subdomains if sd.dim == dim]
+            if len(subdomains_of_dim) == 0:
                 continue
             if dim == self.nd - 1:
                 # Fractures. Get displacement jump
                 normal_jump = self.normal_component(
-                    subdomains_dim
-                ) * self.displacement_jump(subdomains_dim)
+                    subdomains_of_dim
+                ) * self.displacement_jump(subdomains_of_dim)
                 # The jump should be bounded below by gap function. This is not guaranteed
                 # in the non-converged state. As this (especially non-positive values)
                 # may give significant trouble in the aperture. Insert safeguard:
                 f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
-                # size = np.sum([sd.num_cells for sd in subdomains_dim])
-                # g_ref = ad_wrapper(self.solid.gap(), True, size, name="reference_gap")
-                g_ref = self.reference_gap(subdomains_dim)
-                apertures_dim = f_max(normal_jump, g_ref)
+
+                g_ref = self.reference_gap(subdomains_of_dim)
+                apertures_of_dim = f_max(normal_jump, g_ref)
+                apertures_of_dim.set_name("aperture_maximum_function")
                 apertures = (
                     apertures
-                    + projection.cell_prolongation(subdomains_dim) * apertures_dim
+                    + projection.cell_prolongation(subdomains_of_dim) * apertures_of_dim
                 )
             else:
                 # Intersection aperture is average of apertures of intersecting
                 # fractures.
-                interfaces_dim = self.subdomains_to_interfaces(subdomains_dim)
+                interfaces_dim = self.subdomains_to_interfaces(subdomains_of_dim)
                 parent_fractures = self.interfaces_to_subdomains(interfaces_dim)
                 mortar_projection = pp.ad.MortarProjections(
-                    self.mdg, subdomains_dim + parent_fractures, interfaces_dim
+                    self.mdg, subdomains_of_dim + parent_fractures, interfaces_dim
                 )
                 parent_apertures = self.aperture(parent_fractures)
                 parent_to_intersection = (
@@ -164,9 +180,11 @@ class DisplacementJumpAperture:
                     self.system_manager
                 ).sum(axis=1)
                 average_mat = ad_wrapper(average_weights, False, name="average_weights")
-                apertures_dim = average_mat * parent_to_intersection * parent_apertures
+                apertures_of_dim = (
+                    average_mat * parent_to_intersection * parent_apertures
+                )
                 apertures += (
-                    projection.cell_prolongation(subdomains_dim) * apertures_dim
+                    projection.cell_prolongation(subdomains_of_dim) * apertures_of_dim
                 )
 
         return apertures
