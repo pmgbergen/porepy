@@ -357,16 +357,15 @@ def maximum(
         vals.append(v)
         jacs.append(j)
 
-
     # If both are scalar, return same. If one is scalar, broadcast explicitly
-    if isinstance(vals[0], pp.number):
+    if isinstance(vals[0], (float, int)):
         if isinstance(vals[1], pp.number):
             val = np.max(vals)
             return pp.ad.Ad_array(val, 0)
         else:
             # Broadcast to shape of var1
             vals[0] = np.ones_like(vals[1]) * vals[0]
-    if isinstance(vals[1], pp.number):
+    if isinstance(vals[1], (float, int)):
         # Broadcast to shape of var0
         vals[1] = np.ones_like(vals[0]) * vals[1]
 
@@ -376,7 +375,7 @@ def maximum(
     max_val[inds] = vals[1][inds]
     # If both arrays are constant, a 0 matrix has been assigned to jacs.
     # Return here to avoid calling copy on a number (immutable, no copy method) below.
-    if isinstance(jacs[0], pp.number):
+    if isinstance(jacs[0], (float, int)):
         assert np.isclose(jacs[0], 0)
         assert np.isclose(jacs[1], 0)
         return pp.ad.Ad_array(max_val, 0)
