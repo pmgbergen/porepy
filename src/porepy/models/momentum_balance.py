@@ -464,7 +464,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         traction_vals[-1] = -1
         self.equation_system.set_variable_values(
             traction_vals.ravel("F"),
-            self.contact_traction_variable,
+            [self.contact_traction_variable],
             to_state=True,
             to_iterate=True,
         )

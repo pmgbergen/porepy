@@ -784,6 +784,7 @@ class EquationSystem:
         if variables is None:
             return self.get_variables()
         parsed_variables = []
+        assert isinstance(variables, list)
         for variable in variables:
             if isinstance(variable, MixedDimensionalVariable):
                 parsed_variables += variable.sub_vars
