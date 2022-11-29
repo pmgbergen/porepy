@@ -1,6 +1,6 @@
 """Library of constitutive equations."""
 from functools import partial
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -241,10 +241,12 @@ class ConstantFluidDensity:
         """Fluid density [kg/m^3].
 
         Parameters:
-            subdomains: List of subdomain grids.
+            subdomains: List of subdomain grids.Note used in this implementation, but
+                included for compatibility with other implementations.
 
         Returns:
-            Operator for fluid density.
+            Operator for fluid density, represented as an Ad operator. The value is
+            picked from the fluid constants.
 
         """
         return Scalar(self.fluid.density(), "fluid_density")
@@ -266,6 +268,7 @@ class FluidDensityFromPressure:
 
         Returns:
             The constant compressibility of the fluid, represented as an Ad operator.
+            The value is taken from the fluid constants.
 
         """
         return Scalar(self.fluid.compressibility(), "fluid_compressibility")
@@ -354,10 +357,12 @@ class ConstantViscosity:
         """Fluid viscosity [Pa s].
 
         Parameters:
-            subdomains: List of subdomain grids.
+            subdomains: List of subdomain grids. Not used in this implementation, but
+                included for compatibility with other implementations.
 
         Returns:
-            Operator for fluid viscosity.
+            Operator for fluid viscosity, represented as an Ad operator. The value is
+            picked from the fluid constants.
 
         """
         return Scalar(self.fluid.viscosity(), "viscosity")
@@ -396,10 +401,12 @@ class ConstantPermeability:
         the normal permeability is returned as an Ad operator.
 
         Parameters:
-            interfaces: List of interface grids.
+            interfaces: List of interface grids. Not used in this implementation, but
+                included for compatibility with other implementations.
 
         Returns:
-            Scalar normal permeability on the interfaces.
+            Scalar normal permeability on the interfaces between subdomains, represented
+            as an Ad operator. The value is picked from the solid constants.
 
         """
         return Scalar(self.solid.normal_permeability())
@@ -411,6 +418,34 @@ class DarcysLawFV:
     and boundary conditions all need to be passed around.
     """
 
+    subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+
+    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+
+    interface_darcy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+
+    mdg: pp.MixedDimensionalGrid
+
+    bc_values_darcy_flux: Callable[[list[pp.Grid]], np.ndarray]
+
+    normal_permeability: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+
+    fluid: pp.FluidConstants
+
+    nd: int
+
+    darcy_keyword: str
+
+    basis: Callable[[Sequence[pp.GridLike]], np.ndarray]
+
+    internal_boundary_normal_to_outwards: Callable[[list[pp.MortarGrid]], pp.ad.Matrix]
+
+    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str], pp.ad.Operator]
+
     def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
 
@@ -419,11 +454,12 @@ class DarcysLawFV:
 
         Returns:
             Pressure on the subdomain boundaries. Parsing the operator will return a
-            face-wise array
+            face-wise array.
+
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr = self.darcy_flux_discretization(subdomains)
+        discr: pp.ad.MpfaAd = self.darcy_flux_discretization(subdomains)
         p: pp.ad.MixedDimensionalVariable = self.pressure(subdomains)
         pressure_trace = (
             discr.bound_pressure_cell * p
@@ -442,10 +478,11 @@ class DarcysLawFV:
 
         Returns:
             Face-wise Darcy flux in cubic meters per second.
+
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr: pp.ad.Discretization = self.darcy_flux_discretization(subdomains)
+        discr: pp.ad.MpfaAd = self.darcy_flux_discretization(subdomains)
         flux: pp.ad.Operator = (
             discr.flux * self.pressure(subdomains)
             + discr.bound_flux
@@ -481,14 +518,13 @@ class DarcysLawFV:
         ) - cell_volumes * self.normal_permeability(interfaces) * (
             projection.primary_to_mortar_avg * self.pressure_trace(subdomains)
             - projection.secondary_to_mortar_avg * self.pressure(subdomains)
+            # TODO: Reintroduce the below term?
             # + self.interface_vector_source(interfaces, material="fluid")
         )
         eq.set_name("interface_darcy_flux_equation")
         return eq
 
-    def darcy_flux_discretization(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Discretization:
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         """
         Note:
             The ad.Discretizations may be purged altogether. Their current function is
@@ -519,13 +555,12 @@ class DarcysLawFV:
             defined. material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
-            Cell-wise nd-vector source term operator
+            Cell-wise nd-vector source term operator.
+
         """
-        val: np.ndarray = self.fluid.convert_units(0, "m*s^-2")
+        val = self.fluid.convert_units(0, "m*s^-2")
         size = int(np.sum([g.num_cells for g in grids]) * self.nd)
-        source: pp.ad.Array = ad_wrapper(
-            val, array=True, size=size, name="zero_vector_source"
-        )
+        source = ad_wrapper(val, array=True, size=size, name="zero_vector_source")
         return source
 
     def interface_vector_source(
@@ -565,48 +600,62 @@ class DarcysLawFV:
 class ThermalConductivityLTE:
     """Thermal conductivity in the local thermal equilibrium approximation."""
 
-    def fluid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid thermal conductivity.
+    fluid: pp.FluidConstants
+    solid: pp.SolidConstants
 
-        SI units: W / (m K)
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    equation_system: pp.ad.EquationSystem
+
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+
+    def fluid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid thermal conductivity [W / (m K)]
 
         Parameters:
             grids: List of subdomains where the thermal conductivity is defined.
 
         Returns:
-            Thermal conductivity of fluid.
+            Thermal conductivity of fluid. The returned operator is a scalar
+            representing the constant thermal conductivity of the fluid.
 
         """
         return Scalar(self.fluid.thermal_conductivity(), "fluid_thermal_conductivity")
 
     def solid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Solid thermal conductivity.
+        """Solid thermal conductivity [W / (m K)].
 
-        SI units: W / (m K)
+        The
 
         Parameters:
             grids: List of subdomains where the thermal conductivity is defined.
 
         Returns:
-            Thermal conductivity of solid.
+            Thermal conductivity of fluid. The returned operator is a scalar, wrapped as
+            an Ad operator, representing the constant thermal conductivity of the fluid.
 
         """
         return Scalar(self.solid.thermal_conductivity(), "solid_thermal_conductivity")
 
-    def thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
-        """Permeability [m^2].
+    def thermal_conductivity(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Thermal conductivity [m^2].
 
-        This will be set as before (pp.PARAMETERS) since it is used in the
-        discretization of the thermal equation by either the mpfa or the tpfa method.
+        The thermal conductivity is computed as the porosity-weighted average of the
+        fluid and solid thermal conductivities. In this implementation, both are
+        considered constants, however, if the porosity changes with time, the weighting
+        factor will also change.
+
+        The thermal conductivity is quantity which enters the discretized equations in a
+        form that cannot be differentiated by Ad (this is at least true for a subset of
+        the relevant discretizations). For this reason, the thermal conductivity is not
+        returned as an Ad operator, but as a numpy array, to be wrapped as a
+        SecondOrderTensor and passed as a discretization parameter.
 
         Parameters:
-            subdomain: Subdomain where the permeability is defined.
-                Permeability is a discretization parameter and is assigned to individual
-                subdomain data dictionaries. Hence, the list is assumed to contain only
-                one element.
+            subdomain: Subdomain where the thurmal conductivity is defined.
 
         Returns:
-            Cell-wise permeability tensor.
+            Cell-wise conducivity tensor.
 
         """
         assert len(subdomains) == 1, "Only one subdomain is allowed."
@@ -619,8 +668,9 @@ class ThermalConductivityLTE:
 
         # In case vals is proper operator, not a combination of Scalars and Arrays,
         # get the values.
-        if hasattr(vals, "val"):
+        if isinstance(vals, pp.ad.Ad_array):
             vals = vals.val
+
         return vals * np.ones(size)
 
     def normal_thermal_conductivity(
@@ -652,15 +702,43 @@ class FouriersLawFV:
     not included, as opposed to the Darcy flux (see that class).
     """
 
+    subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+
+    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+
+    mdg: pp.MixedDimensionalGrid
+
+    interface_fourier_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+
+    bc_values_fourier_flux: Callable[[list[pp.Grid]], np.ndarray]
+
+    normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+
+    fourier_keyword: str
+
+    internal_boundary_normal_to_outwards: Callable[[list[pp.MortarGrid]], pp.ad.Matrix]
+
+    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str], pp.ad.Operator]
+
     def temperature_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Temperature on the subdomain boundaries.
+
+        .. note::
+            The below implementation assumes the heat flux is discretized with a finite
+            volume method (either Tpfa or Mpfa). Other discretizations may be possible,
+            but would likely require a modification of this (and several other) methods.
 
         Parameters:
             subdomains: List of subdomains where the temperature is defined.
 
         Returns:
             Temperature on the subdomain boundaries. Parsing the operator will return a
-            face-wise array
+            face-wise array.
+
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
@@ -678,17 +756,23 @@ class FouriersLawFV:
         return temperature_trace
 
     def fourier_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fourier flux.
+        """Discrete Fourier flux on subdomains.
+
+        .. note::
+            The below implementation assumes the heat flux is discretized with a finite
+            volume method (either Tpfa or Mpfa). Other discretizations may be possible,
+            but would likely require a modification of this (and several other) methods.
 
         Parameters:
             subdomains: List of subdomains where the Fourier flux is defined.
 
         Returns:
-            Face-wise Fourier flux in cubic meters per second.
+            An Ad-operator representing the Fourier flux on the subdomains.
+
         """
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains)
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-        discr: pp.ad.Discretization = self.fourier_flux_discretization(subdomains)
+        discr = self.fourier_flux_discretization(subdomains)
 
         # As opposed to darcy_flux in :class:`DarcyFluxFV`, the gravity term is not
         # included here.
@@ -701,8 +785,10 @@ class FouriersLawFV:
         flux.set_name("Darcy_flux")
         return flux
 
-    def interface_fourier_flux_equation(self, interfaces: list[pp.MortarGrid]):
-        """Fourier flux on interfaces.
+    def interface_fourier_flux_equation(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Discrete Fourier flux on interfaces.
 
         Parameters:
             interfaces: List of interface grids.
@@ -727,31 +813,47 @@ class FouriersLawFV:
         eq.set_name("interface_fourier_flux_equation")
         return eq
 
-    def fourier_flux_discretization(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Discretization:
+    def fourier_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         """Fourier flux discretization.
 
         Parameters:
             subdomains: List of subdomains where the Fourier flux is defined.
 
         Returns:
-            Discretization of the Fourier flux.
+            Discretization object for the Fourier flux.
 
         """
         return pp.ad.MpfaAd(self.fourier_keyword, subdomains)
 
 
 class AdvectiveFlux:
+
+    subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+
+    mdg: pp.MixedDimensionalGrid
+
+    darcy_flux: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+
+    interface_darcy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+
     def advective_flux(
         self,
         subdomains: list[pp.Grid],
         advected_entity: pp.ad.Operator,
-        discr: pp.ad.Discretization,
+        discr: pp.ad.UpwindAd,
         bc_values: pp.ad.Operator,
         interface_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator],
     ) -> pp.ad.Operator:
-        """Advective flux.
+        """An operator represetning the advective flux on subdomains.
+
+        .. note::
+            The implementation assumes that the advective flux is discretized using a
+            standard upwind discretization. Other discretizations may be possible, but
+            this has not been considered.
 
         Parameters:
             subdomains: List of subdomains.
@@ -762,6 +864,7 @@ class AdvectiveFlux:
 
         Returns:
             Operator representing the advective flux.
+
         """
         darcy_flux = self.darcy_flux(subdomains)
         interfaces = self.subdomains_to_interfaces(subdomains)
@@ -784,12 +887,19 @@ class AdvectiveFlux:
         self,
         interfaces: list[pp.MortarGrid],
         advected_entity: pp.ad.Operator,
-        discr: pp.ad.Discretization,
+        discr: pp.ad.UpwindCouplingAd,
     ) -> pp.ad.Operator:
-        """Advective flux on interfaces.
+        """An operator represetning the advective flux on interfaces.
+
+        .. note::
+            The implementation here is tailored for discretization using an upwind
+            discretization for the advective interface flux. Other discretizaitons may
+            be possible, but this has not been considered.
 
         Parameters:
             interfaces: List of interface grids.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
 
         Returns:
             Operator representing the advective flux on the interfaces.
@@ -803,6 +913,8 @@ class AdvectiveFlux:
         trace = pp.ad.Trace(subdomains)
         # Project the two advected entities to the interface and multiply with upstream
         # weights and the interface Darcy flux.
+        # IMPLEMENTATION NOTE: If we ever implement other discretizations than upwind,
+        # we may need to change the below definition.
         interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
             discr.upwind_primary
             * mortar_projection.primary_to_mortar_avg
@@ -816,14 +928,20 @@ class AdvectiveFlux:
 
 
 class SpecificHeatCapacities:
+
+    fluid: pp.FluidConstants
+    solid: pp.SolidConstants
+
     def fluid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid specific heat capacity.
+        """Fluid specific heat capacity [J/kg/K].
 
         Parameters:
-            subdomains: List of subdomains.
+            subdomains: List of subdomains. Not used, but included for consistency with
+                other implementations.
 
         Returns:
-            Operator representing the fluid specific heat capacity.
+            Operator representing the fluid specific heat capacity. The value is picked
+            from the fluid constants.
 
         """
         return Scalar(
@@ -831,13 +949,15 @@ class SpecificHeatCapacities:
         )
 
     def solid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Solid specific heat capacity.
+        """Solid specific heat capacity [J/kg/K].
 
         Parameters:
-            subdomains: List of subdomains.
+            subdomains: List of subdomains. Not used, but included for consistency with
+                other implementations.
 
         Returns:
-            Operator representing the solid specific heat capacity.
+            Operator representing the solid specific heat capacity. The value is picked
+            from the solid constants.
 
         """
         return Scalar(
@@ -846,13 +966,23 @@ class SpecificHeatCapacities:
 
 
 class EnthalpyFromTemperature(SpecificHeatCapacities):
+    """Class for representing the ethalpy, computed from the perturbation from a reference
+    temperature.
+    """
+
     temperature: pp.ad.Operator
     reference_temperature: float
 
-    def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid enthalpy.
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
 
-        SI units: J / m^3.
+    def fluid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid enthalpy [J / m^3].
+
+        TODO: Check units here, and in solid_specific_heat_capacity.
+
+        The enthalpy is computed as a perturbation from a reference temperature as
+        .. math::
+            h = c_p (T - T_0)
 
         Parameters:
             subdomains: List of subdomains.
@@ -864,10 +994,15 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
         c = self.fluid_specific_heat_capacity(subdomains)
         enthalpy = c * self.perturbation_from_reference("temperature", subdomains)
         enthalpy.set_name("fluid_enthalpy")
+        # TODO: Is there not one more c-scaling here?
         return c * enthalpy
 
     def solid_enthalpy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Solid enthalpy.
+        """Solid enthalpy [J/kg/K].
+
+        The enthalpy is computed as a perturbation from a reference temperature as
+        .. math::
+            h = c_p (T - T_0)
 
         Parameters:
             subdomains: List of subdomains.
@@ -879,6 +1014,7 @@ class EnthalpyFromTemperature(SpecificHeatCapacities):
         c = self.solid_specific_heat_capacity(subdomains)
         enthalpy = c * self.perturbation_from_reference("temperature", subdomains)
         enthalpy.set_name("solid_enthalpy")
+        # TODO: Is there a scaling factor c too much here?
         return c * enthalpy
 
 
@@ -899,10 +1035,19 @@ class GravityForce:
     TODO: Decide whether to use this or zero as default for Darcy fluxes.
     """
 
+    fluid: pp.FluidConstants
+
+    e_i: Callable[[Union[list[pp.Grid], list[pp.MortarGrid]], int, int], pp.ad.Operator]
+
+    nd: int
+
     def gravity_force(
         self, grids: Union[list[pp.Grid], list[pp.MortarGrid]], material: str
     ) -> pp.ad.Operator:
         """Vector source term.
+
+        TODO: Is it deliberate that we have Union[list[pp.Grid], list[pp.MortarGrid]] here,
+        but list[pp.GridLike] in other places in this module?
 
         Represents gravity effects. EK: Let's discuss how to name/think about this term.
         Note that it appears slightly differently in a flux and a force/momentum
@@ -913,11 +1058,12 @@ class GravityForce:
             defined. material: Name of the material. Could be either "fluid" or "solid".
 
         Returns:
-            Cell-wise nd-vector source term operator
+            Cell-wise nd-vector source term operator.
+
         """
-        val: np.ndarray = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
+        val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
         size = np.sum([g.num_cells for g in grids])
-        gravity: pp.ad.Array = ad_wrapper(val, array=True, size=size, name="gravity")
+        gravity = ad_wrapper(val, array=True, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
         e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
@@ -933,8 +1079,38 @@ class LinearElasticMechanicalStress:
 
     """
 
+    nd: int
+
+    stress_keyword: str
+
+    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    interface_displacement: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+
+    subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+
+    mdg: pp.MixedDimensionalGrid
+
     def mechanical_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Linear elastic mechanical stress."""
+        """Linear elastic mechanical stress.
+
+        .. note::
+            The below discretization assumes the stress is discretized with a Mpsa
+            finite volume discretization. Other discretizations may be possible, but are
+            not available in PorePy at the moment, and would likely require changes to
+            this method.
+
+        Parameters:
+            subdomains: List of subdomains. Should be of co-dimension 0.
+
+        Returns:
+            Ad operator representing the mechanical stress on grid faces of the
+                subdomains.
+
+        """
         for sd in subdomains:
             assert sd.dim == self.nd
         discr = pp.ad.MpsaAd(self.stress_keyword, subdomains)
@@ -952,11 +1128,6 @@ class LinearElasticMechanicalStress:
         return stress
 
 
-# Foregriper litt her for å illustrere utvidelse til poromekanikk.
-# Det blir
-# PoroConstit(LinearElasticSolid, PressureStress):
-#    def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-#        return self.pressure_stress(subdomains) + self.mechanical_stress(subdomains)
 class PressureStress:
     """Stress tensor from pressure.
 
@@ -970,6 +1141,12 @@ class PressureStress:
 
     def pressure_stress(self, subdomains):
         """Pressure contribution to stress tensor.
+
+        .. note::
+            The below discretization assumes the stress is discretized with a Mpsa
+            finite volume discretization. Other discretizations may be possible, but are
+            not available in PorePy at the moment, and would likely require changes to
+            this method.
 
         Parameters:
             subdomains: List of subdomains where the stress is defined.
@@ -991,7 +1168,20 @@ class PressureStress:
 
 
 class ConstantSolidDensity:
+
+    solid: pp.SolidConstants
+
     def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Constant solid density.
+
+        Parameters:
+            subdomains: List of subdomains where the density is defined.
+
+        Returns:
+            Scalar operator representing the solid density. The (constant) value is
+                picked from the solid constants.
+
+        """
         return Scalar(self.solid.density(), "solid_density")
 
 
@@ -1010,7 +1200,8 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
             subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
-            Cell-wise shear modulus operator [Pa].
+            Cell-wise shear modulus operator. The value is picked from the solid constants.
+
         """
         return Scalar(self.solid.shear_modulus(), "shear_modulus")
 
@@ -1021,7 +1212,9 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
             subdomains: List of subdomains where the shear modulus is defined.
 
         Returns:
-            Cell-wise Lame's first parameter operator [Pa].
+            Cell-wise Lame's first parameter operator. The value is picked from the
+                solid constants.
+
         """
         return Scalar(self.solid.lame_lambda(), "lame_lambda")
 
@@ -1032,7 +1225,9 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
             subdomains: List of subdomains where the Young's modulus is defined.
 
         Returns:
-            Cell-wise Young's modulus in Pascal.
+            Cell-wise Young's modulus in Pascal. The value is picked from the solid
+                constants.
+
         """
         val = (
             self.solid.shear_modulus()
@@ -1048,6 +1243,10 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
 
     def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:
         """Stiffness tensor [Pa].
+
+        TODO: It makes sense to return a fourth order tensor here. Does that mean we
+        should return a second order tensor for the permeability and conductivity
+        tensors (right now, we give numpy arrays).
 
         Parameters:
             subdomain: Subdomain where the stiffness tensor is defined.
@@ -1066,6 +1265,14 @@ class FracturedSolid:
     This class is intended for use with fracture deformation models.
     """
 
+    nd: int
+
+    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    solid: pp.SolidConstants
+
     def gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fracture gap [m].
 
@@ -1073,7 +1280,8 @@ class FracturedSolid:
             subdomains: List of subdomains where the gap is defined.
 
         Returns:
-            Cell-wise fracture gap operator [m].
+            Cell-wise fracture gap operator.
+
         """
         angle: pp.ad.Operator = self.dilation_angle(subdomains)
         f_norm = pp.ad.Function(
@@ -1096,6 +1304,7 @@ class FracturedSolid:
 
         Returns:
             Cell-wise reference gap operator [m].
+
         """
         return Scalar(self.solid.gap(), "reference_gap")
 
@@ -1107,6 +1316,7 @@ class FracturedSolid:
 
         Returns:
             Cell-wise friction coefficient operator.
+
         """
         return Scalar(
             self.solid.friction_coefficient(),
@@ -1121,6 +1331,7 @@ class FracturedSolid:
 
         Returns:
             Cell-wise dilation angle operator [rad].
+
         """
         return Scalar(self.solid.dilation_angle(), "dilation_angle")
 
@@ -1138,6 +1349,8 @@ class FrictionBound:
     """Traction variable. Should be defined in class combined with from this mixin."""
     friction_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction coefficient. Should be defined in class combined with this mixin."""
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Friction bound [m].
@@ -1160,6 +1373,8 @@ class FrictionBound:
 class BiotCoefficient:
     """Biot coefficient."""
 
+    solid: pp.SolidConstants
+
     def biot_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Biot coefficient.
 
@@ -1168,16 +1383,44 @@ class BiotCoefficient:
 
         Returns:
             Biot coefficient operator.
+
         """
         return Scalar(self.solid.biot_coefficient(), "biot_coefficient")
 
 
 class ConstantPorosity:
+
+    solid: pp.SolidConstants
+
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return Scalar(self.solid.porosity(), "porosity")
 
 
 class PoroMechanicsPorosity:
+
+    solid: pp.SolidConstants
+
+    nd: int
+
+    mdg: pp.MixedDimensionalGrid
+
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    bulk_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    stress_keyword: str
+    darcy_keyword: str
+
+    bc_values_mechanics: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+
+    interface_displacement: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+
+    subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+
     def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return Scalar(self.solid.porosity(), "reference_porosity")
 

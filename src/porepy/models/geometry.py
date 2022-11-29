@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -144,7 +144,7 @@ class ModelGeometry:
         ad_matrix = pp.ad.Matrix(mat)
         return ad_matrix
 
-    def basis(self, grids: list[pp.GridLike], dim: int = None) -> np.ndarray:
+    def basis(self, grids: Sequence[pp.GridLike], dim: int = None) -> np.ndarray:
         """Return a cell-wise basis for all subdomains.
 
         Parameters:
