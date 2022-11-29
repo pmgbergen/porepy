@@ -50,6 +50,8 @@ class DimensionReduction:
     """Apertures and specific volumes."""
 
     nd: int
+    # TODO: Figure out how to document these class instances that must be decleared for
+    # mypy to accept the use of mixin.
 
     def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
         """FIXME: Decide on how to treat interfaces."""
@@ -78,18 +80,13 @@ class DimensionReduction:
         # The implementation here is not perfect, but it seems to be what is needed
         # to make the Ad framework happy: Build the global array by looping over
         # subdomains and add the local contributions.
-        # TODO: Will not the number of columns in the matrix vary with the number of
-        # cells in each subdomain? This will not be seen here, but it will be a problem
-        # at the time of parsing the Ad operator.
-        # EK: I am adding a check below (variables prefixed debug) to monitor if this
-        # becomes a problem.
-
-        debug_array_sizes = []
+        # Note that the aperture is an array (in the Ad sense) not a matrix, thus there
+        # is no risk of the number of columns being wrong (as there would be if we
+        # were to wrap the aperture as an Ad matrix).
 
         for i, sd in enumerate(subdomains):
             # First make the local aperture array.
             a_loc = ad_wrapper(self.grid_aperture(sd), array=True)
-            debug_array_sizes.append(self.grid_aperture(sd).size)
             # Expand to a global array.
             a_glob = projection.cell_prolongation([sd]) * a_loc
             if i == 0:
@@ -97,12 +94,6 @@ class DimensionReduction:
             else:
                 apertures += a_glob
         apertures.set_name("aperture")
-
-        if np.unique(debug_array_sizes).size > 1:
-            # EK: I am not sure if this is a problem or not. If we hit this, try to
-            # comment out, rerun the test and see if parsing is okay. If so, we can
-            # probably remove this check, together with the debug_array_sizes list.
-            raise ValueError("Array sizes are not unique")
 
         return apertures
 
@@ -127,8 +118,6 @@ class DimensionReduction:
 
         # Loop over dimensions, and add the contribution from each subdomain within
         # that dimension.
-        # TODO: This will have the same problem as aperture, if the number of cells
-        # varies between subdomains.
         # TODO: Will looping over subdomains shuffle the order of the cells? If so,
         # this will be a problem.
         for dim in range(self.nd + 1):
@@ -169,6 +158,8 @@ class DisplacementJumpAperture:
 
     mdg: pp.MixedDimensionalGrid
 
+    system_manager: pp.ad.EquationSystem
+
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
 
@@ -190,7 +181,7 @@ class DisplacementJumpAperture:
         apertures = projection.cell_prolongation(nd_subdomains) * one
 
         # TODO: Same comments as in DimensionReduction.specific_volume() regarding
-        # the number of cells in subdomains, and the order of the subdomains.
+        # the order of the subdomains.
         for dim in range(self.nd):
             subdomains_of_dim = [sd for sd in subdomains if sd.dim == dim]
             if len(subdomains_of_dim) == 0:
