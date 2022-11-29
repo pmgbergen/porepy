@@ -28,6 +28,7 @@ def ad_wrapper(
         name: Name of ad object.
 
     Returns:
+        Values wrapped as an Ad object.
 
     """
     if type(vals) is not np.ndarray:
@@ -58,21 +59,51 @@ class DimensionReduction:
         return aperture
 
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """
+        """Aperture [m].
+
         Aperture is a characteristic thickness of a cell, with units [m].
         1 in matrix, thickness of fractures and "side length" of cross-sectional
         area/volume (or "specific volume") for intersections of dimension 1 and 0.
         See also specific_volume.
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Ad operator representing the aperture for each cell in each subdomain.
+
         """
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+
+        # The implementation here is not perfect, but it seems to be what is needed
+        # to make the Ad framework happy: Build the global array by looping over
+        # subdomains and add the local contributions.
+        # TODO: Will not the number of columns in the matrix vary with the number of
+        # cells in each subdomain? This will not be seen here, but it will be a problem
+        # at the time of parsing the Ad operator.
+        # EK: I am adding a check below (variables prefixed debug) to monitor if this
+        # becomes a problem.
+
+        debug_array_sizes = []
+
         for i, sd in enumerate(subdomains):
+            # First make the local aperture array.
             a_loc = ad_wrapper(self.grid_aperture(sd), array=True)
+            debug_array_sizes.append(self.grid_aperture(sd).size)
+            # Expand to a global array.
             a_glob = projection.cell_prolongation([sd]) * a_loc
             if i == 0:
                 apertures = a_glob
             else:
-                apertures = apertures + a_glob
+                apertures += a_glob
         apertures.set_name("aperture")
+
+        if np.unique(debug_array_sizes).size > 1:
+            # EK: I am not sure if this is a problem or not. If we hit this, try to
+            # comment out, rerun the test and see if parsing is okay. If so, we can
+            # probably remove this check, together with the debug_array_sizes list.
+            raise ValueError("Array sizes are not unique")
+
         return apertures
 
     def specific_volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -92,7 +123,14 @@ class DimensionReduction:
         # Compute specific volume as the cross-sectional area/volume
         # of the cell, i.e. raise to the power nd-dim
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-        v: pp.ad.Operator = None
+        v: pp.ad.Operator = None  # type: ignore
+
+        # Loop over dimensions, and add the contribution from each subdomain within
+        # that dimension.
+        # TODO: This will have the same problem as aperture, if the number of cells
+        # varies between subdomains.
+        # TODO: Will looping over subdomains shuffle the order of the cells? If so,
+        # this will be a problem.
         for dim in range(self.nd + 1):
             sd_dim = [sd for sd in subdomains if sd.dim == dim]
             if len(sd_dim) == 0:
@@ -104,6 +142,11 @@ class DimensionReduction:
                 v = v_glob
             else:
                 v = v + v_glob
+
+        # If we found no subdomains, we may have a problem. Possibly we should just
+        # return a void Operator.
+        assert v is not None, "No subdomains found"
+
         v.set_name("specific_volume")
 
         return v
@@ -138,12 +181,16 @@ class DisplacementJumpAperture:
         """
         # For now, assume no intersections
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        # Subdomains of the top dimension
         nd_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
-        size = sum([sd.num_cells for sd in nd_subdomains])
-        one = ad_wrapper(1, True, size=size, name="one")
+
+        num_cells_nd_subdomains = sum([sd.num_cells for sd in nd_subdomains])
+        one = ad_wrapper(1, True, size=num_cells_nd_subdomains, name="one")
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) * one
 
+        # TODO: Same comments as in DimensionReduction.specific_volume() regarding
+        # the number of cells in subdomains, and the order of the subdomains.
         for dim in range(self.nd):
             subdomains_of_dim = [sd for sd in subdomains if sd.dim == dim]
             if len(subdomains_of_dim) == 0:
@@ -153,9 +200,11 @@ class DisplacementJumpAperture:
                 normal_jump = self.normal_component(
                     subdomains_of_dim
                 ) * self.displacement_jump(subdomains_of_dim)
-                # The jump should be bounded below by gap function. This is not guaranteed
-                # in the non-converged state. As this (especially non-positive values)
-                # may give significant trouble in the aperture. Insert safeguard:
+                # The jump should be bounded below by gap function. This is not
+                # guaranteed in the non-converged state. As this (especially
+                # non-positive values) may give significant trouble in the aperture.
+                # Insert safeguard:
+                # EK: Safeguard in which sense?
                 f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
 
                 g_ref = self.reference_gap(subdomains_of_dim)
@@ -193,14 +242,9 @@ class DisplacementJumpAperture:
 
 
 class ConstantFluidDensity:
+    """Constant fluid density."""
 
-    """Underforstått:
-
-    def __init__(self, fluid: UnitFluid):
-        self.fluid = ...
-
-    eller tilsvarende. Se SolutionStrategiesSinglePhaseFlow.
-    """
+    fluid: pp.FluidConstants
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Fluid density [kg/m^3].
@@ -218,7 +262,21 @@ class ConstantFluidDensity:
 class FluidDensityFromPressure:
     """Fluid density as a function of pressure."""
 
+    fluid: pp.FluidConstants
+
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
+
     def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Fluid compressibility [1/Pa].
+
+        Parameters:
+            subdomains: List of subdomain grids. Not used in this implementation, but
+                included for compatibility with other implementations.
+
+        Returns:
+            The constant compressibility of the fluid, represented as an Ad operator.
+
+        """
         return Scalar(self.fluid.compressibility(), "fluid_compressibility")
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -230,6 +288,10 @@ class FluidDensityFromPressure:
         with :math:`\\rho_0` the reference density, :math:`p_0` the reference pressure,
         :math:`c_p` the compressibility and :math:`p` the pressure.
 
+        The reference density and the compressibility are taken from the fluid
+        constants, while the reference pressure is accessible by mixin; a typical
+        implementation will provide this in a variable class.
+
         Parameters:
             subdomains: List of subdomain grids.
 
@@ -238,25 +300,54 @@ class FluidDensityFromPressure:
 
         """
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
-        # Reference variables are defined in Variables class.
+
+        # Reference variables are defined in a variables class which is assumed
+        # to be available by mixin.
         dp = self.perturbation_from_reference("pressure", subdomains)
+
         # Wrap compressibility from fluid class as matrix (left multiplication with dp)
         c = self.fluid_compressibility(subdomains)
-        # I suggest using the fluid's constant density as the reference value. While not
-        # explicit, this saves us from defining reference properties i hytt og pine. We
-        # could consider letting this class inherit from ConstantDensity (and call super
-        # to obtain reference value), but I don't see what the benefit would be.
+
+        # The reference density is taken from the fluid constants..
         rho_ref = Scalar(self.fluid.density(), "reference_fluid_density")
         rho = rho_ref * exp(c * dp)
+        rho.set_name("fluid_density")
         return rho
 
 
 class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
-    """Extend previous case"""
+    """Fluid density which is a function of pressure and temperature."""
+
+    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Fluid density as a function of pressure and temperature."""
+        """Fluid density as a function of pressure and temperature.
+
+        .. math::
+              \\rho = \\rho_0 \\exp \\left[ c_p \\left(p - p_0\\right) \\right]\\left(-(T - T_0)\\right)/c_T \\right)
+
+          with :math:`\\rho_0` the reference density, :math:`p_0` the reference pressure,
+          :math:`c_p` the compressibility, :math:`p` the pressure, :math:`T` the temperature,
+          :math:`T_0` the reference temperature, and :math:`c_T` the thermal expansion
+          coefficient.
+
+          The reference density, the compressibility and the thermal expansion coefficient
+          are all taken from the fluid constants, while the reference pressure and
+          temperature are accessible by mixin; a typical implementation will provide this
+          in a variable class.
+
+          Parameters:
+              subdomains: List of subdomain grids.
+
+          Returns:
+              Fluid density as a function of pressure.
+
+        """
+        # Get the pressure part of the density function from the super class.
         rho = super().fluid_density(subdomains)
+
+        # Next the temperature part. Note the minus sign, which makes density decrease
+        # with increasing temperature.
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
         dtemp = self.perturbation_from_reference("temperature", subdomains)
         rho = rho * exp(-dtemp / self.fluid.thermal_expansion())
@@ -264,31 +355,54 @@ class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
 
 
 class ConstantViscosity:
+    """Constant viscosity."""
+
+    fluid: pp.FluidConstants
+
     def fluid_viscosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid viscosity [Pa s].
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Operator for fluid viscosity.
+
+        """
         return Scalar(self.fluid.viscosity(), "viscosity")
 
 
 class ConstantPermeability:
-    def permeability(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
+    """A spatially homogeneous permeability field."""
+
+    solid: pp.SolidConstants
+
+    def permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Permeability [m^2].
 
-        This will be set as before (pp.PARAMETERS) since it
+        The permeability is quantity which enters the discretized equations in a form
+        that cannot be differentiated by Ad (this is at least true for a subset of the
+        relevant discretizations). For this reason, the permeability is not returned as
+        an Ad operator, but as a numpy array, to be wrapped as a SecondOrderTensor and
+        passed as a discretization parameter.
 
         Parameters:
             subdomain: Subdomain where the permeability is defined.
-                Permeability is a discretization parameter and is assigned to individual
-                subdomain data dictionaries. Hence, the list will usually contain only
-                one element.
 
         Returns:
-            Cell-wise permeability tensor.
+            Cell-wise permeability tensor. The value is picked from the solid constants.
+
         """
         assert len(subdomains) == 1, "Only one subdomain is allowed."
         size = subdomains[0].num_cells
         return self.solid.permeability() * np.ones(size)
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Normal permeability.
+        """Normal permeability [m^2].
+
+        Contrary to the permeability, the normal permeability typically enters into the
+        discrete equations in a form that can be differentiated by Ad. For this reason,
+        the normal permeability is returned as an Ad operator.
 
         Parameters:
             interfaces: List of interface grids.
