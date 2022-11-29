@@ -50,6 +50,12 @@ class DimensionReduction:
     """Apertures and specific volumes."""
 
     nd: int
+    """Ambient dimension of the problem.
+    
+    This attribute must be provided by a mixin class. Normally, it is set by 
+    :class:`porepy.models.geometry.ModelGeometry.
+
+    """
     # TODO: Figure out how to document these class instances that must be decleared for
     # mypy to accept the use of mixin.
 
@@ -145,10 +151,28 @@ class DisplacementJumpAperture:
     """Fracture aperture from displacement jump."""
 
     nd: int
+    """Ambient dimension of the problem.
+    
+    This attribute must be provided by a mixin class. Normally, it is set by 
+    :class:`porepy.models.geometry.ModelGeometry.
+
+    """
 
     subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
+    """Method to map from subdomains to the adjacent interfaces.
+    
+    This method must be provided by a mixin class. Normally, it is set by 
+    :class:`porepy.models.geometry.ModelGeometry.
+    
+    """
 
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Method to map from interfaces to the adjacent subdomains.
+    
+    This method must be provided by a mixin class. Normally, it is set by 
+    :class:`porepy.models.geometry.ModelGeometry.
+    
+    """
 
     normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
 
@@ -159,6 +183,12 @@ class DisplacementJumpAperture:
     mdg: pp.MixedDimensionalGrid
 
     system_manager: pp.ad.EquationSystem
+    """EquationSystem object for the current model.
+    
+    This attribute must be provided by a mixin class. Normally, it is set by the
+    relevant solution strategy class.
+
+    """
 
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
@@ -236,6 +266,12 @@ class ConstantFluidDensity:
     """Constant fluid density."""
 
     fluid: pp.FluidConstants
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+
+    This attribute must be provided by a mixin class. Normally, it is set by the
+    XXX
+    
+    """
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Fluid density [kg/m^3].
