@@ -60,6 +60,24 @@ class EquationsPoromechanics(
         super().set_equations()
         momentum.MomentumBalanceEquations.set_equations(self)
 
+    def interface_force_balance_equation(
+        self,
+        interfaces: list[pp.MortarGrid],
+    ) -> pp.ad.Operator:
+        """Add pressure term to :class:'pp.MomentumBalanceEquations' version.
+
+        Parameters:
+            interfaces: Interface grids defining the equation's domain.
+
+        Returns:
+            Operator for the interface force balance equation.
+
+        """
+        eq = super().interface_force_balance_equation(interfaces)
+        # Add pressure term
+        eq += self.interface_pressure_stress(interfaces)
+        return eq
+
 
 class VariablesPoromechanics(
     mass.VariablesSinglePhaseFlow,

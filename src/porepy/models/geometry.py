@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple, Union, Sequence
+from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -123,13 +123,26 @@ class ModelGeometry:
                     subdomains.append(sd)
         return self.mdg.sort_subdomains(subdomains)
 
-    def wrap_grid_attribute(self, grids: list[pp.GridLike], attr: str) -> pp.ad.Matrix:
+    def wrap_grid_attribute(
+        self,
+        grids: list[pp.GridLike],
+        attr: str,
+        dim: Optional[int] = None,
+        inverse: Optional[bool] = False,
+    ) -> pp.ad.Matrix:
         """Wrap a grid attribute as an ad matrix.
 
         Parameters:
-            grids: List of grids on which the property is defined. prop: Grid attribute
-                to wrap. The attribute should be a ndarray and will be flattened if it
-                is not already a vector.
+            grids: List of grids on which the property is defined.
+            attr: Grid attribute to wrap. The attribute should be a ndarray and will be
+                flattened if it is not already a vector.
+            dim: Dimensions to include for vector attributes. Intended use is to
+                limit the number of dimensions for a vector attribute, e.g. to exclude
+                the z-component of a vector attribute in 2d, to acieve compatibility
+                with code which is explicitly 2d (e.g. fv discretizations).
+            inverse: If True, the inverse of the attribute will be wrapped. This is a
+                hack around the fact that the ad framework does not support division.
+                FIXME: Remove when ad supports division.
 
         Returns:
             ad_matrix: The property wrapped as an ad matrix.
@@ -138,7 +151,14 @@ class ModelGeometry:
 
         """
         if len(grids) > 0:
-            mat = sps.diags(np.hstack([getattr(g, attr).ravel("F") for g in grids]))
+            if dim is None:
+                vals = np.hstack([getattr(g, attr).ravel("F") for g in grids])
+            else:
+                # Only include the first dim dimensions
+                vals = np.hstack([getattr(g, attr)[:dim].ravel("F") for g in grids])
+            if inverse:
+                vals = 1 / vals
+            mat = sps.diags(vals)
         else:
             mat = sps.csr_matrix((0, 0))
         ad_matrix = pp.ad.Matrix(mat)
@@ -316,37 +336,130 @@ class ModelGeometry:
         return e_n.T
 
     def internal_boundary_normal_to_outwards(
-        self, interfaces: list[pp.Grid]
-    ) -> pp.ad.Matrix:
+        self,
+        interfaces: list[pp.MortarGrid],
+        dim: int,
+    ) -> pp.ad.Operator:
         """Flip sign if normal vector points inwards.
 
-        Args:
+        Currently, this is a helper method for the computation of outward normals in
+        :meth:`outwards_internal_boundary_normals`. Other usage is allowed, but one
+        is adviced to carefully consider subdomain lists when combining this with other
+        operators.
+
+        Parameters:
             interfaces: List of interfaces.
 
         Returns:
-            Matrix with flipped signs if normal vector points inwards.
+            Operator with flipped signs if normal vector points inwards.
 
-        This seems a bit messy to me. Let's discuss, EK.
         """
-        if hasattr(self, "_internal_boundary_vector_to_outwards_operator"):
-            return self._internal_boundary_vector_to_outwards_operator
         if len(interfaces) == 0:
-            mat = sps.csr_matrix((0, 0))
+            sign_flipper = sps.csr_matrix((0, 0))
         else:
-            mat = None
+            # Two loops are required to be able to prolong each matrix created in the
+            # first loop to the full set of subdomains in the second loop.
+            matrices = []
+            subdomains = []
             for intf in interfaces:
                 # Extracting matrix for each interface should in theory allow for multiple
                 # matrix subdomains, but this is not tested.
                 matrix_subdomain = self.mdg.interface_to_subdomain_pair(intf)[0]
                 faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
                 switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
-                    matrix_subdomain, self.nd, faces_on_fracture_surface
+                    matrix_subdomain, dim, faces_on_fracture_surface
                 )
-                if mat is None:
-                    mat = switcher_int
+                matrices.append(switcher_int)
+                subdomains.append(matrix_subdomain)
+            projection = pp.ad.SubdomainProjections(subdomains, dim)
+            sign_flipper: pp.ad.Operator = None
+            for m, sd in zip(matrices, subdomains):
+                m_loc = (
+                    projection.face_prolongation([sd])
+                    * pp.ad.Matrix(m)
+                    * projection.face_restriction([sd])
+                )
+                if sign_flipper is None:
+                    sign_flipper = m_loc
                 else:
-                    mat += switcher_int
+                    sign_flipper += m_loc
 
-        outwards_mat = pp.ad.Matrix(mat)
-        self._internal_boundary_vector_to_outwards_operator = outwards_mat
-        return outwards_mat
+        return sign_flipper
+
+    def outwards_internal_boundary_normals(
+        self,
+        interfaces: list[pp.MortarGrid],
+        unitary: Optional[bool] = False,
+        dim: Optional[int] = None,
+    ) -> pp.ad.Operator:
+        """Compute outward normal vectors on internal boundaries.
+
+        Args:
+            interfaces: List of interfaces.
+            unitary: If True, return unit vectors, i.e. normalize by face area.
+            dim: Dimension of the problem. Defaults to self.nd.
+
+        Returns:
+            Operator computing outward normal vectors on internal boundaries. Evaluated
+            shape `(num_intf_cells * dim, num_intf_cells * dim)`.
+
+        """
+        if len(interfaces) == 0:
+            mat = sps.csr_matrix((0, 0))
+            return pp.ad.Matrix(mat)
+        if dim is None:
+            dim = self.nd
+
+        # Main ingredients: Normal vectors for primary subdomains for each interface,
+        # and a switcher matrix to flip the sign if the normal vector points inwards.
+        # The first is constructed herein, the second is a method of this class.
+        # A fair bit of juggling with subdomain lists is needed to distinguish between
+        # all subdomains and the subdomains of the primary side of the interface, which
+        # are the ones expected by the switcher matrix method.
+        # TODO: Consider to let the switcher method operate on the full list of
+        # subdomains (and not just the primary ones), and let it return empty entries
+        # where appropriate (i.e. for the secondary subdomains).
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        sd_projection = pp.ad.SubdomainProjections(subdomains, dim)
+        primary_subdomains = []
+        for intf in interfaces:
+            # Extracting matrix for each interface should in theory allow for multiple
+            # matrix subdomains, but this is not tested. See also
+            # :meth:`internal_boundary_normal_to_outwards`.
+            primary_subdomains.append(self.mdg.interface_to_subdomain_pair(intf)[0])
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=dim
+        )
+        primary_face_normals = self.wrap_grid_attribute(
+            primary_subdomains, "face_normals", dim=dim
+        )
+        # Account for sign of boundary face normals
+        flip = self.internal_boundary_normal_to_outwards(interfaces, dim)
+        flipped_normals = (
+            sd_projection.face_prolongation(primary_subdomains)
+            * flip
+            * primary_face_normals
+            * sd_projection.face_restriction(primary_subdomains)
+        )
+        # Project to mortar grid
+        outwards_normals = (
+            mortar_projection.primary_to_mortar_avg
+            * flipped_normals
+            * mortar_projection.mortar_to_primary_avg
+        )
+        outwards_normals.set_name("outwards_internal_boundary_normals")
+
+        # Normalize by face area if requested.
+        if unitary:
+            cell_volumes_inv = self.wrap_grid_attribute(
+                interfaces, "cell_volumes", inverse=True
+            )
+
+            # Expand cell volumes to nd.
+            cell_volumes_inv_nd = sum(
+                [e * cell_volumes_inv * e.T for e in self.basis(interfaces, dim=dim)]
+            )
+            # Scale normals.
+            outwards_normals = cell_volumes_inv_nd * outwards_normals
+            outwards_normals.set_name("unitary_outwards_internal_boundary_normals")
+        return outwards_normals

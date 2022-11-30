@@ -315,7 +315,7 @@ class VariablesEnergyBalance(pp.fluid_mass_balance.VariablesSinglePhaseFlow):
 
 class ConstitutiveLawsEnergyBalance(
     pp.constitutive_laws.EnthalpyFromTemperature,
-    pp.constitutive_laws.FouriersLawFV,
+    pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
     # Reuses advection and dimension reduction as well as the specific mass balance
     # constitutive laws.

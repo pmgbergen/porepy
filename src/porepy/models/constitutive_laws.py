@@ -1,6 +1,6 @@
 """Library of constitutive equations."""
 from functools import partial
-from typing import Callable, Optional, Union, Sequence
+from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -51,8 +51,8 @@ class DimensionReduction:
 
     nd: int
     """Ambient dimension of the problem.
-    
-    This attribute must be provided by a mixin class. Normally, it is set by 
+
+    This attribute must be provided by a mixin class. Normally, it is set by
     :class:`porepy.models.geometry.ModelGeometry.
 
     """
@@ -152,26 +152,26 @@ class DisplacementJumpAperture:
 
     nd: int
     """Ambient dimension of the problem.
-    
-    This attribute must be provided by a mixin class. Normally, it is set by 
+
+    This attribute must be provided by a mixin class. Normally, it is set by
     :class:`porepy.models.geometry.ModelGeometry.
 
     """
 
     subdomains_to_interfaces: Callable[[list[pp.Grid]], list[pp.MortarGrid]]
     """Method to map from subdomains to the adjacent interfaces.
-    
-    This method must be provided by a mixin class. Normally, it is set by 
+
+    This method must be provided by a mixin class. Normally, it is set by
     :class:`porepy.models.geometry.ModelGeometry.
-    
+
     """
 
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
     """Method to map from interfaces to the adjacent subdomains.
-    
-    This method must be provided by a mixin class. Normally, it is set by 
+
+    This method must be provided by a mixin class. Normally, it is set by
     :class:`porepy.models.geometry.ModelGeometry.
-    
+
     """
 
     normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -184,7 +184,7 @@ class DisplacementJumpAperture:
 
     system_manager: pp.ad.EquationSystem
     """EquationSystem object for the current model.
-    
+
     This attribute must be provided by a mixin class. Normally, it is set by the
     relevant solution strategy class.
 
@@ -270,7 +270,7 @@ class ConstantFluidDensity:
 
     This attribute must be provided by a mixin class. Normally, it is set by the
     XXX
-    
+
     """
 
     def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
@@ -448,7 +448,7 @@ class ConstantPermeability:
         return Scalar(self.solid.normal_permeability())
 
 
-class DarcysLawFV:
+class DarcysLaw:
     """This class could be refactored to reuse for other diffusive fluxes, such as
     heat conduction. It's somewhat cumbersome, though, since potential, discretization,
     and boundary conditions all need to be passed around.
@@ -478,7 +478,9 @@ class DarcysLawFV:
 
     basis: Callable[[Sequence[pp.GridLike]], np.ndarray]
 
-    internal_boundary_normal_to_outwards: Callable[[list[pp.MortarGrid]], pp.ad.Matrix]
+    internal_boundary_normal_to_outwards: Callable[
+        [list[pp.MortarGrid], int], pp.ad.Matrix
+    ]
 
     wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str], pp.ad.Operator]
 
@@ -613,24 +615,10 @@ class DarcysLawFV:
         Returns:
             Face-wise vector source term.
         """
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, dim=self.nd
-        )
-        # Expand cell volumes to nd
-        # Fixme: Do we need right multiplication with transpose as well?
-        cell_volumes = self.wrap_grid_attribute(interfaces, "cell_volumes")
-        face_normals = self.wrap_grid_attribute(subdomains, "face_normals")
 
-        # Expand cell volumes to nd
-        scalar_to_nd = sum(self.basis(subdomains))
-        cell_volumes_inv = scalar_to_nd * cell_volumes ** (-1)
         # Account for sign of boundary face normals
-        flip = self.internal_boundary_normal_to_outwards(interfaces)
-        unit_outwards_normals = (
-            flip * cell_volumes_inv * projection.primary_to_mortar_avg * face_normals
-        )
-        return unit_outwards_normals * self.vector_source(interfaces, material=material)
+        normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
+        return normals * self.vector_source(interfaces, material=material)
 
 
 class ThermalConductivityLTE:
@@ -731,7 +719,7 @@ class ThermalConductivityLTE:
         return conductivity
 
 
-class FouriersLawFV:
+class FouriersLaw:
     """This class could be refactored to reuse for other diffusive fluxes, such as
     heat conduction. It's somewhat cumbersome, though, since potential, discretization,
     and boundary conditions all need to be passed around. Also, gravity effects are
@@ -755,8 +743,6 @@ class FouriersLawFV:
     normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
 
     fourier_keyword: str
-
-    internal_boundary_normal_to_outwards: Callable[[list[pp.MortarGrid]], pp.ad.Matrix]
 
     wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str], pp.ad.Operator]
 
@@ -1168,6 +1154,13 @@ class PressureStress:
     """Stress tensor from pressure.
 
     To be used in poromechanical problems.
+
+    .. note::
+            The below discretization assumes the stress is discretized with a Mpsa
+            finite volume discretization. Other discretizations may be possible, but are
+            not available in PorePy at the moment, and would likely require changes to
+            this method.
+
     """
 
     pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -1175,31 +1168,56 @@ class PressureStress:
     reference_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Reference pressure. Should be defined in the class inheriting from this mixin."""
 
-    def pressure_stress(self, subdomains):
+    def pressure_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Pressure contribution to stress tensor.
-
-        .. note::
-            The below discretization assumes the stress is discretized with a Mpsa
-            finite volume discretization. Other discretizations may be possible, but are
-            not available in PorePy at the moment, and would likely require changes to
-            this method.
 
         Parameters:
             subdomains: List of subdomains where the stress is defined.
 
         Returns:
             Pressure stress operator.
+
         """
         for sd in subdomains:
             assert sd.dim == self.nd
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         stress: pp.ad.Operator = (
             discr.grad_p * self.pressure(subdomains)
-            # The reference pressure is only defined on sd_primary, thus there is no need
-            # for a subdomain projection.
+            # The reference pressure is only defined on sd_primary, thus there is no
+            # need for a subdomain projection.
             - discr.grad_p * self.reference_pressure(subdomains)
         )
         stress.set_name("pressure_stress")
+        return stress
+
+    def interface_pressure_stress(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Pressure contribution to stress tensor on fracture-matrix interfaces.
+
+        Parameters:
+            interfaces: List of interfaces where the stress is defined.
+
+        Returns:
+            Pressure stress operator.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        # Outwards normals. Scaled by face areas for FV formulation.
+        outwards_normal = self.outwards_internal_boundary_normals(
+            interfaces, dim=1, unitary=False
+        )
+        # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
+        # operation.
+        scalar_to_nd = sum([e_i for e_i in self.basis(interfaces)])
+        stress = (
+            outwards_normal
+            * scalar_to_nd
+            * mortar_projection.secondary_to_mortar_avg
+            * self.pressure(subdomains)
+        )
+        stress.set_name("interface_pressure_stress")
         return stress
 
 
