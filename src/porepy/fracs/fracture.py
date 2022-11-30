@@ -61,8 +61,9 @@ class Fracture(abc.ABC):
         self.index: Optional[int] = index
         """Index of fracture.
 
-        Intended use in :class:`FractureNetwork`. Exact use is not clear (several
-        fractures can be given same index), use with care.
+        Intended use in :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`
+        and :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`. Exact use is
+        not clear (several fractures can be given same index), use with care.
 
         """
 
