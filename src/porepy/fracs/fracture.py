@@ -48,11 +48,11 @@ class Fracture(abc.ABC):
             self.sort_points()
 
         self.normal: np.ndarray = self.compute_normal()
-        """Normal vector (shape=(nd, ))."""
+        """Normal vector `(shape=(nd, ))`."""
         self.center: np.ndarray = self.compute_centroid()
-        """Centroid of the fracture (shape=(nd, ))."""
+        """Centroid of the fracture `(shape=(nd, ))`."""
         self.orig_pts: np.ndarray = self.pts.copy()
-        """Original fracture vertices (shape=(nd, num_points)).
+        """Original fracture vertices `(shape=(nd, num_points))`.
 
          The original points are kept in case the fracture geometry is modified.
 
@@ -108,7 +108,7 @@ class Fracture(abc.ABC):
         """Generator over the vertices of the fracture.
 
         Yields:
-            Fracture vertex (shape=(nd, )).
+            Fracture vertex `(shape=(nd, ))`.
 
         """
         for i in range(self.pts.shape[1]):
@@ -118,7 +118,7 @@ class Fracture(abc.ABC):
         """Generator over the segments according to the currently applied order.
 
         Yields:
-            Fracture segment (shape=(nd, 2)).
+            Fracture segment `(shape=(nd, 2))`.
 
         """
         sz = self.pts.shape[1]
@@ -135,12 +135,16 @@ class Fracture(abc.ABC):
             tol: Tolerance of point accuracy. Default is 1e-4.
 
         Returns:
-            A tuple containing ``is_vertex`` and ``index``, where ``is_vertex`` is a
-            boolean indicating whether the point is a vertex. If the point is a vertex,
-            ``index`` gives the position of ``p`` in :attr:`pts`.
+            A tuple containing
+
+            bool:
+                indicating whether the point is a vertex.
+            ndarray:
+                gives the position of ``p`` in :attr:`pts` if the point is a vertex.
+                Else, None is returned.
 
         """
-        p = p.reshape((-1, 1))
+        p: np.ndarray = p.reshape((-1, 1))
         ap = np.hstack((p, self.pts))
         up, _, ind = setmembership.unique_columns_tol(ap, tol=tol * np.sqrt(3))
 
@@ -170,7 +174,7 @@ class Fracture(abc.ABC):
         """Abstract method to sort the vertices as needed for geometric algorithms.
 
         Returns:
-            Array of integers containing the indices corresponding to the sorting.
+            Array of integers indices corresponding to the sorting.
 
         """
         pass
@@ -208,7 +212,7 @@ class Fracture(abc.ABC):
         """Abstract method for checking consistency of :attr:`pts`.
 
         Raises:
-            ValueError if self.pts violates some assumptions (e.g. shape).
+            ValueError if :attr:`pts` violates some assumptions (e.g. shape).
 
         """
         pass
