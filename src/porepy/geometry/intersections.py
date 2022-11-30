@@ -3,7 +3,7 @@ Module with functions for computing intersections between geometric objects.
 
 """
 import logging
-from typing import Any, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -124,7 +124,9 @@ def segments_2d(
             else:
                 # d_1 is zero
                 logger.error("Found what must be a point-edge")
-                raise ValueError("Start and endpoint of line should be different")
+                raise ValueError(
+                    "Start and endpoint of line should be different"
+                )
             if t_start_2 < 0 and t_end_2 < 0:
                 logger.debug("Lines are not overlapping")
                 return None
@@ -1378,7 +1380,6 @@ def polygons_3d(
         segment_vertex_intersection,
         is_point_contact,
     )
-
 
 def segments_polygon(
     start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol: float = 1e-5
