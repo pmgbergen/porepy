@@ -124,9 +124,7 @@ def segments_2d(
             else:
                 # d_1 is zero
                 logger.error("Found what must be a point-edge")
-                raise ValueError(
-                    "Start and endpoint of line should be different"
-                )
+                raise ValueError("Start and endpoint of line should be different")
             if t_start_2 < 0 and t_end_2 < 0:
                 logger.debug("Lines are not overlapping")
                 return None
@@ -1381,6 +1379,7 @@ def polygons_3d(
         is_point_contact,
     )
 
+
 def segments_polygon(
     start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol: float = 1e-5
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -1393,8 +1392,9 @@ def segments_polygon(
         poly (shape=(nd, num_vertices)): Vertices of polygon.
         tol (float): Tolerance for the geometric computations.
 
-    .. note: It is required that all points lie in a plane. A sanity check will
-        be performed.
+    Note:
+        It is required that all points lie in a plane. A sanity check will be
+        performed.
 
     Returns:
         A tuple containing a boolean array, identifying whether a segment has an
@@ -1484,7 +1484,8 @@ def segments_polyhedron(
     """Compute the intersection from line segments to the interior of a convex polyhedron.
     Intersections with the boundary of the polyhedron are not computed.
 
-    .. note: There are four possibilities for each segment:
+    Note:
+        There are four possibilities for each segment:
         1 - the segment is completely inside the polyhedron, meaning that its vertices
             are both inside the polyhedron
         2 - the segment has only one vertex in the polyhedron
@@ -1631,8 +1632,8 @@ def triangulations(
     t_2, and compute their common area. If parts of domain 1 or 2 are covered by
     one tessellation only, this will simply be ignored by the function.
 
-    .. note: The function relies on the intersection algorithm in
-    shapely.geometry.Polygon.
+    Note:
+        The function relies on the intersection algorithm in shapely.geometry.Polygon.
 
     Parameters:
         p_1 (shape=(2, n_p1)): Points in first tessellation.
@@ -1780,7 +1781,8 @@ def surface_tessellations(
 
     The implementation relies heavily on shapely's intersection finders.
 
-    .. note: The implementation is based on shapely.
+    Note:
+        The implementation is based on shapely.
 
     Parameters:
         poly_sets: Lists of polygons to be intersected.
@@ -2053,8 +2055,10 @@ def split_intersecting_segments_2d(
     have tags assigned. If so, the tags are preserved as connections are split.
     The connections are uniquified, so that no combination of point indices
     occurs more than once.
-    NOTE: For (partly) overlapping segments, only one of the tags will survive the
-    uniquification. The other can be reconstructed by using the third output.
+
+    Note:
+        For (partly) overlapping segments, only one of the tags will survive the
+        uniquification. The other can be reconstructed by using the third output.
 
     Parameters:
         p (shape=(2, n_pt)): Coordinates of points to be processed.
@@ -2393,8 +2397,9 @@ def _identify_overlapping_intervals(left: np.ndarray, right: np.ndarray) -> np.n
         left (len=num_intervals): Minimum coordinates of the intervals.
         right (len=num_intervals): Maximum coordinates of the intervals.
 
-    .. note: For all corresponding entries in left and right, left <= right is
-        required, but equality is allowed.
+    Note:
+        For all corresponding entries in ``left`` and ``right``, ``left <= right``
+        is required, but equality is allowed.
 
     Returns:
         Array with shape ``(2, num_overlaps)`` with each column containing a pair of
@@ -2481,7 +2486,8 @@ def _identify_overlapping_rectangles(
         ymax (len=num_rectangles): Maximum coordinates of the rectangle on the
             second axis.
 
-    .. note: For all corresponding entries it has to hold xmin <= xmax, but equality
+    Note:
+        For all corresponding entries it has to hold ``xmin <= xmax``, but equality
         is allowed. Analogously for the y-components.
 
     Returns:
@@ -2489,7 +2495,8 @@ def _identify_overlapping_rectangles(
         overlapping intervals, refering to their placement in left and right. The
         pairs are sorted so that the lowest index is in the first column.
 
-    .. note: The algorithm was found in 'A fast method for fracture intersection
+    Note:
+        The algorithm was found in 'A fast method for fracture intersection
         detection in discrete fracture networks' by Dong et al, omputers and
         Geotechniques 2018.
 
