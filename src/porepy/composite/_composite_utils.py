@@ -169,8 +169,9 @@ class CompositionalSingleton(abc.ABCMeta):
 
         For now we demand that objects in the compositional framework are this type of
         singleton to avoid nonphysical conflicts like 2 times the same phase or component.
-
-        This strict enforcement can be omitted by logic or proper tutoring though...
+        This allows for multiple instantiations of components for phases or pseudo-components
+        in various compounds, without having to worry about dependencies by reference and
+        uniqueness of variables in a given model or AD system.
 
     Parameters:
         ad_system: A reference to respective AD system.

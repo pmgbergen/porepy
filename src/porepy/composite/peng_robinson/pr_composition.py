@@ -60,7 +60,7 @@ class PR_Composition(Composition):
         self._b: pp.ad.Operator
 
         # name of equilibrium equation
-        self._fugacity_equation: str = "flash_fugacity"
+        self._fugacity_equation: str = "flash_fugacity_PR"
         # dictionary containing fugacity functions per component per phase
         self._fugacities: dict[PR_Component, dict[PR_Phase, pp.ad.Operator]] = dict()
 
@@ -328,9 +328,9 @@ class PR_Composition(Composition):
                         assert bip is not None
                         # call to BIP and multiply with a_ij
                         if order:
-                            a_ij *= 1 - bip(comp_i, comp_j)
+                            a_ij *= 1 - bip(self.T, comp_i, comp_j)
                         else:
-                            a_ij *= 1 - bip(comp_j, comp_i)
+                            a_ij *= 1 - bip(self.T, comp_j, comp_i)
                         # add off-diagonal element
                         a += a_ij
             # store attraction parameter
