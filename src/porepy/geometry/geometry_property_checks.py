@@ -1,5 +1,6 @@
 """
-Functions for (boolean) inquires about geometric objects, and relations between objects.
+Functions for (boolean) inquiries about geometric objects, and relations between
+objects.
 """
 from typing import List, Union
 
