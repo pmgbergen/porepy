@@ -40,7 +40,7 @@ def is_ccw_polygon(poly: np.ndarray) -> bool:
         :meth:`is_ccw_polyline`
 
     Parameters:
-        poly (shape=(2, n): Polygon vertices. n is number of points?
+        poly (shape=(2, n)): Polygon vertices. n is number of points.
 
     Returns:
         True if the polygon is ccw.
@@ -66,11 +66,11 @@ def is_ccw_polyline(
     tol: float = 0,
     default: bool = False
 ) -> Union[bool, np.ndarray]:
-    """ Checks if a line of three points goes in a counterclockwise direction
+    """ Checks if a polyline of three points goes in a counterclockwise direction.
 
     The line segment going from p1 to p2 is tested vs. a third point to determine
-    whether the combined line is a part of a counterclockwise circle. The function
-    can test both one or several points vs the same line segment.
+    whether the combined line segments (polyline) is part of a counterclockwise circle.
+    The function can test both one and several points vs. the same line segment.
 
     The test is positive if the test point lies to left of the line running from p1
     to p2.
@@ -95,13 +95,13 @@ def is_ccw_polyline(
         False
 
     See also:
-        :meth:`is_ccw_polygon`
+        :func:`is_ccw_polygon`
 
     Parameters:
-        p1 (shape=(2,)): First point on dividing line
-        p2 (shape=(2,)): Second point on dividing line
+        p1 (shape=(2,)): First point on dividing line.
+        p2 (shape=(2,)): Second point on dividing line.
         p3 (shape=(2,) or shape=(2, n)): Point(s) to be tested. For one point, only
-            arrays of shape=(2,) is accepted. For two or more points, the array will
+            arrays of shape=(2,) is accepted. For two or more points the array will
             have shape=(2, n), where the first row corresponds to x-coordinates and
             the second row corresponds to y-coordinates. See examples.
         tol (optional): Tolerance used in the comparison, can be used to
@@ -117,7 +117,7 @@ def is_ccw_polyline(
 
     TODO:
         * Fix return type so that an np.ndarray always is returned.
-        * Consider changing the allowed inputs to p3 to be more consistent.
+        * Consider only allowing 2d arrays as p3 input (for consistency).
 
     """
 
@@ -167,7 +167,7 @@ def point_in_polygon(
             boundary of the polygon. Defaults to False.
 
     Returns:
-        Length equal to p. True for each of the points that are inside polygon
+        Length equal to n2. True for each of the points that are inside polygon.
 
     """
     if p.ndim == 1:
@@ -238,8 +238,9 @@ def point_in_polyhedron(
     """Test whether a set of point is inside a polyhedron.
 
     Parameters:
-        polyhedron (nested np.ndarray): Each outer element represents a side
-            of the polyhedron. Each side is assumed to be a convex polygon.
+        polyhedron (shape=(num_sides, 3, num_polygon_vertices)): Each outer element
+            represents a side of the polyhedron, and each side is assumed to be a
+            convex polygon.
         test_points (shape=(3, num_pt)): Points to be tested.
         tol (optional): Geometric tolerance, used in comparison of
             points. Defaults to 1e-10.
@@ -368,11 +369,13 @@ def point_in_cell(poly: np.ndarray, p: np.array, if_make_planar: bool = True) ->
             connecting subsequent columns of poly.
         p (shape=(3, 1)): Point to be tested.
         if_make_planar (optional): The cell needs to lie on (s, t) plane. If not
-            already done, this flag need to be used.
+            already done, this flag need to be used. Projects the points to the plane of
+            the polygon.
 
     Return:
         True if the point is inside the cell. If a point is on the boundary of the
         cell the result may be either True or False.
+
     """
     p.shape = (3, 1)
     if if_make_planar:
@@ -435,21 +438,21 @@ def polygon_hanging_nodes(
     edges: np.ndarray,
     tol: float = 1e-8
 ) -> np.ndarray:
-    """Find hanging nodes of a polygon
+    """Find hanging nodes of a polygon.
 
     Parameters:
-        p (shape=(nd,n_pt)): Point coordinates. Number of rows is number of
-            dimensions, number of columns is number of points.
+        p (shape=(nd, n_pt)): Point coordinates. Number of rows is number of
+        dimensions, number of columns is number of points.
         edges (shape=(2, num_edges)): Indices, referring to columns in p, of edges in
             the polygon. Should be ordered so that edges[1, i] == edges[0, i+1],
             and edges[0, 0] == edges[1, -1].
-        tol (optional): Tolerance for when two segments will be considered
-            parallel. Defaults to 1e-8.
+        tol (optional): Tolerance for when two segments will be considered parallel.
+        Defaults to 1e-8.
 
     Returns:
         Index of edges with hanging nodes. For an index i, the lines defined by
-        edges[:, i] and edges[:, i+1] (or edges[:, 0] if i == edges.shape[1] - 1) are
-        parallel.
+        ``edges[:, i]`` and ``edges[:, i+1]`` (or ``edges[:, 0]`` if
+        i == ``edges.shape[1]`` - 1) are parallel.
 
     """
     # Data structure for storing indices of the hanging nodes
