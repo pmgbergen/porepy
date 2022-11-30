@@ -159,7 +159,7 @@ class MassBalanceEquations(pp.BalanceEquation):
 
 
 class ConstitutiveLawsSinglePhaseFlow(
-    pp.constitutive_laws.DarcysLawFV,
+    pp.constitutive_laws.DarcysLaw,
     pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.AdvectiveFlux,
     pp.constitutive_laws.ConstantPorosity,
