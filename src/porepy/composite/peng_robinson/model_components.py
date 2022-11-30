@@ -20,6 +20,8 @@ __all__ = [
     "NaClBrine",
 ]
 
+# region Pseudo-components --------------------------------------------------------------------
+
 
 class H2O_ps(PseudoComponent):
     """Pseud-representation of water, including triple point data."""
@@ -136,6 +138,10 @@ class N2_ps(PseudoComponent):
         return 126.21
 
 
+# endregion
+# region Components ---------------------------------------------------------------------------
+
+
 class H2O(PR_Component, H2O_ps):
     """Component representing water as a fluid for the Peng-Robinson EoS.
 
@@ -188,6 +194,10 @@ class N2(PR_Component, N2_ps):
         return 0.0403
 
 
+# endregion
+# region Compounds ----------------------------------------------------------------------------
+
+
 class NaClBrine(PR_Compound, H2O):
     """A compound representing water - sodium chloride brine, where water is the solvent
     and NaCl the solute.
@@ -238,3 +248,6 @@ class NaClBrine(PR_Compound, H2O):
         )
 
         return alpha_root * alpha_root
+
+
+# endregion

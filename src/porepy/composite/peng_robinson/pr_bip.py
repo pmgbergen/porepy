@@ -25,6 +25,9 @@ Examples:
     >>> bip, order = pp.composite.get_PR_BIP(H2O.name, CO2.name)
     >>> bip_co2_h2o = bip(composition.T, H2O, CO2) if order else bip(composition.T, CO2, H2O)
 
+    Note that the last line will raise an error if there is no BIP implemented for `H2O` and
+    `CO2` (`bip` is None in that case).
+
 """
 from __future__ import annotations
 
