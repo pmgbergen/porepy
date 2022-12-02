@@ -2,7 +2,9 @@
 Functions for (boolean) inquiries about geometric objects, and relations between
 objects.
 """
-from typing import List, Union
+from __future__ import annotations
+
+from typing import Union
 
 import numpy as np
 import scipy
