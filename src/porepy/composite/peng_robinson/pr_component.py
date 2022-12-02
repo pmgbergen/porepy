@@ -70,7 +70,7 @@ class PR_Component(Component):
         sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
 
         alpha_root = 1 + self.attraction_correction_weight * (
-            1 - sqrt(T / self.critical_temperature)
+            1 - sqrt(T / self.critical_temperature())
         )
 
         return alpha_root * alpha_root

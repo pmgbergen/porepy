@@ -137,7 +137,32 @@ class PR_Composition(Composition):
         """An operator representing ``B`` in the characteristic polynomial of the EoS."""
         return (self.covolume * self.p) / (R_IDEAL * self.T)
 
-    ### EoS root finding methods --------------------------------------------------------------
+    @property
+    def Z_crit(self) -> float:
+        """Critical compressibility factor for the Peng-Robinson EoS, ~ 0.307401308."""
+        return 1 / 32 * (
+            11
+            + np.cbrt(16 * np.sqrt(2) - 13)
+            - np.cbrt(16 * np.sqrt(2) + 13)
+        )
+    
+    @property
+    def A_crit(self) -> float:
+        """Critical value for ``A`` in the Peng-Robinson EoS, ~ 0.457235529."""
+        return 1 / 512 * (
+            -59
+            + 3 * np.cbrt(276231 - 192512 * np.sqrt(2))
+            + 3 * np.cbrt(276231 + 192512 * np.sqrt(2))
+        )
+
+    @property
+    def B_crit(self) -> float:
+        """Critical value for ``B`` in the Peng-Robinson EoS, ~ 0.077796073."""
+        return 1 / 32 * (
+            -1
+            - 3 * np.cbrt(16 * np.sqrt(2) - 13)
+            + 3 * np.cbrt(16 * np.sqrt(2) + 13)
+        )
 
     @property
     def c2(self) -> pp.ad.Operator:
@@ -185,6 +210,8 @@ class PR_Composition(Composition):
             .evaluate(self.ad_system.dof_manager)
             .val
         )
+
+    ### EoS root finding methods --------------------------------------------------------------
 
     @property  # TODO Z_L and Z_G to Ad_array? Derivatives might be needed for flash
     def Z_L(self) -> np.ndarray:
@@ -333,8 +360,8 @@ class PR_Composition(Composition):
                             a_ij *= 1 - bip(self.T, comp_j, comp_i)
                         # add off-diagonal element
                         a += a_ij
-            # store attraction parameter
-            self._a = a
+        # store attraction parameter
+        self._a = a
 
     def _assign_covolume(self) -> None:
         """Creates the co-volume of the mixture according to VdW mixing rule."""
@@ -370,7 +397,16 @@ class PR_Composition(Composition):
     def _assign_phase_enthalpies(self) -> None:  # TODO
         """Constructs callable objects representing phase enthalpies and assings them to the
         ``PR_Phase``-classe."""
-        pass
+
+        def _h_L(p, T, *X):
+            return pp.ad.Scalar(1.0)
+
+        def _h_G(p, T, *X):
+            return pp.ad.Scalar(1.0)
+
+        # assigning the callable to respective thermodynamic property of the PR_Phase
+        self._phases[0]._h = _h_L
+        self._phases[1]._h = _h_G
 
     def _assign_phase_viscosities(self) -> None:  # TODO
         """Constructs callable objects representing phase dynamic viscosities and assigns them
@@ -405,4 +441,16 @@ class PR_Composition(Composition):
     def _assign_fugacities(self) -> None:  # TODO
         """Creates and stores operators representing fugacities ``f_ce(p,T,X)`` per component
         per phase."""
-        pass
+
+        L = self._phases[0]
+        G = self._phases[1]
+
+        for component in self.components:
+
+            fugacity_c_L = pp.ad.Scalar(1.)
+            fugacity_c_G = pp.ad.Scalar(1.)
+
+            self._fugacities[component] = {
+                L: fugacity_c_L,
+                G: fugacity_c_G,
+            }
