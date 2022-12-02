@@ -29,7 +29,8 @@ class Units:
     can be accessed as e.g. my_material.Pa. This ensures consistency between the base
     and derived units while allowing reference to derived units in usage of the class.
 
-    TODO: Consider whether this needs to be incorporated in TimeStepManager.
+    TODO: Consider whether this needs to be incorporated in TimeStepManager and
+    ModelGeometry.
 
     Parameters:
         **kwargs: Dictionary of units. The keys are the name of the unit, and the

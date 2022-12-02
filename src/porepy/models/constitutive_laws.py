@@ -131,8 +131,8 @@ class DimensionReduction:
             if len(sd_dim) == 0:
                 continue
             a_loc = self.aperture(sd_dim)
-            v_loc = a_loc ** Scalar(self.nd + 1 - dim)
-            v_glob = projection.cell_prolongation([sd_dim]) * v_loc
+            v_loc = a_loc ** Scalar(self.nd - dim)
+            v_glob = projection.cell_prolongation(sd_dim) * v_loc
             if v is None:
                 v = v_glob
             else:
@@ -1206,7 +1206,7 @@ class PressureStress:
         mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
         # Outwards normals. Scaled by face areas for FV formulation.
         outwards_normal = self.outwards_internal_boundary_normals(
-            interfaces, dim=1, unitary=False
+            interfaces, dim=self.nd, unitary=False
         )
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
