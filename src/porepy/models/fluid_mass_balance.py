@@ -65,6 +65,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         accumulation = self.fluid_mass(subdomains)
         flux = self.fluid_flux(subdomains)
         source = self.fluid_source(subdomains)
+
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name("mass_balance_equation")
         return eq
@@ -145,6 +146,12 @@ class MassBalanceEquations(pp.BalanceEquation):
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid source term.
 
+        .. note::
+            When overriding this method to assign internal fluid sources, one is advised
+            to call the base class method and add the new contribution, thus ensuring
+            that the source term includes the contribution from the interface fluxes.
+
+
         Parameters:
             subdomains: List of subdomains.
 
@@ -152,9 +159,14 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the source term.
 
         """
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        vals = np.zeros(num_cells)
-        source = pp.ad.Array(vals, "fluid_source")
+        # Interdimensional fluxes manifest as source terms in lower-dimensional
+        # subdomains.
+        interfaces = self.subdomains_to_interfaces(subdomains)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        source = projection.mortar_to_secondary_int * self.interface_fluid_flux(
+            interfaces
+        )
+        source.set_name("interface_fluid_flux_source")
         return source
 
 

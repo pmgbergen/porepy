@@ -195,6 +195,13 @@ class EnergyBalanceEquations(pp.fluid_mass_balance.MassBalanceEquations):
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Energy source term.
 
+        .. note::
+            When overriding this method to assign internal energy sources, one is
+            advised to call the base class method and add the new contribution, thus
+            ensuring that the source term includes the contribution from the interface
+            fluxes.
+
+
         Parameters:
             subdomains: List of subdomains.
 
@@ -202,9 +209,15 @@ class EnergyBalanceEquations(pp.fluid_mass_balance.MassBalanceEquations):
             Operator representing the source term.
 
         """
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        vals = np.zeros(num_cells)
-        source = pp.ad.Array(vals, "energy_source")
+        # Interdimensional fluxes manifest as source terms in lower-dimensional
+        # subdomains.
+        interfaces = self.subdomains_to_interfaces(subdomains)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        flux = self.interface_enthalpy_flux(interfaces) + self.interface_fourier_flux(
+            interfaces
+        )
+        source = projection.mortar_to_secondary_int * flux
+        source.set_name("interface_energy_source")
         return source
 
 
