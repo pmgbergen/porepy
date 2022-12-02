@@ -132,7 +132,7 @@ class DimensionReduction:
                 continue
             a_loc = self.aperture(sd_dim)
             v_loc = a_loc ** Scalar(self.nd + 1 - dim)
-            v_glob = projection.cell_prolongation(sd_dim) * v_loc
+            v_glob = projection.cell_prolongation([sd_dim]) * v_loc
             if v is None:
                 v = v_glob
             else:

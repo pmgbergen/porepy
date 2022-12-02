@@ -52,6 +52,7 @@ class SubdomainProjections(Operator):
             dim (int, optional): Dimension of the quantities to be projected.
 
         """
+
         self._name = "SubdomainProjection"
         self.dim = dim
         self._is_scalar: bool = dim == 1
@@ -106,24 +107,19 @@ class SubdomainProjections(Operator):
                 prolongation.
 
         """
-        if isinstance(subdomains, pp.Grid):
-            return pp.ad.Matrix(
-                self._cell_projection[subdomains], name="CellProlongation"
-            )
-        elif isinstance(subdomains, list):
-            if len(subdomains) > 0:
-                # A key error will be raised if a grid in g is not known to
-                # self._cell_projection
-                # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
-                # be much less than the number of rows.
-                mat = sps.bmat([[self._cell_projection[g] for g in subdomains]]).tocsc()
-            else:
-                # If the grid list is empty, we project from nothing to the full set of
-                # cells
-                mat = sps.csc_matrix((self._tot_num_cells * self.dim, 0))
-            return pp.ad.Matrix(mat, name="CellProlongation")
-        else:
+        if not isinstance(subdomains, list):
             raise ValueError(self._error_message())
+        if len(subdomains) > 0:
+            # A key error will be raised if a grid in g is not known to
+            # self._cell_projection
+            # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
+            # be much less than the number of rows.
+            mat = sps.bmat([[self._cell_projection[g] for g in subdomains]]).tocsc()
+        else:
+            # If the grid list is empty, we project from nothing to the full set of
+            # cells
+            mat = sps.csc_matrix((self._tot_num_cells * self.dim, 0))
+        return pp.ad.Matrix(mat, name="CellProlongation")
 
     def face_restriction(self, subdomains: list[pp.Grid]) -> Matrix:
         """Construct restrictions from global to subdomain face quantities.
@@ -137,28 +133,17 @@ class SubdomainProjections(Operator):
                 projection.
 
         """
-        if isinstance(subdomains, pp.Grid):
-            if "mortar_grid" in subdomains.name:
-                raise ValueError("Argument should be a regular grid, not mortar grid")
-            return pp.ad.Matrix(
-                self._face_projection[subdomains].T, name="FaceRestriction"
-            )
-        elif isinstance(subdomains, list):
-            if len(subdomains) > 0:
-                # A key error will be raised if a grid in subdomains is not known to
-                # self._face_projection
-                # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
-                # be much less than the number of columns.
-                mat = sps.bmat(
-                    [[self._face_projection[g].T] for g in subdomains]
-                ).tocsr()
-            else:
-                # If the grid list is empty, we project from the full set of faces to
-                # nothing.
-                mat = sps.csr_matrix((0, self._tot_num_faces * self.dim))
-            return pp.ad.Matrix(mat, name="FaceRestriction")
+        if len(subdomains) > 0:
+            # A key error will be raised if a grid in subdomains is not known to
+            # self._face_projection
+            # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
+            # be much less than the number of columns.
+            mat = sps.bmat([[self._face_projection[g].T] for g in subdomains]).tocsr()
         else:
-            raise ValueError(self._error_message())
+            # If the grid list is empty, we project from the full set of faces to
+            # nothing.
+            mat = sps.csr_matrix((0, self._tot_num_faces * self.dim))
+        return pp.ad.Matrix(mat, name="FaceRestriction")
 
     def face_prolongation(self, subdomains: list[pp.Grid]) -> Matrix:
         """Construct prolongation from subdomain to global face quantities.
@@ -172,24 +157,17 @@ class SubdomainProjections(Operator):
                 prolongation.
 
         """
-        if isinstance(subdomains, pp.Grid):
-            return pp.ad.Matrix(
-                self._face_projection[subdomains], name="FaceProlongation"
-            )
-        elif isinstance(subdomains, list):
-            if len(subdomains) > 0:
-                # A key error will be raised if a grid in subdomains is not known to
-                # self._face_projection
-                # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
-                # be far smaller than the number of rows.
-                mat = sps.bmat([[self._face_projection[g] for g in subdomains]]).tocsc()
-            else:
-                # If the grid list is empty, we project from nothing to the full set of
-                # faces
-                mat = sps.csc_matrix((self._tot_num_faces * self.dim, 0))
-            return pp.ad.Matrix(mat, name="FaceProlongation")
+        if len(subdomains) > 0:
+            # A key error will be raised if a grid in subdomains is not known to
+            # self._face_projection
+            # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
+            # be far smaller than the number of rows.
+            mat = sps.bmat([[self._face_projection[g] for g in subdomains]]).tocsc()
         else:
-            raise ValueError(self._error_message())
+            # If the grid list is empty, we project from nothing to the full set of
+            # faces
+            mat = sps.csc_matrix((self._tot_num_faces * self.dim, 0))
+        return pp.ad.Matrix(mat, name="FaceProlongation")
 
     def __repr__(self) -> str:
         s = (
