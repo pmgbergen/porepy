@@ -12,24 +12,15 @@ from ..composition import Composition
 from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
 from .pr_phase import PR_Phase
+from .pr_roots import PR_Roots
 
 __all__ = ["PR_Composition"]
 
 
 class PR_Composition(Composition):
-    """A composition modelled using the Peng-Robinson equation of state
+    """A composition modelled using the Peng-Robinson equation of state.
 
-        ``p = R * T / (v - b) - a / (b**2 + 2 * v * b - b**2)``,
-
-    with the characteristic polynomial
-
-        ``Z**3 + (B - 1) * Z**2 + (A - 2 * B - 3 * B**2) * Z + (B**3 + B**2 - A * B) = 0``,
-
-    where
-
-        ``Z = p * v / (R * T)``,
-        ``A = p * a / (R * T)**2``,
-        ``B = P * b / (R * T)``.
+        ``p = R * T / (v - b) - a / (b**2 + 2 * v * b - b**2)``.
 
     Mixing rules according to Peng and Robinson are applied to ``a`` and ``b``.
 
@@ -42,6 +33,13 @@ class PR_Composition(Composition):
 
     def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
         super().__init__(ad_system)
+
+        self.roots: PR_Roots
+        """The roots of the cubic equation of state.
+
+        This object is instantiated during initialization.
+
+        """
 
         # setting of currently supported phases
         self._phases: list[PR_Phase] = [
@@ -90,8 +88,11 @@ class PR_Composition(Composition):
         ## setting callables defining the dynamic viscosity and heat conductivity of phases
         self._assign_phase_viscosities()
         self._assign_phase_conductivities()
-        ### settings callables for fugacities
+        ## settings callables for fugacities
         self._assign_fugacities()
+
+        ## create roots object
+        self.roots = PR_Roots(self.ad_system, self.A, self.B)
 
         # super call to initialize p-h and p-T subsystems
         super().initialize()
@@ -136,168 +137,6 @@ class PR_Composition(Composition):
     def B(self) -> pp.ad.Operator:
         """An operator representing ``B`` in the characteristic polynomial of the EoS."""
         return (self.covolume * self.p) / (R_IDEAL * self.T)
-
-    @property
-    def Z_crit(self) -> float:
-        """Critical compressibility factor for the Peng-Robinson EoS, ~ 0.307401308."""
-        return 1 / 32 * (
-            11
-            + np.cbrt(16 * np.sqrt(2) - 13)
-            - np.cbrt(16 * np.sqrt(2) + 13)
-        )
-    
-    @property
-    def A_crit(self) -> float:
-        """Critical value for ``A`` in the Peng-Robinson EoS, ~ 0.457235529."""
-        return 1 / 512 * (
-            -59
-            + 3 * np.cbrt(276231 - 192512 * np.sqrt(2))
-            + 3 * np.cbrt(276231 + 192512 * np.sqrt(2))
-        )
-
-    @property
-    def B_crit(self) -> float:
-        """Critical value for ``B`` in the Peng-Robinson EoS, ~ 0.077796073."""
-        return 1 / 32 * (
-            -1
-            - 3 * np.cbrt(16 * np.sqrt(2) - 13)
-            + 3 * np.cbrt(16 * np.sqrt(2) + 13)
-        )
-
-    @property
-    def c2(self) -> pp.ad.Operator:
-        """An operator representing the coefficient of the monomial ``Z**2`` in the
-        characteristic polynomial."""
-        return self.B - 1
-
-    @property
-    def c1(self) -> pp.ad.Operator:
-        """An operator representing the coefficient of the monomial ``Z`` in the
-        characteristic polynomial."""
-        return self.A - 3 * self.B * self.B - 2 * self.B
-
-    @property
-    def c0(self) -> pp.ad.Operator:
-        """An operator representing the coefficient of the monomial ``Z**0`` in the
-        characteristic polynomial."""
-        return self.B * self.B * self.B + self.B * self.B - self.A * self.B
-
-    @property
-    def discriminant(self) -> np.ndarray:
-        """An operator representing the discriminant of the characteristic polynomial, based
-        on the current thermodynamic state.
-
-        The sign of the discriminant can be used to distinguish between 1 and 2-phase regions:
-
-        - ``< 0``: single-phase region
-        - ``> 0``: 2-phase region
-
-        Warning:
-            The case where the discriminant is zero (or close) is not covered. This corresponds
-            to the case where there are 3 real roots and two are equal.
-            That can happen mathematically, but the thermodynamic literature is scars on that
-            topic.
-
-        """
-        return (
-            (
-                self.c2 * self.c2 * self.c1 * self.c1
-                - 4 * self.c1 * self.c1 * self.c1
-                - 4 * self.c2 * self.c2 * self.c2 * self.c0
-                - 27 * self.c0 * self.c0
-                + 18 * self.c2 * self.c1 * self.c0
-            )
-            .evaluate(self.ad_system.dof_manager)
-            .val
-        )
-
-    ### EoS root finding methods --------------------------------------------------------------
-
-    @property  # TODO Z_L and Z_G to Ad_array? Derivatives might be needed for flash
-    def Z_L(self) -> np.ndarray:
-        """An array representing cell-wise the extended root of the characteristic polynomial
-        associated with the liquid phase.
-
-        The values depend on the thermodynamic state and are recomputed internally.
-
-        """
-        return self._Z_L
-
-    @property
-    def Z_G(self) -> np.ndarray:
-        """An array representing cell-wise the extended root of the characteristic polynomial
-        associated with the gaseous phase.
-
-        The values depend on the thermodynamic state and are recomputed internally.
-
-        """
-        return self._Z_G
-
-    @property
-    def _Q(self) -> pp.ad.Operator:
-        """Intermediate coefficient for the cubic formula."""
-        return (3 * self.c1 - self.c2 * self.c2) / 9
-
-    @property
-    def _R(self) -> pp.ad.Operator:
-        """Intermediate coefficient for the cubic formula."""
-        return (
-            9 * self.c2 * self.c1 - 27 * self.c0 - 2 * self.c2 * self.c2 * self.c2
-        ) / 54
-
-    @property
-    def _D(self) -> pp.ad.Operator:
-        """Modified version of the discriminant for the cubic formula
-        (including sign-convention)."""
-        return self._Q * self._Q * self._Q + self._R * self._R
-
-    def _compute_roots(self) -> None:
-        """(Re-) compute the extended roots based on the current thermodynamic state using
-        the cubic formula.
-
-        References:
-            [1]: `Cubic formula <https://mathworld.wolfram.com/CubicFormula.html>`_
-            [2]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
-
-        """
-        R = self._R.evaluate(self.ad_system.dof_manager).val
-        D = self._D.evaluate(self.ad_system.dof_manager).val
-        c2 = self.c2.evaluate(self.ad_system.dof_manager).val
-        S = np.power(R + np.power(D, 0.5, dtype=complex), 1 / 3, dtype=complex)
-        T = np.power(R - np.power(D, 0.5, dtype=complex), 1 / 3, dtype=complex)
-
-        # based on the sign of the discriminant, we distinguish the regions
-        # note that this discriminant uses a different sign convention than the standard one.
-        three_root_region = D < 0
-        one_root_region = D > 0
-
-        # regular (unextended) roots of the polynomial
-        Z1 = -c2 / 3 + S + T
-        Z2 = -c2 / 3 - (S + T) / 2 + 1j * np.sqrt(3) / 2 * (S - T)
-        Z3 = -c2 / 3 - (S + T) / 2 - 1j * np.sqrt(3) / 2 * (S - T)
-
-        nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
-        # (extended) roots of the liquid and gas phase (per cell)
-        Z_L = np.zeros(nc)
-        Z_G = np.zeros(nc)
-
-        # this case is not covered by the thermodynamic literature (to my knowing)
-        # if it happens, we have to alert the user
-        if np.any(np.isclose(D, 0.0)):
-            raise RuntimeError(
-                "Encountered real double-root in characteristic polynomial."
-            )
-
-        # in the three-root-region, the largest root (Z1) corresponds to the gaseous phase
-        # the smallest root (Z2) corresponds to the liquid phase
-        Z_L[three_root_region] = np.real(Z2[three_root_region])
-        Z_G[three_root_region] = np.real(Z1[three_root_region])
-
-        ## Domain extension outside of three-root-region (Ben Gharbia et al.) TODO
-
-        # storing the extended roots for further computations
-        self._Z_L = Z_L
-        self._Z_G = Z_G
 
     ### Model equations -----------------------------------------------------------------------
 
@@ -385,10 +224,10 @@ class PR_Composition(Composition):
         # Z_e = p * v_e / (R * T)
         # as of now, the composition X does not influence the density
         def _rho_L(p, T, *X):
-            return p / (R_IDEAL * T * self.Z_L)
+            return p / (R_IDEAL * T * self.roots.liquid_root)
 
         def _rho_G(p, T, *X):
-            return p / (R_IDEAL * T * self.Z_G)
+            return p / (R_IDEAL * T * self.roots.gas_root)
 
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._rho = _rho_L
