@@ -84,7 +84,7 @@ class PoromechanicsCombined(
 
 def model(
     model_type: str, num_fracs: int = 1
-) -> MassBalanceCombined | MomentumBalanceCombined:
+) -> MassBalanceCombined | MomentumBalanceCombined | EnergyBalanceCombined | PoromechanicsCombined:
     """Setup for tests."""
     # Suppress output for tests
     params = {"suppress_export": True, num_fracs: num_fracs}

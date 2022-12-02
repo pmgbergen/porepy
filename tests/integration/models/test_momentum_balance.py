@@ -109,11 +109,12 @@ def test_2d_single_fracture(solid_vals, north_displacement):
             # x<0.5, and the opposite sign for x>0.5. To see why this makes sense, think
             # through what happens around the symmetry line of x=0.5 when pulling or
             # pushing the top (north) boundary.
-            left = sd.cell_centers[0] < 0.5
+            tol = 1e-10
+            left = sd.cell_centers[0] < setup.box["xmax"] / 2 - tol
+            right = sd.cell_centers[0] > setup.box["xmax"] / 2 + tol
             assert np.all(
                 np.sign(vals[:: setup.nd][left]) == np.sign(north_displacement)
             )
-            right = sd.cell_centers[0] > 0.5
             assert np.all(
                 np.sign(vals[:: setup.nd][right]) == -np.sign(north_displacement)
             )

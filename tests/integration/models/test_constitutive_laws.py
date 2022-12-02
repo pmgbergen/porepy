@@ -72,6 +72,7 @@ from .setup_utils import model
         ("poromechanics", "stress", [2]),
         ("poromechanics", "specific_volume", []),
         ("poromechanics", "aperture", []),
+        ("poromechanics", "interface_pressure_stress", [1]),
     ],
 )
 @pytest.mark.parametrize("num_fracs", [0, 1, 2])

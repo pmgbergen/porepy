@@ -96,7 +96,7 @@ class Combined(BoundaryCondition, EnergyBalanceCombined):
         ),
     ],
 )
-def test_linear_pressure(fluid_vals, solid_vals):
+def test_advection_and_diffusion_dominated(fluid_vals, solid_vals):
     """Test that the pressure solution is linear.
 
     With constant density (zero compressibility) and the specified boundary conditions,
@@ -130,31 +130,33 @@ def test_linear_pressure(fluid_vals, solid_vals):
     pp.run_time_dependent_model(setup, params)
 
     if solid_vals["thermal_conductivity"] > 1:
-        # Diffusion dominated case
-        # Check that the temperature is linear
+        # Diffusion dominated case.
+        # Check that the temperature is linear.
         for sd in setup.mdg.subdomains():
             var = setup.equation_system.get_variables(["temperature"], [sd])
             vals = setup.equation_system.get_variable_values(var)
-            assert np.allclose(vals, 1 - sd.cell_centers[0], rtol=1e-4)
+            assert np.allclose(
+                vals, 1 - sd.cell_centers[0] / setup.box["xmax"], rtol=1e-4
+            )
     else:
-        # Advection dominated case
-
+        # Advection dominated case.
         # Check that the enthalpy flux over each face is bounded by the value
         # corresponding to a fully saturated domain.
         for sd in setup.mdg.subdomains():
             val = setup.enthalpy_flux([sd]).evaluate(setup.equation_system).val
             # Account for specific volume, default value of .01 in fractures.
-            normals = np.abs(sd.face_normals[0]) * np.power(0.01, setup.nd - sd.dim)
+            normals = np.abs(sd.face_normals[0]) * np.power(0.1, setup.nd - sd.dim)
             k = setup.solid.permeability() / setup.fluid.viscosity()
-            enth = setup.fluid.specific_heat_capacity() * normals * k
+            grad = 1 / setup.box["xmax"]
+            enth = setup.fluid.specific_heat_capacity() * normals * grad * k
             assert np.all(np.abs(val) < np.abs(enth) + 1e-10)
 
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
-        # influx =dp * k=1*k)
+        # influx =grad * dp * k=1/2*k)
         total_energy = (
             setup.total_internal_energy(setup.mdg.subdomains(dim=2))
             .evaluate(setup.equation_system)
             .val
         )
-        expected = setup.fluid.specific_heat_capacity() * setup.solid.permeability()
+        expected = setup.fluid.specific_heat_capacity() * setup.solid.permeability() / 2
         assert np.allclose(np.sum(total_energy), expected, rtol=1e-3)
