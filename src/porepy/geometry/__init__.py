@@ -22,34 +22,34 @@ Note:
 
 The content of this package is organized as follows:
 
-    :mod:`porepy.geometry.bounding_box` contains functions for computing bounding boxes
-    from point clouds, as well as :class:`porepy.grids.grid.Grid` and
-    :class:`porepy.grids.md_grid.MixedDimensionalGrid` objects.
+    :mod:`~porepy.geometry.bounding_box` contains functions for computing bounding boxes
+    from point clouds, as well as :class:`~porepy.grids.grid.Grid` and
+    :class:`~porepy.grids.md_grid.MixedDimensionalGrid` objects.
 
-    :mod:`porepy.geometry.constrain_geometry` contains functions that can be used to
+    :mod:`~porepy.geometry.constrain_geometry` contains functions that can be used to
     impose constraints on geometric objects, including truncation of line segments to a
     polygon and of polygons to a polyhedron.
 
-    :mod:`porepy.geometry.distances` contains functions for computing distances between
+    :mod:`~porepy.geometry.distances` contains functions for computing distances between
     points, line segments and polygons.
 
-    :mod:`porepy.geometry.geometry_property_checks` contains functions for inquiries on
+    :mod:`~porepy.geometry.geometry_property_checks` contains functions for inquiries on
     geometric properties, e.g., whether a point is inside a polygon.
 
-    :mod:`porepy.geometry.half_space` contains a set of functions relating to geometries
-    defined by a combination of linear constraints of the type ``ax + by <= c`` or the
-    equivalent 3d expression.
+    :mod:`~porepy.geometry.half_space` contains a set of functions relating to
+    geometries defined by a combination of linear constraints of the type ``ax + by <=
+    c`` or the equivalent 3d expression.
 
-    :mod:`porepy.geometry.intersections` contains functions for computing intersections
+    :mod:`~porepy.geometry.intersections` contains functions for computing intersections
     between various combinations of segments and polygons. The module also provides
     functions for intersecting simplex tessalations in 1d and 2d.
 
-    :mod:`porepy.geometry.map_geometry` is a collection of functions for mapping
-    :class:`porepy.grids.grid.Grid` objcets as well as lines and polygons
-    into lower-dimensional spaces. The module also provides functions for computing
-    normal and tangential vectors for point clouds.
+    :mod:`~porepy.geometry.map_geometry` is a collection of functions for mapping
+    :class:`~porepy.grids.grid.Grid` objcets as well as lines and polygons into
+    lower-dimensional spaces. The module also provides functions for computing normal
+    and tangential vectors for point clouds.
 
-    :mod:`porepy.geometry.point_in_polyhedron_test` contains a helper class for testing
+    :mod:`~porepy.geometry.point_in_polyhedron_test` contains a helper class for testing
     if a point is contained in a (non-convex) polygon.
 
 """
