@@ -139,9 +139,9 @@ class Fracture(abc.ABC):
             A tuple containing
 
             bool:
-                indicating whether the point is a vertex.
+                Indicates whether the point is a vertex.
             ndarray:
-                gives the position of ``p`` in :attr:`pts` if the point is a vertex.
+                Gives the position of ``p`` in :attr:`pts` if the point is a vertex.
                 Else, None is returned.
 
         """
@@ -175,7 +175,7 @@ class Fracture(abc.ABC):
         """Abstract method to sort the vertices as needed for geometric algorithms.
 
         Returns:
-            Array of integers indices corresponding to the sorting.
+            Array of integer indices corresponding to the sorting.
 
         """
         pass
@@ -189,7 +189,7 @@ class Fracture(abc.ABC):
         has co-dimension 1.
 
         Returns:
-            Coordinates of the vertices in local dimensions `(shape=(d, num_points)`.
+            Coordinates of the vertices in local dimensions `(shape=(d, num_points))`.
 
         """
         pass
