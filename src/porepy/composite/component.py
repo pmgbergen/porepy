@@ -16,9 +16,10 @@ from ._composite_utils import VARIABLE_SYMBOLS, CompositionalSingleton
 
 
 class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
-    """Abstract base class for all component-like instances inside a mixture.
+    """Abstract base class for instances inside a mixture, which represent a chemical species.
 
-    Pseudo-components are defined by a name and a molar mass.
+    Pseudo-components are identified by their name and have a molar mass, critical pressure and
+    critical temperature.
 
     They are used as a starting point for all genuine components (species inside a mixture
     which change phases), but also as simplified surrogate models (parts of a compound),
