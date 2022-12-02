@@ -36,7 +36,7 @@ from typing import Callable
 import porepy as pp
 
 from ..phase import VarLike
-from .model_components import *
+from .pr_model_components import *
 
 __all__ = [
     "PR_BIP_MAP",
