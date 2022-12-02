@@ -63,8 +63,9 @@ def segment_segment_set(
     """Compute distance and closest points between a segment and a set of
     segments.
 
-    .. note:: Algorithm can be found at http://geomalgorithms.com/a07-_distance.html
-        (see C++ code quite far down on that page).
+    .. note:: Algorithm can be found at http://geomalgorithms.com/code.html
+        (see file "C07_Line_Line_Distance.cpp",
+        function ``dist3D_Segment_to_Segment()``).
 
     Parameters:
         start (shape=(nd, 1)): Start point of the main segment.
@@ -198,7 +199,7 @@ def points_segments(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute distances between points and line segments.
 
-    Also return closest points on the segments.
+    The function also returns the closest points on the segments.
 
     Parameters:
         p (shape=(nd, num_points)): Individual points.
@@ -622,7 +623,7 @@ def segment_overlap_segment_set(
         start_set (shape=(nd, num_segments)): Start points of the set of segments.
         end_set (shape=(nd, num_segments)): End points of the set of segments.
         return_indices (optional): Whether the function should also return
-          indices overlappings.
+          indices of overlappings.
         tol (optional): Tolerance to be used.
 
     Returns:
