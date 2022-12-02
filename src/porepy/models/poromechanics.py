@@ -31,7 +31,7 @@ class ConstitutiveLawsPoromechanicsCoupling(
 
     """
 
-    def stress(self, subdomains: list[pp.Grid]):
+    def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Stress operator.
 
         Parameters:
@@ -76,6 +76,7 @@ class EquationsPoromechanics(
         eq = super().interface_force_balance_equation(interfaces)
         # Add pressure term
         eq += self.interface_pressure_stress(interfaces)
+        eq.set_name("interface_force_balance_equation")
         return eq
 
 
