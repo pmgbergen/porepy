@@ -124,9 +124,7 @@ def segments_2d(
             else:
                 # d_1 is zero
                 logger.error("Found what must be a point-edge")
-                raise ValueError(
-                    "Start and endpoint of line should be different"
-                )
+                raise ValueError("Start and endpoint of line should be different")
             if t_start_2 < 0 and t_end_2 < 0:
                 logger.debug("Lines are not overlapping")
                 return None
@@ -1381,6 +1379,7 @@ def polygons_3d(
         is_point_contact,
     )
 
+
 def segments_polygon(
     start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol: float = 1e-5
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -1393,8 +1392,9 @@ def segments_polygon(
         poly (shape=(nd, num_vertices)): Vertices of polygon.
         tol (float): Tolerance for the geometric computations.
 
-    .. note: It is required that all points lie in a plane. A sanity check will
-        be performed.
+    Note:
+        It is required that all points lie in a plane. A sanity check will be
+        performed.
 
     Returns:
         A tuple containing a boolean array, identifying whether a segment has an
@@ -1484,7 +1484,8 @@ def segments_polyhedron(
     """Compute the intersection from line segments to the interior of a convex polyhedron.
     Intersections with the boundary of the polyhedron are not computed.
 
-    .. note: There are four possibilities for each segment:
+    Note:
+        There are four possibilities for each segment:
         1 - the segment is completely inside the polyhedron, meaning that its vertices
             are both inside the polyhedron
         2 - the segment has only one vertex in the polyhedron
@@ -1494,11 +1495,11 @@ def segments_polyhedron(
     Parameters:
         start (shape=(nd, num_segments)): One endpoint of segments.
         end (shape=(nd, num_segments)): Other endpoint of segments.
-        poly (shape(nd, nun_vertices)): Vertices of polyhedron organised face by face.
+        poly (shape(nd, num_vertices)): Vertices of polyhedron organised face by face.
         tol: Tolerance for the geometric computations.
 
     Returns:
-        A tuple with four entries of type np.ndarray and shape=(num_segments,).
+        A tuple with four entries of type np.ndarray and length ``num_segments``.
         1. For each segment intersection points with the polyhedron, start and
         end points are not included in this list;
         2. Vector of boolean that indicate if the start of a segment is inside
@@ -1577,17 +1578,17 @@ def _point_in_or_on_polygon(
     whether it is on a segment or vertex.
 
     Parameters:
-        p (shape=(nd, )): Point.
+        p (len=nd): Point.
         poly (shape=(nd, num_vertices)): Vertices of polygon.
         tol: Tolerance for the geometric computations.
 
     Returns:
-        A tuple with two entries. The first entry is an int and has the value 0 for
-        'outside', 1 for 'on boundatry', and 2 for 'interior'. If the first value
-        is 0 or 2, the second has the value None. If the first value is 1, the
-        second value is a tuple. First item is the segment index in the polygon if
-        intersection is on segment, None if on vertex. Second item is vertex index
-        if intersection on vertex, None if not.
+        A tuple with two entries. The first entry is an int and has the value ``0``
+        for 'outside', ``1`` for 'on boundatry', and ``2`` for 'interior'. If the
+        first value is ``0`` or ``2``, the second has the value None. If the first
+        value is ``1``, the second value is a tuple. First item is the segment index
+        in the polygon if intersection is on segment, None if on vertex. Second item
+        is vertex index if intersection on vertex, ``None`` if not.
 
     """
 
@@ -1631,8 +1632,8 @@ def triangulations(
     t_2, and compute their common area. If parts of domain 1 or 2 are covered by
     one tessellation only, this will simply be ignored by the function.
 
-    .. note: The function relies on the intersection algorithm in
-    shapely.geometry.Polygon.
+    Note:
+        The function relies on the intersection algorithm in shapely.geometry.Polygon.
 
     Parameters:
         p_1 (shape=(2, n_p1)): Points in first tessellation.
@@ -1780,7 +1781,8 @@ def surface_tessellations(
 
     The implementation relies heavily on shapely's intersection finders.
 
-    .. note: The implementation is based on shapely.
+    Note:
+        The implementation is based on shapely.
 
     Parameters:
         poly_sets: Lists of polygons to be intersected.
@@ -1793,13 +1795,13 @@ def surface_tessellations(
         being a polygon so that the list together form a subdivision of the
         intersection of all polygons in the input sets. The second entry contains
         matrices denoting mappings from each of the input polygons to the intersected
-        polygons. If the mapping's item[i][j, k] is non-zero, polygon k in set i has a
-        (generally partial) overlap with polygon j in the intersected polygon set.
-        Specifically the value will be 1.
+        polygons. If the mapping's ``item[i][j, k]`` is non-zero, polygon ``k`` in set
+        ``i`` has a (generally partial) overlap with polygon ``j`` in the intersected
+        polygon set. Specifically the value will be ``1``.
 
     Raises:
         NotImplementedError: If a triangulation of a non-convex polygon is attempted.
-            Can only happen if return_simplexes is True.
+            Can only happen if ``return_simplexes`` is ``True``.
 
     """
 
@@ -2053,8 +2055,10 @@ def split_intersecting_segments_2d(
     have tags assigned. If so, the tags are preserved as connections are split.
     The connections are uniquified, so that no combination of point indices
     occurs more than once.
-    NOTE: For (partly) overlapping segments, only one of the tags will survive the
-    uniquification. The other can be reconstructed by using the third output.
+
+    Note:
+        For (partly) overlapping segments, only one of the tags will survive the
+        uniquification. The other can be reconstructed by using the third output.
 
     Parameters:
         p (shape=(2, n_pt)): Coordinates of points to be processed.
@@ -2065,15 +2069,16 @@ def split_intersecting_segments_2d(
             segments.
 
     Returns:
-        A tuple with three or four entries (last only returned if return_argsort True).
-        1. array of shape (2, n_pt) with points.
-        2. array of shape (2, n_edges) with new, non-intersecting edges.
-        3. tuple of two (n_con,) arrays with the first item being a set of tags,
-        before uniquification of the edges, and the second being a column mapping
-        from the unique edges to all edges. To recover lost tags associated with the
-        points in column i, first find all original columns which maps to i
-        (tuple[1] == i), then recover the tags by the hits.
-        4. array of shape (n_edges,) mapping the new edges with the input edges.
+        A tuple with three or four entries (last only returned if ``return_argsort``
+        is ``True``). The entries are as follows.
+        1. array of shape ``(2, n_pt)`` with points.
+        2. array of shape ``(2, n_edges)`` with new, non-intersecting edges.
+        3. tuple of two arrays with length ``n_con`` with the first item being a set
+        of tags, before uniquification of the edges, and the second being a column
+        mapping from the unique edges to all edges. To recover lost tags associated
+        with the points in column ``i``, first find all original columns which maps
+        to ``i`` (``tuple[1] == i``), then recover the tags by the hits.
+        4. array of length ``n_edges``, mapping the new edges with the input edges.
 
     """
     if p.dtype == int:
@@ -2317,7 +2322,7 @@ def _axis_aligned_bounding_box_2d(
             indices of start and endpoints, additional rows are tags
 
     Returns:
-        Tuple of four (n_pt,) arrays.
+        Tuple of four arrays of length ``n_pt``, defined as follows.
         1. Minimum x-coordinate for all lines.
         2. Maximum x-coordinate for all lines.
         3. Minimum y-coordinate for all lines.
@@ -2352,7 +2357,7 @@ def _axis_aligned_bounding_box_3d(
             polygon, described by its vertices in a (3, num_points) array.
 
     Returns:
-        Tuple with six (n_pt,) arrays.
+        Tuple with six arrays of length ``n_pt``, containing the following.
         1. Minimum x-coordinate for all lines.
         2. Maximum x-coordinate for all lines.
         3. Minimum y-coordinate for all lines.
@@ -2389,14 +2394,15 @@ def _identify_overlapping_intervals(left: np.ndarray, right: np.ndarray) -> np.n
     overlapping intervals.
 
     Parameters:
-        left (shape=(num_intervals,)): Minimum coordinates of the intervals.
-        right (shape=(num_intervals,)): Maximum coordinates of the intervals.
+        left (len=num_intervals): Minimum coordinates of the intervals.
+        right (len=num_intervals): Maximum coordinates of the intervals.
 
-    .. note: For all corresponding entries in left and right, left <= right is
-        required, but equality is allowed.
+    Note:
+        For all corresponding entries in ``left`` and ``right``, ``left <= right``
+        is required, but equality is allowed.
 
     Returns:
-        Array with shape=(2, num_overlaps) with each column containing a pair of
+        Array with shape ``(2, num_overlaps)`` with each column containing a pair of
         overlapping intervals, refering to their placement in left and right.
         The pairs are sorted so that the lowest index is in the first column.
 
@@ -2471,25 +2477,28 @@ def _identify_overlapping_rectangles(
 
 
     Parameters:
-        xmin (shape=(num_rectangles,)): Minimum coordinates of the rectangle on the
+        xmin (len=num_rectangles): Minimum coordinates of the rectangle on the
             first axis.
-        xmax (shape=(num_rectangles,)): Maximum coordinates of the rectangle on the
+        xmax (len=num_rectangles): Maximum coordinates of the rectangle on the
             first axis.
-        ymin (shape=(num_rectangles,)): Minimum coordinates of the rectangle on the
+        ymin (len=num_rectangles): Minimum coordinates of the rectangle on the
             second axis.
-        ymax (shape=(num_rectangles,)): Maximum coordinates of the rectangle on the
+        ymax (len=num_rectangles): Maximum coordinates of the rectangle on the
             second axis.
 
-    .. note: For all corresponding entries it has to hold xmin <= xmax, but equality
+    Note:
+        For all corresponding entries it has to hold ``xmin <= xmax``, but equality
         is allowed. Analogously for the y-components.
 
     Returns:
-        Array with shape=(2, num_overlaps) with each column containing a pair of
+        Array with shape ``(2, num_overlaps)`` with each column containing a pair of
         overlapping intervals, refering to their placement in left and right. The
         pairs are sorted so that the lowest index is in the first column.
 
-    .. note: The algorithm was found in 'A fast method for fracture intersection detection
-        in discrete fracture networks' by Dong et al, omputers and Geotechniques 2018.
+    Note:
+        The algorithm was found in 'A fast method for fracture intersection
+        detection in discrete fracture networks' by Dong et al, omputers and
+        Geotechniques 2018.
 
     """
     # There can be no overlaps if there is less than two rectangles
@@ -2564,10 +2573,11 @@ def _intersect_pairs(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
         p2 (shape=(2, m)): Each column contains a pair of indices.
 
     Returns:
-        Array with shape=(2, k) where k <= min(n, m) with each column containing
-        a pair of indices that are found in both p1 and p2. The array is sorted so
-        that items in the first row is less or equal to the second row. The columns
-        are sorted according to the numbers in the first row.
+        Array with shape ``(2, k)`` where ``k <= min(n, m)`` with each column
+        containing a pair of indices that are found in both ``p1`` and ``p2``.
+        The array is sorted so that items in the first row is less or equal to
+        the second row. The columns are sorted according to the numbers in the
+        first row.
 
     """
     # Special treatment of empty lists
