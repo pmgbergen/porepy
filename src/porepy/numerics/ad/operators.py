@@ -1069,11 +1069,6 @@ class TimeDependentArray(Array):
         if interfaces is None:
             interfaces = []
 
-        if len(interfaces) == 0 and len(subdomains) == 0:
-            raise ValueError(
-                "A time dependent array must be associated with"
-                " interfaces or subdomains."
-            )
         if len(interfaces) > 0 and len(subdomains) > 0:
             raise ValueError(
                 "A time dependent array must be associated with either"
@@ -1147,7 +1142,10 @@ class TimeDependentArray(Array):
             else:
                 vals.append(data[pp.STATE][pp.ITERATE][self._name])
 
-        return np.hstack((vals))
+        if len(vals) > 0:
+            return np.hstack((vals))
+        else:
+            return np.empty(0, dtype=float)
 
     def __repr__(self) -> str:
         s = f"Wrapped time-dependent array with name {self._name}.\n"
