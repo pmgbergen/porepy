@@ -247,15 +247,16 @@ def test_time_dependent_array():
     # Create and evaluate a time-dependent array that is a function of neither
     # subdomains nor interfaces.
     empty_array = pp.ad.TimeDependentArray("none", subdomains=[], interfaces=[])
+    # In this case evaluation should return an empty array.
     empty_eval = empty_array.parse(mdg)
     assert empty_eval.size == 0
-
+    # Same with the previous timestep
     empty_prev_timestep = empty_array.previous_timestep()
     assert empty_prev_timestep.parse(mdg).size == 0
 
     with pytest.raises(ValueError):
-        # The array is not defined on any subdomains or interfaces, so the grid must
-        # be None
+        # If we try to define an array on both subdomain and interface, we should get an
+        # error.
         pp.ad.TimeDependentArray(
             "foobar", subdomains=mdg.subdomains(), interfaces=mdg.interfaces()
         )

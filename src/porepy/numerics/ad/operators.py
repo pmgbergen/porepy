@@ -1031,9 +1031,9 @@ class TimeDependentArray(Array):
     however, this is pending an update to the model classes.
 
     Attributes:
-        prev_time (boolean): If True, the array will be evaluated using
-            data[pp.STATE] (data being the data dictionaries for subdomains and
-            interfaces), if False, data[pp.STATE][pp.ITERATE] is used.
+        previous_timestep: If True, the array will be evaluated using data[pp.STATE]
+            (data being the data dictionaries for subdomains and interfaces), if False,
+            data[pp.STATE][pp.ITERATE] is used.
 
     """
 
@@ -1143,8 +1143,10 @@ class TimeDependentArray(Array):
                 vals.append(data[pp.STATE][pp.ITERATE][self._name])
 
         if len(vals) > 0:
+            # Normal case: concatenate the values from all grids
             return np.hstack((vals))
         else:
+            # Special case: No grids. Return an empty array.
             return np.empty(0, dtype=float)
 
     def __repr__(self) -> str:
