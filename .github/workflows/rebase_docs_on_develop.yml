@@ -1,5 +1,6 @@
 # Purpose: Rebase the docs branch on top of develop. This will ensure that docs is
 # always downstream from develop.
+# Acknowledgements: https://github.com/marketplace/actions/local-git-rebase
 
 name: Rebase docs on develop
 on:
