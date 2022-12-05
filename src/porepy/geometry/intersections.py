@@ -1396,10 +1396,13 @@ def segments_polygon(
         performed.
 
     Returns:
-        A tuple containing a boolean array, identifying whether a segment has an
-        intersection with the polygon (useful to filter the seconds return
-        parameter), and a float array with shape=(nd, num_segments) containing
-        the intersection points.
+        A tuple consisting of
+
+        ndarray ``(shape=(num_segments))``:
+            boolean array, identifying whether a segment has an intersection with the
+            polygon (useful to filter the second return parameter).
+        ndarray ``(shape=(nd, num_segments))``:
+            float array containing the intersection points.
 
     Example:
         >>> import numpy as np
@@ -1480,16 +1483,17 @@ def segments_polygon(
 def segments_polyhedron(
     start: np.ndarray, end: np.ndarray, poly: np.ndarray, tol: float = 1e-5
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Compute the intersection from line segments to the interior of a convex polyhedron.
-    Intersections with the boundary of the polyhedron are not computed.
+    """Compute the intersection from line segments to the interior of a convex
+    polyhedron. Intersections with the boundary of the polyhedron are not computed.
 
     Note:
         There are four possibilities for each segment:
-        1 - the segment is completely inside the polyhedron, meaning that its vertices
-            are both inside the polyhedron
-        2 - the segment has only one vertex in the polyhedron
-        3 - the segment is completely outside the polyhedron
-        4 - the segment has in intersection but both vertices are outside the polyhedron.
+        1. the segment is completely inside the polyhedron, meaning that its vertices
+        are both inside the polyhedron;
+        2. the segment has only one vertex in the polyhedron;
+        3. the segment is completely outside the polyhedron;
+        4. the segment has in intersection but both vertices are outside the
+        polyhedron.
 
     Parameters:
         start (shape=(nd, num_segments)): One endpoint of segments.
@@ -1498,14 +1502,19 @@ def segments_polyhedron(
         tol: Tolerance for the geometric computations.
 
     Returns:
-        A tuple with four entries of type np.ndarray and length ``num_segments``.
-        1. For each segment intersection points with the polyhedron, start and
-        end points are not included in this list;
-        2. Vector of boolean that indicate if the start of a segment is inside
-        the polyhedron;
-        3. Vector of boolean indicating whether the end of a segment is inside the
-        polyhedron;
-        4. Length percentage of a segment inside the polyhedron.
+        A tuple consisting of
+
+        ndarray ``(len=num_segments)``:
+            Intersection points with the polyhedron, start and end points are not
+            included in this list.
+        ndarray ``(len=num_segments)``:
+            Boolean array indicating whether the start of a segment is inside the
+            polyhedron.
+        ndarray ``(len=num_segments)``:
+            Boolean array indicating whether the end of a segment is inside the
+            polyhedron.
+        ndarray ``(len=num_segments)``:
+            Length percentage of a segment inside the polyhedron.
 
     Example:
 
@@ -1569,12 +1578,12 @@ def segments_polyhedron(
 
 def _point_in_or_on_polygon(
     p: np.ndarray, poly: np.ndarray, tol: float = 1e-8
-) -> tuple[int, Optional[tuple[int, int]]]:
+) -> tuple[int, Optional[tuple[Optional[int], Optional[int]]]]:
     """Helper function to get intersection information between a point and a polygon.
 
     The polygon is classified as being outside, on the boundary or in the interior of
-    the polygon. If on the boundary, the intersection is further classified according to
-    whether it is on a segment or vertex.
+    the polygon. If on the boundary, the intersection is further classified according
+    to whether it is on a segment or vertex.
 
     Parameters:
         p (len=nd): Point.
@@ -1582,12 +1591,16 @@ def _point_in_or_on_polygon(
         tol: Tolerance for the geometric computations.
 
     Returns:
-        A tuple with two entries. The first entry is an int and has the value ``0``
-        for 'outside', ``1`` for 'on boundatry', and ``2`` for 'interior'. If the
-        first value is ``0`` or ``2``, the second has the value None. If the first
-        value is ``1``, the second value is a tuple. First item is the segment index
-        in the polygon if intersection is on segment, None if on vertex. Second item
-        is vertex index if intersection on vertex, ``None`` if not.
+        A tuple consisting of
+
+        int:
+            value ``0`` for 'outside', ``1`` for 'on boundatry', and ``2`` for
+            'interior'.
+        Optional[tuple[Optional[int],Optional[int]]]:
+            ``None`` if the first value is ``0`` or ``2``. A ``tuple`` if the first
+            value is ``1``. The first and second items are ``None`` in the case of
+            an intersection on a segment and vertex, respectively. Otherwise, the
+            segment or vertex index, correspondingly.
 
     """
 
@@ -1643,9 +1656,14 @@ def triangulations(
             to indices in p_2.
 
     Returns:
-        List of tuples with each representing an overlap. The tuple contains
-        three elements: 1. and 2. the indices of the overlapping triangles
-        in the first and second tessellation, and 3. their common area.
+        List of tuples with each representing an overlap. The tuple consists of
+
+        int:
+            the index of the triangle in the first tesselation.
+        int:
+            the index of the triangle in the second tesselation.
+        float:
+            the common area of the two triangles in the two tessalations.
 
     See also:
         surface_tessellations()
@@ -1740,12 +1758,17 @@ def line_tessellation(
             to indices in p2.
 
     Returns:
-        List of tuples with each representing an overlap. The tuple contains
-        three elements: 1. and 2. the indices of the overlapping line segments
-        in the first and second tessellation, and 3. their common length.
+        List of tuples with each representing an overlap. The tuple consists of
+
+        int:
+            the index of the segment in the first tesselation.
+        int:
+            the index of the segment in the second tesselation.
+        float:
+            the common length of the two segments in the two tessalations.
 
     Raise:
-        AssertionError: if pp.segments_3d returns an unknown shape.
+        AssertionError: if ``pp.segments_3d`` returns an unknown shape.
 
     """
     # Loop over both set of lines, use segment intersection method to compute
@@ -1790,13 +1813,16 @@ def surface_tessellations(
             accordingly. Defaults to False.
 
     Returns:
-        Tuple with two entries. The first entry is a list of arrays, with each element
-        being a polygon so that the list together form a subdivision of the
-        intersection of all polygons in the input sets. The second entry contains
-        matrices denoting mappings from each of the input polygons to the intersected
-        polygons. If the mapping's ``item[i][j, k]`` is non-zero, polygon ``k`` in set
-        ``i`` has a (generally partial) overlap with polygon ``j`` in the intersected
-        polygon set. Specifically the value will be ``1``.
+        Tuple consisting of
+
+        list[ndarray]:
+            Each element being a polygon so that the list together form a subdivision
+            of the intersection of all polygons in the input sets.
+        list[sps.csr_matrix]:
+            Mappings from each of the input polygons to the intersected polygons. If
+            the mapping's ``item[i][j, k]`` is non-zero, polygon ``k`` in set ``i``
+            has a (generally partial) overlap with polygon ``j`` in the intersected
+            polygon set. Specifically the value will be ``1``.
 
     Raises:
         NotImplementedError: If a triangulation of a non-convex polygon is attempted.
@@ -1968,7 +1994,8 @@ def surface_tessellations(
         tri: list[np.ndarray] = []
 
         # Loop over all isect_polys, split those with more than three vertices
-        # EK: Somehow, mypy does not understand poly will be an np.ndarray, thus all ignores
+        # EK: Somehow, mypy does not understand poly will be an np.ndarray, thus all
+        # ignores
         for pi, poly in enumerate(isect_polys):  # type: ignore
             if poly.shape[1] == 3:  # type: ignore
                 # Triangles can be used as they are
@@ -2069,15 +2096,20 @@ def split_intersecting_segments_2d(
 
     Returns:
         A tuple with three or four entries (last only returned if ``return_argsort``
-        is ``True``). The entries are as follows.
-        1. array of shape ``(2, n_pt)`` with points.
-        2. array of shape ``(2, n_edges)`` with new, non-intersecting edges.
-        3. tuple of two arrays with length ``n_con`` with the first item being a set
-        of tags, before uniquification of the edges, and the second being a column
-        mapping from the unique edges to all edges. To recover lost tags associated
-        with the points in column ``i``, first find all original columns which maps
-        to ``i`` (``tuple[1] == i``), then recover the tags by the hits.
-        4. array of length ``n_edges``, mapping the new edges with the input edges.
+        is ``True``). The entries are as follows
+
+        npdarray ``(shape=(2, n_pt))``:.
+            points.
+        ndarray ``(shape=)2, n_edges))``:
+            new, non-intersecting edges.
+        tuple[ndarray, ndarray]:
+            two arrays with length ``n_con`` with the first item being a set of tags,
+            before uniquification of the edges, and the second being a column mapping
+            from the unique edges to all edges. To recover lost tags associated with
+            the points in column ``i``, first find all original columns which maps
+            to ``i`` (``tuple[1] == i``), then recover the tags by the hits.
+        ndarray ``(len=n_edges)``
+            mapping of the new edges to the input edges.
 
     """
     if p.dtype == int:
@@ -2321,11 +2353,16 @@ def _axis_aligned_bounding_box_2d(
             indices of start and endpoints, additional rows are tags
 
     Returns:
-        Tuple of four arrays of length ``n_pt``, defined as follows.
-        1. Minimum x-coordinate for all lines.
-        2. Maximum x-coordinate for all lines.
-        3. Minimum y-coordinate for all lines.
-        4. Maximum y-coordinate for all lines.
+        Tuple consisting of
+
+        ndarray: ``(len=n_pt)``:
+            Minimum x-coordinate for all lines.
+        ndarray: ``(len=n_pt)``:
+            Maximum x-coordinate for all lines.
+        ndarray: ``(len=n_pt)``:
+            Minimum y-coordinate for all lines.
+        ndarray: ``(len=n_pt)``:
+            Maximum y-coordinate for all lines.
 
     """
     x = p[0]
@@ -2356,13 +2393,20 @@ def _axis_aligned_bounding_box_3d(
             polygon, described by its vertices in a (3, num_points) array.
 
     Returns:
-        Tuple with six arrays of length ``n_pt``, containing the following.
-        1. Minimum x-coordinate for all lines.
-        2. Maximum x-coordinate for all lines.
-        3. Minimum y-coordinate for all lines.
-        4. Maximum y-coordinate for all lines.
-        5. Minimum z-coordinate for all lines.
-        6. Maximum z-coordinate for all lines.
+        Tuple consisting of
+
+        ndarray ``(len=n_pt)``:
+            Minimum x-coordinate for all lines.
+        ndarray ``(len=n_pt)``:
+            Maximum x-coordinate for all lines.
+        ndarray ``(len=n_pt)``:
+            Minimum y-coordinate for all lines.
+        ndarray ``(len=n_pt)``:
+            Maximum y-coordinate for all lines.
+        ndarray ``(len=n_pt)``:
+            Minimum z-coordinate for all lines.
+        ndarray ``(len=n_pt)``:
+            Maximum z-coordinate for all lines.
 
     """
 
@@ -2471,8 +2515,8 @@ def _identify_overlapping_rectangles(
     ymax: np.ndarray,
     tol: float = 1e-8,
 ) -> np.ndarray:
-    """Based on a set of start and end coordinates for bounding boxes, identify pairs of
-    overlapping rectangles.
+    """Based on a set of start and end coordinates for bounding boxes, identify pairs
+    of overlapping rectangles.
 
 
     Parameters:
@@ -2514,7 +2558,8 @@ def _identify_overlapping_rectangles(
 
     # List of pairs we have found
     pairs = []
-    # List of intervals we are currently in. All intervals will join and leave this set.
+    # List of intervals we are currently in. All intervals will join and leave this
+    # set.
     active: list = []
 
     num_lines = xmax.size
