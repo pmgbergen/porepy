@@ -145,8 +145,7 @@ def test_subdomain_interface_methods(geometry_class: pp.ModelGeometry) -> None:
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-@pytest.mark.parametrize("dim", [2, 3])
-def test_outwards_normals(geometry_class: pp.ModelGeometry, dim: int) -> None:
+def test_outwards_normals(geometry_class: pp.ModelGeometry) -> None:
     """Test :meth:`pp.ModelGeometry.outwards_internal_boundary_normals`.
 
     Parameters:
@@ -155,15 +154,11 @@ def test_outwards_normals(geometry_class: pp.ModelGeometry, dim: int) -> None:
     """
     geometry: pp.ModelGeometry = geometry_class()
     geometry.set_geometry()
-    # Only run test if dimension does not exceed the ambient dimension
-    if dim > geometry.nd:
-        return
+    dim = geometry.nd
 
     eq_sys = pp.EquationSystem(geometry.mdg)
     interfaces = geometry.mdg.interfaces()
-    normal_op = geometry.outwards_internal_boundary_normals(
-        interfaces, unitary=True, dim=dim
-    )
+    normal_op = geometry.outwards_internal_boundary_normals(interfaces, unitary=True)
     normals = normal_op.evaluate(eq_sys)
     if len(interfaces) == 0:
         # We have checked that the method can handle empty lists (parsable operator).
