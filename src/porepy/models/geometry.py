@@ -390,7 +390,6 @@ class ModelGeometry:
         self,
         interfaces: list[pp.MortarGrid],
         unitary: Optional[bool] = False,
-        dim: Optional[int] = None,
     ) -> pp.ad.Operator:
         """Compute outward normal vectors on internal boundaries.
 
@@ -407,8 +406,6 @@ class ModelGeometry:
         if len(interfaces) == 0:
             mat = sps.csr_matrix((0, 0))
             return pp.ad.Matrix(mat)
-        if dim is None:
-            dim = self.nd
 
         # Main ingredients: Normal vectors for primary subdomains for each interface,
         # and a switcher matrix to flip the sign if the normal vector points inwards.
@@ -420,7 +417,7 @@ class ModelGeometry:
         # subdomains (and not just the primary ones), and let it return empty entries
         # where appropriate (i.e. for the secondary subdomains).
         subdomains = self.interfaces_to_subdomains(interfaces)
-        sd_projection = pp.ad.SubdomainProjections(subdomains, dim)
+        sd_projection = pp.ad.SubdomainProjections(subdomains, self.nd)
         primary_subdomains = []
         for intf in interfaces:
             # Extracting matrix for each interface should in theory allow for multiple
@@ -428,13 +425,13 @@ class ModelGeometry:
             # :meth:`internal_boundary_normal_to_outwards`.
             primary_subdomains.append(self.mdg.interface_to_subdomain_pair(intf)[0])
         mortar_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, dim=dim
+            self.mdg, subdomains, interfaces, dim=self.nd
         )
         primary_face_normals = self.wrap_grid_attribute(
-            primary_subdomains, "face_normals", dim=dim
+            primary_subdomains, "face_normals", dim=self.nd
         )
         # Account for sign of boundary face normals
-        flip = self.internal_boundary_normal_to_outwards(interfaces, dim)
+        flip = self.internal_boundary_normal_to_outwards(interfaces, self.nd)
         flipped_normals = (
             sd_projection.face_prolongation(primary_subdomains)
             * flip
@@ -457,7 +454,7 @@ class ModelGeometry:
 
             # Expand cell volumes to nd.
             cell_volumes_inv_nd = sum(
-                [e * cell_volumes_inv * e.T for e in self.basis(interfaces, dim=dim)]
+                [e * cell_volumes_inv * e.T for e in self.basis(interfaces, self.nd)]
             )
             # Scale normals.
             outwards_normals = cell_volumes_inv_nd * outwards_normals
