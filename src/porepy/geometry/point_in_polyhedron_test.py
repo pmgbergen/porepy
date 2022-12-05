@@ -17,8 +17,8 @@ class PointInPolyhedronTest:
     Parameters:
         vertices (shape=(num_pt, 3)): Triangulation vertices.
         connectivity (shape=(num_triangles, 3)): Triangulation connectivity map.
-        tol (optional): Geometric tolerance, used in comparison of
-            points, areas and volumes. Defaults to 1e-10.
+        tol (optional): Geometric tolerance, used in comparison of points, areas and
+            volumes. Defaults to 1e-10.
     """
 
     def __init__(
@@ -43,13 +43,13 @@ class PointInPolyhedronTest:
         (https://doi.org/10.1145/2461912.2461916)
 
         Args:
-            R (shape=(num_pt, 3)): Translated triangle's points at origin (0,0,0).
-                The original triangle's points need to be translated by subtracting the
+            R (shape=(num_pt, 3)): Translated triangle's points at origin (0,0,0). The
+                original triangle's points need to be translated by subtracting the
                 arbitrary point P.
 
         Raises:
-            ValueError: If the origin [0,0,0] point coincides with a vertex,
-                is collinear with the vertices, or is coplanar with the vertices
+            ValueError: If the origin [0,0,0] point coincides with a vertex, is
+                collinear with the vertices, or is coplanar with the vertices.
 
         Returns:
             The solid angle measured in steradians.
@@ -101,10 +101,10 @@ class PointInPolyhedronTest:
         Args:
             point (shape=(1, 3)): The point being tested.
 
+
         Returns:
-            The winding number generalized to R^3. Its absolute value ``|wn|`` is
-            0 for points outside the polyhedron,
-            1 for points inside non-convex polyhedron and
+            The winding number generalized to R^3. Its absolute value ``|wn|`` is 0 for
+            points outside the polyhedron, 1 for points inside non-convex polyhedron and
             ``|wn| > 1`` for points inside overlapping polyhedron.
 
         """
