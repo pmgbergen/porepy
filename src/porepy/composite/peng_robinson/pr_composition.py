@@ -286,8 +286,8 @@ class PR_Composition(Composition):
 
         for component in self.components:
 
-            fugacity_c_L = pp.ad.Scalar(1.)
-            fugacity_c_G = pp.ad.Scalar(1.)
+            fugacity_c_L = pp.ad.Scalar(1.0)
+            fugacity_c_G = pp.ad.Scalar(1.0)
 
             self._fugacities[component] = {
                 L: fugacity_c_L,

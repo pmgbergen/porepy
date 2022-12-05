@@ -34,7 +34,7 @@ class H2O_ps(PseudoComponent):
     @staticmethod
     def critical_pressure():
         """`Source <https://doi.org/10.1016/j.gca.2006.01.033>`_."""
-        return 22.060
+        return 22.06
 
     @staticmethod
     def critical_temperature():
