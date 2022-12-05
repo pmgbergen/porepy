@@ -6,7 +6,7 @@ import numpy as np
 
 
 class PointInPolyhedronTest:
-    """ This class implements a robust point in polyhedron test supporting non-convex
+    """This class implements a robust point in polyhedron test supporting non-convex
     polyhedra.
 
     The implementation is based on the reference: Robust inside-outside segmentation
@@ -15,8 +15,8 @@ class PointInPolyhedronTest:
     Implementation requires consistent orientation of the triangulated surface.
 
     Parameters:
-        vertices (shape=(num_pt,3)): Triangulation vertices.
-        connectivity (shape=(num_triangles,3)): Triangulation connectivity map.
+        vertices (shape=(num_pt, 3)): Triangulation vertices.
+        connectivity (shape=(num_triangles, 3)): Triangulation connectivity map.
         tol (optional): Geometric tolerance, used in comparison of
             points, areas and volumes. Defaults to 1e-10.
     """
@@ -32,7 +32,7 @@ class PointInPolyhedronTest:
         self.tol: float = tol
 
     def solid_angle(self, R: np.ndarray[Any, np.dtype[np.float64]]) -> float:
-        """ Implements an analytical expression for the solid angle.
+        """Implements an analytical expression for the solid angle.
 
         The solid angle is described by a plane triangle surface S at some arbitrary
         point P. It is the measure of the intersection of the three-dimensional unit
@@ -43,7 +43,7 @@ class PointInPolyhedronTest:
         (https://doi.org/10.1145/2461912.2461916)
 
         Args:
-            R (shape=(num_pt,3)): Translated triangle's points at origin (0,0,0).
+            R (shape=(num_pt, 3)): Translated triangle's points at origin (0,0,0).
                 The original triangle's points need to be translated by subtracting the
                 arbitrary point P.
 
@@ -96,10 +96,10 @@ class PointInPolyhedronTest:
         return angle
 
     def winding_number(self, point: np.ndarray[Any, np.dtype[np.float64]]) -> float:
-        """ Computes the winding number of a closed triangulated surface at given point.
+        """Computes the winding number of a closed triangulated surface at given point.
 
         Args:
-            point (shape=(1,3)): The point being tested.
+            point (shape=(1, 3)): The point being tested.
 
         Returns:
             The winding number generalized to R^3. Its absolute value ``|wn|`` is
