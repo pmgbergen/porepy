@@ -3,7 +3,7 @@ Module with functions for computing intersections between geometric objects.
 
 """
 import logging
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -21,7 +21,7 @@ def segments_2d(
     end_2: np.ndarray,
     tol: float = 1e-8,
 ) -> Optional[np.ndarray]:
-    r"""Check if two line segments, defined by their start- and endpoints, intersect.
+    """Check if two line segments, defined by their start- and endpoints, intersect.
 
     The lines are assumed to be in 2D.
 
@@ -374,11 +374,11 @@ def segments_3d(
 
 
 def polygons_3d(
-    polys: List[np.ndarray],
+    polys: list[np.ndarray],
     target_poly: Optional[Union[int, np.ndarray]] = None,
     tol: float = 1e-8,
     include_point_contact: bool = True,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list, np.ndarray, np.ndarray]:
     """Compute the intersection between polygons embedded in 3d.
 
     In addition to intersection points, the function also decides:
@@ -389,21 +389,20 @@ def polygons_3d(
            polygon.
 
     Assumptions:
-        * All polygons are convex. Non-convex polygons will simply be treated
-            in a wrong way. To circumvent this, split the non-convex polygon into convex
-            parts.
-        * No polygon contains three points on a line, that is, an angle of pi. This can
-            be included, possibly by temporarily stripping the hanging node from the
-            polygon definition.
-        * If two polygons meet in a vertex, this is not considered an intersection.
-        * If two polygons lie in the same plane, intersection types (vertex, segment,
-            interior) are not classified. This will be clear from the returned values.
-            Inclusion of this should be possible, but it has not been a priority.
-        * Contact between polygons in a single point may not be accurately calculated.
+        - All polygons are convex. Non-convex polygons will simply be treated in a wrong
+          way. To circumvent this, split the non-convex polygon into convex parts.
+        - No polygon contains three points on a line, that is, an angle of pi. This can
+          be included, possibly by temporarily stripping the hanging node from the
+          polygon definition.
+        - If two polygons meet in a vertex, this is not considered an intersection.
+        - If two polygons lie in the same plane, intersection types (vertex, segment,
+          interior) are not classified. This will be clear from the returned values.
+          Inclusion of this should be possible, but it has not been a priority.
+        - Contact between polygons in a single point may not be accurately calculated.
 
     Parameters:
         polys (shape=(3, np)): Each list item represents a polygon, specified by its
-            vertexes as a numpy array. There should be at least three vertexes in the
+            vertices as a numpy array. There should be at least three vertices in the
             polygon.
         target_poly: Index in poly of the polygons that should be targeted for
             intersection findings. These will be compared with the whole set in poly. If
@@ -581,10 +580,10 @@ def polygons_3d(
 
         # Declare types for the seg_vert information. The data structure is somewhat
         # awkward, but it is what it is.
-        seg_vert_main_0: Tuple[Any, Union[str, bool]]
-        seg_vert_main_1: Tuple[Any, Union[str, bool]]
-        seg_vert_other_0: Tuple[Any, Union[str, bool]]
-        seg_vert_other_1: Tuple[Any, Union[str, bool]]
+        seg_vert_main_0: tuple[Any, Union[str, bool]]
+        seg_vert_main_1: tuple[Any, Union[str, bool]]
+        seg_vert_other_0: tuple[Any, Union[str, bool]]
+        seg_vert_other_1: tuple[Any, Union[str, bool]]
 
         # Loop over the other polygon in the pairs, look for intersections
         for o in other:
@@ -597,12 +596,12 @@ def polygons_3d(
             other_normal = polygon_normals[o]
             other_center = center(polys[o])
 
-            # Point a vector from the main center to the vertexes of the
+            # Point a vector from the main center to the vertices of the
             # other polygon. Then take the dot product with the normal vector
             # of the main fracture. If all dot products have the same sign,
             # the other fracture does not cross the plane of the main polygon.
             # Note that we use mod_sign to safeguard the computation - if
-            # the vertexes are close, we will take a closer look at the combination
+            # the vertices are close, we will take a closer look at the combination
             vec_from_main = normalize(
                 vector_pointset_point(polys[main], other_p_expanded)
             )
@@ -633,11 +632,11 @@ def polygons_3d(
 
             # The default option is that the intersection is not on the boundary
             # of main or other, that is, the two intersection points are identical
-            # to two vertexes of the polygon
+            # to two vertices of the polygon
             isect_on_boundary_main = False
             isect_on_boundary_other = False
             # We know that the polygons at least are very close to intersecting each-
-            # others planes. There are four options, differing in whether the vertexes
+            # others planes. There are four options, differing in whether the vertices
             # are in the plane of the other polygon or not:
             #   1) The polygon has no vertex in the other plane. Intersection is found
             #      by computing intersection between polygon segments and the other
@@ -645,10 +644,10 @@ def polygons_3d(
             #   2) The polygon has one vertex in the other plane. This is one
             #      intersection point. The other one should be on a segment, that is,
             #      the polygon should have points on both sides of the plane.
-            #   3) The polygon has two vertexes in the other plane. These will be the
-            #      intersection points. The remaining vertexes should be on the same
+            #   3) The polygon has two vertices in the other plane. These will be the
+            #      intersection points. The remaining vertices should be on the same
             #      side of the plane.
-            #   4) All vertexes lie in the plane. The intersection points will be found
+            #   4) All vertices lie in the plane. The intersection points will be found
             #      by what is essentially a 2d algorithm. Note that the current
             #      implementation if this case is a bit rudimentary.
             #
@@ -811,7 +810,7 @@ def polygons_3d(
                     is_point_contact[main].append(True)
 
                     # For each of the polygons, check proximity of intersection first
-                    # with vertexes, next segments.
+                    # with vertices, next segments.
                     for tmp_ind in [main, o]:
                         dist_vert = pp.distances.point_pointset(isect, polys[tmp_ind])
                         if dist_vert.min() < tol:
@@ -841,7 +840,7 @@ def polygons_3d(
                 seg_vert_other_1 = (0, "not implemented for shared planes")
 
             else:
-                # Both of the intersection points are vertexes.
+                # Both of the intersection points are vertices.
                 # Check that there are only two points - if this assertion fails,
                 # there is a hanging node of the other polygon, which is in the
                 # plane of the other polygon. Extending to cover this case should
@@ -1017,7 +1016,7 @@ def polygons_3d(
                     is_point_contact[main].append(True)
 
                     # For each of the polygons, check proximity of intersection first
-                    # with vertexes, next segments.
+                    # with vertices, next segments.
                     for tmp_ind in [main, o]:
                         dist_vert = pp.distances.point_pointset(isect, polys[tmp_ind])
                         if dist_vert.min() < tol:
@@ -1045,7 +1044,7 @@ def polygons_3d(
                     raise ValueError("There should be at most two intersections")
 
             else:
-                # Both of the intersection points are vertexes.
+                # Both of the intersection points are vertices.
                 # Check that there are only two points - if this assertion fails, there
                 # is a hanging node of the main polygon, which is in the plane of the
                 # other polygon. Extending to cover this case should be possible, but
