@@ -244,6 +244,22 @@ def test_time_dependent_array():
     intf_prev_timestep = intf_array.previous_timestep()
     assert np.allclose(intf_prev_timestep.parse(mdg), np.arange(intf_val.size))
 
+    # Create and evaluate a time-dependent array that is a function of neither
+    # subdomains nor interfaces.
+    empty_array = pp.ad.TimeDependentArray("none", subdomains=[], interfaces=[])
+    empty_eval = empty_array.parse(mdg)
+    assert empty_eval.size == 0
+
+    empty_prev_timestep = empty_array.previous_timestep()
+    assert empty_prev_timestep.parse(mdg).size == 0
+
+    with pytest.raises(ValueError):
+        # The array is not defined on any subdomains or interfaces, so the grid must
+        # be None
+        pp.ad.TimeDependentArray(
+            "foobar", subdomains=mdg.subdomains(), interfaces=mdg.interfaces()
+        )
+
 
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationManager.
@@ -319,6 +335,7 @@ def test_ad_variable_creation():
     mvar_1_prev_time = mvar_1.previous_timestep()
     assert mvar_1_prev_iter.id != mvar_1.id
     assert mvar_1_prev_time.id != mvar_1.id
+
 
 def test_ad_variable_evaluation():
     """Test that the values of Ad variables are as expected under evalutation
@@ -487,6 +504,7 @@ def test_ad_variable_evaluation():
     v1_prev = v1.previous_timestep()
     assert np.allclose(true_state[ind1], v1_prev.evaluate(dof_manager, true_iterate))
 
+
 @pytest.mark.parametrize(
     "grids",
     [
@@ -499,7 +517,7 @@ def test_ad_variable_evaluation():
     [["foo"], ["foo", "bar"]],
 )
 def test_variable_combinations(grids, variables):
-    """ Test combinations of variables, and mixed-dimensional variables, on different grids.
+    """Test combinations of variables, and mixed-dimensional variables, on different grids.
     The main check is if Jacobian matrices are of the right size.
     """
     # Make MixedDimensionalGrid, populate with necessary information
@@ -569,7 +587,6 @@ def test_variable_combinations(grids, variables):
                 expr = eq.evaluate(dof_manager)
                 # Jacobian matrix size is set according to the dof manager,
                 assert expr.jac.shape[1] == dof_manager.num_dofs()
-
 
 
 def test_time_differentiation():
