@@ -11,6 +11,7 @@ import porepy as pp
 from .._composite_utils import R_IDEAL
 from ..component import Component, Compound
 from ..phase import VarLike
+from .pr_utils import A_CRIT, B_CRIT
 
 
 class PR_Component(Component):
@@ -45,7 +46,7 @@ class PR_Component(Component):
 
         """
         return (
-            0.457235529
+            A_CRIT
             * (R_IDEAL**2 * self.critical_temperature() ** 2)
             / self.critical_pressure()
         )
@@ -83,9 +84,7 @@ class PR_Component(Component):
 
         """
         return (
-            0.077796072
-            * (R_IDEAL * self.critical_temperature())
-            / self.critical_pressure()
+            B_CRIT * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
         )
 
     def attraction(self, T: VarLike) -> VarLike:

@@ -34,8 +34,8 @@ c0 = M.roots.c0.evaluate(dm).val[0]
 A = M.roots.A.evaluate(dm).val[0]
 B = M.roots.B.evaluate(dm).val[0]
 
-print( B < M.roots.B_crit / M.roots.A_crit * A)
-print( B > M.roots.B_crit / M.roots.A_crit * A) # super critical
+B_ = M.B.evaluate(dm).val[0]
+b = M.covolume.evaluate(dm).val[0]
 
 M.roots.compute_roots()
 
