@@ -2,6 +2,8 @@
 
 Examples are to cut objects to lie within other objects, etc.
 """
+from __future__ import annotations
+
 from typing import Union
 
 import numpy as np
