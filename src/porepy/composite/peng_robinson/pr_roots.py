@@ -16,8 +16,6 @@ import porepy as pp
 from .pr_utils import A_CRIT, B_CRIT
 
 ad_power = pp.ad.Function(pp.ad.power, "power")
-cos = pp.ad.Function(pp.ad.cos, "cos")
-arccos = pp.ad.Function(pp.ad.arccos, "arccos")
 
 
 class PR_Roots:
@@ -191,7 +189,7 @@ class PR_Roots:
 
         # identify super-critical region
         self.is_super_critical = B.val > B_CRIT / A_CRIT * A.val
-        sub_critical = np.logical_not(self.is_super_critical)
+        # sub_critical = np.logical_not(self.is_super_critical)
 
         # as of now, this is not covered
         if np.any(self.is_super_critical):
@@ -219,7 +217,7 @@ class PR_Roots:
             delta.val < -self._eps
         )  # can only happen if p is negative
 
-        # last sanity check we have every cell/case covered (with above exclusions)
+        # sanity check that every cell/case covered (with above exclusions)
         if np.any(
             np.logical_not(np.logical_or(one_real_root_region, three_real_root_region))
         ):
@@ -257,15 +255,23 @@ class PR_Roots:
             ), "Real root in one-root-region has imaginary parts."
             u_1 = pp.ad.cbrt(t_1)
 
+            ## Relevant roots
             # only real root, Cardano formula, positive discriminant
             z_1 = u_1 - p_1 / (u_1 * 3) - c2_1 / 3
             # real part of the conjugate imaginary roots
+            # used for extension of vanished roots
             r_1 = (1 - B_1 - z_1) / 2
 
             ## PHASE LABELING in one-root-region, Gharbia et al. (2021)
             # A cubic polynomial in A with coefficients dependent on B
             # (here denoted as labeling polynomial) has always three roots in the sub-critical
             # area. Intermediate and largest root are used to determine the phase label.
+
+            # this has to hold, otherwise the labeling polynomial can't have 3 distinct roots
+            # according to Gharbia
+            assert np.all(
+                B_1.val < B_CRIT
+            ), "Co-volume exceeds critical value for labeling."
 
             # coefficients for the labeling polynomial
             c2_label = (2 * self.B * self.B - 10 * self.B - 1 / 4).evaluate(
@@ -307,21 +313,16 @@ class PR_Roots:
             assert np.all(
                 delta_label.val < -self._eps
             ), "Labeling polynomial has less than 3 distinct real roots."
-            # this has to hold according to Gharbia as well,
-            # but there are issues in the near-critical region
-            assert np.all(
-                B_1.val < B_CRIT
-            ), "Co-volume exceeds critical value for labeling."
 
             # compute labeling roots using Cardano formula, Casus Irreducibilis
             t_2 = (
-                pp.ad.arccos(-q_label / 2 * pp.ad.sqrt(-27 / pp.ad.power(p_label, 3)))
+                pp.ad.arccos(-q_label / 2 * pp.ad.sqrt(-27 * pp.ad.power(p_label, -3)))
                 / 3
             )
             t_1 = pp.ad.sqrt(-4 / 3 * p_label)
-            A0_1 = t_1 * pp.ad.cos(t_2) - c2_label / 3
+            AL_1 = t_1 * pp.ad.cos(t_2) - c2_label / 3
             AG_1 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_label / 3
-            AL_1 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_label / 3
+            A0_1 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_label / 3
 
             # assert roots are ordered by size
             assert np.all(
@@ -337,33 +338,75 @@ class PR_Roots:
                 np.logical_and(0 < B_1.val < B_CRIT, AL_1.val < A_1.val),
                 np.logical_and(B_CRIT < B_1.val, A_CRIT / B_CRIT * B_1.val < A_1.val),
             )
-
+            print("is liquid: ", liquid_region)
             # assert the whole one-root-region is covered
             assert np.all(
                 np.logical_or(gas_region, liquid_region)
-            ), "Phase labeling does not cover whole one-root-region"
+            ), "Phase labeling does not cover whole one-root-region."
+            # assert mutual exclusion to check sanity
+            assert np.all(
+                np.logical_not(np.logical_and(gas_region, liquid_region))
+            ), "Labeled subregions in one-root-region overlap."
+
+            # store values in one-root-region
+            nc_1 = np.count_nonzero(one_real_root_region)
+            Z_L_val_1 = np.zeros(nc_1)
+            Z_G_val_1 = np.zeros(nc_1)
+            Z_L_jac_1 = sps.csr_matrix((nc_1, shape[1]))
+            Z_G_jac_1 = sps.csr_matrix((nc_1, shape[1]))
+
+            # store gas root where actual gas, use extension where liquid
+            Z_G_val_1[gas_region] = z_1.val[gas_region]
+            Z_G_val_1[liquid_region] = r_1.val[liquid_region]
+            Z_G_jac_1[gas_region] = z_1.jac[gas_region]
+            Z_G_jac_1[liquid_region] = r_1.jac[liquid_region]
+            # store liquid where actual liquid, use extension where gas
+            Z_L_val_1[liquid_region] = z_1.val[liquid_region]
+            Z_L_val_1[gas_region] = r_1.val[gas_region]
+            Z_L_jac_1[liquid_region] = z_1.jac[liquid_region]
+            Z_L_jac_1[gas_region] = r_1.jac[gas_region]
+
+            # store values in global root structure
+            Z_L_val[one_real_root_region] = Z_L_val_1
+            Z_L_jac[one_real_root_region] = Z_L_jac_1
+            Z_G_val[one_real_root_region] = Z_G_val_1
+            Z_G_jac[one_real_root_region] = Z_G_jac_1
 
         ### compute the two relevant roots in the three root region
         if np.any(three_real_root_region):
-            p_3 = p[three_real_root_region]
-            q_3 = q[three_real_root_region]
+            p_3 = pp.ad.Ad_array(
+                p.val[three_real_root_region], p.jac[three_real_root_region]
+            )
+            q_3 = pp.ad.Ad_array(
+                q.val[three_real_root_region], q.jac[three_real_root_region]
+            )
             c2_3 = pp.ad.Ad_array(
                 c2.val[three_real_root_region], c2.jac[three_real_root_region]
             )
 
             # compute roots in three-root-region using Cardano formula, Casus Irreducibilis
-            t_2 = pp.ad.arccos(-q_3 / 2 * pp.ad.sqrt(-27 / pp.ad.power(p_3, 3))) / 3
+            t_2 = pp.ad.arccos(-q_3 / 2 * pp.ad.sqrt(-27 * pp.ad.power(p_3, -3))) / 3
             t_1 = pp.ad.sqrt(-4 / 3 * p_3)
 
-            z1_3 = t_1 * pp.ad.cos(t_2) - c2_3 / 3
+            z3_3 = t_1 * pp.ad.cos(t_2) - c2_3 / 3
             z2_3 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_3 / 3
-            z3_3 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_3 / 3
+            z1_3 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_3 / 3
 
             # assert roots are ordered by size
             assert np.all(
                 z1_3.val <= z2_3.val <= z3_3.val
-            ), "Roots in three-root-region improperly ordered"
+            ), "Roots in three-root-region improperly ordered."
 
             ## Labeling in the three-root-region follows topological patterns
             # biggest root belongs to gas phase
             # smallest root belongs to liquid phase
+            Z_L_val[three_real_root_region] = z1_3.val
+            Z_L_jac[three_real_root_region] = z1_3.jac
+            Z_G_val[three_real_root_region] = z3_3.val
+            Z_G_jac[three_real_root_region] = z3_3.jac
+
+            # TODO smoothing close to three-root-region boundary using intermediate root
+
+        ### storing results for access
+        self._z_l = pp.ad.Ad_array(Z_L_val, Z_L_jac)
+        self._z_g = pp.ad.Ad_array(Z_G_val, Z_G_jac)
