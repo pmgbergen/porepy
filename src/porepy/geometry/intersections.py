@@ -2,6 +2,8 @@
 Module with functions for computing intersections between geometric objects.
 
 """
+from __future__ import annotations
+
 import logging
 from typing import Any, Optional, Union
 
@@ -424,7 +426,7 @@ def polygons_3d(
             boundary of the polygon or not. For polygon ``i``, the first element in this
             list tells whether the point formed by point-indices ``0`` and ``1`` in the
             previous return argument is on the boundary.
-        List:
+        list:
             Each list element is a 2-tuple with the indices of intersecting polygons.
         ndarray:
             For each polygon, for all intersection points (same order as the second
