@@ -31,6 +31,7 @@ from .setup_utils import model
         ("poromechanics", "mass_balance_equation", []),
         ("poromechanics", "momentum_balance_equation", [2]),
         ("poromechanics", "interface_force_balance_equation", [1]),
+        ("thermoporomechanics", "interface_fourier_flux_equation", []),
     ],
 )
 @pytest.mark.parametrize("num_fracs", [0, 1, 2])

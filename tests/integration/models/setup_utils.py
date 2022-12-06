@@ -21,61 +21,50 @@ class GeometrySingleFracture2d(pp.ModelGeometry):
             p = np.array([[0, 2, 0.5, 0.5], [1, 1, 0, 1]])
             e = np.array([[0, 2], [1, 3]])
         else:
-            raise ValueError("Only 0, 1 or 2 fractures supported")
+            raise ValueError("Only 0, 1 or 2 fractures supported.")
         self.fracture_network = pp.FractureNetwork2d(p, e, domain)
 
     def mesh_arguments(self) -> dict:
         return {"mesh_size_frac": 0.5, "mesh_size_bound": 0.5}
 
 
-class MassBalanceCombined(
+class MassBalance(
     GeometrySingleFracture2d,
-    pp.fluid_mass_balance.MassBalanceEquations,
-    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
-    pp.fluid_mass_balance.ConstitutiveLawsSinglePhaseFlow,
-    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
-    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
-    pp.DataSavingMixin,
+    pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     ...
 
 
-class MomentumBalanceCombined(
+class MomentumBalance(
     GeometrySingleFracture2d,
-    pp.momentum_balance.MomentumBalanceEquations,
-    pp.momentum_balance.ConstitutiveLawsMomentumBalance,
-    pp.momentum_balance.BoundaryConditionsMomentumBalance,
-    pp.momentum_balance.VariablesMomentumBalance,
-    pp.momentum_balance.SolutionStrategyMomentumBalance,
-    pp.DataSavingMixin,
+    pp.momentum_balance.MomentumBalance,
 ):
     """Combine components needed for momentum balance simulation."""
 
     pass
 
 
-class EnergyBalanceCombined(
+class MassAndEnergyBalance(
     GeometrySingleFracture2d,
-    pp.energy_balance.EnergyBalanceEquations,
-    pp.energy_balance.ConstitutiveLawsEnergyBalance,
-    pp.energy_balance.VariablesEnergyBalance,
-    pp.energy_balance.SolutionStrategyEnergyBalance,
-    pp.energy_balance.BoundaryConditionsEnergyBalance,
-    pp.DataSavingMixin,
+    pp.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
 
     pass
 
 
-class PoromechanicsCombined(
+class Poromechanics(
     GeometrySingleFracture2d,
-    pp.poromechanics.ConstitutiveLawsPoromechanics,
-    pp.poromechanics.VariablesPoromechanics,
-    pp.poromechanics.EquationsPoromechanics,
-    pp.poromechanics.SolutionStrategyPoromechanics,
-    pp.poromechanics.BoundaryConditionPoromechanics,
-    pp.DataSavingMixin,
+    pp.poromechanics.Poromechanics,
+):
+    """Combine components needed for poromechanics simulation."""
+
+    pass
+
+
+class Thermoporomechanics(
+    GeometrySingleFracture2d,
+    pp.thermoporomechanics.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
 
@@ -84,24 +73,26 @@ class PoromechanicsCombined(
 
 def model(
     model_type: str, num_fracs: int = 1
-) -> MassBalanceCombined | MomentumBalanceCombined | EnergyBalanceCombined | PoromechanicsCombined:
+) -> MassBalance | MomentumBalance | MassAndEnergyBalance | Poromechanics:
     """Setup for tests."""
     # Suppress output for tests
     params = {"suppress_export": True, num_fracs: num_fracs}
 
-    ob: MassBalanceCombined | MomentumBalanceCombined
+    ob: MassBalance | MomentumBalance | MassAndEnergyBalance | Poromechanics
 
     # Choose model and create setup object
     if model_type == "mass_balance":
-        ob = MassBalanceCombined(params)
+        ob = MassBalance(params)
     elif model_type == "momentum_balance":
-        ob = MomentumBalanceCombined(params)
-    elif model_type == "energy_balance":
-        ob = EnergyBalanceCombined(params)
+        ob = MomentumBalance(params)
+    elif model_type == "energy_balance" or model_type == "mass_and_energy_balance":
+        ob = MassAndEnergyBalance(params)
     elif model_type == "poromechanics":
-        ob = PoromechanicsCombined(params)
+        ob = Poromechanics(params)
+    elif model_type == "thermoporomechanics":
+        ob = Thermoporomechanics(params)
     else:
-        # To add a new model, a an elif clause here, and a new class above.
+        # To add a new model, insert an elif clause here, and a new class above.
         raise ValueError(f"Unknown model type {model_type}")
 
     # Prepare the simulation

@@ -10,29 +10,25 @@ import pytest
 
 import porepy as pp
 
-from .setup_utils import PoromechanicsCombined
+from .setup_utils import Poromechanics
 from .test_momentum_balance import BoundaryConditionsDirNorthSouth
 
-p0 = 0.0
 
-
-class LinearModel(BoundaryConditionsDirNorthSouth, PoromechanicsCombined):
-    def bc_values_darcy(self, subdomains: list[pp.Grid]):
-        values = []
-        for sd in subdomains:
-            _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
-            vals = np.zeros(sd.num_faces)
-            vals[north + south] = p0
-            values.append(vals)
-        return pp.constitutive_laws.ad_wrapper(
-            np.concatenate(values), True, name="bc_values_darcy"
-        )
+class NonzeroFractureGapPoromechanics:
+    """Adjust bc values and initial condition."""
 
     def bc_type_darcy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         _, _, _, north, south, *_ = self.domain_boundary_sides(sd)
         return pp.BoundaryCondition(sd, north + south, "dir")
 
     def initial_condition(self):
+        """Set initial condition.
+
+        Set initial displacement compatible with fracture gap of 0.042 for matrix
+        subdomain and matrix-fracture interface. Also initialize boundary conditions
+        to 0.042 on top side.
+
+        """
         super().initial_condition()
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
         top_cells = sd.cell_centers[1] > 0.5
@@ -53,11 +49,7 @@ class LinearModel(BoundaryConditionsDirNorthSouth, PoromechanicsCombined):
             self.nd,
             faces_primary,
         )
-        nc = sum([sd.num_cells for sd in self.mdg.subdomains()])
-        ones = np.ones(nc)
-        self.equation_system.set_variable_values(
-            p0 * ones, [self.pressure_variable], to_iterate=True, to_state=True
-        )
+
         normals = (switcher * sd.face_normals[: sd.dim].ravel("F")).reshape(
             sd.dim, -1, order="F"
         )
@@ -100,25 +92,11 @@ class LinearModel(BoundaryConditionsDirNorthSouth, PoromechanicsCombined):
         # Define boundary regions
         return pp.ad.TimeDependentArray("bc_values_mechanics", subdomains)
 
-    def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference pressure.
 
-        Parameters:
-            subdomains: List of subdomains.
-
-            Returns:
-                Operator representing the reference pressure.
-
-        TODO: Confirm that this is the right place for this method. # IS: Definitely not
-        a Material. Most closely related to the constitutive laws. # Perhaps create a
-        reference values class that is a mixin to the constitutive laws? # Could have
-        values in the init and methods returning operators just as # this method.
-        """
-        p_ref = self.fluid.convert_units(p0, "Pa")
-        size = sum([sd.num_cells for sd in subdomains])
-        return pp.constitutive_laws.ad_wrapper(
-            p_ref, True, size, name="reference_pressure"
-        )
+class TailoredPoromechanics(
+    NonzeroFractureGapPoromechanics, BoundaryConditionsDirNorthSouth, Poromechanics
+):
+    pass
 
 
 @pytest.mark.parametrize(
@@ -155,7 +133,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     }
 
     # Create model and run simulation
-    setup = LinearModel(params)
+    setup = TailoredPoromechanics(params)
     pp.run_time_dependent_model(setup, params)
 
     # Check that the pressure is linear
@@ -179,7 +157,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         assert np.allclose(u_vals[0, top], 0)
         assert np.allclose(u_vals[1, top], 0.042)
         # Zero displacement relative to initial value implies zero pressure
-        assert np.allclose(p_vals, p0)
+        assert np.allclose(p_vals, 0)
     elif north_displacement < 0.042:
         # Boundary displacement is negative, so the y displacement should be
         # negative
@@ -193,7 +171,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         right = sd.cell_centers[0] > setup.box["xmax"] / 2 + tol
         assert np.all(u_vals[0, right] > 0)
         # Compression implies pressure increase
-        assert np.all(p_vals > p0 - tol)
+        assert np.all(p_vals > 0 - tol)
     else:
         # Check that y displacement is positive in top half of domain
         assert np.all(u_vals[1, top] > 0)
@@ -202,7 +180,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         # expansive, i.e. positive
         assert np.all(u_vals[1, bottom] > 0)
         # Expansion implies pressure reduction
-        assert np.all(p_vals < p0 + tol)
+        assert np.all(p_vals < 0 + tol)
 
     # Check that the displacement jump and traction are as expected
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
