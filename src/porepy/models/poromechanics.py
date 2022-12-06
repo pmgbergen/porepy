@@ -13,18 +13,20 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
 
 """
-from typing import Optional
-
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
 
 
-class ConstitutiveLawsPoromechanicsCoupling(
+class ConstitutiveLawsPoromechanics(
+    # Combined effects
     pp.constitutive_laws.DisplacementJumpAperture,
     pp.constitutive_laws.BiotCoefficient,
     pp.constitutive_laws.PressureStress,
     pp.constitutive_laws.PoroMechanicsPorosity,
+    # Individual subproblems
+    mass.ConstitutiveLawsSinglePhaseFlow,
+    momentum.ConstitutiveLawsMomentumBalance,
 ):
     """Class for the coupling of mass and momentum balance to obtain poromechanics
     equations.
@@ -60,25 +62,6 @@ class EquationsPoromechanics(
         super().set_equations()
         momentum.MomentumBalanceEquations.set_equations(self)
 
-    def interface_force_balance_equation(
-        self,
-        interfaces: list[pp.MortarGrid],
-    ) -> pp.ad.Operator:
-        """Add pressure term to :class:'pp.MomentumBalanceEquations' version.
-
-        Parameters:
-            interfaces: Interface grids defining the equation's domain.
-
-        Returns:
-            Operator for the interface force balance equation.
-
-        """
-        eq = super().interface_force_balance_equation(interfaces)
-        # Add pressure term
-        eq += self.interface_pressure_stress(interfaces)
-        eq.set_name("interface_force_balance_equation")
-        return eq
-
 
 class VariablesPoromechanics(
     mass.VariablesSinglePhaseFlow,
@@ -96,7 +79,7 @@ class VariablesPoromechanics(
         momentum.VariablesMomentumBalance.create_variables(self)
 
 
-class BoundaryConditionPoromechanics(
+class BoundaryConditionsPoromechanics(
     mass.BoundaryConditionsSinglePhaseFlow,
     momentum.BoundaryConditionsMomentumBalance,
 ):
@@ -125,24 +108,10 @@ class SolutionStrategyPoromechanics(
 
     """
 
-    def __init__(self, params: Optional[dict] = None) -> None:
-        # Call the constructor of the parent classes. Note that this calls the
-        # constructor of the parent of the parent class (:class:`pp.SolutionStrategy`),
-        # twice. TODO: Decide if this is a good idea.
-        super().__init__(params)
-
-    def initial_condition(self) -> None:
-        """Set initial condition for both subproblems."""
-        # Set initial condition for the subproblems. Mass balance calls super, so this
-        # call also sets the initial condition for the momentum balance.
-        super().initial_condition()
-
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
         # Set parameters for the subproblems.
         super().set_discretization_parameters()
-        # Mass balance method does not call super, so we need to call it explicitly.
-        momentum.SolutionStrategyMomentumBalance.set_discretization_parameters(self)
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
 
@@ -160,9 +129,18 @@ class SolutionStrategyPoromechanics(
         return True
 
 
-class ConstitutiveLawsPoromechanics(
-    ConstitutiveLawsPoromechanicsCoupling,
-    mass.ConstitutiveLawsSinglePhaseFlow,
-    momentum.ConstitutiveLawsMomentumBalance,
+class Poromechanics(
+    EquationsPoromechanics,
+    VariablesPoromechanics,
+    ConstitutiveLawsPoromechanics,
+    BoundaryConditionsPoromechanics,
+    SolutionStrategyPoromechanics,
+    pp.ModelGeometry,
+    pp.DataSavingMixin,
 ):
+    """Class for the coupling of mass and momentum balance in a mixed-dimensional porous
+    medium.
+
+    """
+
     pass

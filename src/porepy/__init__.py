@@ -198,6 +198,8 @@ from porepy.models.material_constants import (
     SolidConstants,
     MaterialConstants,
 )
+
+from porepy.viz.data_saving_model_mixin import DataSavingMixin
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models import constitutive_laws
 
@@ -205,7 +207,12 @@ from porepy.models import constitutive_laws
 from porepy.models import fluid_mass_balance, momentum_balance
 
 # "Secondary" models inheriting from primary models
-from porepy.models import poromechanics, energy_balance
+from porepy.models import (
+    poromechanics,
+    energy_balance,
+    mass_and_energy_balance,
+    thermoporomechanics,
+)
 
 from porepy.models.contact_mechanics_model import ContactMechanics
 from porepy.models.contact_mechanics_biot_model import ContactMechanicsBiot
@@ -221,7 +228,7 @@ from porepy.numerics.time_step_control import TimeManager
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
-from porepy.viz.data_saving_model_mixin import DataSavingMixin
+
 from porepy.utils import error
 
 

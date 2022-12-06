@@ -21,7 +21,6 @@ from typing import Optional
 import numpy as np
 
 import porepy as pp
-from porepy import ModelGeometry
 
 from . import constitutive_laws
 
@@ -121,7 +120,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Split into matrix and fractures. Sort on dimension to allow for multiple
         # matrix domains. Otherwise, we could have picked the first element.
         matrix_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
-        fracture_subdomains = [sd for sd in subdomains if sd.dim == self.nd - 1]
 
         # Geometry related
         mortar_projection = pp.ad.MortarProjections(
@@ -136,17 +134,11 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             * self.stress(matrix_subdomains)
         )
         # Traction from the actual contact force.
-        contact_from_secondary = (
-            mortar_projection.sign_of_mortar_sides
-            * mortar_projection.secondary_to_mortar_int
-            * self.subdomain_projections(self.nd).cell_prolongation(fracture_subdomains)
-            * self.local_coordinates(fracture_subdomains).transpose()
-            * self.contact_traction(fracture_subdomains)
-        )
+        traction_from_secondary = self.fracture_stress(interfaces)
 
         force_balance_eq: pp.ad.Operator = (
             contact_from_primary_mortar
-            + self.volume_integral(contact_from_secondary, interfaces, dim=self.nd)
+            + self.volume_integral(traction_from_secondary, interfaces, dim=self.nd)
         )
         force_balance_eq.set_name("interface_force_balance_equation")
         return force_balance_eq
@@ -472,6 +464,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     def set_discretization_parameters(self) -> None:
         """Set discretization parameters for the simulation."""
 
+        super().set_discretization_parameters()
         for sd, data in self.mdg.subdomains(return_data=True):
             if sd.dim == self.nd:
                 pp.initialize_data(
@@ -555,15 +548,15 @@ class BoundaryConditionsMomentumBalance:
         )
 
 
-class MdMomentumBalanceCombined(
-    ModelGeometry,
+class MomentumBalance(
     MomentumBalanceEquations,
-    ConstitutiveLawsMomentumBalance,
     VariablesMomentumBalance,
+    ConstitutiveLawsMomentumBalance,
+    BoundaryConditionsMomentumBalance,
     SolutionStrategyMomentumBalance,
+    pp.ModelGeometry,
+    pp.DataSavingMixin,
 ):
-    """Demonstration of how to combine in a class which can be used with
-    pp.run_stationary_problem (once cleanup has been done).
-    """
+    """Class for mixed-dimensional momentum balance with contact mechanics."""
 
     pass
