@@ -266,9 +266,6 @@ class PR_Roots:
             # A cubic polynomial in A with coefficients dependent on B
             # (here denoted as labeling polynomial) has always three roots in the sub-critical
             # area. Intermediate and largest root are used to determine the phase label.
-            assert np.all(
-                B_1.val < B_CRIT
-            ), "Co-volume exceeds critical value for labeling."
 
             # coefficients for the labeling polynomial
             c2_label = (2 * self.B * self.B - 10 * self.B - 1 / 4).evaluate(
@@ -283,7 +280,7 @@ class PR_Roots:
             c0_label = (
                 -8 * ad_power(self.B, pp.ad.Scalar(6))
                 - 32 * ad_power(self.B, pp.ad.Scalar(5))
-                - 40 * ad_power(self.B, pp.ad.Scalar(3))
+                - 40 * ad_power(self.B, pp.ad.Scalar(4))
                 - 26 * ad_power(self.B, pp.ad.Scalar(3))
                 - 2 * self.B * self.B
             ).evaluate(self.ad_system.dof_manager)
@@ -310,13 +307,18 @@ class PR_Roots:
             assert np.all(
                 delta_label.val < -self._eps
             ), "Labeling polynomial has less than 3 distinct real roots."
+            # this has to hold according to Gharbia as well,
+            # but there are issues in the near-critical region
+            assert np.all(
+                B_1.val < B_CRIT
+            ), "Co-volume exceeds critical value for labeling."
 
             # compute labeling roots using Cardano formula, Casus Irreducibilis
             t_2 = (
                 pp.ad.arccos(-q_label / 2 * pp.ad.sqrt(-27 / pp.ad.power(p_label, 3)))
                 / 3
             )
-            t_1 = pp.ad.sqrt(-4 * p_label / 3)
+            t_1 = pp.ad.sqrt(-4 / 3 * p_label)
             A0_1 = t_1 * pp.ad.cos(t_2) - c2_label / 3
             AG_1 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_label / 3
             AL_1 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_label / 3
@@ -351,7 +353,7 @@ class PR_Roots:
 
             # compute roots in three-root-region using Cardano formula, Casus Irreducibilis
             t_2 = pp.ad.arccos(-q_3 / 2 * pp.ad.sqrt(-27 / pp.ad.power(p_3, 3))) / 3
-            t_1 = pp.ad.sqrt(-4 * p_3 / 3)
+            t_1 = pp.ad.sqrt(-4 / 3 * p_3)
 
             z1_3 = t_1 * pp.ad.cos(t_2) - c2_3 / 3
             z2_3 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_3 / 3

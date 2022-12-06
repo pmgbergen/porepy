@@ -42,7 +42,7 @@ class PR_Component(Component):
         in the Peng-Robinson EoS,
         without the scaling by acentric factor and reduced temperature:
 
-            ``a_critical = 0.457235529 * (R_IDEAL**2 * T_critical**2) / p_critical``
+            ``a_critical = A_CRIT * (R_IDEAL**2 * T_critical**2) / p_critical``
 
         """
         return (
@@ -80,7 +80,7 @@ class PR_Component(Component):
     def covolume(self) -> float:
         """Returns the constant co-volume ``b`` in the Peng-Robinson EoS:
 
-        ``b = 0.077796072 * (R_IDEAL * T_critical) / p_critical
+        ``b = B_CRIT * (R_IDEAL * T_critical) / p_critical
 
         """
         return (
