@@ -3,6 +3,7 @@ import numpy as np
 import math
 
 from matplotlib import pyplot as plt
+import iapws
 
 
 M = pp.composite.PR_Composition()
@@ -15,7 +16,7 @@ H2O = pp.composite.H2O(M.ad_system)
 M.add_component(H2O)
 
 temperature = 400
-pressure = 10
+pressure = 1  # 10 20 23
 
 sys.set_var_values(H2O.fraction_name, 1 * vec, True)
 sys.set_var_values(M.T_name, temperature * vec, True)
@@ -31,13 +32,9 @@ c0 = M.roots.c0.evaluate(dm).val[0]
 # c1 = 17
 # c0 = -12
 
-A = M.roots.A.evaluate(dm).val[0]
-B = M.roots.B.evaluate(dm).val[0]
-
-B_ = M.B.evaluate(dm).val[0]
-b = M.covolume.evaluate(dm).val[0]
-
 M.roots.compute_roots()
+
+W = iapws.IAPWS95(P=pressure, T=temperature)
 
 def FZ(x):
     return x**3 + c2 * x**2 + c1 * x + c0
