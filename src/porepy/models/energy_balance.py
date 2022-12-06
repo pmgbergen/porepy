@@ -410,10 +410,10 @@ class BoundaryConditionsEnergyBalance:
 
         # Loop over subdomains to collect boundary values
         for sd in subdomains:
-            # Get enthalpy values on boundary faces applying trace to interior values.
-            all_bf, *_ = self.domain_boundary_sides(sd)
             vals = np.zeros(sd.num_faces)
-            vals[all_bf] = self.fluid.specific_heat_capacity()
+            # If you know the boundary temperature, do something like:
+            # all_bf, *_ = self.domain_boundary_sides(sd)
+            # vals[all_bf] = self.fluid.specific_heat_capacity() * dirichlet_values
             # Append to list of boundary values
             bc_values.append(vals)
 
