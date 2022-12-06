@@ -25,7 +25,7 @@ class ModelGeometry:
     """Well network."""
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
-    box: dict
+    box: dict[str, float]
     """Box-shaped domain. FIXME: change to "domain"? """
     nd: int
     """Ambient dimension."""
@@ -53,7 +53,7 @@ class ModelGeometry:
                 FractureNetwork.mesh() method.
 
         """
-        mesh_args = dict()
+        mesh_args: dict[str, float] = {}
         return mesh_args
 
     def set_md_grid(self) -> None:
@@ -97,12 +97,16 @@ class ModelGeometry:
                 only interfaces between subdomains one dimension apart.
 
         Returns:
-            Unique, sorted list of interfaces.
+            Unique list of all interfaces neighboring any of the subdomains. Interfaces
+            are sorted according to their index, as defined by the mixed-dimensional
+            grid.
 
         """
         if codims is None:
             codims = [1]
-        interfaces = list()
+
+        # Initialize list of interfaces, build it up one subdomain at a time.
+        interfaces: list[pp.MortarGrid] = []
         for sd in subdomains:
             for intf in self.mdg.subdomain_to_interfaces(sd):
                 if intf not in interfaces and intf.codim in codims:
@@ -118,10 +122,12 @@ class ModelGeometry:
             interfaces: List of interfaces for which to find subdomains.
 
         Returns:
-            Unique sorted list of all subdomains neighbouring any of the interfaces.
+            Unique list of all subdomains neighbouring any of the interfaces. The
+            subdomains are sorted according to their index as defined by the
+            mixed-dimensional grid.
 
         """
-        subdomains = list()
+        subdomains: list[pp.Grid] = []
         for interface in interfaces:
             for sd in self.mdg.interface_to_subdomain_pair(interface):
                 if sd not in subdomains:
@@ -130,51 +136,76 @@ class ModelGeometry:
 
     def wrap_grid_attribute(
         self,
-        grids: list[pp.GridLike],
+        grids: Sequence[pp.GridLike],
         attr: str,
         dim: Optional[int] = None,
-        inverse: Optional[bool] = False,
+        inverse: bool = False,
     ) -> pp.ad.Matrix:
         """Wrap a grid attribute as an ad matrix.
 
         Parameters:
             grids: List of grids on which the property is defined.
             attr: Grid attribute to wrap. The attribute should be a ndarray and will be
-                flattened if it is not already a vector.
+                flattened if it is not already one dimensional.
             dim: Dimensions to include for vector attributes. Intended use is to
                 limit the number of dimensions for a vector attribute, e.g. to exclude
                 the z-component of a vector attribute in 2d, to acieve compatibility
                 with code which is explicitly 2d (e.g. fv discretizations).
             inverse: If True, the inverse of the attribute will be wrapped. This is a
-                hack around the fact that the ad framework does not support division.
+                hack around the fact that the Ad framework does not support division.
                 FIXME: Remove when ad supports division.
 
         Returns:
-            ad_matrix: The property wrapped as an ad matrix.
+            The property wrapped as an ad matrix, with the wrapped attribute on the
+            diagonal.
 
-        TODO: Test the method (and other methods in this class).
+        Raises:
+            ValueError: If one of the grids does not have the attribute.
+            ValueError: If the attribute is not a ndarray.
 
         """
         if len(grids) > 0:
+            # Check that all grids have the sought after attribute. We could have
+            # avoided this loop by surrounding the getattr with a try-except, but this
+            # would have given a more convoluted code.
+            if not all(hasattr(g, attr) for g in grids):
+                raise ValueError(f"Grids do not have attribute {attr}")
+            # Check that the attribute is a ndarray
+            if not all(isinstance(getattr(g, attr), np.ndarray) for g in grids):
+                raise ValueError(f"Attribute {attr} is not a ndarray")
+
+            # NOTE: We do not rule out the combination of subdomains and interfaces
+            # in the same list. There should be no chance of errors here, and although
+            # such a case seems to EK at the moment to be a bit of an edge case, there
+            # is no reason to rule it out.
+
             if dim is None:
+                # Default to all dimensions
                 vals = np.hstack([getattr(g, attr).ravel("F") for g in grids])
             else:
                 # Only include the first dim dimensions
-                vals = np.hstack([getattr(g, attr)[:dim].ravel("F") for g in grids])
+                # We need to force the array to be 2d here, in case the dimension
+                # argument is given for a non-vector attribute like cell_volumes.
+                vals = np.hstack(
+                    [np.atleast_2d(getattr(g, attr))[:dim].ravel("F") for g in grids]
+                )
             if inverse:
                 vals = 1 / vals
             mat = sps.diags(vals)
         else:
+            # For an empty list of grids, return an empty matrix
             mat = sps.csr_matrix((0, 0))
+
         ad_matrix = pp.ad.Matrix(mat)
+        ad_matrix.set_name(f"Matrix wrapping attribute {attr} on {len(grids)} grids")
         return ad_matrix
 
     def basis(self, grids: Sequence[pp.GridLike], dim: int = None) -> np.ndarray:
         """Return a cell-wise basis for all subdomains.
 
         Parameters:
-            grids: List of grids on which the basis is defined. dim: Dimension of the
-            base. Defaults to self.nd.
+            grids: List of grids on which the basis is defined.
+            dim: Dimension of the base. Defaults to self.nd.
 
         Returns:
             Array (dim) of pp.ad.Matrix, each of which represents a basis function.
@@ -191,35 +222,51 @@ class ModelGeometry:
         # Stack the basis functions horizontally
         return np.hstack(basis)
 
-    def e_i(self, grids: list[pp.GridLike], i: int, dim: int = None) -> np.ndarray:
+    def e_i(
+        self, grids: Sequence[pp.GridLike], i: int, dim: int = None
+    ) -> pp.ad.Matrix:
         """Return a cell-wise basis function.
 
+        It is assumed that the grids are embedded in a space of dimension dim and
+        aligned with the coordinate axes, that is, the reference space of the grid.
+        Moreover, the grid is assumed to be planar.
+
         Parameters:
-            grids: List of grids on which the basis vector is defined. dim (int):
-            Dimension of the functions. i (int): Index of the basis function. Note:
-            Counts from 0.
+            grids: List of grids on which the basis vector is defined.
+            dim: Dimension of the functions.
+            i: Index of the basis function. Note: Counts from 0.
 
         Returns:
             pp.ad.Matrix: Ad representation of a matrix with the basis functions as
                 columns.
 
         """
+        # TODO: Should we expand this to grids not aligned with the coordinate axes, and
+        # possibly unify with ``porepy.utils.projections.TangentialNormalProjection``?
+
         if dim is None:
             dim = self.nd
+
+        # Sanity checks
         assert dim <= self.nd, "Basis functions of higher dimension than the md grid"
         assert i < dim, "Basis function index out of range"
+
+        # Construct a single vector, and later stack it to a matrix
         # Collect the basis functions for each dimension
         e_i = np.zeros(dim).reshape(-1, 1)
         e_i[i] = 1
-        # expand to cell-wise column vectors.
+        # Expand to cell-wise column vectors.
         num_cells = sum([g.num_cells for g in grids])
+        # Expand to a matrix.
         mat = sps.kron(sps.eye(num_cells), e_i)
         return pp.ad.Matrix(mat)
 
     def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.Matrix:
         """Ad wrapper around tangential_normal_projections for fractures.
 
-        TODO: Extend to all subdomains.
+        TODO: Extend to all subdomains, not only codimension 1?
+        TODO: Revise this method if we every assign a reference mapping attribute to
+        all grids.
 
         Parameters:
             subdomains: List of subdomains for which to compute the local coordinates.
@@ -242,7 +289,7 @@ class ModelGeometry:
             local_coord_proj = sps.csr_matrix((0, 0))
         return pp.ad.Matrix(local_coord_proj)
 
-    def subdomain_projections(self, dim: int):
+    def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
         """Return the projection operators for all subdomains in md-grid.
 
         The projection operators restrict or prolong a dim-dimensional quantity from the
@@ -257,8 +304,9 @@ class ModelGeometry:
 
         Returns:
             proj: Projection operator.
+
         """
-        name = f"_subdomain_proj_{dim}"
+        name = f"_subdomain_proj_of_dimension_{dim}"
         if hasattr(self, name):
             proj = getattr(self, name)
         else:
@@ -268,7 +316,7 @@ class ModelGeometry:
 
     def domain_boundary_sides(
         self, g: pp.Grid
-    ) -> Tuple[
+    ) -> tuple[
         np.ndarray,
         np.ndarray,
         np.ndarray,
@@ -277,10 +325,14 @@ class ModelGeometry:
         np.ndarray,
         np.ndarray,
     ]:
-        """Obtain indices of the faces of a grid that lie on each side of the domain
-        boundaries. It is assumed the domain is box shaped.
+        """Obtain indices of grid faces on the different parts of the domain boundary.
+
+        It is assumed the domain is box shaped.
 
         TODO: Update this from develop before merging.
+        Parameters:
+            g: Grid for which to obtain the boundary faces.
+
         """
         tol = 1e-10
         box = self.box
@@ -302,41 +354,46 @@ class ModelGeometry:
         return all_bf, east, west, north, south, top, bottom
 
     # Local basis related methods
-    def tangential_component(self, grids: list[pp.Grid]) -> pp.ad.Operator:
+    def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Compute the tangential component of a vector field.
 
+        The tangential space is defined according to the local coordinates of the
+        subdomains.
+
         Parameters:
-            grids: List of grids on which the vector field is defined.
+            subdomains: List of grids on which the vector field is defined.
 
         Returns:
-            tangential: Operator extracting tangential component of the vector field and
-            expressing it in tangential basis.
+            Operator extracting tangential component of the vector field and expressing
+            it in tangential basis.
+
         """
         # We first need an inner product (or dot product), i.e. extract the tangential
         # component of the cell-wise vector v to be transformed. Then we want to express
         # it in the tangential basis. The two operations are combined in a single
         # operator composed right to left: v will be hit by first e_i.T (row vector) and
         # secondly t_i (column vector).
-        op = sum(
+        op: pp.ad.Operator = sum(
             [
-                self.e_i(grids, i, self.nd - 1) * self.e_i(grids, i, self.nd).T
+                self.e_i(subdomains, i, self.nd - 1)
+                * self.e_i(subdomains, i, self.nd).T
                 for i in range(self.nd - 1)
             ]
         )
         op.set_name("tangential_component")
         return op
 
-    def normal_component(self, grids: list[pp.Grid]) -> pp.ad.Operator:
+    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Compute the normal component of a vector field.
 
         Parameters:
-            grids: List of grids on which the vector field is defined.
+            subdomains: List of grids on which the vector field is defined.
 
         Returns:
-            normal: Operator extracting normal component of the vector field and
-            expressing it in normal basis.
+            Operator extracting normal component of the vector field and expressing it
+            in normal basis.
         """
-        e_n = self.e_i(grids, self.nd - 1, self.nd)
+        e_n = self.e_i(subdomains, self.nd - 1, self.nd)
         e_n.set_name("normal_component")
         return e_n.T
 
@@ -345,7 +402,14 @@ class ModelGeometry:
         interfaces: list[pp.MortarGrid],
         dim: int,
     ) -> pp.ad.Operator:
-        """Flip sign if normal vector points inwards.
+        """Obtain a vector for flipping normal vectors on internal boundaries.
+
+        For a list of interfaces, check if the normal vector of the neighboring
+        higher-dimensional subdomain point into the interface (e.g., into the fracture),
+        and if so, flip the normal vector. The flipping takes the form of an operator
+        that multiplies the normal vectors of all faces in all higher-dimensional
+        subdomains, leaves internal faces unchanged, but flips the relevant normal
+        vectors on subdomain faces that are part of an internal boundary.
 
         Currently, this is a helper method for the computation of outward normals in
         :meth:`outwards_internal_boundary_normals`. Other usage is allowed, but one
@@ -358,27 +422,71 @@ class ModelGeometry:
         Returns:
             Operator with flipped signs if normal vector points inwards.
 
+        Raises:
+            NotImplementedError: If the interface is between subdomains of equal dimension.
+
         """
         if len(interfaces) == 0:
-            sign_flipper = sps.csr_matrix((0, 0))
+            # Special case if no interfaces.
+            sign_flipper = pp.ad.Matrix(sps.csr_matrix((0, 0)))
         else:
-            # Two loops are required to be able to prolong each matrix created in the
-            # first loop to the full set of subdomains in the second loop.
+            # Two loops are required to be able to prolong the local (to the interface)
+            # projection matrix to the full set of subdomains: First generate the
+            # local matrices, and store the subdomains they belong to. Then, use the
+            # full list of subdomains to construct a projection matrix and use this
+            # to prolong the local matrices.
             matrices = []
             subdomains = []
             for intf in interfaces:
-                # Extracting matrix for each interface should in theory allow for multiple
-                # matrix subdomains, but this is not tested.
+                # Extracting matrix for each interface should in theory allow for
+                # multiple matrix subdomains (corresponding to an interface between
+                # two subdomains of equation dimension), but this is not tested.
+                # We raise an error if both subdomains are of the same dimension.
+                subdomain_pair = self.mdg.interface_to_subdomain_pair(intf)
+                # EK: I am not sure what we want to do if we ever apply this to
+                # interfaces between subdomains of the same dimension. For now, raise an
+                # error instead of silently doing something wrong. If we ever fix this,
+                # it must be fixed also in the method
+                # outwards_internal_boundary_normals.
+                if subdomain_pair[0].dim == subdomain_pair[1].dim:
+                    raise NotImplementedError(
+                        "Interface between subdomains of same dimension is not covered."
+                    )
+
                 matrix_subdomain = self.mdg.interface_to_subdomain_pair(intf)[0]
+
+                # Find faces on the boundary of the subdomain which neighbors this
+                # interface. Note the use of CSR-format here (CSC would not work).
                 faces_on_fracture_surface = intf.primary_to_mortar_int().tocsr().indices
+                # Use utility method to get a matrix representation of a sign-flip
+                # operator.
                 switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
                     matrix_subdomain, dim, faces_on_fracture_surface
                 )
+                # Store the matrix and the subdomain to which it should be applied.
                 matrices.append(switcher_int)
                 subdomains.append(matrix_subdomain)
+
+            # Now that we know about all subdomains that should be considered together
+            # we can build a prolongation operator.
             projection = pp.ad.SubdomainProjections(subdomains, dim)
-            sign_flipper: pp.ad.Operator = None
+            # TODO: What happens if the same subdomain is present in multiple interfaces?
+            subdomain_ids = [sd.id for sd in subdomains]
+            assert len(subdomain_ids) == len(set(subdomain_ids))
+
+            # Loop over all subdomains, prolong the matrix (both pre- and
+            # post-prolongation) so that the resulting sign flipper is valid for all
+            # subdomains taken together.
+            # TODO: Should we have an empty operator for such cases? It would need to
+            # evaluate to zero (in cases where subdomains is emtpy), and essentially
+            # evaluate as void when combined with any other operator. It could come in
+            # natural in cases where an operator is built by adding several operators,
+            # but it is not clear how we really want to handle these cases (keyword:
+            # rewamp of the AD machinery).
+            sign_flipper = None
             for m, sd in zip(matrices, subdomains):
+                # The sign flipper should map from the faces of all subdomains, down
+                # to this one, flip the signs locally, and then project back up again.
                 m_loc = (
                     projection.face_prolongation([sd])
                     * pp.ad.Matrix(m)
@@ -389,6 +497,8 @@ class ModelGeometry:
                 else:
                     sign_flipper += m_loc
 
+        assert sign_flipper is not None  # Should be guaranteed by the loop above
+        sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
     def outwards_internal_boundary_normals(
@@ -408,41 +518,65 @@ class ModelGeometry:
 
         """
         if len(interfaces) == 0:
+            # Special case if no interfaces.
             mat = sps.csr_matrix((0, 0))
             return pp.ad.Matrix(mat)
 
         # Main ingredients: Normal vectors for primary subdomains for each interface,
         # and a switcher matrix to flip the sign if the normal vector points inwards.
         # The first is constructed herein, the second is a method of this class.
-        # A fair bit of juggling with subdomain lists is needed to distinguish between
-        # all subdomains and the subdomains of the primary side of the interface, which
-        # are the ones expected by the switcher matrix method.
+
+        # Since the normal vectors are stored on the primary subdomains, but are to be
+        # computed on the interfaces, we need mortar projections. These are built to
+        # map information between all subdomains (primary and secondary) and the mortar.
+        # The result is a fair bit of juggling with subdomain lists is needed to
+        # distinguish between all subdomains and the subdomains of the primary side of
+        # the interface, which are the ones expected by the switcher matrix method.
+
         # TODO: Consider to let the switcher method operate on the full list of
         # subdomains (and not just the primary ones), and let it return empty entries
         # where appropriate (i.e. for the secondary subdomains).
+
+        # First, get subdomains of the interfaces
         subdomains = self.interfaces_to_subdomains(interfaces)
+        # A subdomain projection operator, covering all subdomains (primary and
+        # secondary).
         sd_projection = pp.ad.SubdomainProjections(subdomains, self.nd)
-        primary_subdomains = []
+
+        # Also a dedicated list for the primary subdomains
+        primary_subdomains: list[pp.Grid] = []
         for intf in interfaces:
             # Extracting matrix for each interface should in theory allow for multiple
             # matrix subdomains, but this is not tested. See also
             # :meth:`internal_boundary_normal_to_outwards`.
+            # EK: If we have multiple matrix subdomains, the method for internal
+            # boundary normals (called below) will raise an error. We do not do the same
+            # here, but I have left a comment in the other method that if that is fixed,
+            # we should fix the same here.
             primary_subdomains.append(self.mdg.interface_to_subdomain_pair(intf)[0])
+
+        # Projection operator between the subdomains and interfaces.
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, dim=self.nd
         )
+        # Face normals on the primary subdomains
         primary_face_normals = self.wrap_grid_attribute(
             primary_subdomains, "face_normals", dim=self.nd
         )
-        # Account for sign of boundary face normals
+        # Account for sign of boundary face normals. This will give a matrix with a
+        # shape equal to the total number of faces in all primary subdomains.
         flip = self.internal_boundary_normal_to_outwards(interfaces, self.nd)
+        # Flip the normal vectors. Unravelled from the right: Restrict from faces on all
+        # subdomains to the primary ones, multiply with the face normals, flip the
+        # signs, and project back up to all subdomains.
         flipped_normals = (
             sd_projection.face_prolongation(primary_subdomains)
             * flip
             * primary_face_normals
             * sd_projection.face_restriction(primary_subdomains)
         )
-        # Project to mortar grid
+        # Project to mortar grid, as a mapping from mortar to the subdomains and back
+        # again.
         outwards_normals = (
             mortar_projection.primary_to_mortar_avg
             * flipped_normals
@@ -452,11 +586,15 @@ class ModelGeometry:
 
         # Normalize by face area if requested.
         if unitary:
+            # 1 over cell volumes on the interfaces
             cell_volumes_inv = self.wrap_grid_attribute(
                 interfaces, "cell_volumes", inverse=True
             )
 
             # Expand cell volumes to nd.
+            # EK: It should be possible to do this in a better, less opaque, way. A
+            # Kronecker product comes to mind, but this will require an extension of the
+            # Ad matrix.
             cell_volumes_inv_nd = sum(
                 [e * cell_volumes_inv * e.T for e in self.basis(interfaces, self.nd)]
             )
