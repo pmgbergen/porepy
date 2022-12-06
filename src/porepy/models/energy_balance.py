@@ -2,7 +2,14 @@
 
 Local thermal equilibrium is assumed, i.e., the solid and fluid temperatures are assumed
 to be constant within each cell. This leads to a single equation with "effective" or
-"total" quantities and parameters."""
+"total" quantities and parameters.
+
+Since the current implementation assumes a flow field provided by a separate model, the
+energy balance equation is not stand-alone. Thus, no class `EnergyBalance` is provided,
+as would be consistent with the other models. However, the class is included in coupled
+models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBalance`.
+
+"""
 from typing import Optional
 
 import numpy as np
@@ -10,7 +17,7 @@ import numpy as np
 import porepy as pp
 
 
-class EnergyBalanceEquations(pp.fluid_mass_balance.MassBalanceEquations):
+class EnergyBalanceEquations:
     """Mixed-dimensional energy balance equation.
 
     Balance equation for all subdomains and advective and diffusive fluxes internally
@@ -35,8 +42,6 @@ class EnergyBalanceEquations(pp.fluid_mass_balance.MassBalanceEquations):
         fluxes are set for each interface of codimension one.
 
         """
-        # Set flow equations
-        super().set_equations()
         subdomains = self.mdg.subdomains()
         interfaces = self.mdg.interfaces()
         sd_eq = self.energy_balance_equation(subdomains)
@@ -221,7 +226,7 @@ class EnergyBalanceEquations(pp.fluid_mass_balance.MassBalanceEquations):
         return source
 
 
-class VariablesEnergyBalance(pp.fluid_mass_balance.VariablesSinglePhaseFlow):
+class VariablesEnergyBalance:
     """
     Creates necessary variables (temperature, advective and diffusive interface flux)
     and provides getter methods for these and their reference values. Getters construct
@@ -248,9 +253,6 @@ class VariablesEnergyBalance(pp.fluid_mass_balance.VariablesSinglePhaseFlow):
         grid. Old implementation awaiting SystemManager
 
         """
-        # Mass balance variables
-        super().create_variables()
-
         self.equation_system.create_variables(
             self.temperature_variable,
             subdomains=self.mdg.subdomains(),
@@ -330,18 +332,16 @@ class ConstitutiveLawsEnergyBalance(
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
-    # Reuses advection and dimension reduction as well as the specific mass balance
-    # constitutive laws.
-    pp.fluid_mass_balance.ConstitutiveLawsSinglePhaseFlow,
+    pp.constitutive_laws.DimensionReduction,
+    pp.constitutive_laws.AdvectiveFlux,
+    pp.constitutive_laws.FluidDensityFromTemperature,
 ):
     """Collect constitutive laws for the energy balance."""
 
     pass
 
 
-class BoundaryConditionsEnergyBalance(
-    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow
-):
+class BoundaryConditionsEnergyBalance:
     """Boundary conditions for the energy balance.
 
     Boundary type and value for both diffusive Fourier flux and advective enthalpy flux.
@@ -424,9 +424,7 @@ class BoundaryConditionsEnergyBalance(
         return bc_values
 
 
-class SolutionStrategyEnergyBalance(
-    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
-):
+class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     """Solution strategy for the energy balance."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
@@ -463,17 +461,16 @@ class SolutionStrategyEnergyBalance(
         The parameter fields of the data dictionaries are updated for all subdomains and
         interfaces (of codimension 1).
         """
-        # Set parameters for the mass balance
         super().set_discretization_parameters()
         for sd, data in self.mdg.subdomains(return_data=True):
 
             specific_volume_mat = self.specific_volume([sd]).evaluate(
                 self.equation_system
             )
+            if hasattr(specific_volume_mat, "val"):
+                specific_volume_mat = specific_volume_mat.val
             # Extract diagonal of the specific volume matrix.
             specific_volume = specific_volume_mat * np.ones(sd.num_cells)
-            # Check that the matrix is actually diagonal.
-            assert np.all(np.isclose(specific_volume, specific_volume_mat.data))
 
             kappa = self.thermal_conductivity([sd])
             diffusivity = pp.SecondOrderTensor(kappa * specific_volume)
@@ -496,16 +493,6 @@ class SolutionStrategyEnergyBalance(
                     "bc": self.bc_type_enthalpy(sd),
                 },
             )
-            # Assign diffusivity in the normal direction of the fractures.
-        # for intf, intf_data in self.mdg.interfaces(return_data=True):
-        #     pp.initialize_data(
-        #         intf,
-        #         intf_data,
-        #         self.fourier_keyword,
-        #         {
-        #             "ambient_dimension": self.nd,
-        #         },
-        #     )
 
     def initial_condition(self) -> None:
         """Add darcy flux to discretization parameter dictionaries."""
@@ -538,5 +525,5 @@ class SolutionStrategyEnergyBalance(
             vals = data[pp.PARAMETERS][self.mobility_keyword]["darcy_flux"]
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
-        # TODO: Rediscretize
+        # TODO: Targeted rediscretization.
         self.discretize()
