@@ -103,6 +103,16 @@ class SolutionStrategy(abc.ABC):
         if not hasattr(self, "equation_system"):
             self.equation_system = pp.ad.EquationSystem(self.mdg)
 
+    def set_discretization_parameters(self) -> None:
+        """Set parameters for the discretization.
+
+        This method is called before the discretization is performed. It is
+        intended to be used to set parameters for the discretization, such as
+        the permeability, the porosity, etc.
+
+        """
+        pass
+
     def initial_condition(self) -> None:
         """Set the initial condition for the problem."""
         vals = np.zeros(self.equation_system.num_dofs())

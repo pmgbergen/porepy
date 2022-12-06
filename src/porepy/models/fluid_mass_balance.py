@@ -430,6 +430,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         The parameter fields of the data dictionaries are updated for all subdomains and
         interfaces (of codimension 1).
         """
+        super().set_discretization_parameters()
         for sd, data in self.mdg.subdomains(return_data=True):
 
             specific_volume_mat = self.specific_volume([sd]).evaluate(
@@ -490,3 +491,15 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
         # FIXME: Targeted rediscretization of upwind.
         self.discretize()
+
+
+class SinglePhaseFlow(
+    MassBalanceEquations,
+    VariablesSinglePhaseFlow,
+    ConstitutiveLawsSinglePhaseFlow,
+    BoundaryConditionsSinglePhaseFlow,
+    SolutionStrategySinglePhaseFlow,
+    pp.ModelGeometry,
+    pp.DataSavingMixin,
+):
+    """Class for single-phase flow in mixed-dimensional porous media."""
