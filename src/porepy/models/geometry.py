@@ -396,7 +396,6 @@ class ModelGeometry:
         Args:
             interfaces: List of interfaces.
             unitary: If True, return unit vectors, i.e. normalize by face area.
-            dim: Dimension of the problem. Defaults to self.nd.
 
         Returns:
             Operator computing outward normal vectors on internal boundaries. Evaluated

@@ -140,6 +140,7 @@ class FluidConstants(MaterialConstants):
             "density": 1,
             "specific_heat_capacity": 1,
             "thermal_conductivity": 1,
+            "normal_thermal_conductivity": 1,
             "thermal_expansion": 0,
             "viscosity": 1,
         }
@@ -174,6 +175,20 @@ class FluidConstants(MaterialConstants):
         """
         return self.convert_units(
             self.constants["thermal_conductivity"], "W * m^-1 * K^-1"
+        )
+
+    def normal_thermal_conductivity(self) -> number:
+        """Normal thermal conductivity [W/m/K].
+
+        Resides in fluid, not solid, because of the assumption of open fractures.
+
+        Returns:
+            Normal thermal conductivity in converted energy, length and temperature
+            units.
+
+        """
+        return self.convert_units(
+            self.constants["normal_thermal_conductivity"], "W * m^-1 * K^-1"
         )
 
     def specific_heat_capacity(self) -> number:
@@ -239,7 +254,6 @@ class SolidConstants(MaterialConstants):
             "friction_coefficient": 1,
             "lame_lambda": 1,
             "normal_permeability": 1,
-            "normal_thermal_conductivity": 1,
             "permeability": 1,
             "porosity": 0.1,
             "shear_modulus": 1,
@@ -298,17 +312,6 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.convert_units(self.constants["normal_permeability"], "m^2")
-
-    def normal_thermal_conductivity(self) -> number:
-        """Normal thermal conductivity [W/m/K].
-
-        Returns:
-            Normal thermal conductivity in converted energy, length and temperature units.
-
-        """
-        return self.convert_units(
-            self.constants["normal_thermal_conductivity"], "W * m^-1 * K^-1"
-        )
 
     def thermal_conductivity(self) -> number:
         """Thermal conductivity [W/m/K].
