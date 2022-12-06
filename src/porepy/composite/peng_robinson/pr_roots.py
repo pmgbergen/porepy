@@ -8,10 +8,12 @@ References:
 """
 from __future__ import annotations
 
-import porepy as pp
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
+from .pr_utils import A_CRIT, B_CRIT
 
 ad_power = pp.ad.Function(pp.ad.power, "power")
 cos = pp.ad.Function(pp.ad.cos, "cos")
@@ -100,41 +102,6 @@ class PR_Roots:
     ### EoS parameters ------------------------------------------------------------------------
 
     @property
-    def Z_crit(self) -> float:
-        """Critical compressibility factor for the Peng-Robinson EoS, ~ 0.307401308."""
-        return (
-            1
-            / 32
-            * (11 + np.cbrt(16 * np.sqrt(2) - 13) - np.cbrt(16 * np.sqrt(2) + 13))
-        )
-
-    @property
-    def A_crit(self) -> float:
-        """Critical value for ``A`` in the Peng-Robinson EoS, ~ 0.457235529."""
-        return (
-            1
-            / 512
-            * (
-                -59
-                + 3 * np.cbrt(276231 - 192512 * np.sqrt(2))
-                + 3 * np.cbrt(276231 + 192512 * np.sqrt(2))
-            )
-        )
-
-    @property
-    def B_crit(self) -> float:
-        """Critical value for ``B`` in the Peng-Robinson EoS, ~ 0.077796073."""
-        return (
-            1
-            / 32
-            * (
-                -1
-                - 3 * np.cbrt(16 * np.sqrt(2) - 13)
-                + 3 * np.cbrt(16 * np.sqrt(2) + 13)
-            )
-        )
-
-    @property
     def c2(self) -> pp.ad.Operator:
         """An operator representing the coefficient of the monomial ``Z**2`` in the
         characteristic polynomial."""
@@ -163,7 +130,7 @@ class PR_Roots:
         """An operator representing the coefficient of the monomial ``Z**0`` of the **reduced**
         characteristic polynomial."""
         return (
-            2 /27 * ad_power(self.c2, pp.ad.Scalar(3))
+            2 / 27 * ad_power(self.c2, pp.ad.Scalar(3))
             - self.c2 * self.c1 / 3
             + self.c0
         )
@@ -200,9 +167,10 @@ class PR_Roots:
 
         The roots depend on ``A`` and ``B`` of the Peng-Robinson EoS, hence on the
         thermodynamic state. They must be re-computed after any change in pressure, temperature
-        and composition.
+        and composition. This holds especially in iterative schemes.
 
-        The results can be accessed using :meth:`liquid_root` and :meth:`gas_root`.
+        The results can be accessed (by reference) using :meth:`liquid_root` and
+        :meth:`gas_root`.
 
         """
         # evaluate necessary parameters
@@ -213,42 +181,16 @@ class PR_Roots:
         c2 = self.c2.evaluate(self.ad_system.dof_manager)
         delta = self.delta.evaluate(self.ad_system.dof_manager)
 
-        # coefficients for the labeling polynomial
-        c2_label = (
-            2 * self.B * self.B - 10 * self.B - 1/4
-        ).evaluate(self.ad_system.dof_manager)
-        c1_label = (
-            -4 * ad_power(self.B, pp.ad.Scalar(4))
-            + 28 * ad_power(self.B, pp.ad.Scalar(3))
-            + 22 * self.B * self.B
-            + 2 * self.B
-        ).evaluate(self.ad_system.dof_manager)
-        c0_label = (
-            -8 * ad_power(self.B, pp.ad.Scalar(6))
-            - 32 * ad_power(self.B, pp.ad.Scalar(5))
-            - 40 * ad_power(self.B, pp.ad.Scalar(3))
-            - 26 * ad_power(self.B, pp.ad.Scalar(3))
-            - 2 * self.B * self.B
-        ).evaluate(self.ad_system.dof_manager)
-
-        # reduced coefficients for the labeling polynomial
-        p_label = c1_label - c2_label * c2_label / 3
-        q_label = (
-            2 /27 * c2_label ** 3
-            - c2_label * c1_label / 3
-            + c0_label
-        )
-
         nc = len(A.val)
         shape = A.jac.shape
-        # place holder for roots
+        # storage for roots
         Z_L_val = np.zeros(nc)
         Z_G_val = np.zeros(nc)
         Z_L_jac = sps.csr_matrix(shape)
         Z_G_jac = sps.csr_matrix(shape)
 
-        # identify super-critical cells
-        self.is_super_critical = B.val > self.B_crit / self.A_crit * A.val
+        # identify super-critical region
+        self.is_super_critical = B.val > B_CRIT / A_CRIT * A.val
         sub_critical = np.logical_not(self.is_super_critical)
 
         # as of now, this is not covered
@@ -256,20 +198,28 @@ class PR_Roots:
             raise NotImplementedError("Super-critical roots not available yet.")
 
         # discriminant of zero indicates one or two real roots with multiplicity
-        one_root_region = np.isclose(delta.val, 0.0, atol=self._eps)
-        # ensure we are not in the uncovered two-real-root case
-        if np.any(np.logical_and(one_root_region, np.abs(p.val) > self._eps)):
-            raise NotImplementedError("Case with two distinct real roots encountered.")
+        degenerate_region = np.isclose(delta.val, 0.0, atol=self._eps)
+        two_real_root_region = np.logical_and(
+            degenerate_region, np.abs(p.val) > self._eps
+        )
+        triple_root_region = np.logical_and(
+            degenerate_region, np.isclose(p.val, 0.0, atol=self._eps)
+        )
 
+        # ensure we are not in the uncovered two-real-root case
+        if np.any(two_real_root_region):
+            raise NotImplementedError("Case with two distinct real roots encountered.")
         # check for single triple root. Not sure what to do in this case...
-        if np.any(one_root_region):
-            raise NotImplementedError("Single triple-root case encountered.")
+        if np.any(triple_root_region):
+            raise NotImplementedError("Case with real triple-root encountered.")
 
         # physically covered cases
-        one_real_root_region = delta.val > 0.0
-        three_real_root_region = delta.val < 0.0
+        one_real_root_region = delta.val > self._eps  # can only happen if p is positive
+        three_real_root_region = (
+            delta.val < -self._eps
+        )  # can only happen if p is negative
 
-        # last sanity check we have every cell/case covered
+        # last sanity check we have every cell/case covered (with above exclusions)
         if np.any(
             np.logical_not(np.logical_or(one_real_root_region, three_real_root_region))
         ):
@@ -277,10 +227,13 @@ class PR_Roots:
                 "Uncovered cells/cases detected in PR root computation."
             )
 
-        # compute the one real root and the extended root from the conjugated imaginary roots
+        ### compute the one real root and the extended root from the conjugated imaginary roots
         if np.any(one_real_root_region):
             B_1 = pp.ad.Ad_array(
                 B.val[one_real_root_region], B.jac[one_real_root_region]
+            )
+            A_1 = pp.ad.Ad_array(
+                A.val[one_real_root_region], A.jac[one_real_root_region]
             )
             p_1 = pp.ad.Ad_array(
                 p.val[one_real_root_region], p.jac[one_real_root_region]
@@ -288,25 +241,107 @@ class PR_Roots:
             q_1 = pp.ad.Ad_array(
                 q.val[one_real_root_region], q.jac[one_real_root_region]
             )
-            # is positive in this case
-            d_1 = pp.ad.Ad_array(
+            delta_1 = pp.ad.Ad_array(
                 delta.val[one_real_root_region], delta.jac[one_real_root_region]
             )
             c2_1 = pp.ad.Ad_array(
                 c2.val[one_real_root_region], c2.jac[one_real_root_region]
             )
+            # delta has only positive values in this case by logic
+            t_1 = -q_1 / 2 + pp.ad.sqrt(delta_1)
 
-            t_1 = -q_1 / 2 + pp.ad.sqrt(d_1)
-
-            # TODO consider case when t_1 is negative? if applicable
+            # t_1 should only be positive, since delta positive and greater than q
+            # assert above, because cubic root is imaginary otherwise
+            assert np.all(
+                t_1.val > 0.0
+            ), "Real root in one-root-region has imaginary parts."
             u_1 = pp.ad.cbrt(t_1)
-            # this is the only real root.
+
+            # only real root, Cardano formula, positive discriminant
             z_1 = u_1 - p_1 / (u_1 * 3) - c2_1 / 3
-            print("comp z_1: ", z_1.val)
-            # this is the real part of the conjugate imaginary roots
+            # real part of the conjugate imaginary roots
             r_1 = (1 - B_1 - z_1) / 2
 
-        # compute the two relevant roots in the three root region
+            ## PHASE LABELING in one-root-region, Gharbia et al. (2021)
+            # A cubic polynomial in A with coefficients dependent on B
+            # (here denoted as labeling polynomial) has always three roots in the sub-critical
+            # area. Intermediate and largest root are used to determine the phase label.
+            assert np.all(
+                B_1.val < B_CRIT
+            ), "Co-volume exceeds critical value for labeling."
+
+            # coefficients for the labeling polynomial
+            c2_label = (2 * self.B * self.B - 10 * self.B - 1 / 4).evaluate(
+                self.ad_system.dof_manager
+            )
+            c1_label = (
+                -4 * ad_power(self.B, pp.ad.Scalar(4))
+                + 28 * ad_power(self.B, pp.ad.Scalar(3))
+                + 22 * self.B * self.B
+                + 2 * self.B
+            ).evaluate(self.ad_system.dof_manager)
+            c0_label = (
+                -8 * ad_power(self.B, pp.ad.Scalar(6))
+                - 32 * ad_power(self.B, pp.ad.Scalar(5))
+                - 40 * ad_power(self.B, pp.ad.Scalar(3))
+                - 26 * ad_power(self.B, pp.ad.Scalar(3))
+                - 2 * self.B * self.B
+            ).evaluate(self.ad_system.dof_manager)
+            # reduce to relevant region
+            c2_label = pp.ad.Ad_array(
+                c2_label.val[one_real_root_region], c2_label.jac[one_real_root_region]
+            )
+            c1_label = pp.ad.Ad_array(
+                c1_label.val[one_real_root_region], c1_label.jac[one_real_root_region]
+            )
+            c0_label = pp.ad.Ad_array(
+                c0_label.val[one_real_root_region], c0_label.jac[one_real_root_region]
+            )
+
+            # reduced coefficients for the labeling polynomial
+            p_label: pp.ad.Ad_array = c1_label - c2_label * c2_label / 3
+            q_label: pp.ad.Ad_array = (
+                2 / 27 * pp.ad.power(c2_label, 3) - c2_label * c1_label / 3 + c0_label
+            )
+            # discriminant of the labeling polynomial
+            delta_label = q_label * q_label / 4 + pp.ad.power(p_label, 3) / 27
+            # assert labeling polynomial has three distinct real roots
+            # this should always hold according to Gharbia,
+            assert np.all(
+                delta_label.val < -self._eps
+            ), "Labeling polynomial has less than 3 distinct real roots."
+
+            # compute labeling roots using Cardano formula, Casus Irreducibilis
+            t_2 = (
+                pp.ad.arccos(-q_label / 2 * pp.ad.sqrt(-27 / pp.ad.power(p_label, 3)))
+                / 3
+            )
+            t_1 = pp.ad.sqrt(-4 * p_label / 3)
+            A0_1 = t_1 * pp.ad.cos(t_2) - c2_label / 3
+            AG_1 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_label / 3
+            AL_1 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_label / 3
+
+            # assert roots are ordered by size
+            assert np.all(
+                A0_1.val <= AG_1.val <= AL_1.val
+            ), "Labeling roots improperly ordered."
+
+            # compute criteria for phase labels
+            gas_region = np.logical_and(
+                0 < B_1.val < B_CRIT,
+                A_CRIT / B_CRIT * B_1.val < A_1.val < AG_1.val,
+            )
+            liquid_region = np.logical_or(
+                np.logical_and(0 < B_1.val < B_CRIT, AL_1.val < A_1.val),
+                np.logical_and(B_CRIT < B_1.val, A_CRIT / B_CRIT * B_1.val < A_1.val),
+            )
+
+            # assert the whole one-root-region is covered
+            assert np.all(
+                np.logical_or(gas_region, liquid_region)
+            ), "Phase labeling does not cover whole one-root-region"
+
+        ### compute the two relevant roots in the three root region
         if np.any(three_real_root_region):
             p_3 = p[three_real_root_region]
             q_3 = q[three_real_root_region]
@@ -314,7 +349,19 @@ class PR_Roots:
                 c2.val[three_real_root_region], c2.jac[three_real_root_region]
             )
 
-            t_2 = pp.ad.arccos(- q_3 / 2 * pp.ad.sqrt(- 27 / (p_3 **3))) / 3
-            t_1 = pp.ad.sqrt(-4 * p / 3)
+            # compute roots in three-root-region using Cardano formula, Casus Irreducibilis
+            t_2 = pp.ad.arccos(-q_3 / 2 * pp.ad.sqrt(-27 / pp.ad.power(p_3, 3))) / 3
+            t_1 = pp.ad.sqrt(-4 * p_3 / 3)
 
-        # TODO add -c2/3 to roots
+            z1_3 = t_1 * pp.ad.cos(t_2) - c2_3 / 3
+            z2_3 = -t_1 * pp.ad.cos(t_2 + np.pi / 3) - c2_3 / 3
+            z3_3 = -t_1 * pp.ad.cos(t_2 - np.pi / 3) - c2_3 / 3
+
+            # assert roots are ordered by size
+            assert np.all(
+                z1_3.val <= z2_3.val <= z3_3.val
+            ), "Roots in three-root-region improperly ordered"
+
+            ## Labeling in the three-root-region follows topological patterns
+            # biggest root belongs to gas phase
+            # smallest root belongs to liquid phase
