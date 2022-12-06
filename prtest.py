@@ -15,7 +15,7 @@ H2O = pp.composite.H2O(M.ad_system)
 M.add_component(H2O)
 
 temperature = 400
-pressure = 20
+pressure = 10
 
 sys.set_var_values(H2O.fraction_name, 1 * vec, True)
 sys.set_var_values(M.T_name, temperature * vec, True)
