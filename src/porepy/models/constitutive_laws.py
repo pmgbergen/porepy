@@ -329,6 +329,25 @@ class FluidDensityFromPressure:
             Fluid density as a function of pressure.
 
         """
+        # The reference density is taken from the fluid constants..
+        rho_ref = Scalar(self.fluid.density(), "reference_fluid_density")
+        rho = rho_ref * self.pressure_exponential(subdomains)
+        rho.set_name("fluid_density")
+        return rho
+
+    def pressure_exponential(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Exponential term in the fluid density as a function of pressure.
+
+        Extracted as a separate method to allow for easier combination with temperature
+        dependent fluid density.
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Exponential term in the fluid density as a function of pressure.
+
+        """
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
 
         # Reference variables are defined in a variables class which is assumed
@@ -337,15 +356,58 @@ class FluidDensityFromPressure:
 
         # Wrap compressibility from fluid class as matrix (left multiplication with dp)
         c = self.fluid_compressibility(subdomains)
+        return exp(c * dp)
 
+
+class FluidDensityFromTemperature:
+    def fluid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Fluid density as a function of temperature.
+
+        .. math::
+            \\rho = \\rho_0 \\exp \\left[-c_T\\left(T - T_0\\right) \\right]
+
+        with :math:`\\rho_0` the reference density, :math:`T_0` the reference
+        temperature, :math:`c_T` the thermal expansion and :math:`T` the pressure.
+
+        The reference density and the thermal expansion are taken from the fluid
+        constants, while the reference temperature is accessible by mixin; a typical
+        implementation will provide this in a variable class.
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Fluid density as a function of temperature.
+
+        """
         # The reference density is taken from the fluid constants..
         rho_ref = Scalar(self.fluid.density(), "reference_fluid_density")
-        rho = rho_ref * exp(c * dp)
+        rho = rho_ref * self.temperature_exponential(subdomains)
         rho.set_name("fluid_density")
         return rho
 
+    def temperature_exponential(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Exponential term in the fluid density as a function of pressure.
 
-class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
+        Extracted as a separate method to allow for easier combination with temperature
+        dependent fluid density.
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Exponential term in the fluid density as a function of pressure.
+
+        """
+        exp = pp.ad.Function(pp.ad.exp, "density_exponential")
+
+        # Reference variables are defined in a variables class which is assumed
+        # to be available by mixin.
+        dtemp = self.perturbation_from_reference("temperature", subdomains)
+        return exp(Scalar(-1) * self.fluid.thermal_expansion() * dtemp)
+
+
+class FluidDensityFromPressureAndTemperature:
     """Fluid density which is a function of pressure and temperature."""
 
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
@@ -354,33 +416,34 @@ class FluidDensityFromPressureAndTemperature(FluidDensityFromPressure):
         """Fluid density as a function of pressure and temperature.
 
         .. math::
-              \\rho = \\rho_0 \\exp \\left[ c_p \\left(p - p_0\\right) \\right]\\left(-(T - T_0)\\right)/c_T \\right)
+            \\rho = \\rho_0 \\exp \\left[ c_p \\left(p - p_0\\right)
+            - c_T\\left(T - T_0\\right) \\right]
 
-          with :math:`\\rho_0` the reference density, :math:`p_0` the reference pressure,
-          :math:`c_p` the compressibility, :math:`p` the pressure, :math:`T` the temperature,
-          :math:`T_0` the reference temperature, and :math:`c_T` the thermal expansion
-          coefficient.
+        with :math:`\\rho_0` the reference density, :math:`p_0` the reference pressure,
+        :math:`c_p` the compressibility, :math:`p` the pressure, :math:`T` the
+        temperature, :math:`T_0` the reference temperature, and :math:`c_T` the thermal
+        expansion coefficient.
 
-          The reference density, the compressibility and the thermal expansion coefficient
-          are all taken from the fluid constants, while the reference pressure and
-          temperature are accessible by mixin; a typical implementation will provide this
-          in a variable class.
+        The reference density, the compressibility and the thermal expansion coefficient
+        are all taken from the fluid constants, while the reference pressure and
+        temperature are accessible by mixin; a typical implementation will provide this
+        in a variable class.
 
           Parameters:
               subdomains: List of subdomain grids.
 
           Returns:
-              Fluid density as a function of pressure.
+              Fluid density as a function of pressure and temperature.
 
         """
-        # Get the pressure part of the density function from the super class.
-        rho = super().fluid_density(subdomains)
+        rho_ref = Scalar(self.fluid.density(), "reference_fluid_density")
 
-        # Next the temperature part. Note the minus sign, which makes density decrease
-        # with increasing temperature.
-        exp = pp.ad.Function(pp.ad.exp, "density_exponential")
-        dtemp = self.perturbation_from_reference("temperature", subdomains)
-        rho = rho * exp(-dtemp / self.fluid.thermal_expansion())
+        rho = (
+            rho_ref
+            * self.pressure_exponential(subdomains)
+            * self.temperature_exponential(subdomains)
+        )
+        rho.set_name("fluid_density_from_pressure_and_temperature")
         return rho
 
 
@@ -621,6 +684,36 @@ class DarcysLaw:
         return normals * self.vector_source(interfaces, material=material)
 
 
+class ThermalExpansion:
+    """Thermal expansion coefficients for the fluid and the solid."""
+
+    def fluid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Thermal expansion of the fluid.
+
+        Parameters:
+            subdomains: List of subdomains where the thermal expansion is defined.
+
+        Returns:
+            Thermal expansion of the fluid in 1/Kelvin.
+
+        """
+        val = self.fluid.thermal_expansion()
+        return Scalar(val, "fluid_thermal_expansion")
+
+    def solid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Thermal expansion of the solid.
+
+        Parameters:
+            subdomains: List of subdomains where the thermal expansion is defined.
+
+        Returns:
+            Thermal expansion of the solid in 1/Kelvin.
+
+        """
+        val = self.solid.thermal_expansion()
+        return Scalar(val, "solid_thermal_expansion")
+
+
 class ThermalConductivityLTE:
     """Thermal conductivity in the local thermal equilibrium approximation."""
 
@@ -676,7 +769,7 @@ class ThermalConductivityLTE:
         SecondOrderTensor and passed as a discretization parameter.
 
         Parameters:
-            subdomain: Subdomain where the thurmal conductivity is defined.
+            subdomain: Subdomain where the thermal conductivity is defined.
 
         Returns:
             Cell-wise conducivity tensor.
@@ -684,7 +777,14 @@ class ThermalConductivityLTE:
         """
         assert len(subdomains) == 1, "Only one subdomain is allowed."
         size = subdomains[0].num_cells
+
         phi = self.porosity(subdomains)
+        try:
+            phi.evaluate(self.equation_system)
+        except KeyError:
+            # We assume this means that the porosity includes a discretization matrix
+            # which has not yet been computed.
+            phi = self.reference_porosity(subdomains)
         conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
             Scalar(1) - phi
         ) * self.solid_thermal_conductivity(subdomains)
@@ -709,14 +809,8 @@ class ThermalConductivityLTE:
             Operator representing normal thermal conductivity on the interfaces.
 
         """
-        # Porosity weighting inherited from lower-dimensional neighbor
-        subdomains = self.interfaces_to_subdomains(interfaces)
-
-        phi = self.porosity(subdomains)
-        conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
-            Scalar(1) - phi
-        ) * self.solid_thermal_conductivity(subdomains)
-        return conductivity
+        val = self.fluid.normal_thermal_conductivity()
+        return Scalar(val, "normal_thermal_conductivity")
 
 
 class FouriersLaw:
@@ -1149,6 +1243,33 @@ class LinearElasticMechanicalStress:
         stress.set_name("mechanical_stress")
         return stress
 
+    def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Fracture stress on interfaces.
+
+        Parameters:
+            interfaces: List of interfaces where the stress is defined.
+
+        Returns:
+            Fracture stress operator.
+
+        """
+        for interface in interfaces:
+            assert interface.dim == self.nd - 1
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        fracture_subdomains = [sd for sd in subdomains if sd.dim == self.nd - 1]
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, self.nd
+        )
+        traction = (
+            mortar_projection.sign_of_mortar_sides
+            * mortar_projection.secondary_to_mortar_int
+            * self.subdomain_projections(self.nd).cell_prolongation(fracture_subdomains)
+            * self.local_coordinates(fracture_subdomains).transpose()
+            * self.contact_traction(fracture_subdomains)
+        )
+        traction.set_name("mechanical_fracture_stress")
+        return traction
+
 
 class PressureStress:
     """Stress tensor from pressure.
@@ -1190,7 +1311,25 @@ class PressureStress:
         stress.set_name("pressure_stress")
         return stress
 
-    def interface_pressure_stress(
+    def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Fracture stress on interfaces.
+
+        Parameters:
+            interfaces: List of interfaces where the stress is defined.
+
+        Returns:
+            Poromechanical stress operator on matrix-fracture interfaces.
+
+        """
+        if not all([intf.dim == self.nd - 1 for intf in interfaces]):
+            raise ValueError("Interfaces must be of dimension nd - 1.")
+        traction = super().fracture_stress(interfaces) + self.fracture_pressure_stress(
+            interfaces
+        )
+        traction.set_name("poro_mechanical_fracture_stress")
+        return traction
+
+    def fracture_pressure_stress(
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Pressure contribution to stress tensor on fracture-matrix interfaces.
@@ -1204,9 +1343,8 @@ class PressureStress:
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-        # Outwards normals. Scaled by face areas for FV formulation.
         outwards_normal = self.outwards_internal_boundary_normals(
-            interfaces, dim=self.nd, unitary=False
+            interfaces, unitary=True
         )
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
@@ -1217,7 +1355,66 @@ class PressureStress:
             * mortar_projection.secondary_to_mortar_avg
             * self.pressure(subdomains)
         )
-        stress.set_name("interface_pressure_stress")
+        stress.set_name("fracture_pressure_stress")
+        return stress
+
+
+class ThermoPressureStress(PressureStress):
+    """Stress tensor from pressure and temperature.
+
+    To be used in thermoporomechanical problems.
+
+    .. note::
+            This class assumes both pressure and temperature stresses. To avoid having
+            to discretize twice, the pressure stress is discretized with a Mpsa
+            discretization, while the temperature stress computed as a scaled version of
+            the pressure stress. If pure thermomechanical problems are to be solved, a
+            different class must be used for the temperature stress.
+    """
+
+    temperature: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Temperature variable. Should be defined in the class inheriting from this
+    mixin."""
+    reference_temperature: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Reference temperature. Should be defined in the class inheriting from this
+    mixin."""
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Biot coefficient. Should be defined in the class inheriting from this mixin."""
+    thermal_expansion: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Thermal expansion coefficient. Should be defined in the class inheriting from
+    this mixin."""
+
+    def thermal_stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Temperature contribution to stress tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Temperature stress operator.
+
+        """
+        for sd in subdomains:
+            assert sd.dim == self.nd
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+        alpha = self.biot_coefficient(subdomains)
+        beta = self.solid_thermal_expansion(subdomains)
+        k = self.bulk_modulus(subdomains)
+        # Check that both are scalar. Else, the scaling may not be correct.
+        assert isinstance(alpha, pp.ad.Scalar)
+        assert isinstance(beta, pp.ad.Scalar)
+        # The thermal stress should be multiplied by beta and k. Divide by alpha to
+        # cancel that factor from the discretization matrix.
+        stress: pp.ad.Operator = (
+            beta
+            * k
+            / alpha
+            * (
+                discr.grad_p * self.temperature(subdomains)
+                - discr.grad_p * self.reference_temperature(subdomains)
+            )
+        )
+        stress.set_name("thermal_stress")
         return stress
 
 
@@ -1243,8 +1440,9 @@ class LinearElasticSolid(LinearElasticMechanicalStress, ConstantSolidDensity):
     """Linear elastic properties of a solid.
 
     Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
-    parameters (bulk_modulus, lame_mu, poisson_ratio). The latter are computed from the former.
-    Also provides a method for computing the stiffness matrix as a FourthOrderTensor.
+    parameters (bulk_modulus, lame_mu, poisson_ratio). The latter are computed from the
+    former. Also provides a method for computing the stiffness matrix as a
+    FourthOrderTensor.
     """
 
     def shear_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -1569,6 +1767,52 @@ class PoroMechanicsPorosity:
         )
         div_u.set_name("div_u")
         return div_u
+
+
+class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
+    """Add thermal effects to matrix porosity."""
+
+    def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise porosity operator [-].
+
+        """
+        # Poromechanical porosity.
+        phi = super().matrix_porosity(subdomains)
+        # Subtract contribution from thermal expansion.
+        phi -= self.thermal_expansion_porosity(
+            subdomains
+        ) * self.perturbation_from_reference("temperature", subdomains)
+        phi.set_name("thermo_poromechanics_porosity")
+        return phi
+
+    def thermal_expansion_porosity(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Thermal porosity expansion [-].
+
+        TODO: Discuss cf. Coussy p. 73. Not sure about the interpretation of alpha_phi.
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise thermal porosity expansion operator [-].
+
+        """
+        if not all([sd.dim == self.nd for sd in subdomains]):
+            raise ValueError("Subdomains must be of dimension nd.")
+        phi_ref = self.reference_porosity(subdomains)
+        beta = self.solid_thermal_expansion(subdomains)
+        phi = (Scalar(1) - phi_ref) * beta
+        phi.set_name("thermal_porosity_expansion")
+        return phi
 
 
 def boundary_values_from_operator(
