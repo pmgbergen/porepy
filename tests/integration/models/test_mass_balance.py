@@ -7,7 +7,7 @@ import pytest
 import porepy as pp
 from porepy.models.constitutive_laws import ad_wrapper
 
-from .setup_utils import MassBalanceCombined
+from .setup_utils import MassBalance
 
 
 class BoundaryConditionLinearPressure:
@@ -77,7 +77,7 @@ class BoundaryConditionLinearPressure:
         return ad_wrapper(np.hstack(values), True, name="bc_values_mobrho")
 
 
-class LinearModel(BoundaryConditionLinearPressure, MassBalanceCombined):
+class LinearModel(BoundaryConditionLinearPressure, MassBalance):
     pass
 
 

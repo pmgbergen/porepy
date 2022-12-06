@@ -7,7 +7,7 @@ import pytest
 import porepy as pp
 from porepy.models.constitutive_laws import ad_wrapper
 
-from .setup_utils import EnergyBalanceCombined
+from .setup_utils import MassAndEnergyBalance
 from .test_mass_balance import BoundaryConditionLinearPressure
 
 
@@ -75,7 +75,7 @@ class BoundaryCondition(BoundaryConditionLinearPressure):
         return bc_values
 
 
-class Combined(BoundaryCondition, EnergyBalanceCombined):
+class EnergyBalanceTailoredBCs(BoundaryCondition, MassAndEnergyBalance):
     pass
 
 
@@ -96,12 +96,13 @@ class Combined(BoundaryCondition, EnergyBalanceCombined):
         ),
     ],
 )
-def test_advection_and_diffusion_dominated(fluid_vals, solid_vals):
+def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     """Test that the pressure solution is linear.
 
     With constant density (zero compressibility) and the specified boundary conditions,
     the pressure solution should be linear, i.e., ::math::
-        p = 1 - x v_x = 1 * k.
+        p = 1 - x
+        v_x = 1 * k / x_max
 
     We test one advection dominated and one diffusion dominated case. For the former,
     the influx is approx. w_in = v_x * specific_heat_capacity, yielding an added energy
@@ -126,7 +127,7 @@ def test_advection_and_diffusion_dominated(fluid_vals, solid_vals):
     }
 
     # Create model and run simulation
-    setup = Combined(params)
+    setup = EnergyBalanceTailoredBCs(params)
     pp.run_time_dependent_model(setup, params)
 
     if solid_vals["thermal_conductivity"] > 1:

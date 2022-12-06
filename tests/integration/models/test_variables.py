@@ -22,6 +22,16 @@ from .setup_utils import model
         ("energy_balance", "temperature", []),
         ("energy_balance", "interface_enthalpy_flux", []),
         ("energy_balance", "interface_fourier_flux", []),
+        ("poromechanics", "displacement", [0]),
+        ("poromechanics", "interface_displacement", []),
+        ("poromechanics", "contact_traction", [1]),
+        ("poromechanics", "pressure", [0]),
+        ("thermoporomechanics", "displacement", [0]),
+        ("thermoporomechanics", "interface_displacement", []),
+        ("thermoporomechanics", "temperature", []),
+        ("thermoporomechanics", "contact_traction", [1]),
+        ("thermoporomechanics", "pressure", [0]),
+        ("thermoporomechanics", "interface_enthalpy_flux", []),
     ],
 )
 def test_parse_variables(model_type, variable_name, domain_inds):
@@ -66,6 +76,3 @@ def test_parse_variables(model_type, variable_name, domain_inds):
     scalar = pp.ad.Scalar(1)
     op_2 = scalar * op
     op_2.evaluate(setup.equation_system)
-
-
-test_parse_variables("mass_balance", "pressure", [0])

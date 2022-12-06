@@ -7,7 +7,7 @@ import pytest
 import porepy as pp
 from porepy.models.constitutive_laws import ad_wrapper
 
-from .setup_utils import MomentumBalanceCombined
+from .setup_utils import MomentumBalance
 
 
 class BoundaryConditionsDirNorthSouth:
@@ -58,7 +58,7 @@ class BoundaryConditionsDirNorthSouth:
         return ad_wrapper(np.hstack(values), True, name="bc_values_mechnics")
 
 
-class LinearModel(BoundaryConditionsDirNorthSouth, MomentumBalanceCombined):
+class LinearModel(BoundaryConditionsDirNorthSouth, MomentumBalance):
     pass
 
 
