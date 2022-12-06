@@ -29,7 +29,22 @@ class SingleFracture2d(pp.ModelGeometry):
     def set_fracture_network(self):
         pts = np.array([[0, 0.5], [0.5, 0.5]])
         edges = np.array([[0], [1]])
-        domain = pp.grids.standard_grids.utils.unit_domain(2)
+        domain = pp.SquareDomain([1, 1])
+        self.fracture_network = pp.FractureNetwork2d(pts, edges, domain)
+
+
+class TwoFractures2d(SingleFracture2d):
+    """Two fractures in 2d with unstructured simplex mesh.
+
+    One fracture is horizontal, the other is tilted (both x and y are non-zero).
+    """
+
+    def set_fracture_network(self):
+        # The first fracture extends from (0, 0.5) to (0.7, 0.5).
+        # The second fractures extends from (0.3, 0.3) to (0.7, 0.7).
+        pts = np.array([[0, 0.7, 0.3, 0.7], [0.5, 0.5, 0.3, 0.7]])
+        edges = np.array([[0, 2], [1, 3]])
+        domain = pp.SquareDomain([1, 1])
         self.fracture_network = pp.FractureNetwork2d(pts, edges, domain)
 
 
@@ -38,6 +53,7 @@ class ThreeFractures3d(SingleFracture2d):
 
     ambient_dimension: int = 3
     """Used to compare to the nd attribute assigned internally."""
+
     num_fracs: int = 3
     """Used to compare to the size of the fracture network assigned internally."""
 
@@ -47,21 +63,18 @@ class ThreeFractures3d(SingleFracture2d):
         pts1 = [coords[0], coords[1], coords[1], coords[0]]
         pts2 = [0.5, 0.5, 0.5, 0.5]
         fracs = [
+            # A fracture with vertices (0, 0, 0.5), (0, 1, 0.5), (1, 1, 0.5), (1, 0, 0.5)
             pp.PlaneFracture(np.array([pts0, pts1, pts2])),
+            # A fracture with vertexes (0.5, 0, 0), (0.5, 0, 1), (0.5, 1, 1), (0.5, 1, 0)
             pp.PlaneFracture(np.array([pts2, pts0, pts1])),
+            # A fracture with vertexes (0, 0.5, 0), (1, 0.5, 0), (1, 0.5, 1), (0, 0.5, 1)
             pp.PlaneFracture(np.array([pts1, pts2, pts0])),
         ]
-        domain = pp.grids.standard_grids.utils.unit_domain(3)
+        domain = pp.CubeDomain([1, 1, 1])
         self.fracture_network = pp.FractureNetwork3d(fracs, domain)
 
 
-class BaseWithUnits(pp.ModelGeometry):
-    """ModelGeometry.set_md_geometry requires a units attribute."""
-
-    units: pp.Units = pp.Units()
-
-
-geometry_list = [BaseWithUnits, SingleFracture2d, ThreeFractures3d]
+geometry_list = [BaseWithUnits, SingleFracture2d, TwoFractures2d, ThreeFractures3d]
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
@@ -111,7 +124,123 @@ def test_boundary_sides(geometry_class):
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_subdomain_interface_methods(geometry_class: pp.ModelGeometry) -> None:
+def test_wrap_grid_attributes(geometry_class: type[pp.ModelGeometry]) -> None:
+    """Test that the grid attributes are wrapped correctly.
+
+    The test is based on sending in a list of grids (both subdomains and interfaces)
+    wrap a number of attributes, and check that the attributes are wrapped correctly.
+
+    """
+    geometry = geometry_class()
+    geometry.set_geometry()
+    nd: int = geometry.nd
+
+    # Various combinations of single and many subdomains
+    all_subdomains = geometry.mdg.subdomains()
+    top_subdomain = geometry.mdg.subdomains(dim=geometry.nd)
+    some_subdomains = top_subdomain + geometry.mdg.subdomains(dim=geometry.nd - 1)
+    # An empty list
+    empty_subdomains: list[pp.Grid] = []
+
+    # Various combinations of single and many interfaces
+    all_interfaces = geometry.mdg.interfaces()
+    top_interfaces = geometry.mdg.interfaces(dim=geometry.nd - 1)
+    some_interfaces = top_interfaces + geometry.mdg.interfaces(dim=geometry.nd - 2)
+
+    # Gather all lists of subdomains and all lists of interfaces
+    test_subdomains = [all_subdomains, top_subdomain, some_subdomains, empty_subdomains]
+    test_interfaces = [all_interfaces, top_interfaces, some_interfaces]
+
+    # Equation system, needed for evaluation.
+    eq_system = pp.ad.EquationSystem(geometry.mdg)
+
+    # Test that an error is raised if the grid does not have such an attribute
+    with pytest.raises(ValueError):
+        geometry.wrap_grid_attribute(top_subdomain, "no_such_attribute")
+    # Test that the an error is raised if we try to wrap a field which is not an
+    # ndarray.
+    with pytest.raises(ValueError):
+        # This will return a string
+        geometry.wrap_grid_attribute(top_subdomain, "name")
+
+    # One loop for both subdomains and interfaces.
+    for grids in test_subdomains + test_interfaces:
+
+        # Which attributes to test depends on whether the grids are subdomains or
+        # interfaces.
+        if len(grids) == 0 or isinstance(grids[0], pp.MortarGrid):
+            # Also include the empty list here, one attribute should be sufficient to
+            # test that a zero matrix is returned.
+            attr_list = ["cell_centers"]
+            dim_list = [nd]
+        else:
+            # All relevant attributes for subdomain grids
+            attr_list = [
+                "cell_centers",
+                "face_centers",
+                "face_normals",
+                "cell_volumes",
+                "face_areas",
+            ]
+            #  List of dimensions, corresponding to the order in attr_list
+            dim_list = [nd, nd, nd, 1, 1]
+
+        # Loop over attributes and corresponding dimensions.
+        for attr, dim in zip(attr_list, dim_list):
+            # Get hold of the wrapped attribute and the wrapping with inverse=True
+            wrapped_value = geometry.wrap_grid_attribute(grids, attr, dim=dim).evaluate(
+                eq_system
+            )
+            wrapped_value_inverse = geometry.wrap_grid_attribute(
+                grids, attr, dim=dim, inverse=True
+            ).evaluate(eq_system)
+
+            # Check that the wrapped attribute is a matrix
+            # Checking on dia_matrix is true for the current implementation; we may
+            # switch to a different sparse matrix format in the future (although this
+            # seems to EK as a bad idea for efficiency reasons). If so, the test should
+            # be changed.
+            assert isinstance(wrapped_value, sps.dia_matrix)
+            assert isinstance(wrapped_value_inverse, sps.dia_matrix)
+
+            # Check that the matrix have the expected size, which depends on the type
+            # of attribute wrapped (cell or face) and the dimension of the field.
+            size_key = "num_cells" if "cell" in attr else "num_faces"
+            tot_size = sum([getattr(sd, size_key) for sd in grids])
+
+            assert wrapped_value.shape == (tot_size * dim, tot_size * dim)
+            assert wrapped_value_inverse.shape == (tot_size * dim, tot_size * dim)
+
+            # Get hold of the actual attribute values; we know these reside on the
+            # main diagonal.
+            values = wrapped_value.diagonal()
+            values_inverse = wrapped_value_inverse.diagonal()
+
+            # Counter for the current position in the wrapped attribute
+            ind_cc = 0
+
+            # Loop over the grids (be they subdomains or interfaces)
+            for grid in grids:
+                # Get hold of the actual attribute values straight from the grid
+                size = getattr(grid, size_key)
+                # Note the use of 2d here, or else the below accessing of [:dim] would
+                # not work.
+                actual_value = np.atleast_2d(getattr(grid, attr))
+                # Compare values with the wrapped attribute, both usual and inverse.
+                assert np.allclose(
+                    values[ind_cc : ind_cc + size * dim],
+                    actual_value[:dim].ravel("F"),
+                )
+                assert np.allclose(
+                    values_inverse[ind_cc : ind_cc + size * dim],
+                    1 / actual_value[:dim].ravel("F"),
+                )
+                # Move to the new position in the wrapped attribute
+                ind_cc += size * dim
+
+
+@pytest.mark.parametrize("geometry_class", geometry_list)
+def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> None:
     """Test interfaces_to_subdomains and subdomains_to_interfaces.
 
     Parameters:
@@ -151,31 +280,42 @@ def test_subdomain_interface_methods(geometry_class: pp.ModelGeometry) -> None:
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_outwards_normals(geometry_class: pp.ModelGeometry) -> None:
+def test_outwards_normals(geometry_class: type[pp.ModelGeometry]) -> None:
     """Test :meth:`pp.ModelGeometry.outwards_internal_boundary_normals`.
 
     Parameters:
-        geometry_class (pp.ModelGeometry): Class to test.
+        geometry_class: Class to test.
 
     """
+    # Define the geometry
     geometry: pp.ModelGeometry = geometry_class()
     geometry.set_geometry()
     dim = geometry.nd
-
+    # Make an equation system, which is needed for parsing of the Ad operator
+    # representations of the geometry
     eq_sys = pp.EquationSystem(geometry.mdg)
+
+    # First check the method to compute
     interfaces = geometry.mdg.interfaces()
     normal_op = geometry.outwards_internal_boundary_normals(interfaces, unitary=True)
     normals = normal_op.evaluate(eq_sys)
+
+    # The result should be a sparse matrix
+    assert isinstance(normals, sps.spmatrix)
+
     if len(interfaces) == 0:
         # We have checked that the method can handle empty lists (parsable operator).
-        # Check type and entry, then return.
-        assert isinstance(normals, sps.spmatrix)
+        # Check the entry and exit.
         assert np.allclose(normals.A, 0)
         return
+
     diag = normals.diagonal()
     # Check that all off-diagonal entries are zero
     assert np.allclose(np.diag(diag) - normals, 0)
+
+    # Convert the normals into a nd x num_faces array
     normals_reshaped = np.reshape(diag, (dim, -1), order="F")
+
     # Check that the normals are unit vectors
     assert np.allclose(np.linalg.norm(normals_reshaped, axis=0), 1)
 
@@ -199,14 +339,18 @@ def test_outwards_normals(geometry_class: pp.ModelGeometry) -> None:
         e_i = np.zeros(dim).reshape(-1, 1)
         e_i[i] = 1
         # expand to cell-wise column vectors.
-        num_cells = sum([g.num_faces for g in subdomains])
-        mat = sps.kron(sps.eye(num_cells), e_i)
+        num_faces = sum([g.num_faces for g in subdomains])
+        mat = sps.kron(sps.eye(num_faces), e_i)
         face_base.append(pp.ad.Matrix(mat))
+
     cell_base = geometry.basis(subdomains, dim=dim)
+    # Map of vector quantities from subdomain cells to faces
     trace_dim = sum([f * trace.trace * e.T for e, f in zip(cell_base, face_base)])
+    # Map of vector quantities from subdomain faces to cells
     inv_trace_dim = sum(
         [e * trace.inv_trace * f.T for e, f in zip(cell_base, face_base)]
     )
+
     vec = (
         interface_cell_centers
         - mortar_projection.primary_to_mortar_avg
