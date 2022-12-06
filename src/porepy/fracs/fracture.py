@@ -38,7 +38,7 @@ class Fracture(abc.ABC):
         self.pts: np.ndarray = np.asarray(points, dtype=np.float64)
         """Fracture vertices (shape=(nd, num_points)), stored in the implemented order.
 
-        Note that the passed ``points`` will mutate.
+        Note that the ``points`` passed to init will mutate.
 
         """
         self._check_pts()
@@ -48,11 +48,11 @@ class Fracture(abc.ABC):
             self.sort_points()
 
         self.normal: np.ndarray = self.compute_normal()
-        """Normal vector (shape=(nd, ))."""
+        """Normal vector `(shape=(nd, ))`."""
         self.center: np.ndarray = self.compute_centroid()
-        """Centroid of the fracture (shape=(nd, ))."""
+        """Centroid of the fracture `(shape=(nd, ))`."""
         self.orig_pts: np.ndarray = self.pts.copy()
-        """Original fracture vertices (shape=(nd, num_points)).
+        """Original fracture vertices `(shape=(nd, num_points))`.
 
          The original points are kept in case the fracture geometry is modified.
 
@@ -61,8 +61,9 @@ class Fracture(abc.ABC):
         self.index: Optional[int] = index
         """Index of fracture.
 
-        Intended use in FractureNetwork. Exact use is not clear (several fractures can
-        be given same index), use it with care.
+        Intended use in :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`
+        and :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`. Exact use is
+        not clear (several fractures can be given same index), use with care.
 
         """
 
@@ -108,7 +109,7 @@ class Fracture(abc.ABC):
         """Generator over the vertices of the fracture.
 
         Yields:
-            Fracture vertex (shape=(nd, )).
+            Fracture vertex `(shape=(nd, ))`.
 
         """
         for i in range(self.pts.shape[1]):
@@ -118,7 +119,7 @@ class Fracture(abc.ABC):
         """Generator over the segments according to the currently applied order.
 
         Yields:
-            Fracture segment (shape=(nd, 2)).
+            Fracture segment `(shape=(nd, 2))`.
 
         """
         sz = self.pts.shape[1]
@@ -131,18 +132,21 @@ class Fracture(abc.ABC):
         """Check whether a given point is a vertex of the fracture.
 
         Parameters:
-            p (shape=(nd, )): Point to be checked. tol: Tolerance of point accuracy.
-            Default is 1e-4.
+            p (shape=(nd, )): Point to be checked.
+            tol: Tolerance of point accuracy. Default is 1e-4.
 
         Returns:
-            A tuple containing ``is_vertex`` and ``index``, where ``is_vertex`` is a
-            boolean indicating whether the point is a vertex. If the point is a vertex,
-            ``index`` gives the position of ``p`` in :attr:`pts`.
+            A tuple containing
+
+            bool:
+                Indicates whether the point is a vertex.
+            ndarray:
+                Gives the position of ``p`` in :attr:`pts` if the point is a vertex.
+                Else, None is returned.
 
         """
-        p = p.reshape((-1, 1))
+        p: np.ndarray = p.reshape((-1, 1))
         ap = np.hstack((p, self.pts))
-        # TODO check if sqrt(3) is too much for other fractures than planes
         up, _, ind = setmembership.unique_columns_tol(ap, tol=tol * np.sqrt(3))
 
         # If the unique-operation did not remove any points, it is not a vertex.
@@ -171,7 +175,7 @@ class Fracture(abc.ABC):
         """Abstract method to sort the vertices as needed for geometric algorithms.
 
         Returns:
-            Array of integers containing the indices corresponding to the sorting.
+            Array of integer indices corresponding to the sorting.
 
         """
         pass
@@ -181,11 +185,11 @@ class Fracture(abc.ABC):
         """Abstract method for computing the local coordinates.
 
         The compuation is performed on the vertex coordinates in a local system and its
-        local dimension ``d`` is assumed to be ``d = nd - 1``, i.e. the fracture has
-        co-dimension 1.
+        local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e. the fracture
+        has co-dimension 1.
 
         Returns:
-            Coordinates of the vertices in local dimensions, shape (d, num_points).
+            Coordinates of the vertices in local dimensions `(shape=(d, num_points))`.
 
         """
         pass
@@ -209,7 +213,7 @@ class Fracture(abc.ABC):
         """Abstract method for checking consistency of :attr:`pts`.
 
         Raises:
-            ValueError if self.pts violates some assumptions (e.g. shape).
+            ValueError if :attr:`pts` violates some assumptions (e.g. shape).
 
         """
         pass
