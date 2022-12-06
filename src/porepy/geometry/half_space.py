@@ -28,9 +28,9 @@ def point_inside_half_space_intersection(
             half-spaces or not.
 
     Returns:
-        A logical array with length equal number of pts.
-        out[i] is True if pts[:,i] is in all half-spaces
-
+        A logical array with ``shape=(np, )``.
+        ``out[i]`` is True if ``pts[:, i]`` is in all half-spaces.
+        
     """
     assert n.shape[0] == 3, " only 3D supported"
     assert x0.shape[0] == 3, " only 3D supported"
@@ -70,6 +70,7 @@ def half_space_interior_point(
             aj*(x1/x4)+bj*(x2/x4)+cj*(x3/x4)+dj<=(-x5/x4) j=1..num_planes
 
         and
+            
              (-x5/x4)<0,
 
         and conclude that the point [x1/x4,x2/x4,x3/x4] is in the interior of all
@@ -78,17 +79,17 @@ def half_space_interior_point(
         http://www.qhull.org/html/qhalf.htm#notes
 
     Parameters:
-        n (shape = (3, num_planes)): This is the normal vectors of the half planes. The normal vectors
+        n (shape=(3, num_planes)): This is the normal vectors of the half planes. The normal vectors
             are assumed to be coherently oriented for all the half spaces
             (inward or outward).
-        x0 (shape = (3, num_planes)): Point on the boundary of the half-spaces. Half space i is given
+        x0 (shape=(3, num_planes)): Point on the boundary of the half-spaces. Half space i is given
             by all points satisfying (x - x0[:, i]) * n[:, i] <= 0
-        pts (shape = (3, num_points)): Points used to bound the search space for interior point. The optimum
+        pts (shape=(3, np)): Points used to bound the search space for interior point. The optimum
             solution will be sought within (pts.min(axis=1), pts.max(axis=1)).
-        recompute (bool): If the algorithm fails try again with flipped normals.
+        recompute: If the algorithm fails, try again with flipped normals.
 
     Returns:
-        Interior point of the halfspaces with length equal number of pts
+        Interior point of the halfspaces with ``shape=(np, )``.
 
     """
     import scipy.optimize as opt
@@ -129,16 +130,16 @@ def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
         The function has been tested for 2d and 3d domains.
 
     Parameters:
-        A (shape = (num_planes, num_dim)): Matrix of normal vectors (in rows) for the half planes. Should be oriented
+        A (shape=(num_planes, nd)): Matrix of normal vectors (in rows) for the half planes. Should be oriented
             so that A * x + b < 0
-        b (len = num_planes): Constants used to define inequalities of the half spaces. Should be scaled
+        b (len=num_planes): Constants used to define inequalities of the half spaces. Should be scaled
             so that A * x + b < 0.
             
     Returns:
-        Vertexes of a convex domain 
+        Vertexes of a convex domain.
     
     Raises: 
-        QhullError: If A and b are not set up right (e.g. sign errors that imply that the inequalities do not form a closed domain).     
+        QhullError: QhullError: If ``A`` and ``b`` are not set up right (e.g. sign errors that imply that the inequalities do not form a closed domain).     
         
     """
     b = b.reshape((-1, 1))
