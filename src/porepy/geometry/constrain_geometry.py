@@ -22,23 +22,22 @@ def lines_by_polygon(
     (x, y).
 
     Parameters:
-        poly_pts (shape=(nd, num_points)): points that define the polygon.
-        pts (shape=(nd, num_points)): points associated to the lines.
-        edges (shape=(2, num_points)): for each column the id of the points for the
-            line.
+        poly_pts (shape=(nd, np)): points that define the polygon.
+        pts (shape=(nd, np)): points associated to the lines.
+        edges (shape=(2, np)): for each column the id of the points for the line.
 
     Returns:
         A tuple with three elements.
 
-        ndarray ``(shape=(2, num_points))``:
+        ndarray ``(shape=(2, np))``:
             Points associated to the lines after the intersection.
 
-        ndarray ``(shape=(2, num_points) dtype=int)``:
+        ndarray ``(shape=(2, np), dtype=int)``:
             For each column the id of the points for the line after the intersection.
-            If the input edges have tags, stored in rows [2:], these will be
+            If the input edges have tags, stored in ``rows[2:]``, these will be
             preserved.
 
-        ndarray ``(shape=(num_points, ), dtype=int)``:
+        ndarray ``(shape=(np, ), dtype=int)``:
             Column index of the kept edges. This will have recurring values if an
             edge is cut by a non-convex domain.
 
@@ -111,9 +110,9 @@ def polygons_by_polyhedron(
     non-convex polyhedra, polygons can be split in several parts.
 
     Parameters:
-        polygons: Each element is an array of `shape=(3, num_vertex)`, describing the
+        polygons: Each element is an array of ``shape=(3, num_vertex)``, describing the
             vertexes of a polygon.
-        polyhedron: Each element is an array of `shape=(3, num_vertex)`, describing the
+        polyhedron: Each element is an array of ``shape=(3, num_vertex)``, describing the
             vertexes of the polygons that together form the polygon.
         tol: Tolerance used to compare points.
 
@@ -121,8 +120,7 @@ def polygons_by_polyhedron(
         A tuple with two elements.
 
         list of ndarray:
-            Polygons lying inside the polyhedra. Each array has
-            ``shape=(3, num_vertex)``.
+            Polygons lying inside the polyhedra. Each array has ``shape=(3, num_vertex)``.
 
         ndarray ``(shape=(num_polygons, ), dytpe=int)``:
             For each constrained polygon, corresponding list of its original polygon.
@@ -590,19 +588,19 @@ def snap_points_to_segments(
     coordinates.
 
     Parameters:
-        p_edges (shape=(nd, num_points)): Points defining endpoints of segments.
+        p_edges (shape=(nd, np)): Points defining endpoints of segments.
 
         edges (shape=(2, num_edges)): Connection between lines in ``p_edges``. If
             ``edges.shape[0] > 2``, the extra rows are ignored.
 
         tol: Tolerance for snapping, points that are closer will be snapped.
 
-        p_to_snap (shape=(nd, num_points_to_snap)): The points to snap. If not
+        p_to_snap (shape=(nd, np_to_snap)): The points to snap. If not
             provided, ``p_edges`` will be snapped, that is, the lines will be modified.
 
     Returns:
         A copy of ``p_to_snap`` (or ``p_edges``) with modified coordinates of
-        ``shape=(nd, num_points_to_snap)``.
+        ``shape=(nd, np_to_snap)``.
 
     """
 
