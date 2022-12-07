@@ -37,14 +37,8 @@ def segments_2d(
 
     a line segment is returned instead of an intersection point.
 
-    Note:
-        Opposed to other functions related to grid generation such as
-        remove_edge_crossings, this function does not use the concept of snap_to_grid.
-        This may  cause problems at some point, although no issues have been discovered
-        so far.
-
     Todo:
-        This function can be replaced by a call to segments_3d.
+        This function can be replaced by a call to :meth:`segments_3d`.
 
     Example:
         >>> segments_2d([0, 0], [1, 1], [0, 1], [1, 0])
@@ -53,7 +47,7 @@ def segments_2d(
 
         >>> segments_2d([0, 0], [1, 1], [0, 0], [2, 2])
         array([[0., 1.],
-            [0., 1.]])
+               [0., 1.]])
 
         >>> segments_2d([0, 0], [1, 0], [0, 1], [1, 1]) is None
         True
@@ -182,12 +176,6 @@ def segments_3d(
 ) -> Optional[np.ndarray]:
     """Find intersection points (or segments) of two 3d lines.
 
-    Note:
-        Opposed to other functions related to grid generation, such as
-        remove_edge_crossings, this function does not use the concept of snap_to_grid.
-        This may cause problems at some point, although no issues have been discovered
-        so far.
-
     Parameters:
         start_1: Coordinates of start point for first line.
         end_1: Coordinates of end point for first line.
@@ -271,11 +259,10 @@ def segments_3d(
 
     # Either the lines are parallel in two directions
     if np.abs(discr) < tol:
-        # If the lines are (almost) parallel, there is no single intersection,
-        # but it may be a segment
+        # If the lines are (almost) parallel, there is no single intersection, but it
+        # may be a segment.
 
-        # First check if the third dimension is also parallel, if not, no
-        # intersection
+        # First check if the third dimension is also parallel, if not, no intersection.
 
         # A first, simple test
         if np.any(mask_1 != mask_2):
@@ -303,10 +290,10 @@ def segments_3d(
         if np.abs(dstart_x_delta_z) > tol:
             return None
 
-        # For dimensions with an incline, the vector between segment start
-        # points should be parallel to the segments.
-        # Since the masks are equal, we can use any of them.
-        # For dimensions with no incline, the start coordinates should be the same
+        # For dimensions with an incline, the vector between segment start points should
+        # be parallel to the segments. Since the masks are equal, we can use any of
+        # them. For dimensions with no incline, the start coordinates should be the
+        # same.
         if not np.allclose(start_1[~mask_1], start_2[~mask_1], tol):
             return None
 
@@ -358,7 +345,7 @@ def segments_3d(
             - deltas_1[in_discr[1]] * (start_2[in_discr[0]] - start_1[in_discr[0]])
         ) / discr
 
-        # Check that we are on line segment
+        # Check that we are on the line segment
         if t_1 < 0 or t_1 > 1 or t_2 < 0 or t_2 > 1:
             return None
 
@@ -414,7 +401,7 @@ def polygons_3d(
             intersection. This is an experimental feature, use with care.
 
     Returns:
-        Returns a tuple consisting of
+        Returns a tuple consisting of:
 
         ndarray ``(shape=(3, np))``:
             Intersection coordinates.
@@ -1413,7 +1400,6 @@ def segments_polygon(
         >>> end = np.array([0.5, 0.5, 0.5])
         >>> poly = np.array([[0, 1, 1, 0], [0, 0, 1, 1], [0, 0, 0, 0]])
         >>> is_cross, pt = pp.intersections.segments_polygon(start, end, poly)
-
         >>> print(is_cross)
         >>> print(pt)
 
@@ -1506,16 +1492,16 @@ def segments_polyhedron(
     Returns:
         A tuple consisting of
 
-        ndarray ``(len=num_segments)``:
+        ndarray ``(shape=(num_segments,))``:
             Intersection points with the polyhedron, start and end points are not
             included in this list.
-        ndarray ``(len=num_segments)``:
+        ndarray ``(shape=(num_segments,))``:
             Boolean array indicating whether the start of a segment is inside the
             polyhedron.
-        ndarray ``(len=num_segments)``:
+        ndarray ``(shape=(num_segments,))``:
             Boolean array indicating whether the end of a segment is inside the
             polyhedron.
-        ndarray ``(len=num_segments)``:
+        ndarray ``(shape=(num_segments,))``:
             Length percentage of a segment inside the polyhedron.
 
     Example:
@@ -1642,9 +1628,9 @@ def triangulations(
 ) -> list[tuple[int, int, float]]:
     """Compute intersection of two triangle tessellations of a surface.
 
-    The function will identify partly overlapping triangles between t_1 and
-    t_2, and compute their common area. If parts of domain 1 or 2 are covered by
-    one tessellation only, this will simply be ignored by the function.
+    The function will identify partly overlapping triangles between ``t_1`` and ``t_2``,
+    and compute their common area. If parts of domain 1 or 2 are covered by one
+    tessellation only, this will simply be ignored by the function.
 
     Note:
         The function relies on the intersection algorithm in shapely.geometry.Polygon.
@@ -1668,13 +1654,13 @@ def triangulations(
             the common area of the two triangles in the two tessalations.
 
     See also:
-        surface_tessellations()
+        :meth:`surface_tessellations`
 
     """
 
-    # NOTE: Regarding the use of shapely. It may be possible to extend the
-    # functionality to other cell shapes. This would require more general
-    # data structures, but should not be too much of an effort.
+    # NOTE: Regarding the use of shapely. It may be possible to extend the functionality
+    # to other cell shapes. This would require more general data structures, but should
+    # not be too much of an effort.
     import shapely.geometry as shapely_geometry
     import shapely.speedups as shapely_speedups
 
@@ -1716,8 +1702,8 @@ def triangulations(
         for j in range(n_2)
     ]
 
-    # Loop over all triangles in first tessellation, look for overlapping
-    # members in second tessellation
+    # Loop over all triangles in first tessellation, look for overlapping members in
+    # second tessellation
     for i in range(n_1):
         # Polygon representation of the first triangle.
         poly_1 = shapely_geometry.Polygon(
@@ -1755,9 +1741,9 @@ def line_tessellation(
         p1 (shape=(3, n_p1)): Points in first tessellation.
         p2 (shape=(3, n_p2)): Points in second tessellation.
         l1 (shape=(2, n_tri_1)): Line segments in first tessellation, referring
-            to indices in p2.
+            to indices in ``p2``.
         l2 (shape= (2, n_tri_1)): Line segments in second tessellation, referring
-            to indices in p2.
+            to indices in ``p2``.
 
     Returns:
         List of tuples with each representing an overlap. The tuple consists of
@@ -1770,11 +1756,11 @@ def line_tessellation(
             the common length of the two segments in the two tessalations.
 
     Raise:
-        AssertionError: if ``pp.segments_3d`` returns an unknown shape.
+        AssertionError: if ``pp.intersectinos.segments_3d`` returns an unknown shape.
 
     """
-    # Loop over both set of lines, use segment intersection method to compute
-    # common segments, thus areas.
+    # Loop over both set of lines, use segment intersection method to compute common
+    # segments, thus areas.
     intersections: list[list] = []
     for i in range(l1.shape[1]):
         start_1 = p1[:, l1[0, i]]
@@ -1804,9 +1790,6 @@ def surface_tessellations(
     It is assumed that the polygon sets are 2d.
 
     The implementation relies heavily on shapely's intersection finders.
-
-    Note:
-        The implementation is based on shapely.
 
     Parameters:
         poly_sets: Lists of polygons to be intersected.
@@ -2076,13 +2059,12 @@ def split_intersecting_segments_2d(
     """Process a set of points and connections between them so that the result
     is an extended point set and new connections that do not intersect.
 
-    The function is written for gridding of fractured domains, but may be
-    of use in other cases as well. The geometry is assumed to be 2D.
+    The function is written for gridding of fractured domains, but may be of use in
+    other cases as well. The geometry is assumed to be 2D.
 
-    The connections are defined by their start and endpoints, and can also
-    have tags assigned. If so, the tags are preserved as connections are split.
-    The connections are uniquified, so that no combination of point indices
-    occurs more than once.
+    The connections are defined by their start and endpoints, and can also have tags
+    assigned. If so, the tags are preserved as connections are split. The connections
+    are uniquified, so that no combination of point indices occurs more than once.
 
     Note:
         For (partly) overlapping segments, only one of the tags will survive the
@@ -2110,7 +2092,7 @@ def split_intersecting_segments_2d(
             from the unique edges to all edges. To recover lost tags associated with
             the points in column ``i``, first find all original columns which maps
             to ``i`` (``tuple[1] == i``), then recover the tags by the hits.
-        ndarray ``(len=n_edges)``
+        ndarray ``(shape=(n_edges,))``
             mapping of the new edges to the input edges.
 
     """
@@ -2391,23 +2373,23 @@ def _axis_aligned_bounding_box_3d(
     The polygons are specified as a list of numpy arrays.
 
     Parameters:
-        p (entries with shape=(3, n_pt)): Each list element specifies a
-            polygon, described by its vertices in a (3, num_points) array.
+        p (entries with shape=(3, n_pt)): Each list element specifies a polygon,
+            described by its vertices in a ``(3, num_points)`` array.
 
     Returns:
         Tuple consisting of
 
-        ndarray ``(len=n_pt)``:
+        ndarray ``(shape=(n_pt,))``:
             Minimum x-coordinate for all lines.
-        ndarray ``(len=n_pt)``:
+        ndarray ``(shape=(n_pt,))``:
             Maximum x-coordinate for all lines.
-        ndarray ``(len=n_pt)``:
+        ndarray ``(shape=(n_pt,))``:
             Minimum y-coordinate for all lines.
-        ndarray ``(len=n_pt)``:
+        ndarray ``(shape=(n_pt,))``:
             Maximum y-coordinate for all lines.
-        ndarray ``(len=n_pt)``:
+        ndarray ``(shape=(n_pt,))``:
             Minimum z-coordinate for all lines.
-        ndarray ``(len=n_pt)``:
+        ndarray ``(shape=(n_pt,))``:
             Maximum z-coordinate for all lines.
 
     """
@@ -2439,8 +2421,8 @@ def _identify_overlapping_intervals(left: np.ndarray, right: np.ndarray) -> np.n
     overlapping intervals.
 
     Parameters:
-        left (len=num_intervals): Minimum coordinates of the intervals.
-        right (len=num_intervals): Maximum coordinates of the intervals.
+        left (shape=(num_intervals,)): Minimum coordinates of the intervals.
+        right (shape=(num_intervals,)): Maximum coordinates of the intervals.
 
     Note:
         For all corresponding entries in ``left`` and ``right``, ``left <= right``
@@ -2522,13 +2504,13 @@ def _identify_overlapping_rectangles(
 
 
     Parameters:
-        xmin (len=num_rectangles): Minimum coordinates of the rectangle on the
+        xmin (shape=(num_rectangles,)): Minimum coordinates of the rectangle on the
             first axis.
-        xmax (len=num_rectangles): Maximum coordinates of the rectangle on the
+        xmax (shape=(num_rectangles,)): Maximum coordinates of the rectangle on the
             first axis.
-        ymin (len=num_rectangles): Minimum coordinates of the rectangle on the
+        ymin (shape=(num_rectangles,)): Minimum coordinates of the rectangle on the
             second axis.
-        ymax (len=num_rectangles): Maximum coordinates of the rectangle on the
+        ymax (shape=(num_rectangles,)): Maximum coordinates of the rectangle on the
             second axis.
 
     Note:
@@ -2537,13 +2519,12 @@ def _identify_overlapping_rectangles(
 
     Returns:
         Array with shape ``(2, num_overlaps)`` with each column containing a pair of
-        overlapping intervals, refering to their placement in left and right. The
-        pairs are sorted so that the lowest index is in the first column.
+        overlapping intervals, refering to their placement in left and right. The pairs
+        are sorted so that the lowest index is in the first column.
 
     Note:
-        The algorithm was found in 'A fast method for fracture intersection
-        detection in discrete fracture networks' by Dong et al, omputers and
-        Geotechniques 2018.
+        The algorithm was found in 'A fast method for fracture intersection detection in
+        discrete fracture networks' by Dong et al, Computers and Geotechniques 2018.
 
     """
     # There can be no overlaps if there is less than two rectangles
@@ -2619,11 +2600,10 @@ def _intersect_pairs(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
         p2 (shape=(2, m)): Each column contains a pair of indices.
 
     Returns:
-        Array with shape ``(2, k)`` where ``k <= min(n, m)`` with each column
-        containing a pair of indices that are found in both ``p1`` and ``p2``.
-        The array is sorted so that items in the first row is less or equal to
-        the second row. The columns are sorted according to the numbers in the
-        first row.
+        Array with shape ``(2, k)`` where ``k <= min(n, m)`` with each column containing
+        a pair of indices that are found in both ``p1`` and ``p2``. The array is sorted
+        so that items in the first row is less or equal to the second row. The columns
+        are sorted according to the numbers in the first row.
 
     """
     # Special treatment of empty lists

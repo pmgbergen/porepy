@@ -35,7 +35,7 @@ class Fracture(abc.ABC):
         index: Optional[int] = None,
         sort_points: bool = True,
     ):
-        self.pts: np.ndarray = np.asarray(points, dtype=np.float64)
+        self.pts: np.ndarray = np.asarray(points, dtype=float)
         """Fracture vertices (shape=(nd, num_points)), stored in the implemented order.
 
         Note that the ``points`` passed to init will mutate.
@@ -133,7 +133,7 @@ class Fracture(abc.ABC):
 
         Parameters:
             p (shape=(nd, )): Point to be checked.
-            tol: Tolerance of point accuracy. Default is 1e-4.
+            tol: Tolerance of point accuracy. Default is ``1e-4``.
 
         Returns:
             A tuple containing
@@ -145,7 +145,7 @@ class Fracture(abc.ABC):
                 Else, None is returned.
 
         """
-        p: np.ndarray = p.reshape((-1, 1))
+        p = p.reshape((-1, 1))
         ap = np.hstack((p, self.pts))
         up, _, ind = setmembership.unique_columns_tol(ap, tol=tol * np.sqrt(3))
 
@@ -161,7 +161,7 @@ class Fracture(abc.ABC):
 
         Note:
             The original ``points`` (as given when the fracture was initialized) will
-            NOT be preserved.
+            *not* be preserved.
 
         Returns:
             Fracture with the same points.
