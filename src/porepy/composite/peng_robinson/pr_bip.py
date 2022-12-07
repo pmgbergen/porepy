@@ -37,15 +37,12 @@ import porepy as pp
 
 from ..phase import VarLike
 from .pr_model_components import *
+from .pr_utils import _power, _exp
 
 __all__ = [
     "PR_BIP_MAP",
     "get_PR_BIP",
 ]
-
-# ad functions used here
-power = pp.ad.Function(pp.ad.power, "power")
-exp = pp.ad.Function(pp.ad.exp, "exp")
 
 
 def bip_H2O_CO2(T: VarLike, h2o: H2O, co2: CO2) -> pp.ad.Operator:
@@ -193,9 +190,9 @@ def bip_NaClBrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Opera
     exponent_2 = pp.ad.Scalar(0.979)
 
     return (
-        -0.31092 * (1 + 0.15587 * power(molality, exponent_1))
-        + 0.23580 * (1 + 0.17837 * power(molality, exponent_2)) * T_r
-        - 21.2566 * exp(-6.7222 * T_r - molality)
+        -0.31092 * (1 + 0.15587 * _power(molality, exponent_1))
+        + 0.23580 * (1 + 0.17837 * _power(molality, exponent_2)) * T_r
+        - 21.2566 * _exp(-6.7222 * T_r - molality)
     )
 
 
@@ -206,8 +203,8 @@ def dT_bip_NaClBrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Op
     exponent_2 = pp.ad.Scalar(0.979)
 
     return 0.23580 * (
-        1 + 0.17837 * power(molality, exponent_2)
-    ) / co2.critical_temperature() + 21.2566 * exp(-6.7222 * T_r - molality) * (
+        1 + 0.17837 * _power(molality, exponent_2)
+    ) / co2.critical_temperature() + 21.2566 * _exp(-6.7222 * T_r - molality) * (
         6.7222 / co2.critical_temperature()
     )
 
@@ -227,8 +224,8 @@ def bip_NaClBrine_N2(T: VarLike, naclbrine: NaClBrine, n2: N2) -> pp.ad.Operator
     exponent = pp.ad.Scalar(0.75)
 
     return (
-        -1.70235 * (1 + 0.25587 * power(molality, exponent))
-        + 0.44338 * (1 + 0.08126 * power(molality, exponent)) * T_r
+        -1.70235 * (1 + 0.25587 * _power(molality, exponent))
+        + 0.44338 * (1 + 0.08126 * _power(molality, exponent)) * T_r
     )
 
 
@@ -238,7 +235,7 @@ def dT_bip_NaClBrine_N2(T: VarLike, naclbrine: NaClBrine, n2: N2) -> pp.ad.Opera
     exponent = pp.ad.Scalar(0.75)
 
     return (
-        0.44338 * (1 + 0.08126 * power(molality, exponent)) / n2.critical_temperature()
+        0.44338 * (1 + 0.08126 * _power(molality, exponent)) / n2.critical_temperature()
     )
 
 

@@ -13,9 +13,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
-from .pr_utils import A_CRIT, B_CRIT
-
-ad_power = pp.ad.Function(pp.ad.power, "power")
+from .pr_utils import A_CRIT, B_CRIT, _power
 
 
 class PR_Roots:
@@ -115,7 +113,7 @@ class PR_Roots:
     def c0(self) -> pp.ad.Operator:
         """An operator representing the coefficient of the monomial ``Z**0`` in the
         characteristic polynomial."""
-        return ad_power(self.B, pp.ad.Scalar(3)) + self.B * self.B - self.A * self.B
+        return _power(self.B, pp.ad.Scalar(3)) + self.B * self.B - self.A * self.B
 
     @property
     def p(self) -> pp.ad.Operator:
@@ -128,7 +126,7 @@ class PR_Roots:
         """An operator representing the coefficient of the monomial ``Z**0`` of the **reduced**
         characteristic polynomial."""
         return (
-            2 / 27 * ad_power(self.c2, pp.ad.Scalar(3))
+            2 / 27 * _power(self.c2, pp.ad.Scalar(3))
             - self.c2 * self.c1 / 3
             + self.c0
         )
@@ -156,7 +154,7 @@ class PR_Roots:
             unclear as of now.
 
         """
-        return self.q * self.q / 4 + ad_power(self.p, pp.ad.Scalar(3)) / 27
+        return self.q * self.q / 4 + _power(self.p, pp.ad.Scalar(3)) / 27
 
     ### root computation ----------------------------------------------------------------------
 
@@ -278,16 +276,16 @@ class PR_Roots:
                 self.ad_system.dof_manager
             )
             c1_label = (
-                -4 * ad_power(self.B, pp.ad.Scalar(4))
-                + 28 * ad_power(self.B, pp.ad.Scalar(3))
+                -4 * _power(self.B, pp.ad.Scalar(4))
+                + 28 * _power(self.B, pp.ad.Scalar(3))
                 + 22 * self.B * self.B
                 + 2 * self.B
             ).evaluate(self.ad_system.dof_manager)
             c0_label = (
-                -8 * ad_power(self.B, pp.ad.Scalar(6))
-                - 32 * ad_power(self.B, pp.ad.Scalar(5))
-                - 40 * ad_power(self.B, pp.ad.Scalar(4))
-                - 26 * ad_power(self.B, pp.ad.Scalar(3))
+                -8 * _power(self.B, pp.ad.Scalar(6))
+                - 32 * _power(self.B, pp.ad.Scalar(5))
+                - 40 * _power(self.B, pp.ad.Scalar(4))
+                - 26 * _power(self.B, pp.ad.Scalar(3))
                 - 2 * self.B * self.B
             ).evaluate(self.ad_system.dof_manager)
             # reduce to relevant region

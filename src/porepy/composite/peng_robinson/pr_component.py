@@ -11,10 +11,7 @@ import porepy as pp
 from .._composite_utils import R_IDEAL
 from ..component import Component, Compound
 from ..phase import VarLike
-from .pr_utils import A_CRIT, B_CRIT
-
-sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
-power = pp.ad.Function(pp.ad.power, "power")
+from .pr_utils import A_CRIT, B_CRIT, _sqrt, _power
 
 
 class PR_Component(Component):
@@ -62,30 +59,43 @@ class PR_Component(Component):
             ``a = a_cricital * alpha``,
             ``alpha = 1 + kappa * (1 - sqrt(T_reduced))``.
 
+        See Also:
+            `Zhu et al. (2014), Appendix A <https://doi.org/10.1016/j.fluid.2014.07.003>`_
+
         """
-        return (
-            0.37464
-            + 1.54226 * self.acentric_factor
-            - 0.26992 * self.acentric_factor**2
-        )
+        if self.acentric_factor < 0.49:
+            return (
+                0.37464
+                + 1.54226 * self.acentric_factor
+                - 0.26992 * self.acentric_factor**2
+            )
+        else:
+            return (
+                0.379642
+                + 1.48503 * self.acentric_factor
+                - 0.164423 * self.acentric_factor**2
+                + 0.016666 * self.acentric_factor**3
+            )
 
     def attraction_correction(self, T: VarLike) -> VarLike:
         """Returns the linearized alpha-correction for the attraction parameter"""
 
         alpha_root = 1 + self.attraction_correction_weight * (
-            1 - sqrt(T / self.critical_temperature())
+            1 - _sqrt(T / self.critical_temperature())
         )
 
         return alpha_root * alpha_root
 
     @property
-    def covolume(self) -> float:
-        """Returns the constant co-volume ``b`` in the Peng-Robinson EoS:
+    def covolume(self) -> pp.ad.Operator:
+        """Returns the constant co-volume ``b`` in the Peng-Robinson EoS
 
-        ``b = B_CRIT * (R_IDEAL * T_critical) / p_critical
+            ``b = B_CRIT * (R_IDEAL * T_critical) / p_critical
+
+        wrapped in an AD operator.
 
         """
-        return (
+        return pp.ad.Scalar(
             B_CRIT * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
         )
 
@@ -101,14 +111,14 @@ class PR_Component(Component):
         dt_a = (
             self.attraction_critical
             * 2
-            * (1 + self.attraction_correction_weight * (1 - sqrt(T_r)))
+            * (1 + self.attraction_correction_weight * (1 - _sqrt(T_r)))
         )
         # internal derivative of attraction correction
         dt_a *= (
             self.attraction_correction_weight
             / (-2)
             / self.critical_temperature()
-            * power(T_r, -1 / 2)
+            * _power(T_r, -1 / 2)
         )
 
         return dt_a
