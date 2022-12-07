@@ -55,7 +55,13 @@ class ThreeFractures3d(SingleFracture2d):
         self.fracture_network = pp.FractureNetwork3d(fracs, domain)
 
 
-geometry_list = [pp.ModelGeometry, SingleFracture2d, ThreeFractures3d]
+class BaseWithUnits(pp.ModelGeometry):
+    """ModelGeometry.set_md_geometry requires a units attribute."""
+
+    units: pp.Units = pp.Units()
+
+
+geometry_list = [BaseWithUnits, SingleFracture2d, ThreeFractures3d]
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)

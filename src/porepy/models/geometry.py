@@ -29,6 +29,8 @@ class ModelGeometry:
     """Box-shaped domain. FIXME: change to "domain"? """
     nd: int
     """Ambient dimension."""
+    units: pp.Units
+    """Unit system."""
 
     def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid."""
@@ -48,8 +50,7 @@ class ModelGeometry:
 
         Returns:
             mesh_args: Dictionary of meshing arguments compatible with
-            FractureNetwork.mesh()
-                method.
+                FractureNetwork.mesh() method.
 
         """
         mesh_args = dict()
@@ -63,14 +64,17 @@ class ModelGeometry:
         method is used.
 
         The method assigns the following attributes to self:
-            mdg (pp.MixedDimensionalGrid): The produced grid bucket. box (dict): The
-            bounding box of the domain, defined through minimum and
+            mdg (pp.MixedDimensionalGrid): The produced grid bucket.
+            box (dict): The bounding box of the domain, defined through minimum and
                 maximum values in each dimension.
+
         """
 
         if self.fracture_network.num_frac() == 0:
+            # Length scale:
+            ls = 1 / self.units.m
             # Mono-dimensional grid by default
-            phys_dims = np.array([1, 1])
+            phys_dims = np.array([1, 1]) * ls
             n_cells = np.array([1, 1])
             self.box = pp.geometry.bounding_box.from_points(
                 np.array([[0, 0], phys_dims]).T
@@ -87,13 +91,14 @@ class ModelGeometry:
     ) -> list[pp.MortarGrid]:
         """Interfaces neighbouring any of the subdomains.
 
-        Args:
+        Parameters:
             subdomains: Subdomains for which to find interfaces.
             codims: Codimension of interfaces to return. Defaults to [1], i.e.
-                only interfaces between one dimension apart.
+                only interfaces between subdomains one dimension apart.
 
         Returns:
-            list[pp.MortarGrid]: Unique, sorted list of interfaces.
+            Unique, sorted list of interfaces.
+
         """
         if codims is None:
             codims = [1]

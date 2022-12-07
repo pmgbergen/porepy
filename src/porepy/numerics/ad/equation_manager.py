@@ -131,12 +131,12 @@ class EquationManager:
         for sd, sd_data in mdg.subdomains(return_data=True):
             variables[sd] = {}
             for var, info in sd_data[pp.PRIMARY_VARIABLES].items():
-                variables[sd][var] = operators.Variable(var, info, subdomains=[sd])
+                variables[sd][var] = operators.Variable(var, info, domain=sd)
 
         for intf, intf_data in mdg.interfaces(return_data=True):
             variables[intf] = {}
             for var, info in intf_data[pp.PRIMARY_VARIABLES].items():
-                variables[intf][var] = operators.Variable(var, info, interfaces=[intf])
+                variables[intf][var] = operators.Variable(var, info, domain=intf)
 
         self.variables = variables
 

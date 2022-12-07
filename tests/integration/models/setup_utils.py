@@ -8,24 +8,28 @@ import porepy as pp
 
 class GeometrySingleFracture2d(pp.ModelGeometry):
     def set_fracture_network(self) -> None:
+        # Length scale:
+        ls = 1 / self.units.m
 
         num_fracs = self.params.get("num_fracs", 1)
-        domain = {"xmin": 0, "xmax": 2, "ymin": 0, "ymax": 1}
+        domain = {"xmin": 0, "xmax": 2 * ls, "ymin": 0, "ymax": 1 * ls}
         if num_fracs == 0:
-            p = np.zeros((2, 0), dtype=float)
+            p = np.zeros((2, 0), dtype=float) * ls
             e = np.zeros((2, 0), dtype=int)
         elif num_fracs == 1:
-            p = np.array([[0, 2], [0.5, 0.5]])
+            p = np.array([[0, 2], [0.5, 0.5]]) * ls
             e = np.array([[0], [1]])
         elif num_fracs == 2:
-            p = np.array([[0, 2, 0.5, 0.5], [1, 1, 0, 1]])
+            p = np.array([[0, 2, 0.5, 0.5], [1, 1, 0, 1]]) * ls
             e = np.array([[0, 2], [1, 3]])
         else:
             raise ValueError("Only 0, 1 or 2 fractures supported.")
         self.fracture_network = pp.FractureNetwork2d(p, e, domain)
 
     def mesh_arguments(self) -> dict:
-        return {"mesh_size_frac": 0.5, "mesh_size_bound": 0.5}
+        # Length scale:
+        ls = 1 / self.units.m
+        return {"mesh_size_frac": 0.5 * ls, "mesh_size_bound": 0.5 * ls}
 
 
 class MassBalance(
