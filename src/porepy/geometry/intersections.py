@@ -23,7 +23,7 @@ def segments_2d(
     end_2: np.ndarray,
     tol: float = 1e-8,
 ) -> Optional[np.ndarray]:
-    """Check if two line segments, defined by their start- and endpoints, intersect.
+    r"""Check if two line segments, defined by their start- and endpoints, intersect.
 
     The lines are assumed to be in 2D.
 
