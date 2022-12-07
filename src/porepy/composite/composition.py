@@ -336,7 +336,7 @@ class Composition(abc.ABC):
 
         """
         if isinstance(component, Component):
-            component = [component]
+            component = [component]  # type: ignore
 
         added_components = [comp.name for comp in self._components]
 

@@ -62,6 +62,54 @@ class PR_Composition(Composition):
         # dictionary containing fugacity functions per component per phase
         self._fugacities: dict[PR_Component, dict[PR_Phase, pp.ad.Operator]] = dict()
 
+    def add_component(self, component: list[PR_Component] | PR_Component) -> None:
+        """This child class method checks additionally if BIPs are defined for components to be
+        added and components already added.
+
+        For the Peng-Robinson EoS to work as intended, BIPs must be available for any
+        combination of two present components and present in
+        :data:`~porepy.composite.peng_robinson.pr_bip.PR_BIP_MAP`.
+
+        Parameters:
+            component: one or multiple model (PR-) components for this EoS.
+
+        Raises:
+            NotImplementedError: If a BIP is not available for any combination of modelled
+                components.
+
+        """
+        if isinstance(component, PR_Component):
+            component = [component]  # type: ignore
+
+        missing_bips: list[tuple[str, str]] = list()
+
+        # check for missing bips between new components and present components
+        for comp_new in component:
+            for comp_present in self.components:
+                # there is no bip between a component and itself
+                if comp_new != comp_present:
+                    bip, _ = get_PR_BIP(comp_new.name, comp_present.name)
+                    # if bip is not available, add pair to missing bips
+                    if bip is None:
+                        missing_bips.append((comp_new.name, comp_present.name))
+        
+        # check for missing bips between new components
+        for comp_1 in component:
+            for comp_2 in self.components:
+                # no bip between a component and itself
+                if comp_2 != comp_1:
+                    bip, _ = get_PR_BIP(comp_1.name, comp_2.name)
+                    if bip is None:
+                        missing_bips.append((comp_1.name, comp_2.name))
+
+        # if missing bips detected, raise error
+        if missing_bips:
+            raise NotImplementedError(
+                f"BIPs not available for the following component-pairs:\n\t{missing_bips}"
+        )
+        # if no missing bips, we proceed adding the components using the parent method.
+        super().add_component(component)
+
     def initialize(self) -> None:
         """Before initializing the p-h and p-T subsystems, this method additionally assigns
         callables for thermodynamic properties of phases, according to the equation of state
