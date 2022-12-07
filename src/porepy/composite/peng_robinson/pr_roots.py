@@ -126,9 +126,7 @@ class PR_Roots:
         """An operator representing the coefficient of the monomial ``Z**0`` of the **reduced**
         characteristic polynomial."""
         return (
-            2 / 27 * _power(self.c2, pp.ad.Scalar(3))
-            - self.c2 * self.c1 / 3
-            + self.c0
+            2 / 27 * _power(self.c2, pp.ad.Scalar(3)) - self.c2 * self.c1 / 3 + self.c0
         )
 
     @property

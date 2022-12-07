@@ -1,7 +1,7 @@
 """Composition class for the Peng-Robinson equation of state."""
 from __future__ import annotations
 
-from typing import Optional, overload, Generator
+from typing import Generator, Optional
 
 import numpy as np
 
@@ -13,7 +13,7 @@ from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
 from .pr_phase import PR_Phase
 from .pr_roots import PR_Roots
-from .pr_utils import _sqrt, _power, _log
+from .pr_utils import _log, _power, _sqrt
 
 __all__ = ["PR_Composition"]
 
@@ -422,18 +422,26 @@ class PR_Composition(Composition):
             # TODO the last term containing a_c / a is unclear,
             # sources say different thing... might be sum_i z_i * a_ci / a
             phi_c_L = (
-                b_c / self.covolume * (Z_L- 1)
+                b_c / self.covolume * (Z_L - 1)
                 - _log(Z_L - self.covolume)
-                - self.attraction / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
-                * _log((Z_L + (1 + np.sqrt(2)) * self.B) / (Z_L + (1 - np.sqrt(2)) * self.B))
+                - self.attraction
+                / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
+                * _log(
+                    (Z_L + (1 + np.sqrt(2)) * self.B)
+                    / (Z_L + (1 - np.sqrt(2)) * self.B)
+                )
                 * (2 * a_c / self.attraction - b_c / self.covolume)
             )
             # fugacity coefficient for component c in gas phase
             phi_c_G = (
-                b_c / self.covolume * (Z_G- 1)
+                b_c / self.covolume * (Z_G - 1)
                 - _log(Z_G - self.covolume)
-                - self.attraction / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
-                * _log((Z_G + (1 + np.sqrt(2)) * self.B) / (Z_G + (1 - np.sqrt(2)) * self.B))
+                - self.attraction
+                / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
+                * _log(
+                    (Z_G + (1 + np.sqrt(2)) * self.B)
+                    / (Z_G + (1 - np.sqrt(2)) * self.B)
+                )
                 * (2 * a_c / self.attraction - b_c / self.covolume)
             )
 
