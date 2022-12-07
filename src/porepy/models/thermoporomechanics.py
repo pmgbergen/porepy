@@ -148,31 +148,6 @@ class SolutionStrategyThermoporomechanics(
                 },
             )
 
-    # def discretize(self) -> None:
-    #     """Discretize the equations and record the action."""
-    #     self.params["is_discretized"] = True
-    #     return super().discretize()
-
-    # def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-    #     """Porosity operator.
-
-    #     Parameters:
-    #         subdomains: List of subdomains where the porosity is defined.
-
-    #     Returns:
-    #         Operator for the porosity.
-
-    #     """
-    #     if not self.params.get("is_discretized", False):
-    #         # size = sum([sd.num_cells for sd in subdomains])
-    #         # phi = pp.constitutive_laws.ad_wrapper(
-    #         #     self.solid.porosity(), True, size=size, name="phi_ref"
-    #         # )
-    #         # return phi
-    #         return pp.ad.Scalar(self.solid.porosity(), "phi_ref")
-    #     else:
-    #         return super().porosity(subdomains)
-
 
 class Thermoporomechanics(
     SolutionStrategyThermoporomechanics,

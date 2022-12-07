@@ -1,6 +1,8 @@
 """Utility methods for setting up models for testing."""
 from __future__ import annotations
 
+import inspect
+
 import numpy as np
 
 import porepy as pp
@@ -103,3 +105,58 @@ def model(
     # (create grids, variables, equations, discretize, etc.)
     ob.prepare_simulation()
     return ob
+
+
+def domains_from_method_name(
+    mdg: pp.MixedDimensionalGrid,
+    method_name: str,
+    domain_dimension: int,
+):
+    """Return the domains to be tested for a given method.
+
+    The method to be tested is assumed to take as input only its domain of definition,
+    that is a list of subdomains or interfaces. The test framework is not compatible with
+    methods that take other arguments (and such a method would also break the implicit
+    contract of the constitutive laws).
+
+    Parameters:
+        mdg: Mixed-dimensional grid.
+        method_name: Name of the method to be tested.
+        domain_dimension: Only domains of the specified dimension will be tested.
+
+    Returns:
+        list of pp.Grid or pp.MortarGrid: The domains to be tested.
+
+    """
+    # Fetch the signature of the method.
+    signature = inspect.signature(method_name)
+    assert len(signature.parameters) == 1
+
+    # The domain is a list of either subdomains or interfaces.
+    if "subdomains" in signature.parameters:
+        # If relevant, filter out the domains that are not to be tested.
+        domains = mdg.subdomains(dim=domain_dimension)
+    elif "interfaces" in signature.parameters:
+        domains = mdg.interfaces(dim=domain_dimension)
+
+    return domains
+
+
+# TODO: Move. Check all values.
+granite_values = {
+    "permeability": 1e-20,
+    "density": 2700,
+    "porosity": 7e-3,
+    "lame_mu": 16.67 * pp.GIGA,
+    "lame_lambda": 11.11 * pp.GIGA,
+    "specific_heat_capacity": 790,
+}
+# Cf. fluid.py
+water_values = {
+    "specific_heat_capacity": 4180,
+    "compressibility": 4e-10,
+    "viscosity": 1e-3,
+    "density": 1000,
+    "thermal_conductivity": 0.6,
+    "thermal_expansion": 2.1e-4,
+}

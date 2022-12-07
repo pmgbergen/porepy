@@ -7,31 +7,29 @@ construct these global equations.
 See also: tests.integration.models.test_constitutive_laws.
 
 """
-from inspect import signature
-
 import pytest
 
-from .setup_utils import model
+from .setup_utils import domains_from_method_name, model
 
 
 @pytest.mark.parametrize(
     "model_type,equation_name,domain_dimension",
     [
-        ("mass_balance", "mass_balance_equation", []),
-        ("mass_balance", "interface_darcy_flux_equation", []),
-        ("momentum_balance", "momentum_balance_equation", [2]),
-        ("momentum_balance", "interface_force_balance_equation", [1]),
-        ("momentum_balance", "normal_fracture_deformation_equation", [1]),
-        ("momentum_balance", "tangential_fracture_deformation_equation", [1]),
-        ("energy_balance", "energy_balance_equation", []),
-        ("energy_balance", "interface_enthalpy_flux_equation", []),
-        ("energy_balance", "interface_fourier_flux_equation", []),
+        ("mass_balance", "mass_balance_equation", None),
+        ("mass_balance", "interface_darcy_flux_equation", None),
+        ("momentum_balance", "momentum_balance_equation", 2),
+        ("momentum_balance", "interface_force_balance_equation", 1),
+        ("momentum_balance", "normal_fracture_deformation_equation", 1),
+        ("momentum_balance", "tangential_fracture_deformation_equation", 1),
+        ("energy_balance", "energy_balance_equation", None),
+        ("energy_balance", "interface_enthalpy_flux_equation", None),
+        ("energy_balance", "interface_fourier_flux_equation", None),
         # Energy balance inherits mass balance equations. Test one of these as well.
-        ("energy_balance", "mass_balance_equation", []),
-        ("poromechanics", "mass_balance_equation", []),
-        ("poromechanics", "momentum_balance_equation", [2]),
-        ("poromechanics", "interface_force_balance_equation", [1]),
-        ("thermoporomechanics", "interface_fourier_flux_equation", []),
+        ("energy_balance", "mass_balance_equation", None),
+        ("poromechanics", "mass_balance_equation", None),
+        ("poromechanics", "momentum_balance_equation", 2),
+        ("poromechanics", "interface_force_balance_equation", 1),
+        ("thermoporomechanics", "interface_fourier_flux_equation", None),
     ],
 )
 @pytest.mark.parametrize("num_fracs", [0, 1, 2])
@@ -51,10 +49,10 @@ def test_parse_equations(model_type, equation_name, domain_dimension, num_fracs)
             domains.
 
     """
-    if len(domain_dimension) > 0:
-        if domain_dimension[0] == 2 and num_fracs > 0:
+    if domain_dimension is not None:
+        if domain_dimension == 2 and num_fracs > 0:
             return
-        elif domain_dimension[0] == 1 and num_fracs == 0:
+        elif domain_dimension == 1 and num_fracs == 0:
             return
 
     # Set up an object of the prescribed model
@@ -62,26 +60,8 @@ def test_parse_equations(model_type, equation_name, domain_dimension, num_fracs)
     # Fetch the relevant equation of this model.
     method = getattr(setup, equation_name)
     # Fetch the signature of the method.
-    sig = signature(method)
+    domains = domains_from_method_name(setup.mdg, method, domain_dimension)
 
-    # The assumption is that the method to be tested takes as input only its domain
-    # of definition, that is a list of subdomains or interfaces. The test framework is
-    # not compatible with methods that take other arguments (and such a method would also
-    # break the implicit contract of the constitutive laws).
-    assert len(sig.parameters) == 1
-
-    # The domain is a list of either subdomains or interfaces.
-    if "subdomains" in sig.parameters:
-        # If relevant, filter out the domains that are not to be tested.
-        if len(domain_dimension) > 0:
-            domains = setup.mdg.subdomains(dim=domain_dimension[0])
-        else:
-            domains = setup.mdg.subdomains()
-    elif "interfaces" in sig.parameters:
-        if len(domain_dimension) > 0:
-            domains = setup.mdg.interfaces(dim=domain_dimension[0])
-        else:
-            domains = setup.mdg.interfaces()
     # Call the discretization method.
     setup.equation_system.discretize()
     print(setup.mdg)
@@ -91,11 +71,3 @@ def test_parse_equations(model_type, equation_name, domain_dimension, num_fracs)
     # terms and factors (e.g., grids, parameters, variables, other methods etc.) to form
     # an Ad operator object.
     setup.equation_system.assemble_subsystem({equation_name: domains})
-
-
-test_parse_equations(
-    model_type="poromechanics",
-    equation_name="mass_balance_equation",
-    domain_dimension=[],
-    num_fracs=0,
-)
