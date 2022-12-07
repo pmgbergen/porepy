@@ -4,7 +4,7 @@ objects.
 """
 from __future__ import annotations
 
-from typing import Union, Optional
+from typing import Optional, Union
 
 import numpy as np
 import scipy
@@ -115,7 +115,8 @@ def is_ccw_polyline(
         is to the left of the line segment ``p1-p2``.
 
     """
-    p3 = np.atleast_2d(p3)
+    if p3.ndim == 1:
+        p3 = p3.reshape((-1, 1))
     num_points = p3.shape[1]
 
     # TODO: Compute cross product between p1-p2 and p1-p3. Right-hand rule gives that p3
