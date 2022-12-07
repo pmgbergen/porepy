@@ -1592,7 +1592,8 @@ def _point_in_or_on_polygon(
         int:
             value ``0`` for 'outside', ``1`` for 'on boundatry', and ``2`` for
             'interior'.
-        Optional[tuple[Optional[int],Optional[int]]]:
+
+        Optional[tuple[int, None] | tuple[None, int]]:
             ``None`` if the first value is ``0`` or ``2``. A ``tuple`` if the first
             value is ``1``. The first and second items are ``None`` in the case of
             an intersection on a segment and vertex, respectively. Otherwise, the
