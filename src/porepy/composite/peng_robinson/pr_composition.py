@@ -7,7 +7,7 @@ import numpy as np
 
 import porepy as pp
 
-from .._composite_utils import R_IDEAL
+from .._composite_utils import H_REF, R_IDEAL
 from ..composition import Composition
 from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
@@ -55,6 +55,7 @@ class PR_Composition(Composition):
         # attraction and co-volume, assembled during initialization
         # (based on mixing-rule and present components)
         self._a: pp.ad.Operator
+        self._dT_a: pp.ad.Operator
         self._b: pp.ad.Operator
 
         # name of equilibrium equation
@@ -62,7 +63,7 @@ class PR_Composition(Composition):
         # dictionary containing fugacity functions per component per phase
         self._fugacities: dict[PR_Component, dict[PR_Phase, pp.ad.Operator]] = dict()
 
-    def add_component(self, component: list[PR_Component] | PR_Component) -> None:
+    def add_component(self, component: PR_Component | list[PR_Component]) -> None:
         """This child class method checks additionally if BIPs are defined for components to be
         added and components already added.
 
@@ -88,17 +89,17 @@ class PR_Composition(Composition):
             for comp_present in self.components:
                 # there is no bip between a component and itself
                 if comp_new != comp_present:
-                    bip, _ = get_PR_BIP(comp_new.name, comp_present.name)
+                    bip, *_ = get_PR_BIP(comp_new.name, comp_present.name)
                     # if bip is not available, add pair to missing bips
                     if bip is None:
                         missing_bips.append((comp_new.name, comp_present.name))
-        
+
         # check for missing bips between new components
         for comp_1 in component:
             for comp_2 in self.components:
                 # no bip between a component and itself
                 if comp_2 != comp_1:
-                    bip, _ = get_PR_BIP(comp_1.name, comp_2.name)
+                    bip, *_ = get_PR_BIP(comp_1.name, comp_2.name)
                     if bip is None:
                         missing_bips.append((comp_1.name, comp_2.name))
 
@@ -106,7 +107,7 @@ class PR_Composition(Composition):
         if missing_bips:
             raise NotImplementedError(
                 f"BIPs not available for the following component-pairs:\n\t{missing_bips}"
-        )
+            )
         # if no missing bips, we proceed adding the components using the parent method.
         super().add_component(component)
 
@@ -172,6 +173,11 @@ class PR_Composition(Composition):
         return self._a
 
     @property
+    def dT_attraction(self) -> pp.ad.Operator:
+        """An operator representing the derivative of :meth:`attraction` w.r.t. temperature."""
+        return self._dT_a
+
+    @property
     def covolume(self) -> pp.ad.Operator:
         """An operator representing ``b`` in the Peng-Robinson EoS."""
         return self._b
@@ -207,7 +213,8 @@ class PR_Composition(Composition):
         return equation
 
     def _assign_attraction(self) -> None:
-        """Creates the attraction parameter for a mixture according to PR."""
+        """Creates the attraction parameter for a mixture according to PR, as well as its
+        derivative w.r.t. temperature."""
         components: list[PR_Component] = [c for c in self.components]  # type: ignore
 
         # First we sum over the diagonal elements of the mixture matrix
@@ -217,17 +224,27 @@ class PR_Composition(Composition):
             * components[0].attraction(self.T)
         )
 
+        dT_a = (
+            components[0].fraction
+            * components[0].fraction
+            * components[0].dT_attraction(self.T)
+        )
+
         if len(components) > 1:
             # sqrt AD function
             sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
+            power = pp.ad.Function(pp.ad.power, "power")
+            div_sqrt = pp.ad.Scalar(-1 / 2)
             # add remaining diagonal elements
             for comp in components[1:]:
                 a += comp.fraction * comp.fraction * comp.attraction(self.T)
+                dT_a += comp.fraction * comp.fraction * comp.dT_attraction(self.T)
 
             # adding off-diagonal elements, including BIPs
             for comp_i in components:
                 for comp_j in components:
                     if comp_i != comp_j:
+                        # computing the attraction between components i and j
                         a_ij = (
                             comp_i.fraction
                             * comp_j.fraction
@@ -236,9 +253,9 @@ class PR_Composition(Composition):
                             )
                         )
 
-                        bip, order = get_PR_BIP(comp_i.name, comp_j.name)
+                        bip, dT_bip, order = get_PR_BIP(comp_i.name, comp_j.name)
                         # assert there is a bip, to appease mypy
-                        # this check is performed in add_component though
+                        # this check is performed in add_component anyways
                         assert bip is not None
                         # call to BIP and multiply with a_ij
                         if order:
@@ -247,8 +264,45 @@ class PR_Composition(Composition):
                             a_ij *= 1 - bip(self.T, comp_j, comp_i)
                         # add off-diagonal element
                         a += a_ij
-        # store attraction parameter
+
+                        # computing the derivative w.r.t temperature
+                        # derivative of attraction terms
+                        dT_a_ij = (
+                            power(comp_i.attraction(self.T), div_sqrt)
+                            * comp_i.dT_attraction(self.T)
+                            * sqrt(comp_j.attraction(self.T))
+                            + sqrt(comp_i.attraction(self.T))
+                            * power(comp_j.attraction(self.T), div_sqrt)
+                            * comp_j.dT_attraction(self.T)
+                        ) / 2
+
+                        # multiplying with BIP
+                        if order:
+                            dT_a_ij *= 1 - bip(self.T, comp_i, comp_j)
+                        else:
+                            dT_a_ij *= 1 - bip(self.T, comp_j, comp_i)
+
+                        # adding derivative of BIP multiplied with attraction terms
+                        if dT_bip:
+                            if order:
+                                dT_a_ij -= sqrt(
+                                    comp_i.attraction(self.T)
+                                    * comp_j.attraction(self.T)
+                                ) * dT_bip(self.T, comp_i, comp_j)
+                            else:
+                                dT_a_ij -= sqrt(
+                                    comp_i.attraction(self.T)
+                                    * comp_j.attraction(self.T)
+                                ) * dT_bip(self.T, comp_j, comp_i)
+
+                        # multiply with fractions
+                        dT_a_ij *= comp_i.fraction * comp_j.fraction
+                        # add off-diagonal element
+                        dT_a += dT_a_ij
+
+        # store attraction parameters
         self._a = a
+        self._dT_a = dT_a
 
     def _assign_covolume(self) -> None:
         """Creates the co-volume of the mixture according to VdW mixing rule."""
@@ -281,15 +335,33 @@ class PR_Composition(Composition):
         self._phases[0]._rho = _rho_L
         self._phases[1]._rho = _rho_G
 
-    def _assign_phase_enthalpies(self) -> None:  # TODO
-        """Constructs callable objects representing phase enthalpies and assings them to the
-        ``PR_Phase``-classe."""
+    def _assign_phase_enthalpies(self) -> None:
+        """Constructs callable objects representing phase enthalpies and assigns them to the
+        ``PR_Phase``-classes."""
+        log = pp.ad.Function(pp.ad.log, "ln")
+        power = pp.ad.Function(pp.ad.power, "power")
+
+        coeff = (
+            power(2 * self.covolume, pp.ad.Scalar(-1 / 2))
+            / 2
+            * (self.T * self.dT_attraction - self.attraction)
+        )
 
         def _h_L(p, T, *X):
-            return pp.ad.Scalar(1.0)
+            ln_l = log(
+                (self.roots.liquid_root + (1 - np.sqrt(2)) * self.B)
+                / (self.roots.liquid_root + (1 + np.sqrt(2)) * self.B)
+            )
+            return (
+                coeff * ln_l + R_IDEAL * self.T * (self.roots.liquid_root - 1) + H_REF
+            )
 
         def _h_G(p, T, *X):
-            return pp.ad.Scalar(1.0)
+            ln_l = log(
+                (self.roots.gas_root + (1 - np.sqrt(2)) * self.B)
+                / (self.roots.gas_root + (1 + np.sqrt(2)) * self.B)
+            )
+            return coeff * ln_l + R_IDEAL * self.T * (self.roots.gas_root - 1) + H_REF
 
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._h = _h_L

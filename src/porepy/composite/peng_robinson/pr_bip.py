@@ -31,7 +31,7 @@ Examples:
 """
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Literal
 
 import porepy as pp
 
@@ -89,14 +89,22 @@ def bip_H2O_N2(T: VarLike, h2o: H2O, n2: N2) -> pp.ad.Operator:
     `Haghighi et al. (2009), equation 11 <https://doi.org/10.1016/j.fluid.2008.10.006>`_.
 
     Warning:
-        The validity of this law is highly questionable, since above reference deals with
-        cubic+ EoS, not with the standard Peng-Robinson EoS.
+        The validity of this law is highly questionable, since it was evaluated for the
+        Cubic+ EoS.
+
+        An alternative would be `this one <https://www.mdpi.com/1996-1073/14/17/5239>`_,
+        but it was also designed for another EoS (SRK), with a value 0.385438.
 
     Returns:
         An AD Operator representing the constant scalar BIP.
 
     """
     return 0.9909 - 379.9691 / T
+
+
+def dT_bip_H2O_N2(T: VarLike, h2o: H2O, n2: N2) -> pp.ad.Operator:
+    """Analytical derivative of :func:`bip_H2O_N2` w.r.t. temperature ``T``."""
+    return 379.9691 / (T * T)
 
 
 def bip_CO2_H2S(T: VarLike, co2: CO2, h2s: H2S) -> pp.ad.Operator:
@@ -164,6 +172,11 @@ def bip_NaClBrine_H2S(T: VarLike, naclbrine: NaClBrine, h2s: H2S) -> pp.ad.Opera
     return -0.20441 + 0.23426 * T_r
 
 
+def dT_bip_NaClBrine_H2S(T: VarLike, naclbrine: NaClBrine, h2s: H2S) -> pp.ad.Operator:
+    """Analytical derivative of :func:`bip_NaClBrine_H2S` w.r.t. temperature ``T``."""
+    return 0.23426 / h2s.critical_temperature()
+
+
 def bip_NaClBrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Operator:
     """Temperature- and salinity-dependent BIP for NaCl-brine and carbon dioxide.
 
@@ -183,6 +196,19 @@ def bip_NaClBrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Opera
         -0.31092 * (1 + 0.15587 * power(molality, exponent_1))
         + 0.23580 * (1 + 0.17837 * power(molality, exponent_2)) * T_r
         - 21.2566 * exp(-6.7222 * T_r - molality)
+    )
+
+
+def dT_bip_NaClBrine_CO2(T: VarLike, naclbrine: NaClBrine, co2: CO2) -> pp.ad.Operator:
+    """Analytical derivative of :func:`bip_NaClBrine_CO2` w.r.t. temperature ``T``."""
+    T_r = T / co2.critical_temperature()
+    molality = naclbrine.molality_of(naclbrine.NaCl)
+    exponent_2 = pp.ad.Scalar(0.979)
+
+    return 0.23580 * (
+        1 + 0.17837 * power(molality, exponent_2)
+    ) / co2.critical_temperature() + 21.2566 * exp(-6.7222 * T_r - molality) * (
+        6.7222 / co2.critical_temperature()
     )
 
 
@@ -206,19 +232,31 @@ def bip_NaClBrine_N2(T: VarLike, naclbrine: NaClBrine, n2: N2) -> pp.ad.Operator
     )
 
 
+def dT_bip_NaClBrine_N2(T: VarLike, naclbrine: NaClBrine, n2: N2) -> pp.ad.Operator:
+    """Analytical derivative of :func:`bip_NaClBrine_N2` w.r.t. temperature ``T``."""
+    molality = naclbrine.molality_of(naclbrine.NaCl)
+    exponent = pp.ad.Scalar(0.75)
+
+    return (
+        0.44338 * (1 + 0.08126 * power(molality, exponent)) / n2.critical_temperature()
+    )
+
+
 PR_BIP_MAP: dict[tuple[str, str], Callable] = {
-    ("H2O", "CO2"): bip_H2O_CO2,
-    ("H2O", "H2S"): bip_H2O_H2S,
-    ("H2O", "N2"): bip_H2O_N2,
-    ("CO2", "H2S"): bip_CO2_H2S,
-    ("CO2", "N2"): bip_CO2_N2,
-    ("N2", "H2S"): bip_N2_H2S,
-    ("NaClBrine", "H2S"): bip_NaClBrine_H2S,
-    ("NaClBrine", "CO2"): bip_NaClBrine_CO2,
-    ("NaClBrine", "N2"): bip_NaClBrine_N2,
+    ("H2O", "CO2"): (bip_H2O_CO2, 0),
+    ("H2O", "H2S"): (bip_H2O_H2S, 0),
+    ("H2O", "N2"): (bip_H2O_N2, dT_bip_H2O_N2),
+    ("CO2", "H2S"): (bip_CO2_H2S, 0),
+    ("CO2", "N2"): (bip_CO2_N2, 0),
+    ("N2", "H2S"): (bip_N2_H2S, 0),
+    ("NaClBrine", "H2S"): (bip_NaClBrine_H2S, dT_bip_NaClBrine_H2S),
+    ("NaClBrine", "CO2"): (bip_NaClBrine_CO2, dT_bip_NaClBrine_CO2),
+    ("NaClBrine", "N2"): (bip_NaClBrine_N2, dT_bip_NaClBrine_N2),
 }
 """Contains for a pair of component/compound names (key) the respective
-binary interaction parameter for the Peng-Robinson EoS, in form of a callable.
+binary interaction parameter for the Peng-Robinson EoS and their derivative w.r.t. temperature,
+in form of a tuple of callables, or a callable and 0 if the derivative is trivial
+(constant BIP).
 
 This map serves the Peng-Robinson composition to assemble the attraction parameter of the
 mixture and its intended use is only there.
@@ -226,9 +264,11 @@ mixture and its intended use is only there.
 """
 
 
-def get_PR_BIP(component1: str, component2: str) -> tuple[Callable | None, bool]:
-    """Returns the callable representing a BIP for two given component names,
-    in the Peng-Robinson EoS.
+def get_PR_BIP(
+    component1: str, component2: str
+) -> tuple[Callable | None, Callable | Literal[0], bool]:
+    """Returns the callables representing a BIP and its derivative for two given component
+    names, in the Peng-Robinson EoS.
 
     This function is a wrapper for accessing :data:`BIP_MAP`, which is not sensitive
     the order in the 2-tuple containing component names.
@@ -238,25 +278,25 @@ def get_PR_BIP(component1: str, component2: str) -> tuple[Callable | None, bool]
         component2: name of the second component
 
     Returns:
-        A callable implemented which represents the BIP for given components, if implemented.
+        The returned 3-tuple contains:
 
-        If no BIP is available, returns ``None``.
-
-        The second entry of the tuple is a bool indicating whether the order of input arguments
-        fits the order for the BIP arguments. It is ``False``, if the BIP argument order is
-        ``component2, component1``.
-
-        If no BIP is found, the bool has no meaning.
+        1. A callable implemented which represents the BIP for given components.
+           It is ``None``, if the BIP is not available.
+        2. A second callable, or 0, for the derivative of the BIP w.r.t. temperature.
+           A zero indicates that the derivative is trivial.
+        3. A bool indicating whether the order of input arguments
+           fits the order for the BIP arguments. It is ``False``, if the BIP argument order is
+           ``component2, component1``. If no BIP is found, the bool has no meaning.
 
     """
     # try input order
-    BIP = PR_BIP_MAP.get((component1, component2), None)
+    BIP, dT_BIP = PR_BIP_MAP.get((component1, component2), None)
     order = True
 
     # try reverse order
     if BIP is None:
-        BIP = PR_BIP_MAP.get((component2, component1), None)
+        BIP, dT_BIP = PR_BIP_MAP.get((component2, component1), None)
         order = False
 
     # return what is found, possibly None
-    return BIP, order
+    return BIP, dT_BIP, order
