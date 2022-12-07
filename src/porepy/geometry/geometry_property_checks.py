@@ -13,13 +13,13 @@ import porepy as pp
 
 
 def is_ccw_polygon(poly: np.ndarray) -> bool:
-    """ Determine if the vertices of a polygon are sorted counterclockwise.
+    """Determine if the vertices of a polygon are sorted counterclockwise.
 
     The method computes the winding number of the polygon, see below references.
 
     The algorithm should work for non-convex polygons. If the polygon is
-    self-intersecting (e.g. shaped like the number 8), the number returned will
-    reflect whether the method is 'mostly' cw or ccw.
+    self-intersecting (e.g. shaped like the number 8), the number returned will reflect
+    whether the method is 'mostly' cw or ccw.
 
     Note:
         The test can *not* be used to determine whether the vertexes of a polygon are
@@ -39,7 +39,7 @@ def is_ccw_polygon(poly: np.ndarray) -> bool:
         2. http://blog.element84.com/polygon-winding.html
 
     See also:
-        :meth:`is_ccw_polyline`
+        :meth:`~porepy.geometry.geometry_property_checks.is_ccw_polyline`
 
     Parameters:
         poly (shape=(2, n)): Polygon vertices. n is number of points.
@@ -58,30 +58,27 @@ def is_ccw_polygon(poly: np.ndarray) -> bool:
     return value < 0
 
 
-# ----------------------------------------------------------
-
-
 def is_ccw_polyline(
     p1: np.ndarray,
     p2: np.ndarray,
     p3: np.ndarray,
     tol: float = 0,
-    default: bool = False
-) -> Union[bool, np.ndarray]:
-    """ Checks if a polyline of three points goes in a counterclockwise direction.
+    default: bool = False,
+) -> np.ndarray:
+    """Checks if a polyline of three points goes in a counterclockwise direction.
 
-    The line segment going from p1 to p2 is tested vs. a third point to determine
+    The line segment going from ``p1`` to ``p2`` is tested vs. a third point to determine
     whether the combined line segments (polyline) is part of a counterclockwise circle.
     The function can test both one and several points vs. the same line segment.
 
-    The test is positive if the test point lies to left of the line running from p1
-    to p2.
+    The test is positive if the test point lies to left of the line running from ``p1``
+    to ``p2``.
 
     The function is intended for 2D points; higher-dimensional coordinates will be
     ignored.
 
-    Extensions to lines with more than three points should be straightforward,
-    the input points should be merged into a 2d array.
+    Extensions to lines with more than three points should be straightforward, the input
+    points should be merged into a 2d array.
 
     Examples:
         >>> p1 = np.array([0, 0])
@@ -103,9 +100,9 @@ def is_ccw_polyline(
         p1 (shape=(2,)): First point on dividing line.
         p2 (shape=(2,)): Second point on dividing line.
         p3 (shape=(2,) or shape=(2, n)): Point(s) to be tested. For one point, only
-            arrays of shape=(2,) is accepted. For two or more points the array will
-            have shape=(2, n), where the first row corresponds to x-coordinates and
-            the second row corresponds to y-coordinates. See examples.
+            arrays of shape=(2,) is accepted. For two or more points the array will have
+            shape=(2, n), where the first row corresponds to x-coordinates and the
+            second row corresponds to y-coordinates. See examples.
         tol (optional): Tolerance used in the comparison, can be used to
             account for rounding errors. Defaults to zero.
 
@@ -114,46 +111,34 @@ def is_ccw_polyline(
             application). Defaults to False.
 
     Returns:
-        True for each test point that will form a ccw polyline with the two
-        comparing points.
-
-    TODO:
-        * Fix return type so that an np.ndarray always is returned.
-        * Consider only allowing 2d arrays as p3 input (for consistency).
+        An array of booleans, with one entry for each point in ``p3``. True if the point
+        is to the left of the line segment ``p1-p2``.
 
     """
+    p3 = np.atleast_2d(p3)
+    num_points = p3.shape[1]
 
-    if p3.size > 2:
-        num_points = p3.shape[1]
-    else:
-        num_points = 1
-
-    # Compute cross product between p1-p2 and p1-p3. Right-hand rule gives that
-    # p3 is to the left if the cross product is positive.
+    # TODO: Compute cross product between p1-p2 and p1-p3. Right-hand rule gives that p3
+    # is to the left if the cross product is positive.
     cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (
         p3[0] - p1[0]
     )
 
-    # Should there be a scaling of the tolerance relative to the distance
-    # between the points?
+    # TODO: Should there be a scaling of the tolerance relative to the distance between
+    # the points?
     is_ccw = np.ones(num_points, dtype=bool)
     is_ccw[np.abs(cross_product) <= tol] = default
 
     is_ccw[cross_product < -tol] = False
     is_ccw[cross_product > tol] = True
 
-    if num_points == 1:
-        return is_ccw[0]
-    else:
-        return is_ccw
+    return is_ccw
 
 
 def point_in_polygon(
-    poly: np.ndarray,
-    p: np.ndarray,
-    default: bool = False
+    poly: np.ndarray, p: np.ndarray, default: bool = False
 ) -> np.ndarray:
-    """ Check if a set of points are inside a polygon.
+    """Check if a set of points are inside a polygon.
 
     The polygon need not be convex.
 
@@ -162,11 +147,11 @@ def point_in_polygon(
            <https://github.com/mdickinson/polyhedron/blob/master/polygon.py>`_
 
     Parameters:
-        poly (shape=(2, n)): vertexes of polygon. The segments are formed by
+        poly (shape=(2, num_poly)): vertexes of polygon. The segments are formed by
             connecting subsequent columns of poly.
-        p (shape=(2, n2)): Points to be tested.
-        default (optional): Default behavior if the point is close to the
-            boundary of the polygon. Defaults to False.
+        p (shape=(2, num_pt)): Points to be tested.
+        default (optional): Default behavior if the point is close to the boundary of
+            the polygon. Defaults to ``False``.
 
     Returns:
         Length equal to n2. True for each of the points that are inside polygon.
@@ -201,8 +186,8 @@ def point_in_polygon(
             np.logical_and(poly_pi_x == 0, poly_pi_y == 0),
             np.logical_and(next_pi_x == 0, next_pi_y == 0),
         ).any():
-            # The point is on a vertex of the polygon. In this case, we keep
-            # the default value.
+            # The point is on a vertex of the polygon. In this case, we keep the default
+            # value.
             continue
 
         vertex_sgn_poly = np.sign(poly_pi_x)
@@ -217,8 +202,8 @@ def point_in_polygon(
 
         edge_sgn = np.sign(poly_pi_x * next_pi_y - poly_pi_y * next_pi_x)
         if np.any(edge_sgn == 0):
-            # The point is on an edge of the polygon. In this case, we keep
-            # the default value.
+            # The point is on an edge of the polygon. In this case, we keep the default
+            # value.
             continue
 
         contrib = np.zeros(poly_size)
@@ -243,19 +228,19 @@ def point_in_polyhedron(
         polyhedron (shape=(num_sides, 3, num_polygon_vertices)): Each outer element
             represents a side of the polyhedron, and each side is assumed to be a
             convex polygon.
-        test_points (shape=(3, num_pt)): Points to be tested.
-        tol (optional): Geometric tolerance, used in comparison of
-            points. Defaults to 1e-10.
+        test_points (shape=(3, np)): Points to be tested.
+        tol (optional): Geometric tolerance, used in comparison of points. Defaults to
+            ``1e-10``.
 
     Returns:
-        For each point, element i is 1 (True) if ``test_points[:, i]`` is inside the
-        polygon.
+        For each point, element ``i`` is ``True`` if ``test_points[:, i]`` is inside the
+        polygon, else it is ``False``.
 
     """
 
-    # The actual test requires that the polyhedra surface is described by
-    # a triangulation. To that end, loop over all polygons and compute
-    # triangulation. This is again done by a projection to 2d
+    # The actual test requires that the polyhedra surface is described by a
+    # triangulation. To that end, loop over all polygons and compute triangulation. This
+    # is again done by a projection to 2d.
 
     # Data storage
     tri = np.zeros((0, 3))
@@ -273,8 +258,8 @@ def point_in_polyhedron(
             loc_tri = scipy.spatial.Delaunay(p_2d.T)
             simplices = loc_tri.simplices
 
-        # Add the triangulation, with indices adjusted for the number of points
-        # already added
+        # Add the triangulation, with indices adjusted for the number of points already
+        # added.
         tri = np.vstack((tri, num_points + simplices))
         points = np.hstack((points, poly))
         num_points += simplices.max() + 1
@@ -326,19 +311,16 @@ def point_in_polyhedron(
 
 
 def points_are_planar(
-    pts: np.ndarray,
-    normal: np.ndarray = None,
-    tol: float = 1e-5
+    pts: np.ndarray, normal: np.ndarray = None, tol: float = 1e-5
 ) -> bool:
     """Check if the points lie on a plane.
 
     Parameters:
-        pts (shape=(3, n)): The points.
-        normal (optional): The normal of the plane, otherwise three points are
-            required.
+        pts (shape=(3, np)): The points.
+        normal (optional): The normal of the plane, otherwise three points are required.
 
     Returns:
-        True if the points lie on a plane.
+        ``True`` if the points lie on a plane.
 
     """
 
@@ -347,6 +329,7 @@ def points_are_planar(
     else:
         normal = normal.flatten() / np.linalg.norm(normal)
 
+    assert normal is not None  # for mypy
     # Force normal vector to be a column vector
     normal = normal.reshape((-1, 1))
     # Mean point in the point cloud
@@ -358,25 +341,25 @@ def points_are_planar(
     return np.all(np.isclose(dot_prod, 0, atol=tol, rtol=0))
 
 
-def point_in_cell(poly: np.ndarray, p: np.array, if_make_planar: bool = True) -> bool:
+def point_in_cell(poly: np.ndarray, p: np.ndarray, if_make_planar: bool = True) -> bool:
     """Check whether a point is inside a cell.
 
     Note:
-        A similar behaviour could be reached using :func:`is_inside_polygon`,
-        however the current implementation deals with concave cells as well. Not sure
-        which is the best, in terms of performance, for convex cells.
+        A similar behaviour could be reached using :func:`is_inside_polygon`, however
+        the current implementation deals with concave cells as well. Not sure which is
+        the best, in terms of performance, for convex cells.
 
     Parameters:
-        poly (shape=(3, n)): Vertexes of polygon. The segments are formed by
-            connecting subsequent columns of poly.
+        poly (shape=(3, n)): Vertexes of polygon. The segments are formed by connecting
+            subsequent columns of poly.
         p (shape=(3, 1)): Point to be tested.
-        if_make_planar (optional): The cell needs to lie on (s, t) plane. If not
-            already done, this flag need to be used. Projects the points to the plane of
-            the polygon.
+        if_make_planar (optional): The cell needs to lie on (s, t) plane. If not already
+            done, this flag need to be used. Projects the points to the plane of the
+            polygon.
 
-    Return:
-        True if the point is inside the cell. If a point is on the boundary of the
-        cell the result may be either True or False.
+    Returns:
+        ``True`` if the point is inside the cell. If a point is on the boundary of the
+        cell the result may be either ``True`` or ``False``.
 
     """
     p.shape = (3, 1)
@@ -409,11 +392,10 @@ def points_are_collinear(pts: np.ndarray, tol: float = 1e-5) -> bool:
 
     Parameters:
         pts (shape=(3, n)): The points.
-        tol (optional): Absolute tolerance used in comparison.
-            Defaults to 1e-5.
+        tol (optional): Absolute tolerance used in comparison. Defaults to ``1e-5``.
 
     Returns:
-        True if the points lie on a line.
+        ``True`` if the points lie on a line.
 
     """
 
@@ -426,7 +408,7 @@ def points_are_collinear(pts: np.ndarray, tol: float = 1e-5) -> bool:
     dist = 1
     for i in np.arange(pts.shape[1]):
         for j in np.arange(i + 1, pts.shape[1]):
-            dist = max(dist, np.linalg.norm(pts[:, i] - pts[:, j]))
+            dist = np.max(dist, np.linalg.norm(pts[:, i] - pts[:, j]))
 
     coll = (
         np.array([np.linalg.norm(np.cross(p - pt0, pt1 - pt0)) for p in pts[:, 1:-1].T])
@@ -436,25 +418,23 @@ def points_are_collinear(pts: np.ndarray, tol: float = 1e-5) -> bool:
 
 
 def polygon_hanging_nodes(
-    p: np.ndarray,
-    edges: np.ndarray,
-    tol: float = 1e-8
+    p: np.ndarray, edges: np.ndarray, tol: float = 1e-8
 ) -> np.ndarray:
     """Find hanging nodes of a polygon.
 
     Parameters:
-        p (shape=(nd, n_pt)): Point coordinates. Number of rows is number of
-        dimensions, number of columns is number of points.
+        p (shape=(nd, n_pt)): Point coordinates. Number of rows is number of dimensions,
+            number of columns is number of points.
         edges (shape=(2, num_edges)): Indices, referring to columns in p, of edges in
-            the polygon. Should be ordered so that edges[1, i] == edges[0, i+1],
-            and edges[0, 0] == edges[1, -1].
+            the polygon. Should be ordered so that ``edges[1, i] == edges[0, i+1]``,
+            and ``edges[0, 0] == edges[1, -1]``.
         tol (optional): Tolerance for when two segments will be considered parallel.
-        Defaults to 1e-8.
+            Defaults to 1e-8.
 
     Returns:
         Index of edges with hanging nodes. For an index i, the lines defined by
         ``edges[:, i]`` and ``edges[:, i+1]`` (or ``edges[:, 0]`` if
-        i == ``edges.shape[1]`` - 1) are parallel.
+        ``i == edges.shape[1]`` - 1) are parallel.
 
     """
     # Data structure for storing indices of the hanging nodes
@@ -469,8 +449,8 @@ def polygon_hanging_nodes(
 
         nrm_this = np.linalg.norm(v_this)
         nrm_next = np.linalg.norm(v_next)
-        # If the dot product of the normalized vectors is (almost) unity, this is
-        # a hanging node
+        # If the dot product of the normalized vectors is (almost) unity, this is a
+        # hanging node
         dot_prod = (v_this / nrm_this).dot(v_next / nrm_next)
         if dot_prod > 1 - tol:
             ind.append(i)
