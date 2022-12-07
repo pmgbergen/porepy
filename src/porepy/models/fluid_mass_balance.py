@@ -179,7 +179,21 @@ class ConstitutiveLawsSinglePhaseFlow(
     pp.constitutive_laws.FluidDensityFromPressure,
     pp.constitutive_laws.ConstantViscosity,
 ):
-    """Constitutive equations for single-phase flow."""
+    """Constitutive equations for single-phase flow.
+
+    The combined laws access the following material constants:
+
+    solid:
+        permeability
+        normal_permeability
+        porosity
+
+    fluid:
+        viscosity
+        density
+        compressibility
+
+    """
 
     def mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mobility of the fluid flux.
