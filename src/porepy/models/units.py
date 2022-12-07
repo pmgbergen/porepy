@@ -58,17 +58,17 @@ class Units:
 
     """
 
-    m: number = 1 * pp.METER
+    m: number
     """Length unit, defaults to 1 m."""
-    s: number = 1 * pp.SECOND
+    s: number
     """Time unit, defaults to 1 s."""
-    kg: number = 1 * pp.KILOGRAM
+    kg: number
     """Mass unit, defaults to 1 kg."""
-    K: number = 1 * pp.KELVIN
+    K: number
     """Temperature unit, defaults to 1 K."""
-    mol: number = 1
+    mol: number
     """Mole unit, defaults to 1 mol."""
-    rad: number = 1
+    rad: number
     """Angle unit, defaults to 1 rad."""
 
     def __init__(self, **kwargs):
