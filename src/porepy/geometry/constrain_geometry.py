@@ -4,7 +4,7 @@ Examples are to cut objects to lie within other objects, etc.
 """
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, Optional
 
 import numpy as np
 
@@ -14,12 +14,11 @@ import porepy as pp
 def lines_by_polygon(
     poly_pts: np.ndarray, pts: np.ndarray, edges: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Compute the intersections between a polygon (also not convex) and a set of lines.
+    """Compute the intersections between a polygon (also not convex) and a set of lines.
 
     The computation is done line by line to avoid the splitting of edges caused by
     other edges. The implementation assumes that the polygon and lines are on the plane
-    (x, y).
+    ``(x, y)``.
 
     Parameters:
         poly_pts (shape=(nd, np)): points that define the polygon.
@@ -33,13 +32,12 @@ def lines_by_polygon(
             Points associated to the lines after the intersection.
 
         ndarray ``(shape=(2, np), dtype=int)``:
-            For each column the id of the points for the line after the intersection.
-            If the input edges have tags, stored in ``rows[2:]``, these will be
-            preserved.
+            For each column the id of the points for the line after the intersection. If
+            the input edges have tags, stored in ``rows[2:]``, these will be preserved.
 
         ndarray ``(shape=(np, ), dtype=int)``:
-            Column index of the kept edges. This will have recurring values if an
-            edge is cut by a non-convex domain.
+            Column index of the kept edges. This will have recurring values if an edge
+            is cut by a non-convex domain.
 
     """
     import shapely.geometry as shapely_geometry
@@ -57,8 +55,8 @@ def lines_by_polygon(
     # Kept edges
     edges_kept_aslist = []
 
-    # we do the computation for each edge once at time, to avoid the splitting
-    # caused by other edges.
+    # we do the computation for each edge once at time, to avoid the splitting caused by
+    # other edges.
     for ei, e in enumerate(edges.T):
         # define the line
         line = shapely_geometry.LineString([pts[:2, e[0]], pts[:2, e[1]]])
@@ -106,8 +104,8 @@ def polygons_by_polyhedron(
 ) -> tuple[list[np.ndarray], np.ndarray]:
     """Constrain polygons in 3d to lie inside a (generally non-convex) polyhedron.
 
-    Polygons not inside the polyhedron will be removed from descriptions. For
-    non-convex polyhedra, polygons can be split in several parts.
+    Polygons not inside the polyhedron will be removed from descriptions. For non-convex
+    polyhedra, polygons can be split in several parts.
 
     Parameters:
         polygons: Each element is an array of ``shape=(3, num_vertex)``, describing the
@@ -524,7 +522,7 @@ def polygons_by_polyhedron(
                 coords_centered = unique_coords - center
                 R = pp.map_geometry.project_plane_matrix(coords_centered)
                 pt = R.dot(coords_centered)[:2]
-                _, el, _ = pp.intersections.split_intersecting_segments_2d(pt, el, tol)
+                _, el, *_ = pp.intersections.split_intersecting_segments_2d(pt, el, tol)
 
             if np.any(count == 1):
                 # There should be exactly two loose ends, if not, this is really
@@ -579,13 +577,12 @@ def snap_points_to_segments(
     p_edges: np.ndarray,
     edges: np.ndarray,
     tol: float,
-    p_to_snap: np.ndarray | None = None,
+    p_to_snap: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Snap points in the proximity of lines to the lines.
 
-    Note that if two vertices of two edges are close, they may effectively be
-    co-located by the snapping. Thus, the modified point set may have duplicate
-    coordinates.
+    Note that if two vertices of two edges are close, they may effectively be co-located
+    by the snapping. Thus, the modified point set may have duplicate coordinates.
 
     Parameters:
         p_edges (shape=(nd, np)): Points defining endpoints of segments.

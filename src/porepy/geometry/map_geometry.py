@@ -1,10 +1,9 @@
-"""
-Collection of functions related to geometry mappings, rotations etc.
+"""Collection of functions related to geometry mappings, rotations etc.
 
 """
 from __future__ import annotations
 
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 
@@ -15,15 +14,16 @@ def force_point_collinearity(
     pts: np.ndarray[Any, np.dtype[np.float64]]
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Given a set of points, return them aligned on a line.
-    Useful to enforce collinearity for almost collinear points. The order of the
-    points remain the same.
+
+    Useful to enforce collinearity for almost collinear points. The order of the points
+    remain the same.
 
     Parameters:
-        pts (shape=(3, num_pts)): An array representing the points. 
-            The first point should be on one extremum of the line.
+        pts (shape=(3, np)): An array representing the points. The first point should
+            be on one extremum of the line.
 
-    Return:
-        An array (shape=(3, num_pts)), representing the corrected points.
+    Returns:
+        An array (shape=(3, np)), representing the corrected points.
 
     """
     assert pts.shape[1] > 1
@@ -36,10 +36,12 @@ def force_point_collinearity(
 
     return pts[:, 0, np.newaxis] * (1 - dist) + pts[:, end, np.newaxis] * dist
 
+
 def map_grid(
-    sd: pp.Grid, tol: float = 1e-5, 
-    R:Optional[np.ndarray[Any, np.dtype[np.float64]]]= None
-) -> Tuple[
+    g: pp.Grid,
+    tol: float = 1e-5,
+    R: Optional[np.ndarray[Any, np.dtype[np.float64]]] = None,
+) -> tuple[
     np.ndarray[Any, np.dtype[np.float64]],
     np.ndarray[Any, np.dtype[np.float64]],
     np.ndarray[Any, np.dtype[np.float64]],
@@ -47,45 +49,48 @@ def map_grid(
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.float64]],
 ]:
-    """If a 2d or a 1d grid is passed, the function returns the cell_centers,
+    """Map a grid to a local coordinate system.
+
+    If a 2d or a 1d grid is passed, the function returns the cell_centers,
     face_normals, and face_centers using local coordinates. If a 3d grid is
     passed nothing is applied. The return vectors have a reduced number of rows.
 
     Parameters:
-        sd: The subdomain grid.
-        tol (optional): Tolerance used to check that 
-            the grid is linear or planar. Defaults to 1e-5.
-        R (optional): Rotation matrix (shape=(3,3)). 
-            The first dim rows should map vectors onto the tangential 
-            space of the grid. If not provided, a rotation matrix 
-            will be computed.
+        g: The subdomain grid.
+        tol (optional): Tolerance used to check that the grid is linear or planar.
+            Defaults to 1e-5.
+        R (optional): Rotation matrix (shape=(3, 3)). The first dim rows should map
+            vectors onto the tangential space of the grid. If not provided, a rotation
+            matrix will be computed.
 
     Returns:
-        A tuple that consists of 
-        
-        cell_centers:
-            An array (shape=(g.dim, g.num_cells)), representing the mapped 
-            centers of the cells.
-        face_normals: 
-            An array (shape=(g.dim, g.num_faces)), representing the mapped 
-            normals of the faces.
-        face_centers: 
-            An array (shape=(g.dim, g.num_faces)), representing the mapped 
-            centers of the faces.
-        R: 
-            Array (shape=(3, 3)), representing the rotation matrix used.
-        dim: 
-            Indicates which are the dimensions active.
-        nodes: 
-            An array (shape=(g.dim, g.num_nodes)), representing the mapped nodes.
+        Mapped attributes of the grid.
+
+        ndarray ``(shape=(g.dim, g.num_cells))``:
+            The mapped centers of the cells.
+
+        ndarray ``(shape=(g.dim, g.num_faces))``:
+            The mapped normals of the faces.
+
+        ndarray ``(shape=(g.dim, g.num_faces))``:
+            The mapped centers of the faces.
+
+        ndarray ``(shape=(3, 3))``:
+            The rotation matrix used.
+
+        ndarray:
+            Indices of the active dimensions
+
+        ndarray ``(shape=(g.dim, g.num_nodes))``:
+            The mapped nodes.
 
     """
-    cell_centers = sd.cell_centers
-    face_normals = sd.face_normals
-    face_centers = sd.face_centers
-    nodes = sd.nodes
+    cell_centers = g.cell_centers
+    face_normals = g.face_normals
+    face_centers = g.face_centers
+    nodes = g.nodes
 
-    if sd.dim == 0 or sd.dim == 3:
+    if g.dim == 0 or g.dim == 3:
         if R is None:
             R = np.eye(3)
 
@@ -100,17 +105,17 @@ def map_grid(
 
     else:  # g.dim == 1 or g.dim == 2:
         if R is None:
-            if sd.dim == 2:
-                R = project_plane_matrix(sd.nodes, tol=tol)
+            if g.dim == 2:
+                R = project_plane_matrix(g.nodes, tol=tol)
             else:
-                R = project_line_matrix(sd.nodes)
+                R = project_line_matrix(g.nodes)
 
         face_centers = np.dot(R, face_centers)
 
         check = np.sum(np.abs(face_centers.T - face_centers[:, 0]), axis=0)
         check /= np.sum(check)
         dim = np.logical_not(np.isclose(check, 0, atol=tol, rtol=0))
-        assert sd.dim == np.sum(dim)
+        assert g.dim == np.sum(dim)
         face_centers = face_centers[dim, :]
         cell_centers = np.dot(R, cell_centers)[dim, :]
         face_normals = np.dot(R, face_normals)[dim, :]
@@ -122,16 +127,15 @@ def map_grid(
 def sort_points_on_line(
     pts: np.ndarray[Any, np.dtype[np.float64]], tol: float = 1e-5
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """
-    Return the indexes of the point according to their position on a line.
+    """Return the indexes of the point according to their position on a line.
 
     Parameters:
-        pts (shape=(3, num_pts)): Array of points
-        tol (optional): Tolerance used in check for point collinearity. 
-            Defaults to 1e-5
+        pts (shape=(3, np)): Array of points
+        tol (optional): Tolerance used in check for point collinearity. Defaults to
+            1e-5.
 
     Returns:
-        The indexes of the points
+        The indexes of the points.
 
     """
     if pts.shape[1] == 1:
@@ -144,8 +148,7 @@ def sort_points_on_line(
     rot = project_line_matrix(pts)
     p = rot.dot(pts)
 
-    # Isolate the active coordinate
-
+    # Isolate the active coordinates
     mean = np.mean(p, axis=1)
     p -= mean.reshape((nd, 1))
 
@@ -154,34 +157,37 @@ def sort_points_on_line(
     assert active_dim.size == 1, "Points should be co-linear"
     return np.argsort(p[active_dim])[0]
 
+
 def project_points_to_line(
     p: np.ndarray[Any, np.dtype[np.float64]], tol: float = 1e-4
-) -> Tuple[
+) -> tuple[
     np.ndarray[Any, np.dtype[np.float64]],
     np.ndarray[Any, np.dtype[np.float64]],
     int,
     np.ndarray[Any, np.dtype[np.int64]],
 ]:
     """Project a set of colinear points onto a line.
+
     The points should be co-linear such that a 1d description is meaningful.
 
     Parameters:
-        p (shape=(nd, n_pt)): An array representation of coordinates of the 
-            points. Should be co-linear, but can have random ordering 
-            along the common line.
-        tol (optional): Tolerance used for testing of co-linearity. 
-            Defaults to 0.0001  
+        p (shape=(nd, np)): An array representation of coordinates of the points. Should
+            be co-linear, but can have random ordering along the common line.
+        tol (optional): Tolerance used for testing of co-linearity. Defaults to 0.0001
 
     Returns:
-        A tuple that consists of
-        
-        n_pt: 
+        Information on the projected points:
+
+        ndarray (shape=(np,)):
             One-dimensional coordinates of the points, sorted along the line.
-        A matrix (shape=(3, 3)): 
+
+        ndarray (shape=(3, 3)):
             Rotation matrix used for mapping the points onto a coordinate axis.
-        int: 
-            The dimension which onto which the point coordinates were mapped.
-        n_pt: 
+
+        int:
+            The dimension onto which the point coordinates were mapped.
+
+        ndarray (shape=(np,)):
             Index array used to sort the points onto the line.
 
     Raises:
@@ -227,6 +233,7 @@ def project_plane_matrix(
     check_planar: bool = True,
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Project the points on a plane using local coordinates.
+
     The projected points are computed by a dot product.
 
     Parameters:
@@ -234,11 +241,10 @@ def project_plane_matrix(
         normal (optional): The normal of the plane, otherwise three points are
             required.
         tol (optional): Tolerance to assert the planarity of the cloud of
-            points. Default value 1e-5. 
-        reference (optional): Reference vector (len=3) to compute the angles.
-            Defaults to [0, 0, 1].
-        check_planar (optional):
-            Whether to check for planarity. Defaults to True
+            points. Default value 1e-5.
+        reference (optional, shape=(3,)): Reference array to compute the angles.
+            Defaults to ``[0, 0, 1]``.
+        check_planar (optional): Whether to check for planarity. Defaults to True
 
     Returns:
         An array (shape=(3, 3)), representing the projection matrix.
@@ -275,26 +281,24 @@ def project_line_matrix(
     reference: Optional[np.ndarray[Any, np.dtype[np.float64]]] = None,
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Project the points on a line using local coordinates.
+
     The projected points are computed by a dot product.
-    
-    FIXME: does the example below presents the correct usage?
-    
+
     Example:
-        
         >>> pts = np.array([[1,0,0],[0,1,0],[0,0,1]]).T
         >>> R = project_line_matrix(pts)
         >>> projection_points=np.dot(R,pts)
-    
+
     Parameters:
         pts (shape=(3, n)): An array, representing the points.
-        tangent (optional): The tangent unit vector of the plane, otherwise two
-            points are required.
-        reference (optional, (len=3)): Reference vector to compute the angles.
-            Defaults to [0, 0, 1].
+        tangent (optional): The tangent unit vector of the plane, otherwise two points
+            are required.
+        reference (optional, (shape=(3,))): Reference vector to compute the angles.
+            Defaults to ``[0, 0, 1]``.
 
     Returns:
         An array (shape=(3, 3)), representing the projection matrix.
-        
+
     """
 
     if tangent is None:
@@ -323,17 +327,16 @@ def project_line_matrix(
 def rotation_matrix(
     a: float, vect: np.ndarray[Any, np.dtype[np.float64]]
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Compute the rotation matrix about a vector by an angle using the matrix
-    form of Rodrigues formula.
+    """Compute the rotation matrix about a vector by an angle using the matrix form of
+    Rodrigues' formula.
 
     Parameters:
         a: The angle.
-        vect: The vector (len=3) to be rotated.
+        vect (shape=(3,)): The vector to be rotated.
 
     Returns:
-         An array (shape=(3, 3)), representing the rotation matrix.
+        An array (shape=(3, 3)), representing the rotation matrix.
 
-    NOTE: 
         If vect is a zero vector, the returned rotation matrix will be the
         identity matrix.
 
@@ -357,24 +360,25 @@ def rotation_matrix(
 def normal_matrix(
     pts: Optional[np.ndarray[Any, np.dtype[np.float64]]] = None,
     normal: Optional[np.ndarray[Any, np.dtype[np.float64]]] = None,
-)-> np.ndarray[Any, np.dtype[np.float64]]: 
+) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Compute the normal projection matrix of a plane.
-    The algorithm assume that the points lie on a plane.
-    Three non-aligned points are required.
-    
+
+    The algorithm assume that the points lie on a plane. Three non-aligned points are
+    required.
+
     Parameters:
-        pts (optional, (shape=(3, n))): An array representing the points. 
-            Need n > 2.
-        normal (optional, (len=3)): An array representing the normal.
-    
-    NOTE: 
-        Either points or normal are mandatory.
-    
+        pts (optional, (shape=(3, np))): An array representing the points. Need
+            ``np > 2``.
+        normal (optional, (shape=(3,))): An array representing the normal.
+
+    NOTE:
+        Either ``pts`` or ``normal`` are mandatory.
+
     Returns:
          An array (shape=(3, 3)), representing the normal matrix.
-    
+
     Raises:
-        ValueError: If neither pts nor normal is provided.
+        ValueError: If neither ``pts`` nor ``normal`` is provided.
 
     """
     if normal is not None:
@@ -396,16 +400,18 @@ def tangent_matrix(
     normal: Optional[np.ndarray[Any, np.dtype[np.float64]]] = None,
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Compute the tangential projection matrix of a plane.
-    The algorithm assume that the points lie on a plane.
-    Three non-aligned points are required.
+
+    The algorithm assume that the points lie on a plane. Three non-aligned points are
+    required.
 
     Parameters:
-        pts (optional, (shape=(3, n))): An array representing the points. Need n > 2.
-        normal (optional, (len=3)): Array representing the normal.
-    
+        pts (optional, (shape=(3, np))): An array representing the points. Need
+            ``np > 2``.
+        normal (optional, (shape=(3,))): Array representing the normal.
+
     NOTE:
         Either points or normal are mandatory.
-        
+
     Returns:
         An array (shape=(3, 3)), representing the tangential matrix.
 
@@ -422,27 +428,29 @@ def tangent_matrix(
 
 
 def compute_normal(
-    pts: np.ndarray[Any, np.dtype[np.float64]], tol: float = 1e-5) -> np.ndarray:
-    """Compute the normal of a set of points. The sign of the normal is arbitrary
-    The algorithm assumes that the points lie on a plane.
-    Three non-aligned points are needed. If the points are almost collinear,
-    the algorithm will attempt to find a combination of points that minimizes
-    rounding errors. To ensure stable results, make sure to provide points
-    that truly span a 2d plane.
+    pts: np.ndarray[Any, np.dtype[np.float64]], tol: float = 1e-5
+) -> np.ndarray:
+    """Compute the normal of a set of points.
+
+    The sign of the normal is arbitrary The algorithm assumes that the points lie on a
+    plane. Three non-aligned points are needed. If the points are almost collinear, the
+    algorithm will attempt to find a combination of points that minimizes rounding
+    errors. To ensure stable results, make sure to provide points that truly span a 2d
+    plane.
 
     Parameters:
-        pts (shape=(3, n)): An array representing the points. Need n > 2. 
-         
-        tol (optional): Absolute tolerance used to detect essentially 
-            collinear points. Defaults to 1e-5 
+        pts (shape=(3, np)): An array representing the points. Need ``np > 2``.
+
+        tol (optional): Absolute tolerance used to detect essentially collinear points.
+         Defaults to ``1e-5``
 
     Returns:
-         An array (len=3), representing the normal. 
-    
+         An array (shape=(3,)), representing the normal.
+
     Raises:
         ValueError: If less than three points are provided.
-        ValueError: If all points provided are collinear (relative 
-            to the specified tolerance)
+        ValueError: If all points provided are collinear (relative to the specified
+            tolerance)
 
     """
     if pts.shape[1] <= 2:
@@ -500,23 +508,11 @@ def compute_normal(
 def compute_normals_1d(
     pts: np.ndarray[Any, np.dtype[np.float64]]
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Compute the normal of a set of points. The sign of the normal is arbitrary
-    The algorithm assumes that the points lie on a line.
-    
-    TODO: verify that the text above is indeed correct.
-    
-    See also:
-        compute_normal
-    
-    Parameters:
-        pts (shape=(3, n)): An array representing the points. Need n > 2.
-        
-    Returns:
-        An array (shape=(3, 2)), representing the normal. 
-    
-    FIXME: testing with different n, always returned a (3,2) shaped array.
-    To be verified
-    
+    """Compute the normals of a set of points aligned along a 1d line.
+
+    The sign and direction of the two normal vectors are arbitrary. The algorithm
+    assumes that the points lie on a line.
+
     Example:
         >>> pts = = np.array([[1,0,0],[0,1,0],[0,0,1]]).T
         >>> x=pp.map_geometry.compute_normals_1d(pts)
@@ -524,8 +520,16 @@ def compute_normals_1d(
         >>> array([[-0.4472136 , -0.36514837],
         >>>        [-0.89442719,  0.18257419],
         >>>        [ 0.        , -0.91287093]])
-        
-    
+
+    See also:
+        :meth:`compute_normal`
+
+    Parameters:
+        pts (shape=(3, np)): An array representing the points. Need np > 2.
+
+    Returns:
+        An array (shape=(3, 2)), representing the normal.
+
     """
     t = compute_tangent(pts)
     n = np.array([t[1], -t[0], 0]) / np.sqrt(t[0] ** 2 + t[1] ** 2)
@@ -535,15 +539,14 @@ def compute_normals_1d(
 def compute_tangent(
     pts: np.ndarray[Any, np.dtype[np.float64]], check: bool = True
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
-    """Compute a tangent vector of a set of points.
-    The algorithm assume that the points lie on a plane.
+    """Compute a tangent vector of a set of points that are aligned along a 1d line.
 
     Parameters:
-        pts (shape=(3, n)): Array representing the points.
-        check (optional): Do sanity check on the result. Defaults to True.
+        pts (shape=(3, np)): Array representing the points.
+        check (optional): Do sanity check on the result. Defaults to ``True``.
 
     Returns:
-        An array (len=(3)), representing the tangent.
+        An array (shape=(3,)), representing the tangent.
 
     """
 
