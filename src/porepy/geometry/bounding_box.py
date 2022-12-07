@@ -74,7 +74,7 @@ def from_md_grid(
     Returns:
         dictionary *or* tuple of np.ndarray: If ``as_dict`` is ``True``, the bounding box is
             represented as a dictionary with keys ``xmin``, ``xmax``, ``ymin``,
-            ``ymax``, ``zmin``, and ``zmax``. Else, two ``np.ndarrays`` are returned,
+            ``ymax``, ``zmin``, and ``zmax``. Else, two ``ndarrays`` are returned,
             containing the min and max values of the coordinates, respectively.
 
     """
