@@ -11,7 +11,7 @@ import porepy as pp
 from .._composite_utils import R_IDEAL
 from ..component import Component, Compound
 from ..phase import VarLike
-from .pr_utils import A_CRIT, B_CRIT, _sqrt, _power
+from .pr_utils import A_CRIT, B_CRIT, _power, _sqrt
 
 
 class PR_Component(Component):
