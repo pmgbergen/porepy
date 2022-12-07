@@ -13,6 +13,9 @@ from ..component import Component, Compound
 from ..phase import VarLike
 from .pr_utils import A_CRIT, B_CRIT
 
+sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
+power = pp.ad.Function(pp.ad.power, "power")
+
 
 class PR_Component(Component):
     """Intermediate abstraction layer for (fluid) components in a Peng-Robinson mixture.
@@ -68,7 +71,6 @@ class PR_Component(Component):
 
     def attraction_correction(self, T: VarLike) -> VarLike:
         """Returns the linearized alpha-correction for the attraction parameter"""
-        sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
 
         alpha_root = 1 + self.attraction_correction_weight * (
             1 - sqrt(T / self.critical_temperature())
@@ -90,6 +92,26 @@ class PR_Component(Component):
     def attraction(self, T: VarLike) -> VarLike:
         """Returns an expression for ``a`` in the EoS for this component."""
         return self.attraction_critical * self.attraction_correction(T)
+
+    def dT_attraction(self, T: VarLike) -> VarLike:
+        """Returns an expression for the derivative of ``a`` with respect to temperature."""
+        T_r = T / self.critical_temperature()
+
+        # external derivative of attraction correction squared
+        dt_a = (
+            self.attraction_critical
+            * 2
+            * (1 + self.attraction_correction_weight * (1 - sqrt(T_r)))
+        )
+        # internal derivative of attraction correction
+        dt_a *= (
+            self.attraction_correction_weight
+            / (-2)
+            / self.critical_temperature()
+            * power(T_r, -1 / 2)
+        )
+
+        return dt_a
 
 
 class PR_Compound(PR_Component, Compound):

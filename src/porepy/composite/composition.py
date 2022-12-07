@@ -322,7 +322,7 @@ class Composition(abc.ABC):
         if self._components:
             return self._components[0]
 
-    def add_component(self, component: list[Component] | Component) -> None:
+    def add_component(self, component: Component | list[Component]) -> None:
         """Adds one or multiple components to the composition.
 
         All modelled components must be added before the composition is initialized.
