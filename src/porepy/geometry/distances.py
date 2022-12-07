@@ -601,7 +601,7 @@ def segment_overlap_segment_set(
     end_set: np.ndarray,
     return_indices: bool = False,
     tol: float = 1e-5,
-) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+) -> Union[bool, tuple[bool, np.ndarray]]:
     """Detects whether a given segment overlaps the segments in a set.
 
     The function currently works only for 2D geometries: ``nd == 2``.
@@ -618,8 +618,9 @@ def segment_overlap_segment_set(
     Returns:
         If ``return_indices==True``, we return a tuple of 2 elements.
 
-        ndarray ``(dtype=bool, shape=(num_segments,))``:
-            Mask array of overlappings.
+        bool:
+            ``True`` if the segment overlaps any of the segments in the set, ``False``
+            otherwise.
         ndarray ``(shape=(num_overlapping,))``:
             Indices of overlappings.
 
@@ -647,7 +648,9 @@ def segment_overlap_segment_set(
 
     # return if the segment overlap any of the others and which one
     if return_indices:
-        return np.any(overlap), np.where(overlap)[0]
+        # Note: We need the bool-conversion here since np.any returns np.bool_.
+        # See <https://github.com/numpy/numpy/issues/18876>
+        return bool(np.any(overlap)), np.where(overlap)[0]
 
     # return if the segment overlap any of the others
-    return np.any(overlap)
+    return bool(np.any(overlap))

@@ -586,7 +586,7 @@ class FractureNetwork2d:
         logger.info("Remove edge crossings")
         tm = time.time()
 
-        pts_split, lines_split, _ = pp.intersections.split_intersecting_segments_2d(
+        pts_split, lines_split, *_ = pp.intersections.split_intersecting_segments_2d(
             pts_all, lines, tol=self.tol
         )
         logger.info("Done. Elapsed time " + str(time.time() - tm))
@@ -1066,9 +1066,14 @@ class FractureNetwork2d:
             tol = self.tol
 
         # FIXME: tag_info may contain useful information if segments are intersecting.
-        p, e, tag_info, argsort = pp.intersections.split_intersecting_segments_2d(
+        # Since the function called in general can return 3 or 4 values (but we know
+        # it will return 4 here), we first store the returned values in a tuple, and
+        # then unpack the tuple into the individual variables.
+        result = pp.intersections.split_intersecting_segments_2d(
             self.pts, self.edges, tol=self.tol, return_argsort=True
         )
+        assert len(result) == 4, "Unexpected number of return values"
+        p, e, argsort, tag_info = result  # type: ignore
         # map the tags
         tags = {}
         for key, value in self.tags.items():

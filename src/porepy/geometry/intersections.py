@@ -714,7 +714,11 @@ def polygons_3d(
 
                         # Store boundary information on other.
                         if in_or_on == 1:
-                            if vert_ind_on_main[1] is None:
+                            assert isinstance(vert_ind_on_main, tuple)
+                            assert len(vert_ind_on_main) == 2
+                            # EK: mypy complains about a tuple index out of range below
+                            # despite the check that the length is 2. Ignore it.
+                            if vert_ind_on_main[1] is None:  # type: ignore
                                 # This is a segment, but not a vertex intersection
                                 segment_vertex_intersection[main].append(
                                     [vert_ind_on_main[0], True]
@@ -722,7 +726,7 @@ def polygons_3d(
                             else:
                                 # Intersection is on vertex of other as well
                                 segment_vertex_intersection[main].append(
-                                    [vert_ind_on_main[1], False]
+                                    [vert_ind_on_main[1], False]  # type: ignore
                                 )
                             is_bound_isect[main].append(True)
                         else:
@@ -923,7 +927,11 @@ def polygons_3d(
 
                         # Store boundary information on other.
                         if in_or_on == 1:
-                            if vert_ind_on_other[1] is None:
+                            assert isinstance(vert_ind_on_other, tuple)  # for mypy
+                            assert len(vert_ind_on_other) == 2  # for mypy
+                            # EK: mypy complains about a tuple index out of range below
+                            # despite the check that the length is 2. Ignore it.
+                            if vert_ind_on_other[1] is None:  # type: ignore
                                 # This is a segment, but not a vertex intersection
                                 segment_vertex_intersection[o].append(
                                     [vert_ind_on_other[0], True]
@@ -931,7 +939,7 @@ def polygons_3d(
                             else:
                                 # Intersection is on vertex of other as well
                                 segment_vertex_intersection[o].append(
-                                    [vert_ind_on_other[1], False]
+                                    [vert_ind_on_other[1], False]  # type: ignore
                                 )
                             is_bound_isect[o].append(True)
                         else:
@@ -1566,7 +1574,7 @@ def segments_polyhedron(
 
 def _point_in_or_on_polygon(
     p: np.ndarray, poly: np.ndarray, tol: float = 1e-8
-) -> tuple[int, Optional[tuple[Optional[int], Optional[int]]]]:
+) -> tuple[int, Optional[tuple[int, None] | tuple[None, int]]]:
     """Helper function to get intersection information between a point and a polygon.
 
     The polygon is classified as being outside, on the boundary or in the interior of
@@ -1612,12 +1620,9 @@ def _point_in_or_on_polygon(
         # Intersection on boundary. Either vertex of segment.
         vert_dist = pp.distances.point_pointset(p, poly)
         if vert_dist.min() < tol:
-            vert_ind = np.argmin(vert_dist)
-            seg_ind = None
+            return 1, (None, int(np.argmin(vert_dist)))
         else:
-            vert_ind = None  # type: ignore
-            seg_ind = np.argmin(dist[0])
-        return 1, (seg_ind, vert_ind)
+            return 1, (int(np.argmin(dist)), None)
     else:
         # Point inside
         return 2, None
@@ -1756,12 +1761,13 @@ def line_tessellation(
             the common length of the two segments in the two tessalations.
 
     Raise:
-        AssertionError: if ``pp.intersectinos.segments_3d`` returns an unknown shape.
+        AssertionError: If ``porepy.intersections.segments_3d`` returns an unknown
+            shape.
 
     """
     # Loop over both set of lines, use segment intersection method to compute common
     # segments, thus areas.
-    intersections: list[list] = []
+    intersections: list[tuple[int, int, float]] = []
     for i in range(l1.shape[1]):
         start_1 = p1[:, l1[0, i]]
         end_1 = p1[:, l1[1, i]]
@@ -1772,9 +1778,9 @@ def line_tessellation(
             if X is None:
                 continue
             elif X.shape[1] == 1:  # Point intersection (zero measure)
-                intersections.append([i, j, 0])
+                intersections.append((i, j, 0.0))
             elif X.shape[1] == 2:
-                intersections.append([i, j, np.sqrt(np.sum((X[:, 0] - X[:, 1]) ** 2))])
+                intersections.append((i, j, np.sqrt(np.sum((X[:, 0] - X[:, 1]) ** 2))))
             else:
                 raise AssertionError()
 

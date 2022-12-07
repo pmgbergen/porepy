@@ -4,7 +4,7 @@ objects.
 """
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, Optional
 
 import numpy as np
 import scipy
@@ -311,7 +311,7 @@ def point_in_polyhedron(
 
 
 def points_are_planar(
-    pts: np.ndarray, normal: np.ndarray = None, tol: float = 1e-5
+    pts: np.ndarray, normal: Optional[np.ndarray] = None, tol: float = 1e-5
 ) -> bool:
     """Check if the points lie on a plane.
 
@@ -338,7 +338,7 @@ def points_are_planar(
     # individual points
     dot_prod = np.linalg.norm(np.sum(normal * (pts - cp), axis=0))
     # The points are planar if all the dot products are essentially zero.
-    return np.all(np.isclose(dot_prod, 0, atol=tol, rtol=0))
+    return bool(np.all(np.isclose(dot_prod, 0, atol=tol, rtol=0)))
 
 
 def point_in_cell(poly: np.ndarray, p: np.ndarray, if_make_planar: bool = True) -> bool:
@@ -405,10 +405,10 @@ def points_are_collinear(pts: np.ndarray, tol: float = 1e-5) -> bool:
     pt0 = pts[:, 0]
     pt1 = pts[:, 1]
 
-    dist = 1
+    dist: float = 1.0
     for i in np.arange(pts.shape[1]):
         for j in np.arange(i + 1, pts.shape[1]):
-            dist = np.max(dist, np.linalg.norm(pts[:, i] - pts[:, j]))
+            dist = max(dist, float(np.linalg.norm(pts[:, i] - pts[:, j])))
 
     coll = (
         np.array([np.linalg.norm(np.cross(p - pt0, pt1 - pt0)) for p in pts[:, 1:-1].T])
