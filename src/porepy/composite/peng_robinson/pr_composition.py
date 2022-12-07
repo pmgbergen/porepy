@@ -17,6 +17,8 @@ from .pr_utils import _log, _power, _sqrt
 
 __all__ = ["PR_Composition"]
 
+_div_sqrt = pp.ad.Scalar(-1 / 2)
+
 
 class PR_Composition(Composition):
     """A composition modelled using the Peng-Robinson equation of state.
@@ -224,93 +226,123 @@ class PR_Composition(Composition):
         derivative w.r.t. temperature."""
         components: list[PR_Component] = [c for c in self.components]  # type: ignore
 
-        # First we sum over the diagonal elements of the mixture matrix
-        a = (
-            components[0].fraction
-            * components[0].fraction
-            * components[0].attraction(self.T)
-        )
-
-        dT_a = (
-            components[0].fraction
-            * components[0].fraction
-            * components[0].dT_attraction(self.T)
-        )
+        # First we sum over the diagonal elements of the mixture matrix,
+        # starting with the first component
+        comp_0 = components[0]
+        a = self._vdW_a_ij(comp_0, comp_0)
+        dT_a = self._vdW_dT_a_ij(comp_0, comp_0)
 
         if len(components) > 1:
-            # sqrt AD function
-            div_sqrt = pp.ad.Scalar(-1 / 2)
             # add remaining diagonal elements
             for comp in components[1:]:
-                a += comp.fraction * comp.fraction * comp.attraction(self.T)
-                dT_a += comp.fraction * comp.fraction * comp.dT_attraction(self.T)
+                a += self._vdW_a_ij(comp, comp)
+                dT_a += self._vdW_dT_a_ij(comp, comp)
 
             # adding off-diagonal elements, including BIPs
             for comp_i in components:
                 for comp_j in components:
                     if comp_i != comp_j:
                         # computing the attraction between components i and j
-                        a_ij = (
-                            comp_i.fraction
-                            * comp_j.fraction
-                            * _sqrt(
-                                comp_i.attraction(self.T) * comp_j.attraction(self.T)
-                            )
-                        )
-
-                        bip, dT_bip, order = get_PR_BIP(comp_i.name, comp_j.name)
-                        # assert there is a bip, to appease mypy
-                        # this check is performed in add_component anyways
-                        assert bip is not None
-                        # call to BIP and multiply with a_ij
-                        if order:
-                            a_ij *= 1 - bip(self.T, comp_i, comp_j)
-                        else:
-                            a_ij *= 1 - bip(self.T, comp_j, comp_i)
-                        # add off-diagonal element
-                        a += a_ij
-
-                        # computing the derivative w.r.t temperature
-                        # derivative of attraction terms
-                        dT_a_ij = (
-                            _power(comp_i.attraction(self.T), div_sqrt)
-                            * comp_i.dT_attraction(self.T)
-                            * _sqrt(comp_j.attraction(self.T))
-                            + _sqrt(comp_i.attraction(self.T))
-                            * _power(comp_j.attraction(self.T), div_sqrt)
-                            * comp_j.dT_attraction(self.T)
-                        ) / 2
-
-                        # multiplying with BIP
-                        if order:
-                            dT_a_ij *= 1 - bip(self.T, comp_i, comp_j)
-                        else:
-                            dT_a_ij *= 1 - bip(self.T, comp_j, comp_i)
-
-                        # adding derivative of BIP multiplied with attraction terms
-                        if dT_bip:
-                            if order:
-                                dT_a_ij -= _sqrt(
-                                    comp_i.attraction(self.T)
-                                    * comp_j.attraction(self.T)
-                                ) * dT_bip(self.T, comp_i, comp_j)
-                            else:
-                                dT_a_ij -= _sqrt(
-                                    comp_i.attraction(self.T)
-                                    * comp_j.attraction(self.T)
-                                ) * dT_bip(self.T, comp_j, comp_i)
-
-                        # multiply with fractions
-                        dT_a_ij *= comp_i.fraction * comp_j.fraction
-                        # add off-diagonal element
-                        dT_a += dT_a_ij
+                        a += self._vdW_a_ij(comp_i, comp_j)
+                        # computing the derivative w.r.t temperature of attraction terms
+                        dT_a += self._vdW_dT_a_ij(comp_i, comp_j)
 
         # store attraction parameters
         self._a = a
         self._dT_a = dT_a
 
+    def _vdW_a_ij(
+        self,
+        comp_i: PR_Component,
+        comp_j: PR_Component,
+        multiply_fractions: bool = True,
+    ) -> pp.ad.Operator:
+        """Get ``z_i * z_j * a_ij`` from the van der Waals - mixing rule
+
+            ``a = sum_i sum_j z_i * z_j * sqrt(a_i * a_j) * (1 - delta_ij)``,
+
+        where ``delta_ij`` is the BIP for ``i!=j``, and 0 for ``i==j``.
+
+        """
+        # for different components, the expression is more complex
+        if comp_i != comp_j:
+            # first part without BIP
+            a_ij = _sqrt(comp_i.attraction(self.T) * comp_j.attraction(self.T))
+            # get bip
+            bip, _, order = get_PR_BIP(comp_i.name, comp_j.name)
+            # assert there is a bip, to appease mypy
+            # this check is performed in add_component anyways
+            assert bip is not None
+
+            # call to BIP and multiply with a_ij
+            if order:
+                a_ij *= 1 - bip(self.T, comp_i, comp_j)
+            else:
+                a_ij *= 1 - bip(self.T, comp_j, comp_i)
+        # for same components, the expression can be simplified
+        else:
+            a_ij = comp_i.attraction(self.T)
+
+        # multiply with fractions and return
+        if multiply_fractions:
+            return a_ij * comp_i.fraction * comp_j.fraction
+        else:
+            return a_ij
+
+    def _vdW_dT_a_ij(
+        self,
+        comp_i: PR_Component,
+        comp_j: PR_Component,
+        multiply_fractions: bool = True,
+    ) -> pp.ad.Operator:
+        """Get the derivative w.r.t. temperature of ``z_i * z_j * a_ij``
+        (see :meth:`_get_a_ij`)."""
+        # the expression for two different components
+        if comp_i != comp_j:
+            # the derivative of a_ij
+            dT_a_ij = (
+                _power(comp_i.attraction(self.T), _div_sqrt)
+                * comp_i.dT_attraction(self.T)
+                * _sqrt(comp_j.attraction(self.T))
+                + _sqrt(comp_i.attraction(self.T))
+                * _power(comp_j.attraction(self.T), _div_sqrt)
+                * comp_j.dT_attraction(self.T)
+            ) / 2
+
+            bip, dT_bip, order = get_PR_BIP(comp_i.name, comp_j.name)
+            # assert there is a bip, to appease mypy
+            # this check is performed in add_component anyways
+            assert bip is not None
+
+            # multiplying with BIP
+            if order:
+                dT_a_ij *= 1 - bip(self.T, comp_i, comp_j)
+
+                # if the derivative of the BIP is not trivial, add respective part
+                if dT_bip:
+                    dT_a_ij -= _sqrt(
+                        comp_i.attraction(self.T) * comp_j.attraction(self.T)
+                    ) * dT_bip(self.T, comp_i, comp_j)
+            else:
+                dT_a_ij *= 1 - bip(self.T, comp_j, comp_i)
+
+                # if the derivative of the BIP is not trivial, add respective part
+                if dT_bip:
+                    dT_a_ij -= _sqrt(
+                        comp_i.attraction(self.T) * comp_j.attraction(self.T)
+                    ) * dT_bip(self.T, comp_j, comp_i)
+        # if the components are the same, the expression simplifies
+        else:
+            dT_a_ij = comp_i.dT_attraction(self.T)
+
+        # multiply with fractions and return
+        if multiply_fractions:
+            return dT_a_ij * comp_i.fraction * comp_j.fraction
+        else:
+            return dT_a_ij
+
     def _assign_covolume(self) -> None:
-        """Creates the co-volume of the mixture according to VdW mixing rule."""
+        """Creates the co-volume of the mixture according to van der Waals- mixing rule."""
         components: list[PR_Component] = [c for c in self.components]  # type: ignore
 
         b = components[0].fraction * components[0].covolume
@@ -414,9 +446,14 @@ class PR_Composition(Composition):
         for component in self.components:
             # shorten namespace
             b_c = component.covolume
-            a_c = component.attraction(self.T)
             Z_L = self.roots.liquid_root
             Z_G = self.roots.gas_root
+
+            a_c = [
+                other_c.fraction * self._vdW_a_ij(component, other_c, False)
+                for other_c in self.components
+            ]
+            a_c = sum(a_c)
 
             # fugacity coefficient for component c in liquid phase
             # TODO the last term containing a_c / a is unclear,
