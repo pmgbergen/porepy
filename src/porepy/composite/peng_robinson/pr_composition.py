@@ -1,7 +1,7 @@
 """Composition class for the Peng-Robinson equation of state."""
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, overload, Generator
 
 import numpy as np
 
@@ -13,6 +13,7 @@ from .pr_bip import get_PR_BIP
 from .pr_component import PR_Component
 from .pr_phase import PR_Phase
 from .pr_roots import PR_Roots
+from .pr_utils import _sqrt, _power, _log
 
 __all__ = ["PR_Composition"]
 
@@ -165,6 +166,12 @@ class PR_Composition(Composition):
         for name, equ in equations.items():
             self.ad_system.set_equation(name, equ, num_equ_per_dof=image_info)
 
+    @property
+    def components(self) -> Generator[PR_Component, None, None]:
+        """Function overload to specify special return type for PR compositions."""
+        for C in self._components:
+            yield C
+
     ### EoS parameters ------------------------------------------------------------------------
 
     @property
@@ -232,8 +239,6 @@ class PR_Composition(Composition):
 
         if len(components) > 1:
             # sqrt AD function
-            sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
-            power = pp.ad.Function(pp.ad.power, "power")
             div_sqrt = pp.ad.Scalar(-1 / 2)
             # add remaining diagonal elements
             for comp in components[1:]:
@@ -248,7 +253,7 @@ class PR_Composition(Composition):
                         a_ij = (
                             comp_i.fraction
                             * comp_j.fraction
-                            * sqrt(
+                            * _sqrt(
                                 comp_i.attraction(self.T) * comp_j.attraction(self.T)
                             )
                         )
@@ -268,11 +273,11 @@ class PR_Composition(Composition):
                         # computing the derivative w.r.t temperature
                         # derivative of attraction terms
                         dT_a_ij = (
-                            power(comp_i.attraction(self.T), div_sqrt)
+                            _power(comp_i.attraction(self.T), div_sqrt)
                             * comp_i.dT_attraction(self.T)
-                            * sqrt(comp_j.attraction(self.T))
-                            + sqrt(comp_i.attraction(self.T))
-                            * power(comp_j.attraction(self.T), div_sqrt)
+                            * _sqrt(comp_j.attraction(self.T))
+                            + _sqrt(comp_i.attraction(self.T))
+                            * _power(comp_j.attraction(self.T), div_sqrt)
                             * comp_j.dT_attraction(self.T)
                         ) / 2
 
@@ -285,12 +290,12 @@ class PR_Composition(Composition):
                         # adding derivative of BIP multiplied with attraction terms
                         if dT_bip:
                             if order:
-                                dT_a_ij -= sqrt(
+                                dT_a_ij -= _sqrt(
                                     comp_i.attraction(self.T)
                                     * comp_j.attraction(self.T)
                                 ) * dT_bip(self.T, comp_i, comp_j)
                             else:
-                                dT_a_ij -= sqrt(
+                                dT_a_ij -= _sqrt(
                                     comp_i.attraction(self.T)
                                     * comp_j.attraction(self.T)
                                 ) * dT_bip(self.T, comp_j, comp_i)
@@ -338,26 +343,24 @@ class PR_Composition(Composition):
     def _assign_phase_enthalpies(self) -> None:
         """Constructs callable objects representing phase enthalpies and assigns them to the
         ``PR_Phase``-classes."""
-        log = pp.ad.Function(pp.ad.log, "ln")
-        power = pp.ad.Function(pp.ad.power, "power")
 
         coeff = (
-            power(2 * self.covolume, pp.ad.Scalar(-1 / 2))
+            _power(2 * self.covolume, pp.ad.Scalar(-1 / 2))
             / 2
             * (self.T * self.dT_attraction - self.attraction)
         )
 
         def _h_L(p, T, *X):
-            ln_l = log(
+            ln_l = _log(
                 (self.roots.liquid_root + (1 - np.sqrt(2)) * self.B)
                 / (self.roots.liquid_root + (1 + np.sqrt(2)) * self.B)
             )
             return (
                 coeff * ln_l + R_IDEAL * self.T * (self.roots.liquid_root - 1) + H_REF
-            )
+            )  # TODO check relation H_REF and H_0 in standard formula
 
         def _h_G(p, T, *X):
-            ln_l = log(
+            ln_l = _log(
                 (self.roots.gas_root + (1 - np.sqrt(2)) * self.B)
                 / (self.roots.gas_root + (1 + np.sqrt(2)) * self.B)
             )
@@ -399,17 +402,42 @@ class PR_Composition(Composition):
 
     def _assign_fugacities(self) -> None:  # TODO
         """Creates and stores operators representing fugacities ``f_ce(p,T,X)`` per component
-        per phase."""
+        per phase.
 
-        L = self._phases[0]
-        G = self._phases[1]
+        References:
+            [1]: `Zhu et al. (2014), equ. A-4 <https://doi.org/10.1016/j.fluid.2014.07.003>`_
+            [2]: `ePaper <https://www.yumpu.com/en/document/view/36008448/
+                 1-derivation-of-the-fugacity-coefficient-for-the-peng-robinson-fet>`_
+
+        """
 
         for component in self.components:
+            # shorten namespace
+            b_c = component.covolume
+            a_c = component.attraction(self.T)
+            Z_L = self.roots.liquid_root
+            Z_G = self.roots.gas_root
 
-            fugacity_c_L = pp.ad.Scalar(1.0)
-            fugacity_c_G = pp.ad.Scalar(1.0)
+            # fugacity coefficient for component c in liquid phase
+            # TODO the last term containing a_c / a is unclear,
+            # sources say different thing... might be sum_i z_i * a_ci / a
+            phi_c_L = (
+                b_c / self.covolume * (Z_L- 1)
+                - _log(Z_L - self.covolume)
+                - self.attraction / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
+                * _log((Z_L + (1 + np.sqrt(2)) * self.B) / (Z_L + (1 - np.sqrt(2)) * self.B))
+                * (2 * a_c / self.attraction - b_c / self.covolume)
+            )
+            # fugacity coefficient for component c in gas phase
+            phi_c_G = (
+                b_c / self.covolume * (Z_G- 1)
+                - _log(Z_G - self.covolume)
+                - self.attraction / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
+                * _log((Z_G + (1 + np.sqrt(2)) * self.B) / (Z_G + (1 - np.sqrt(2)) * self.B))
+                * (2 * a_c / self.attraction - b_c / self.covolume)
+            )
 
             self._fugacities[component] = {
-                L: fugacity_c_L,
-                G: fugacity_c_G,
+                self._phases[0]: phi_c_L,
+                self._phases[1]: phi_c_G,
             }

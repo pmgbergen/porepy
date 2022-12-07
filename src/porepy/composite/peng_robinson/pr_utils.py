@@ -2,12 +2,19 @@
 from __future__ import annotations
 
 import numpy as np
+import porepy as pp
 
 __all__ = [
     "A_CRIT",
     "B_CRIT",
     "Z_CRIT",
 ]
+
+# AD functions used throughout PR, instantiated only once here
+_power = pp.ad.Function(pp.ad.power, "power")
+_exp = pp.ad.Function(pp.ad.exp, "exp")
+_sqrt = pp.ad.Function(pp.ad.sqrt, "sqrt")
+_log = pp.ad.Function(pp.ad.log, "ln")
 
 
 A_CRIT: float = (
