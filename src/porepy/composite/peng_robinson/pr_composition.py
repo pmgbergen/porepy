@@ -1,4 +1,17 @@
-"""Composition class for the Peng-Robinson equation of state."""
+"""This module contains a composition class for the Peng-Robinson equation of state.
+
+As of now, it supports a liquid and a gas phase, and several modelled components.
+
+The formulation is thermodynamically consistent. The PR composition creates and assigns
+thermodynamic properties of phases, based on the roots of the cubic polynomial and
+added components.
+
+For the equilibrium equations, formulae for fugacity values for each component in each
+phase are implemented.
+
+This framework is highly non-linear and active research code.
+
+"""
 from __future__ import annotations
 
 from typing import Callable, Generator, Optional
@@ -25,12 +38,12 @@ class PR_Composition(Composition):
 
         ``p = R * T / (v - b) - a / (b**2 + 2 * v * b - b**2)``.
 
-    Mixing rules according to Peng and Robinson are applied to ``a`` and ``b``.
+    Van der Waals mixing rules are applied to ``a`` and ``b``.
 
     Note:
         - This class currently supports only a liquid and a gaseous phase.
-        - The various properties of this class depend on the thermodynamic state. They are
-          continuously re-computed and must therefore be accessed by reference.
+        - The various properties of this class depend on the thermodynamic state.
+          They are continuously re-computed and must therefore be accessed by reference.
 
     """
 
@@ -67,19 +80,19 @@ class PR_Composition(Composition):
         self._fugacities: dict[PR_Component, dict[PR_Phase, pp.ad.Operator]] = dict()
 
     def add_component(self, component: PR_Component | list[PR_Component]) -> None:
-        """This child class method checks additionally if BIPs are defined for components to be
-        added and components already added.
+        """This child class method checks additionally if BIPs are defined for
+        components to be added and components already added.
 
         For the Peng-Robinson EoS to work as intended, BIPs must be available for any
         combination of two present components and present in
         :data:`~porepy.composite.peng_robinson.pr_bip.PR_BIP_MAP`.
 
         Parameters:
-            component: one or multiple model (PR-) components for this EoS.
+            component: One or multiple model (PR-) components for this EoS.
 
         Raises:
-            NotImplementedError: If a BIP is not available for any combination of modelled
-                components.
+            NotImplementedError: If a BIP is not available for any combination of
+                modelled components.
 
         """
         if isinstance(component, PR_Component):
@@ -109,18 +122,24 @@ class PR_Composition(Composition):
         # if missing bips detected, raise error
         if missing_bips:
             raise NotImplementedError(
-                f"BIPs not available for the following component-pairs:\n\t{missing_bips}"
+                f"BIPs not available for following component-pairs:\n\t{missing_bips}"
             )
         # if no missing bips, we proceed adding the components using the parent method.
         super().add_component(component)
 
     def initialize(self) -> None:
-        """Before initializing the p-h and p-T subsystems, this method additionally assigns
-        callables for thermodynamic properties of phases, according to the equation of state
-        and present components, and constructs the attraction and co-volume factors in the EoS.
+        """Creates and assigns thermodynamic properties, as well as equilibrium
+        equations using PR.
 
-        After that, it performs a super-call to :meth:`~Composition.initialize` and as a third
-        and final step it assigns equilibrium equations in the form of equality of fugacities.
+        Before initializing the p-h and p-T subsystems,
+        this method additionally assigns callables for thd. properties of phases,
+        according to the equation of state and present components,
+        and constructs the attraction and co-volume factors in the EoS.
+
+        After that, it performs a super-call to :meth:`~Composition.initialize`.
+
+        As a third and final step it assigns equilibrium equations in the form of
+        equality of fugacities.
 
         Raises:
             AssertionError: If the mixture is empty (no components).
@@ -137,7 +156,7 @@ class PR_Composition(Composition):
         self._assign_phase_densities()
         ## setting callables representing the specific phase enthalpies
         self._assign_phase_enthalpies()
-        ## setting callables defining the dynamic viscosity and heat conductivity of phases
+        ## setting callables defining the viscosity and conductivity of phases
         self._assign_phase_viscosities()
         self._assign_phase_conductivities()
         ## settings callables for fugacities
@@ -174,7 +193,7 @@ class PR_Composition(Composition):
         for C in self._components:
             yield C
 
-    ### EoS parameters ------------------------------------------------------------------------
+    ### EoS parameters -----------------------------------------------------------------
 
     @property
     def attraction(self) -> pp.ad.Operator:
@@ -183,7 +202,8 @@ class PR_Composition(Composition):
 
     @property
     def dT_attraction(self) -> pp.ad.Operator:
-        """An operator representing the derivative of :meth:`attraction` w.r.t. temperature."""
+        """An operator representing the derivative of :meth:`attraction` w.r.t.
+        temperature."""
         return self._dT_a
 
     @property
@@ -201,15 +221,16 @@ class PR_Composition(Composition):
         """An operator representing ``B`` in the characteristic polynomial of the EoS."""
         return (self.covolume * self.p) / (R_IDEAL * self.T)
 
-    ### Model equations -----------------------------------------------------------------------
+    ### Model equations ----------------------------------------------------------------
 
     def get_equilibrium_equation(self, component: PR_Component) -> pp.ad.Operator:
-        """The equilibrium equation for the Peng-Robinson EoS is defined using fugacities
+        """The equilibrium equation for the Peng-Robinson EoS is defined using
+        fugacities
 
             ``f_cG(p,T,X) * xi_cG - f_cL(p,T,X) * xi_cR = 0``,
 
-        where ``f_cG, f_cR`` are fugacities for component ``c`` in gaseous and liquid phase
-        respectively.
+        where ``f_cG, f_cR`` are fugacities for component ``c`` in gaseous and liquid
+        phase respectively.
 
         """
         L = self._phases[0]
@@ -222,8 +243,8 @@ class PR_Composition(Composition):
         return equation
 
     def _assign_attraction(self) -> None:
-        """Creates the attraction parameter for a mixture according to PR, as well as its
-        derivative w.r.t. temperature."""
+        """Creates the attraction parameter for a mixture according to PR,
+        as well as its derivative w.r.t. temperature."""
         components: list[PR_Component] = [c for c in self.components]  # type: ignore
 
         # First we sum over the diagonal elements of the mixture matrix,
@@ -354,17 +375,19 @@ class PR_Composition(Composition):
         self._b = b
 
     def _assign_phase_densities(self) -> None:
-        """Constructs callable objects representing phase densities and assigns them to the
-        ``PR_Phase``-classes."""
+        """Constructs callable objects representing phase densities and assigns them to
+        the ``PR_Phase``-classes."""
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._rho = self._rho_Z(self.roots.liquid_root)
         self._phases[1]._rho = self._rho_Z(self.roots.gas_root)
 
     def _rho_Z(self, Z: pp.ad.Ad_array) -> Callable:
-        """Returns a callable representing the density in the PR EoS for a specific root.
+        """Returns a callable representing the density in the PR EoS for a
+        specific root.
 
         Parameters:
-            Z: reference to an AD array representing an extended root of the cubic polynomial.
+            Z: reference to an AD array representing an extended root of the cubic
+                polynomial.
 
         """
         # densities in cubic EoS are given as inverse of specific molar volume v_e
@@ -377,21 +400,23 @@ class PR_Composition(Composition):
         return rho_z
 
     def _assign_phase_enthalpies(self) -> None:
-        """Constructs callable objects representing phase enthalpies and assigns them to the
-        ``PR_Phase``-classes."""
+        """Constructs callable objects representing phase enthalpies and assigns them to
+        the ``PR_Phase``-classes."""
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._h = self._h_Z(self.roots.liquid_root)
         self._phases[1]._h = self._h_Z(self.roots.gas_root)
 
     def _h_Z(self, Z: pp.ad.Ad_array) -> Callable:
-        """Returns a callable representing the enthalpy in the PR EoS for a specific root.
+        """Returns a callable representing the enthalpy in the PR EoS for a
+        specific root.
 
         References:
             [1]: `Connolly et al. (2021), eq. B-15 <https://doi.org/10.1016/
                  j.ces.2020.116150>`_
 
         Parameters:
-            Z: reference to an AD array representing an extended root of the cubic polynomial.
+            Z: reference to an AD array representing an extended root of the cubic
+                polynomial.
 
         """
         coeff = (
@@ -411,18 +436,19 @@ class PR_Composition(Composition):
         return h_Z
 
     def _assign_phase_viscosities(self) -> None:
-        """Constructs callable objects representing phase dynamic viscosities and assigns them
-        to the ``PR_Phase``-classes.
-        """
+        """Constructs callable objects representing phase dynamic viscosities and
+        assigns them to the ``PR_Phase``-classes."""
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._mu = self._mu_Z(self.roots.liquid_root)
         self._phases[1]._mu = self._mu_Z(self.roots.gas_root)
 
     def _mu_Z(self, Z: pp.ad.Ad_array) -> Callable:  # TODO
-        """Returns a callable representing the viscosity in the PR EoS for a specific root.
+        """Returns a callable representing the viscosity in the PR EoS for a
+        specific root.
 
         Parameters:
-            Z: reference to an AD array representing an extended root of the cubic polynomial.
+            Z: reference to an AD array representing an extended root of the cubic
+                polynomial.
 
         """
 
@@ -432,18 +458,19 @@ class PR_Composition(Composition):
         return mu_Z
 
     def _assign_phase_conductivities(self) -> None:
-        """Constructs callable objects representing phase conductivities and assigns them
-        to the ``PR_Phase``-classes.
-        """
+        """Constructs callable objects representing phase conductivities and assigns
+        them to the ``PR_Phase``-classes."""
         # assigning the callable to respective thermodynamic property of the PR_Phase
         self._phases[0]._kappa = self._kappa_Z(self.roots.liquid_root)
         self._phases[1]._kappa = self._kappa_Z(self.roots.gas_root)
 
     def _kappa_Z(self, Z: pp.ad.Ad_array) -> Callable:  # TODO
-        """Returns a callable representing the conductivity in the PR EoS for a specific root.
+        """Returns a callable representing the conductivity in the PR EoS for a
+        specific root.
 
         Parameters:
-            Z: reference to an AD array representing an extended root of the cubic polynomial.
+            Z: reference to an AD array representing an extended root of the cubic
+                polynomial.
 
         """
 
@@ -453,8 +480,8 @@ class PR_Composition(Composition):
         return kappa_Z
 
     def _assign_fugacities(self) -> None:
-        """Creates and stores operators representing fugacities ``f_ce(p,T,X)`` per component
-        per phase."""
+        """Creates and stores operators representing fugacities ``f_ce(p,T,X)``
+        per component per phase."""
 
         for component in self.components:
             self._fugacities[component] = {
@@ -467,13 +494,15 @@ class PR_Composition(Composition):
         represented by an extended root ``Z``.
 
         References:
-            [1]: `Zhu et al. (2014), equ. A-4 <https://doi.org/10.1016/j.fluid.2014.07.003>`_
+            [1]: `Zhu et al. (2014), equ. A-4
+                 <https://doi.org/10.1016/j.fluid.2014.07.003>`_
             [2]: `ePaper <https://www.yumpu.com/en/document/view/36008448/
                  1-derivation-of-the-fugacity-coefficient-for-the-peng-robinson-fet>`_
 
         Parameters:
-            component: a PR component in this composition.
-            Z: reference to an AD array representing an extended root of the cubic polynomial.
+            component: A PR component in this composition.
+            Z: reference to an AD array representing an extended root of the cubic
+                polynomial.
 
         """
         b_c = component.covolume

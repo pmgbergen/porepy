@@ -1,5 +1,10 @@
-"""Contains the abstract base class for all components (species/ pure substances)
-used in this framework.
+"""This module contains the abstract base class for all components
+(species/ pure substances) used in this framework.
+
+Components are models for chemical species inside a mixture.
+They are either genuine components (with relevant fractional variables) or
+pseudo-components, which act as parameters in compounds.
+
 """
 
 from __future__ import annotations
@@ -16,36 +21,41 @@ from ._composite_utils import VARIABLE_SYMBOLS, CompositionalSingleton
 
 
 class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
-    """Abstract base class for instances inside a mixture, which represent a chemical species.
+    """Abstract base class for instances inside a mixture, which represent a chemical
+    species.
 
-    Pseudo-components are identified by their name and have a molar mass, critical pressure and
-    critical temperature.
+    Pseudo-components are identified by their name and have a molar mass,
+    critical pressure and critical temperature.
 
-    They are used as a starting point for all genuine components (species inside a mixture
-    which change phases), but also as simplified surrogate models (parts of a compound),
+    They are used as a starting point for all genuine components
+    (species inside a mixture which change phases),
+    but also as simplified surrogate models (parts of a compound),
     which sufficiently enough approximate reality.
 
     Example:
         A surrogate model would be salt, which influences the phase
-        behavior of a compound 'brine' with its concentration, but for which it is **not**
-        meaningful to model salt alone as a component in vapor and liquid phase.
+        behavior of a compound 'brine' with its concentration,
+        but for which it is **not** meaningful to model salt alone as a component
+        in vapor and liquid phase.
 
-        The alternative to the surrogate model is the rigorous model, where salt is split into
-        the genuine components Sodium and Chlorine,
+        The alternative to the surrogate model is the rigorous model,
+        where salt is split into the genuine components Sodium and Chlorine,
         which switch phases (dissolution, precipitation and vaporization)
 
     Note:
-        When pairing the equilibrium problem with a flow problem, the pseudo-component might
-        need nevertheless a transport equation! Take above example. If the amount of salt
-        entering the system is unequal to the amount leaving it, one needs to formulate the
-        respective transport. If that is not the case, i.e. the amount of salt is constant
-        at all times, this is not necessary.
+        When pairing the equilibrium problem with a flow problem,
+        the pseudo-component might need nevertheless a transport equation!
+        Take above example.
+        If the amount of salt entering the system is unequal to the amount leaving it,
+        one needs to formulate the respective transport.
+        If that is not the case, i.e. the amount of salt is constant at all times,
+        this is not necessary.
 
         Keep this in mind when formulating a model, its equations and variables.
         See :class:`Compound` for more information.
 
     Parameters:
-        ad_system: AD system in which this pseud-component is present.
+        ad_system: AD system in which this pseudo-component is present.
 
     """
 
@@ -60,7 +70,7 @@ class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
     def name(self) -> str:
         """
         Returns:
-            name of the class, used as a unique identifier.
+            Name of the class, used as a unique identifier in the composite framework.
 
         """
         return str(self.__class__.__name__)
@@ -74,7 +84,7 @@ class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
         | Phys. Dimension:        [kg / mol]
 
         Returns:
-            molar mass.
+            Molar mass.
 
         """
         pass
@@ -87,7 +97,8 @@ class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
         | Math. Dimension:        scalar
         | Phys. Dimension:        [MPa]
 
-        Returns: critical pressure for this component (critical point in p-T diagram).
+        Returns:
+            Critical pressure of this pseudo-component.
 
         """
         pass
@@ -100,7 +111,8 @@ class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
         | Math. Dimension:        scalar
         | Phys. Dimension:        [K]
 
-        Returns: critical temperature for this component (critical point in p-T diagram).
+        Returns:
+            Critical temperature of this pseudo-component.
 
         """
         pass
@@ -109,21 +121,23 @@ class PseudoComponent(abc.ABC, metaclass=CompositionalSingleton):
 class Component(PseudoComponent):
     """Abstract base class for components modelled inside a mixture.
 
-    Provides a variable representing the molar fraction of this component,
-    cell-wise in a computational domain.
+    Provides a variable representing the molar fraction of this component
+    (feed fraction), cell-wise in a computational domain.
 
-    Components are chemical species which possibly go through phase transitions and appear in
-    multiple phases. They represent a genuine component in the flash problem.
+    Components are chemical species which possibly go through phase transitions and
+    appear in multiple phases.
+    They represent a genuine component in the flash problem.
 
     Note:
         The component is a Singleton per AD system,
         using the class name as a unique identifier.
         A component class with name ``X`` can only be present once in a system.
-        Ambiguities must be avoided due to central storage of the fractional values in the
-        grid data dictionaries.
+        Ambiguities must be avoided due to central storage of the fractional values
+        in the grid data dictionaries.
 
     Parameters:
-        ad_system: AD system in which this component is present cell-wise in each subdomain.
+        ad_system: AD system in which this component is present cell-wise in each
+            subdomain.
 
     """
 
@@ -138,17 +152,19 @@ class Component(PseudoComponent):
 
     @property
     def fraction_name(self) -> str:
-        """Name of the feed fraction variable, given by the general symbol and :meth:`name`."""
+        """Name of the feed fraction variable,
+        given by the general symbol and :meth:`name`."""
         return f"{VARIABLE_SYMBOLS['component_fraction']}_{self.name}"
 
     @property
     def fraction(self) -> pp.ad.MergedVariable:
         """
         | Math. Dimension:        scalar
-        | Phys. Dimension:        [-] fractional
+        | Phys. Dimension:        [%] fractional
 
         Returns:
-            feed fraction, a primary variable on the whole domain (cell-wise).
+            Feed fraction of this component,
+            a primary variable on the whole domain (cell-wise).
             Indicates how many of the total moles belong to this component.
 
         """
@@ -158,25 +174,27 @@ class Component(PseudoComponent):
 class Compound(Component):
     """Abstract base class for all compounds in a mixture.
 
-    A compound is a simplified, but meaningfully generalized component inside a mixture, for
-    which it makes sense to treat it as a single component.
+    A compound is a simplified, but meaningfully generalized component inside a mixture,
+    for which it makes sense to treat it as a single component.
 
     It has one pseudo-component declared as the solvent, and arbitrary many other
     pseudo-components declared as solutes.
 
-    A compound can appear in multiple phases and its thermodynamic properties are influenced
-    by the presence of solutes.
+    A compound can appear in multiple phases and its thermodynamic properties are
+    influenced by the presence of solutes.
 
     Note:
-        Due to the generalization, the solvent and solutes are not considered as species which
-        can transition into various phases, but rather as parameters in the flash problem.
-        Only the compound as a whole splits into various phases and phase compositions are
-        associated with the compound.
+        Due to the generalization,
+        the solvent and solutes are not considered as genuine components which
+        can transition into various phases,
+        but rather as parameters in the flash problem.
+        Only the compound as a whole splits into various phases and fractions in phases
+        are associated with the compound.
 
-    This class provides variables representing fractions of solutes. The solute fractions are
-    formulated with respect to the component fraction.
-    Solute fractions are secondary variables in the flash problem, but primary (transportable)
-    in the flow problem.
+    This class provides variables representing fractions of solutes.
+    The solute fractions are formulated with respect to the component fraction.
+    Solute fractions are secondary variables in the flash problem,
+    but primary (transportable) in the flow problem.
 
     Note:
         There is no variable representing the fraction of the solvent.
@@ -191,12 +209,13 @@ class Compound(Component):
         The salt in this case is a **transportable** quantity,
         whose concentration acts as a parameter in the flash.
 
-        Another example would be the black-oil model, where black-oil is treated as a compound
-        with various hydrocarbons as pseudo-components.
+        Another example would be the black-oil model, where black-oil is treated as a
+        compound with various hydrocarbons as pseudo-components.
 
     Parameters:
-        ad_system: AD system in which this component is present cell-wise in each subdomain.
-        solvent: A pseudo-component representing the solvent
+        ad_system: AD system in which this component is present cell-wise in each
+            subdomain.
+        solvent: A pseudo-component representing the solvent.
 
     """
 
@@ -211,8 +230,8 @@ class Compound(Component):
         """A list containing present solutes."""
 
         self._solute_fractions: dict[PseudoComponent, pp.ad.MergedVariable] = dict()
-        """A dictionary containing the variables representing solute fractions for a given
-        pseudo-component (key)."""
+        """A dictionary containing the variables representing solute fractions for a
+        given pseudo-component (key)."""
 
     @property
     def solvent(self) -> PseudoComponent:
@@ -231,7 +250,7 @@ class Compound(Component):
 
     @property
     def molar_mass(self) -> pp.ad.Operator:
-        """The molar mass of a compound depends on how much of the solute is available.
+        """The molar mass of a compound depends on how much of the solutes is available.
 
         It is a sum of the molar masses of present pseudo-components, weighed with their
         respective fraction.
@@ -251,8 +270,8 @@ class Compound(Component):
     def solute_fraction_name(self, solute: PseudoComponent) -> str:
         """
         Returns:
-            the name of the solute fraction, composed of the general symbol and the solute
-            name.
+            The name of the solute fraction,
+            composed of the general symbol and the solute name.
 
         """
         return f"{VARIABLE_SYMBOLS['solute_fraction']}_{solute.name}"
@@ -263,7 +282,7 @@ class Compound(Component):
         | Phys. Dimension:        [-] fractional
 
         Parameters:
-            pseudo_component: a pseudo-component present in this compound.
+            pseudo_component: A pseudo-component present in this compound.
 
         Returns:
             A representation of the molar fraction of a present pseudo_component.
@@ -296,13 +315,12 @@ class Compound(Component):
         | Phys. Dimension:        [mol / kg]
 
         The molality ``m`` of a pseudo-component is calculated with respect to the total
-        number of moles in the mixture ``n``:
+        number of moles in the mixture ``n``
 
-            ``n_compound = n * fraction_compound``
-            ``m_solute = (n * fraction_compound * solute_fraction) ``
-            ``/ (n * fraction_compound * solvent_fraction * molar_mass*solvent)``
-
-            ``m_solute = solute_fraction / (solvent_fraction * molar_mass*solvent)``
+            ``n_compound = n * fraction_compound``,
+            ``m_solute = (n * fraction_compound * solute_fraction) ``,
+            ``/ (n * fraction_compound * solvent_fraction * molar_mass*solvent)``,
+            ``m_solute = solute_fraction / (solvent_fraction * molar_mass*solvent)``.
 
         Note:
             The molality of the solvent is its molar mass.
@@ -310,8 +328,8 @@ class Compound(Component):
             The molality of a solute not present in a compound is zero.
 
         Returns:
-            An operator representing the molality of a solute, i.e. number of moles of solute
-            per ``kg`` of solvent.
+            An operator representing the molality of a solute,
+            i.e. number of moles of solute per ``kg`` of solvent.
 
         """
         if solute == self.solvent:
@@ -333,10 +351,10 @@ class Compound(Component):
         If a solute was already added, it is ignored.
 
         Parameters:
-            solutes: one or multiple pseudo-components to be added to this compound.
+            solutes: One or multiple pseudo-components to be added to this compound.
 
         Raises:
-            TypeError: if a user attempts to add a genuine component to a compound.
+            TypeError: If a user attempts to add a genuine component to a compound.
 
         """
         if isinstance(solutes, PseudoComponent):
@@ -359,31 +377,37 @@ class Compound(Component):
 
     def set_solute_fractions(
         self,
-        fractions: dict[PseudoComponent, np.ndarray | float],
+        fractions: dict[PseudoComponent, float | np.ndarray],
         copy_to_state: bool = True,
     ) -> None:
         """Set the solute fractions per solute in this component.
 
-        The fraction can either be given as an array with entries per cell in the domain,
+        The fraction can either be given as an array with entries per cell,
         or as float for a homogenous distribution.
 
-        Only fractions for solutes are to be passed, since the solvent fraction is represented
-        by unity.
+        Only fractions for solutes are to be passed,
+        since the solvent fraction is represented by unity.
 
         Note:
-            Per cell, the sum of fractions have to be in ``[0,1)``, where the right interval
-            end is open on purpose. This means the solvent **has** to be always present.
+            Per cell, the sum of fractions have to be in ``[0,1)``,
+            where the right interval end is open on purpose.
+            This means the solvent **has** to be always present.
             As of now, the chemistry when the solvent disappears is not considered.
 
         Parameters:
-            fractions: a dictionary containing per solute (key) the respective fraction.
-            copy_to_state (optional): Copies the values to the STATE of the AD variable,
+            fractions: A dictionary containing per solute (key) the respective fraction.
+            copy_to_state: ``default=True``
+
+                Copies the values to the STATE of the AD variable,
                 additionally to ITERATE. Defaults to True.
 
         Raises:
-            ValueError: If any value breaches above restriction.
-            ValueError: If the cell-wise sum is greater or equal to 1.
-            ValueError: If values are missing for a present solute.
+            ValueError: If
+
+                - any value breaches above restriction,
+                - the cell-wise sum is greater or equal to 1,
+                - values are missing for a present solute.
+
             AssertionError: If array-like fractions don't have ``num_cells`` values.
 
         """
@@ -405,7 +429,9 @@ class Compound(Component):
                 frac_val = np.ones(nc) * frac_val
 
             # assert enough values are present
-            assert len(frac_val) == nc
+            assert (
+                len(frac_val) == nc
+            ), f"Array values for solute {solute.name} do not cover the whole domain."
             # check validity of fraction values
             if np.any(frac_val < 0.0) or np.any(frac_val >= 1.0):
                 raise ValueError(f"Values for solute {solute.name} not in [0,1).")
@@ -439,12 +465,13 @@ class Compound(Component):
 
         It holds for every solute ``c``:
 
-            ``molality_c * (1 - sum_i fraction_i) * molar_M_solvent = fraction_c``
-            ``molality_c * molar_M_solvent = (1 + molality_c * molar_M_solvent)  * fraction_c``
-            ``+ molality_c * molar_M_solvent * (sum_{i != c} fraction_i``
+            ``molality_c * (1 - sum_i fraction_i) * molar_M_solvent = fraction_c``,
+            ``molality_c * molar_M_solvent =``
+            ``(1 + molality_c * molar_M_solvent)  * fraction_c``
+            ``+ molality_c * molar_M_solvent * (sum_{i != c} fraction_i``.
 
         Parameters:
-            molalities: a dictionary containing per solute (key) the respective molality
+            molalities: A dictionary containing per solute (key) the respective molality
                 values.
 
         Raises:
@@ -463,7 +490,8 @@ class Compound(Component):
         fraction_names = [self.solute_fraction_name(solute) for solute in self.solutes]
         projection = self.ad_system.dof_manager.projection_to(fraction_names)
 
-        # loop over present solutes and construct row-blocks of linear system for conversion
+        # loop over present solutes and construct row-blocks of linear system for
+        # conversion
         for solute in self.solutes:
             if solute not in molalities:
                 raise ValueError(f"Missing molality for solute {solute.name}.")

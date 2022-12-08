@@ -8,13 +8,15 @@ compounds.
 References for these largely heuristic laws and values can be found in respective
 implementations.
 
-BIPs are implemented as callable objects. This module provides a map ``BIP_MAP`` which maps
-between two components and their respective BIP.
+BIPs are implemented as callable objects. This module provides a map ``BIP_MAP`` which
+maps between two components and their respective BIP.
 
-The BIP between a component/compound and itself is assumed to be 0, and hence not given here.
+The BIP between a component/compound and itself is assumed to be 0,
+and hence not given here.
 
-It is recommended to use the function :meth:`get_PR_BIP` to get a reference to the respective
-callable. This function also provides information on how to use a BIP in terms of argument
+It is recommended to use the function :meth:`get_PR_BIP` to get a reference to the
+respective callable.
+This function also provides information on how to use a BIP in terms of argument
 order (component 1 and component 2).
 
 Examples:
@@ -23,10 +25,11 @@ Examples:
     >>> H2O = pp.composite.H2O(composition.ad_system)
     >>> CO2 = pp.composite.CO2(composition.ad_system)
     >>> bip, order = pp.composite.get_PR_BIP(H2O.name, CO2.name)
-    >>> bip_co2_h2o = bip(composition.T, H2O, CO2) if order else bip(composition.T, CO2, H2O)
+    >>> bip_co2_h2o = bip(composition.T, H2O, CO2) if order else bip(composition.T, CO2,
+    >>> ... H2O)
 
-    Note that the last line will raise an error if there is no BIP implemented for `H2O` and
-    `CO2` (`bip` is None in that case).
+    Note that the last line will raise an error if there is no BIP implemented for `H2O`
+    and `CO2` (`bip` is None in that case).
 
 """
 from __future__ import annotations
@@ -82,13 +85,15 @@ def bip_H2O_N2(T: pp.ad.MergedVariable, h2o: H2O, n2: N2) -> pp.ad.Operator:
     """(Constant) BIP for water and nitrogen.
 
     The law is taken from
-    `Haghighi et al. (2009), equation 11 <https://doi.org/10.1016/j.fluid.2008.10.006>`_.
+    `Haghighi et al. (2009), equation 11
+    <https://doi.org/10.1016/j.fluid.2008.10.006>`_.
 
     Warning:
         The validity of this law is highly questionable, since it was evaluated for the
         Cubic+ EoS.
 
-        An alternative would be `this one <https://www.mdpi.com/1996-1073/14/17/5239>`_,
+        An alternative would be `this one
+        <https://www.mdpi.com/1996-1073/14/17/5239>`_,
         but it was also designed for another EoS (SRK), with a value 0.385438.
 
     Returns:
@@ -262,12 +267,13 @@ PR_BIP_MAP: dict[tuple[str, str], Callable] = {
     ("NaClBrine", "N2"): (bip_NaClBrine_N2, dT_bip_NaClBrine_N2),
 }
 """Contains for a pair of component/compound names (key) the respective
-binary interaction parameter for the Peng-Robinson EoS and their derivative w.r.t. temperature,
-in form of a tuple of callables, or a callable and 0 if the derivative is trivial
-(constant BIP).
+binary interaction parameter and their derivative w.r.t. temperature.
 
-This map serves the Peng-Robinson composition to assemble the attraction parameter of the
-mixture and its intended use is only there.
+The values are 2-tuples containing callables,
+or a callable and 0 if the derivative is trivial (constant BIP).
+
+This map serves the Peng-Robinson composition to assemble the attraction parameter of
+the mixture and its intended use is only there.
 
 """
 
@@ -275,26 +281,31 @@ mixture and its intended use is only there.
 def get_PR_BIP(
     component1: str, component2: str
 ) -> tuple[Callable | None, Callable | Literal[0], bool]:
-    """Returns the callables representing a BIP and its derivative for two given component
-    names, in the Peng-Robinson EoS.
+    """Returns the callables representing a BIP and its derivative for two given
+    component names.
 
     This function is a wrapper for accessing :data:`BIP_MAP`, which is not sensitive
     the order in the 2-tuple containing component names.
 
     Parameters:
-        component1: name of the first component
-        component2: name of the second component
+        component1: Name of the first component.
+        component2: Name of the second component.
 
     Returns:
         The returned 3-tuple contains:
 
-        1. A callable implemented which represents the BIP for given components.
+        1. A callable which represents the BIP for given components.
            It is ``None``, if the BIP is not available.
-        2. A second callable, or 0, for the derivative of the BIP w.r.t. temperature.
+        2. A second callable, or 0,
+           representing the derivative of the BIP w.r.t. temperature.
+
            A zero indicates that the derivative is trivial.
         3. A bool indicating whether the order of input arguments
-           fits the order for the BIP arguments. It is ``False``, if the BIP argument order is
-           ``component2, component1``. If no BIP is found, the bool has no meaning.
+           fits the order for the BIP arguments.
+
+           It is ``False``, if the BIP argument order is ``component2, component1``.
+
+           If no BIP is found, the bool has no meaning.
 
     """
     # try input order

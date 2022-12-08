@@ -1,4 +1,13 @@
-"""Composition class using simplified EoS"""
+"""This module contains simplified representations of phases and some components,
+as well as a simple composition class to use them.
+
+The phases are modelled using different equations of state,
+i.e. this simple representation of a mixture is **not** thermodynamically consistent.
+
+It serves solely for demonstrating what is necessary to set up a composition using the
+unified approach.
+
+"""
 from __future__ import annotations
 
 from typing import Optional
@@ -17,10 +26,12 @@ __all__ = ["SimpleWater", "SimpleCO2", "SimpleComposition"]
 
 
 class IncompressibleFluid(Phase):
-    """Ideal, Incompressible fluid with constant density of 1e6 mol water per ``V_REF``:
+    """Ideal, incompressible fluid with constant density of 1e6 mol water per ``V_REF``.
 
-    ``rho = 1e6 / V_REF``
-    ``V = V_REF``
+    The EoS is
+
+        ``rho = 1e6 / V_REF``,
+        ``V = V_REF``.
 
     """
 
@@ -42,9 +53,9 @@ class IncompressibleFluid(Phase):
 
 
 class IdealGas(Phase):
-    """Ideal gas phase with EoS:
+    """Ideal gas phase with EoS
 
-    ``rho = n / V  = p / (R * T)``
+    ``rho = n / V  = p / (R * T)``.
 
     """
 
@@ -87,6 +98,14 @@ class SimpleComposition(Composition):
     - constant k-values must be set for each component
     - the initial guess strategy ``feed`` based on feed fractions is implemented
 
+    Constant k-values must be set per component using :data:`k_values`.
+
+    The liquid phase ``L`` is set as reference phase, with the other phase being the gas
+    phase ``G``.
+
+    Provides additionally an initial guess strategy based on feed fractions using the
+    keyword ``initial_guess='feed'`` for :meth:`flash`.
+
     """
 
     def __init__(self, ad_system: Optional[pp.ad.ADSystem] = None) -> None:
@@ -103,7 +122,7 @@ class SimpleComposition(Composition):
 
         The k-values are to be formulated w.r.t the reference phase, i.e.
 
-            ``x_cC - k_c * x_cL = 0``.
+            ``x_cG - k_c * x_cL = 0``.
 
         """
 
@@ -111,8 +130,8 @@ class SimpleComposition(Composition):
         self._equilibrium: str = "flash_k-value"
 
     def initialize(self) -> None:
-        """Sets the equilibrium equations using constant k-values, after the super-call to the
-        parent-method."""
+        """Sets the equilibrium equations using constant k-values,
+        after the super-call to the parent-method."""
 
         super().initialize()
 
@@ -138,10 +157,10 @@ class SimpleComposition(Composition):
     def get_equilibrium_equation(self, component: Component) -> pp.ad.Operator:
         """Constant k-value equations for a given component.
 
-            ``xi_cV - k_c * xi_cL = 0``
+            ``xi_cG - k_c * xi_cL = 0``
 
         Parameters:
-            component: a component in this composition
+            component: A component in this composition.
 
         Returns:
             AD operator representing the left-hand side of the equation (rhs=0).
