@@ -460,7 +460,7 @@ class PR_Composition(Composition):
             # sources say different thing... might be sum_i z_i * a_ci / a
             phi_c_L = (
                 b_c / self.covolume * (Z_L - 1)
-                - _log(Z_L - self.covolume)
+                - _log(Z_L - self.B)
                 - self.attraction
                 / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
                 * _log(
@@ -472,7 +472,7 @@ class PR_Composition(Composition):
             # fugacity coefficient for component c in gas phase
             phi_c_G = (
                 b_c / self.covolume * (Z_G - 1)
-                - _log(Z_G - self.covolume)
+                - _log(Z_G - self.B)
                 - self.attraction
                 / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
                 * _log(
