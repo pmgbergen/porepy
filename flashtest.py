@@ -36,7 +36,7 @@ c.k_values = {
 
 c.initialize()
 
-success = c.isothermal_flash(copy_to_state=False, initial_guess="feed")
+success = c.flash(initial_guess="feed", copy_to_state=False)
 print("Success: ", success)
 c.evaluate_saturations(False)
 c.evaluate_specific_enthalpy(False)

@@ -350,7 +350,7 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
         self.ad_system.set_var_values(self.composition.h_name, h_vals, True)
 
         self.composition.initialize()
-        self.composition.isothermal_flash(copy_to_state=True, initial_guess="feed")
+        self.composition.flash(initial_guess="feed", copy_to_state=True)
         self.composition.evaluate_saturations()
         # This corrects the initial values
         self.composition.evaluate_specific_enthalpy()
@@ -817,7 +817,9 @@ class CompositionalFlowModel(pp.models.abstract_model.AbstractModel):
 
         if not self._monolithic:
             print(f".. .. isenthalpic flash at iteration {self._nonlinear_iteration}.")
-            success = self.composition.isenthalpic_flash(False, initial_guess="feed")
+            success = self.composition.flash(
+                flash_type='isenthalpic', initial_guess="feed", copy_to_state=False
+            )
             if not success:
                 raise RuntimeError("FAILURE: Isenthalpic flash.")
             else:

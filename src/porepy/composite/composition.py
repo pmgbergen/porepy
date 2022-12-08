@@ -139,7 +139,20 @@ class Composition(abc.ABC):
         # representation of eliminated phase fraction by unity, set in initialization
         self._y_R: pp.ad.Operator
 
-    ### Thermodynamic State -------------------------------------------------------------------
+    def __str__(self) -> str:
+        """Returns string representation of the composition,
+        with information about present components.
+
+        """
+        out = f"Composition with {self.num_components} components:"
+        for component in self.components:
+            out += f"\n\t{component.name}"
+        out += f"\nand {self.num_phases} phases:"
+        for phase in self.phases:
+            out += f"\n\t{phase.name}"
+        return out
+
+    ### Thermodynamic state and properties ----------------------------------------------------
 
     @property
     def p_name(self) -> str:
@@ -332,7 +345,7 @@ class Composition(abc.ABC):
 
         Raises:
             ValueError: if the component was instantiated using a different AD system than
-            the one used for this composition.
+                the one used for this composition.
 
         """
         if isinstance(component, Component):
@@ -358,16 +371,17 @@ class Composition(abc.ABC):
                 phase.add_component(comp)
 
     def initialize(self) -> None:
-        """Initializes the flash equations for this system, based on the added components.
+        """Initializes the flash equations for this mixture based on the added components.
 
-        This is the last step before a flash method should be called.
+        This is the last step before any flash method should be called.
         It creates the system of equations and the two subsystems for the p-T and p-h flash.
 
-        Every derived composition class has to override this method and implement the setting
-        of class-specific equilibrium equations.
+        Note:
+            Every derived composition class has to override this method and implement the
+            setting of class-specific equilibrium equations.
 
-        After a a super-call to ``initialize``, the equations must be set in the AD system
-        and stored in respective subsystem dictionaries using the keyword ``'equations'``
+            After a a super-call to ``initialize``, the equations must be set in the AD system
+            and stored in respective subsystem dictionaries using the keyword ``'equations'``
 
         Raises:
             AssertionError: If the mixture is empty (no components).
@@ -578,56 +592,88 @@ class Composition(abc.ABC):
 
     ### Flash methods -------------------------------------------------------------------------
 
-    def isothermal_flash(
+    def flash(
         self,
-        copy_to_state: bool = False,
+        flash_type: Literal["isothermal", "isenthalpic"] = "isothermal",
+        method: Literal["newton-min", "npipm"] = "newton-min",
         initial_guess: Literal["iterate", "uniform"] | str = "iterate",
+        copy_to_state: bool = False,
     ) -> bool:
         """Isothermal flash procedure to determine the composition based on given
         temperature of the mixture, pressure and feed fraction per component.
 
-        Parameters:
-            copy_to_state (bool): Copies the values to the STATE of the AD variables,
-                additionally to ITERATE.
-            initial_guess (optional): strategy for choosing the initial guess:
-
-                - ``iterate``: values from ITERATE or STATE, if ITERATE not existent,
-                - ``uniform``: uniform fractions adding up to 1 are used as initial guesses
-
-                Can be extended by child classes.
-
-        Returns:
-            indicator if flash was successful or not. If not successful, the ITERATE will
-            **not** be copied to the STATE, even if flagged ``True`` by ``copy_to_state``.
-
-        """
-        success = self._Newton_min(self.pT_subsystem, copy_to_state, initial_guess)
-        return success
-
-    def isenthalpic_flash(
-        self,
-        copy_to_state: bool = False,
-        initial_guess: Literal["iterate", "uniform"] | str = "iterate",
-    ) -> bool:
-        """Isenthalpic flash procedure to determine the composition based on given
-        specific enthalpy of the mixture, pressure and feed fractions per component.
+        References:
+            [1]: `Pang (1990) <https://www.jstor.org/stable/3689785>`_
+            [2]: `Vu et al. (2021) <https://doi.org/10.1016/j.matcom.2021.07.015>`_
 
         Parameters:
-            copy_to_state (bool): Copies the values to the STATE of the AD variable,
+            flash_type: ``default='isothermal'``
+
+                A string representing the chosen flash type:
+
+                - ``'isothermal'``: The composition is determined based on given temperature,
+                  pressure and feed fractions per component. Enthalpy is not considered and can
+                  be evaluated upon success using :meth:`evaluate_specific_enthalpy`.
+                - ``'isenthalpic'``: The composition **and** temperature are determined based
+                  on given pressure and enthalpy. Compared to the isothermal flash,
+                  the temperature in the isenthalpic flash is an additional variable and an
+                  enthalpy constraint is introduced into the system as an additional equation.
+
+            method: ``default='newton-min'``
+
+                A string indicating the chosen algorithm:
+
+                - ``'newton-min'``: A semi-smooth Newton method, where the KKT- conditions and
+                  and their derivatives are evaluated using a semi-smooth min function [1].
+                - ``'npipm'``: A Non-Parametric Interior Point Method [2].
+
+            initial_guess: ``default='iterate'``
+
+                Strategy for choosing the initial guess:
+
+                - ``'iterate'``: values from ITERATE or STATE, if ITERATE not existent.
+                - ``'uniform'``: uniform fractions adding up to 1 are used as initial guesses.
+
+            copy_to_state: Copies the values to the STATE of the AD variables,
                 additionally to ITERATE.
-            initial_guess (optional): strategy for choosing the initial guess:
 
-                - ``iterate``: values from ITERATE or STATE, if ITERATE not existent,
-                - ``uniform``: uniform fractions adding up to 1 are used as initial guesses
-
-                Can be extended by child classes.
+                **Note:** If not successful, the ITERATE will **not** be copied to the STATE,
+                even if flagged ``True`` by ``copy_to_state``.
 
         Returns:
-            indicator if flash was successful or not. If not successful, the ITERATE will
-            **not** be copied to the STATE, even if flagged ``True`` by ``copy_to_state``.
+            A bool indicating if flash was successful or not.
+
+        Raises:
+            ValueError: If either `flash_type`, `method` or `initial_guess` are unsupported
+                keywords.
 
         """
-        success = self._Newton_min(self.ph_subsystem, copy_to_state, initial_guess)
+        success = False
+
+        if flash_type == "isothermal":
+            subsystem = self.pT_subsystem
+        elif flash_type == "isenthalpic":
+            subsystem = self.ph_subsystem
+        else:
+            raise ValueError(f"Unknown flash type {flash_type}.")
+
+        self._set_initial_guess(initial_guess)
+
+        if method == "newton-min":
+            success = self._Newton_min(subsystem)
+        elif method == "npipm":
+            success = self._NPIPM(subsystem)
+        else:
+            raise ValueError(f"Unknown method {method}.")
+
+        # setting STATE to newly found solution
+        if copy_to_state and success:
+            var_names = subsystem["primary_vars"]
+            X = self.ad_system.dof_manager.assemble_variable(
+                variables=var_names, from_iterate=True
+            )
+            self.ad_system.dof_manager.distribute_variable(X, variables=var_names)
+
         return success
 
     def evaluate_saturations(self, copy_to_state: bool = True) -> None:
@@ -741,6 +787,286 @@ class Composition(abc.ABC):
                     chi_ce,
                     copy_to_state,
                 )
+
+    def _set_initial_guess(self, initial_guess: str) -> None:
+        """Auxillary function to set the initial values for phase fractions, phase compositions
+        and temperature, based on the chosen strategy.
+        """
+
+        if initial_guess == "iterate":
+            # DofManager takes by default values from ITERATE, than from STATE if not found
+            pass
+        elif initial_guess == "uniform":
+            nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
+            # uniform values for phase fraction
+            val_phases = 1.0 / self.num_phases
+            for phase in self.phases:
+                self.ad_system.set_var_values(
+                    phase.fraction_name, val_phases * np.ones(nc)
+                )
+                # uniform values for composition of this phase
+                val = 1.0 / phase.num_components
+                for component in self.components:
+                    self.ad_system.set_var_values(
+                        phase.fraction_of_component_name(component),
+                        val * np.ones(nc),
+                    )
+        else:
+            raise ValueError(f"Unknown initial-guess-strategy {initial_guess}.")
+
+    def _Newton_min(
+        self,
+        subsystem: dict,
+    ) -> bool:
+        """Performs a semi-smooth newton (Newton-min), where the complementary conditions are
+        the semi-smooth part.
+
+        Note:
+            This looks exactly like a regular Newton since the semi-smooth part, especially the
+            assembly of the sub-gradient, are wrapped in a special AD operator.
+
+        Parameters:
+            subsystem: Specially structured dict containing equation and variable names.
+
+        Returns:
+            A bool indicating the success of the method.
+
+        """
+        success = False
+        var_names = subsystem["primary_vars"]
+        equations = subsystem["equations"]
+
+        # assemble linear system of eq for semi-smooth subsystem
+        A, b = self.ad_system.assemble_subsystem(equations, var_names)
+
+        # if residual is already small enough
+        if np.linalg.norm(b) <= self.flash_tolerance:
+            success = True
+            iter_final = 0
+        else:
+            # this changes dependent on flash type but also if other models accessed the system
+            prolongation = self.ad_system.dof_manager.projection_to(
+                var_names
+            ).transpose()
+
+            for i in range(self.max_iter_flash):
+
+                # solve iteration and add to ITERATE state additively
+                dx = sps.linalg.spsolve(A, b)
+                DX = prolongation * dx
+                self.ad_system.dof_manager.distribute_variable(
+                    DX,
+                    variables=var_names,
+                    additive=True,
+                    to_iterate=True,
+                )
+                # counting necessary number of iterations
+                iter_final = i + 1  # shift since range() starts with zero
+                A, b = self.ad_system.assemble_subsystem(equations, var_names)
+
+                # in case of convergence
+                if np.linalg.norm(b) <= self.flash_tolerance:
+                    success = True
+                    break
+
+        # append history entry
+        self._history_entry(
+            flash="isenthalpic" if self.T_name in var_names else "isothermal",
+            method="newton-min",
+            iterations=iter_final,
+            success=success,
+            variables=var_names,
+            equations=equations,
+        )
+
+        return success
+
+    def _NPIPM(
+        self,
+        subsystem: dict,
+    ) -> bool:
+        """Performs a non-parametric interior point algorithm to find the solution inside the
+        compositional space.
+
+        Parameters:
+            subsystem: Specially structured dict containing equation and variable names.
+
+        Returns:
+            A bool indicating the success of the method.
+
+        """
+        success = False
+
+        return success
+
+    def _single_phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
+        """If only one phase is present, we assume it occupies the whole pore space."""
+        phase = self.reference_phase
+        values = np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells())
+        self.ad_system.set_var_values(phase.saturation_name, values, copy_to_state)
+
+    def _2phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
+        """Calculates the saturation value assuming phase molar fractions are given.
+        In the case of 2 phases, the evaluation is straight forward.
+
+        It holds:
+            s_i = 1 / (1 + y_j / (1 - y_j) * rho_i / rho_j) , i != j
+
+        """
+        # get reference to phases
+        phase1, phase2 = (phase for phase in self.phases)
+        # shortening the name space
+        dm = self.ad_system.dof_manager
+        # get phase molar fraction values
+        y1 = self.ad_system.get_var_values(phase1.fraction_name)
+        y2 = self.ad_system.get_var_values(phase2.fraction_name)
+
+        # get density values for given pressure and enthalpy
+        rho1 = phase1.density(self.p, self.T).evaluate(dm)
+        if isinstance(rho1, pp.ad.Ad_array):
+            rho1 = rho1.val
+        rho2 = phase2.density(self._p, self._T).evaluate(dm)
+        if isinstance(rho2, pp.ad.Ad_array):
+            rho2 = rho2.val
+
+        # allocate saturations, size must be the same
+        s1 = np.zeros(y1.size)
+        s2 = np.zeros(y1.size)
+
+        # TODO test sensitivity of this
+        phase1_saturated = y1 == 1.0  # equal to phase2_vanished
+        phase2_saturated = y2 == 1.0  # equal to phase1_vanished
+
+        # calculate only non-saturated cells to avoid division by zero
+        # set saturated or "vanishing" cells explicitly to 1., or 0. respectively
+        idx = np.logical_not(phase2_saturated)
+        y2_idx = y2[idx]
+        rho1_idx = rho1[idx]
+        rho2_idx = rho2[idx]
+        s1[idx] = 1.0 / (1.0 + y2_idx / (1.0 - y2_idx) * rho1_idx / rho2_idx)
+        s1[phase1_saturated] = 1.0
+        s1[phase2_saturated] = 0.0
+
+        idx = np.logical_not(phase1_saturated)
+        y1_idx = y1[idx]
+        rho1_idx = rho1[idx]
+        rho2_idx = rho2[idx]
+        s2[idx] = 1.0 / (1.0 + y1_idx / (1.0 - y1_idx) * rho2_idx / rho1_idx)
+        s2[phase1_saturated] = 0.0
+        s2[phase2_saturated] = 1.0
+
+        # write values to AD system
+        self.ad_system.set_var_values(phase1.saturation_name, s1, copy_to_state)
+        self.ad_system.set_var_values(phase2.saturation_name, s2, copy_to_state)
+
+    def _multi_phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
+        """Calculates the saturation value assuming phase molar fractions are given.
+        Valid for compositions with at least 3 phases.
+        In this case a linear system has to be solved for each multiphase cell
+
+        It holds for all i = 1... m, where m is the number of phases:
+            1 = sum_{j != i} (1 + rho_j / rho_i * chi_i / (1 - chi_i)) s_j
+        """
+        # shortening name space
+        dm = self.ad_system.dof_manager
+        nc = dm.mdg.num_subdomain_cells()
+        # molar fractions per phase
+        y = [
+            self.ad_system.get_var_values(phase.saturation_name)
+            for phase in self.phases
+        ]
+        # densities per phase
+        rho = list()
+        for phase in self.phases:
+            rho_e = phase.density(self.p, self.T).evaluate(dm)
+            if isinstance(rho_e, pp.ad.Ad_array):
+                rho_e = rho_e.val
+            rho.append(rho_e)
+
+        mat_per_eq = list()
+
+        # list of indicators per phase, where the phase is fully saturated
+        saturated = list()
+        # where one phase is saturated, the other vanish
+        vanished = [np.zeros(nc, dtype=bool) for _ in self.phases]
+
+        for i in range(self.num_phases):
+            # get the DOFS where one phase is fully saturated
+            # TODO check sensitivity of this
+            saturated_i = y[i] == 1.0
+            saturated.append(saturated_i)
+
+            # store information that other phases vanish at these DOFs
+            for j in range(self.num_phases):
+                if j == i:
+                    # a phase can not vanish and be saturated at the same time
+                    continue
+                else:
+                    # where phase i is saturated, phase j vanishes
+                    # Use OR to accumulate the bools per i-loop without overwriting
+                    vanished[j] = np.logical_or(vanished[j], saturated_i)
+
+        # indicator which DOFs are saturated for the vector of stacked saturations
+        saturated = np.hstack(saturated)
+        # indicator which DOFs vanish
+        vanished = np.hstack(vanished)
+        # all other DOFs are in multiphase regions
+        multiphase = np.logical_not(np.logical_or(saturated, vanished))
+
+        # construct the matrix for saturation flash
+        # first loop, per block row (equation per phase)
+        for i in range(self.num_phases):
+            mats = list()
+            # second loop, per block column (block per phase per equation)
+            for j in range(self.num_phases):
+                # diagonal values are zero
+                # This matrix is just a placeholder
+                if i == j:
+                    mats.append(sps.diags([np.zeros(nc)]))
+                # diagonals of blocks which are not on the main diagonal, are non-zero
+                else:
+                    denominator = 1 - y[i]
+                    # to avoid a division by zero error, we set it to one
+                    # this is arbitrary, but respective matrix entries will be sliced out
+                    # since they correspond to cells where one phase is saturated,
+                    # i.e. the respective saturation is 1., the other 0.
+                    denominator[denominator == 0.0] = 1.0
+                    d = 1.0 + rho[j] / rho[i] * y[i] / denominator
+
+                    mats.append(sps.diags([d]))
+
+            # rectangular matrix per equation
+            mat_per_eq.append(np.hstack(mats))
+
+        # Stack matrices per equation on each other
+        # This matrix corresponds to the vector of stacked saturations per phase
+        mat = np.vstack(mat_per_eq)
+        # TODO permute DOFS to get a block diagonal matrix. This one has a large band width
+        mat = sps.csr_matrix(mat)
+
+        # projection matrix to DOFs in multiphase region
+        # start with identity in CSR format
+        projection = sps.diags([np.ones(len(multiphase))]).tocsr()
+        # slice image of canonical projection out of identity
+        projection = projection[multiphase]
+        projection_transposed = projection.transpose()
+
+        # get sliced system
+        rhs = projection * np.ones(nc * self.num_phases)
+        mat = projection * mat * projection_transposed
+
+        s = sps.linalg.spsolve(mat.tocsr(), rhs)
+
+        # prolongate the values from the multiphase region to global DOFs
+        saturations = projection_transposed * s
+        # set values where phases are saturated or have vanished
+        saturations[saturated] = 1.0
+        saturations[vanished] = 0.0
+
+        # distribute results to the saturation variables
+        for i, phase in enumerate(self.phases):
+            vals = saturations[i * nc : (i + 1) * nc]
+            self.ad_system.set_var_values(phase.saturation_name, vals, copy_to_state)
 
     ### Model equations -----------------------------------------------------------------------
 
@@ -984,296 +1310,4 @@ class Composition(abc.ABC):
         """
         pass
 
-    ### Flash methods (numerics) --------------------------------------------------------------
-
-    def _Newton_min(
-        self,
-        subsystem: dict,
-        copy_to_state: bool,
-        initial_guess: str,
-    ) -> bool:
-        """Performs a semi-smooth newton (Newton-min), where the complementary conditions are
-        the semi-smooth part.
-
-        Note:
-            This looks exactly like a regular Newton since the semi-smooth part, especially the
-            assembly of the sub-gradient, are wrapped in a special AD operator.
-
-        Parameters:
-            subsystem: specially structured dict containing equation and variable names.
-            copy_to_state: flag to save the result as STATE, additionally to ITERATE.
-            initial_guess: initial guess strategy
-
-        Returns:
-            a bool indicating the success of the method.
-
-        """
-        success = False
-        var_names = subsystem["primary_vars"]
-        equations = subsystem["equations"]
-
-        self._set_initial_guess(initial_guess)
-
-        # assemble linear system of eq for semi-smooth subsystem
-        A, b = self.ad_system.assemble_subsystem(equations, var_names)
-
-        # if residual is already small enough
-        if np.linalg.norm(b) <= self.flash_tolerance:
-            success = True
-            iter_final = 0
-        else:
-            # this changes dependent on flash type but also if other models accessed the system
-            prolongation = self.ad_system.dof_manager.projection_to(
-                var_names
-            ).transpose()
-
-            for i in range(self.max_iter_flash):
-
-                # solve iteration and add to ITERATE state additively
-                dx = sps.linalg.spsolve(A, b)
-                DX = prolongation * dx
-                self.ad_system.dof_manager.distribute_variable(
-                    DX,
-                    variables=var_names,
-                    additive=True,
-                    to_iterate=True,
-                )
-                # counting necessary number of iterations
-                iter_final = i + 1  # shift since range() starts with zero
-                A, b = self.ad_system.assemble_subsystem(equations, var_names)
-
-                # in case of convergence
-                if np.linalg.norm(b) <= self.flash_tolerance:
-
-                    # setting STATE to newly found solution
-                    if copy_to_state:
-                        X = self.ad_system.dof_manager.assemble_variable(
-                            variables=var_names, from_iterate=True
-                        )
-                        self.ad_system.dof_manager.distribute_variable(
-                            X, variables=var_names
-                        )
-
-                    success = True
-                    break
-
-        # append history entry
-        self._history_entry(
-            flash="isenthalpic" if self.T_name in var_names else "isothermal",
-            method="Newton-min",
-            iterations=iter_final,
-            success=success,
-            variables=var_names,
-            equations=equations,
-        )
-
-        return success
-
-    def _set_initial_guess(self, initial_guess: str) -> None:
-        """Auxillary function to set the initial values for phase fractions, phase compositions
-        and temperature, based on the chosen strategy.
-        """
-
-        if initial_guess == "iterate":
-            pass  # DofManager does this by default
-        elif initial_guess == "uniform":
-            nc = self.ad_system.dof_manager.mdg.num_subdomain_cells()
-            # uniform values for phase fraction
-            val_phases = 1.0 / self.num_phases
-            for phase in self.phases:
-                self.ad_system.set_var_values(
-                    phase.fraction_name, val_phases * np.ones(nc)
-                )
-                # uniform values for composition of this phase
-                val = 1.0 / phase.num_components
-                for component in self.components:
-                    self.ad_system.set_var_values(
-                        phase.fraction_of_component_name(component),
-                        val * np.ones(nc),
-                    )
-
-    ### Saturation post-processing ------------------------------------------------------------
-
-    def _single_phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
-        """If only one phase is present, we assume it occupies the whole pore space."""
-        phase = self.reference_phase
-        values = np.ones(self.ad_system.dof_manager.mdg.num_subdomain_cells())
-        self.ad_system.set_var_values(phase.saturation_name, values, copy_to_state)
-
-    def _2phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
-        """Calculates the saturation value assuming phase molar fractions are given.
-        In the case of 2 phases, the evaluation is straight forward.
-
-        It holds:
-            s_i = 1 / (1 + y_j / (1 - y_j) * rho_i / rho_j) , i != j
-
-        """
-        # get reference to phases
-        phase1, phase2 = (phase for phase in self.phases)
-        # shortening the name space
-        dm = self.ad_system.dof_manager
-        # get phase molar fraction values
-        y1 = self.ad_system.get_var_values(phase1.fraction_name)
-        y2 = self.ad_system.get_var_values(phase2.fraction_name)
-
-        # get density values for given pressure and enthalpy
-        rho1 = phase1.density(self.p, self.T).evaluate(dm)
-        if isinstance(rho1, pp.ad.Ad_array):
-            rho1 = rho1.val
-        rho2 = phase2.density(self._p, self._T).evaluate(dm)
-        if isinstance(rho2, pp.ad.Ad_array):
-            rho2 = rho2.val
-
-        # allocate saturations, size must be the same
-        s1 = np.zeros(y1.size)
-        s2 = np.zeros(y1.size)
-
-        # TODO test sensitivity of this
-        phase1_saturated = y1 == 1.0  # equal to phase2_vanished
-        phase2_saturated = y2 == 1.0  # equal to phase1_vanished
-
-        # calculate only non-saturated cells to avoid division by zero
-        # set saturated or "vanishing" cells explicitly to 1., or 0. respectively
-        idx = np.logical_not(phase2_saturated)
-        y2_idx = y2[idx]
-        rho1_idx = rho1[idx]
-        rho2_idx = rho2[idx]
-        s1[idx] = 1.0 / (1.0 + y2_idx / (1.0 - y2_idx) * rho1_idx / rho2_idx)
-        s1[phase1_saturated] = 1.0
-        s1[phase2_saturated] = 0.0
-
-        idx = np.logical_not(phase1_saturated)
-        y1_idx = y1[idx]
-        rho1_idx = rho1[idx]
-        rho2_idx = rho2[idx]
-        s2[idx] = 1.0 / (1.0 + y1_idx / (1.0 - y1_idx) * rho2_idx / rho1_idx)
-        s2[phase1_saturated] = 0.0
-        s2[phase2_saturated] = 1.0
-
-        # write values to AD system
-        self.ad_system.set_var_values(phase1.saturation_name, s1, copy_to_state)
-        self.ad_system.set_var_values(phase2.saturation_name, s2, copy_to_state)
-
-    def _multi_phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
-        """Calculates the saturation value assuming phase molar fractions are given.
-        Valid for compositions with at least 3 phases.
-        In this case a linear system has to be solved for each multiphase cell
-
-        It holds for all i = 1... m, where m is the number of phases:
-            1 = sum_{j != i} (1 + rho_j / rho_i * chi_i / (1 - chi_i)) s_j
-        """
-        # shortening name space
-        dm = self.ad_system.dof_manager
-        nc = dm.mdg.num_subdomain_cells()
-        # molar fractions per phase
-        y = [
-            self.ad_system.get_var_values(phase.saturation_name)
-            for phase in self.phases
-        ]
-        # densities per phase
-        rho = list()
-        for phase in self.phases:
-            rho_e = phase.density(self.p, self.T).evaluate(dm)
-            if isinstance(rho_e, pp.ad.Ad_array):
-                rho_e = rho_e.val
-            rho.append(rho_e)
-
-        mat_per_eq = list()
-
-        # list of indicators per phase, where the phase is fully saturated
-        saturated = list()
-        # where one phase is saturated, the other vanish
-        vanished = [np.zeros(nc, dtype=bool) for _ in self.phases]
-
-        for i in range(self.num_phases):
-            # get the DOFS where one phase is fully saturated
-            # TODO check sensitivity of this
-            saturated_i = y[i] == 1.0
-            saturated.append(saturated_i)
-
-            # store information that other phases vanish at these DOFs
-            for j in range(self.num_phases):
-                if j == i:
-                    # a phase can not vanish and be saturated at the same time
-                    continue
-                else:
-                    # where phase i is saturated, phase j vanishes
-                    # Use OR to accumulate the bools per i-loop without overwriting
-                    vanished[j] = np.logical_or(vanished[j], saturated_i)
-
-        # indicator which DOFs are saturated for the vector of stacked saturations
-        saturated = np.hstack(saturated)
-        # indicator which DOFs vanish
-        vanished = np.hstack(vanished)
-        # all other DOFs are in multiphase regions
-        multiphase = np.logical_not(np.logical_or(saturated, vanished))
-
-        # construct the matrix for saturation flash
-        # first loop, per block row (equation per phase)
-        for i in range(self.num_phases):
-            mats = list()
-            # second loop, per block column (block per phase per equation)
-            for j in range(self.num_phases):
-                # diagonal values are zero
-                # This matrix is just a placeholder
-                if i == j:
-                    mats.append(sps.diags([np.zeros(nc)]))
-                # diagonals of blocks which are not on the main diagonal, are non-zero
-                else:
-                    denominator = 1 - y[i]
-                    # to avoid a division by zero error, we set it to one
-                    # this is arbitrary, but respective matrix entries will be sliced out
-                    # since they correspond to cells where one phase is saturated,
-                    # i.e. the respective saturation is 1., the other 0.
-                    denominator[denominator == 0.0] = 1.0
-                    d = 1.0 + rho[j] / rho[i] * y[i] / denominator
-
-                    mats.append(sps.diags([d]))
-
-            # rectangular matrix per equation
-            mat_per_eq.append(np.hstack(mats))
-
-        # Stack matrices per equation on each other
-        # This matrix corresponds to the vector of stacked saturations per phase
-        mat = np.vstack(mat_per_eq)
-        # TODO permute DOFS to get a block diagonal matrix. This one has a large band width
-        mat = sps.csr_matrix(mat)
-
-        # projection matrix to DOFs in multiphase region
-        # start with identity in CSR format
-        projection = sps.diags([np.ones(len(multiphase))]).tocsr()
-        # slice image of canonical projection out of identity
-        projection = projection[multiphase]
-        projection_transposed = projection.transpose()
-
-        # get sliced system
-        rhs = projection * np.ones(nc * self.num_phases)
-        mat = projection * mat * projection_transposed
-
-        s = sps.linalg.spsolve(mat.tocsr(), rhs)
-
-        # prolongate the values from the multiphase region to global DOFs
-        saturations = projection_transposed * s
-        # set values where phases are saturated or have vanished
-        saturations[saturated] = 1.0
-        saturations[vanished] = 0.0
-
-        # distribute results to the saturation variables
-        for i, phase in enumerate(self.phases):
-            vals = saturations[i * nc : (i + 1) * nc]
-            self.ad_system.set_var_values(phase.saturation_name, vals, copy_to_state)
-
     ### Special methods -----------------------------------------------------------------------
-
-    def __str__(self) -> str:
-        """Returns string representation of the composition,
-        with information about present components.
-
-        """
-        out = f"Composition with {self.num_components} components:"
-        for component in self.components:
-            out += f"\n{component.name}"
-        out += f"\nand {self.num_phases} phases:"
-        for phase in self.phases:
-            out += f"\n{phase.name}"
-        return out
