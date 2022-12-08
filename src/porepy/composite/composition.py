@@ -1,4 +1,41 @@
-"""Contains a class representing a multiphase multicomponent mixture (composition)."""
+"""This module contains a class representing a multiphase multicomponent mixture, here
+denoted as *composition* using the unified formulation for phase stability and split
+calculations.
+
+The base class is a starting point to derive custom compositions using an
+equations of state, which must yield formulae for phase densities and specific
+enthalpies. As of now, only those two thermodynamic properties of phases are relevant.
+
+Fractional values in the compositional framework are set and initiated by respective
+classes.
+The uses has to ensure that values for secondary variables are set prior to using
+a composition class or calling a flash. This involves setting values for
+
+- pressure
+- temperature
+- (specific) enthalpy
+- feed fraction per component
+
+The thermodynamic variables can be accessed using
+:func:`~porepy.composite.composition.Composition.p`,
+:func:`~porepy.composite.composition.Composition.T` and
+:func:`~porepy.composite.composition.Composition.h`.
+
+Feed fractions variables can be accessed using
+:func:`~porepy.composite.component.Component.fraction` of
+:class:`~porepy.composite.component.Component`.
+
+Phases have to be modelled for each composition class using the respective EoS,
+see :class:`~porepy.composite.phase.Phase`.
+
+Warning:
+    As of now it is recommended to use more than one component.
+
+    Due to the phase rule ``F=C-P+2``, the thermodynamic degree of freedom reduced to 1
+    if ``C==``, causing the unified formulation to lose its injectivity.
+    This leads to a potentially singular Jacobian of the system.
+
+"""
 from __future__ import annotations
 
 import abc
@@ -17,24 +54,25 @@ __all__ = ["Composition"]
 
 
 class Composition(abc.ABC):
-    """Base class for all compositions with multiple components (chemical substances) in the
-    unified setting.
+    """Base class for all compositions with multiple components in the unified setting.
 
-    This class can be used to program composition classes which implement specific equations of
-    state.
+    This class can be used to program composition classes which implement a specific
+    equations of state.
+
     Child classes have to implement their own phases and equilibrium equations.
     The other equations in the unified flash procedure are set by this class.
 
-    Note:
+    Notes:
         - Two flash procedures are implemented: p-T flash and p-h flash
-        - The first phase is treated as the reference phase: its molar fraction will not be
-          part of the primary variables.
-        - The first, added component is set as reference component: its mass conservation will
-          not be part of the flash equations.
+        - The first phase is treated as the reference phase: its molar fraction will not
+          be part of the primary variables.
+        - The first, added component is set as reference component: its mass
+          conservation will not be part of the flash equations.
         - Choice of reference phase and component influence the choice of equations and
           variables, keep that in mind. It might have numeric implications.
         - Equilibrium calculations can be done cell-wise.
-          I.e. the computations can be done smarter or parallelized. This is not yet exploited.
+          I.e. the computations can be done smarter or parallelized.
+          This is not yet exploited.
 
     The secondary variables are:
 
@@ -53,23 +91,27 @@ class Composition(abc.ABC):
     Warning:
         The phase fraction of the reference phase,
         as well as the normalized phase composition variables
-        are neither primary nor secondary. They are evaluated once the procedure converges.
+        are neither primary nor secondary.
+        They can be evaluated once the procedure converges
+        (see :meth:`post_process_fractions`).
         Keep this in mind when using the composition in other models, e.g. flow.
 
-    The values of all fractional variables are calculated by this class,
-    i.e. they do not have to be set externally.
+    While the molar fractions are the actual unknowns in the flash procedure,
+    the saturation values can be computed once the equilibrium converges using
+    :meth:`evaluate_saturations`.
 
-    While the molar fractions are the actual unknowns in the flash procedure, the saturation
-    values can be computed once the equilibrium converges using a relation between molar and
-    volumetric fractions for phases based on an averaging process for porous media.
-
-    The specific enthalpy can be evaluated directly after a p-T flash.
+    The specific enthalpy can be evaluated directly after a p-T flash using
+    :meth:`evaluate_specific_enthalpy`.
 
     Parameters:
-        ad_system (optional): If given, this class will use this AD system and the respective
-            mixed-dimensional domain to represent all involved variables cell-wise in each
-            subdomain.
-            If not given (None), a single-cell domain and respective AD system are created.
+        ad_system: ``default=None``
+
+            If given, this class will use the AD system and the respective
+            mixed-dimensional domain to represent all involved variables cell-wise in
+            each subdomain.
+
+            If not given (None), a single-cell domain and respective AD system are
+            created.
 
     """
 
@@ -89,7 +131,8 @@ class Composition(abc.ABC):
         """The AD system passed at instantiation."""
 
         self.flash_history: list[dict[str, Any]] = list()
-        """Contains chronologically stored information about calculated flash procedures."""
+        """Contains chronologically stored information about performed flash procedures.
+        """
 
         self.flash_tolerance: float = 1e-8
         """Convergence criterion for the flash algorithm."""
@@ -98,24 +141,28 @@ class Composition(abc.ABC):
         """Maximal number of iterations for the flash algorithms."""
 
         self.ph_subsystem: dict[str, list] = dict()
-        """A dictionary representing the subsystem for the p-h flash. Contains information on
-        relevant variables and equations.
+        """A dictionary representing the subsystem for the p-h flash.
+
+        Contains information on relevant variables and equations.
 
         """
 
         self.pT_subsystem: dict[str, list] = dict()
-        """A dictionary representing the subsystem for the p-T flash. Contains information on
-        relevant variables and equations.
+        """A dictionary representing the subsystem for the p-T flash.
+
+        Contains information on relevant variables and equations.
 
         """
 
         ### PRIVATE
-        # primary variables
-        self._p: pp.ad.MergedVariable = ad_system.create_variable(self.p_name)
-        self._h: pp.ad.MergedVariable = ad_system.create_variable(self.h_name)
-        self._T: pp.ad.MergedVariable = ad_system.create_variable(self.T_name)
 
-        # composition
+        self._p: pp.ad.MergedVariable = ad_system.create_variable(self.p_name)
+        """Pressure variable used for the thermodynamic state."""
+        self._h: pp.ad.MergedVariable = ad_system.create_variable(self.h_name)
+        """(Specific) enthalpy variable used for the thermodynamic state."""
+        self._T: pp.ad.MergedVariable = ad_system.create_variable(self.T_name)
+        """Temperature variable used for the thermodynamic state."""
+
         self._components: list[Component] = list()
         """A list containing all modelled components."""
 
@@ -125,24 +172,28 @@ class Composition(abc.ABC):
         To be created in the constructor of child classes.
 
         """
-
-        # maximal number of flash history entries (FiFo)
         self._max_history: int = 100
-        # names of equations
+        """Maximal number of flash history entries (FiFo)."""
         self._mass_conservation: str = "flash_mass"
+        """Used to name mass balance operators"""
         self._phase_fraction_unity: str = "flash_phase_unity"
-        self._complementary: str = "flash_KKT"  # complementary conditions
-        self._enthalpy_constraint: str = "flash_h_constraint"  # for p-h flash
-
-        # semi-smooth min operator for KKT condition
+        """Used to name the phase fraction unity operator."""
+        self._complementary: str = "flash_KKT"
+        """Used to name the KKT operator for each phase."""
+        self._enthalpy_constraint: str = "flash_h_constraint"
+        """Used to name the enthalpy constraint operator in the p-h flash."""
         self._ss_min: pp.ad.Operator = pp.ad.SemiSmoothMin()
-        # representation of eliminated phase fraction by unity, set in initialization
+        """An operator representing the semi-smooth min function in AD."""
         self._y_R: pp.ad.Operator
+        """An operator representing the reference phase fraction by unity.
+
+        This operator is instantiated during initialization.
+
+        """
 
     def __str__(self) -> str:
         """Returns string representation of the composition,
         with information about present components.
-
         """
         out = f"Composition with {self.num_components} components:"
         for component in self.components:
@@ -152,67 +203,75 @@ class Composition(abc.ABC):
             out += f"\n\t{phase.name}"
         return out
 
-    ### Thermodynamic state and properties ----------------------------------------------------
+    ### Thermodynamic state and properties ---------------------------------------------
 
     @property
     def p_name(self) -> str:
-        """Returns the name of the pressure variable."""
+        """Name of the pressure variable."""
         return VARIABLE_SYMBOLS["pressure"]
 
     @property
     def p(self) -> pp.ad.MergedVariable:
-        """
-        The values are assumed to represent values at equilibrium and are therefore constant
-        during any flash procedure.
+        """The pressure variable for the thermodynamic state.
+
+        The values are assumed to represent values at equilibrium and are therefore
+        constant during any flash procedure.
 
         | Math. Dimension:        scalar
         | Phys. Dimension:        [MPa] = [MN / m^2]
 
 
         Returns:
-            the primary variable pressure on the whole domain (cell-wise).
+            The primary variable ``p`` on the whole domain (cell-wise).
 
         """
         return self._p
 
     @property
     def h_name(self) -> str:
-        """Returns the name of the enthalpy variable."""
+        """Name of the enthalpy variable."""
         return VARIABLE_SYMBOLS["enthalpy"]
 
     @property
     def h(self) -> pp.ad.MergedVariable:
-        """
-        For the isenthalpic flash, the values are assumed to represent values at equilibrium.
-        For the isothermal flash, the enthalpy changes based on the results (composition).
+        """The specific molar enthalpy variable for the thermodynamic state.
+
+        For the isenthalpic flash, the values are assumed to represent values at
+        equilibrium.
+        For the isothermal flash, the enthalpy changes based on the results
+        (composition) and should be evaluated afterwards using
+        :meth:`evaluate_specific_enthalpy`.
 
         | Math. Dimension:        scalar
         | Phys. Dimension:        [kJ / mol / K]
 
         Returns:
-            the primary variable specific molar enthalpy on the whole domain (cell-wise).
+            The primary variable ``h`` on the whole domain (cell-wise).
 
         """
         return self._h
 
     @property
     def T_name(self) -> str:
-        """Returns the name of the temperature variable."""
+        """Name of the temperature variable."""
         return VARIABLE_SYMBOLS["temperature"]
 
     @property
     def T(self) -> pp.ad.MergedVariable:
-        """
-        For the isothermal flash, the values are assumed to represent values at equilibrium.
-        For the isenthalpic flash, the temperature varies and depends on the enthalpy and the
-        composition.
+        """The temperature variable for the thermodynamic state.
+
+        For the isothermal flash, the values are assumed to represent values at
+        equilibrium.
+        For the isenthalpic flash, the temperature varies and depends on the enthalpy
+        and the composition. Its values are determined by the isenthalpic flash
+        procedure.
 
         | Math. Dimension:        scalar
         | Phys. Dimension:        [K]
 
 
         Returns:
-            the primary variable temperature on the whole domain (cell-wise).
+            The primary variable ``T`` on the whole domain (cell-wise).
 
         """
         return self._T
@@ -220,20 +279,23 @@ class Composition(abc.ABC):
     def density(
         self, prev_time: bool = False, eliminate_ref_phase: bool = True
     ) -> pp.ad.Operator | Literal[0]:
-        """
+        """The molar density of the mixture.
+
         | Math. Dimension:        scalar
         | Phys. Dimension:        [mol / REV]
 
         Parameters:
-            prev_time: indicator to use values from the previous time step.
-            eliminate_ref_phase (optional): If True, the saturation of the reference phase
-                is eliminated by unity.
+            prev_time: Indicator to use values from the previous time step.
+            eliminate_ref_phase: ``default=True``
+
+                If True, the saturation of the reference phase is eliminated by unity.
+
+                If False, the saturation variable of the reference phase is used.
 
         Returns:
-            Returns the overall molar density of the composition
-            given by the saturation-weighted sum of all phase densities.
-            The phase densities are computed using the current temperature and pressure
-            values.
+            An AD operator representing the molar mixture density depending on
+            the saturation variable and phase densities.
+            The phase densities are called using :meth:`p` and :meth:`T`.
 
         """
         # creating a list of saturation-weighted phase densities
@@ -281,7 +343,7 @@ class Composition(abc.ABC):
         # summing the elements of the list results in the mixture density
         return sum(rho)
 
-    ### Composition Management ----------------------------------------------------------------
+    ### Composition Management ---------------------------------------------------------
 
     @property
     def num_components(self) -> int:
@@ -290,20 +352,20 @@ class Composition(abc.ABC):
 
     @property
     def num_phases(self) -> int:
-        """Number of **modelled** phases in the composition."""
+        """Number of *modelled* phases in the composition."""
         return len(self._phases)
 
     @property
     def num_equilibrium_equations(self) -> int:
-        """Number of necessary equilibrium equations for this composition, based on the number
-        of added components and modelled phases."""
+        """Number of necessary equilibrium equations for this composition, based on the
+        number of added components and modelled phases."""
         return self.num_components * (self.num_phases - 1)
 
     @property
     def components(self) -> Generator[Component, None, None]:
         """
         Yields:
-            components added to the composition.
+            Components added to the composition.
 
         """
         for C in self._components:
@@ -313,7 +375,7 @@ class Composition(abc.ABC):
     def phases(self) -> Generator[Phase, None, None]:
         """
         Yields:
-            phases modelled by the composition class.
+            Phases modelled by the composition class.
 
         """
         for P in self._phases:
@@ -321,15 +383,24 @@ class Composition(abc.ABC):
 
     @property
     def reference_phase(self) -> Phase:
-        """Returns the reference phase, whose molar phase fraction is eliminated by unity."""
+        """Returns the reference phase.
+
+        The molar and volumetric phase fraction of the reference phase can be eliminated
+        where applicable.
+
+        """
         # assert the child classes has a non-empty list of phases
         assert self._phases
         return self._phases[0]
 
     @property
     def reference_component(self) -> Component | None:
-        """Returns the reference component, whose mass balance equation is eliminated
-        by unity of feed fractions.
+        """Returns the reference component.
+
+        The first component added to the mixture is set as reference.
+
+        The mass balance equation for the reference component is eliminated by unity
+        in the unified framework.
 
         """
         if self._components:
@@ -338,14 +409,14 @@ class Composition(abc.ABC):
     def add_component(self, component: Component | list[Component]) -> None:
         """Adds one or multiple components to the composition.
 
-        All modelled components must be added before the composition is initialized.
+        Components must be added before the composition is initialized.
 
         Parameters:
-            component: one or multiple components to be added to this mixture.
+            component: One or multiple components to be added to this mixture.
 
         Raises:
-            ValueError: if the component was instantiated using a different AD system than
-                the one used for this composition.
+            ValueError: If the component was instantiated using a different AD system
+                than the one used for this composition.
 
         """
         if isinstance(component, Component):
@@ -371,24 +442,28 @@ class Composition(abc.ABC):
                 phase.add_component(comp)
 
     def initialize(self) -> None:
-        """Initializes the flash equations for this mixture based on the added components.
+        """Initializes the flash equations for this mixture based on the added
+        components.
 
         This is the last step before any flash method should be called.
-        It creates the system of equations and the two subsystems for the p-T and p-h flash.
+
+        It creates the system of equations and the two subsystems for the p-T and
+        p-h flash.
 
         Note:
-            Every derived composition class has to override this method and implement the
-            setting of class-specific equilibrium equations.
+            Every derived composition class has to override this method and implement
+            the setting of class-specific equilibrium equations.
 
-            After a a super-call to ``initialize``, the equations must be set in the AD system
-            and stored in respective subsystem dictionaries using the keyword ``'equations'``
+            After a a super-call to ``initialize``, the equations must be set in the
+            AD system and stored in respective subsystem dictionaries using the keyword
+            ``'equations'``.
 
         Raises:
             AssertionError: If the mixture is empty (no components).
 
         """
         # assert non-empty mixture
-        assert self.num_components >= 1
+        assert self.num_components >= 1, "No components added to mixture."
 
         # allocating place for the subsystem
         equations = dict()
@@ -430,10 +505,6 @@ class Composition(abc.ABC):
             equations.update({name: equation})
             pT_subsystem["equations"].append(name)
             ph_subsystem["equations"].append(name)
-
-        # NOTE: The Unified flash procedure is not meant for mixtures with one component.
-        # Due to the phase rule, the thermodynamic degrees of freedom reduce to one and the
-        # whole system becomes tricky to solve. TODO document and explain.
 
         ### Semi-smooth complementary conditions per phase
         for phase in self.phases:
@@ -520,7 +591,7 @@ class Composition(abc.ABC):
         # for the p-h flash, T is an additional var
         ph_subsystem["primary_vars"].append(self.T_name)
 
-    ### other ---------------------------------------------------------------------------------
+    ### other --------------------------------------------------------------------------
 
     def print_last_flash(self) -> None:
         """Prints the result of the last flash calculation."""
@@ -590,7 +661,7 @@ class Composition(abc.ABC):
         if len(self.flash_history) > self._max_history:
             self.flash_history.pop(0)
 
-    ### Flash methods -------------------------------------------------------------------------
+    ### Flash methods ------------------------------------------------------------------
 
     def flash(
         self,
@@ -599,8 +670,7 @@ class Composition(abc.ABC):
         initial_guess: Literal["iterate", "uniform"] | str = "iterate",
         copy_to_state: bool = False,
     ) -> bool:
-        """Isothermal flash procedure to determine the composition based on given
-        temperature of the mixture, pressure and feed fraction per component.
+        """Performs a flash procedure based on the arguments.
 
         References:
             [1]: `Pang (1990) <https://www.jstor.org/stable/3689785>`_
@@ -611,20 +681,23 @@ class Composition(abc.ABC):
 
                 A string representing the chosen flash type:
 
-                - ``'isothermal'``: The composition is determined based on given temperature,
-                  pressure and feed fractions per component. Enthalpy is not considered and can
-                  be evaluated upon success using :meth:`evaluate_specific_enthalpy`.
-                - ``'isenthalpic'``: The composition **and** temperature are determined based
-                  on given pressure and enthalpy. Compared to the isothermal flash,
-                  the temperature in the isenthalpic flash is an additional variable and an
-                  enthalpy constraint is introduced into the system as an additional equation.
+                - ``'isothermal'``: The composition is determined based on given
+                  temperature, pressure and feed fractions per component.
+                  Enthalpy is not considered and can be evaluated upon success using
+                  :meth:`evaluate_specific_enthalpy`.
+                - ``'isenthalpic'``: The composition **and** temperature are determined
+                  based on given pressure and enthalpy.
+                  Compared to the isothermal flash, the temperature in the isenthalpic
+                  flash is an additional variable and an enthalpy constraint is
+                  introduced into the system as an additional equation.
 
             method: ``default='newton-min'``
 
                 A string indicating the chosen algorithm:
 
-                - ``'newton-min'``: A semi-smooth Newton method, where the KKT- conditions and
-                  and their derivatives are evaluated using a semi-smooth min function [1].
+                - ``'newton-min'``: A semi-smooth Newton method, where the KKT-
+                  conditions and and their derivatives are evaluated using a semi-smooth
+                  min function [1].
                 - ``'npipm'``: A Non-Parametric Interior Point Method [2].
 
             initial_guess: ``default='iterate'``
@@ -632,20 +705,22 @@ class Composition(abc.ABC):
                 Strategy for choosing the initial guess:
 
                 - ``'iterate'``: values from ITERATE or STATE, if ITERATE not existent.
-                - ``'uniform'``: uniform fractions adding up to 1 are used as initial guesses.
+                - ``'uniform'``: uniform fractions adding up to 1 are used as initial
+                  guesses.
 
             copy_to_state: Copies the values to the STATE of the AD variables,
                 additionally to ITERATE.
 
-                **Note:** If not successful, the ITERATE will **not** be copied to the STATE,
-                even if flagged ``True`` by ``copy_to_state``.
+                Note:
+                    If not successful, the ITERATE will **not** be copied to the STATE,
+                    even if flagged ``True`` by ``copy_to_state``.
 
         Returns:
             A bool indicating if flash was successful or not.
 
         Raises:
-            ValueError: If either `flash_type`, `method` or `initial_guess` are unsupported
-                keywords.
+            ValueError: If either `flash_type`, `method` or `initial_guess` are
+                unsupported keywords.
 
         """
         success = False
@@ -677,15 +752,18 @@ class Composition(abc.ABC):
         return success
 
     def evaluate_saturations(self, copy_to_state: bool = True) -> None:
-        """Based on the thermodynamic state of the mixture, evaluates the volumetric phase
-        fractions (saturations) based on the number of present phases.
+        """Evaluates the volumetric phase fractions (saturations) based on the number of
+        modelled phases and the thermodynamic state of the mixture.
 
         To be used after any flash procedure.
 
-        If no phases are present (e.g. before any flash procedure), this method does nothing.
+        If no phases are present (e.g. before any flash procedure),
+        this method does nothing.
 
         Parameters:
-            copy_to_state (optional): Copies the values to the STATE of the AD variable,
+            copy_to_state: ``default=True``
+
+                Copies the values to the STATE of the AD variable,
                 additionally to ITERATE. Defaults to True.
 
         """
@@ -697,15 +775,17 @@ class Composition(abc.ABC):
             self._multi_phase_saturation_evaluation(copy_to_state)
 
     def evaluate_specific_enthalpy(self, copy_to_state: bool = True) -> None:
-        """Based on current pressure, temperature and phase fractions, evaluates the
-        specific molar enthalpy.
+        """Evaluates the specific molar enthalpy of the mixture,
+        based on current pressure, temperature and phase fractions.
 
-        To be used after an isothermal flash.
+        To be used after an **isothermal** flash.
 
-        Use with care, if the equilibrium problem is coupled with e.g., the flow.
+        Use with care, if the equilibrium problem is coupled with e.g., flow.
 
         Parameters:
-            copy_to_state (optional): Copies the values to the STATE of the AD variable,
+            copy_to_state: ``default=True``
+
+                Copies the values to the STATE of the AD variable,
                 additionally to ITERATE. Defaults to True.
 
         """
@@ -731,17 +811,20 @@ class Composition(abc.ABC):
         (values bound between 0 and 1), and evaluates the reference phase fraction.
 
         Phase compositions (fractions of components in that phase) are nonphysical if a
-        phase is not present. The unified flash procedure yields nevertheless values, possibly
-        violating the unity constraint. Respective fractions have to be re-normalized in a
-        post-processing step and set as regular phase composition.
+        phase is not present. The unified flash procedure yields nevertheless values,
+        possibly violating the unity constraint.
+        Respective fractions have to be re-normalized in a post-processing step and
+        set as regular phase composition.
 
         Also, removes artifacts outside the bound 0 and 1 for all molar fractions
         except feed fraction, which is **not** changed by the flash at all
-        (the amount of matter is not supposed to change).
+        (the amount of matter is not supposed to change and must be defined elsewhere).
 
         Parameters:
-            copy_to_state (optional): If True, copies the values to the STATE of the
-                AD variable, additionally to ITERATE.
+            copy_to_state: ``default=True``
+
+                Copies the values to the STATE of the AD variable,
+                additionally to ITERATE. Defaults to True.
 
         """
 
@@ -767,7 +850,7 @@ class Composition(abc.ABC):
                 xi_e.append(xi_ce)
             sum_xi_e = sum(xi_e)
 
-            # re-normalize phase compositions and set regular phase composition chi of phase e
+            # re-normalize phase compositions and set regular phase compositions
             for c, comp_c in enumerate(phase_e):
                 xi_ce = xi_e[c]
                 chi_ce = xi_ce / sum_xi_e
@@ -789,9 +872,8 @@ class Composition(abc.ABC):
                 )
 
     def _set_initial_guess(self, initial_guess: str) -> None:
-        """Auxillary function to set the initial values for phase fractions, phase compositions
-        and temperature, based on the chosen strategy.
-        """
+        """Auxillary function to set the initial values for phase fractions,
+        phase compositions and temperature, based on the chosen strategy."""
 
         if initial_guess == "iterate":
             # DofManager takes by default values from ITERATE, than from STATE if not found
@@ -818,12 +900,12 @@ class Composition(abc.ABC):
         self,
         subsystem: dict,
     ) -> bool:
-        """Performs a semi-smooth newton (Newton-min), where the complementary conditions are
-        the semi-smooth part.
+        """Performs a semi-smooth newton (Newton-min),
+        where the complementary conditions are the semi-smooth part.
 
         Note:
-            This looks exactly like a regular Newton since the semi-smooth part, especially the
-            assembly of the sub-gradient, are wrapped in a special AD operator.
+            This looks exactly like a regular Newton since the semi-smooth part,
+            since the assembly of the sub-gradients are wrapped in a special operator.
 
         Parameters:
             subsystem: Specially structured dict containing equation and variable names.
@@ -844,7 +926,7 @@ class Composition(abc.ABC):
             success = True
             iter_final = 0
         else:
-            # this changes dependent on flash type but also if other models accessed the system
+            # column slicing to relevant variables
             prolongation = self.ad_system.dof_manager.projection_to(
                 var_names
             ).transpose()
@@ -885,8 +967,8 @@ class Composition(abc.ABC):
         self,
         subsystem: dict,
     ) -> bool:
-        """Performs a non-parametric interior point algorithm to find the solution inside the
-        compositional space.
+        """Performs a non-parametric interior point algorithm to find the solution
+        inside the compositional space.
 
         Parameters:
             subsystem: Specially structured dict containing equation and variable names.
@@ -907,10 +989,9 @@ class Composition(abc.ABC):
 
     def _2phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
         """Calculates the saturation value assuming phase molar fractions are given.
-        In the case of 2 phases, the evaluation is straight forward.
+        In the case of 2 phases, the evaluation is straight forward:
 
-        It holds:
-            s_i = 1 / (1 + y_j / (1 - y_j) * rho_i / rho_j) , i != j
+            ``s_i = 1 / (1 + y_j / (1 - y_j) * rho_i / rho_j) , i != j``.
 
         """
         # get reference to phases
@@ -962,10 +1043,13 @@ class Composition(abc.ABC):
     def _multi_phase_saturation_evaluation(self, copy_to_state: bool = True) -> None:
         """Calculates the saturation value assuming phase molar fractions are given.
         Valid for compositions with at least 3 phases.
-        In this case a linear system has to be solved for each multiphase cell
+
+        In this case a linear system has to be solved for each multiphase cell.
 
         It holds for all i = 1... m, where m is the number of phases:
-            1 = sum_{j != i} (1 + rho_j / rho_i * chi_i / (1 - chi_i)) s_j
+
+            ``1 = sum_{j != i} (1 + rho_j / rho_i * chi_i / (1 - chi_i)) s_j``.
+
         """
         # shortening name space
         dm = self.ad_system.dof_manager
@@ -1027,7 +1111,7 @@ class Composition(abc.ABC):
                 else:
                     denominator = 1 - y[i]
                     # to avoid a division by zero error, we set it to one
-                    # this is arbitrary, but respective matrix entries will be sliced out
+                    # this is arbitrary, but respective matrix entries are be sliced out
                     # since they correspond to cells where one phase is saturated,
                     # i.e. the respective saturation is 1., the other 0.
                     denominator[denominator == 0.0] = 1.0
@@ -1041,7 +1125,8 @@ class Composition(abc.ABC):
         # Stack matrices per equation on each other
         # This matrix corresponds to the vector of stacked saturations per phase
         mat = np.vstack(mat_per_eq)
-        # TODO permute DOFS to get a block diagonal matrix. This one has a large band width
+        # TODO permute DOFS to get a block diagonal matrix.
+        # This one has a large band width
         mat = sps.csr_matrix(mat)
 
         # projection matrix to DOFs in multiphase region
@@ -1068,24 +1153,25 @@ class Composition(abc.ABC):
             vals = saturations[i * nc : (i + 1) * nc]
             self.ad_system.set_var_values(phase.saturation_name, vals, copy_to_state)
 
-    ### Model equations -----------------------------------------------------------------------
+    ### Model equations ----------------------------------------------------------------
 
     def get_mass_conservation_for(
         self,
         component: Component,
         eliminate_ref_phase: bool = True,
     ) -> pp.ad.Operator:
-        """Returns an equation representing the definition of the overall component fraction
-        (mass conservation) for a component component.
+        """Returns an operator representing the definition of the overall component
+        fraction (mass conservation) for a component.
 
-            `` y_R = 1 - sum_{e != R} y_e``
-            ``z_c - sum_e y_e * chi_ce = 0``
-            ``z_c - chi_cR - sum_{e != R} y_e * (chi_ce - chi_cR) = 0``
+            `` y_R = 1 - sum_{e != R} y_e``,
+            ``z_c - sum_e y_e * chi_ce = 0``,
+            ``z_c - chi_cR - sum_{e != R} y_e * (chi_ce - chi_cR) = 0``.
 
         Parameters:
             component: a component in this composition
-            eliminate_ref_phase (optional): If True, the reference phase molar fraction is
-                eliminated by unity.
+            eliminate_ref_phase: ``default=True``
+
+                If True, the reference phase molar fraction is eliminated by unity.
 
         Returns:
             AD operator representing the left-hand side of the equation (rhs=0).
@@ -1112,7 +1198,7 @@ class Composition(abc.ABC):
     def get_phase_fraction_unity(self) -> pp.ad.Operator:
         """Returns an equation representing the phase fraction unity
 
-            ``1 - sum_e y_e = 0``
+            ``1 - sum_e y_e = 0``.
 
         Returns:
             AD operator representing the left-hand side of the equation (rhs=0).
@@ -1128,7 +1214,7 @@ class Composition(abc.ABC):
     def get_phase_saturation_unity(self) -> pp.ad.Operator:
         """Returns an equation representing the phase fraction unity
 
-            ``1 - sum_e s_e = 0``
+            ``1 - sum_e s_e = 0``.
 
         Returns:
             AD operator representing the left-hand side of the equation (rhs=0).
@@ -1142,13 +1228,14 @@ class Composition(abc.ABC):
         return equation
 
     def get_reference_phase_fraction_by_unity(self) -> pp.ad.Operator:
-        """Returns an equation which expresses the fraction of the reference phase through
-        the fractions of other phases by unity.
+        """Returns an equation which expresses the fraction of the reference phase
+        by unity
 
-            ``y_R = 1 - sum_{e != R} y_e
+            ``y_R = 1 - sum_{e != R} y_e.
 
         Returns:
             AD operator representing the right-hand side of the equation.
+
         """
         equation = pp.ad.Scalar(1.0)
         for phase in self.phases:
@@ -1159,13 +1246,14 @@ class Composition(abc.ABC):
         return equation
 
     def get_reference_phase_saturation_by_unity(self) -> pp.ad.Operator:
-        """Returns an equation which expresses the saturation of the reference phase through
-        the saturations of other phases by unity.
+        """Returns an equation which expresses the saturation of the reference phase
+        by unity
 
-            ``s_R = 1 - sum_{e != R} s_e
+            ``s_R = 1 - sum_{e != R} s_e.
 
         Returns:
             AD operator representing the right-hand side of the equation.
+
         """
         equation = pp.ad.Scalar(1.0)
         for phase in self.phases:
@@ -1178,18 +1266,20 @@ class Composition(abc.ABC):
     def get_phase_fraction_relation(
         self, phase: Phase, eliminate_ref_phase: bool = True
     ) -> pp.ad.Operator:
-        """Returns a nonlinear equation representing the relation between the molar fraction
+        """Returns an operator representing the relation between the molar fraction
         of a phase and its volumetric fraction (saturation).
 
         The equation includes the unity of saturations, i.e.
 
-            ``y_e = (rho_e * s_e) / (sum_f rho_f s_f)``
-            ``y_e * rho - s_e * rho_e = 0``
+            ``y_e = (rho_e * s_e) / (sum_f rho_f s_f)``,
+            ``y_e * rho - s_e * rho_e = 0``.
 
         Parameters:
             phase: a phase in this composition
-            eliminate_ref_phase (optional): If True, the reference phase saturation and
-                fraction are eliminated by unity.
+            eliminate_ref_phase: ``default=True``
+
+                If True, the reference phase saturation and fraction are eliminated
+                by unity.
 
         Returns:
             AD operator representing the left-hand side of the third equation (rhos=0).
@@ -1222,18 +1312,19 @@ class Composition(abc.ABC):
     def get_enthalpy_constraint(
         self, eliminate_ref_phase: bool = True
     ) -> pp.ad.Operator:
-        """Returns an equation representing the specific molar enthalpy of the composition,
-        based on it's definition:
+        """Returns an equation representing the specific molar enthalpy of the mixture,
+        based on its definition
 
-            ``y_R = 1 - sum_{e != R} y_e``
-            ``h - sum_e y_e * h_e(p,T) = 0``
-            ``h - h_R - sum_{e != R} y_e * (h_e - h_R) = 0``
+            ``y_R = 1 - sum_{e != R} y_e``,
+            ``h - sum_e y_e * h_e(p,T) = 0``,
+            ``h - h_R - sum_{e != R} y_e * (h_e - h_R) = 0``.
 
-        Can be used to for the p-h flash as enthalpy constraint (T is an additional variable).
+        Used to for the p-h flash as enthalpy constraint (T is an additional variable).
 
         Parameters:
-            eliminate_ref_phase (optional): If True, the reference phase fraction is eliminated
-                by unity.
+            eliminate_ref_phase: ``default=True``
+
+                If True, the reference phase fraction is eliminated by unity.
 
         Returns:
             AD operator representing the left-hand side of the equation (rhs=0).
@@ -1258,12 +1349,12 @@ class Composition(abc.ABC):
         return equation
 
     def get_composition_unity_for(self, phase: Phase) -> pp.ad.Operator:
-        """Returns an equation representing the unity if the composition for a given phase e:
+        """Returns an equation representing the unity of the composition for a phase:
 
-         ``1 - sum_c chi_ce = 0``
+            ``1 - sum_c chi_ce = 0``.
 
         Parameters:
-            phase: a phase in this composition
+            phase: A phase in this composition.
 
         Returns:
             AD operator representing the left-hand side of the equation (rhs=0).
@@ -1279,15 +1370,16 @@ class Composition(abc.ABC):
     def get_complementary_condition_for(
         self, phase: Phase
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
-        """Returns the two complementary equations for a phase e:
+        """Returns the two complementary equations for a phase
 
-            ``min{y_e, 1 - sum_c chi_ce} = 0``
+            ``min{y_e, 1 - sum_c chi_ce} = 0``.
 
         Parameters:
-            phase: a phase in this composition
+            phase: A phase in this composition.
 
         Returns:
-            tuple of AD operators representing the left-hand side of the equation (rhs=0).
+            Tuple of AD operators representing the left-hand side of the equation
+            (rhs=0).
 
         """
         return (phase.fraction, self.get_composition_unity_for(phase))
@@ -1299,15 +1391,14 @@ class Composition(abc.ABC):
             ``f(x) = 0``
 
         Note:
-            Equilibrium equations must be formulated with respect to the reference phase.
+            Equilibrium equations must be formulated with respect to the reference
+            phase.
 
         Parameters:
-            component: a component in this composition
+            component: A component in this composition.
 
         Returns:
             AD operator representing the left-hand side of the equation (rhs=0).
 
         """
         pass
-
-    ### Special methods -----------------------------------------------------------------------
