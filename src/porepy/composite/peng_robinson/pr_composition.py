@@ -1,7 +1,7 @@
 """Composition class for the Peng-Robinson equation of state."""
 from __future__ import annotations
 
-from typing import Generator, Optional
+from typing import Callable, Generator, Optional
 
 import numpy as np
 
@@ -356,133 +356,140 @@ class PR_Composition(Composition):
     def _assign_phase_densities(self) -> None:
         """Constructs callable objects representing phase densities and assigns them to the
         ``PR_Phase``-classes."""
-
-        # constructing callable objects with references to the roots
-        # densities in cubic EoS are given as inverse of specific molar volume v_e
-        # rho_e = 1/ v_e
-        # Z_e = p * v_e / (R * T)
-        # as of now, the composition X does not influence the density
-        def _rho_L(p, T, *X):
-            return p / (R_IDEAL * T * self.roots.liquid_root)
-
-        def _rho_G(p, T, *X):
-            return p / (R_IDEAL * T * self.roots.gas_root)
-
         # assigning the callable to respective thermodynamic property of the PR_Phase
-        self._phases[0]._rho = _rho_L
-        self._phases[1]._rho = _rho_G
+        self._phases[0]._rho = self._rho_Z(self.roots.liquid_root)
+        self._phases[1]._rho = self._rho_Z(self.roots.gas_root)
+
+    def _rho_Z(self, Z: pp.ad.Ad_array) -> Callable:
+        """Returns a callable representing the density in the PR EoS for a specific root.
+
+        Parameters:
+            Z: reference to an AD array representing an extended root of the cubic polynomial.
+
+        """
+        # densities in cubic EoS are given as inverse of specific molar volume v_e
+        # rho = 1/ v
+        # Z = p * v / (R * T)
+        # as of now, the composition X does not influence the density
+        def rho_z(p, T, *X):
+            return p / (R_IDEAL * T * Z)
+
+        return rho_z
 
     def _assign_phase_enthalpies(self) -> None:
         """Constructs callable objects representing phase enthalpies and assigns them to the
         ``PR_Phase``-classes."""
+        # assigning the callable to respective thermodynamic property of the PR_Phase
+        self._phases[0]._h = self._h_Z(self.roots.liquid_root)
+        self._phases[1]._h = self._h_Z(self.roots.gas_root)
 
+    def _h_Z(self, Z: pp.ad.Ad_array) -> Callable:
+        """Returns a callable representing the enthalpy in the PR EoS for a specific root.
+
+        References:
+            [1]: `Connolly et al. (2021), eq. B-15 <https://doi.org/10.1016/
+                 j.ces.2020.116150>`_
+
+        Parameters:
+            Z: reference to an AD array representing an extended root of the cubic polynomial.
+
+        """
         coeff = (
             _power(2 * self.covolume, pp.ad.Scalar(-1 / 2))
             / 2
             * (self.T * self.dT_attraction - self.attraction)
         )
 
-        def _h_L(p, T, *X):
+        def h_Z(p, T, *X):
             ln_l = _log(
-                (self.roots.liquid_root + (1 - np.sqrt(2)) * self.B)
-                / (self.roots.liquid_root + (1 + np.sqrt(2)) * self.B)
+                (Z + (1 - np.sqrt(2)) * self.B) / (Z + (1 + np.sqrt(2)) * self.B)
             )
             return (
-                coeff * ln_l + R_IDEAL * self.T * (self.roots.liquid_root - 1) + H_REF
+                coeff * ln_l + R_IDEAL * self.T * (Z - 1) + H_REF
             )  # TODO check relation H_REF and H_0 in standard formula
 
-        def _h_G(p, T, *X):
-            ln_l = _log(
-                (self.roots.gas_root + (1 - np.sqrt(2)) * self.B)
-                / (self.roots.gas_root + (1 + np.sqrt(2)) * self.B)
-            )
-            return coeff * ln_l + R_IDEAL * self.T * (self.roots.gas_root - 1) + H_REF
+        return h_Z
 
-        # assigning the callable to respective thermodynamic property of the PR_Phase
-        self._phases[0]._h = _h_L
-        self._phases[1]._h = _h_G
-
-    def _assign_phase_viscosities(self) -> None:  # TODO
+    def _assign_phase_viscosities(self) -> None:
         """Constructs callable objects representing phase dynamic viscosities and assigns them
         to the ``PR_Phase``-classes.
         """
-
-        def _mu_L(p, T, *X):
-            return pp.ad.Scalar(1.0)
-
-        def _mu_G(p, T, *X):
-            return pp.ad.Scalar(1.0)
-
         # assigning the callable to respective thermodynamic property of the PR_Phase
-        self._phases[0]._mu = _mu_L
-        self._phases[1]._mu = _mu_G
+        self._phases[0]._mu = self._mu_Z(self.roots.liquid_root)
+        self._phases[1]._mu = self._mu_Z(self.roots.gas_root)
 
-    def _assign_phase_conductivities(self) -> None:  # TODO
+    def _mu_Z(self, Z: pp.ad.Ad_array) -> Callable:  # TODO
+        """Returns a callable representing the viscosity in the PR EoS for a specific root.
+
+        Parameters:
+            Z: reference to an AD array representing an extended root of the cubic polynomial.
+
+        """
+
+        def mu_Z(p, T, *X):
+            return pp.ad.Scalar(1.0)
+
+        return mu_Z
+
+    def _assign_phase_conductivities(self) -> None:
         """Constructs callable objects representing phase conductivities and assigns them
         to the ``PR_Phase``-classes.
         """
-
-        def _kappa_L(p, T, *X):
-            return pp.ad.Scalar(1.0)
-
-        def _kappa_G(p, T, *X):
-            return pp.ad.Scalar(1.0)
-
         # assigning the callable to respective thermodynamic property of the PR_Phase
-        self._phases[0]._kappa = _kappa_L
-        self._phases[1]._kappa = _kappa_G
+        self._phases[0]._kappa = self._kappa_Z(self.roots.liquid_root)
+        self._phases[1]._kappa = self._kappa_Z(self.roots.gas_root)
 
-    def _assign_fugacities(self) -> None:  # TODO
+    def _kappa_Z(self, Z: pp.ad.Ad_array) -> Callable:  # TODO
+        """Returns a callable representing the conductivity in the PR EoS for a specific root.
+
+        Parameters:
+            Z: reference to an AD array representing an extended root of the cubic polynomial.
+
+        """
+
+        def kappa_Z(p, T, *X):
+            return pp.ad.Scalar(1.0)
+
+        return kappa_Z
+
+    def _assign_fugacities(self) -> None:
         """Creates and stores operators representing fugacities ``f_ce(p,T,X)`` per component
-        per phase.
+        per phase."""
+
+        for component in self.components:
+            self._fugacities[component] = {
+                self._phases[0]: self._phi_c_Z(component, self.roots.liquid_root),
+                self._phases[1]: self._phi_c_Z(component, self.roots.gas_root),
+            }
+
+    def _phi_c_Z(self, component: PR_Component, Z: pp.ad.Ad_array) -> pp.ad.Operator:
+        """Returns an AD operator representing the fugacity of ``component`` in a phase
+        represented by an extended root ``Z``.
 
         References:
             [1]: `Zhu et al. (2014), equ. A-4 <https://doi.org/10.1016/j.fluid.2014.07.003>`_
             [2]: `ePaper <https://www.yumpu.com/en/document/view/36008448/
                  1-derivation-of-the-fugacity-coefficient-for-the-peng-robinson-fet>`_
 
+        Parameters:
+            component: a PR component in this composition.
+            Z: reference to an AD array representing an extended root of the cubic polynomial.
+
         """
+        b_c = component.covolume
+        a_c = [
+            other_c.fraction * self._vdW_a_ij(component, other_c, False)
+            for other_c in self.components
+        ]
+        a_c = sum(a_c)
 
-        for component in self.components:
-            # shorten namespace
-            b_c = component.covolume
-            Z_L = self.roots.liquid_root
-            Z_G = self.roots.gas_root
+        phi_c_G = (
+            b_c / self.covolume * (Z - 1)
+            - _log(Z - self.B)
+            - self.attraction
+            / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
+            * _log((Z + (1 + np.sqrt(2)) * self.B) / (Z + (1 - np.sqrt(2)) * self.B))
+            * (2 * a_c / self.attraction - b_c / self.covolume)
+        )
 
-            a_c = [
-                other_c.fraction * self._vdW_a_ij(component, other_c, False)
-                for other_c in self.components
-            ]
-            a_c = sum(a_c)
-
-            # fugacity coefficient for component c in liquid phase
-            # TODO the last term containing a_c / a is unclear,
-            # sources say different thing... might be sum_i z_i * a_ci / a
-            phi_c_L = (
-                b_c / self.covolume * (Z_L - 1)
-                - _log(Z_L - self.B)
-                - self.attraction
-                / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
-                * _log(
-                    (Z_L + (1 + np.sqrt(2)) * self.B)
-                    / (Z_L + (1 - np.sqrt(2)) * self.B)
-                )
-                * (2 * a_c / self.attraction - b_c / self.covolume)
-            )
-            # fugacity coefficient for component c in gas phase
-            phi_c_G = (
-                b_c / self.covolume * (Z_G - 1)
-                - _log(Z_G - self.B)
-                - self.attraction
-                / (self.covolume * R_IDEAL * self.T * np.sqrt(8))
-                * _log(
-                    (Z_G + (1 + np.sqrt(2)) * self.B)
-                    / (Z_G + (1 - np.sqrt(2)) * self.B)
-                )
-                * (2 * a_c / self.attraction - b_c / self.covolume)
-            )
-
-            self._fugacities[component] = {
-                self._phases[0]: phi_c_L,
-                self._phases[1]: phi_c_G,
-            }
+        return phi_c_G
