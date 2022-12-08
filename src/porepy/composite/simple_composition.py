@@ -68,13 +68,13 @@ class IdealGas(Phase):
 
 
 class SimpleWater(Component, H2O_ps):
-    """Simple representation of water involving its molar mass."""
+    """Simple representation of water."""
 
     pass
 
 
 class SimpleCO2(Component, CO2_ps):
-    """Simple representation of Sodium Chloride involving its molar mass."""
+    """Simple representation of Sodium Chloride."""
 
     pass
 

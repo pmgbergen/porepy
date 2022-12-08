@@ -7,7 +7,7 @@ since the user is not supposed to be able to create phase classes, only the comp
 from __future__ import annotations
 
 import abc
-from typing import Generator, Union
+from typing import Generator
 
 import numpy as np
 
@@ -15,9 +15,6 @@ import porepy as pp
 
 from ._composite_utils import VARIABLE_SYMBOLS, CompositionalSingleton
 from .component import Component
-
-VarLike = Union[pp.ad.MergedVariable, pp.ad.Variable, pp.ad.Operator, float, int]
-"""Union type representing variable input for thermodynamic properties."""
 
 
 class Phase(abc.ABC, metaclass=CompositionalSingleton):
@@ -278,7 +275,9 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
     ### Physical properties -------------------------------------------------------------------
 
-    def mass_density(self, p: VarLike, T: VarLike) -> VarLike:
+    def mass_density(
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """Uses the  molar mass in combination with the molar masses and fractions
         of components in this phase, to compute the mass density of the phase.
 
@@ -302,7 +301,9 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         return weight * self.density(p, T)
 
     @abc.abstractmethod
-    def density(self, p: VarLike, T: VarLike) -> VarLike:
+    def density(
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [mol / REV]
@@ -317,7 +318,9 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         pass
 
     @abc.abstractmethod
-    def specific_enthalpy(self, p: VarLike, T: VarLike) -> VarLike:
+    def specific_enthalpy(
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """
         | Math. Dimension:        scalar
         | Phys.Dimension:         [kJ / mol / K]
@@ -332,7 +335,9 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         pass
 
     @abc.abstractmethod
-    def dynamic_viscosity(self, p: VarLike, T: VarLike) -> VarLike:
+    def dynamic_viscosity(
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """
         | Math. Dimension:        scalar
         | Phys. Dimension:        [mol / m / s]
@@ -347,7 +352,9 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         pass
 
     @abc.abstractmethod
-    def thermal_conductivity(self, p: VarLike, T: VarLike) -> VarLike:
+    def thermal_conductivity(
+        self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
+    ) -> pp.ad.Operator:
         """
         | Math. Dimension:    2nd-order tensor
         | Phys. Dimension:    [W / m / K]

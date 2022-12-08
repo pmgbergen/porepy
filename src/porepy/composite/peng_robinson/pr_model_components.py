@@ -4,7 +4,6 @@ from __future__ import annotations
 import porepy as pp
 
 from ..component import PseudoComponent
-from ..phase import VarLike
 from .pr_component import PR_Component, PR_Compound
 from .pr_utils import _power
 
@@ -230,7 +229,7 @@ class NaClBrine(PR_Compound, H2O):
         self.NaCl: PseudoComponent = solute
         """Quick reference to the pseudo-component representing NaCl."""
 
-    def attraction_correction(self, T: VarLike) -> VarLike:
+    def attraction_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
         """The attraction correction for NaCl-brine based on molal salinity can be found in
         `Soereide (1992), equation 9 <https://doi.org/10.1016/0378-3812(92)85105-H>`_
 
