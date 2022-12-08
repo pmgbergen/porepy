@@ -1,4 +1,5 @@
-"""This module contains utility functionality and parameters for the Peng-Robinson EoS."""
+"""This module contains utility functionality and parameters for the
+Peng-Robinson EoS."""
 from __future__ import annotations
 
 import numpy as np

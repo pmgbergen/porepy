@@ -1,5 +1,7 @@
-"""Utility functions and data for the composite submodule. The module is built around the
-assumptions made here."""
+"""This module contains utility functions and data for the composite submodule.
+The module is built around the assumptions made here.
+
+"""
 from __future__ import annotations
 
 import abc
@@ -41,8 +43,8 @@ properties.
 """
 
 T_REF: float = 273.16
-"""The reference temperature for the composite module is set to the triple point temperature
-of pure water.
+"""The reference temperature for the composite module is set to the triple point
+temperature of pure water.
 
 This value must be used to calculate the reference state when dealing with thermodynamic
 properties.
@@ -143,39 +145,44 @@ VARIABLE_SYMBOLS = {
 composite framework.
 
 Warning:
-    When using the composite framework, it is important to **not** name any other variable
-    using the symbols here.
+    When using the composite framework, it is important to **not** name any other
+    variable using the symbols here.
 
 """
 
 
 class CompositionalSingleton(abc.ABCMeta):
-    """Abstract Meta class for name- and AD system based singletons.
+    """Meta class for name- and AD-system-based singletons.
 
-    This ensures that only a single object per AD System is instantiated with that name.
+    This ensures that only a single object per AD System is instantiated with that name
     (and returned in successive instantiations).
 
-    If name is not given as a keyword argument, the class name is used and the whole class
-    becomes a singleton.
+    If name is not given as a keyword argument,
+    the class name is used and the whole class becomes a singleton.
 
-    The intended use is for classes which represent for example variables with specific names.
+    The intended use is for classes which represent for example variables with specific
+    names.
     This approach ensures a conflict-free usage of the central storage of values in the
     AD system.
 
     Note:
         As of now, the implications of having to use ``abc.ABCMeta`` are not clear.
-        Python demands that custom meta-classes must be derived from meta classes used in other
-        base classes.
+        Python demands that custom meta-classes must be derived from meta classes used
+        in other base classes.
 
         For now we demand that objects in the compositional framework are this type of
-        singleton to avoid nonphysical conflicts like 2 times the same phase or component.
-        This allows for multiple instantiations of components for phases or pseudo-components
-        in various compounds, without having to worry about dependencies by reference and
+        singleton to avoid nonphysical conflicts like 2 times the same phase or
+        component.
+        This allows for multiple instantiations of components for phases or
+        pseudo-components in various compounds,
+        without having to worry about dependencies by reference and
         uniqueness of variables in a given model or AD system.
 
     Parameters:
         ad_system: A reference to respective AD system.
-        name (optional): Given name of this object. By default, the class name will be used.
+        name: ``default=None``
+
+            Given name for an object. By default, the class name will be used.
 
     """
 

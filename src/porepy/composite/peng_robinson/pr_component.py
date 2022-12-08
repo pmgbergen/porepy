@@ -1,5 +1,5 @@
-"""Contains extended, abstract classes representing components and their properties and
-parameters used in the Peng-Robinson EoS.
+"""This module contains extended, abstract base classes representing components and
+their properties and parameters used in the Peng-Robinson EoS.
 
 """
 from __future__ import annotations
@@ -29,19 +29,21 @@ class PR_Component(Component):
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-]
 
-        Returns: acentric factor.
+        Returns:
+            Acentric factor.
 
         """
         pass
 
     @property
     def attraction_critical(self) -> float:
-        """Returns the critical attraction parameter
-        ``a = a_critical * alpha(T_reduced, omega)``
-        in the Peng-Robinson EoS,
-        without the scaling by acentric factor and reduced temperature:
+        """The critical attraction parameter
 
             ``a_critical = A_CRIT * (R_IDEAL**2 * T_critical**2) / p_critical``
+
+        is part of the attraction ``a``
+
+            ``a = a_critical * alpha(T_reduced, omega)``.
 
         """
         return (
@@ -52,14 +54,15 @@ class PR_Component(Component):
 
     @property
     def attraction_correction_weight(self) -> float:
-        """Weight ``kappa`` of the linearized alpha-correction of the attraction parameter in
-        the Peng-Robinson EoS:
+        """Weight ``kappa`` of the linearized alpha-correction of the
+        attraction parameter:
 
             ``a = a_cricital * alpha``,
             ``alpha = 1 + kappa * (1 - sqrt(T_reduced))``.
 
-        Reference:
-            `Zhu et al. (2014), Appendix A <https://doi.org/10.1016/j.fluid.2014.07.003>`_
+        References:
+            `Zhu et al. (2014), Appendix A
+            <https://doi.org/10.1016/j.fluid.2014.07.003>`_
 
         """
         if self.acentric_factor < 0.49:
@@ -87,7 +90,7 @@ class PR_Component(Component):
 
     @property
     def covolume(self) -> pp.ad.Operator:
-        """Returns the constant co-volume ``b`` in the Peng-Robinson EoS
+        """The constant co-volume ``b`` in the Peng-Robinson EoS
 
             ``b = B_CRIT * (R_IDEAL * T_critical) / p_critical
 
@@ -103,7 +106,8 @@ class PR_Component(Component):
         return self.attraction_critical * self.attraction_correction(T)
 
     def dT_attraction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
-        """Returns an expression for the derivative of ``a`` with respect to temperature."""
+        """Returns an expression for the derivative of ``a`` with respect to
+        temperature."""
         T_r = T / self.critical_temperature()
 
         # external derivative of attraction correction squared
@@ -138,7 +142,8 @@ class PR_Compound(PR_Component, Compound):
     def attraction_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
         """Abstraction of the corrective term in ``a``.
 
-        To be implemented in child classes using heuristic laws depending on present solutes.
+        To be implemented in child classes using heuristic laws depending on present
+        solutes.
 
         """
         pass

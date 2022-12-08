@@ -1,4 +1,5 @@
-"""Contains concrete implementations of modelled components for the Peng-Robinson EoS."""
+"""This module contains concrete implementations of components for the
+Peng-Robinson EoS."""
 from __future__ import annotations
 
 import porepy as pp
@@ -20,7 +21,7 @@ __all__ = [
     "NaClBrine",
 ]
 
-# region Pseudo-components --------------------------------------------------------------------
+# region Pseudo-components -------------------------------------------------------------
 
 
 class H2O_ps(PseudoComponent):
@@ -139,7 +140,7 @@ class N2_ps(PseudoComponent):
 
 
 # endregion
-# region Components ---------------------------------------------------------------------------
+# region Components --------------------------------------------------------------------
 
 
 class H2O(PR_Component, H2O_ps):
@@ -195,7 +196,7 @@ class N2(PR_Component, N2_ps):
 
 
 # endregion
-# region Compounds ----------------------------------------------------------------------------
+# region Compounds ---------------------------------------------------------------------
 
 
 class NaClBrine(PR_Compound, H2O):
@@ -205,11 +206,10 @@ class NaClBrine(PR_Compound, H2O):
     This class instantiates :class:`H2O_ps` and :class:`NaCl_ps` internally and assigns
     them as solvent and solute.
 
-    Adaptions to attraction correction are made according to given
-    references.
+    Adaptions to attraction correction are made according to given references.
 
-    The acentric factor is given by inheritance from :class:`H2O`, as well as the critical
-    temperature.
+    The acentric factor is given by inheritance from :class:`H2O`,
+    as well as the critical temperature.
 
     """
 
@@ -225,12 +225,14 @@ class NaClBrine(PR_Compound, H2O):
         solute = NaCl_ps(ad_system=ad_system)
         # add solute to self
         self.add_solute(solute)
+
         # store NaCl for quick access
         self.NaCl: PseudoComponent = solute
-        """Quick reference to the pseudo-component representing NaCl."""
+        """Reference to the pseudo-component representing NaCl."""
 
     def attraction_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
-        """The attraction correction for NaCl-brine based on molal salinity can be found in
+        """The attraction correction for NaCl-brine based on molal salinity can be found
+        in
         `Soereide (1992), equation 9 <https://doi.org/10.1016/0378-3812(92)85105-H>`_
 
         """

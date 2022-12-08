@@ -1,4 +1,5 @@
-"""Contains the phase class for the Peng-Robinson EoS."""
+"""This module contains an extension of the abstract phase class for the
+Peng-Robinson EoS."""
 from __future__ import annotations
 
 from typing import Callable
@@ -11,11 +12,11 @@ from ..phase import Phase
 class PR_Phase(Phase):
     """Representation of a phase using the Peng-Robinson EoS.
 
-    Thermodynamic properties are represented by references to callables, which are set by the
-    Peng-Robinson composition class.
+    Thermodynamic properties are represented by references to callables,
+    which are set by the Peng-Robinson composition class.
 
-    This class is not intended to be used or instantiated except by the respective composition
-    class.
+    This class is not intended to be used or instantiated except by the respective
+    composition class.
 
     """
 

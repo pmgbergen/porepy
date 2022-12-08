@@ -1,6 +1,7 @@
 """This module contains a class providing AD representations of (extended) roots of the
-Peng-Robinson EoS. The extension is performed according [1] and transferred into PorePy's AD
-framework.
+Peng-Robinson EoS.
+
+The extension is performed according [1] and transferred into PorePy's AD framework.
 
 References:
     [1]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
@@ -21,7 +22,7 @@ class PR_Roots:
 
     The characteristic polynomial of the PR EoS is given by
 
-        ``Z**3 + (B - 1) * Z**2 + (A - 2 * B - 3 * B**2) * Z + (B**3 + B**2 - A * B) = 0``,
+        ``Z**3 + (B - 1) * Z**2 + (A - 2 * B - 3 * B**2) * Z + (B**3 + B**2 - A * B)``,
 
     where
 
@@ -30,12 +31,16 @@ class PR_Roots:
         ``B = P * b / (R * T)``.
 
     Note:
-        The :class:`~porepy.composite.peng_robinson.pr_composition.PR_Composition` object whose
+        The
+        :class:`~porepy.composite.peng_robinson.pr_composition.PR_Composition` object
+        whose
         :meth:`~porepy.composite.peng_robinson.pr_composition.PR_Composition.A` and
         :meth:`~porepy.composite.peng_robinson.pr_composition.PR_Composition.B`
-        are passed during instantiation must have defined attraction and co-volume parameters
+        are passed during instantiation must have defined attraction and co-volume
+        parameters
         (see
-        :meth:`~porepy.composite.peng_robinson.pr_composition.PR_Composition.initialize`).
+        :meth:`~porepy.composite.peng_robinson.pr_composition.PR_Composition.initialize`
+        ).
 
     The roots are computed and labeled using :meth:`compute_roots`.
 
@@ -43,7 +48,9 @@ class PR_Roots:
         ad_system: The AD system for which the PR Composition class is created.
         A: An operator representing ``A`` in the PR EoS.
         B: An operator representing ``B`` in the PR EoS
-        eps (optional): a small number defining the numerical zero. Used for the computation of
+        eps: ``default=1e-16``
+
+            A small number defining the numerical zero. Used for the computation of
             roots to distinguish between phase-regions. Defaults to ``1e-16``.
 
     """
@@ -66,8 +73,8 @@ class PR_Roots:
         """``B`` passed at instantiation."""
 
         self.is_super_critical: np.ndarray = np.array([], dtype=bool)
-        """A boolean array indicating which cell is super-critical, after the roots of the EoS
-        were computed."""
+        """A boolean array indicating which cell is super-critical,
+        after the roots of the EoS were computed."""
 
         self._z_l: pp.ad.Ad_array = pp.ad.Ad_array()
         """AD representation of liquid root."""
@@ -77,7 +84,7 @@ class PR_Roots:
         self._eps = eps
         """``eps`` passed at instantiation."""
 
-    ### EoS roots -----------------------------------------------------------------------------
+    ### EoS roots ----------------------------------------------------------------------
 
     @property
     def liquid_root(self) -> pp.ad.Ad_array:
@@ -92,10 +99,11 @@ class PR_Roots:
 
     @property
     def gas_root(self) -> pp.ad.Ad_array:
-        """AD representing (cell-wise) of the **gaseous** phase (see :meth:`liquid_root`)."""
+        """AD representing (cell-wise) of the **gaseous** phase
+        (see :meth:`liquid_root`)."""
         return self._z_g
 
-    ### EoS parameters ------------------------------------------------------------------------
+    ### EoS parameters -----------------------------------------------------------------
 
     @property
     def c2(self) -> pp.ad.Operator:
@@ -117,35 +125,37 @@ class PR_Roots:
 
     @property
     def p(self) -> pp.ad.Operator:
-        """An operator representing the coefficient of the monomial ``Z`` of the **reduced**
-        characteristic polynomial."""
+        """An operator representing the coefficient of the monomial ``Z`` of the
+        **reduced** characteristic polynomial."""
         return self.c1 - self.c2 * self.c2 / 3
 
     @property
     def q(self) -> pp.ad.Operator:
-        """An operator representing the coefficient of the monomial ``Z**0`` of the **reduced**
-        characteristic polynomial."""
+        """An operator representing the coefficient of the monomial ``Z**0`` of the
+        **reduced** characteristic polynomial."""
         return (
             2 / 27 * _power(self.c2, pp.ad.Scalar(3)) - self.c2 * self.c1 / 3 + self.c0
         )
 
     @property
     def delta(self) -> pp.ad.Operator:
-        """An AD representation of the discriminant of the characteristic polynomial, based
-        on the current thermodynamic state.
+        """An AD representation of the discriminant of the characteristic polynomial,
+        based on the current thermodynamic state.
 
-        The sign of the discriminant can be used to distinguish between 1 and 2-phase regions:
+        The sign of the discriminant can be used to distinguish between 1 and 2-phase
+        regions:
 
         - ``> 0``: single-phase region (1 real root)
         - ``< 0``: 2-phase region (3 distinct real roots)
-        - ``= 0``: special region (1 or 2 distinct real roots with respective multiplicity)
+        - ``= 0``: special region (1 or 2 distinct real roots with respective
+          multiplicity)
 
         This holds for the values of the AD array.
 
         Note:
             The definition of this discriminant deviates from the standard definition,
-            including the sign convention. This is due to the discriminant of the reduced
-            polynomial being used.
+            including the sign convention.
+            This is due to the discriminant of the reduced polynomial being used.
 
         Warning:
             The physical meaning of the case with two distinct real roots is
@@ -154,14 +164,15 @@ class PR_Roots:
         """
         return self.q * self.q / 4 + _power(self.p, pp.ad.Scalar(3)) / 27
 
-    ### root computation ----------------------------------------------------------------------
+    ### root computation ---------------------------------------------------------------
 
     def compute_roots(self) -> None:
         """Computes the roots of the characteristic polynomial and assigns phase labels.
 
         The roots depend on ``A`` and ``B`` of the Peng-Robinson EoS, hence on the
-        thermodynamic state. They must be re-computed after any change in pressure, temperature
-        and composition. This holds especially in iterative schemes.
+        thermodynamic state. They must be re-computed after any change in pressure,
+        temperature and composition.
+        This holds especially in iterative schemes.
 
         The results can be accessed (by reference) using :meth:`liquid_root` and
         :meth:`gas_root`.
@@ -221,7 +232,8 @@ class PR_Roots:
                 "Uncovered cells/cases detected in PR root computation."
             )
 
-        ### compute the one real root and the extended root from the conjugated imaginary roots
+        ### compute the one real root and the extended root from
+        # conjugated imaginary roots
         if np.any(one_real_root_region):
             B_1 = pp.ad.Ad_array(
                 B.val[one_real_root_region], B.jac[one_real_root_region]
@@ -260,11 +272,12 @@ class PR_Roots:
 
             ## PHASE LABELING in one-root-region, Gharbia et al. (2021)
             # A cubic polynomial in A with coefficients dependent on B
-            # (here denoted as labeling polynomial) has always three roots in the sub-critical
-            # area. Intermediate and largest root are used to determine the phase label.
+            # (here denoted as labeling polynomial) has always three roots in the
+            # sub-critical area.
+            # Intermediate and largest root are used to determine the phase label.
 
-            # this has to hold, otherwise the labeling polynomial can't have 3 distinct roots
-            # according to Gharbia
+            # this has to hold, otherwise the labeling polynomial can't have 3 distinct
+            # roots according to Gharbia
             assert np.all(
                 B_1.val < B_CRIT
             ), "Co-volume exceeds critical value for labeling."
@@ -380,7 +393,8 @@ class PR_Roots:
                 c2.val[three_real_root_region], c2.jac[three_real_root_region]
             )
 
-            # compute roots in three-root-region using Cardano formula, Casus Irreducibilis
+            # compute roots in three-root-region using Cardano formula,
+            # Casus Irreducibilis
             t_2 = pp.ad.arccos(-q_3 / 2 * pp.ad.sqrt(-27 * pp.ad.power(p_3, -3))) / 3
             t_1 = pp.ad.sqrt(-4 / 3 * p_3)
 

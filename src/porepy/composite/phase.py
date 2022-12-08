@@ -1,7 +1,11 @@
-""" Contains the private base class for all phases.
+"""This module contains the private base class for all phases.
 
-This module is not imported by default into the composite subpackage,
-since the user is not supposed to be able to create phase classes, only the composition class.
+It is not imported by default into the composite subpackage,
+since the user is not supposed to be able to create phase classes,
+only the composition class.
+
+The abstract phase class contains relevant fractional variables, as well as abstract
+methods for thermodynamic properties used in the unified formulation.
 
 """
 from __future__ import annotations
@@ -24,23 +28,27 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     A phase is identified by the (time-dependent) region/volume it occupies and a
     respective velocity field (or flux) in that region.
 
-    Phases have physical properties, dependent on the thermodynamic state and the composition.
+    Phases have physical properties,
+    dependent on the thermodynamic state and the composition.
     The composition variables (molar fractions of present components)
     can be accessed by internal reference.
 
     Warning:
         This class is only meant to be instantiated by a Composition,
-        since the number of phases is an unknown in the thermodynamic equilibrium problem.
+        since the number of phases is an unknown in the thermodynamic equilibrium
+        problem. The unified approach has to explicitly model phases in the mixture.
 
-    The Phase is a Singleton per AD system, using the **given** name as a unique identifier.
+    The Phase is a Singleton per AD system,
+    using the **given** name as a unique identifier.
     A Phase class with name ``X`` can only be present once in a system.
     Ambiguities must be avoided due to central storage of the fractional values in the
     grid data dictionaries.
 
     Parameters:
         ad_system: AD system in which this phase is present cell-wise in each subdomain.
-        name (optional): given name for this phase.
-            Used as an unique identifier for singletons.
+        name: ``default=''``
+
+            Given name for this phase. Used as an unique identifier for singletons.
 
     """
 
@@ -77,11 +85,12 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         Notes:
             The order from this iterator is used for choosing e.g. the values in a
             list of 'numpy.array' when setting initial values.
-            Use the order returned here every time you deal with component-related values
-            for components in this phase.
+            Use the order returned here every time you deal with
+            component-related values for components in this phase.
 
         Yields:
-            components present in this phase.
+            Components present in this phase.
+
         """
         for substance in self._present_components:
             yield substance
@@ -93,12 +102,13 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
 
     @property
     def num_components(self) -> int:
-        """Number of present (added) components."""
+        """Number of added components."""
         return len(self._present_components)
 
     @property
     def saturation_name(self) -> str:
-        """Name for the saturation variable, given by the general symbol and :meth:`name`."""
+        """Name for the saturation variable,
+        given by the general symbol and :meth:`name`."""
         return f"{VARIABLE_SYMBOLS['phase_saturation']}_{self.name}"
 
     @property
@@ -108,16 +118,16 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Phys. Dimension:        [-] fractional
 
         Returns:
-            saturation (volumetric fraction), a secondary variable on the whole domain.
-            Indicates how much of the (local) volume is occupied by this phase (per cell).
-            It is supposed to represent the value at thermodynamic equilibrium.
+            Saturation (volumetric fraction), a secondary variable on the whole domain.
+            Indicates how much of the (local) volume is occupied by this phase per cell.
 
         """
         return self._s
 
     @property
     def fraction_name(self) -> str:
-        """Name for the molar fraction variable, given by the general symbol and phase name."""
+        """Name for the molar fraction variable,
+        given by the general symbol and :meth:`name`."""
         return f"{VARIABLE_SYMBOLS['phase_fraction']}_{self.name}"
 
     @property
@@ -127,9 +137,8 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Phys. Dimension:        [-] fractional
 
         Returns:
-            molar phase fraction, a secondary variable on the whole domain.
-            Indicates how many of the total moles belong to this phase (per cell).
-            It is supposed to represent the value at thermodynamic equilibrium.
+            Molar phase fraction, a primary variable on the whole domain.
+            Indicates how many of the total moles belong to this phase per cell.
 
         """
         return self._fraction
@@ -137,10 +146,10 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     def fraction_of_component_name(self, component: Component) -> str:
         """
         Parameters:
-            component: component for which the respective name is requested.
+            component: Component for which the respective name is requested.
 
         Returns:
-            name of the respective variable, given by the general symbol, the
+            Name of the respective variable, given by the general symbol, the
             component name and the phase name.
 
         """
@@ -153,22 +162,25 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
 
-        If a phase is present (phase fraction is strictly positive), the extended component
+        If a phase is present (phase fraction is strictly positive),
+        the extended component
         fraction (this one) coincides with the regular component fraction.
-        If a phase vanishes (phase fraction is zero), the extended fractions represent
-        non-physical values at equilibrium.
-        The extended phase composition does not fulfill unity.
+
+        If a phase vanishes (phase fraction is zero),
+        the extended fractions represent non-physical values at equilibrium.
+        The extended phase composition does not fulfill unity if a phase is not present.
+
         In the case of a vanished phase, the regular phase composition is obtained by
-        re-normalizing the extended phase composition, such that unity is fulfilled.
+        re-normalizing the extended phase composition,
+        i.e. the normalized component fractions fulfil unity.
 
         Parameters:
-            component: a component present in this phase
+            component: A component present in this phase.
 
         Returns:
-            extended molar fraction of a component in this phase,
-            a secondary variable on the whole domain (cell-wise).
+            Extended molar fraction of a component in this phase,
+            a primary variable on the whole domain (cell-wise).
             Indicates how many of the moles in this phase belong to the component.
-            It is supposed to represent the value at thermodynamic equilibrium.
 
             Returns always zero if a component is not modelled (added) to this phase.
 
@@ -181,10 +193,10 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     def normalized_fraction_of_component_name(self, component: Component) -> str:
         """
         Parameters:
-            component: component for which the respective name is requested.
+            component: Component for which the respective name is requested.
 
         Returns:
-            name of the respective variable, given by the general symbol, the
+            Name of the respective variable, given by the general symbol, the
             component name and the phase name.
 
         """
@@ -200,19 +212,22 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Math. Dimension:        scalar
         | Phys. Dimension:        [-] fractional
 
-        If a phase is present (phase fraction is strictly positive), the regular component
-        fraction (this one) coincides with the extended component fraction.
-        If a phase vanishes (phase fraction is zero), the regular component fraction
-        is obtained by re-normalizing the extended component fraction.
+        If a phase is present (phase fraction is strictly positive),
+        the regular component fraction (this one) coincides with the
+        extended component fraction.
+
+        If a phase vanishes (phase fraction is zero),
+        the regular component fraction is obtained by re-normalizing the
+        extended component fraction.
 
         Parameters:
-            component: a component present in this phase
+            component: A component present in this phase.
 
         Returns:
-            extended molar fraction of a component in this phase,
+            Normalized molar fraction of a component in this phase,
             a secondary variable on the whole domain (cell-wise).
+
             Indicates how many of the moles in this phase belong to the component.
-            It is supposed to represent the value at thermodynamic equilibrium.
 
             Returns always zero if a component is not modelled (added) to this phase.
 
@@ -228,18 +243,18 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
     ) -> None:
         """Adds components which are expected by the modeler in this phase.
 
-        If a component was already added, nothing happens. Components appear uniquely in a
-        phase.
+        If a component was already added, nothing happens.
+        Components appear uniquely in a phase and in a mixture.
 
-        This design choice enables the association 'component in phase', as well as proper
-        storage of related, fractional variables.
+        This design choice enables the association 'component in phase',
+        as well as proper storage of related, fractional variables.
 
         Parameters:
-            a component, or list of components, which are expected in this phase.
+            component: One or multiple components which are expected in this phase.
 
         Raises:
-            RuntimeError: if the component was instantiated using a different AD system than
-            the one used for the phase.
+            ValueError: If the component was instantiated using a different AD system
+                than the one used for the phase.
 
         """
         if isinstance(component, Component):
@@ -249,7 +264,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         for comp in component:
             # sanity check when using the AD framework
             if self.ad_system != comp.ad_system:
-                raise RuntimeError(
+                raise ValueError(
                     f"Component '{comp.name}' instantiated with a different AD system."
                 )
             # skip already present components:
@@ -273,7 +288,7 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
             self._ext_composition.update({comp: ext_comp_fraction})
             self._composition.update({comp: comp_fraction})
 
-    ### Physical properties -------------------------------------------------------------------
+    ### Physical properties ------------------------------------------------------------
 
     def mass_density(
         self, p: pp.ad.MergedVariable, T: pp.ad.MergedVariable
@@ -285,10 +300,11 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Phys. Dimension:        [kg / REV]
 
         Parameters:
-            p: pressure
-            T: temperature
+            p: Pressure.
+            T: Temperature.
 
-        Returns: mass density of this phase.
+        Returns:
+            An AD operator representing the mass density of this phase.
 
         """
         weight = 0.0
@@ -309,10 +325,11 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Phys. Dimension:        [mol / REV]
 
         Parameters:
-            p: pressure
-            T: temperature
+            p: Pressure.
+            T: Temperature.
 
-        Returns: mass density of this phase.
+        Returns:
+            An AD Operator representing the molar density of this phase.
 
         """
         pass
@@ -326,10 +343,11 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Phys.Dimension:         [kJ / mol / K]
 
         Parameters:
-            p: pressure
-            T: temperature
+            p: Pressure.
+            T: Temperature.
 
-        Returns: specific molar enthalpy of this phase.
+        Returns:
+            An AD operator representing the specific molar enthalpy of this phase.
 
         """
         pass
@@ -343,10 +361,11 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Phys. Dimension:        [mol / m / s]
 
         Parameters:
-            p: pressure
-            T: temperature
+            p: Pressure.
+            T: Temperature.
 
-        Returns: dynamic viscosity of this phase.
+        Returns:
+            An AD operator representing the dynamic viscosity of this phase.
 
         """
         pass
@@ -360,10 +379,11 @@ class Phase(abc.ABC, metaclass=CompositionalSingleton):
         | Phys. Dimension:    [W / m / K]
 
         Parameters:
-            p: pressure
-            T: temperature
+            p: Pressure.
+            T: Temperature.
 
-        Returns: thermal conductivity of this phase.
+        Returns:
+            An AD operator representing the thermal conductivity of this phase.
 
         """
         pass
