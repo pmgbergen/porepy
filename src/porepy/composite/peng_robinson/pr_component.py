@@ -10,7 +10,6 @@ import porepy as pp
 
 from .._composite_utils import R_IDEAL
 from ..component import Component, Compound
-from ..phase import VarLike
 from .pr_utils import A_CRIT, B_CRIT, _power, _sqrt
 
 
@@ -77,7 +76,7 @@ class PR_Component(Component):
                 + 0.016666 * self.acentric_factor**3
             )
 
-    def attraction_correction(self, T: VarLike) -> VarLike:
+    def attraction_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
         """Returns the linearized alpha-correction for the attraction parameter"""
 
         alpha_root = 1 + self.attraction_correction_weight * (
@@ -99,11 +98,11 @@ class PR_Component(Component):
             B_CRIT * (R_IDEAL * self.critical_temperature()) / self.critical_pressure()
         )
 
-    def attraction(self, T: VarLike) -> VarLike:
+    def attraction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
         """Returns an expression for ``a`` in the EoS for this component."""
         return self.attraction_critical * self.attraction_correction(T)
 
-    def dT_attraction(self, T: VarLike) -> VarLike:
+    def dT_attraction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
         """Returns an expression for the derivative of ``a`` with respect to temperature."""
         T_r = T / self.critical_temperature()
 
@@ -136,7 +135,7 @@ class PR_Compound(PR_Component, Compound):
     """
 
     @abc.abstractmethod
-    def attraction_correction(self, T: VarLike) -> VarLike:
+    def attraction_correction(self, T: pp.ad.MergedVariable) -> pp.ad.Operator:
         """Abstraction of the corrective term in ``a``.
 
         To be implemented in child classes using heuristic laws depending on present solutes.
