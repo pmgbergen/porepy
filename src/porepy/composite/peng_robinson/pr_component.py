@@ -59,7 +59,7 @@ class PR_Component(Component):
             ``a = a_cricital * alpha``,
             ``alpha = 1 + kappa * (1 - sqrt(T_reduced))``.
 
-        See Also:
+        Reference:
             `Zhu et al. (2014), Appendix A <https://doi.org/10.1016/j.fluid.2014.07.003>`_
 
         """
