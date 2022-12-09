@@ -29,6 +29,11 @@ if errorlevel 9009 (
 	exit /b 1
 )
 
+:: clean-up to remove previous build
+@RMDIR /S /Q .\doctrees\ >NUL
+@RMDIR /S /Q .\html\ >NUL
+@RMDIR /S /Q .\latex\ >NUL
+
 if "%1" == "" goto help
 if "%1" == "complete" goto complete
 
@@ -37,7 +42,9 @@ goto end
 
 :complete
 %SPHINXAPIDOC% -f -e -M -d 1 --implicit-namespaces -o %POREPYDOCSRC% %POREPYDIR%
-%SPHINXBUILD% -M %2 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+if NOT "%2" == "" (
+	%SPHINXBUILD% -M %2 %SOURCEDIR% %BUILDDIR% %SPHINXOPTS% %O%
+)
 goto end
 
 :help

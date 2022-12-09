@@ -21,10 +21,16 @@ complete:
 
 # html target
 html:
+	rm -rf ./doctrees/
+	rm -rf ./html/
+	rm -rf ./latex/
 	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 # latex target
 latex:
+	rm -rf ./doctrees/
+	rm -rf ./html/
+	rm -rf ./latex/
 	@$(SPHINXBUILD) -M latex "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 # Catch-all target: route all unknown targets to Sphinx
