@@ -126,32 +126,78 @@ def test_parse_constitutive_laws(model_type, method_name, domain_dimension, num_
 
 
 @pytest.mark.parametrize(
-    "method_name, domain_dimension, expected",
+    "constitutive_mixin, domain_dimension, expected",
     [
-        # Viscosity is constant by default, so test should be trivial.
-        ("fluid_viscosity", None, setup_utils.water_values["viscosity"]),
+        (pp.constitutive_laws.CubicLawPermeability, 1, 0.01**3 / 12),
+        (pp.constitutive_laws.CubicLawPermeability, 0, 0.01**4 / 12),
     ],
 )
-def test_return_values(method_name, domain_dimension, expected):
+def test_permeability_values(constitutive_mixin, domain_dimension, expected):
     """Test that the value of the parsed operator is as expected."""
     # The thermoporoelastic model covers most constitutive laws, so we use it for the
     # test.
-    # Assign non-trivial values to the parameters to avoid masking errors. TODO: Same
-    # for variables?
-    fluid = pp.FluidConstants(setup_utils.water_values)
-    solid = pp.SolidConstants(setup_utils.granite_values)
-    params = {"material_constants": {"fluid": fluid, "solid": solid}}
-    setup = pp.thermoporomechanics.Thermoporomechanics(params)
+    # Assign non-trivial values to the parameters to avoid masking errors.
+    #  TODO: Same for variables?
+
+    solid = pp.SolidConstants({"residual_aperture": 0.01})
+    params = {"material_constants": {"solid": solid}, "num_fracs": 2}
+
+    class LocalThermoporomechanics(constitutive_mixin, setup_utils.Thermoporomechanics):
+        pass
+
+    setup = LocalThermoporomechanics(params)
     setup.prepare_simulation()
 
     # Fetch the relevant method for this test and the relevant domains.
-    method = getattr(setup, method_name)
-    domains = setup_utils.domains_from_method_name(setup.mdg, method, domain_dimension)
 
-    # Call the method with the domain as argument.
-    op = method(domains)
-    # Evaluate the operator.
-    value = op.evaluate(setup.equation_system)
-    if isinstance(value, pp.ad.Ad_array):
-        value = value.val
-    assert np.allclose(value, expected)
+    for sd in setup.mdg.subdomains(dim=domain_dimension):
+        # Call the method with the domain as argument.
+        value = setup.permeability([sd])
+        if isinstance(value, pp.ad.Ad_array):
+            value = value.val
+        assert np.allclose(value, expected)
+
+
+@pytest.mark.parametrize(
+    "geometry, domain_dimension, expected",
+    [
+        (setup_utils.OrthogonalFractures3d, 1, [0.02, 0.02**2]),
+        (setup_utils.OrthogonalFractures3d, 0, [0.02, 0.02**3]),
+        (setup_utils.RectangularDomainOrthogonalFractures2d, 0, [0.02, 0.02**2]),
+        (setup_utils.RectangularDomainOrthogonalFractures2d, 2, [1, 1]),
+    ],
+)
+def test_dimension_reduction_values(
+    geometry: pp.ModelGeometry, domain_dimension: int, expected: list[float]
+):
+    """Test that the value of the parsed operator is as expected.
+
+    The two values in expected are the values of the aperture and specific volumes,
+    respectively.
+
+    """
+    # Assign non-trivial values to the parameters to avoid masking errors.
+    solid = pp.SolidConstants({"residual_aperture": 0.02})
+    params = {"material_constants": {"solid": solid}, "num_fracs": 3}
+    if geometry is setup_utils.RectangularDomainOrthogonalFractures2d:
+        params["num_fracs"] = 2
+
+    class Model(
+        geometry, pp.constitutive_laws.DimensionReduction, setup_utils.NoPhysics
+    ):
+        pass
+
+    setup = Model(params)
+    setup.prepare_simulation()
+
+    subdomains = setup.mdg.subdomains(dim=domain_dimension)
+    # Check aperture and specific volume values
+    aperture = setup.aperture(subdomains).evaluate(setup.equation_system)
+    if isinstance(aperture, pp.ad.Ad_array):
+        aperture = aperture.val
+    assert np.allclose(aperture, expected[0])
+
+    specific_volume = setup.specific_volume(subdomains).evaluate(setup.equation_system)
+    if isinstance(specific_volume, pp.ad.Ad_array):
+        specific_volume = specific_volume.val
+    assert np.allclose(specific_volume, expected[1])

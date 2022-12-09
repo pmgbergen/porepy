@@ -63,7 +63,7 @@ class DimensionReduction:
         """FIXME: Decide on how to treat interfaces."""
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
-            aperture *= 0.1
+            aperture *= self.solid.residual_aperture()
         return aperture
 
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -81,6 +81,8 @@ class DimensionReduction:
             Ad operator representing the aperture for each cell in each subdomain.
 
         """
+        if len(subdomains) == 0:
+            return ad_wrapper(0, array=True, size=0)
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
 
         # The implementation here is not perfect, but it seems to be what is needed
@@ -147,7 +149,7 @@ class DimensionReduction:
         return v
 
 
-class DisplacementJumpAperture:
+class DisplacementJumpAperture(DimensionReduction):
     """Fracture aperture from displacement jump."""
 
     nd: int
@@ -178,8 +180,6 @@ class DisplacementJumpAperture:
 
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
 
-    reference_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
-
     mdg: pp.MixedDimensionalGrid
 
     system_manager: pp.ad.EquationSystem
@@ -189,6 +189,10 @@ class DisplacementJumpAperture:
     relevant solution strategy class.
 
     """
+
+    def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
+        """Residual aperture [m]."""
+        return Scalar(self.solid.residual_aperture(), name="residual_aperture")
 
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
@@ -228,8 +232,8 @@ class DisplacementJumpAperture:
                 # EK: Safeguard in which sense?
                 f_max = pp.ad.Function(pp.ad.maximum, "maximum_function")
 
-                g_ref = self.reference_gap(subdomains_of_dim)
-                apertures_of_dim = f_max(normal_jump, g_ref)
+                a_ref = self.residual_aperture(subdomains_of_dim)
+                apertures_of_dim = f_max(normal_jump, a_ref)
                 apertures_of_dim.set_name("aperture_maximum_function")
                 apertures = (
                     apertures
@@ -239,22 +243,58 @@ class DisplacementJumpAperture:
                 # Intersection aperture is average of apertures of intersecting
                 # fractures.
                 interfaces_dim = self.subdomains_to_interfaces(subdomains_of_dim)
-                parent_fractures = self.interfaces_to_subdomains(interfaces_dim)
+                # Only consider interfaces of the current dimension, i.e. those related
+                # to higher-dimensional neighbors.
+                interfaces_dim = [intf for intf in interfaces_dim if intf.dim == dim]
+                # Get the higher-dimensional neighbors.
+                parent_subdomains = self.interfaces_to_subdomains(interfaces_dim)
+                # Only consider the higher-dimensional neighbors, i.e. disregard the
+                # intersections with the current dimension.
+                parent_subdomains = [
+                    sd for sd in parent_subdomains if sd.dim == dim + 1
+                ]
+                # Create projection operator between the subdomains involved in the
+                # computation, i.e. the current dimension and the higher-dimensional
+                # neighbors.
                 mortar_projection = pp.ad.MortarProjections(
-                    self.mdg, subdomains_of_dim + parent_fractures, interfaces_dim
+                    self.mdg, subdomains_of_dim + parent_subdomains, interfaces_dim
                 )
-                parent_apertures = self.aperture(parent_fractures)
-                parent_to_intersection = (
+                # Get the apertures of the higher-dimensional neighbors.
+                parent_apertures = self.aperture(parent_subdomains)
+                # Projection from parents to intersections via the mortar grid.
+                trace = pp.ad.Trace(parent_subdomains)
+                parent_cells_to_intersection_cells = (
                     mortar_projection.mortar_to_secondary_avg
                     * mortar_projection.primary_to_mortar_avg
+                    * trace.trace
                 )
-                average_weights = parent_to_intersection.evaluate(
-                    self.system_manager
-                ).sum(axis=1)
+                # Average weights are the number of cells in the parent subdomains
+                # contributing to each intersection cells.
+                average_weights = np.ravel(
+                    parent_cells_to_intersection_cells.evaluate(
+                        self.equation_system
+                    ).sum(axis=1)
+                )
+                nonzero = average_weights > 0
+                average_weights[nonzero] = 1 / average_weights[nonzero]
+                # Wrap as diagonal matrix.
                 average_mat = ad_wrapper(average_weights, False, name="average_weights")
+                # Average apertures of the parent subdomains.
                 apertures_of_dim = (
-                    average_mat * parent_to_intersection * parent_apertures
+                    average_mat * parent_cells_to_intersection_cells * parent_apertures
                 )
+                # Above matrix is defined on intersections and parents. Restrict to
+                # intersections.
+                intersection_subdomain_projection = pp.ad.SubdomainProjections(
+                    subdomains_of_dim + parent_subdomains
+                )
+                apertures_of_dim = (
+                    intersection_subdomain_projection.cell_restriction(
+                        subdomains_of_dim
+                    )
+                    * apertures_of_dim
+                )
+                # Add to total aperture.
                 apertures += (
                     projection.cell_prolongation(subdomains_of_dim) * apertures_of_dim
                 )
@@ -509,6 +549,32 @@ class ConstantPermeability:
 
         """
         return Scalar(self.solid.normal_permeability())
+
+
+class CubicLawPermeability(ConstantPermeability):
+    """Cubic law permeability for fractures and intersections."""
+
+    def permeability(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """Permeability [m^2].
+
+        subdomain: Subdomain where the permeability is defined.
+
+        Returns:
+            Cell-wise permeability tensor. The value is picked from the solid constants
+                for the matrix and computed from the fracture aperture for fractures and
+                intersections.
+
+        """
+        assert len(subdomains) == 1, "Only one subdomain is allowed."
+        if subdomains[0].dim == self.nd:
+            return super().permeability(subdomains)
+
+        # Fracture or intersection
+        aperture = self.aperture(subdomains)
+        perm = aperture**2 / 12
+        # Scale by specific volume
+        perm = (perm * self.specific_volume(subdomains)).evaluate(self.equation_system)
+        return perm
 
 
 class DarcysLaw:
